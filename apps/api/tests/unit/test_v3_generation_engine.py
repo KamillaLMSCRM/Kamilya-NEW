@@ -1647,6 +1647,7 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
             expected_content_hash=test_content_hash,
             actual_content_hash=test_content_hash,
             verified_revision="rev-1",
+            available_revisions=["rev-1"],
         )
     assert "обнаружены активные дефекты курса" in str(unack_err.value)
 
@@ -1662,6 +1663,7 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
         expected_content_hash=test_content_hash,
         actual_content_hash=test_content_hash,
         verified_revision="rev-1",
+        available_revisions=["rev-1"],
         defect_resolutions=[{
             "defect_id": defect_id,
             "action": "documented_exception",

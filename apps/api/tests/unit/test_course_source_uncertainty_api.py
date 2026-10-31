@@ -18,6 +18,8 @@ from app.modules.courses.source_uncertainty import (
     compute_course_content_snapshot_hash,
     get_active_source_defects,
 )
+from app.modules.lessons.schemas import LessonUpdate
+from app.modules.lessons.service import update_lesson
 
 
 def _make_user(role: str = "methodologist", tenant_id: UUID | None = None, user_id: UUID | None = None):
@@ -37,6 +39,7 @@ def _make_course(
     status: str = "draft",
     ai_generated: bool = True,
     modules: list | None = None,
+    default_revision: str | None = "rev-2026-qa1",
 ):
     if modules is None:
         m1 = SimpleNamespace(
@@ -66,6 +69,15 @@ def _make_course(
         m1.lessons = [l1]
         modules = [m1]
 
+    if source_analysis is None:
+        final_sa = {SOURCE_UNCERTAINTY_KEY: {"status": "review_required"}}
+        if default_revision:
+            final_sa["source_revision"] = default_revision
+    else:
+        final_sa = dict(source_analysis)
+        if default_revision and not any(k in final_sa for k in ("source_revision", "revision", "document_revision")):
+            final_sa["source_revision"] = default_revision
+
     course = SimpleNamespace(
         id=course_id,
         tenant_id=tenant_id,
@@ -85,7 +97,7 @@ def _make_course(
         source_document_ids=[],
         source_strategy="single_topic",
         source_combination_goal=None,
-        source_analysis=source_analysis or {SOURCE_UNCERTAINTY_KEY: {"status": "review_required"}},
+        source_analysis=final_sa,
         review_status=review_status,
         reviewed_by=None,
         reviewed_at=None,
@@ -101,6 +113,7 @@ def _build_test_app(
     user: SimpleNamespace,
     audit_recorder: list[dict],
     monkeypatch: pytest.MonkeyPatch,
+    fail_snapshot_build: bool = False,
 ):
     app = FastAPI()
     app.include_router(router)
@@ -130,6 +143,9 @@ def _build_test_app(
 
         async def execute(self, statement):
             statement_str = str(statement).upper()
+            if fail_snapshot_build and ("MODULES" in statement_str or "LESSONS" in statement_str):
+                raise RuntimeError("Simulated DB error during release snapshot generation")
+
             if "FOR UPDATE" in statement_str:
                 self.query_had_lock = True
             matched = course if (course and course.tenant_id == user.tenant_id) else None
@@ -184,16 +200,47 @@ def _build_test_app(
 
 
 @pytest.mark.asyncio
+async def test_get_course_source_uncertainty_details(monkeypatch: pytest.MonkeyPatch):
+    """Verify official inspection endpoint delivers current content snapshot hash,
+    available revisions, and active defects for methodologist review."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    source_analysis = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_revision": "rev-inspect-2026",
+        "evidence_v3": {
+            "violations": ["Тестовое расхождение в регламенте безопасности"],
+        },
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=source_analysis, default_revision="rev-inspect-2026")
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["course_id"] == str(course_id)
+    assert data["has_active_hold"] is True
+    assert len(data["content_snapshot_hash"]) == 64
+    assert "rev-inspect-2026" in data["available_revisions"]
+    assert len(data["active_defects"]) == 1
+    assert data["active_defects"][0]["defect_id"].startswith("defect-")
+
+
+@pytest.mark.asyncio
 async def test_resolve_source_uncertainty_methodologist_success_records_audit(monkeypatch: pytest.MonkeyPatch):
     """Verify authorized methodologist call succeeds, locks row, clears hold, and writes audit record."""
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
-
     actual_hash = await compute_course_content_snapshot_hash(session, course)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -239,7 +286,7 @@ async def test_resolve_source_uncertainty_superadmin_success(monkeypatch: pytest
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="superadmin", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-superadmin-sec-check")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -266,7 +313,7 @@ async def test_resolve_source_uncertainty_forbidden_roles(forbidden_role: str, m
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role=forbidden_role, tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -278,7 +325,7 @@ async def test_resolve_source_uncertainty_forbidden_roles(forbidden_role: str, m
             json={
                 "reason": "Попытка несанкционированного снятия блокировки",
                 "expected_content_hash": actual_hash,
-                "verified_revision": "rev-forbidden-test",
+                "verified_revision": "rev-2026-qa1",
             },
         )
 
@@ -296,7 +343,7 @@ async def test_resolve_source_uncertainty_tenant_isolation(monkeypatch: pytest.M
     audit_log: list[dict] = []
 
     # Course exists in tenant_b, query for tenant_a will return None due to tenant isolation
-    course_in_tenant_b = _make_course(course_id, tenant_b)
+    course_in_tenant_b = _make_course(course_id, tenant_b, default_revision="rev-2026-qa1")
     app, session = _build_test_app(course_in_tenant_b, user, audit_log, monkeypatch)
     actual_hash = await compute_course_content_snapshot_hash(session, course_in_tenant_b)
 
@@ -306,7 +353,7 @@ async def test_resolve_source_uncertainty_tenant_isolation(monkeypatch: pytest.M
             json={
                 "reason": "Попытка межтенантного доступа к курсу",
                 "expected_content_hash": actual_hash,
-                "verified_revision": "rev-tenant-b",
+                "verified_revision": "rev-2026-qa1",
             },
         )
 
@@ -315,12 +362,133 @@ async def test_resolve_source_uncertainty_tenant_isolation(monkeypatch: pytest.M
 
 
 @pytest.mark.asyncio
+async def test_resolve_source_uncertainty_rejects_when_snapshot_build_fails(monkeypatch: pytest.MonkeyPatch):
+    """Verify fail-closed behavior: if snapshot generation fails, operation is rejected with 409 without partial fallback."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
+    audit_log: list[dict] = []
+
+    app, _ = _build_test_app(course, user, audit_log, monkeypatch, fail_snapshot_build=True)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист выполнил сверку регламента",
+                "expected_content_hash": "a" * 64,
+                "verified_revision": "rev-2026-qa1",
+            },
+        )
+
+    assert resp.status_code == 409
+    err = resp.json()["detail"]
+    assert err["code"] == "course_snapshot_build_failed"
+    assert "Не удалось сформировать полный снимок курса" in err["message"]
+    assert len(audit_log) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_source_uncertainty_rejects_when_no_authoritative_revisions(monkeypatch: pytest.MonkeyPatch):
+    """Verify that resolution is strictly rejected if course has no authoritative revisions to verify against."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    # Course with empty source_analysis (no revisions)
+    course = _make_course(course_id, tenant_id, source_analysis={SOURCE_UNCERTAINTY_KEY: {"status": "review_required"}}, default_revision=None)
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+    actual_hash = await compute_course_content_snapshot_hash(session, course)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист попытался привязать выдуманную ревизию",
+                "expected_content_hash": actual_hash,
+                "verified_revision": "rev-synthetic-forged",
+            },
+        )
+
+    assert resp.status_code == 409
+    err = resp.json()["detail"]
+    assert err["code"] == "source_uncertainty_resolution_rejected"
+    assert "у курса не определены авторитетные ревизии" in err["message"]
+    assert len(audit_log) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_source_uncertainty_multi_document_verification(monkeypatch: pytest.MonkeyPatch):
+    """Verify multi-document verification: each source document must match its authoritative revision."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    source_analysis = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_documents": [
+            {"id": "doc-alpha", "revision": "rev-alpha-101", "title": "Регламент А"},
+            {"id": "doc-beta", "revision": "rev-beta-202", "title": "Регламент Б"},
+        ],
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=source_analysis, default_revision=None)
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+    actual_hash = await compute_course_content_snapshot_hash(session, course)
+
+    # 1. Missing verified_revisions for second document -> 409
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp1 = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист предоставил ревизию только первого документа",
+                "expected_content_hash": actual_hash,
+                "verified_revision": "rev-alpha-101",
+                "verified_revisions": {"doc-alpha": "rev-alpha-101"},
+            },
+        )
+    assert resp1.status_code == 409
+    assert "отсутствуют" in resp1.json()["detail"]["message"]
+
+    # 2. Mismatching revision for second document -> 409
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp2 = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист передал неверную ревизию для второго документа",
+                "expected_content_hash": actual_hash,
+                "verified_revision": "rev-alpha-101",
+                "verified_revisions": {"doc-alpha": "rev-alpha-101", "doc-beta": "rev-wrong-999"},
+            },
+        )
+    assert resp2.status_code == 409
+    assert "Несоответствие ревизии для документа 'doc-beta'" in resp2.json()["detail"]["message"]
+
+    # 3. Exact matching revisions for all documents -> 200 OK
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp3 = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист подтвердил соответствие всех регламентов источников",
+                "expected_content_hash": actual_hash,
+                "verified_revision": "rev-alpha-101",
+                "verified_revisions": {"doc-alpha": "rev-alpha-101", "doc-beta": "rev-beta-202"},
+            },
+        )
+    assert resp3.status_code == 200
+    res_data = course.source_analysis["source_uncertainty_resolution"]
+    assert res_data["verified_revisions"] == {"doc-alpha": "rev-alpha-101", "doc-beta": "rev-beta-202"}
+
+
+@pytest.mark.asyncio
 async def test_resolve_source_uncertainty_rejects_short_or_empty_reason(monkeypatch: pytest.MonkeyPatch):
     """Verify reason < 10 characters is rejected with 422 Unprocessable Entity."""
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -332,7 +500,7 @@ async def test_resolve_source_uncertainty_rejects_short_or_empty_reason(monkeypa
             json={
                 "reason": "коротко",
                 "expected_content_hash": actual_hash,
-                "verified_revision": "rev-valid-test",
+                "verified_revision": "rev-2026-qa1",
             },
         )
 
@@ -346,7 +514,7 @@ async def test_resolve_source_uncertainty_rejects_missing_hash_or_revision(monke
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -358,7 +526,7 @@ async def test_resolve_source_uncertainty_rejects_missing_hash_or_revision(monke
             f"/courses/{course_id}/resolve-source-uncertainty",
             json={
                 "reason": "Методист выполнил проверку регламента",
-                "verified_revision": "rev-valid-test",
+                "verified_revision": "rev-2026-qa1",
             },
         )
     assert resp1.status_code == 422
@@ -382,7 +550,7 @@ async def test_resolve_source_uncertainty_rejects_content_hash_mismatch(monkeypa
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
     audit_log: list[dict] = []
 
     app, _ = _build_test_app(course, user, audit_log, monkeypatch)
@@ -393,7 +561,7 @@ async def test_resolve_source_uncertainty_rejects_content_hash_mismatch(monkeypa
             json={
                 "reason": "Методист выполнил сверку регламента",
                 "expected_content_hash": "stale-content-hash-000000000000000000000000000000",
-                "verified_revision": "rev-any",
+                "verified_revision": "rev-2026-qa1",
             },
         )
 
@@ -414,7 +582,7 @@ async def test_resolve_source_uncertainty_rejects_revision_mismatch(monkeypatch:
         SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
         "source_revision": "rev-authoritative-v1",
     }
-    course = _make_course(course_id, tenant_id, source_analysis=source_analysis)
+    course = _make_course(course_id, tenant_id, source_analysis=source_analysis, default_revision="rev-authoritative-v1")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -452,7 +620,7 @@ async def test_resolve_source_uncertainty_rejects_unacknowledged_defects_and_sub
             "violations": [violation_text],
         },
     }
-    course = _make_course(course_id, tenant_id, source_analysis=source_analysis)
+    course = _make_course(course_id, tenant_id, source_analysis=source_analysis, default_revision="rev-defects-test")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -545,7 +713,7 @@ async def test_resolve_source_uncertainty_concurrent_edit_conflict(monkeypatch: 
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-v1")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -580,13 +748,68 @@ async def test_resolve_source_uncertainty_concurrent_edit_conflict(monkeypatch: 
 
 
 @pytest.mark.asyncio
+async def test_update_lesson_touches_course_and_coordinates_with_uncertainty_lock(monkeypatch: pytest.MonkeyPatch):
+    """Verify update_lesson touches parent Course updated_at, invalidating stale snapshot hash."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    course = _make_course(course_id, tenant_id, default_revision="rev-2026-qa1")
+    module = course.modules[0]
+    lesson = module.lessons[0]
+
+    initial_updated_at = course.updated_at
+
+    # Build DB session tracking execute calls
+    touched_course_id = None
+
+    class LessonSession:
+        async def execute(self, stmt):
+            nonlocal touched_course_id
+            s = str(stmt).upper()
+            if "UPDATE COURSES" in s:
+                touched_course_id = course_id
+                course.updated_at = datetime.now(UTC)
+            matched = lesson if "LESSONS" in s else (module if "MODULES" in s else course)
+            return SimpleNamespace(
+                scalar_one_or_none=lambda: matched,
+                scalars=lambda: SimpleNamespace(all=lambda: [matched]),
+            )
+
+        async def scalar(self, stmt):
+            s = str(stmt).upper()
+            if "MODULES" in s:
+                return module
+            if "LESSONS" in s:
+                return lesson
+            return course
+
+        async def flush(self):
+            pass
+
+        async def refresh(self, instance):
+            pass
+
+    db_sess = LessonSession()
+
+    # Call update_lesson
+    updated = await update_lesson(
+        db_sess,  # type: ignore[arg-type]
+        lesson.id,
+        tenant_id,
+        LessonUpdate(content="Новый верифицированный текст регламента"),
+    )
+    assert updated.content == "Новый верифицированный текст регламента"
+    assert touched_course_id == course_id
+    assert course.updated_at >= initial_updated_at
+
+
+@pytest.mark.asyncio
 async def test_resolve_source_uncertainty_preserves_independent_publication_block(monkeypatch: pytest.MonkeyPatch):
     """Verify that resolving source uncertainty DOES NOT clear course review_status or allow publication."""
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
     # Course with review_status="pending"
-    course = _make_course(course_id, tenant_id, review_status="pending", status="draft")
+    course = _make_course(course_id, tenant_id, review_status="pending", status="draft", default_revision="rev-independent-block")
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)

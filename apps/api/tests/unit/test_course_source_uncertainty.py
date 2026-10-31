@@ -136,6 +136,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash=content_hash,
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
         )
     assert "отсутствует активная блокировка" in str(no_hold_err.value)
 
@@ -148,6 +149,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash=content_hash,
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
         )
     with pytest.raises(ValueError):
         resolve_source_uncertainty(
@@ -157,6 +159,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash=content_hash,
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
         )
     with pytest.raises(ValueError):
         resolve_source_uncertainty(
@@ -166,7 +169,65 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash=content_hash,
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
         )
+
+    # Rejects when authoritative revisions cannot be determined (empty available_revisions)
+    with pytest.raises(ValueError) as empty_rev_err:
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="Методист выполнил сверку регламента",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-arbitrary",
+            available_revisions=[],
+        )
+    assert "у курса не определены авторитетные ревизии" in str(empty_rev_err.value)
+
+    # Multi-document verification: requires verified_revisions covering each document
+    multi_doc_revs = {"doc-1": "rev-101", "doc-2": "rev-202"}
+    with pytest.raises(ValueError) as multi_err:
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="Методист выполнил сверку регламента",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-101",
+            available_revisions=["rev-101", "rev-202"],
+            authoritative_document_revisions=multi_doc_revs,
+            verified_revisions={"doc-1": "rev-101"},
+        )
+    assert "отсутствуют" in str(multi_err.value)
+
+    with pytest.raises(ValueError) as multi_mismatch_err:
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="Методист выполнил сверку регламента",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-101",
+            available_revisions=["rev-101", "rev-202"],
+            authoritative_document_revisions=multi_doc_revs,
+            verified_revisions={"doc-1": "rev-101", "doc-2": "rev-wrong"},
+        )
+    assert "Несоответствие ревизии для документа" in str(multi_mismatch_err.value)
+
+    # Multi-document verification succeeds with exact match
+    resolved_multi = resolve_source_uncertainty(
+        initial_analysis,
+        reason="Методист выполнил сверку обоих регламентов",
+        methodologist_user_id=actor_id,
+        expected_content_hash=content_hash,
+        actual_content_hash=content_hash,
+        verified_revision="rev-101",
+        available_revisions=["rev-101", "rev-202"],
+        authoritative_document_revisions=multi_doc_revs,
+        verified_revisions={"doc-1": "rev-101", "doc-2": "rev-202"},
+    )
+    assert resolved_multi["source_uncertainty_resolution"]["verified_revisions"] == {"doc-1": "rev-101", "doc-2": "rev-202"}
 
     # Content hash mismatch rejects resolution
     with pytest.raises(ValueError) as hash_err:
@@ -177,6 +238,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash="bad-hash-00000000000000000000000000000000",
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
         )
     assert "Несоответствие версии содержания" in str(hash_err.value)
 
@@ -206,6 +268,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash=content_hash,
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
         )
     assert "обнаружены активные дефекты курса" in str(defect_err.value)
 
@@ -218,6 +281,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             expected_content_hash=content_hash,
             actual_content_hash=content_hash,
             verified_revision="rev-1.0",
+            available_revisions=["rev-1.0"],
             defect_resolutions=[{"defect_id": "a", "action": "acknowledged_risk", "rationale": "Не должно матчить подстроку"}],
         )
     assert "отсутствуют решения для идентификаторов" in str(sub_err.value)
@@ -236,6 +300,7 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
         expected_content_hash=content_hash,
         actual_content_hash=content_hash,
         verified_revision="rev-1.0",
+        available_revisions=["rev-1.0"],
         defect_resolutions=[{
             "defect_id": stable_defect_id,
             "action": "documented_exception",
@@ -256,7 +321,28 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
         expected_content_hash=content_hash,
         actual_content_hash=content_hash,
         verified_revision="rev-1.0",
+        available_revisions=["rev-1.0"],
     )
     assert len(second_resolved["resolutions_history"]) == 2
     assert second_resolved["resolutions_history"][0]["resolved_by"] == str(actor_id)
     assert second_resolved["resolutions_history"][1]["resolved_by"] == str(second_actor)
+
+
+@pytest.mark.asyncio
+async def test_compute_course_content_snapshot_hash_fails_closed_on_error():
+    """Verify that compute_course_content_snapshot_hash never silently falls back to source_analysis."""
+    from app.modules.courses.source_uncertainty import compute_course_content_snapshot_hash
+
+    # 1. db is None raises ValueError
+    with pytest.raises(ValueError):
+        await compute_course_content_snapshot_hash(None, SimpleNamespace(source_analysis={"a": 1}))
+
+    # 2. Broken db execute raises exception without fallback
+    class BrokenDB:
+        async def execute(self, stmt):
+            raise RuntimeError("Database connection lost during snapshot build")
+
+    with pytest.raises(Exception) as exc:
+        await compute_course_content_snapshot_hash(BrokenDB(), SimpleNamespace(id=uuid4(), tenant_id=uuid4()))
+    assert "Database connection lost" in str(exc.value)
+

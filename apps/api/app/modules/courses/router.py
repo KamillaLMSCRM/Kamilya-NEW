@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -32,7 +32,10 @@ from app.modules.courses.schemas import (
     CourseResponse,
     CourseReviewer,
     CourseReviewRequest,
+    CourseSourceUncertaintyDefectInfo,
+    CourseSourceUncertaintyDetailsResponse,
     CourseUpdate,
+    SourceDocumentRevisionInfo,
 )
 from app.modules.enrollments.schemas import AssignmentAccessWindowResponse
 
@@ -396,6 +399,137 @@ async def review_course(
     return course
 
 
+async def _extract_course_source_revisions(
+    db: AsyncSession, course: Course
+) -> tuple[list[str], dict[str, str], list[SourceDocumentRevisionInfo]]:
+    """Gathers authoritative source revisions from instruction, documents, and analysis."""
+    from app.models.document import Document
+
+    available_revisions: list[str] = []
+    authoritative_doc_revisions: dict[str, str] = {}
+    docs_info: list[SourceDocumentRevisionInfo] = []
+
+    # 1. Source instruction
+    if course.source_instruction_id:
+        doc_id = str(course.source_instruction_id)
+        rev = course.source_instruction_version_at.isoformat() if course.source_instruction_version_at else None
+        if rev:
+            authoritative_doc_revisions[doc_id] = rev
+            available_revisions.append(rev)
+
+    # 2. Source document IDs
+    doc_ids: list[UUID] = []
+    raw_source_doc_ids: list[Any] = course.source_document_ids if isinstance(course.source_document_ids, list) else []
+    for raw_id in raw_source_doc_ids:
+        try:
+            doc_ids.append(UUID(str(raw_id)))
+        except ValueError:
+            continue
+
+    if doc_ids:
+        docs_res = await db.execute(
+            select(Document).where(Document.id.in_(doc_ids), Document.tenant_id == course.tenant_id)
+        )
+        for doc in docs_res.scalars().all():
+            doc_id = str(doc.id)
+            doc_rev = str(doc.content_sha256 or f"v{doc.version}" or doc.index_revision or "")
+            if doc_rev:
+                authoritative_doc_revisions[doc_id] = doc_rev
+                available_revisions.append(doc_rev)
+                docs_info.append(
+                    SourceDocumentRevisionInfo(
+                        document_id=doc_id,
+                        title=str(doc.title),
+                        filename=str(doc.filename),
+                        authoritative_revision=doc_rev,
+                    )
+                )
+
+    # 3. Source analysis metadata
+    if isinstance(course.source_analysis, dict):
+        sa = course.source_analysis
+        for key in ("source_revision", "document_revision", "revision"):
+            if sa.get(key):
+                available_revisions.append(str(sa[key]).strip())
+        doc_rule_model = sa.get("document_rule_model") or {}
+        if doc_rule_model.get("source_revision"):
+            available_revisions.append(str(doc_rule_model["source_revision"]).strip())
+        ev3 = sa.get("evidence_v3") or {}
+        if ev3.get("source_revision"):
+            available_revisions.append(str(ev3["source_revision"]).strip())
+        for doc_item in (sa.get("source_documents") or []):
+            if isinstance(doc_item, dict) and doc_item.get("id") and doc_item.get("revision"):
+                d_id = str(doc_item["id"])
+                d_rev = str(doc_item["revision"]).strip()
+                authoritative_doc_revisions[d_id] = d_rev
+                available_revisions.append(d_rev)
+                if not any(d.document_id == d_id for d in docs_info):
+                    docs_info.append(
+                        SourceDocumentRevisionInfo(
+                            document_id=d_id,
+                            title=str(doc_item.get("title") or "Документ источника"),
+                            filename=str(doc_item.get("filename") or "source.pdf"),
+                            authoritative_revision=d_rev,
+                        )
+                    )
+
+    unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
+    return unique_revisions, authoritative_doc_revisions, docs_info
+
+
+@router.get("/{course_id}/source-uncertainty", response_model=CourseSourceUncertaintyDetailsResponse)
+async def get_course_source_uncertainty_details(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
+) -> CourseSourceUncertaintyDetailsResponse:
+    """Official methodologist inspection endpoint: delivers current content snapshot hash,
+    authoritative source document revisions, and active defect IDs required for resolution."""
+    from app.modules.courses.source_uncertainty import (
+        SOURCE_UNCERTAINTY_KEY,
+        compute_course_content_snapshot_hash,
+        get_active_source_defects,
+    )
+
+    query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    result = await db.execute(query)
+    course = result.scalar_one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    try:
+        content_hash = await compute_course_content_snapshot_hash(db, course)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_snapshot_build_failed",
+                "message": f"Не удалось сформировать полный снимок курса для проверки целостности: {exc}",
+            },
+        ) from exc
+
+    avail_revs, _, docs_info = await _extract_course_source_revisions(db, course)
+    sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
+    has_hold = SOURCE_UNCERTAINTY_KEY in sa
+
+    raw_defects = get_active_source_defects(sa)
+    active_defects = [
+        CourseSourceUncertaintyDefectInfo(defect_id=d["defect_id"], description=d["description"])
+        for d in raw_defects
+    ]
+    history: list[dict[str, Any]] = list(sa.get("resolutions_history") or [])
+
+    return CourseSourceUncertaintyDetailsResponse(
+        course_id=cast(UUID, course.id),
+        has_active_hold=has_hold,
+        content_snapshot_hash=content_hash,
+        available_revisions=avail_revs,
+        source_documents=docs_info,
+        active_defects=active_defects,
+        resolutions_history=history,
+    )
+
+
 @router.post("/{course_id}/resolve-source-uncertainty", response_model=CourseResponse)
 async def resolve_course_source_uncertainty(
     course_id: UUID,
@@ -420,23 +554,18 @@ async def resolve_course_source_uncertainty(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    actual_hash = await compute_course_content_snapshot_hash(db, course)
+    try:
+        actual_hash = await compute_course_content_snapshot_hash(db, course)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_snapshot_build_failed",
+                "message": f"Не удалось сформировать полный снимок курса для проверки целостности: {exc}",
+            },
+        ) from exc
 
-    available_revisions: list[str] = []
-    if course.source_instruction_version_at:
-        available_revisions.append(course.source_instruction_version_at.isoformat())
-    if isinstance(course.source_analysis, dict):
-        sa = course.source_analysis
-        for key in ("source_revision", "document_revision", "revision"):
-            if sa.get(key):
-                available_revisions.append(str(sa[key]).strip())
-        doc_rule_model = sa.get("document_rule_model") or {}
-        if doc_rule_model.get("source_revision"):
-            available_revisions.append(str(doc_rule_model["source_revision"]).strip())
-        ev3 = sa.get("evidence_v3") or {}
-        if ev3.get("source_revision"):
-            available_revisions.append(str(ev3["source_revision"]).strip())
-
+    available_revisions, authoritative_document_revisions, _ = await _extract_course_source_revisions(db, course)
     defect_payload = [d.model_dump() for d in req.defect_resolutions]
 
     try:
@@ -448,6 +577,8 @@ async def resolve_course_source_uncertainty(
             actual_content_hash=actual_hash,
             verified_revision=req.verified_revision,
             available_revisions=available_revisions or None,
+            authoritative_document_revisions=authoritative_document_revisions or None,
+            verified_revisions=req.verified_revisions or None,
             defect_resolutions=defect_payload,
         )
     except ValueError as val_err:

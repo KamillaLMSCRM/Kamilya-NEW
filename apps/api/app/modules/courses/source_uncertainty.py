@@ -101,28 +101,29 @@ async def compute_course_content_snapshot_hash(db: Any, course: Any) -> str:
     Encompasses course metadata, modules, lessons (content, order, validation status),
     quizzes (questions, options), and source documents.
     Normalizes volatile hold markers in source_analysis to ensure idempotency.
+    Fails closed: never falls back to partial hashes if full snapshot generation fails.
     """
     from app.modules.courses.release_service import (
         build_course_release_snapshot,
         canonical_json_sha256,
     )
 
-    if db is not None:
-        try:
-            snapshot = await build_course_release_snapshot(db, course, version=1, populate_existing=True)
-            if "course" in snapshot and isinstance(snapshot["course"], dict):
-                c_data = snapshot["course"]
-                if "source_analysis" in c_data and isinstance(c_data["source_analysis"], dict):
-                    cleaned_sa = deepcopy(c_data["source_analysis"])
-                    cleaned_sa.pop(SOURCE_UNCERTAINTY_KEY, None)
-                    cleaned_sa.pop("source_uncertainty_resolution", None)
-                    cleaned_sa.pop("resolutions_history", None)
-                    c_data["source_analysis"] = cleaned_sa
-            return canonical_json_sha256(snapshot)
-        except Exception:
-            pass
+    if db is None:
+        raise ValueError("db session is required to compute authoritative course content snapshot hash")
 
-    return compute_source_uncertainty_content_hash(getattr(course, "source_analysis", course))
+    snapshot = await build_course_release_snapshot(db, course, version=1, populate_existing=True)
+    if not isinstance(snapshot, dict) or "course" not in snapshot:
+        raise RuntimeError("Не удалось сформировать полный снимок содержания курса для проверки целостности")
+
+    c_data = snapshot["course"]
+    if isinstance(c_data, dict) and "source_analysis" in c_data and isinstance(c_data["source_analysis"], dict):
+        cleaned_sa = deepcopy(c_data["source_analysis"])
+        cleaned_sa.pop(SOURCE_UNCERTAINTY_KEY, None)
+        cleaned_sa.pop("source_uncertainty_resolution", None)
+        cleaned_sa.pop("resolutions_history", None)
+        c_data["source_analysis"] = cleaned_sa
+
+    return canonical_json_sha256(snapshot)
 
 
 def get_active_source_violations(source_analysis: dict[str, Any] | None) -> list[str]:
@@ -178,12 +179,15 @@ def resolve_source_uncertainty(
     actual_content_hash: str,
     verified_revision: str,
     available_revisions: list[str] | None = None,
+    authoritative_document_revisions: dict[str, str] | None = None,
+    verified_revisions: dict[str, str] | None = None,
     defect_resolutions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Authorized methodologist action: clears unresolved_source_uncertainty hold after manual verification.
 
     Binds resolution to authoritative course content snapshot hash and enforces explicit,
     exact defect_id resolutions for all active semantic defects (no arbitrary substring matching).
+    Enforces authoritative source revision verification and per-document matching when multiple sources exist.
     Preserves all previous resolutions in resolutions_history without overwriting.
     """
     from datetime import datetime
@@ -208,16 +212,36 @@ def resolve_source_uncertainty(
             f"но актуальный хэш снимка {clean_act_hash}. Курс был изменен после проверки."
         )
 
-    # 2. Authoritative source revision verification
+    # 2. Authoritative source revision verification (fail-closed if authoritative revisions unknown)
     if not verified_revision or not str(verified_revision).strip():
         raise ValueError("verified_revision обязательна для фиксации проверенной ревизии источника")
     clean_rev = str(verified_revision).strip()
-    if available_revisions:
-        clean_avail = [str(r).strip() for r in available_revisions if str(r).strip()]
-        if clean_avail and clean_rev not in clean_avail:
+
+    if not available_revisions:
+        raise ValueError("Невозможно подтвердить ревизию: у курса не определены авторитетные ревизии первоисточников")
+    clean_avail = [str(r).strip() for r in available_revisions if str(r).strip()]
+    if not clean_avail:
+        raise ValueError("Невозможно подтвердить ревизию: список авторитетных ревизий источников пуст")
+    if clean_rev not in clean_avail:
+        raise ValueError(
+            f"Указанная ревизия '{clean_rev}' не совпадает с авторитетными ревизиями источников курса: {clean_avail}"
+        )
+
+    # Multi-document check: each required document must match its authoritative revision
+    if authoritative_document_revisions and len(authoritative_document_revisions) > 1:
+        v_revs = verified_revisions or {}
+        missing_docs = [doc_id for doc_id in authoritative_document_revisions if doc_id not in v_revs]
+        if missing_docs:
             raise ValueError(
-                f"Указанная ревизия '{clean_rev}' не совпадает с авторитетными ревизиями источников курса: {clean_avail}"
+                f"Курс основан на нескольких источниках ({len(authoritative_document_revisions)}). "
+                f"Необходимо предоставить verified_revisions для каждого документа: отсутствуют {missing_docs}"
             )
+        for doc_id, expected_rev in authoritative_document_revisions.items():
+            provided_rev = str(v_revs.get(doc_id, "")).strip()
+            if provided_rev != str(expected_rev).strip():
+                raise ValueError(
+                    f"Несоответствие ревизии для документа '{doc_id}': ожидалось '{expected_rev}', передано '{provided_rev}'"
+                )
 
     # 3. Exact defect resolution by stable defect_id (strict; substring matching forbidden)
     active_defects = get_active_source_defects(result)
@@ -256,6 +280,7 @@ def resolve_source_uncertainty(
         "reason": reason.strip(),
         "content_hash": clean_act_hash,
         "verified_revision": clean_rev,
+        "verified_revisions": verified_revisions or {},
         "defect_resolutions": resolutions_list,
     }
 

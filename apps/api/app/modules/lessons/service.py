@@ -2,13 +2,23 @@
 
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.courses import Course
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.lessons.schemas import LessonCreate, LessonUpdate, ModuleCreate, ModuleUpdate
+
+
+async def _touch_course(db: AsyncSession, course_id: object, tenant_id: object) -> None:
+    """Updates parent Course updated_at timestamp to synchronize content versioning and locking."""
+    if course_id is not None and tenant_id is not None:
+        await db.execute(
+            update(Course)
+            .where(Course.id == course_id, Course.tenant_id == tenant_id)
+            .values(updated_at=func.now())
+        )
 
 
 async def _mark_lesson_quizzes_needs_review(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> None:
@@ -46,6 +56,7 @@ async def create_module(db: AsyncSession, course_id: UUID, tenant_id: UUID, data
         order_index=next_order,
     )
     db.add(module)
+    await _touch_course(db, course_id, tenant_id)
     await db.flush()
     return module
 
@@ -57,6 +68,7 @@ async def update_module(db: AsyncSession, module_id: UUID, tenant_id: UUID, data
         raise ValueError("Module not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(module, field, value)
+    await _touch_course(db, module.course_id, tenant_id)
     await db.flush()
     await db.refresh(module)
     return module
@@ -67,7 +79,9 @@ async def delete_module(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> N
     module = result.scalar_one_or_none()
     if not module:
         raise ValueError("Module not found")
+    course_id = module.course_id
     await db.delete(module)
+    await _touch_course(db, course_id, tenant_id)
 
 
 async def list_lessons(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> list[Lesson]:
@@ -83,6 +97,7 @@ async def list_lessons(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> li
 
 
 async def create_lesson(db: AsyncSession, module_id: UUID, tenant_id: UUID, data: LessonCreate) -> Lesson:
+    parent_module = await db.scalar(select(Module).where(Module.id == module_id, Module.tenant_id == tenant_id))
     max_order = await db.execute(
         select(Lesson.order_index).where(Lesson.module_id == module_id).order_by(Lesson.order_index.desc()).limit(1)
     )
@@ -97,6 +112,8 @@ async def create_lesson(db: AsyncSession, module_id: UUID, tenant_id: UUID, data
         order_index=next_order,
     )
     db.add(lesson)
+    if parent_module is not None:
+        await _touch_course(db, parent_module.course_id, tenant_id)
     await db.flush()
     return lesson
 
@@ -106,6 +123,7 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
     lesson = result.scalar_one_or_none()
     if not lesson:
         raise ValueError("Lesson not found")
+    parent_module = await db.scalar(select(Module).where(Module.id == lesson.module_id, Module.tenant_id == tenant_id))
     changes = data.model_dump(exclude_unset=True)
     source_affecting_change = any(
         field in changes and changes[field] != getattr(lesson, field) for field in ("title", "content")
@@ -116,6 +134,8 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
         lesson.source_validation_status = "needs_review"
     if source_affecting_change:
         await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
+    if parent_module is not None:
+        await _touch_course(db, parent_module.course_id, tenant_id)
     await db.flush()
     await db.refresh(lesson)
     return lesson
@@ -126,7 +146,10 @@ async def delete_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> N
     lesson = result.scalar_one_or_none()
     if not lesson:
         raise ValueError("Lesson not found")
+    parent_module = await db.scalar(select(Module).where(Module.id == lesson.module_id, Module.tenant_id == tenant_id))
     await db.delete(lesson)
+    if parent_module is not None:
+        await _touch_course(db, parent_module.course_id, tenant_id)
 
 
 async def reorder_items(db: AsyncSession, item_type: str, ids_order: list[UUID], tenant_id: UUID) -> None:
@@ -153,7 +176,7 @@ async def reorder_lessons_in_module(
     if len(ids_order) != len(set(ids_order)):
         raise ValueError("Lesson order contains duplicate IDs")
     module = await db.scalar(
-        select(Module.id).where(Module.id == module_id, Module.tenant_id == tenant_id).with_for_update()
+        select(Module).where(Module.id == module_id, Module.tenant_id == tenant_id).with_for_update()
     )
     if module is None:
         raise LookupError("Module not found")
@@ -169,6 +192,7 @@ async def reorder_lessons_in_module(
         raise ValueError("Lesson order must contain every lesson from the selected module exactly once")
     for index, lesson_id in enumerate(ids_order):
         by_id[lesson_id].order_index = index
+    await _touch_course(db, module.course_id, tenant_id)
     await db.flush()
 
 
