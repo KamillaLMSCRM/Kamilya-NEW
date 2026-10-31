@@ -582,22 +582,13 @@ async def _extract_course_source_revisions(
         if course.source_instruction_version_at:
             available_revisions.append(course.source_instruction_version_at.isoformat())
 
-    else:
-        # No documents declared anywhere. Only general course analysis revisions may be populated.
-        # NOTE: NO authoritative_doc_revisions or docs_info are created without DB Document records!
-        for key in ("source_revision", "document_revision", "revision"):
-            if sa.get(key):
-                available_revisions.append(str(sa[key]).strip())
-        doc_rule_model = sa.get("document_rule_model") or {}
-        if doc_rule_model.get("source_revision"):
-            available_revisions.append(str(doc_rule_model["source_revision"]).strip())
-        ev3 = sa.get("evidence_v3") or {}
-        if ev3.get("source_revision"):
-            available_revisions.append(str(ev3["source_revision"]).strip())
+    elif course.source_instruction_version_at:
+        # Verified DB timestamp column on Course (instruction version)
+        available_revisions.append(course.source_instruction_version_at.isoformat())
 
-    unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
-    return unique_revisions, authoritative_doc_revisions, docs_info
-
+    # When no authoritative documents exist in DB and no verified DB instruction version exists,
+    # available_revisions remains empty. Unbacked metadata strings in source_analysis (e.g. source_revision,
+    # document_revision, revision) are NEVER accepted as authoritative without matching tenant DB records.
     unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
     return unique_revisions, authoritative_doc_revisions, docs_info
 

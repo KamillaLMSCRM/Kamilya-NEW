@@ -93,14 +93,35 @@ def _make_course(
         m1.lessons = [l1]
         modules = [m1]
 
+    mock_docs = []
+    source_doc_ids = []
+    if default_revision:
+        doc = _make_document(
+            uuid4(),
+            tenant_id,
+            title="Авторитетный документ регламента",
+            filename="reglament.pdf",
+            version=1,
+            content_sha256=default_revision,
+        )
+        mock_docs.append(doc)
+        source_doc_ids.append(str(doc.id))
+
     if source_analysis is None:
         final_sa = {SOURCE_UNCERTAINTY_KEY: {"status": "review_required"}}
         if default_revision:
             final_sa["source_revision"] = default_revision
+            final_sa["source_documents"] = [
+                {"id": str(mock_docs[0].id), "name": "Авторитетный документ регламента", "revision": default_revision}
+            ]
     else:
         final_sa = dict(source_analysis)
         if default_revision and not any(k in final_sa for k in ("source_revision", "revision", "document_revision")):
             final_sa["source_revision"] = default_revision
+        if default_revision and "source_documents" not in final_sa:
+            final_sa["source_documents"] = [
+                {"id": str(mock_docs[0].id), "name": "Авторитетный документ регламента", "revision": default_revision}
+            ]
 
     course = SimpleNamespace(
         id=course_id,
@@ -118,7 +139,7 @@ def _make_course(
         ai_generated=ai_generated,
         source_instruction_id=None,
         source_instruction_version_at=None,
-        source_document_ids=[],
+        source_document_ids=source_doc_ids,
         source_strategy="single_topic",
         source_combination_goal=None,
         source_analysis=final_sa,
@@ -128,6 +149,7 @@ def _make_course(
         review_comment=None,
         modules=modules,
         reviewer=None,
+        _mock_documents=mock_docs,
     )
     return course
 
@@ -916,8 +938,9 @@ async def test_source_uncertainty_lesson_declared_document_missing_fails_closed(
     course_id = uuid4()
     missing_doc_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
-    course = _make_course(course_id, tenant_id, default_revision="rev-1")
+    course = _make_course(course_id, tenant_id, default_revision=None)
     # Attach missing document ID to lesson
+    course.source_document_ids = []
     course.modules[0].lessons[0].source_document_ids = [missing_doc_id]
     course._mock_documents = []
     audit_log: list[dict] = []
@@ -1307,3 +1330,50 @@ async def test_reorder_items_cross_course_forbidden():
     with pytest.raises(ValueError) as exc:
         await reorder_items(sess, "module", [mod1.id, mod2.id], tenant_id)  # type: ignore[arg-type]
     assert "Запрещено переупорядочивать модули между разными курсами" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_regression_unbacked_source_revision_without_documents_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify that unbacked metadata revision in source_analysis without DB documents is rejected."""
+    from app.modules.courses.source_uncertainty import compute_course_content_snapshot_hash
+
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    sa = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_revision": "unbacked",
+        "document_revision": "unbacked-doc",
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=sa, default_revision=None)
+    course.source_document_ids = []
+    course._mock_documents = []
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+    actual_hash = await compute_course_content_snapshot_hash(session, course)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # 1. Inspection returns empty available_revisions and empty source_documents
+        get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert get_resp.status_code == 200
+        get_data = get_resp.json()
+        assert get_data["available_revisions"] == []
+        assert get_data["source_documents"] == []
+
+        # 2. Resolution attempt with 'unbacked' fails closed (409 Conflict)
+        post_resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Попытка снятия холда по неподтвержденной ревизии без документов",
+                "expected_content_hash": actual_hash,
+                "verified_revision": "unbacked",
+                "defect_resolutions": [],
+            },
+        )
+        assert post_resp.status_code == 409
+        err = post_resp.json()["detail"]
+        assert err["code"] == "source_uncertainty_resolution_rejected"
+        assert "у курса не определены авторитетные ревизии первоисточников" in err["message"]
+        # Hold remains active
+        assert SOURCE_UNCERTAINTY_KEY in course.source_analysis
