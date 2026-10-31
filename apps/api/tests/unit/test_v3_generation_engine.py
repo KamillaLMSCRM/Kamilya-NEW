@@ -880,6 +880,371 @@ async def test_critic_defect_propagation_to_violations_and_artifacts():
     assert artifacts.diagnostics["quality_verdict"] != "verified"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "critic_response,expected_phrase",
+    [
+        ({"verdict": "FAIL", "defects": []}, "с вердиктом FAIL"),
+        ({"verdict": "UNKNOWN"}, "UNKNOWN"),
+        ({"verdict": "NEEDS_REVISION"}, "NEEDS_REVISION"),
+        ({}, "UNKNOWN"),
+    ],
+)
+async def test_critic_negative_or_unknown_verdict_fails_even_without_defects(
+    critic_response: dict[str, Any],
+    expected_phrase: str,
+):
+    """Verify Point 1: Negative, unknown or empty critic responses CANNOT result in PASS or empty violations."""
+    chunk = DirectSourceChunk(
+        chunk_id="chk-1",
+        doc_id="doc-crit-1",
+        doc_name="crit.txt",
+        title="Регламент",
+        headings=("Раздел 1",),
+        text="Сотрудник обязан соблюдать график работы с 09:00 до 18:00.",
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-crit-1",
+        title="Регламент",
+        filename="crit.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-crit",
+        documents=(doc,),
+        total_chars=100,
+        total_chunks=1,
+    )
+
+    call_count = 0
+
+    async def mock_llm(messages: list[dict[str, str]], response_format: Any = None) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "document_title": "Регламент",
+                "document_sha256": "fake-sha",
+                "overview": "Обзор",
+                "rules": [
+                    {
+                        "rule_id": "r-schedule",
+                        "section": "Регламент",
+                        "title": "График",
+                        "statement": "Сотрудник обязан соблюдать график работы с 09:00 до 18:00.",
+                        "conditions": [],
+                        "exceptions": [],
+                        "actors": ["Сотрудник"],
+                        "timing": "Ежедневно",
+                        "consequences": "Замечание",
+                        "source_quote": "Сотрудник обязан соблюдать график работы с 09:00 до 18:00.",
+                    }
+                ],
+            }
+        if call_count == 2:
+            return {
+                "lesson_id": "l-schedule-1",
+                "title": "Урок по графику",
+                "content": "Соблюдайте рабочий график с 09:00 до 18:00.",
+                "covered_rule_ids": ["r-schedule"],
+                "cases": [
+                    {
+                        "case_id": "c-1",
+                        "rule_id": "r-schedule",
+                        "learning_objective": "Знание графика",
+                        "variants": [
+                            {
+                                "variant_id": "v-1",
+                                "branch_context": "Филиал",
+                                "scenario_premise": "Рабочий день",
+                                "prompt": "Каков график?",
+                                "correct_option": {"text": "С 09:00 до 18:00", "is_correct": True},
+                                "distractor_pool": [
+                                    {"text": "С 08:00 до 17:00", "is_correct": False, "distractor_category": "timing_violation"},
+                                    {"text": "С 10:00 до 19:00", "is_correct": False, "distractor_category": "timing_violation"},
+                                    {"text": "В свободном режиме", "is_correct": False, "distractor_category": "unauthorized_action"},
+                                ],
+                                "explanation": "По регламенту.",
+                                "source_quote": "Сотрудник обязан соблюдать график работы с 09:00 до 18:00.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        # Step 3: Critic returns test response (FAIL with empty defects, UNKNOWN, NEEDS_REVISION, or {})
+        return critic_response
+
+    intent = CourseIntent(audience="Сотрудники", purpose="График", emphasis=("Время",))
+    artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm)
+
+    # Invariants:
+    # 1. Verdict must be FAIL, NEVER PASS
+    assert artifacts.diagnostics["validation_report"]["verdict"] == "FAIL"
+    # 2. Violations must contain the expected explanation
+    violations = artifacts.diagnostics["violations"]
+    assert any(expected_phrase in v for v in violations), f"Expected '{expected_phrase}' in violations: {violations}"
+    # 3. Source warnings in content must also be populated
+    assert len(artifacts.content.source_warnings) > 0
+    # 4. Review is required
+    assert artifacts.diagnostics["requires_source_review"] is True
+
+
+@pytest.mark.asyncio
+async def test_unverified_rule_quotes_flagged_and_isolated():
+    """Verify Point 2: Rule quotes invented by the model are detected against full_text and flagged as violations."""
+    chunk = DirectSourceChunk(
+        chunk_id="chk-auth-1",
+        doc_id="doc-auth-1",
+        doc_name="auth.txt",
+        title="Оригинал",
+        headings=("Раздел 1",),
+        text="Подлинный текст регламента содержит только это предложение.",
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-auth-1",
+        title="Оригинал",
+        filename="auth.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-auth",
+        documents=(doc,),
+        total_chars=100,
+        total_chunks=1,
+    )
+
+    passed_source_fragments: list[str] = []
+    call_count = 0
+
+    async def mock_llm_hallucinating_quotes(messages: list[dict[str, str]], response_format: Any = None) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "document_title": "Оригинал",
+                "document_sha256": "fake-sha",
+                "overview": "Обзор",
+                "rules": [
+                    {
+                        "rule_id": "r-fake-quote",
+                        "section": "Раздел 1",
+                        "title": "Правило с выдуманной цитатой",
+                        "statement": "Сотрудник делает что-то выдуманное.",
+                        "conditions": [],
+                        "exceptions": [],
+                        "actors": [],
+                        "timing": "",
+                        "consequences": "",
+                        "source_quote": "Выдуманная цитата которой вообще нет в подлинном тексте документа",
+                    }
+                ],
+            }
+        if call_count == 2:
+            return {
+                "lesson_id": "l-1",
+                "title": "Урок",
+                "content": "Текст",
+                "covered_rule_ids": ["r-fake-quote"],
+                "cases": [
+                    {
+                        "case_id": "c-1",
+                        "rule_id": "r-fake-quote",
+                        "learning_objective": "Цель",
+                        "variants": [
+                            {
+                                "variant_id": "v-1",
+                                "branch_context": "Ф",
+                                "scenario_premise": "С",
+                                "prompt": "В?",
+                                "correct_option": {"text": "Ответ", "is_correct": True},
+                                "distractor_pool": [
+                                    {"text": "Ош 1", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Ош 2", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Ош 3", "is_correct": False, "distractor_category": "role_confusion"},
+                                ],
+                                "explanation": "П",
+                                "source_quote": "Подлинный текст регламента содержит только это предложение.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        # Step 3: Critic Review
+        for m in messages:
+            if "ПРЯМЫЕ ЦИТАТЫ ИЗ ОРИГИНАЛА ДОКУМЕНТА" in m["content"]:
+                passed_source_fragments.append(m["content"])
+        return {"verdict": "PASS", "defects": []}
+
+    intent = CourseIntent(audience="А", purpose="П", emphasis=())
+    artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm_hallucinating_quotes)
+
+    # Invariants:
+    # 1. Unverified quote violation must be detected
+    violations = artifacts.diagnostics["violations"]
+    assert any("Неподтвержденная цитата в правиле r-fake-quote" in v for v in violations)
+    # 2. It must be explicitly tagged as unverified in prompt passed to critic
+    assert any("НЕВЕРИФИЦИРОВАНО" in frag for frag in passed_source_fragments)
+    # 3. Overall verdict must be FAIL
+    assert artifacts.diagnostics["validation_report"]["verdict"] == "FAIL"
+
+
+def test_collision_free_id_sanitization_with_preexisting_patterns():
+    """Verify Point 3: Sanitization avoids collision even with tricky preexisting suffix patterns like ['x', 'x-003', 'x']."""
+    from app.modules.ai.v3.service import _sanitize_rules
+
+    rules = (
+        RuleEntity(rule_id="x", section="S1", title="T1", statement="S1"),
+        RuleEntity(rule_id="x-003", section="S1", title="T2", statement="S2"),
+        RuleEntity(rule_id="x", section="S1", title="T3", statement="S3"),
+    )
+
+    sanitized, raw_to_rules = _sanitize_rules(rules)
+    allocated_ids = [r.rule_id for r in sanitized]
+
+    # Exactly 3 rules, all distinct
+    assert len(allocated_ids) == 3
+    assert len(allocated_ids) == len(set(allocated_ids))
+    # "x" and "x-003" should be preserved, and duplicate "x" allocated a non-colliding suffix (e.g. "x-001" or "x-002")
+    assert "x" in allocated_ids
+    assert "x-003" in allocated_ids
+    third_id = next(i for i in allocated_ids if i not in ("x", "x-003"))
+    assert third_id != "x-003"
+
+
+def test_ambiguous_reference_to_duplicated_initial_raw_id():
+    """Verify Point 4: Referencing an initial duplicate raw ID is treated as ambiguous and not silently bound to first rule."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_dup_1 = RuleEntity(rule_id="dup", section="Раздел 1", title="Правило 1", statement="Условие 1")
+    rule_dup_2 = RuleEntity(rule_id="dup", section="Раздел 2", title="Правило 2", statement="Условие 2")
+    rule_referencing = RuleEntity(
+        rule_id="r-caller",
+        section="Раздел 3",
+        title="Правило 3",
+        statement="Сотрудник обязан действовать согласно правилу dup.",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Дубликаты",
+        document_sha256="fake-sha",
+        rules=(rule_dup_1, rule_dup_2, rule_referencing),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    group_3 = next(g for g in groups if g.section == "Раздел 3")
+
+    # Ambiguity check:
+    # 1. Unresolved dependencies must flag the ambiguous reference to "dup"
+    assert any("Неоднозначная ссылка на дублирующийся идентификатор 'dup'" in u for u in group_3.unresolved_dependencies)
+    # 2. Both duplicate rules must be pulled into context prerequisites so no information is lost
+    prereq_ids = {r.rule_id for r in group_3.context_prerequisite_rules}
+    assert len(prereq_ids) == 2
+
+
+def test_compound_hierarchical_reference_resolution():
+    """Verify Point 5: Compound reference 'пункт 2 раздела 4' binds to Section 4 clause 2, not current section clause 2."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_sec1_p2 = RuleEntity(
+        rule_id="r-s1-p2",
+        section="Раздел 1: Базовые стандарты",
+        title="Пункт 2: Порядок выдачи",
+        statement="Выдача в базовом порядке.",
+    )
+    rule_sec4_p2 = RuleEntity(
+        rule_id="r-s4-p2",
+        section="Раздел 4: Пролонгация микрокредитов",
+        title="Пункт 2: Продление залога",
+        statement="Продление осуществляется только при уплате вознаграждения.",
+    )
+    rule_caller = RuleEntity(
+        rule_id="r-caller-compound",
+        section="Раздел 1: Базовые стандарты",
+        title="Особое условие пролонгации",
+        statement="При обращении клиента действовать согласно пункту 2 раздела 4.",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Составные ссылки",
+        document_sha256="fake-sha",
+        rules=(rule_sec1_p2, rule_sec4_p2, rule_caller),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    group_1 = next(g for g in groups if g.section == "Раздел 1: Базовые стандарты")
+    prereq_ids = {r.rule_id for r in group_1.context_prerequisite_rules}
+
+    # Invariants:
+    # 1. Must bind to Section 4 clause 2 (r-s4-p2)
+    assert "r-s4-p2" in prereq_ids
+    # 2. Must NOT bind to current section's clause 2 as dependency
+    assert "r-s1-p2" not in prereq_ids
+    # 3. Section 4 should not be flagged as missing/unresolved
+    assert not any("раздела '4'" in u and "Неразрешенная" in u for u in group_1.unresolved_dependencies)
+
+
+def test_end_to_end_source_review_persistence_and_invariants():
+    """Verify Point 6: Full user chain where violations preserve needs_review across pipeline artifacts and storage."""
+    from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
+
+    variant = V3QuestionVariant(
+        variant_id="v-1",
+        branch_context="Филиал",
+        scenario_premise="Ситауция",
+        prompt="Вопрос?",
+        correct_option=V3Option(text="Верно", is_correct=True),
+        distractor_pool=(
+            V3Option(text="Ош 1", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Ош 2", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
+            V3Option(text="Ош 3", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
+        ),
+        explanation="Пояснение",
+        source_quote="Цитата",
+    )
+    case = V3ScenarioCase(case_id="c-1", rule_id="r-1", learning_objective="Цель", variants=(variant,))
+    lesson = V3Lesson(
+        lesson_id="l-1",
+        title="Урок 1",
+        module_title="Модуль 1",
+        content="Текст урока",
+        covered_rule_ids=("r-1",),
+        cases=(case,),
+        questions=(),
+    )
+    course = V3Course(
+        course_id="c-1",
+        title="Курс с замечанием",
+        document_sha256="abc12345",
+        lessons=(lesson,),
+        quality_verdict="needs_review",
+        validation_report={
+            "verdict": "FAIL",
+            "quality_status": "needs_review",
+            "violations": ["Семантический дефект: искажено правило закрытия двери"],
+        },
+    )
+
+    artifacts = v3_course_to_generation_artifacts(course)
+
+    # Invariants for user chain:
+    # 1. Lesson content status is needs_review
+    assert artifacts.content.modules[0].lessons[0].source_validation_status == "needs_review"
+    assert artifacts.content.modules[0].lessons[0].requires_source_review() is True
+    # 2. Source warnings contain defect
+    assert "Семантический дефект: искажено правило закрытия двери" in artifacts.content.source_warnings
+    # 3. Overall requires_source_review is True
+    assert artifacts.diagnostics["requires_source_review"] is True
+
+
+
 
 
 

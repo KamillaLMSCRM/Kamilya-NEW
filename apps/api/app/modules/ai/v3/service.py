@@ -15,7 +15,7 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
 from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, RuleEntity, V3Course, V3Lesson
-from app.modules.ai.v3.validator import validate_v3_course
+from app.modules.ai.v3.validator import normalize_text_for_search, validate_v3_course
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,16 @@ def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
     return full_text, sha256
 
 
+COMPOUND_CLAUSE_SECTION_RE = re.compile(
+    r"(?:пункт[а-я]*|п\.|подпункт[а-я]*|пп\.)\s*([0-9]+(?:\.[0-9]+)*)\s+"
+    r"(?:раздел[а-я]*|разд\.|глав[а-я]*|стать[а-я]*|ст\.|таблиц[а-я]*)\s*([0-9]+(?:\.[0-9]+)*)",
+    re.IGNORECASE,
+)
+REVERSED_COMPOUND_RE = re.compile(
+    r"(?:раздел[а-я]*|разд\.|глав[а-я]*|стать[а-я]*|ст\.|таблиц[а-я]*)\s*([0-9]+(?:\.[0-9]+)*)\s*,?\s*"
+    r"(?:пункт[а-я]*|п\.|подпункт[а-я]*|пп\.)\s*([0-9]+(?:\.[0-9]+)*)",
+    re.IGNORECASE,
+)
 CLAUSE_REF_RE = re.compile(
     r"(?:пункт[а-я]*|п\.|подпункт[а-я]*|пп\.|стать[а-я]*|ст\.|раздел[а-я]*|таблиц[а-я]*)\s*([0-9]+(?:\.[0-9]+)*)",
     re.IGNORECASE,
@@ -55,20 +65,43 @@ def _extract_clause_numbers(text: str) -> list[str]:
     return res
 
 
-def _sanitize_rules(rules: tuple[RuleEntity, ...] | list[RuleEntity]) -> list[RuleEntity]:
-    """Ensures every rule has a non-empty, strictly unique rule_id so no rule can be masked or lost."""
+def _sanitize_rules(
+    rules: tuple[RuleEntity, ...] | list[RuleEntity]
+) -> tuple[list[RuleEntity], dict[str, list[RuleEntity]]]:
+    """Ensures every rule has a non-empty, strictly unique rule_id without collisions.
+
+    Tracks raw IDs so references to duplicated initial IDs are recognized as ambiguous.
+    """
+    taken_ids: set[str] = set()
+    for r in rules:
+        clean = (r.rule_id or "").strip()
+        if clean:
+            taken_ids.add(clean)
+
+    allocated_ids: set[str] = set()
     sanitized: list[RuleEntity] = []
-    seen_ids: set[str] = set()
+    raw_to_rules: dict[str, list[RuleEntity]] = {}
+
     for idx, r in enumerate(rules, 1):
-        clean_id = (r.rule_id or "").strip()
-        if not clean_id:
-            clean_id = f"rule-{idx:03d}"
-        if clean_id in seen_ids:
-            clean_id = f"{clean_id}-{idx:03d}"
-        seen_ids.add(clean_id)
-        if clean_id != r.rule_id:
+        raw_id = (r.rule_id or "").strip()
+        base_id = raw_id if raw_id else f"rule-{idx:03d}"
+        assigned_id = base_id
+
+        # If base_id is already allocated (or empty), pick a guaranteed collision-free suffix
+        if not raw_id or assigned_id in allocated_ids:
+            counter = 1
+            candidate = f"{base_id}-{counter:03d}"
+            while candidate in taken_ids or candidate in allocated_ids:
+                counter += 1
+                candidate = f"{base_id}-{counter:03d}"
+            assigned_id = candidate
+
+        allocated_ids.add(assigned_id)
+        taken_ids.add(assigned_id)
+
+        if assigned_id != r.rule_id:
             r = RuleEntity(
-                rule_id=clean_id,
+                rule_id=assigned_id,
                 section=r.section,
                 title=r.title,
                 statement=r.statement,
@@ -80,16 +113,20 @@ def _sanitize_rules(rules: tuple[RuleEntity, ...] | list[RuleEntity]) -> list[Ru
                 source_quote=r.source_quote,
             )
         sanitized.append(r)
-    return sanitized
+        if raw_id:
+            raw_to_rules.setdefault(raw_id, []).append(r)
+
+    return sanitized, raw_to_rules
 
 
 def _find_direct_rule_dependencies(
     rule: RuleEntity,
     all_rules: list[RuleEntity],
     clause_index: dict[str, list[RuleEntity]],
+    raw_to_rules: dict[str, list[RuleEntity]],
     current_section: str,
 ) -> tuple[list[RuleEntity], list[str]]:
-    """Discovers direct dependencies for a rule using boundary-safe regex, clause parsing, and ambiguous reference tracking."""
+    """Discovers direct dependencies for a rule using boundary-safe regex, compound hierarchy, and ambiguous reference tracking."""
     text = f"{rule.statement} {' '.join(rule.conditions)} {' '.join(rule.exceptions)} {rule.timing} {rule.consequences}"
     direct_deps: list[RuleEntity] = []
     unresolved: list[str] = []
@@ -103,7 +140,26 @@ def _find_direct_rule_dependencies(
             if target not in direct_deps:
                 direct_deps.append(target)
 
-    # 2. Significant Title match with word boundaries
+    # 2. Check for references to original raw IDs (including duplicated ones)
+    for raw_id, target_rules in raw_to_rules.items():
+        if not raw_id:
+            continue
+        pattern = r"(?<![\w-])" + re.escape(raw_id) + r"(?![\w-])"
+        if re.search(pattern, text, re.IGNORECASE):
+            other_targets = [t for t in target_rules if t.rule_id != rule.rule_id]
+            if len(other_targets) > 1:
+                match_ids = [t.rule_id for t in other_targets]
+                unresolved.append(
+                    f"Неоднозначная ссылка на дублирующийся идентификатор '{raw_id}' в правиле '{rule.rule_id}' (найдено несколько правил с таким исходным ID: {', '.join(match_ids)})"
+                )
+                for t in other_targets:
+                    if t not in direct_deps:
+                        direct_deps.append(t)
+            elif len(other_targets) == 1:
+                if other_targets[0] not in direct_deps:
+                    direct_deps.append(other_targets[0])
+
+    # 3. Significant Title match with word boundaries
     for target in all_rules:
         if target.rule_id == rule.rule_id or target in direct_deps:
             continue
@@ -113,8 +169,66 @@ def _find_direct_rule_dependencies(
             if re.search(pattern, text, re.IGNORECASE):
                 direct_deps.append(target)
 
-    # 3. Structured clause/point references (e.g. 'пункт 2', 'п. 2')
-    referenced_clauses = CLAUSE_REF_RE.findall(text)
+    # 4. Compound hierarchical references (e.g. 'пункт 2 раздела 4', 'раздел 4, пункт 2')
+    remaining_text = text
+
+    for match in COMPOUND_CLAUSE_SECTION_RE.finditer(text):
+        clause_clean = match.group(1).strip().rstrip(".")
+        section_num = match.group(2).strip().rstrip(".")
+        span = match.span()
+        # Blank out this compound span so standalone matcher won't parse 2 and 4 separately
+        remaining_text = remaining_text[:span[0]] + " " * (span[1] - span[0]) + remaining_text[span[1]:]
+
+        candidates = [c for c in clause_index.get(clause_clean, []) if c.rule_id != rule.rule_id]
+        matching = [
+            c for c in candidates
+            if section_num in _extract_clause_numbers(c.section) or re.search(r"\bраздел[а-я]*\s*" + re.escape(section_num) + r"\b", c.section, re.IGNORECASE)
+        ]
+        if len(matching) == 1:
+            if matching[0] not in direct_deps:
+                direct_deps.append(matching[0])
+        elif len(matching) > 1:
+            match_ids = [c.rule_id for c in matching]
+            unresolved.append(
+                f"Неоднозначная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
+            )
+            for c in matching:
+                if c not in direct_deps:
+                    direct_deps.append(c)
+        else:
+            unresolved.append(
+                f"Неразрешенная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}'"
+            )
+
+    for match in REVERSED_COMPOUND_RE.finditer(remaining_text):
+        section_num = match.group(1).strip().rstrip(".")
+        clause_clean = match.group(2).strip().rstrip(".")
+        span = match.span()
+        remaining_text = remaining_text[:span[0]] + " " * (span[1] - span[0]) + remaining_text[span[1]:]
+
+        candidates = [c for c in clause_index.get(clause_clean, []) if c.rule_id != rule.rule_id]
+        matching = [
+            c for c in candidates
+            if section_num in _extract_clause_numbers(c.section) or re.search(r"\bраздел[а-я]*\s*" + re.escape(section_num) + r"\b", c.section, re.IGNORECASE)
+        ]
+        if len(matching) == 1:
+            if matching[0] not in direct_deps:
+                direct_deps.append(matching[0])
+        elif len(matching) > 1:
+            match_ids = [c.rule_id for c in matching]
+            unresolved.append(
+                f"Неоднозначная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
+            )
+            for c in matching:
+                if c not in direct_deps:
+                    direct_deps.append(c)
+        else:
+            unresolved.append(
+                f"Неразрешенная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}'"
+            )
+
+    # 5. Standalone clause/point references (e.g. 'пункт 2', 'п. 2')
+    referenced_clauses = CLAUSE_REF_RE.findall(remaining_text)
     for clause_str in referenced_clauses:
         clause_clean = clause_str.strip().rstrip(".")
         candidates = [c for c in clause_index.get(clause_clean, []) if c.rule_id != rule.rule_id]
@@ -122,16 +236,12 @@ def _find_direct_rule_dependencies(
             unresolved.append(f"Неразрешенная ссылка на пункт '{clause_clean}' в правиле '{rule.rule_id}'")
             continue
 
-        same_section_candidates = [c for c in candidates if c.section == current_section]
         if len(candidates) == 1:
-            match = candidates[0]
-            if match not in direct_deps:
-                direct_deps.append(match)
-        elif len(same_section_candidates) == 1:
-            match = same_section_candidates[0]
-            if match not in direct_deps:
-                direct_deps.append(match)
+            single_match = candidates[0]
+            if single_match not in direct_deps:
+                direct_deps.append(single_match)
         else:
+            # Multiple candidates across sections: do not assume current section, preserve uncertainty
             match_ids = [c.rule_id for c in candidates]
             unresolved.append(
                 f"Неоднозначная ссылка на пункт '{clause_clean}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
@@ -153,7 +263,7 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
     4. Boundary-safe rule matching: 'r1' never matches inside 'r10'.
     5. Natural clause/point reference resolution with ambiguous reference detection.
     """
-    sanitized_rules = _sanitize_rules(rule_model.rules)
+    sanitized_rules, raw_to_rules = _sanitize_rules(rule_model.rules)
 
     # Invariant: unique IDs
     all_rule_ids = [r.rule_id for r in sanitized_rules]
@@ -247,6 +357,7 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
                 curr_rule,
                 all_rules=sanitized_rules,
                 clause_index=clause_index,
+                raw_to_rules=raw_to_rules,
                 current_section=g.section,
             )
             for u in direct_unresolved:
@@ -367,24 +478,71 @@ async def generate_v3_course_from_corpus(
         generated_lessons.append(lesson)
         lessons_summary += f"\n- {lesson.title}: {lesson.content[:150]}..."
 
-        # Stage 4: Run Two-Factor semantic review with exact source fragments
+        # Stage 4: Run Two-Factor semantic review with verified source fragments
         try:
             review_rules = list(group.primary_rules) + list(group.context_prerequisite_rules)
-            source_frags = [r.source_quote for r in review_rules if r.source_quote]
+            norm_source = normalize_text_for_search(full_text)
+            source_frags: list[str] = []
+            for r in review_rules:
+                raw_q = (r.source_quote or "").strip()
+                if raw_q:
+                    norm_q = normalize_text_for_search(raw_q)
+                    if norm_q and norm_q in norm_source:
+                        source_frags.append(f"[Верифицированная цитата оригинала | {r.rule_id}]: {raw_q}")
+                    else:
+                        semantic_violations.append(
+                            f"Неподтвержденная цитата в правиле {r.rule_id} ({r.title}): фрагмент карты правил отсутствует в исходном тексте документа"
+                        )
+                        source_frags.append(f"[НЕВЕРИФИЦИРОВАНО, отсутствует в тексте оригинала | {r.rule_id}]: {raw_q}")
+
             review_res = await pipeline.review_lesson(lesson, review_rules, source_fragments=source_frags)
             semantic_reviews[lesson.lesson_id] = review_res
 
-            verdict = review_res.get("verdict", "UNKNOWN")
-            defects = review_res.get("defects", [])
-            if verdict == "FAIL":
-                for defect in defects:
+            # Strict schema validation: any verdict other than valid confirmed PASS is recorded as violation
+            if not isinstance(review_res, dict):
+                semantic_violations.append(
+                    f"Критик вернул невалидный формат ответа для урока {lesson.lesson_id} ({lesson.title}): {type(review_res).__name__}"
+                )
+            else:
+                verdict = str(review_res.get("verdict", "")).strip().upper()
+                defects = review_res.get("defects") or []
+                if not isinstance(defects, list):
+                    defects = [str(defects)]
+
+                if verdict == "PASS":
+                    if defects:
+                        for defect in defects:
+                            semantic_violations.append(
+                                f"Замечание критика к уроку {lesson.lesson_id} ({lesson.title}): {defect}"
+                            )
+                elif verdict == "FAIL":
+                    if defects:
+                        for defect in defects:
+                            semantic_violations.append(
+                                f"Семантический критик отклонил урок {lesson.lesson_id} ({lesson.title}): {defect}"
+                            )
+                    else:
+                        semantic_violations.append(
+                            f"Семантический критик отклонил урок {lesson.lesson_id} ({lesson.title}) с вердиктом FAIL (детали дефекта не предоставлены)"
+                        )
+                elif verdict == "NEEDS_REVISION":
+                    if defects:
+                        for defect in defects:
+                            semantic_violations.append(
+                                f"Семантический критик запросил доработку урока {lesson.lesson_id} ({lesson.title}): {defect}"
+                            )
+                    else:
+                        semantic_violations.append(
+                            f"Семантический критик запросил доработку урока {lesson.lesson_id} ({lesson.title}) с вердиктом NEEDS_REVISION"
+                        )
+                elif verdict == "UNKNOWN" or not verdict:
+                    comment = review_res.get("comment") or review_res.get("reason") or "ответ не содержит подтверждения соответствия"
                     semantic_violations.append(
-                        f"Критик отклонил урок {lesson.lesson_id} ({lesson.title}): {defect}"
+                        f"Семантический критик вернул неопределенный вердикт (UNKNOWN) для урока {lesson.lesson_id} ({lesson.title}): {comment}"
                     )
-            elif defects:
-                for defect in defects:
+                else:
                     semantic_violations.append(
-                        f"Замечание критика к уроку {lesson.lesson_id} ({lesson.title}): {defect}"
+                        f"Семантический критик вернул неизвестный статус '{verdict}' для урока {lesson.lesson_id} ({lesson.title})"
                     )
         except Exception as review_err:
             logger.warning("V3 Engine: Two-factor semantic review skipped due to error: %s", review_err)
