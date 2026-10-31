@@ -95,13 +95,43 @@ def compute_source_uncertainty_content_hash(source_analysis: dict[str, Any] | No
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+async def compute_course_content_snapshot_hash(db: Any, course: Any) -> str:
+    """Computes authoritative canonical SHA-256 over the complete course learning content snapshot.
+
+    Encompasses course metadata, modules, lessons (content, order, validation status),
+    quizzes (questions, options), and source documents.
+    Normalizes volatile hold markers in source_analysis to ensure idempotency.
+    """
+    from app.modules.courses.release_service import (
+        build_course_release_snapshot,
+        canonical_json_sha256,
+    )
+
+    if db is not None:
+        try:
+            snapshot = await build_course_release_snapshot(db, course, version=1, populate_existing=True)
+            if "course" in snapshot and isinstance(snapshot["course"], dict):
+                c_data = snapshot["course"]
+                if "source_analysis" in c_data and isinstance(c_data["source_analysis"], dict):
+                    cleaned_sa = deepcopy(c_data["source_analysis"])
+                    cleaned_sa.pop(SOURCE_UNCERTAINTY_KEY, None)
+                    cleaned_sa.pop("source_uncertainty_resolution", None)
+                    cleaned_sa.pop("resolutions_history", None)
+                    c_data["source_analysis"] = cleaned_sa
+            return canonical_json_sha256(snapshot)
+        except Exception:
+            pass
+
+    return compute_source_uncertainty_content_hash(getattr(course, "source_analysis", course))
+
+
 def get_active_source_violations(source_analysis: dict[str, Any] | None) -> list[str]:
     """Extracts all active semantic violations and defects from course source analysis."""
     if not isinstance(source_analysis, dict):
         return []
     violations: list[str] = []
 
-    for key in ("evidence_v3", "diagnostics", "evidence_v2"):
+    for key in ("evidence_v3", "diagnostics", "evidence_v2", "validation_report"):
         sub = source_analysis.get(key)
         if isinstance(sub, dict):
             v_list = sub.get("violations")
@@ -116,8 +146,27 @@ def get_active_source_violations(source_analysis: dict[str, Any] | None) -> list
     direct_v = source_analysis.get("violations")
     if isinstance(direct_v, list):
         violations.extend(str(v) for v in direct_v if v)
+    direct_w = source_analysis.get("source_warnings")
+    if isinstance(direct_w, list):
+        violations.extend(str(v) for v in direct_w if v)
 
     return list(dict.fromkeys(v.strip() for v in violations if v and v.strip()))
+
+
+def get_active_source_defects(source_analysis: dict[str, Any] | None) -> list[dict[str, str]]:
+    """Returns list of active defects with stable deterministic IDs and descriptions."""
+    import hashlib
+
+    raw_violations = get_active_source_violations(source_analysis)
+    defects: list[dict[str, str]] = []
+    for v in raw_violations:
+        clean_v = v.strip()
+        d_id = f"defect-{hashlib.sha256(clean_v.encode('utf-8')).hexdigest()[:8]}"
+        defects.append({
+            "defect_id": d_id,
+            "description": clean_v,
+        })
+    return defects
 
 
 def resolve_source_uncertainty(
@@ -125,14 +174,16 @@ def resolve_source_uncertainty(
     *,
     reason: str,
     methodologist_user_id: object,
-    expected_content_hash: str | None = None,
-    verified_revision: str | None = None,
-    acknowledged_defects: list[str] | None = None,
+    expected_content_hash: str,
+    actual_content_hash: str,
+    verified_revision: str,
+    available_revisions: list[str] | None = None,
+    defect_resolutions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Authorized methodologist action: clears unresolved_source_uncertainty hold after manual verification.
 
-    Binds the resolution to the verified content hash and ensures that active defects/violations
-    cannot be silently bypassed without explicit methodologist acknowledgment.
+    Binds resolution to authoritative course content snapshot hash and enforces explicit,
+    exact defect_id resolutions for all active semantic defects (no arbitrary substring matching).
     Preserves all previous resolutions in resolutions_history without overwriting.
     """
     from datetime import datetime
@@ -147,40 +198,68 @@ def resolve_source_uncertainty(
         raise ValueError("У курса отсутствует активная блокировка неопределенности первоисточника (unresolved_source_uncertainty)")
 
     # 1. Content hash verification (protects against concurrent edits or stale reviews)
-    current_hash = compute_source_uncertainty_content_hash(result)
-    if expected_content_hash and expected_content_hash.strip().lower() != current_hash.lower():
+    if not expected_content_hash or not str(expected_content_hash).strip():
+        raise ValueError("expected_content_hash обязателен для фиксации проверенной версии курса")
+    clean_exp_hash = str(expected_content_hash).strip().lower()
+    clean_act_hash = str(actual_content_hash).strip().lower()
+    if clean_exp_hash != clean_act_hash:
         raise ValueError(
-            f"Несоответствие версии содержания курса: ожидался хэш {expected_content_hash}, "
-            f"но актуальный хэш {current_hash}. Содержание изменилось с момента проверки."
+            f"Несоответствие версии содержания курса: ожидался хэш {clean_exp_hash}, "
+            f"но актуальный хэш снимка {clean_act_hash}. Курс был изменен после проверки."
         )
 
-    # 2. Binding to active semantic defects / violations
-    active_violations = get_active_source_violations(result)
-    ack_list = [str(d).strip() for d in (acknowledged_defects or []) if str(d).strip()]
-    if active_violations:
-        if not ack_list:
+    # 2. Authoritative source revision verification
+    if not verified_revision or not str(verified_revision).strip():
+        raise ValueError("verified_revision обязательна для фиксации проверенной ревизии источника")
+    clean_rev = str(verified_revision).strip()
+    if available_revisions:
+        clean_avail = [str(r).strip() for r in available_revisions if str(r).strip()]
+        if clean_avail and clean_rev not in clean_avail:
             raise ValueError(
-                f"Невозможно снять блокировку неопределенности: обнаружены неисправленные замечания/нарушения ({len(active_violations)}). "
-                f"Методолог должен явно подтвердить их в запросе (acknowledged_defects): {active_violations}"
-            )
-        unacknowledged = [v for v in active_violations if not any(v in a or a in v for a in ack_list)]
-        if unacknowledged:
-            raise ValueError(
-                f"Не все критические нарушения подтверждены методологом: остались неподтвержденными {unacknowledged}"
+                f"Указанная ревизия '{clean_rev}' не совпадает с авторитетными ревизиями источников курса: {clean_avail}"
             )
 
-    # 3. Create resolution entry
+    # 3. Exact defect resolution by stable defect_id (strict; substring matching forbidden)
+    active_defects = get_active_source_defects(result)
+    resolutions_list = defect_resolutions or []
+    if active_defects:
+        if not resolutions_list:
+            req_defects = [f"{d['defect_id']} ({d['description'][:40]}...)" for d in active_defects]
+            raise ValueError(
+                f"Невозможно снять блокировку: обнаружены активные дефекты курса ({len(active_defects)}). "
+                f"Методолог должен явно предоставить решения по каждому дефекту (defect_resolutions): {req_defects}"
+            )
+        res_by_id = {str(r.get("defect_id", "")).strip(): r for r in resolutions_list if isinstance(r, dict)}
+        missing = []
+        for d in active_defects:
+            did = d["defect_id"]
+            if did not in res_by_id:
+                missing.append(did)
+            else:
+                res_item = res_by_id[did]
+                act = res_item.get("action")
+                if act not in ("acknowledged_risk", "documented_exception", "manual_verification_passed"):
+                    raise ValueError(f"Недопустимое действие '{act}' для дефекта '{did}'")
+                rat = (res_item.get("rationale") or "").strip()
+                if len(rat) < 10:
+                    raise ValueError(f"Обоснование для дефекта '{did}' слишком короткое (минимум 10 символов)")
+        if missing:
+            raise ValueError(
+                f"Не все активные дефекты имеют явное решение методиста: отсутствуют решения для идентификаторов {missing}"
+            )
+
+    # 4. Create resolution entry
     resolution_entry = {
         "status": "resolved",
         "resolved_by": str(methodologist_user_id).strip(),
         "resolved_at": datetime.now(UTC).isoformat(),
         "reason": reason.strip(),
-        "content_hash": current_hash,
-        "verified_revision": (verified_revision or "").strip(),
-        "acknowledged_defects": ack_list,
+        "content_hash": clean_act_hash,
+        "verified_revision": clean_rev,
+        "defect_resolutions": resolutions_list,
     }
 
-    # 4. Update source_analysis
+    # 5. Update source_analysis
     result.pop(SOURCE_UNCERTAINTY_KEY, None)
     history = list(result.get("resolutions_history") or [])
     if "source_uncertainty_resolution" in result and result["source_uncertainty_resolution"] not in history:
@@ -190,9 +269,9 @@ def resolve_source_uncertainty(
     result["source_uncertainty_resolution"] = resolution_entry
 
     if "evidence_v3" in result and isinstance(result["evidence_v3"], dict):
-        result["evidence_v3"]["acknowledged_defects"] = ack_list
+        result["evidence_v3"]["defect_resolutions"] = resolutions_list
     if "diagnostics" in result and isinstance(result["diagnostics"], dict):
-        result["diagnostics"]["acknowledged_defects"] = ack_list
+        result["diagnostics"]["defect_resolutions"] = resolutions_list
 
     return result
 

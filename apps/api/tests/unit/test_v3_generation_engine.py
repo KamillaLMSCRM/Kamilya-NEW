@@ -1634,7 +1634,9 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
     assert saved_lessons_2[0].source_validation_status == "needs_review"
 
     # 4. Methodologist performs authorized review action: clears hold via audit resolution helper
-    from app.modules.courses.source_uncertainty import resolve_source_uncertainty
+    from app.modules.courses.source_uncertainty import get_active_source_defects, resolve_source_uncertainty
+
+    test_content_hash = "c" * 64
 
     # Attempting to resolve without acknowledging active critical defect MUST FAIL
     with pytest.raises(ValueError) as unack_err:
@@ -1642,21 +1644,33 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
             session.course.source_analysis,
             reason="Методист проверил регламент, подтвердил качество и утвердил формулировки",
             methodologist_user_id=actor_id,
+            expected_content_hash=test_content_hash,
+            actual_content_hash=test_content_hash,
+            verified_revision="rev-1",
         )
-    assert "обнаружены неисправленные замечания/нарушения" in str(unack_err.value)
+    assert "обнаружены активные дефекты курса" in str(unack_err.value)
 
-    # Resolving with explicit acknowledgment of the defect succeeds
+    active_defects = get_active_source_defects(session.course.source_analysis)
+    assert len(active_defects) >= 1
+    defect_id = active_defects[0]["defect_id"]
+
+    # Resolving with explicit structured resolution of the defect succeeds
     session.course.source_analysis = resolve_source_uncertainty(
         session.course.source_analysis,
         reason="Методист проверил регламент, подтвердил качество и утвердил формулировки",
         methodologist_user_id=actor_id,
-        acknowledged_defects=["Семантический дефект критика: дверь сейфа должна быть закрыта"],
+        expected_content_hash=test_content_hash,
+        actual_content_hash=test_content_hash,
+        verified_revision="rev-1",
+        defect_resolutions=[{
+            "defect_id": defect_id,
+            "action": "documented_exception",
+            "rationale": "Согласовано как регламентированное исключение для сейфовых комнат",
+        }],
     )
     assert session.course.source_analysis["source_uncertainty_resolution"]["status"] == "resolved"
     assert session.course.source_analysis["source_uncertainty_resolution"]["resolved_by"] == str(actor_id)
-    assert session.course.source_analysis["source_uncertainty_resolution"]["acknowledged_defects"] == [
-        "Семантический дефект критика: дверь сейфа должна быть закрыта"
-    ]
+    assert len(session.course.source_analysis["source_uncertainty_resolution"]["defect_resolutions"]) == 1
     # Guard now passes without raising 409
     require_persisted_source_hold_clear(session.course.source_analysis)
 

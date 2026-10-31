@@ -104,10 +104,15 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
     assert error.value.detail["code"] == "source_uncertainty_review_required"
 
     # Authorized resolution
+    content_hash = "a" * 64
     resolved = resolve_source_uncertainty(
         initial_analysis,
         reason="Методист выполнил сверку регламента",
         methodologist_user_id=actor_id,
+        expected_content_hash=content_hash,
+        actual_content_hash=content_hash,
+        verified_revision="rev-1.0",
+        available_revisions=["rev-1.0"],
     )
 
     # Hold is cleared and audit trail is preserved
@@ -116,23 +121,52 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
     assert resolved["source_uncertainty_resolution"]["resolved_by"] == str(actor_id)
     assert resolved["source_uncertainty_resolution"]["reason"] == "Методист выполнил сверку регламента"
     assert "resolved_at" in resolved["source_uncertainty_resolution"]
-    assert "content_hash" in resolved["source_uncertainty_resolution"]
+    assert resolved["source_uncertainty_resolution"]["content_hash"] == content_hash
+    assert resolved["source_uncertainty_resolution"]["verified_revision"] == "rev-1.0"
 
     # Guard now passes
     require_persisted_source_hold_clear(resolved)
 
     # Calling resolve on an already-resolved analysis (marker absent) raises ValueError
     with pytest.raises(ValueError) as no_hold_err:
-        resolve_source_uncertainty(resolved, reason="Повторное действие без маркера", methodologist_user_id=actor_id)
+        resolve_source_uncertainty(
+            resolved,
+            reason="Повторное действие без маркера",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
+        )
     assert "отсутствует активная блокировка" in str(no_hold_err.value)
 
     # Rejects invalid / unauthenticated calls
     with pytest.raises(ValueError):
-        resolve_source_uncertainty(initial_analysis, reason="Проверка", methodologist_user_id=None)
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="Проверка",
+            methodologist_user_id=None,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
+        )
     with pytest.raises(ValueError):
-        resolve_source_uncertainty(initial_analysis, reason="", methodologist_user_id=actor_id)
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
+        )
     with pytest.raises(ValueError):
-        resolve_source_uncertainty(initial_analysis, reason="коротко", methodologist_user_id=actor_id)
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="коротко",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
+        )
 
     # Content hash mismatch rejects resolution
     with pytest.raises(ValueError) as hash_err:
@@ -141,10 +175,25 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             reason="Методист выполнил сверку регламента",
             methodologist_user_id=actor_id,
             expected_content_hash="bad-hash-00000000000000000000000000000000",
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
         )
     assert "Несоответствие версии содержания" in str(hash_err.value)
 
-    # Active violations without acknowledgment rejects resolution
+    # Revision mismatch rejects resolution
+    with pytest.raises(ValueError) as rev_err:
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="Методист выполнил сверку регламента",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-wrong",
+            available_revisions=["rev-1.0"],
+        )
+    assert "не совпадает с авторитетными ревизиями" in str(rev_err.value)
+
+    # Active violations without resolutions rejects resolution
     analysis_with_violations = {
         SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
         "evidence_v3": {"violations": ["Критическое смысловое искажение: закрыть дверь vs открыть"]},
@@ -154,23 +203,48 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
             analysis_with_violations,
             reason="Методист проверил регламент и утвердил",
             methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
         )
-    assert "обнаружены неисправленные замечания/нарушения" in str(defect_err.value)
+    assert "обнаружены активные дефекты курса" in str(defect_err.value)
 
-    # Resolving with explicit acknowledgment succeeds
+    # Single-letter or substring matching is FORBIDDEN and rejected
+    with pytest.raises(ValueError) as sub_err:
+        resolve_source_uncertainty(
+            analysis_with_violations,
+            reason="Методист попытался закрыть подстрокой",
+            methodologist_user_id=actor_id,
+            expected_content_hash=content_hash,
+            actual_content_hash=content_hash,
+            verified_revision="rev-1.0",
+            defect_resolutions=[{"defect_id": "a", "action": "acknowledged_risk", "rationale": "Не должно матчить подстроку"}],
+        )
+    assert "отсутствуют решения для идентификаторов" in str(sub_err.value)
+
+    # Resolving with exact stable defect ID succeeds
+    from app.modules.courses.source_uncertainty import get_active_source_defects
+    active_defects = get_active_source_defects(analysis_with_violations)
+    assert len(active_defects) == 1
+    stable_defect_id = active_defects[0]["defect_id"]
+    assert stable_defect_id.startswith("defect-")
+
     resolved_with_ack = resolve_source_uncertainty(
         analysis_with_violations,
         reason="Методист проверил регламент и согласовал замечание как исключение",
         methodologist_user_id=actor_id,
-        acknowledged_defects=["Критическое смысловое искажение: закрыть дверь vs открыть"],
+        expected_content_hash=content_hash,
+        actual_content_hash=content_hash,
+        verified_revision="rev-1.0",
+        defect_resolutions=[{
+            "defect_id": stable_defect_id,
+            "action": "documented_exception",
+            "rationale": "Согласовано как технологическое исключение для ночного режима склада",
+        }],
     )
     assert SOURCE_UNCERTAINTY_KEY not in resolved_with_ack
-    assert resolved_with_ack["source_uncertainty_resolution"]["acknowledged_defects"] == [
-        "Критическое смысловое искажение: закрыть дверь vs открыть"
-    ]
-    assert resolved_with_ack["evidence_v3"]["acknowledged_defects"] == [
-        "Критическое смысловое искажение: закрыть дверь vs открыть"
-    ]
+    assert len(resolved_with_ack["source_uncertainty_resolution"]["defect_resolutions"]) == 1
+    assert resolved_with_ack["source_uncertainty_resolution"]["defect_resolutions"][0]["defect_id"] == stable_defect_id
 
     # Calling resolve second time appends to history without overwriting previous audit records
     second_actor = uuid4()
@@ -179,6 +253,9 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
         second_analysis,
         reason="Вторая проверка после правок регламента",
         methodologist_user_id=second_actor,
+        expected_content_hash=content_hash,
+        actual_content_hash=content_hash,
+        verified_revision="rev-1.0",
     )
     assert len(second_resolved["resolutions_history"]) == 2
     assert second_resolved["resolutions_history"][0]["resolved_by"] == str(actor_id)

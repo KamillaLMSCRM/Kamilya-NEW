@@ -409,7 +409,10 @@ async def resolve_course_source_uncertainty(
     Validates tenant isolation, records immutable resolution entry with user ID,
     timestamp, and reason into Course.source_analysis, and writes an audit log.
     """
-    from app.modules.courses.source_uncertainty import resolve_source_uncertainty
+    from app.modules.courses.source_uncertainty import (
+        compute_course_content_snapshot_hash,
+        resolve_source_uncertainty,
+    )
 
     query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id).with_for_update()
     result = await db.execute(query)
@@ -417,14 +420,35 @@ async def resolve_course_source_uncertainty(
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
+    actual_hash = await compute_course_content_snapshot_hash(db, course)
+
+    available_revisions: list[str] = []
+    if course.source_instruction_version_at:
+        available_revisions.append(course.source_instruction_version_at.isoformat())
+    if isinstance(course.source_analysis, dict):
+        sa = course.source_analysis
+        for key in ("source_revision", "document_revision", "revision"):
+            if sa.get(key):
+                available_revisions.append(str(sa[key]).strip())
+        doc_rule_model = sa.get("document_rule_model") or {}
+        if doc_rule_model.get("source_revision"):
+            available_revisions.append(str(doc_rule_model["source_revision"]).strip())
+        ev3 = sa.get("evidence_v3") or {}
+        if ev3.get("source_revision"):
+            available_revisions.append(str(ev3["source_revision"]).strip())
+
+    defect_payload = [d.model_dump() for d in req.defect_resolutions]
+
     try:
         updated_analysis = resolve_source_uncertainty(
             course.source_analysis,  # type: ignore[arg-type]
             reason=req.reason,
             methodologist_user_id=user.id,
             expected_content_hash=req.expected_content_hash,
+            actual_content_hash=actual_hash,
             verified_revision=req.verified_revision,
-            acknowledged_defects=req.acknowledged_defects,
+            available_revisions=available_revisions or None,
+            defect_resolutions=defect_payload,
         )
     except ValueError as val_err:
         raise HTTPException(
@@ -448,7 +472,7 @@ async def resolve_course_source_uncertainty(
             "resolved_at": resolution_data.get("resolved_at"),
             "content_hash": resolution_data.get("content_hash"),
             "verified_revision": resolution_data.get("verified_revision"),
-            "acknowledged_defects": resolution_data.get("acknowledged_defects"),
+            "defect_resolutions": resolution_data.get("defect_resolutions"),
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),

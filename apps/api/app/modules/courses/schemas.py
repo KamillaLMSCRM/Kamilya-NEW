@@ -68,12 +68,21 @@ class CourseReviewRequest(BaseModel):
     comment: str | None = Field(default=None, max_length=2000)
 
 
+class DefectResolution(BaseModel):
+    """Explicit methodologist resolution for a specific defect."""
+    defect_id: str = Field(..., min_length=4, max_length=64, description="Stable defect ID (e.g. defect-a1b2c3d4)")
+    action: Literal["acknowledged_risk", "documented_exception", "manual_verification_passed"] = Field(
+        ..., description="Explicit methodological action taken regarding the defect"
+    )
+    rationale: str = Field(..., min_length=10, max_length=1000, description="Detailed justification for why this defect is resolved or permitted")
+
+
 class CourseResolveSourceUncertaintyRequest(BaseModel):
     """Body for POST /courses/{id}/resolve-source-uncertainty."""
     reason: str = Field(..., min_length=10, max_length=2000, description="Audit justification for resolving the source hold")
-    expected_content_hash: str | None = Field(default=None, max_length=128, description="Expected SHA256 of course content snapshot to guard against concurrent edits")
-    verified_revision: str | None = Field(default=None, max_length=255, description="Source revision verified by methodologist")
-    acknowledged_defects: list[str] | None = Field(default=None, description="Explicit list of defects/violations acknowledged by methodologist")
+    expected_content_hash: str = Field(..., min_length=32, max_length=128, description="Mandatory SHA-256 of the course content snapshot verified by the methodologist")
+    verified_revision: str = Field(..., min_length=1, max_length=255, description="Mandatory authoritative source revision verified by the methodologist")
+    defect_resolutions: list[DefectResolution] = Field(default_factory=list, description="Explicit structured resolutions for each active defect")
 
 
 class CoursePreviewSourceDocument(BaseModel):
