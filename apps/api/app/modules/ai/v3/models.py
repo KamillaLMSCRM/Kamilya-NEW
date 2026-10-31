@@ -52,6 +52,7 @@ class CurriculumGroup:
     section: str
     primary_rules: tuple[RuleEntity, ...]
     context_prerequisite_rules: tuple[RuleEntity, ...] = ()
+    unresolved_dependencies: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +61,7 @@ class CurriculumGroup:
             "section": self.section,
             "primary_rules": [r.to_dict() for r in self.primary_rules],
             "context_prerequisite_rules": [r.to_dict() for r in self.context_prerequisite_rules],
+            "unresolved_dependencies": list(self.unresolved_dependencies),
         }
 
 

@@ -186,26 +186,32 @@ class V3GenerationPipeline:
                 )
 
         return V3Lesson(
-            lesson_id=raw["lesson_id"],
-            title=raw["title"],
+            lesson_id=raw.get("lesson_id") or f"lesson-{abs(hash(raw.get('title', 'lesson'))) % 10000:04d}",
+            title=raw.get("title", lesson_theme),
             module_title=raw.get("module_title", module_title),
-            content=raw["content"],
+            content=raw.get("content", ""),
             covered_rule_ids=tuple(r.rule_id for r in rules),
             cases=tuple(cases),
             questions=tuple(assembled_questions),
         )
 
-    async def review_lesson(self, lesson: V3Lesson, source_rules: list[RuleEntity]) -> dict[str, Any]:
-        """Step 4: Two-factor evaluation of Lesson and Questions."""
+    async def review_lesson(
+        self,
+        lesson: V3Lesson,
+        source_rules: list[RuleEntity],
+        source_fragments: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Adversarial critic review of Lesson narrative and questions against source rules and exact fragments."""
+        user_parts = [
+            f"ПРОВЕРЯЕМЫЙ УРОК:\n{json.dumps(lesson.to_dict(), ensure_ascii=False, indent=2)}",
+            f"ЭТАЛОННЫЕ ПРАВИЛА ИЗ ИСТОЧНИКА:\n{json.dumps([r.to_dict() for r in source_rules], ensure_ascii=False, indent=2)}",
+        ]
+        if source_fragments:
+            user_parts.append("ПРЯМЫЕ ЦИТАТЫ ИЗ ОРИГИНАЛА ДОКУМЕНТА:\n" + "\n---\n".join(source_fragments))
+
         messages = [
             {"role": "system", "content": QA_REVIEW_SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"ПРОВЕРЯЕМЫЙ УРОК:\n{json.dumps(lesson.to_dict(), ensure_ascii=False, indent=2)}\n\n"
-                    f"ЭТАЛОННЫЕ ПРАВИЛА ИЗ ИСТОЧНИКА:\n{json.dumps([r.to_dict() for r in source_rules], ensure_ascii=False, indent=2)}"
-                ),
-            },
+            {"role": "user", "content": "\n\n".join(user_parts)},
         ]
         result: dict[str, Any] = await self._call_llm(messages)
         return result

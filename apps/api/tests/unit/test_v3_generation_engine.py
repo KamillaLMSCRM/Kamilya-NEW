@@ -1,5 +1,7 @@
 """Integration test validating V3 generation architecture and 4-distractor synthesis."""
 
+from typing import Any
+
 import pytest
 
 from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
@@ -588,6 +590,295 @@ def test_adapter_propagates_violations_and_review_flags():
     assert artifacts.diagnostics["requires_source_review"] is True
     assert "Critical semantic gap detected: requires methodologist signoff" in artifacts.content.source_warnings
     assert artifacts.content.modules[0].lessons[0].source_validation_status == "needs_review"
+
+
+def test_multi_level_transitive_dependency_closure():
+    """Verify arbitrary-depth dependency closure: Rule 3 -> Rule 2 -> Rule 1 brings all prerequisites into context."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_1 = RuleEntity(
+        rule_id="r1",
+        section="Раздел 1: Базовые условия",
+        title="Пункт 1: Обязательная аутентификация",
+        statement="Все операции требуют двухфакторной аутентификации.",
+    )
+    rule_2 = RuleEntity(
+        rule_id="r2",
+        section="Раздел 2: Промежуточный регламент",
+        title="Пункт 2: Подтверждение лимитов",
+        statement="Проверка лимита выполняется строго по правилу r1 перед выдачей.",
+    )
+    rule_3 = RuleEntity(
+        rule_id="r3",
+        section="Раздел 3: Финальное оформление",
+        title="Пункт 3: Закрытие сделки",
+        statement="Финальное оформление проводится в соответствии с r2 и формирует договор.",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Многоуровневый регламент",
+        document_sha256="fake-sha-transitive",
+        rules=(rule_1, rule_2, rule_3),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    group_3 = next(g for g in groups if g.section == "Раздел 3: Финальное оформление")
+    prereq_ids = {r.rule_id for r in group_3.context_prerequisite_rules}
+
+    # Transitive closure must contain both r2 (direct) and r1 (indirect prerequisite)
+    assert "r2" in prereq_ids, "Direct dependency r2 missing from Group 3 context"
+    assert "r1" in prereq_ids, "Indirect transitive prerequisite r1 missing from Group 3 context"
+
+
+def test_boundary_safe_rule_id_matching():
+    """Verify that rule ID matching uses word boundaries so 'r1' does NOT falsely match inside 'r10'."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_1 = RuleEntity(
+        rule_id="r1",
+        section="Раздел 1",
+        title="Базовое правило 1",
+        statement="Условие 1.",
+    )
+    rule_10 = RuleEntity(
+        rule_id="r10",
+        section="Раздел 10",
+        title="Правило 10",
+        statement="Условие 10.",
+    )
+    rule_dependent = RuleEntity(
+        rule_id="r20",
+        section="Раздел 20",
+        title="Правило 20",
+        statement="Данная операция выполняется исключительно в соответствии с r10 и никакими иными.",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Проверка границ ID",
+        document_sha256="fake-sha-boundary",
+        rules=(rule_1, rule_10, rule_dependent),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    group_20 = next(g for g in groups if g.section == "Раздел 20")
+    prereq_ids = {r.rule_id for r in group_20.context_prerequisite_rules}
+
+    assert "r10" in prereq_ids, "Target dependency r10 should be resolved"
+    assert "r1" not in prereq_ids, "False positive! 'r1' matched inside substring 'r10'"
+
+
+def test_structured_clause_reference_resolution_and_ambiguity():
+    """Verify resolution of natural clause references (e.g. 'пункт 2') and detection of ambiguous cross-section references."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_sec1_p2 = RuleEntity(
+        rule_id="rule-s1-p2",
+        section="Раздел 1: Прием залогов",
+        title="Пункт 2: Порядок взвешивания изделий",
+        statement="Взвешивание производится на поверенных весах.",
+    )
+    rule_sec2_p2 = RuleEntity(
+        rule_id="rule-s2-p2",
+        section="Раздел 2: Оценка драгоценных металлов",
+        title="Пункт 2: Определение пробы",
+        statement="Определение пробы проводится реактивами.",
+    )
+    rule_ambiguous_ref = RuleEntity(
+        rule_id="rule-ambiguous",
+        section="Раздел 3: Исполнение сделки",
+        title="Завершение операции",
+        statement="Сотрудник обязан действовать согласно пункту 2.",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Регламент ломбарда с пунктом 2",
+        document_sha256="fake-sha-clauses",
+        rules=(rule_sec1_p2, rule_sec2_p2, rule_ambiguous_ref),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    group_3 = next(g for g in groups if g.section == "Раздел 3: Исполнение сделки")
+
+    # Ambiguity check: both candidates included in context, and unresolved_dependencies flags the ambiguity
+    prereq_ids = {r.rule_id for r in group_3.context_prerequisite_rules}
+    assert "rule-s1-p2" in prereq_ids
+    assert "rule-s2-p2" in prereq_ids
+    assert any("Неоднозначная ссылка на пункт '2'" in u for u in group_3.unresolved_dependencies)
+
+
+def test_rule_sanitization_and_zero_rule_leak_invariants():
+    """Verify rule ID deduplication and that zero rules are lost even when duplicates or empty IDs are supplied."""
+    from app.modules.ai.v3.service import _build_curriculum_groups
+
+    rule_dup_1 = RuleEntity(
+        rule_id="dup-id",
+        section="Раздел 1",
+        title="Правило 1",
+        statement="Текст 1",
+    )
+    rule_dup_2 = RuleEntity(
+        rule_id="dup-id",
+        section="Раздел 1",
+        title="Правило 2 с дублирующимся ID",
+        statement="Текст 2",
+    )
+    rule_empty_id = RuleEntity(
+        rule_id="",
+        section="Раздел 2",
+        title="Правило с пустым ID",
+        statement="Текст 3",
+    )
+
+    rule_model = DocumentRuleModel(
+        document_title="Грязный импорт правил",
+        document_sha256="fake-sha-dedup",
+        rules=(rule_dup_1, rule_dup_2, rule_empty_id),
+    )
+
+    groups = _build_curriculum_groups(rule_model)
+    all_allocated_rules = [r for g in groups for r in g.primary_rules]
+
+    # Exactly 3 rules must be present
+    assert len(all_allocated_rules) == 3
+    ids = [r.rule_id for r in all_allocated_rules]
+    # All IDs must be unique and non-empty
+    assert len(ids) == len(set(ids))
+    assert all(len(i) > 0 for i in ids)
+
+
+@pytest.mark.asyncio
+async def test_critic_defect_propagation_to_violations_and_artifacts():
+    """Verify that critic review defects (such as door open vs closed) are propagated directly into violations."""
+    from app.modules.ai.direct_source import DirectSourceChunk, DirectSourceCorpus, DirectSourceDocument
+    from app.modules.ai.evidence_engine.models import CourseIntent
+    from app.modules.ai.v3.service import generate_v3_course_from_corpus
+
+    chunk = DirectSourceChunk(
+        chunk_id="chk-1",
+        doc_id="doc-safety-1",
+        doc_name="safety.txt",
+        title="Безопасность",
+        headings=("Безопасность",),
+        text="Регламент безопасности. Сотрудник обязан закрыть дверь сейфовой комнаты на ключ.",
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-safety-1",
+        title="Регламент безопасности",
+        filename="safety.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-safety",
+        documents=(doc,),
+        total_chars=100,
+        total_chunks=1,
+    )
+
+    call_count = 0
+
+    async def mock_llm_client(messages: list[dict[str, str]], response_format: Any = None) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+
+        # Step 1: Rule extraction
+        if call_count == 1:
+            return {
+                "document_title": "Регламент безопасности",
+                "document_sha256": "fake-sha",
+                "overview": "Обзор",
+                "rules": [
+                    {
+                        "rule_id": "rule-door-lock",
+                        "section": "Безопасность",
+                        "title": "Блокировка двери",
+                        "statement": "Сотрудник обязан закрыть дверь сейфовой комнаты на ключ.",
+                        "conditions": [],
+                        "exceptions": [],
+                        "actors": ["Сотрудник"],
+                        "timing": "По окончании дня",
+                        "consequences": "Дисциплинарная ответственность",
+                        "source_quote": "Сотрудник обязан закрыть дверь сейфовой комнаты на ключ.",
+                    }
+                ],
+            }
+
+        # Step 2: Generation (Hallucinating: says 'открыть дверь')
+        if call_count == 2:
+            return {
+                "lesson_id": "lesson-door-1",
+                "title": "Урок по безопасности: Двери сейфа",
+                "content": "Сотрудник обязан открыть дверь сейфовой комнаты для проветривания.",
+                "covered_rule_ids": ["rule-door-lock"],
+                "cases": [
+                    {
+                        "case_id": "case-door-1",
+                        "rule_id": "rule-door-lock",
+                        "learning_objective": "Порядок действий с дверью сейфа",
+                        "variants": [
+                            {
+                                "variant_id": "var-door-1",
+                                "branch_context": "Филиал №1",
+                                "scenario_premise": "Рабочий день завершен.",
+                                "prompt": "Что обязан сделать сотрудник?",
+                                "correct_option": {
+                                    "text": "Открыть дверь сейфа для проветривания",
+                                    "is_correct": True,
+                                },
+                                "distractor_pool": [
+                                    {
+                                        "text": "Закрыть дверь на все замки и опечатать",
+                                        "is_correct": False,
+                                        "distractor_category": "procedural_confusion",
+                                    },
+                                    {
+                                        "text": "Оставить ключ в замке двери сейфа",
+                                        "is_correct": False,
+                                        "distractor_category": "unauthorized_action",
+                                    },
+                                    {
+                                        "text": "Позвонить директору для консультации",
+                                        "is_correct": False,
+                                        "distractor_category": "role_confusion",
+                                    },
+                                ],
+                                "explanation": "Проветривание необходимо.",
+                                "source_quote": "Сотрудник обязан закрыть дверь сейфовой комнаты на ключ.",
+                            }
+                        ],
+                    }
+                ],
+            }
+
+        # Step 3: Critic Review flags contradiction
+        return {
+            "verdict": "FAIL",
+            "defects": [
+                "Критическое смысловое искажение: источник требует закрыть дверь на ключ, а урок предписывает открыть для проветривания."
+            ],
+            "confidence": 1.0,
+        }
+
+    intent = CourseIntent(audience="Сотрудники", purpose="Безопасность", emphasis=("Двери",))
+    artifacts = await generate_v3_course_from_corpus(
+        corpus=corpus,
+        intent=intent,
+        generation_client=mock_llm_client,
+    )
+
+    # Invariants:
+    # 1. Critic review defect must be propagated into diagnostics violations
+    assert any("Критическое смысловое искажение" in v for v in artifacts.diagnostics["violations"])
+    # 2. Defect must be in content.source_warnings
+    assert any("Критическое смысловое искажение" in w for w in artifacts.content.source_warnings)
+    # 3. Requires source review must be True
+    assert artifacts.diagnostics["requires_source_review"] is True
+    # 4. Overall quality verdict must NOT be verified
+    assert artifacts.diagnostics["quality_verdict"] != "verified"
+
 
 
 
