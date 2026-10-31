@@ -1598,6 +1598,10 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
         structure=artifacts.structure,
         content=artifacts.content,
         assessment=artifacts.assessment,
+        source_analysis={
+            "evidence_v3": artifacts.diagnostics,
+            "violations": artifacts.content.source_warnings,
+        },
     )
 
     # 2. Save generation to DB
@@ -1632,15 +1636,35 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
     # 4. Methodologist performs authorized review action: clears hold via audit resolution helper
     from app.modules.courses.source_uncertainty import resolve_source_uncertainty
 
+    # Attempting to resolve without acknowledging active critical defect MUST FAIL
+    with pytest.raises(ValueError) as unack_err:
+        resolve_source_uncertainty(
+            session.course.source_analysis,
+            reason="Методист проверил регламент, подтвердил качество и утвердил формулировки",
+            methodologist_user_id=actor_id,
+        )
+    assert "обнаружены неисправленные замечания/нарушения" in str(unack_err.value)
+
+    # Resolving with explicit acknowledgment of the defect succeeds
     session.course.source_analysis = resolve_source_uncertainty(
         session.course.source_analysis,
         reason="Методист проверил регламент, подтвердил качество и утвердил формулировки",
         methodologist_user_id=actor_id,
+        acknowledged_defects=["Семантический дефект критика: дверь сейфа должна быть закрыта"],
     )
     assert session.course.source_analysis["source_uncertainty_resolution"]["status"] == "resolved"
     assert session.course.source_analysis["source_uncertainty_resolution"]["resolved_by"] == str(actor_id)
+    assert session.course.source_analysis["source_uncertainty_resolution"]["acknowledged_defects"] == [
+        "Семантический дефект критика: дверь сейфа должна быть закрыта"
+    ]
     # Guard now passes without raising 409
     require_persisted_source_hold_clear(session.course.source_analysis)
+
+    # Independent publication/review gates remain strictly preserved:
+    # 1. Lesson status is STILL needs_review (not verified)
+    assert saved_lessons_2[0].source_validation_status == "needs_review"
+    # 2. Course review status is STILL not approved
+    assert session.course.review_status != "approved"
 
 
 @pytest.mark.asyncio
@@ -1982,6 +2006,135 @@ async def test_quote_revision_mismatch_and_multi_doc_unbiased_grounding():
     assert is_grounded_split is False
     assert "Несогласованность ревизий источника" in report_split or "Несоответствие ревизии чанка" in report_split
 
+    # Point 2: Missing revision cases must NEVER be assumed or substituted; must stay for review
+    # Case 2a: Rule specifies empty source_revision="" -> must FAIL with unknown rule revision
+    rule_no_rev = RuleEntity(
+        rule_id="r-no-rev",
+        section="Раздел",
+        title="Правило без ревизии",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-reg",
+        source_revision="",
+    )
+    is_grounded_no_rev, report_no_rev, _ = _verify_rule_quote_grounding(rule_no_rev, corpus)
+    assert is_grounded_no_rev is False
+    assert "Неопределенная ревизия правила" in report_no_rev
+
+    # Case 2b: Chunk has empty source_revision="" -> must FAIL with unknown chunk revision
+    chunk_no_rev = DirectSourceChunk(
+        chunk_id="chk-no-rev",
+        doc_id="doc-chunk-norev",
+        doc_name="reg.txt",
+        title="Регламент",
+        headings=(),
+        text=f"Текст: {quote_rev}",
+        source_revision="",
+        chunk_index=0,
+    )
+    doc_chunk_norev = DirectSourceDocument(
+        doc_id="doc-chunk-norev",
+        title="Регламент",
+        filename="reg.txt",
+        category="regulations",
+        source_revision="rev-2.0",
+        chunks=(chunk_no_rev,),
+    )
+    corpus_chunk_norev = DirectSourceCorpus(
+        tenant_id="tenant-norev",
+        documents=(doc_chunk_norev,),
+        total_chars=100,
+        total_chunks=1,
+    )
+    rule_req_rev = RuleEntity(
+        rule_id="r-req-rev",
+        section="Раздел",
+        title="Правило",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-chunk-norev",
+        source_revision="rev-2.0",
+    )
+    is_g_chk, rep_chk, _ = _verify_rule_quote_grounding(rule_req_rev, corpus_chunk_norev)
+    assert is_g_chk is False
+    assert "Неопределенная ревизия фрагмента" in rep_chk
+
+    # Case 2c: Document has empty source_revision="" -> must FAIL with unknown doc revision
+    chunk_with_rev = DirectSourceChunk(
+        chunk_id="chk-has-rev",
+        doc_id="doc-doc-norev",
+        doc_name="reg.txt",
+        title="Регламент",
+        headings=(),
+        text=f"Текст: {quote_rev}",
+        source_revision="rev-2.0",
+        chunk_index=0,
+    )
+    doc_doc_norev = DirectSourceDocument(
+        doc_id="doc-doc-norev",
+        title="Регламент",
+        filename="reg.txt",
+        category="regulations",
+        source_revision="",
+        chunks=(chunk_with_rev,),
+    )
+    corpus_doc_norev = DirectSourceCorpus(
+        tenant_id="tenant-doc-norev",
+        documents=(doc_doc_norev,),
+        total_chars=100,
+        total_chunks=1,
+    )
+    rule_req_doc_rev = RuleEntity(
+        rule_id="r-req-doc-rev",
+        section="Раздел",
+        title="Правило",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-doc-norev",
+        source_revision="rev-2.0",
+    )
+    is_g_doc, rep_doc, _ = _verify_rule_quote_grounding(rule_req_doc_rev, corpus_doc_norev)
+    assert is_g_doc is False
+    assert "Неопределенная ревизия документа" in rep_doc
+
+    # Case 2d: All three missing source_revision="" -> must FAIL
+    chunk_all_empty = DirectSourceChunk(
+        chunk_id="chk-empty",
+        doc_id="doc-empty",
+        doc_name="empty.txt",
+        title="Пусто",
+        headings=(),
+        text=f"Текст: {quote_rev}",
+        source_revision="",
+        chunk_index=0,
+    )
+    doc_all_empty = DirectSourceDocument(
+        doc_id="doc-empty",
+        title="Пусто",
+        filename="empty.txt",
+        category="regulations",
+        source_revision="",
+        chunks=(chunk_all_empty,),
+    )
+    corpus_all_empty = DirectSourceCorpus(
+        tenant_id="tenant-all-empty",
+        documents=(doc_all_empty,),
+        total_chars=100,
+        total_chunks=1,
+    )
+    rule_all_empty = RuleEntity(
+        rule_id="r-all-empty",
+        section="Раздел",
+        title="Правило",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-empty",
+        source_revision="",
+    )
+    is_g_all, rep_all, _ = _verify_rule_quote_grounding(rule_all_empty, corpus_all_empty)
+    assert is_g_all is False
+    assert "Неопределенная ревизия фрагмента" in rep_all
+
 
 @pytest.mark.asyncio
 async def test_quote_ownership_and_cross_document_ambiguity():
@@ -2045,7 +2198,7 @@ async def test_quote_ownership_and_cross_document_ambiguity():
     assert is_grounded is False
     assert "Неоднозначная принадлежность цитаты" in report
 
-    # Case 2: Rule explicitly specifies doc_id="doc-B" -> must bind strictly to doc-B (not doc-A)
+    # Case 2: Rule explicitly specifies doc_id="doc-B" and source_revision="rev-b" -> must bind strictly to doc-B
     rule_owner_b = RuleEntity(
         rule_id="r-b",
         section="Раздел",
@@ -2053,6 +2206,7 @@ async def test_quote_ownership_and_cross_document_ambiguity():
         statement="Сотрудник обязан закрыть дверь сейфа.",
         source_quote=quote_shared,
         doc_id="doc-B",
+        source_revision="rev-b",
     )
     is_grounded, report, matches = _verify_rule_quote_grounding(rule_owner_b, corpus)
     assert is_grounded is True

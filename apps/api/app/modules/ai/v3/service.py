@@ -125,43 +125,56 @@ def _occurrence_matches_revision(occ: QuoteOccurrence, rule_rev: str) -> tuple[b
     """Jointly verifies revision consistency between Rule, Document, and specific Chunk.
 
     Guarantees:
-    - If chunk has a revision different from document (e.g. doc is 'new', chunk is 'old'), conflict is detected.
-    - If rule specifies a revision, the chunk's actual revision must match rule revision.
-    - If rule does not specify a revision, document and chunk must not conflict with each other.
+    - Every revision (Rule, Document, Chunk) must be explicitly known and non-empty.
+    - Missing or unknown revisions are NEVER assumed or substituted; they require manual review.
+    - If chunk has a revision different from document, conflict is detected.
+    - If chunk has a revision different from rule, conflict is detected.
+    - If document has a revision different from rule, conflict is detected.
     """
-    chunk_rev = occ.chunk_revision
-    doc_rev = occ.doc_revision
+    chunk_rev = (occ.chunk_revision or "").strip()
+    doc_rev = (occ.doc_revision or "").strip()
+    rule_rev = (rule_rev or "").strip()
 
-    # 1. Internal consistency between document and chunk
-    if chunk_rev and doc_rev and chunk_rev != doc_rev:
+    # 1. Unknown / missing revisions must fail verification and stay for review
+    if not chunk_rev:
+        return False, (
+            f"Неопределенная ревизия фрагмента: чанк '{occ.chunk_id}' документа '{occ.doc_id}' "
+            "не имеет указанной source_revision (неизвестная ревизия требует проверки)"
+        )
+    if not doc_rev:
+        return False, (
+            f"Неопределенная ревизия документа: документ '{occ.doc_id}' "
+            "не имеет указанной source_revision (неизвестная ревизия требует проверки)"
+        )
+    if not rule_rev:
+        return False, (
+            "Неопределенная ревизия правила: правило не указывает обязательную source_revision "
+            "(неизвестная ревизия требует проверки)"
+        )
+
+    # 2. Internal consistency between document and chunk
+    if chunk_rev != doc_rev:
         return False, (
             f"Несогласованность ревизий источника: документ '{occ.doc_id}' имеет ревизию '{doc_rev}', "
             f"но чанк '{occ.chunk_id}' содержит ревизию '{chunk_rev}'"
         )
 
-    # 2. Rule revision matching
-    if rule_rev:
-        effective_chunk_rev = chunk_rev or doc_rev
-        if chunk_rev and doc_rev and chunk_rev == doc_rev and doc_rev != rule_rev:
-            return False, (
-                f"Несоответствие ревизии документа: документ '{occ.doc_id}' (чанк '{occ.chunk_id}') имеет ревизию '{doc_rev}', "
-                f"а правило привязано к ревизии '{rule_rev}'"
-            )
-        if chunk_rev and chunk_rev != rule_rev:
-            return False, (
-                f"Несоответствие ревизии чанка: чанк '{occ.chunk_id}' имеет ревизию '{chunk_rev}', "
-                f"а правило привязано к ревизии '{rule_rev}'"
-            )
-        if doc_rev and doc_rev != rule_rev:
-            return False, (
-                f"Несоответствие ревизии документа: документ '{occ.doc_id}' имеет ревизию '{doc_rev}', "
-                f"а правило привязано к ревизии '{rule_rev}'"
-            )
-        if not effective_chunk_rev:
-            return False, (
-                f"Отсутствует достоверная ревизия у источника (документ '{occ.doc_id}', чанк '{occ.chunk_id}'), "
-                f"хотя правило требует ревизию '{rule_rev}'"
-            )
+    # 3. Rule revision matching
+    if chunk_rev == doc_rev and doc_rev != rule_rev:
+        return False, (
+            f"Несоответствие ревизии документа: документ '{occ.doc_id}' (чанк '{occ.chunk_id}') имеет ревизию '{doc_rev}', "
+            f"а правило привязано к ревизии '{rule_rev}'"
+        )
+    if chunk_rev != rule_rev:
+        return False, (
+            f"Несоответствие ревизии чанка: чанк '{occ.chunk_id}' имеет ревизию '{chunk_rev}', "
+            f"а правило привязано к ревизии '{rule_rev}'"
+        )
+    if doc_rev != rule_rev:
+        return False, (
+            f"Несоответствие ревизии документа: документ '{occ.doc_id}' имеет ревизию '{doc_rev}', "
+            f"а правило привязано к ревизии '{rule_rev}'"
+        )
 
     return True, ""
 

@@ -71,6 +71,9 @@ class CourseReviewRequest(BaseModel):
 class CourseResolveSourceUncertaintyRequest(BaseModel):
     """Body for POST /courses/{id}/resolve-source-uncertainty."""
     reason: str = Field(..., min_length=10, max_length=2000, description="Audit justification for resolving the source hold")
+    expected_content_hash: str | None = Field(default=None, max_length=128, description="Expected SHA256 of course content snapshot to guard against concurrent edits")
+    verified_revision: str | None = Field(default=None, max_length=255, description="Source revision verified by methodologist")
+    acknowledged_defects: list[str] | None = Field(default=None, description="Explicit list of defects/violations acknowledged by methodologist")
 
 
 class CoursePreviewSourceDocument(BaseModel):

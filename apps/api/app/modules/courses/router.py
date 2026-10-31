@@ -422,13 +422,20 @@ async def resolve_course_source_uncertainty(
             course.source_analysis,  # type: ignore[arg-type]
             reason=req.reason,
             methodologist_user_id=user.id,
+            expected_content_hash=req.expected_content_hash,
+            verified_revision=req.verified_revision,
+            acknowledged_defects=req.acknowledged_defects,
         )
     except ValueError as val_err:
-        raise HTTPException(status_code=422, detail=str(val_err)) from val_err
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
 
     course.source_analysis = updated_analysis  # type: ignore[assignment]
     await db.flush()
     await db.refresh(course)
+    resolution_data = updated_analysis.get("source_uncertainty_resolution", {})
     await log_action(
         db,
         user.tenant_id,  # type: ignore[arg-type]
@@ -438,7 +445,10 @@ async def resolve_course_source_uncertainty(
         user_id=user.id,  # type: ignore[arg-type]
         details={
             "reason": req.reason,
-            "resolved_at": updated_analysis.get("source_uncertainty_resolution", {}).get("resolved_at"),
+            "resolved_at": resolution_data.get("resolved_at"),
+            "content_hash": resolution_data.get("content_hash"),
+            "verified_revision": resolution_data.get("verified_revision"),
+            "acknowledged_defects": resolution_data.get("acknowledged_defects"),
         },
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),

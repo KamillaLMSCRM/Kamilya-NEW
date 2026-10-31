@@ -116,9 +116,15 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
     assert resolved["source_uncertainty_resolution"]["resolved_by"] == str(actor_id)
     assert resolved["source_uncertainty_resolution"]["reason"] == "Методист выполнил сверку регламента"
     assert "resolved_at" in resolved["source_uncertainty_resolution"]
+    assert "content_hash" in resolved["source_uncertainty_resolution"]
 
     # Guard now passes
     require_persisted_source_hold_clear(resolved)
+
+    # Calling resolve on an already-resolved analysis (marker absent) raises ValueError
+    with pytest.raises(ValueError) as no_hold_err:
+        resolve_source_uncertainty(resolved, reason="Повторное действие без маркера", methodologist_user_id=actor_id)
+    assert "отсутствует активная блокировка" in str(no_hold_err.value)
 
     # Rejects invalid / unauthenticated calls
     with pytest.raises(ValueError):
@@ -127,6 +133,44 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
         resolve_source_uncertainty(initial_analysis, reason="", methodologist_user_id=actor_id)
     with pytest.raises(ValueError):
         resolve_source_uncertainty(initial_analysis, reason="коротко", methodologist_user_id=actor_id)
+
+    # Content hash mismatch rejects resolution
+    with pytest.raises(ValueError) as hash_err:
+        resolve_source_uncertainty(
+            initial_analysis,
+            reason="Методист выполнил сверку регламента",
+            methodologist_user_id=actor_id,
+            expected_content_hash="bad-hash-00000000000000000000000000000000",
+        )
+    assert "Несоответствие версии содержания" in str(hash_err.value)
+
+    # Active violations without acknowledgment rejects resolution
+    analysis_with_violations = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "evidence_v3": {"violations": ["Критическое смысловое искажение: закрыть дверь vs открыть"]},
+    }
+    with pytest.raises(ValueError) as defect_err:
+        resolve_source_uncertainty(
+            analysis_with_violations,
+            reason="Методист проверил регламент и утвердил",
+            methodologist_user_id=actor_id,
+        )
+    assert "обнаружены неисправленные замечания/нарушения" in str(defect_err.value)
+
+    # Resolving with explicit acknowledgment succeeds
+    resolved_with_ack = resolve_source_uncertainty(
+        analysis_with_violations,
+        reason="Методист проверил регламент и согласовал замечание как исключение",
+        methodologist_user_id=actor_id,
+        acknowledged_defects=["Критическое смысловое искажение: закрыть дверь vs открыть"],
+    )
+    assert SOURCE_UNCERTAINTY_KEY not in resolved_with_ack
+    assert resolved_with_ack["source_uncertainty_resolution"]["acknowledged_defects"] == [
+        "Критическое смысловое искажение: закрыть дверь vs открыть"
+    ]
+    assert resolved_with_ack["evidence_v3"]["acknowledged_defects"] == [
+        "Критическое смысловое искажение: закрыть дверь vs открыть"
+    ]
 
     # Calling resolve second time appends to history without overwriting previous audit records
     second_actor = uuid4()
