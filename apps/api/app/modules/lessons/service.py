@@ -1,5 +1,6 @@
 """Lessons module — service layer"""
 
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -149,23 +150,47 @@ async def delete_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> N
 
 
 async def reorder_items(db: AsyncSession, item_type: str, ids_order: list[UUID], tenant_id: UUID) -> None:
-    """Reorder modules or lessons by array of IDs in order. Validates tenant ownership."""
-    model = Module if item_type == "module" else Lesson
-    for index, item_id in enumerate(ids_order):
-        result = await db.execute(select(model).where(model.id == item_id, model.tenant_id == tenant_id))
-        item = result.scalar_one_or_none()
-        if not item:
-            raise ValueError(f"{item_type.title()} not found or access denied")
-        await db.execute(
-            update(model).where(model.id == item_id, model.tenant_id == tenant_id).values(order_index=index)
-        )
-    if ids_order:
-        if item_type == "module":
-            first_mod = await db.scalar(select(Module).where(Module.id == ids_order[0], Module.tenant_id == tenant_id))
-            if first_mod:
-                await _touch_course(db, first_mod.course_id, tenant_id)
-        elif item_type == "lesson":
-            await _touch_course_by_lesson(db, ids_order[0], tenant_id)
+    """Reorder modules or lessons by array of IDs in order. Validates tenant ownership and strictly prevents cross-course reordering."""
+    if not ids_order:
+        return
+    if item_type not in ("module", "lesson"):
+        raise ValueError(f"Unknown item_type '{item_type}'")
+
+    if item_type == "module":
+        res = await db.execute(select(Module).where(Module.id.in_(ids_order), Module.tenant_id == tenant_id))
+        modules = {m.id: m for m in res.scalars().all()}
+        for item_id in ids_order:
+            if item_id not in modules:
+                raise ValueError("Module not found or access denied")
+        course_ids = {m.course_id for m in modules.values()}
+        if len(course_ids) > 1:
+            raise ValueError("Запрещено переупорядочивать модули между разными курсами")
+        for index, item_id in enumerate(ids_order):
+            await db.execute(
+                update(Module).where(Module.id == item_id, Module.tenant_id == tenant_id).values(order_index=index)
+            )
+        target_course_id = next(iter(course_ids))
+        await _touch_course(db, target_course_id, tenant_id)
+
+    elif item_type == "lesson":
+        res = await db.execute(select(Lesson).where(Lesson.id.in_(ids_order), Lesson.tenant_id == tenant_id))
+        lessons: dict[UUID, Lesson] = {cast(UUID, les.id): cast(Lesson, les) for les in res.scalars().all()}
+        for item_id in ids_order:
+            if item_id not in lessons:
+                raise ValueError("Lesson not found or access denied")
+        mod_ids = list({les.module_id for les in lessons.values()})
+        mod_res = await db.execute(select(Module).where(Module.id.in_(mod_ids), Module.tenant_id == tenant_id))
+        modules_map: dict[UUID, Module] = {cast(UUID, m.id): m for m in mod_res.scalars().all()}
+        course_ids = {m.course_id for m in modules_map.values()}
+        if len(course_ids) > 1:
+            raise ValueError("Запрещено переупорядочивать уроки между разными курсами")
+        for index, item_id in enumerate(ids_order):
+            await db.execute(
+                update(Lesson).where(Lesson.id == item_id, Lesson.tenant_id == tenant_id).values(order_index=index)
+            )
+        if course_ids:
+            target_course_id = next(iter(course_ids))
+            await _touch_course(db, target_course_id, tenant_id)
 
 
 async def reorder_lessons_in_module(

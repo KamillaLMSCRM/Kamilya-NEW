@@ -447,18 +447,24 @@ async def test_resolve_source_uncertainty_rejects_when_no_authoritative_revision
 
 @pytest.mark.asyncio
 async def test_resolve_source_uncertainty_multi_document_verification(monkeypatch: pytest.MonkeyPatch):
-    """Verify multi-document verification: each source document must match its authoritative revision."""
+    """Verify multi-document verification: each source document must match its authoritative revision in DB."""
     tenant_id = uuid4()
     course_id = uuid4()
     user = _make_user(role="methodologist", tenant_id=tenant_id)
+    doc_a_id = uuid4()
+    doc_b_id = uuid4()
+    doc_a = _make_document(doc_a_id, tenant_id, title="Регламент А", content_sha256="rev-alpha-101")
+    doc_b = _make_document(doc_b_id, tenant_id, title="Регламент Б", content_sha256="rev-beta-202")
     source_analysis = {
         SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
         "source_documents": [
-            {"id": "doc-alpha", "revision": "rev-alpha-101", "title": "Регламент А"},
-            {"id": "doc-beta", "revision": "rev-beta-202", "title": "Регламент Б"},
+            {"id": str(doc_a_id), "revision": "rev-alpha-101", "title": "Регламент А"},
+            {"id": str(doc_b_id), "revision": "rev-beta-202", "title": "Регламент Б"},
         ],
     }
     course = _make_course(course_id, tenant_id, source_analysis=source_analysis, default_revision=None)
+    course.source_document_ids = [str(doc_a_id), str(doc_b_id)]
+    course._mock_documents = [doc_a, doc_b]
     audit_log: list[dict] = []
 
     app, session = _build_test_app(course, user, audit_log, monkeypatch)
@@ -472,7 +478,7 @@ async def test_resolve_source_uncertainty_multi_document_verification(monkeypatc
                 "reason": "Методист предоставил ревизию только первого документа",
                 "expected_content_hash": actual_hash,
                 "verified_revision": "rev-alpha-101",
-                "verified_revisions": {"doc-alpha": "rev-alpha-101"},
+                "verified_revisions": {str(doc_a_id): "rev-alpha-101"},
             },
         )
     assert resp1.status_code == 409
@@ -486,11 +492,11 @@ async def test_resolve_source_uncertainty_multi_document_verification(monkeypatc
                 "reason": "Методист передал неверную ревизию для второго документа",
                 "expected_content_hash": actual_hash,
                 "verified_revision": "rev-alpha-101",
-                "verified_revisions": {"doc-alpha": "rev-alpha-101", "doc-beta": "rev-wrong-999"},
+                "verified_revisions": {str(doc_a_id): "rev-alpha-101", str(doc_b_id): "rev-wrong-999"},
             },
         )
     assert resp2.status_code == 409
-    assert "Несоответствие ревизии для документа 'doc-beta'" in resp2.json()["detail"]["message"]
+    assert f"Несоответствие ревизии для документа '{doc_b_id}'" in resp2.json()["detail"]["message"]
 
     # 3. Exact matching revisions for all documents -> 200 OK
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -500,12 +506,12 @@ async def test_resolve_source_uncertainty_multi_document_verification(monkeypatc
                 "reason": "Методист подтвердил соответствие всех регламентов источников",
                 "expected_content_hash": actual_hash,
                 "verified_revision": "rev-alpha-101",
-                "verified_revisions": {"doc-alpha": "rev-alpha-101", "doc-beta": "rev-beta-202"},
+                "verified_revisions": {str(doc_a_id): "rev-alpha-101", str(doc_b_id): "rev-beta-202"},
             },
         )
     assert resp3.status_code == 200
     res_data = course.source_analysis["source_uncertainty_resolution"]
-    assert res_data["verified_revisions"] == {"doc-alpha": "rev-alpha-101", "doc-beta": "rev-beta-202"}
+    assert res_data["verified_revisions"] == {str(doc_a_id): "rev-alpha-101", str(doc_b_id): "rev-beta-202"}
 
 
 @pytest.mark.asyncio
@@ -883,7 +889,8 @@ async def test_source_uncertainty_declared_document_missing_fails_closed(monkeyp
         assert get_resp.status_code == 409
         get_err = get_resp.json()["detail"]
         assert get_err["code"] == "source_uncertainty_resolution_rejected"
-        assert f"'{missing_doc_id}' не найден в базе данных тенанта" in get_err["message"]
+        assert str(missing_doc_id) in get_err["message"]
+        assert "не найден в базе данных" in get_err["message"]
 
         # POST resolution endpoint fails closed
         post_resp = await ac.post(
@@ -898,7 +905,8 @@ async def test_source_uncertainty_declared_document_missing_fails_closed(monkeyp
         assert post_resp.status_code == 409
         post_err = post_resp.json()["detail"]
         assert post_err["code"] == "source_uncertainty_resolution_rejected"
-        assert f"'{missing_doc_id}' не найден в базе данных тенанта" in post_err["message"]
+        assert str(missing_doc_id) in post_err["message"]
+        assert "не найден в базе данных" in post_err["message"]
 
 
 @pytest.mark.asyncio
@@ -919,7 +927,8 @@ async def test_source_uncertainty_lesson_declared_document_missing_fails_closed(
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
         assert get_resp.status_code == 409
-        assert f"'{missing_doc_id}' не найден в базе данных тенанта" in get_resp.json()["detail"]["message"]
+        assert str(missing_doc_id) in get_resp.json()["detail"]["message"]
+        assert "не найден в базе данных" in get_resp.json()["detail"]["message"]
 
 
 @pytest.mark.asyncio
@@ -1136,3 +1145,165 @@ async def test_two_concurrent_transactions_simulation(monkeypatch: pytest.Monkey
     assert "Несоответствие версии содержания курса" in err["message"]
     assert "Курс был изменен после проверки" in err["message"]
     assert len(audit_log) == 0  # No audit record written for rejected attempt
+
+
+@pytest.mark.asyncio
+async def test_regression_document_only_in_source_analysis_missing_in_db_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Saved counterexample: document exists only in source_analysis, DB does not return it -> hold resolution is forbidden."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    phantom_doc_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    sa = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_documents": [{"id": str(phantom_doc_id), "revision": "rev-phantom-v1", "title": "Призрачный регламент"}],
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=sa, default_revision=None)
+    course._mock_documents = []  # DB does not return any Document
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # GET rejects phantom document with 409
+        get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert get_resp.status_code == 409
+        assert "не найден в базе данных текущего тенанта" in get_resp.json()["detail"]["message"]
+
+        # POST rejects phantom document with 409
+        post_resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Попытка утверждения фантомного документа только из анализа",
+                "expected_content_hash": "0" * 64,
+                "verified_revision": "rev-phantom-v1",
+                "defect_resolutions": [],
+            },
+        )
+        assert post_resp.status_code == 409
+        assert "не найден в базе данных текущего тенанта" in post_resp.json()["detail"]["message"]
+        assert len(audit_log) == 0
+
+
+@pytest.mark.asyncio
+async def test_regression_document_from_foreign_tenant_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify document belonging to another tenant cannot be used or resolved -> 409 fail closed."""
+    tenant_id = uuid4()
+    foreign_tenant_id = uuid4()
+    course_id = uuid4()
+    doc_id = uuid4()
+
+    foreign_doc = _make_document(
+        doc_id=doc_id,
+        tenant_id=foreign_tenant_id,  # Foreign tenant!
+        title="Чужой документ",
+        content_sha256="foreign-hash",
+    )
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-1")
+    course.source_document_ids = [str(doc_id)]
+    # In DB, foreign_doc belongs to another tenant, so current tenant query yields nothing
+    course._mock_documents = [d for d in [foreign_doc] if d.tenant_id == tenant_id]
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert resp.status_code == 409
+        assert "не найден в базе данных текущего тенанта" in resp.json()["detail"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_regression_invalid_document_uuid_format_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify unparseable / malformed UUID document identifier fails closed with 409."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    sa = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_documents": [{"id": "invalid-uuid-string-doc-123", "revision": "rev-1"}],
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=sa, default_revision=None)
+    course._mock_documents = []
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert resp.status_code == 409
+        err = resp.json()["detail"]
+        assert err["code"] == "source_uncertainty_resolution_rejected"
+        assert "имеет неверный формат (ожидался UUID)" in err["message"]
+
+
+@pytest.mark.asyncio
+async def test_regression_missing_one_document_out_of_multiple_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify that when one of multiple declared documents is missing from DB, resolution fails closed."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    doc1_id = uuid4()
+    missing_doc2_id = uuid4()
+
+    doc1 = _make_document(doc1_id, tenant_id, title="Документ 1", content_sha256="sha-1")
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision=None)
+    course.source_document_ids = [str(doc1_id), str(missing_doc2_id)]
+    course._mock_documents = [doc1]  # doc2 is missing!
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert resp.status_code == 409
+        assert str(missing_doc2_id) in resp.json()["detail"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_regression_document_in_db_without_revision_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify that if a Document in DB has no content_sha256 and no version, fake revision is NOT forged and request fails closed."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    doc_id = uuid4()
+
+    doc_no_rev = _make_document(doc_id, tenant_id, title="Документ без ревизии", version=None, content_sha256="")
+    doc_no_rev.index_revision = None
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision=None)
+    course.source_document_ids = [str(doc_id)]
+    course._mock_documents = [doc_no_rev]
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert resp.status_code == 409
+        assert "не определена актуальная ревизия в базе данных" in resp.json()["detail"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_reorder_items_cross_course_forbidden():
+    """Verify that attempting to reorder modules or lessons across different courses is rejected."""
+    from app.modules.lessons.service import reorder_items
+
+    tenant_id = uuid4()
+    course1_id = uuid4()
+    course2_id = uuid4()
+
+    mod1 = SimpleNamespace(id=uuid4(), course_id=course1_id, tenant_id=tenant_id)
+    mod2 = SimpleNamespace(id=uuid4(), course_id=course2_id, tenant_id=tenant_id)  # Different course!
+
+    class MockReorderSession:
+        async def execute(self, stmt):
+            s = str(stmt).upper()
+            if "FROM MODULES" in s:
+                return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: [mod1, mod2]))
+            return SimpleNamespace(scalars=lambda: SimpleNamespace(all=lambda: []))
+
+    sess = MockReorderSession()
+    with pytest.raises(ValueError) as exc:
+        await reorder_items(sess, "module", [mod1.id, mod2.id], tenant_id)  # type: ignore[arg-type]
+    assert "Запрещено переупорядочивать модули между разными курсами" in str(exc.value)

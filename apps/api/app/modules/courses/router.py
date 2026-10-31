@@ -405,13 +405,20 @@ async def _extract_course_source_revisions(
     """Gathers authoritative source revisions from DB Document records and enforces strict consistency.
 
     Invariants enforced:
-    1. DB Document records are the sole authoritative source of truth for document revisions.
-    2. All declared document IDs (course.source_instruction_id, course.source_document_ids,
-       and lesson source_document_ids) must exist in DB and belong to the tenant.
-       Any missing, unparseable, or cross-tenant document immediately raises ValueError (fail-closed).
-    3. Metadata in course.source_analysis is strictly validated against DB Document records. Any mismatch
-       between analysis metadata and DB records raises ValueError (fail-closed).
-    4. Both GET and POST endpoints construct and verify the identical authoritative mapping.
+    1. DB Document records of the current tenant are the sole authoritative source of truth for document revisions.
+    2. All declared document IDs across:
+       - course.source_instruction_id
+       - course.source_document_ids
+       - lesson source_document_ids (for all lessons in the course)
+       - course.source_analysis (source_documents list and any other source document keys)
+       MUST exist in the DB for course.tenant_id.
+       Any missing document, foreign tenant document, unparseable ID, or missing DB revision
+       immediately raises ValueError (fail-closed).
+    3. Metadata in course.source_analysis is strictly validated against DB Document records.
+       Any conflict between analysis metadata and DB records raises ValueError (fail-closed).
+       Analysis metadata NEVER creates, overrides, or acts as a fallback for DB records.
+    4. Authoritative revisions are never forged (no fake revisions like 'vNone' or 'v0').
+    5. Both GET and POST endpoints construct and verify the identical authoritative mapping.
     """
     from app.models.document import Document
     from app.modules.lessons.models import Lesson, Module
@@ -423,13 +430,13 @@ async def _extract_course_source_revisions(
     # Map of UUID -> source description for clear domain error reporting
     declared_docs: dict[UUID, str] = {}
 
-    # 1. Source instruction
+    # 1. Source instruction ID
     if course.source_instruction_id is not None:
         try:
-            inst_uuid = course.source_instruction_id if isinstance(course.source_instruction_id, UUID) else UUID(str(course.source_instruction_id))
+            inst_uuid = course.source_instruction_id if isinstance(course.source_instruction_id, UUID) else UUID(str(course.source_instruction_id).strip())
             declared_docs[inst_uuid] = "инструкция курса"
-        except (ValueError, TypeError) as exc:
-            raise ValueError(f"Идентификатор инструкции курса '{course.source_instruction_id}' имеет неверный формат.") from exc
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ValueError(f"Идентификатор инструкции курса '{course.source_instruction_id}' имеет неверный формат (ожидался UUID).") from exc
 
     # 2. Course-level source document IDs
     if getattr(course, "source_document_ids", None):
@@ -438,11 +445,11 @@ async def _extract_course_source_revisions(
             raise ValueError("Поле 'source_document_ids' курса имеет неверный формат (ожидался список).")
         for raw_id in raw_course_docs:
             try:
-                doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id))
+                doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id).strip())
                 if doc_uuid not in declared_docs:
                     declared_docs[doc_uuid] = "документ источника курса"
-            except (ValueError, TypeError) as exc:
-                raise ValueError(f"Идентификатор документа курса '{raw_id}' имеет неверный формат.") from exc
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise ValueError(f"Идентификатор документа курса '{raw_id}' имеет неверный формат (ожидался UUID).") from exc
 
     # 3. Lesson-level declared source document IDs
     lessons_stmt = (
@@ -456,16 +463,27 @@ async def _extract_course_source_revisions(
         if lesson_source_ids and isinstance(lesson_source_ids, list):
             for raw_id in lesson_source_ids:
                 try:
-                    doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id))
+                    doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id).strip())
                     if doc_uuid not in declared_docs:
                         declared_docs[doc_uuid] = f"документ источника урока '{getattr(lesson, 'title', '')}'"
-                except (ValueError, TypeError) as exc:
-                    raise ValueError(f"Идентификатор документа источника урока '{raw_id}' имеет неверный формат.") from exc
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise ValueError(f"Идентификатор документа источника урока '{raw_id}' имеет неверный формат (ожидался UUID).") from exc
 
+    # 4. Source analysis metadata source documents (MUST also be validated against DB!)
     sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
     sa_source_docs = sa.get("source_documents")
+    if sa_source_docs and isinstance(sa_source_docs, list):
+        for item in sa_source_docs:
+            if isinstance(item, dict) and item.get("id"):
+                raw_id = item["id"]
+                try:
+                    doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id).strip())
+                    if doc_uuid not in declared_docs:
+                        declared_docs[doc_uuid] = "документ из метаданных анализа"
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise ValueError(f"Идентификатор документа из анализа курса '{raw_id}' имеет неверный формат (ожидался UUID).") from exc
 
-    # 4. Authoritative verification against Database Document records
+    # 5. Authoritative verification against Database Document records of the CURRENT TENANT
     if declared_docs:
         docs_res = await db.execute(
             select(Document).where(
@@ -475,34 +493,42 @@ async def _extract_course_source_revisions(
         )
         found_docs: dict[UUID, Document] = {cast(UUID, doc.id): doc for doc in docs_res.scalars().all()}
 
-        # Verify EVERY declared document exists in DB and belongs to tenant
+        # Verify EVERY declared document exists in DB and belongs to the current tenant
         for req_id, doc_label in declared_docs.items():
             if req_id not in found_docs:
                 raise ValueError(
-                    f"Задекларированный {doc_label} с идентификатором '{req_id}' не найден в базе данных тенанта."
+                    f"Задекларированный {doc_label} с идентификатором '{req_id}' не найден в базе данных текущего тенанта."
                 )
 
-        # Build authoritative revisions solely from DB Document rows
+        # Build authoritative revisions solely from confirmed DB Document rows
         for doc_uuid, doc in sorted(found_docs.items(), key=lambda kv: str(kv[0])):
             doc_id_str = str(doc_uuid)
-            doc_rev = str(
-                doc.content_sha256
-                or (f"v{doc.version}" if getattr(doc, "version", None) is not None else "")
-                or getattr(doc, "index_revision", "")
-                or ""
-            ).strip()
+            doc_sha = str(getattr(doc, "content_sha256", None) or "").strip()
+            doc_ver = getattr(doc, "version", None)
+            doc_idx_rev = getattr(doc, "index_revision", None)
+
+            # Determine canonical revision without inventing fake strings (no 'vNone')
+            doc_rev = ""
+            if doc_sha:
+                doc_rev = doc_sha
+            elif doc_ver is not None and str(doc_ver).strip() and str(doc_ver).strip().lower() != "none":
+                doc_rev = f"v{doc_ver}"
+            elif doc_idx_rev is not None and str(doc_idx_rev).strip() and str(doc_idx_rev).strip().lower() != "none":
+                doc_rev = f"rev{doc_idx_rev}"
+            elif course.source_instruction_id == doc_uuid and course.source_instruction_version_at:
+                doc_rev = course.source_instruction_version_at.isoformat()
+
             if not doc_rev:
-                if course.source_instruction_id == doc_uuid and course.source_instruction_version_at:
-                    doc_rev = course.source_instruction_version_at.isoformat()
-                else:
-                    doc_rev = f"v{getattr(doc, 'version', 1)}"
+                raise ValueError(
+                    f"Для документа источника '{getattr(doc, 'title', '') or doc_uuid}' не определена актуальная ревизия в базе данных."
+                )
 
             authoritative_doc_revisions[doc_id_str] = doc_rev
             available_revisions.append(doc_rev)
-            if getattr(doc, "version", None) is not None:
-                available_revisions.append(f"v{doc.version}")
-            if getattr(doc, "content_sha256", None):
-                available_revisions.append(str(doc.content_sha256).strip())
+            if doc_ver is not None:
+                available_revisions.append(f"v{doc_ver}")
+            if doc_sha:
+                available_revisions.append(doc_sha)
 
             docs_info.append(
                 SourceDocumentRevisionInfo(
@@ -513,7 +539,7 @@ async def _extract_course_source_revisions(
                 )
             )
 
-        # Validate analysis metadata against authoritative DB records (Never overwrite DB revision!)
+        # 6. Validate analysis metadata against authoritative DB records (Never overwrite DB revision!)
         if sa_source_docs and isinstance(sa_source_docs, list):
             for item in sa_source_docs:
                 if isinstance(item, dict) and item.get("id"):
@@ -557,7 +583,8 @@ async def _extract_course_source_revisions(
             available_revisions.append(course.source_instruction_version_at.isoformat())
 
     else:
-        # Fallback when no DB Document rows are declared (e.g. synthetic test scenarios)
+        # No documents declared anywhere. Only general course analysis revisions may be populated.
+        # NOTE: NO authoritative_doc_revisions or docs_info are created without DB Document records!
         for key in ("source_revision", "document_revision", "revision"):
             if sa.get(key):
                 available_revisions.append(str(sa[key]).strip())
@@ -568,22 +595,8 @@ async def _extract_course_source_revisions(
         if ev3.get("source_revision"):
             available_revisions.append(str(ev3["source_revision"]).strip())
 
-        if sa_source_docs and isinstance(sa_source_docs, list):
-            for doc_item in sa_source_docs:
-                if isinstance(doc_item, dict) and doc_item.get("id"):
-                    d_id = str(doc_item["id"])
-                    d_rev = str(doc_item.get("revision") or "").strip()
-                    if d_rev:
-                        authoritative_doc_revisions[d_id] = d_rev
-                        available_revisions.append(d_rev)
-                        docs_info.append(
-                            SourceDocumentRevisionInfo(
-                                document_id=d_id,
-                                title=str(doc_item.get("title") or "Документ источника"),
-                                filename=str(doc_item.get("filename") or "source.pdf"),
-                                authoritative_revision=d_rev,
-                            )
-                        )
+    unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
+    return unique_revisions, authoritative_doc_revisions, docs_info
 
     unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
     return unique_revisions, authoritative_doc_revisions, docs_info
