@@ -21,10 +21,13 @@ logger = logging.getLogger(__name__)
 
 
 def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
-    """Concatenates chunk text across all documents in the corpus and computes SHA256."""
+    """Concatenates chunk text across all documents in the corpus and computes SHA256.
+
+    IMPORTANT: Metadata headers (document titles, filenames) are strictly excluded from full_text
+    so that citation grounding validates exclusively against authentic chunk contents.
+    """
     text_parts: list[str] = []
     for doc in corpus.documents:
-        text_parts.append(f"# ДОКУМЕНТ: {doc.title} ({doc.filename})\n")
         for chunk in doc.chunks:
             c = chunk.text.strip()
             if c:
@@ -35,13 +38,42 @@ def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
     return full_text, sha256
 
 
-COMPOUND_CLAUSE_SECTION_RE = re.compile(
+def _find_quote_in_corpus(
+    quote: str,
+    corpus: DirectSourceCorpus,
+) -> tuple[bool, str | None, str | None, int | None, int | None]:
+    """Searches for literal quote inside actual document chunks (ignoring headers/filenames).
+
+    Returns:
+        (found, doc_id, chunk_id, char_start, char_end)
+    """
+    clean_quote = quote.strip()
+    if not clean_quote:
+        return False, None, None, None, None
+    norm_q = normalize_text_for_search(clean_quote)
+    if not norm_q:
+        return False, None, None, None, None
+
+    for doc in corpus.documents:
+        for chunk in doc.chunks:
+            c_text = chunk.text
+            norm_c = normalize_text_for_search(c_text)
+            if norm_q in norm_c:
+                idx = norm_c.find(norm_q)
+                return True, doc.doc_id, chunk.chunk_id, idx, idx + len(norm_q)
+
+    return False, None, None, None, None
+
+
+COMPOUND_REF_RE = re.compile(
     r"(?:пункт[а-я]*|п\.|подпункт[а-я]*|пп\.)\s*([0-9]+(?:\.[0-9]+)*)\s+"
-    r"(?:раздел[а-я]*|разд\.|глав[а-я]*|стать[а-я]*|ст\.|таблиц[а-я]*)\s*([0-9]+(?:\.[0-9]+)*)",
+    r"(подраздел[а-я]*|подразд\.|раздел[а-я]*|разд\.|таблиц[а-я]*|табл\.|глав[а-я]*|гл\.|стать[а-я]*|ст\.|приложени[а-я]*|прил\.)\s*"
+    r"([0-9]+(?:\.[0-9]+)*)",
     re.IGNORECASE,
 )
-REVERSED_COMPOUND_RE = re.compile(
-    r"(?:раздел[а-я]*|разд\.|глав[а-я]*|стать[а-я]*|ст\.|таблиц[а-я]*)\s*([0-9]+(?:\.[0-9]+)*)\s*,?\s*"
+REVERSED_COMPOUND_REF_RE = re.compile(
+    r"(подраздел[а-я]*|подразд\.|раздел[а-я]*|разд\.|таблиц[а-я]*|табл\.|глав[а-я]*|гл\.|стать[а-я]*|ст\.|приложени[а-я]*|прил\.)\s*"
+    r"([0-9]+(?:\.[0-9]+)*)\s*,?\s*"
     r"(?:пункт[а-я]*|п\.|подпункт[а-я]*|пп\.)\s*([0-9]+(?:\.[0-9]+)*)",
     re.IGNORECASE,
 )
@@ -49,6 +81,64 @@ CLAUSE_REF_RE = re.compile(
     r"(?:пункт[а-я]*|п\.|подпункт[а-я]*|пп\.|стать[а-я]*|ст\.|раздел[а-я]*|таблиц[а-я]*)\s*([0-9]+(?:\.[0-9]+)*)",
     re.IGNORECASE,
 )
+
+
+def _normalize_container_type(raw_type: str) -> str:
+    """Normalizes container type, strictly prioritizing 'подраздел' over 'раздел'."""
+    raw = raw_type.lower().strip().rstrip(".")
+    if raw.startswith("подразд"):
+        return "subsection"
+    if raw.startswith("разд"):
+        return "section"
+    if raw.startswith("табл"):
+        return "table"
+    if raw.startswith("глав") or raw == "гл":
+        return "chapter"
+    if raw.startswith("стат") or raw == "ст":
+        return "article"
+    if raw.startswith("прилож") or raw == "прил":
+        return "appendix"
+    return "unknown"
+
+
+def _candidate_matches_container(
+    candidate: RuleEntity,
+    container_type: str,
+    container_num: str,
+) -> bool:
+    """Verifies that candidate strictly matches both the container type and exact number.
+
+    Prevents 'таблица 4' matching 'раздел 4', and 'раздел 4' matching 'подраздел 4.1'.
+    """
+    sec_title = f"{candidate.section} {candidate.title}".lower()
+    num_pattern = r"(?<![\w.-])" + re.escape(container_num) + r"(?![\w.-])"
+
+    if container_type == "table":
+        pattern = r"(?:таблиц[а-я]*|табл\.?)\s*" + num_pattern
+        return bool(re.search(pattern, sec_title, re.IGNORECASE))
+
+    if container_type == "section":
+        # Must declare 'раздел' (and NOT 'подраздел') with the exact number
+        pattern = r"(?<!под)(?:раздел[а-я]*|разд\.?)\s*" + num_pattern
+        return bool(re.search(pattern, candidate.section, re.IGNORECASE))
+
+    if container_type == "subsection":
+        pattern = r"(?:подраздел[а-я]*|подразд\.?)\s*" + num_pattern
+        return bool(re.search(pattern, candidate.section, re.IGNORECASE))
+
+    if container_type == "chapter":
+        pattern = r"(?:глав[а-я]*|гл\.?)\s*" + num_pattern
+        return bool(re.search(pattern, sec_title, re.IGNORECASE))
+
+    if container_type == "article":
+        pattern = r"(?:стать[а-я]*|ст\.?)\s*" + num_pattern
+        return bool(re.search(pattern, sec_title, re.IGNORECASE))
+
+    if container_type == "appendix":
+        pattern = r"(?:приложени[а-я]*|прил\.?)\s*" + num_pattern
+        return bool(re.search(pattern, sec_title, re.IGNORECASE))
+
+    return False
 
 
 def _extract_clause_numbers(text: str) -> list[str]:
@@ -172,17 +262,19 @@ def _find_direct_rule_dependencies(
     # 4. Compound hierarchical references (e.g. 'пункт 2 раздела 4', 'раздел 4, пункт 2')
     remaining_text = text
 
-    for match in COMPOUND_CLAUSE_SECTION_RE.finditer(text):
+    for match in COMPOUND_REF_RE.finditer(text):
         clause_clean = match.group(1).strip().rstrip(".")
-        section_num = match.group(2).strip().rstrip(".")
+        raw_container_type = match.group(2)
+        container_num = match.group(3).strip().rstrip(".")
+        container_type = _normalize_container_type(raw_container_type)
         span = match.span()
-        # Blank out this compound span so standalone matcher won't parse 2 and 4 separately
+        # Blank out this compound span so standalone matcher won't parse clause and container separately
         remaining_text = remaining_text[:span[0]] + " " * (span[1] - span[0]) + remaining_text[span[1]:]
 
         candidates = [c for c in clause_index.get(clause_clean, []) if c.rule_id != rule.rule_id]
         matching = [
             c for c in candidates
-            if section_num in _extract_clause_numbers(c.section) or re.search(r"\bраздел[а-я]*\s*" + re.escape(section_num) + r"\b", c.section, re.IGNORECASE)
+            if _candidate_matches_container(c, container_type, container_num)
         ]
         if len(matching) == 1:
             if matching[0] not in direct_deps:
@@ -190,26 +282,28 @@ def _find_direct_rule_dependencies(
         elif len(matching) > 1:
             match_ids = [c.rule_id for c in matching]
             unresolved.append(
-                f"Неоднозначная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
+                f"Неоднозначная составная ссылка на пункт '{clause_clean}' {raw_container_type} '{container_num}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
             )
             for c in matching:
                 if c not in direct_deps:
                     direct_deps.append(c)
         else:
             unresolved.append(
-                f"Неразрешенная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}'"
+                f"Неразрешенная составная ссылка на пункт '{clause_clean}' {raw_container_type} '{container_num}' в правиле '{rule.rule_id}' (точное совпадение по типу и номеру не найдено)"
             )
 
-    for match in REVERSED_COMPOUND_RE.finditer(remaining_text):
-        section_num = match.group(1).strip().rstrip(".")
-        clause_clean = match.group(2).strip().rstrip(".")
+    for match in REVERSED_COMPOUND_REF_RE.finditer(remaining_text):
+        raw_container_type = match.group(1)
+        container_num = match.group(2).strip().rstrip(".")
+        clause_clean = match.group(3).strip().rstrip(".")
+        container_type = _normalize_container_type(raw_container_type)
         span = match.span()
         remaining_text = remaining_text[:span[0]] + " " * (span[1] - span[0]) + remaining_text[span[1]:]
 
         candidates = [c for c in clause_index.get(clause_clean, []) if c.rule_id != rule.rule_id]
         matching = [
             c for c in candidates
-            if section_num in _extract_clause_numbers(c.section) or re.search(r"\bраздел[а-я]*\s*" + re.escape(section_num) + r"\b", c.section, re.IGNORECASE)
+            if _candidate_matches_container(c, container_type, container_num)
         ]
         if len(matching) == 1:
             if matching[0] not in direct_deps:
@@ -217,14 +311,14 @@ def _find_direct_rule_dependencies(
         elif len(matching) > 1:
             match_ids = [c.rule_id for c in matching]
             unresolved.append(
-                f"Неоднозначная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
+                f"Неоднозначная составная ссылка на {raw_container_type} '{container_num}', пункт '{clause_clean}' в правиле '{rule.rule_id}' (найдено несколько совпадений: {', '.join(match_ids)})"
             )
             for c in matching:
                 if c not in direct_deps:
                     direct_deps.append(c)
         else:
             unresolved.append(
-                f"Неразрешенная составная ссылка на пункт '{clause_clean}' раздела '{section_num}' в правиле '{rule.rule_id}'"
+                f"Неразрешенная составная ссылка на {raw_container_type} '{container_num}', пункт '{clause_clean}' в правиле '{rule.rule_id}' (точное совпадение по типу и номеру не найдено)"
             )
 
     # 5. Standalone clause/point references (e.g. 'пункт 2', 'п. 2')
@@ -251,6 +345,47 @@ def _find_direct_rule_dependencies(
                     direct_deps.append(c)
 
     return direct_deps, unresolved
+
+
+def _validate_critic_response(
+    review_res: Any,
+    lesson_id: str,
+    lesson_title: str,
+) -> tuple[bool, str]:
+    """Validates full response schema from QA critic.
+
+    A bare {"verdict": "PASS"} without required scoring, rationale, and coverage is rejected.
+    """
+    if not isinstance(review_res, dict):
+        return False, f"Критик вернул невалидный тип ответа для урока {lesson_id} ({lesson_title}): {type(review_res).__name__}"
+
+    verdict = str(review_res.get("verdict", "")).strip().upper()
+    if not verdict:
+        return False, f"Критик вернул пустой вердикт (UNKNOWN) для урока {lesson_id} ({lesson_title})"
+
+    if verdict not in ("PASS", "FAIL", "NEEDS_REVISION"):
+        return False, f"Критик вернул неподдерживаемый вердикт '{verdict}' для урока {lesson_id} ({lesson_title})"
+
+    defects = review_res.get("defects")
+    if defects is not None and not isinstance(defects, list):
+        return False, f"Поле 'defects' в ответе критика должно быть списком для урока {lesson_id}"
+
+    # Strict validation for PASS
+    if verdict == "PASS":
+        # 1. Defects must be strictly empty
+        if defects:
+            return False, f"Противоречивый ответ: вердикт PASS содержит дефекты: {defects}"
+        # 2. Must contain confidence or scoring field
+        confidence = review_res.get("confidence")
+        factual_score = review_res.get("factual_accuracy_score") or review_res.get("evidence_grounding_score")
+        if confidence is None and factual_score is None:
+            return False, f"Неполный ответ критика: вердикт PASS для урока {lesson_id} не содержит обязательных оценок (confidence или factual_accuracy_score)"
+        # 3. Must contain substantive rationale/summary
+        rationale = review_res.get("summary") or review_res.get("rationale") or review_res.get("comment") or ""
+        if not str(rationale).strip() or len(str(rationale).strip()) < 10:
+            return False, f"Неполный ответ критика: вердикт PASS для урока {lesson_id} не содержит мотивировочной части (summary/rationale)"
+
+    return True, ""
 
 
 def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGroup]:
@@ -481,28 +616,37 @@ async def generate_v3_course_from_corpus(
         # Stage 4: Run Two-Factor semantic review with verified source fragments
         try:
             review_rules = list(group.primary_rules) + list(group.context_prerequisite_rules)
-            norm_source = normalize_text_for_search(full_text)
             source_frags: list[str] = []
             for r in review_rules:
                 raw_q = (r.source_quote or "").strip()
-                if raw_q:
-                    norm_q = normalize_text_for_search(raw_q)
-                    if norm_q and norm_q in norm_source:
-                        source_frags.append(f"[Верифицированная цитата оригинала | {r.rule_id}]: {raw_q}")
+                if not raw_q:
+                    semantic_violations.append(
+                        f"Пробел верификации: у правила {r.rule_id} ('{r.title}') полностью отсутствует подтверждающая цитата из первоисточника"
+                    )
+                    source_frags.append(
+                        f"[ОТСУТСТВУЕТ ЦИТАТА: у правила {r.rule_id} нет подтверждающего фрагмента в карте правил]"
+                    )
+                else:
+                    found, doc_id, chunk_id, c_start, c_end = _find_quote_in_corpus(raw_q, corpus)
+                    if found:
+                        source_frags.append(
+                            f"[Верифицированная цитата | Документ {doc_id} | Чанк {chunk_id} ({c_start}:{c_end})]: {raw_q}"
+                        )
                     else:
                         semantic_violations.append(
-                            f"Неподтвержденная цитата в правиле {r.rule_id} ({r.title}): фрагмент карты правил отсутствует в исходном тексте документа"
+                            f"Неподтвержденная цитата в правиле {r.rule_id} ('{r.title}'): фрагмент карты правил отсутствует в содержимом документов корпуса"
                         )
-                        source_frags.append(f"[НЕВЕРИФИЦИРОВАНО, отсутствует в тексте оригинала | {r.rule_id}]: {raw_q}")
+                        source_frags.append(
+                            f"[НЕВЕРИФИЦИРОВАНО, отсутствует в тексте оригинала | {r.rule_id}]: {raw_q}"
+                        )
 
             review_res = await pipeline.review_lesson(lesson, review_rules, source_fragments=source_frags)
             semantic_reviews[lesson.lesson_id] = review_res
 
-            # Strict schema validation: any verdict other than valid confirmed PASS is recorded as violation
-            if not isinstance(review_res, dict):
-                semantic_violations.append(
-                    f"Критик вернул невалидный формат ответа для урока {lesson.lesson_id} ({lesson.title}): {type(review_res).__name__}"
-                )
+            # Strict schema validation: check full response schema
+            is_valid, schema_err = _validate_critic_response(review_res, lesson.lesson_id, lesson.title)
+            if not is_valid:
+                semantic_violations.append(schema_err)
             else:
                 verdict = str(review_res.get("verdict", "")).strip().upper()
                 defects = review_res.get("defects") or []
@@ -510,11 +654,7 @@ async def generate_v3_course_from_corpus(
                     defects = [str(defects)]
 
                 if verdict == "PASS":
-                    if defects:
-                        for defect in defects:
-                            semantic_violations.append(
-                                f"Замечание критика к уроку {lesson.lesson_id} ({lesson.title}): {defect}"
-                            )
+                    pass  # Full validated PASS with confidence, rationale, and zero defects
                 elif verdict == "FAIL":
                     if defects:
                         for defect in defects:
@@ -535,15 +675,6 @@ async def generate_v3_course_from_corpus(
                         semantic_violations.append(
                             f"Семантический критик запросил доработку урока {lesson.lesson_id} ({lesson.title}) с вердиктом NEEDS_REVISION"
                         )
-                elif verdict == "UNKNOWN" or not verdict:
-                    comment = review_res.get("comment") or review_res.get("reason") or "ответ не содержит подтверждения соответствия"
-                    semantic_violations.append(
-                        f"Семантический критик вернул неопределенный вердикт (UNKNOWN) для урока {lesson.lesson_id} ({lesson.title}): {comment}"
-                    )
-                else:
-                    semantic_violations.append(
-                        f"Семантический критик вернул неизвестный статус '{verdict}' для урока {lesson.lesson_id} ({lesson.title})"
-                    )
         except Exception as review_err:
             logger.warning("V3 Engine: Two-factor semantic review skipped due to error: %s", review_err)
             semantic_reviews[lesson.lesson_id] = {"verdict": "ERROR", "error": str(review_err)}

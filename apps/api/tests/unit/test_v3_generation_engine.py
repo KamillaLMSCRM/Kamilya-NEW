@@ -1064,13 +1064,13 @@ async def test_unverified_rule_quotes_flagged_and_isolated():
                                 "branch_context": "Ф",
                                 "scenario_premise": "С",
                                 "prompt": "В?",
-                                "correct_option": {"text": "Ответ", "is_correct": True},
+                                "correct_option": {"text": "Правильный ответ", "is_correct": True},
                                 "distractor_pool": [
-                                    {"text": "Ош 1", "is_correct": False, "distractor_category": "role_confusion"},
-                                    {"text": "Ош 2", "is_correct": False, "distractor_category": "role_confusion"},
-                                    {"text": "Ош 3", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 1", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 2", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 3", "is_correct": False, "distractor_category": "role_confusion"},
                                 ],
-                                "explanation": "П",
+                                "explanation": "Пояснение к ответу",
                                 "source_quote": "Подлинный текст регламента содержит только это предложение.",
                             }
                         ],
@@ -1081,7 +1081,7 @@ async def test_unverified_rule_quotes_flagged_and_isolated():
         for m in messages:
             if "ПРЯМЫЕ ЦИТАТЫ ИЗ ОРИГИНАЛА ДОКУМЕНТА" in m["content"]:
                 passed_source_fragments.append(m["content"])
-        return {"verdict": "PASS", "defects": []}
+        return {"verdict": "PASS", "confidence": 0.95, "summary": "Текст урока полностью проверен по всем правилам.", "defects": []}
 
     intent = CourseIntent(audience="А", purpose="П", emphasis=())
     artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm_hallucinating_quotes)
@@ -1150,61 +1150,410 @@ def test_ambiguous_reference_to_duplicated_initial_raw_id():
 
 
 def test_compound_hierarchical_reference_resolution():
-    """Verify Point 5: Compound reference 'пункт 2 раздела 4' binds to Section 4 clause 2, not current section clause 2."""
+    """Verify Point 3: Strict differentiation between 'таблица' vs 'раздел' and decimal boundaries (4 vs 4.1)."""
     from app.modules.ai.v3.service import _build_curriculum_groups
 
-    rule_sec1_p2 = RuleEntity(
-        rule_id="r-s1-p2",
-        section="Раздел 1: Базовые стандарты",
-        title="Пункт 2: Порядок выдачи",
-        statement="Выдача в базовом порядке.",
-    )
     rule_sec4_p2 = RuleEntity(
-        rule_id="r-s4-p2",
+        rule_id="r-sec4-p2",
         section="Раздел 4: Пролонгация микрокредитов",
         title="Пункт 2: Продление залога",
         statement="Продление осуществляется только при уплате вознаграждения.",
     )
-    rule_caller = RuleEntity(
-        rule_id="r-caller-compound",
+    rule_table4_p2 = RuleEntity(
+        rule_id="r-tbl4-p2",
+        section="Таблица 4: Лимиты согласования",
+        title="Пункт 2: Нормативы лимитов",
+        statement="Нормативы лимитов для филиалов.",
+    )
+    rule_subsec41_p2 = RuleEntity(
+        rule_id="r-sub41-p2",
+        section="Подраздел 4.1: Исключительные случаи",
+        title="Пункт 2: Особый порядок",
+        statement="Порядок согласования исключительных случаев.",
+    )
+    rule_caller_table = RuleEntity(
+        rule_id="r-caller-table",
         section="Раздел 1: Базовые стандарты",
-        title="Особое условие пролонгации",
-        statement="При обращении клиента действовать согласно пункту 2 раздела 4.",
+        title="Проверка таблицы",
+        statement="Сотрудник руководствуется пунктом 2 таблицы 4.",
+    )
+    rule_caller_section = RuleEntity(
+        rule_id="r-caller-section",
+        section="Раздел 1: Базовые стандарты",
+        title="Проверка раздела",
+        statement="Сотрудник действует согласно пункту 2 раздела 4.",
     )
 
     rule_model = DocumentRuleModel(
-        document_title="Составные ссылки",
-        document_sha256="fake-sha",
-        rules=(rule_sec1_p2, rule_sec4_p2, rule_caller),
+        document_title="Составные иерархические ссылки",
+        document_sha256="fake-sha-strict-hierarchy",
+        rules=(rule_sec4_p2, rule_table4_p2, rule_subsec41_p2, rule_caller_table, rule_caller_section),
     )
 
     groups = _build_curriculum_groups(rule_model)
     group_1 = next(g for g in groups if g.section == "Раздел 1: Базовые стандарты")
     prereq_ids = {r.rule_id for r in group_1.context_prerequisite_rules}
 
+    # 1. 'пункт 2 таблицы 4' must link to Table 4 (r-tbl4-p2), NEVER to Section 4 (r-sec4-p2)
+    assert "r-tbl4-p2" in prereq_ids
+    # 2. 'пункт 2 раздела 4' must link to Section 4 (r-sec4-p2), NEVER to Subsection 4.1 (r-sub41-p2)
+    assert "r-sec4-p2" in prereq_ids
+    assert "r-sub41-p2" not in prereq_ids
+
+
+@pytest.mark.asyncio
+async def test_citation_grounding_rejects_document_title_and_filename():
+    """Verify Point 1: Words appearing only in metadata headers (title, filename) are rejected as source citations."""
+    chunk = DirectSourceChunk(
+        chunk_id="chk-genuine-1",
+        doc_id="doc-genuine-1",
+        doc_name="fake_order.docx",
+        title="Фальшивый приказ",
+        headings=("Раздел 1",),
+        text="Подлинный текст приказа касается только правил пожарной безопасности.",
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-genuine-1",
+        title="Фальшивый приказ",
+        filename="fake_order.docx",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(
+        tenant_id="tenant-fake-title",
+        documents=(doc,),
+        total_chars=100,
+        total_chunks=1,
+    )
+
+    call_count = 0
+
+    async def mock_llm_hallucinating_title_as_quote(messages: list[dict[str, str]], response_format: Any = None) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "document_title": "Фальшивый приказ",
+                "document_sha256": "fake-sha",
+                "overview": "Обзор",
+                "rules": [
+                    {
+                        "rule_id": "r-title-quote",
+                        "section": "Раздел 1",
+                        "title": "Правило",
+                        "statement": "Сотрудник исполняет требования.",
+                        "conditions": [],
+                        "exceptions": [],
+                        "actors": [],
+                        "timing": "",
+                        "consequences": "",
+                        # Quote comes from document title, NOT chunk text!
+                        "source_quote": "Фальшивый приказ",
+                    }
+                ],
+            }
+        if call_count == 2:
+            return {
+                "lesson_id": "l-1",
+                "title": "Урок",
+                "content": "Текст",
+                "covered_rule_ids": ["r-title-quote"],
+                "cases": [
+                    {
+                        "case_id": "c-1",
+                        "rule_id": "r-title-quote",
+                        "learning_objective": "Цель",
+                        "variants": [
+                            {
+                                "variant_id": "v-1",
+                                "branch_context": "Ф",
+                                "scenario_premise": "С",
+                                "prompt": "В?",
+                                "correct_option": {"text": "Правильный ответ", "is_correct": True},
+                                "distractor_pool": [
+                                    {"text": "Неверный вариант 1", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 2", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 3", "is_correct": False, "distractor_category": "role_confusion"},
+                                ],
+                                "explanation": "Пояснение",
+                                "source_quote": "Подлинный текст приказа касается только правил пожарной безопасности.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        # Step 3: Critic review
+        return {"verdict": "PASS", "confidence": 0.95, "summary": "Текст проверен.", "defects": []}
+
+    intent = CourseIntent(audience="А", purpose="П", emphasis=())
+    artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm_hallucinating_title_as_quote)
+
     # Invariants:
-    # 1. Must bind to Section 4 clause 2 (r-s4-p2)
-    assert "r-s4-p2" in prereq_ids
-    # 2. Must NOT bind to current section's clause 2 as dependency
-    assert "r-s1-p2" not in prereq_ids
-    # 3. Section 4 should not be flagged as missing/unresolved
-    assert not any("раздела '4'" in u and "Неразрешенная" in u for u in group_1.unresolved_dependencies)
+    # 1. Quote from title must NOT be accepted as genuine chunk quote
+    violations = artifacts.diagnostics["violations"]
+    assert any("Неподтвержденная цитата в правиле r-title-quote" in v for v in violations)
+    # 2. Overall verdict must be FAIL
+    assert artifacts.diagnostics["validation_report"]["verdict"] == "FAIL"
 
 
-def test_end_to_end_source_review_persistence_and_invariants():
-    """Verify Point 6: Full user chain where violations preserve needs_review across pipeline artifacts and storage."""
-    from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
+@pytest.mark.asyncio
+async def test_empty_source_quote_in_rule_is_flagged_as_verification_gap():
+    """Verify Point 2: An empty source_quote in a rule is flagged as a verification gap and causes FAIL."""
+    chunk = DirectSourceChunk(
+        chunk_id="chk-gap-1",
+        doc_id="doc-gap-1",
+        doc_name="gap.txt",
+        title="Регламент",
+        headings=("Раздел 1",),
+        text="Текст настоящего регламента.",
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-gap-1",
+        title="Регламент",
+        filename="gap.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(tenant_id="t-gap", documents=(doc,), total_chars=50, total_chunks=1)
 
+    call_count = 0
+
+    async def mock_llm_empty_quote(messages: list[dict[str, str]], response_format: Any = None) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "document_title": "Регламент",
+                "document_sha256": "fake-sha",
+                "overview": "Обзор",
+                "rules": [
+                    {
+                        "rule_id": "r-empty-quote",
+                        "section": "Раздел 1",
+                        "title": "Правило без цитаты",
+                        "statement": "Правило без подтверждения источником.",
+                        "conditions": [],
+                        "exceptions": [],
+                        "actors": [],
+                        "timing": "",
+                        "consequences": "",
+                        "source_quote": "",  # Empty quote!
+                    }
+                ],
+            }
+        if call_count == 2:
+            return {
+                "lesson_id": "l-1",
+                "title": "Урок",
+                "content": "Текст",
+                "covered_rule_ids": ["r-empty-quote"],
+                "cases": [
+                    {
+                        "case_id": "c-1",
+                        "rule_id": "r-empty-quote",
+                        "learning_objective": "Цель",
+                        "variants": [
+                            {
+                                "variant_id": "v-1",
+                                "branch_context": "Ф",
+                                "scenario_premise": "С",
+                                "prompt": "В?",
+                                "correct_option": {"text": "Правильный ответ", "is_correct": True},
+                                "distractor_pool": [
+                                    {"text": "Неверный вариант 1", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 2", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 3", "is_correct": False, "distractor_category": "role_confusion"},
+                                ],
+                                "explanation": "Пояснение",
+                                "source_quote": "Текст настоящего регламента.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        return {"verdict": "PASS", "confidence": 0.95, "summary": "Проверено.", "defects": []}
+
+    intent = CourseIntent(audience="А", purpose="П", emphasis=())
+    artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm_empty_quote)
+
+    violations = artifacts.diagnostics["violations"]
+    assert any("Пробел верификации: у правила r-empty-quote" in v for v in violations)
+    assert artifacts.diagnostics["validation_report"]["verdict"] == "FAIL"
+
+
+@pytest.mark.asyncio
+async def test_critic_response_rejects_bare_pass_without_schema():
+    """Verify Point 4: A bare {'verdict': 'PASS'} missing confidence and rationale is rejected with FAIL."""
+    chunk = DirectSourceChunk(
+        chunk_id="chk-bare-1",
+        doc_id="doc-bare-1",
+        doc_name="bare.txt",
+        title="Регламент",
+        headings=("Раздел 1",),
+        text="Обязательное условие регламента.",
+        source_revision="rev-1",
+        chunk_index=0,
+    )
+    doc = DirectSourceDocument(
+        doc_id="doc-bare-1",
+        title="Регламент",
+        filename="bare.txt",
+        category="regulations",
+        source_revision="rev-1",
+        chunks=(chunk,),
+    )
+    corpus = DirectSourceCorpus(tenant_id="t-bare", documents=(doc,), total_chars=50, total_chunks=1)
+
+    call_count = 0
+
+    async def mock_llm_bare_pass(messages: list[dict[str, str]], response_format: Any = None) -> dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return {
+                "document_title": "Регламент",
+                "document_sha256": "fake-sha",
+                "overview": "Обзор",
+                "rules": [
+                    {
+                        "rule_id": "r-bare",
+                        "section": "Раздел 1",
+                        "title": "Правило",
+                        "statement": "Обязательное условие регламента.",
+                        "conditions": [],
+                        "exceptions": [],
+                        "actors": [],
+                        "timing": "",
+                        "consequences": "",
+                        "source_quote": "Обязательное условие регламента.",
+                    }
+                ],
+            }
+        if call_count == 2:
+            return {
+                "lesson_id": "l-1",
+                "title": "Урок",
+                "content": "Текст",
+                "covered_rule_ids": ["r-bare"],
+                "cases": [
+                    {
+                        "case_id": "c-1",
+                        "rule_id": "r-bare",
+                        "learning_objective": "Цель",
+                        "variants": [
+                            {
+                                "variant_id": "v-1",
+                                "branch_context": "Ф",
+                                "scenario_premise": "С",
+                                "prompt": "В?",
+                                "correct_option": {"text": "Правильный ответ", "is_correct": True},
+                                "distractor_pool": [
+                                    {"text": "Неверный вариант 1", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 2", "is_correct": False, "distractor_category": "role_confusion"},
+                                    {"text": "Неверный вариант 3", "is_correct": False, "distractor_category": "role_confusion"},
+                                ],
+                                "explanation": "Пояснение",
+                                "source_quote": "Обязательное условие регламента.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        # Bare PASS missing confidence, score, and summary
+        return {"verdict": "PASS"}
+
+    intent = CourseIntent(audience="А", purpose="П", emphasis=())
+    artifacts = await generate_v3_course_from_corpus(corpus=corpus, intent=intent, generation_client=mock_llm_bare_pass)
+
+    violations = artifacts.diagnostics["violations"]
+    assert any("Неполный ответ критика: вердикт PASS" in v for v in violations)
+    assert artifacts.diagnostics["validation_report"]["verdict"] == "FAIL"
+
+
+@pytest.mark.asyncio
+async def test_real_db_pipeline_persistence_and_methodologist_lifecycle(monkeypatch):
+    """Verify Point 5: Full integration persistence lifecycle verifying review blocking across saves."""
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from app.modules.ai import pipeline
+    from app.modules.courses.models import Course
+    from app.modules.lessons.models import Lesson
+
+    tenant_id = uuid4()
+    actor_id = uuid4()
+    course_id = uuid4()
+    doc_uuid = str(uuid4())
+
+    course_record = Course(
+        id=course_id,
+        tenant_id=tenant_id,
+        title="Курс регламента безопасности",
+        status="draft",
+        created_by=actor_id,
+    )
+
+    class FakeSession:
+        def __init__(self, course: Course):
+            self.course = course
+            self.job = SimpleNamespace(
+                id="active-job",
+                tenant_id=course.tenant_id,
+                user_id=course.created_by,
+                status="running",
+                params={"documents": [doc_uuid]},
+                message="",
+            )
+            self.added = []
+            self.executed = []
+            self.committed = False
+            self.exit_exception = None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            self.exit_exception = exc_type
+            return False
+
+        async def scalar(self, statement):
+            if "FROM ai_jobs" in str(statement):
+                return self.job
+            return self.course
+
+        async def execute(self, statement, params=None):
+            self.executed.append((statement, params))
+            return None
+
+        def add(self, value):
+            self.added.append(value)
+
+        async def flush(self):
+            return None
+
+        async def commit(self):
+            self.committed = True
+
+    session = FakeSession(course_record)
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
+
+    # 1. Simulate Course with Critic Defect
     variant = V3QuestionVariant(
         variant_id="v-1",
         branch_context="Филиал",
         scenario_premise="Ситауция",
         prompt="Вопрос?",
-        correct_option=V3Option(text="Верно", is_correct=True),
+        correct_option=V3Option(text="Правильный ответ", is_correct=True),
         distractor_pool=(
-            V3Option(text="Ош 1", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
-            V3Option(text="Ош 2", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
-            V3Option(text="Ош 3", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
+            V3Option(text="Неверный вариант 1", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Неверный вариант 2", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
+            V3Option(text="Неверный вариант 3", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
         ),
         explanation="Пояснение",
         source_quote="Цитата",
@@ -1212,36 +1561,60 @@ def test_end_to_end_source_review_persistence_and_invariants():
     case = V3ScenarioCase(case_id="c-1", rule_id="r-1", learning_objective="Цель", variants=(variant,))
     lesson = V3Lesson(
         lesson_id="l-1",
-        title="Урок 1",
+        title="Урок 1: Безопасность дверей",
         module_title="Модуль 1",
         content="Текст урока",
         covered_rule_ids=("r-1",),
         cases=(case,),
         questions=(),
     )
-    course = V3Course(
-        course_id="c-1",
-        title="Курс с замечанием",
+    course_v3 = V3Course(
+        course_id=str(course_id),
+        title="Курс регламента безопасности",
         document_sha256="abc12345",
         lessons=(lesson,),
         quality_verdict="needs_review",
         validation_report={
             "verdict": "FAIL",
             "quality_status": "needs_review",
-            "violations": ["Семантический дефект: искажено правило закрытия двери"],
+            "violations": ["Семантический дефект критика: дверь сейфа должна быть закрыта"],
         },
     )
 
-    artifacts = v3_course_to_generation_artifacts(course)
+    artifacts = v3_course_to_generation_artifacts(course_v3, source_document_ids=[doc_uuid])
 
-    # Invariants for user chain:
-    # 1. Lesson content status is needs_review
-    assert artifacts.content.modules[0].lessons[0].source_validation_status == "needs_review"
-    assert artifacts.content.modules[0].lessons[0].requires_source_review() is True
-    # 2. Source warnings contain defect
-    assert "Семантический дефект: искажено правило закрытия двери" in artifacts.content.source_warnings
-    # 3. Overall requires_source_review is True
-    assert artifacts.diagnostics["requires_source_review"] is True
+    state = pipeline.GenerationState(
+        job_id="job-1",
+        course_id=str(course_id),
+        source_document_ids=[doc_uuid],
+        server_source_review_required=bool(artifacts.diagnostics.get("requires_source_review", True)),
+        structure=artifacts.structure,
+        content=artifacts.content,
+        assessment=artifacts.assessment,
+    )
+
+    # 2. Save generation to DB
+    await pipeline._save_generation_to_db(state, tenant_id, actor_id)
+
+    # Verification of Step 1:
+    assert session.committed is True
+    # Course source analysis must enforce review
+    assert session.course.source_analysis.get("unresolved_source_uncertainty", {}).get("status") == "review_required"
+    # Lesson saved in DB must have status needs_review
+    saved_lessons = [v for v in session.added if isinstance(v, Lesson)]
+    assert len(saved_lessons) == 1
+    assert saved_lessons[0].source_validation_status == "needs_review"
+
+    # 3. Simulate re-save / regeneration job on the existing course
+    session.committed = False
+    session.added.clear()
+    session.job.status = "running"
+    await pipeline._save_generation_to_db(state, tenant_id, actor_id)
+
+    # Re-save must NOT clear the lock!
+    assert session.course.source_analysis.get("unresolved_source_uncertainty", {}).get("status") == "review_required"
+    saved_lessons_2 = [v for v in session.added if isinstance(v, Lesson)]
+    assert saved_lessons_2[0].source_validation_status == "needs_review"
 
 
 
