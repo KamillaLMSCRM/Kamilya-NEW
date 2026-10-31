@@ -14,6 +14,7 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
 from app.modules.ai.v3.models import DocumentRuleModel, RuleEntity, V3Course, V3Lesson
+from app.modules.ai.v3.validator import validate_v3_course
 
 logger = logging.getLogger(__name__)
 
@@ -127,11 +128,32 @@ async def generate_v3_course_from_corpus(
         generated_lessons.append(lesson)
         lessons_summary += f"\n- {lesson.title}: {lesson.content[:150]}..."
 
-    course = V3Course(
+    unvalidated_course = V3Course(
         course_id=f"course-v3-{doc_sha[:12]}",
         title=first_title,
         document_sha256=doc_sha,
         lessons=tuple(generated_lessons),
+        quality_verdict="needs_review",
+    )
+
+    report = validate_v3_course(unvalidated_course, full_text)
+    quality_verdict = "verified" if report.verdict == "PASS" else "needs_review"
+    if report.verdict != "PASS":
+        logger.warning(
+            "V3 Course Quality Gate identified %d violations: %s",
+            len(report.violations),
+            "; ".join(report.violations[:5]),
+        )
+    else:
+        logger.info("V3 Course Quality Gate passed all invariants with verdict=%s", report.verdict)
+
+    course = V3Course(
+        course_id=unvalidated_course.course_id,
+        title=unvalidated_course.title,
+        document_sha256=unvalidated_course.document_sha256,
+        lessons=unvalidated_course.lessons,
+        quality_verdict=quality_verdict,
+        validation_report=report.to_dict(),
     )
 
     if progress_callback:

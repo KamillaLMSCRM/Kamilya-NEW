@@ -390,4 +390,83 @@ async def test_v3_service_generate_from_corpus():
     assert len(progress_events) >= 2
 
 
+def test_validate_v3_course_detects_length_shortcut():
+    """Verify that validate_v3_course detects when correct answer is persistently the longest option."""
+    from app.modules.ai.v3.validator import validate_v3_course
+
+    variant = V3QuestionVariant(
+        variant_id="var-shortcut",
+        branch_context="Филиал",
+        scenario_premise="Сотрудник проверяет лимит 800 000 тенге.",
+        prompt="Какое решение принять?",
+        correct_option=V3Option(
+            text="Это длинный правильный ответ, содержащий чрезвычайно подробное обоснование всех нормативных норм регламента",
+            is_correct=True,
+        ),
+        distractor_pool=(
+            V3Option(text="Короткая ошибка 1", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Короткая ошибка 2", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
+            V3Option(text="Короткая ошибка 3", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
+        ),
+        explanation="Пояснение",
+        source_quote="Цитата",
+    )
+    case = V3ScenarioCase(case_id="case-1", rule_id="rule-1", learning_objective="Цель", variants=(variant,))
+    lesson = V3Lesson(
+        lesson_id="l1",
+        title="Урок 1",
+        module_title="Модуль 1",
+        content="Текст урока",
+        covered_rule_ids=("rule-1",),
+        cases=(case,),
+        questions=(),
+    )
+    course = V3Course(course_id="c1", title="Курс", document_sha256="abc", lessons=(lesson,))
+
+    report = validate_v3_course(course, max_longest_correct_ratio=0.25)
+    assert report.verdict == "FAIL"
+    assert report.quality_status == "needs_review"
+    assert any("Shortcut Gate" in v for v in report.violations)
+
+
+def test_validate_v3_course_detects_substantive_48k_error():
+    """Verify that validate_v3_course detects 48 000 / 52 000 KZT wrongly assigned to Category I."""
+    from app.modules.ai.v3.validator import validate_v3_course
+
+    variant = V3QuestionVariant(
+        variant_id="var-48k",
+        branch_context="Филиал",
+        scenario_premise="Эксперт оформил микрокредит I категории на 48 000 тенге.",
+        prompt="Какое решение принять?",
+        correct_option=V3Option(
+            text="Согласовать микрокредит I категории на 48 000 тенге с АУП РД по телефону",
+            is_correct=True,
+        ),
+        distractor_pool=(
+            V3Option(text="Оформить микрокредит без согласования вопреки требованиям", is_correct=False, distractor_category=DistractorCategory.PROCEDURAL_CONFUSION),
+            V3Option(text="Передать вопрос директору филиала по служебной записке", is_correct=False, distractor_category=DistractorCategory.ROLE_CONFUSION),
+            V3Option(text="Отложить оформление залога до окончания плановой инвентаризации", is_correct=False, distractor_category=DistractorCategory.TIMING_VIOLATION),
+        ),
+        explanation="Пояснение",
+        source_quote="Цитата",
+    )
+    case = V3ScenarioCase(case_id="case-1", rule_id="rule-1", learning_objective="Цель", variants=(variant,))
+    lesson = V3Lesson(
+        lesson_id="l1",
+        title="Урок 1",
+        module_title="Модуль 1",
+        content="Текст урока",
+        covered_rule_ids=("rule-1",),
+        cases=(case,),
+        questions=(),
+    )
+    course = V3Course(course_id="c1", title="Курс", document_sha256="abc", lessons=(lesson,))
+
+    report = validate_v3_course(course)
+    assert report.verdict == "FAIL"
+    assert report.substantive_check_passed is False
+    assert any("48 000 / 52 000 KZT cannot be Category I" in v for v in report.violations)
+
+
+
 

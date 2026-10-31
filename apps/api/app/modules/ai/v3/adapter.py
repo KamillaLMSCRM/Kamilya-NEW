@@ -57,7 +57,7 @@ def v3_course_to_generation_artifacts(
                     title=lesson.title,
                     content=lesson.content,
                     source_references=doc_refs,
-                    source_validation_status="verified",
+                    source_validation_status="verified" if course.quality_verdict == "verified" else "needs_review",
                 )
             )
 

@@ -176,7 +176,8 @@ class V3Course:
     title: str
     document_sha256: str
     lessons: tuple[V3Lesson, ...]
-    quality_verdict: str = "verified"
+    quality_verdict: str = "needs_review"
+    validation_report: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -185,4 +186,100 @@ class V3Course:
             "document_sha256": self.document_sha256,
             "lessons": [lesson.to_dict() for lesson in self.lessons],
             "quality_verdict": self.quality_verdict,
+            "validation_report": self.validation_report,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> V3Course:
+        lessons: list[V3Lesson] = []
+        for l_data in data.get("lessons", []):
+            cases: list[V3ScenarioCase] = []
+            for c in l_data.get("cases", []):
+                variants: list[V3QuestionVariant] = []
+                for v in c.get("variants", []):
+                    corr_raw = v.get("correct_option", {})
+                    correct_opt = V3Option(
+                        text=corr_raw.get("text", ""),
+                        is_correct=True,
+                        distractor_category=None,
+                        distractor_rationale=corr_raw.get("distractor_rationale", ""),
+                    )
+                    pool: list[V3Option] = []
+                    for d in v.get("distractor_pool", []):
+                        cat_str = d.get("distractor_category")
+                        cat = DistractorCategory(cat_str) if cat_str in DistractorCategory._value2member_map_ else None
+                        pool.append(
+                            V3Option(
+                                text=d.get("text", ""),
+                                is_correct=False,
+                                distractor_category=cat,
+                                distractor_rationale=d.get("distractor_rationale", ""),
+                            )
+                        )
+                    variants.append(
+                        V3QuestionVariant(
+                            variant_id=v.get("variant_id", ""),
+                            branch_context=v.get("branch_context", ""),
+                            scenario_premise=v.get("scenario_premise", ""),
+                            prompt=v.get("prompt", ""),
+                            correct_option=correct_opt,
+                            distractor_pool=tuple(pool),
+                            explanation=v.get("explanation", ""),
+                            source_quote=v.get("source_quote", ""),
+                        )
+                    )
+                cases.append(
+                    V3ScenarioCase(
+                        case_id=c.get("case_id", ""),
+                        rule_id=c.get("rule_id", ""),
+                        learning_objective=c.get("learning_objective", ""),
+                        variants=tuple(variants),
+                    )
+                )
+
+            questions: list[V3Question] = []
+            for q in l_data.get("questions", []):
+                opts: list[V3Option] = []
+                for o in q.get("options", []):
+                    cat_str = o.get("distractor_category")
+                    cat = DistractorCategory(cat_str) if cat_str in DistractorCategory._value2member_map_ else None
+                    opts.append(
+                        V3Option(
+                            text=o.get("text", ""),
+                            is_correct=bool(o.get("is_correct", False)),
+                            distractor_category=cat,
+                            distractor_rationale=o.get("distractor_rationale", ""),
+                        )
+                    )
+                questions.append(
+                    V3Question(
+                        question_id=q.get("question_id", ""),
+                        scenario_premise=q.get("scenario_premise", ""),
+                        prompt=q.get("prompt", ""),
+                        options=tuple(opts),
+                        explanation=q.get("explanation", ""),
+                        rule_id=q.get("rule_id", ""),
+                        source_quote=q.get("source_quote", ""),
+                    )
+                )
+
+            lessons.append(
+                V3Lesson(
+                    lesson_id=l_data.get("lesson_id", ""),
+                    title=l_data.get("title", ""),
+                    module_title=l_data.get("module_title", ""),
+                    content=l_data.get("content", ""),
+                    covered_rule_ids=tuple(l_data.get("covered_rule_ids", ())),
+                    cases=tuple(cases),
+                    questions=tuple(questions),
+                )
+            )
+
+        return cls(
+            course_id=data.get("course_id", ""),
+            title=data.get("title", ""),
+            document_sha256=data.get("document_sha256", ""),
+            lessons=tuple(lessons),
+            quality_verdict=data.get("quality_verdict", "needs_review"),
+            validation_report=data.get("validation_report"),
+        )
