@@ -1,7 +1,9 @@
-from pydantic import AliasChoices, BaseModel, Field, ConfigDict
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
-from datetime import datetime
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+
 
 class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
@@ -64,6 +66,11 @@ class CourseReviewRequest(BaseModel):
     """Body for POST /courses/{id}/review."""
     review_status: Literal["approved", "needs_changes"]
     comment: str | None = Field(default=None, max_length=2000)
+
+
+class CourseResolveSourceUncertaintyRequest(BaseModel):
+    """Body for POST /courses/{id}/resolve-source-uncertainty."""
+    reason: str = Field(..., min_length=10, max_length=2000, description="Audit justification for resolving the source hold")
 
 
 class CoursePreviewSourceDocument(BaseModel):

@@ -856,6 +856,10 @@ async def test_critic_defect_propagation_to_violations_and_artifacts():
         # Step 3: Critic Review flags contradiction
         return {
             "verdict": "FAIL",
+            "factual_score": 1,
+            "alignment_score": 1,
+            "didactic_score": 1,
+            "summary": "Критическое смысловое искажение: источник требует закрыть дверь на ключ, а урок предписывает открыть для проветривания.",
             "defects": [
                 "Критическое смысловое искажение: источник требует закрыть дверь на ключ, а урок предписывает открыть для проветривания."
             ],
@@ -1659,6 +1663,9 @@ async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
     # 2. Reject confidence: "not-a-number"
     nan_response = {
         "verdict": "PASS",
+        "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
         "confidence": "not-a-number",
         "summary": "Урок проверен.",
         "defects": [],
@@ -1683,6 +1690,9 @@ async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
     # 4. Reject confidence: 0 with verdict PASS (internal contradiction)
     zero_conf_pass = {
         "verdict": "PASS",
+        "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
         "confidence": 0,
         "summary": "Урок выглядит хорошо.",
         "defects": [],
@@ -1715,15 +1725,29 @@ async def test_critic_schema_matches_prompt_and_enforces_strict_typing():
     assert is_valid is False
     assert "отсутствует обязательное поле 'alignment_score'" in err
 
-    # 7. Point 4: Accept confidence: 1.0 (properly parsed as 100%, not normalized to 0)
-    conf_one_pass = {
+    # 7. Point 3: Reject bare confidence: 1.0 without canonical 3-axis scores (closes fallback bypass)
+    bare_conf = {
         "verdict": "PASS",
         "confidence": 1.0,
         "summary": "Урок полностью проверен и соответствует источникам.",
         "defects": [],
     }
-    is_valid, err = _validate_critic_response(conf_one_pass, "l-1", "Тестовый урок")
-    assert is_valid is True, f"confidence: 1.0 failed validation: {err}"
+    is_valid, err = _validate_critic_response(bare_conf, "l-1", "Тестовый урок")
+    assert is_valid is False
+    assert "отсутствует обязательное поле 'factual_score'" in err
+
+    # 7b. Valid canonical response with auxiliary confidence: 1.0 (properly normalized to 1.0, not 0)
+    conf_with_canonical_pass = {
+        "verdict": "PASS",
+        "factual_score": 5,
+        "alignment_score": 5,
+        "didactic_score": 5,
+        "confidence": 1.0,
+        "summary": "Урок полностью проверен и соответствует источникам.",
+        "defects": [],
+    }
+    is_valid, err = _validate_critic_response(conf_with_canonical_pass, "l-1", "Тестовый урок")
+    assert is_valid is True, f"confidence with canonical scores failed validation: {err}"
 
     # 8. Point 5: Do NOT reject reviews with negation like «Искажений не обнаружено в тексте»
     negation_summary = {
@@ -1919,6 +1943,44 @@ async def test_quote_revision_mismatch_and_multi_doc_unbiased_grounding():
     is_grounded_ok, report_ok, _ = _verify_rule_quote_grounding(rule_current_rev, corpus)
     assert is_grounded_ok is True
     assert "rev: rev-2.0" in report_ok
+
+    # Point 1: Chunk revision mismatch (document has rev-new, but chunk has rev-old) must FAIL
+    chunk_stale = DirectSourceChunk(
+        chunk_id="chk-rev-stale",
+        doc_id="doc-split-rev",
+        doc_name="split.txt",
+        title="Документ",
+        headings=(),
+        text=f"Текст чанка: {quote_rev}",
+        source_revision="rev-old",
+        chunk_index=0,
+    )
+    doc_split = DirectSourceDocument(
+        doc_id="doc-split-rev",
+        title="Документ",
+        filename="split.txt",
+        category="regulations",
+        source_revision="rev-new",
+        chunks=(chunk_stale,),
+    )
+    corpus_split = DirectSourceCorpus(
+        tenant_id="tenant-split",
+        documents=(doc_split,),
+        total_chars=100,
+        total_chunks=1,
+    )
+    rule_new = RuleEntity(
+        rule_id="r-new",
+        section="Раздел",
+        title="Правило новой ревизии",
+        statement="Срок пролонгации 30 дней.",
+        source_quote=quote_rev,
+        doc_id="doc-split-rev",
+        source_revision="rev-new",
+    )
+    is_grounded_split, report_split, _ = _verify_rule_quote_grounding(rule_new, corpus_split)
+    assert is_grounded_split is False
+    assert "Несогласованность ревизий источника" in report_split or "Несоответствие ревизии чанка" in report_split
 
 
 @pytest.mark.asyncio

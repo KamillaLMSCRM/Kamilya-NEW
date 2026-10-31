@@ -119,3 +119,23 @@ def test_resolve_source_uncertainty_clears_hold_and_records_audit():
 
     # Guard now passes
     require_persisted_source_hold_clear(resolved)
+
+    # Rejects invalid / unauthenticated calls
+    with pytest.raises(ValueError):
+        resolve_source_uncertainty(initial_analysis, reason="Проверка", methodologist_user_id=None)
+    with pytest.raises(ValueError):
+        resolve_source_uncertainty(initial_analysis, reason="", methodologist_user_id=actor_id)
+    with pytest.raises(ValueError):
+        resolve_source_uncertainty(initial_analysis, reason="коротко", methodologist_user_id=actor_id)
+
+    # Calling resolve second time appends to history without overwriting previous audit records
+    second_actor = uuid4()
+    second_analysis = {**resolved, SOURCE_UNCERTAINTY_KEY: {"status": "review_required"}}
+    second_resolved = resolve_source_uncertainty(
+        second_analysis,
+        reason="Вторая проверка после правок регламента",
+        methodologist_user_id=second_actor,
+    )
+    assert len(second_resolved["resolutions_history"]) == 2
+    assert second_resolved["resolutions_history"][0]["resolved_by"] == str(actor_id)
+    assert second_resolved["resolutions_history"][1]["resolved_by"] == str(second_actor)

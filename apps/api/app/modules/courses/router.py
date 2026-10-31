@@ -28,6 +28,7 @@ from app.modules.courses.schemas import (
     CoursePreviewModule,
     CoursePreviewResponse,
     CoursePreviewSourceDocument,
+    CourseResolveSourceUncertaintyRequest,
     CourseResponse,
     CourseReviewer,
     CourseReviewRequest,
@@ -392,6 +393,58 @@ async def review_course(
     )
     await db.commit()
     course.reviewer = await _hydrate_reviewer(db, course)
+    return course
+
+
+@router.post("/{course_id}/resolve-source-uncertainty", response_model=CourseResponse)
+async def resolve_course_source_uncertainty(
+    course_id: UUID,
+    req: CourseResolveSourceUncertaintyRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
+) -> Course:
+    """Authorized methodologist endpoint: clears server-owned source uncertainty hold.
+
+    Validates tenant isolation, records immutable resolution entry with user ID,
+    timestamp, and reason into Course.source_analysis, and writes an audit log.
+    """
+    from app.modules.courses.source_uncertainty import resolve_source_uncertainty
+
+    query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id).with_for_update()
+    result = await db.execute(query)
+    course = result.scalar_one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    try:
+        updated_analysis = resolve_source_uncertainty(
+            course.source_analysis,  # type: ignore[arg-type]
+            reason=req.reason,
+            methodologist_user_id=user.id,
+        )
+    except ValueError as val_err:
+        raise HTTPException(status_code=422, detail=str(val_err)) from val_err
+
+    course.source_analysis = updated_analysis  # type: ignore[assignment]
+    await db.flush()
+    await db.refresh(course)
+    await log_action(
+        db,
+        user.tenant_id,  # type: ignore[arg-type]
+        "resolve_source_uncertainty",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,  # type: ignore[arg-type]
+        details={
+            "reason": req.reason,
+            "resolved_at": updated_analysis.get("source_uncertainty_resolution", {}).get("resolved_at"),
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    course.reviewer = await _hydrate_reviewer(db, course)  # type: ignore[attr-defined]
     return course
 
 

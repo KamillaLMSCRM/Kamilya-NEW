@@ -91,18 +91,30 @@ def resolve_source_uncertainty(
     """Authorized methodologist action: clears unresolved_source_uncertainty hold after manual verification.
 
     Records an immutable audit trail with resolver identity, timestamp, and verification rationale.
+    Preserves all previous resolutions in resolutions_history without overwriting.
     """
     from datetime import datetime
 
-    result = dict(source_analysis or {})
+    if not methodologist_user_id or not str(methodologist_user_id).strip():
+        raise ValueError("methodologist_user_id is required")
+    if not isinstance(reason, str) or len(reason.strip()) < 10:
+        raise ValueError("reason must be a non-empty string of at least 10 characters")
+
+    result = deepcopy(source_analysis or {})
     if SOURCE_UNCERTAINTY_KEY in result:
         result.pop(SOURCE_UNCERTAINTY_KEY, None)
-        result["source_uncertainty_resolution"] = {
+        resolution_entry = {
             "status": "resolved",
-            "resolved_by": str(methodologist_user_id),
+            "resolved_by": str(methodologist_user_id).strip(),
             "resolved_at": datetime.now(UTC).isoformat(),
-            "reason": reason,
+            "reason": reason.strip(),
         }
+        history = list(result.get("resolutions_history") or [])
+        if "source_uncertainty_resolution" in result and result["source_uncertainty_resolution"] not in history:
+            history.append(result["source_uncertainty_resolution"])
+        history.append(resolution_entry)
+        result["resolutions_history"] = history
+        result["source_uncertainty_resolution"] = resolution_entry
     return result
 
 

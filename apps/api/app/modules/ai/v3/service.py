@@ -43,6 +43,8 @@ def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
 class QuoteOccurrence:
     doc_id: str
     chunk_id: str
+    doc_revision: str
+    chunk_revision: str
     source_revision: str
     char_start: int
     char_end: int
@@ -71,6 +73,9 @@ def find_quote_occurrences_in_corpus(
         for chunk in doc.chunks:
             c_text = chunk.text
             norm_c, char_map = normalize_with_char_map(c_text)
+            chunk_rev = (chunk.source_revision or "").strip()
+            doc_rev = (doc.source_revision or "").strip()
+            effective_rev = chunk_rev or doc_rev
             start_pos = 0
             while True:
                 idx = norm_c.find(norm_q, start_pos)
@@ -85,7 +90,9 @@ def find_quote_occurrences_in_corpus(
                         QuoteOccurrence(
                             doc_id=doc.doc_id,
                             chunk_id=chunk.chunk_id,
-                            source_revision=doc.source_revision or chunk.source_revision,
+                            doc_revision=doc_rev,
+                            chunk_revision=chunk_rev,
+                            source_revision=effective_rev,
                             char_start=orig_start,
                             char_end=orig_end,
                             matched_text=matched_slice,
@@ -112,6 +119,51 @@ def _find_quote_in_corpus(
             return True, first.doc_id, first.chunk_id, first.char_start, first.char_end
     first = occurrences[0]
     return True, first.doc_id, first.chunk_id, first.char_start, first.char_end
+
+
+def _occurrence_matches_revision(occ: QuoteOccurrence, rule_rev: str) -> tuple[bool, str]:
+    """Jointly verifies revision consistency between Rule, Document, and specific Chunk.
+
+    Guarantees:
+    - If chunk has a revision different from document (e.g. doc is 'new', chunk is 'old'), conflict is detected.
+    - If rule specifies a revision, the chunk's actual revision must match rule revision.
+    - If rule does not specify a revision, document and chunk must not conflict with each other.
+    """
+    chunk_rev = occ.chunk_revision
+    doc_rev = occ.doc_revision
+
+    # 1. Internal consistency between document and chunk
+    if chunk_rev and doc_rev and chunk_rev != doc_rev:
+        return False, (
+            f"Несогласованность ревизий источника: документ '{occ.doc_id}' имеет ревизию '{doc_rev}', "
+            f"но чанк '{occ.chunk_id}' содержит ревизию '{chunk_rev}'"
+        )
+
+    # 2. Rule revision matching
+    if rule_rev:
+        effective_chunk_rev = chunk_rev or doc_rev
+        if chunk_rev and doc_rev and chunk_rev == doc_rev and doc_rev != rule_rev:
+            return False, (
+                f"Несоответствие ревизии документа: документ '{occ.doc_id}' (чанк '{occ.chunk_id}') имеет ревизию '{doc_rev}', "
+                f"а правило привязано к ревизии '{rule_rev}'"
+            )
+        if chunk_rev and chunk_rev != rule_rev:
+            return False, (
+                f"Несоответствие ревизии чанка: чанк '{occ.chunk_id}' имеет ревизию '{chunk_rev}', "
+                f"а правило привязано к ревизии '{rule_rev}'"
+            )
+        if doc_rev and doc_rev != rule_rev:
+            return False, (
+                f"Несоответствие ревизии документа: документ '{occ.doc_id}' имеет ревизию '{doc_rev}', "
+                f"а правило привязано к ревизии '{rule_rev}'"
+            )
+        if not effective_chunk_rev:
+            return False, (
+                f"Отсутствует достоверная ревизия у источника (документ '{occ.doc_id}', чанк '{occ.chunk_id}'), "
+                f"хотя правило требует ревизию '{rule_rev}'"
+            )
+
+    return True, ""
 
 
 def _verify_rule_quote_grounding(
@@ -146,17 +198,22 @@ def _verify_rule_quote_grounding(
                 f"Несоответствие источника: цитата правила {rule.rule_id} ('{rule.title}') найдена в документах {other_docs}, но правило привязано к документу '{rule_doc_id}'"
             ), all_occurrences
 
-        # Revision verification: must match document revision when specified
-        if rule_rev:
-            rev_matches = [occ for occ in doc_matches if occ.source_revision == rule_rev]
-            if not rev_matches:
-                doc_revs = sorted(list({occ.source_revision for occ in doc_matches}))
-                return False, (
-                    f"Несоответствие ревизии документа для правила {rule.rule_id} ('{rule.title}'): документ '{rule_doc_id}' имеет ревизию {doc_revs}, а правило привязано к ревизии '{rule_rev}'"
-                ), doc_matches
-            target_matches = rev_matches
-        else:
-            target_matches = doc_matches
+        # Joint Rule, Document, and Chunk revision check
+        rev_matches: list[QuoteOccurrence] = []
+        rev_errors: list[str] = []
+        for occ in doc_matches:
+            ok, err = _occurrence_matches_revision(occ, rule_rev)
+            if ok:
+                rev_matches.append(occ)
+            else:
+                rev_errors.append(err)
+
+        if not rev_matches:
+            err_msg = rev_errors[0] if rev_errors else (
+                f"Несоответствие ревизии для правила {rule.rule_id} ('{rule.title}'): правило требует '{rule_rev}'"
+            )
+            return False, err_msg, doc_matches
+        target_matches = rev_matches
     else:
         # Rule has no explicit doc_id
         distinct_docs = sorted(list({occ.doc_id for occ in all_occurrences}))
@@ -165,22 +222,28 @@ def _verify_rule_quote_grounding(
                 f"Неоднозначная принадлежность цитаты для правила {rule.rule_id} ('{rule.title}'): фраза обнаружена сразу в нескольких документах ({distinct_docs}). Требуется явное указание doc_id правила."
             ), all_occurrences
 
-        if rule_rev:
-            rev_matches = [occ for occ in all_occurrences if occ.source_revision == rule_rev]
-            if not rev_matches:
-                doc_revs = sorted(list({occ.source_revision for occ in all_occurrences}))
-                return False, (
-                    f"Несоответствие ревизии документа для правила {rule.rule_id} ('{rule.title}'): документ '{all_occurrences[0].doc_id}' имеет ревизию {doc_revs}, а правило привязано к ревизии '{rule_rev}'"
-                ), all_occurrences
-            target_matches = rev_matches
-        else:
-            target_matches = all_occurrences
+        rev_matches = []
+        rev_errors = []
+        for occ in all_occurrences:
+            ok, err = _occurrence_matches_revision(occ, rule_rev)
+            if ok:
+                rev_matches.append(occ)
+            else:
+                rev_errors.append(err)
+
+        if not rev_matches:
+            err_msg = rev_errors[0] if rev_errors else (
+                f"Несоответствие ревизии для правила {rule.rule_id} ('{rule.title}'): правило требует '{rule_rev}'"
+            )
+            return False, err_msg, all_occurrences
+        target_matches = rev_matches
 
     primary = target_matches[0]
     multi_note = f" (всего совпадений в документе: {len(target_matches)})" if len(target_matches) > 1 else ""
     fragment_str = (
-        f"[Верифицированная цитата | Документ {primary.doc_id} (rev: {primary.source_revision or 'n/a'}){multi_note} | "
-        f"Чанк {primary.chunk_id} ({primary.char_start}:{primary.char_end})]: {primary.matched_text}"
+        f"[Верифицированная цитата | Документ {primary.doc_id} (rev: {primary.doc_revision or 'n/a'}) | "
+        f"Чанк {primary.chunk_id} (rev: {primary.chunk_revision or primary.doc_revision or 'n/a'}){multi_note} | "
+        f"({primary.char_start}:{primary.char_end})]: {primary.matched_text}"
     )
     return True, fragment_str, target_matches
 
@@ -541,37 +604,27 @@ def _validate_critic_response(
             return False, 0.0, f"Оценка '{name}' вне допустимой шкалы 0.0-1.0 (получено: {val})"
         return True, val_f, ""
 
-    # Check canonical prompt scores: factual_score, alignment_score, didactic_score
+    # Strict fail-closed schema: ALL 3 canonical criteria from prompts.py are mandatory!
     canonical_fields = ["factual_score", "alignment_score", "didactic_score"]
-    has_canonical = any(f in review_res for f in canonical_fields)
     scores_found: dict[str, float] = {}
 
-    if has_canonical:
-        # Strict enforcement: ALL 3 canonical criteria from prompts.py must be present!
-        for f in canonical_fields:
-            if f not in review_res or review_res[f] is None:
-                return False, f"В ответе критика для урока {lesson_id} отсутствует обязательное поле '{f}' (шкала 1-5)"
-            ok, norm_val, err = _validate_scale_1_to_5(f, review_res[f])
-            if not ok:
-                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
-            scores_found[f] = norm_val
-    else:
-        # Fallback for confidence / alternate scores
-        if "confidence" in review_res and review_res["confidence"] is not None:
-            ok, norm_val, err = _validate_scale_confidence("confidence", review_res["confidence"])
-            if not ok:
-                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
-            scores_found["confidence"] = norm_val
-        elif "factual_accuracy_score" in review_res and review_res["factual_accuracy_score"] is not None:
-            ok, norm_val, err = _validate_scale_1_to_5("factual_accuracy_score", review_res["factual_accuracy_score"])
-            if not ok:
-                return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
-            scores_found["factual_accuracy_score"] = norm_val
-        else:
+    for f in canonical_fields:
+        if f not in review_res or review_res[f] is None:
             return False, (
-                f"Ответ критика для урока {lesson_id} не содержит обязательных числовых оценок качества "
-                f"(ожидались: factual_score, alignment_score, didactic_score по шкале 1-5 из контракта промпта)"
+                f"Ответ критика для урока {lesson_id} не соответствует строгому контракту: "
+                f"отсутствует обязательное поле '{f}' (шкала 1-5)"
             )
+        ok, norm_val, err = _validate_scale_1_to_5(f, review_res[f])
+        if not ok:
+            return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
+        scores_found[f] = norm_val
+
+    # Optional auxiliary field: confidence (if provided, must be in 0.0-1.0)
+    if "confidence" in review_res and review_res["confidence"] is not None:
+        ok, norm_val, err = _validate_scale_confidence("confidence", review_res["confidence"])
+        if not ok:
+            return False, f"Ошибка в оценке критика для урока {lesson_id}: {err}"
+        scores_found["confidence"] = norm_val
 
     # Consistency checks based on verdict
     if verdict == "PASS":
