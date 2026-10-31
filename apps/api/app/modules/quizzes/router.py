@@ -14,6 +14,7 @@ from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
 from app.models.users import User
 from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
+from app.modules.courses.release_service import touch_course_by_lesson
 from app.modules.editor_assistant.router import router as editor_assistant_router
 from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
 from app.modules.enrollments.occurrences import is_current_occurrence
@@ -614,6 +615,7 @@ async def create_quiz(
         deferral_days=req.deferral_days,
     )
     db.add(quiz)
+    await touch_course_by_lesson(db, req.lesson_id, user.tenant_id)
     await db.flush()
     await db.refresh(quiz)
     return await get_quiz_with_questions(db, quiz.id, user.tenant_id)
@@ -728,6 +730,7 @@ async def update_quiz(
         quiz.attempt_limit = req.attempt_limit
     if req.deferral_days is not None:
         cast(Any, quiz).deferral_days = req.deferral_days
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     await db.flush()
     return await get_quiz_with_questions(db, quiz.id, user.tenant_id)
 
@@ -743,6 +746,7 @@ async def delete_quiz(
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
     await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
+    lesson_id = getattr(quiz, "lesson_id", None)
     # Delete questions and choices first (cascade should handle, but be explicit)
     questions = await db.execute(select(Question).where(Question.quiz_id == quiz_id))
     for q in questions.scalars().all():
@@ -751,6 +755,7 @@ async def delete_quiz(
             await db.delete(c)
         await db.delete(q)
     await db.delete(quiz)
+    await touch_course_by_lesson(db, lesson_id, user.tenant_id)
 
 
 # ── CRUD: Questions ─────────────────────────────────────────
@@ -792,6 +797,7 @@ async def create_question(
         )
         db.add(choice)
     await db.flush()
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)
 
 
@@ -867,6 +873,7 @@ async def update_question(
             if choice_id not in retained_choice_ids:
                 await db.delete(choice)
     await db.flush()
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)
 
 
@@ -889,6 +896,7 @@ async def delete_question(
     for c in choices.scalars().all():
         await db.delete(c)
     await db.delete(question)
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     await db.flush()
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)
 
@@ -922,6 +930,7 @@ async def create_choice(
         order_index=req.order_index,
     )
     db.add(choice)
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     await db.flush()
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)
 
@@ -952,6 +961,7 @@ async def update_choice(
         choice.is_correct = req.is_correct
     if req.order_index is not None:
         choice.order_index = req.order_index
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     await db.flush()
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)
 
@@ -976,5 +986,6 @@ async def delete_choice(
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
     await db.delete(choice)
+    await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     await db.flush()
     return await get_quiz_with_questions(db, quiz_id, user.tenant_id)

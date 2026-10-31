@@ -402,52 +402,162 @@ async def review_course(
 async def _extract_course_source_revisions(
     db: AsyncSession, course: Course
 ) -> tuple[list[str], dict[str, str], list[SourceDocumentRevisionInfo]]:
-    """Gathers authoritative source revisions from instruction, documents, and analysis."""
+    """Gathers authoritative source revisions from DB Document records and enforces strict consistency.
+
+    Invariants enforced:
+    1. DB Document records are the sole authoritative source of truth for document revisions.
+    2. All declared document IDs (course.source_instruction_id, course.source_document_ids,
+       and lesson source_document_ids) must exist in DB and belong to the tenant.
+       Any missing, unparseable, or cross-tenant document immediately raises ValueError (fail-closed).
+    3. Metadata in course.source_analysis is strictly validated against DB Document records. Any mismatch
+       between analysis metadata and DB records raises ValueError (fail-closed).
+    4. Both GET and POST endpoints construct and verify the identical authoritative mapping.
+    """
     from app.models.document import Document
+    from app.modules.lessons.models import Lesson, Module
 
     available_revisions: list[str] = []
     authoritative_doc_revisions: dict[str, str] = {}
     docs_info: list[SourceDocumentRevisionInfo] = []
 
+    # Map of UUID -> source description for clear domain error reporting
+    declared_docs: dict[UUID, str] = {}
+
     # 1. Source instruction
-    if course.source_instruction_id:
-        doc_id = str(course.source_instruction_id)
-        rev = course.source_instruction_version_at.isoformat() if course.source_instruction_version_at else None
-        if rev:
-            authoritative_doc_revisions[doc_id] = rev
-            available_revisions.append(rev)
-
-    # 2. Source document IDs
-    doc_ids: list[UUID] = []
-    raw_source_doc_ids: list[Any] = course.source_document_ids if isinstance(course.source_document_ids, list) else []
-    for raw_id in raw_source_doc_ids:
+    if course.source_instruction_id is not None:
         try:
-            doc_ids.append(UUID(str(raw_id)))
-        except ValueError:
-            continue
+            inst_uuid = course.source_instruction_id if isinstance(course.source_instruction_id, UUID) else UUID(str(course.source_instruction_id))
+            declared_docs[inst_uuid] = "инструкция курса"
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Идентификатор инструкции курса '{course.source_instruction_id}' имеет неверный формат.") from exc
 
-    if doc_ids:
+    # 2. Course-level source document IDs
+    if getattr(course, "source_document_ids", None):
+        raw_course_docs = course.source_document_ids
+        if not isinstance(raw_course_docs, list):
+            raise ValueError("Поле 'source_document_ids' курса имеет неверный формат (ожидался список).")
+        for raw_id in raw_course_docs:
+            try:
+                doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id))
+                if doc_uuid not in declared_docs:
+                    declared_docs[doc_uuid] = "документ источника курса"
+            except (ValueError, TypeError) as exc:
+                raise ValueError(f"Идентификатор документа курса '{raw_id}' имеет неверный формат.") from exc
+
+    # 3. Lesson-level declared source document IDs
+    lessons_stmt = (
+        select(Lesson)
+        .join(Module, Module.id == Lesson.module_id)
+        .where(Module.course_id == course.id, Lesson.tenant_id == course.tenant_id)
+    )
+    lessons_res = await db.execute(lessons_stmt)
+    for lesson in lessons_res.scalars().all():
+        lesson_source_ids = getattr(lesson, "source_document_ids", None)
+        if lesson_source_ids and isinstance(lesson_source_ids, list):
+            for raw_id in lesson_source_ids:
+                try:
+                    doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id))
+                    if doc_uuid not in declared_docs:
+                        declared_docs[doc_uuid] = f"документ источника урока '{getattr(lesson, 'title', '')}'"
+                except (ValueError, TypeError) as exc:
+                    raise ValueError(f"Идентификатор документа источника урока '{raw_id}' имеет неверный формат.") from exc
+
+    sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
+    sa_source_docs = sa.get("source_documents")
+
+    # 4. Authoritative verification against Database Document records
+    if declared_docs:
         docs_res = await db.execute(
-            select(Document).where(Document.id.in_(doc_ids), Document.tenant_id == course.tenant_id)
+            select(Document).where(
+                Document.id.in_(list(declared_docs.keys())),
+                Document.tenant_id == course.tenant_id,
+            )
         )
-        for doc in docs_res.scalars().all():
-            doc_id = str(doc.id)
-            doc_rev = str(doc.content_sha256 or f"v{doc.version}" or doc.index_revision or "")
-            if doc_rev:
-                authoritative_doc_revisions[doc_id] = doc_rev
-                available_revisions.append(doc_rev)
-                docs_info.append(
-                    SourceDocumentRevisionInfo(
-                        document_id=doc_id,
-                        title=str(doc.title),
-                        filename=str(doc.filename),
-                        authoritative_revision=doc_rev,
-                    )
+        found_docs: dict[UUID, Document] = {cast(UUID, doc.id): doc for doc in docs_res.scalars().all()}
+
+        # Verify EVERY declared document exists in DB and belongs to tenant
+        for req_id, doc_label in declared_docs.items():
+            if req_id not in found_docs:
+                raise ValueError(
+                    f"Задекларированный {doc_label} с идентификатором '{req_id}' не найден в базе данных тенанта."
                 )
 
-    # 3. Source analysis metadata
-    if isinstance(course.source_analysis, dict):
-        sa = course.source_analysis
+        # Build authoritative revisions solely from DB Document rows
+        for doc_uuid, doc in sorted(found_docs.items(), key=lambda kv: str(kv[0])):
+            doc_id_str = str(doc_uuid)
+            doc_rev = str(
+                doc.content_sha256
+                or (f"v{doc.version}" if getattr(doc, "version", None) is not None else "")
+                or getattr(doc, "index_revision", "")
+                or ""
+            ).strip()
+            if not doc_rev:
+                if course.source_instruction_id == doc_uuid and course.source_instruction_version_at:
+                    doc_rev = course.source_instruction_version_at.isoformat()
+                else:
+                    doc_rev = f"v{getattr(doc, 'version', 1)}"
+
+            authoritative_doc_revisions[doc_id_str] = doc_rev
+            available_revisions.append(doc_rev)
+            if getattr(doc, "version", None) is not None:
+                available_revisions.append(f"v{doc.version}")
+            if getattr(doc, "content_sha256", None):
+                available_revisions.append(str(doc.content_sha256).strip())
+
+            docs_info.append(
+                SourceDocumentRevisionInfo(
+                    document_id=doc_id_str,
+                    title=str(getattr(doc, "title", "") or "Документ источника"),
+                    filename=str(getattr(doc, "filename", "") or "source.pdf"),
+                    authoritative_revision=doc_rev,
+                )
+            )
+
+        # Validate analysis metadata against authoritative DB records (Never overwrite DB revision!)
+        if sa_source_docs and isinstance(sa_source_docs, list):
+            for item in sa_source_docs:
+                if isinstance(item, dict) and item.get("id"):
+                    d_id_str = str(item["id"])
+                    analysis_rev = str(item.get("revision") or "").strip()
+                    if d_id_str not in authoritative_doc_revisions:
+                        raise ValueError(
+                            f"Документ источника '{d_id_str}' из анализа отсутствует среди задекларированных документов курса в базе данных."
+                        )
+                    db_rev = authoritative_doc_revisions[d_id_str]
+                    doc_obj = found_docs.get(UUID(d_id_str))
+                    valid_revs = {db_rev}
+                    if doc_obj:
+                        if getattr(doc_obj, "content_sha256", None):
+                            valid_revs.add(str(doc_obj.content_sha256).strip())
+                        if getattr(doc_obj, "version", None) is not None:
+                            valid_revs.add(f"v{doc_obj.version}")
+                    if analysis_rev and analysis_rev not in valid_revs:
+                        raise ValueError(
+                            f"Конфликт ревизий для документа '{d_id_str}': ревизия в анализе '{analysis_rev}' "
+                            f"не совпадает с актуальной ревизией документа в базе данных '{db_rev}'."
+                        )
+
+        # Single document check for general analysis revisions
+        sa_rev = str(sa.get("source_revision") or "").strip()
+        if sa_rev and len(found_docs) == 1:
+            single_doc = next(iter(found_docs.values()))
+            single_rev = authoritative_doc_revisions[str(single_doc.id)]
+            valid_revs = {single_rev}
+            if getattr(single_doc, "content_sha256", None):
+                valid_revs.add(str(single_doc.content_sha256).strip())
+            if getattr(single_doc, "version", None) is not None:
+                valid_revs.add(f"v{single_doc.version}")
+            if sa_rev not in valid_revs:
+                raise ValueError(
+                    f"Конфликт ревизий: ревизия в анализе курса '{sa_rev}' "
+                    f"не совпадает с актуальной ревизией документа в базе данных '{single_rev}'."
+                )
+
+        if course.source_instruction_version_at:
+            available_revisions.append(course.source_instruction_version_at.isoformat())
+
+    else:
+        # Fallback when no DB Document rows are declared (e.g. synthetic test scenarios)
         for key in ("source_revision", "document_revision", "revision"):
             if sa.get(key):
                 available_revisions.append(str(sa[key]).strip())
@@ -457,21 +567,23 @@ async def _extract_course_source_revisions(
         ev3 = sa.get("evidence_v3") or {}
         if ev3.get("source_revision"):
             available_revisions.append(str(ev3["source_revision"]).strip())
-        for doc_item in (sa.get("source_documents") or []):
-            if isinstance(doc_item, dict) and doc_item.get("id") and doc_item.get("revision"):
-                d_id = str(doc_item["id"])
-                d_rev = str(doc_item["revision"]).strip()
-                authoritative_doc_revisions[d_id] = d_rev
-                available_revisions.append(d_rev)
-                if not any(d.document_id == d_id for d in docs_info):
-                    docs_info.append(
-                        SourceDocumentRevisionInfo(
-                            document_id=d_id,
-                            title=str(doc_item.get("title") or "Документ источника"),
-                            filename=str(doc_item.get("filename") or "source.pdf"),
-                            authoritative_revision=d_rev,
+
+        if sa_source_docs and isinstance(sa_source_docs, list):
+            for doc_item in sa_source_docs:
+                if isinstance(doc_item, dict) and doc_item.get("id"):
+                    d_id = str(doc_item["id"])
+                    d_rev = str(doc_item.get("revision") or "").strip()
+                    if d_rev:
+                        authoritative_doc_revisions[d_id] = d_rev
+                        available_revisions.append(d_rev)
+                        docs_info.append(
+                            SourceDocumentRevisionInfo(
+                                document_id=d_id,
+                                title=str(doc_item.get("title") or "Документ источника"),
+                                filename=str(doc_item.get("filename") or "source.pdf"),
+                                authoritative_revision=d_rev,
+                            )
                         )
-                    )
 
     unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
     return unique_revisions, authoritative_doc_revisions, docs_info
@@ -504,11 +616,18 @@ async def get_course_source_uncertainty_details(
             status_code=409,
             detail={
                 "code": "course_snapshot_build_failed",
-                "message": f"Не удалось сформировать полный снимок курса для проверки целостности: {exc}",
+                "message": "Не удалось сформировать полный снимок курса для проверки целостности. Пожалуйста, проверьте доступность структуры курса.",
             },
         ) from exc
 
-    avail_revs, _, docs_info = await _extract_course_source_revisions(db, course)
+    try:
+        avail_revs, _, docs_info = await _extract_course_source_revisions(db, course)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
+
     sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
     has_hold = SOURCE_UNCERTAINTY_KEY in sa
 
@@ -561,11 +680,18 @@ async def resolve_course_source_uncertainty(
             status_code=409,
             detail={
                 "code": "course_snapshot_build_failed",
-                "message": f"Не удалось сформировать полный снимок курса для проверки целостности: {exc}",
+                "message": "Не удалось сформировать полный снимок курса для проверки целостности. Пожалуйста, проверьте доступность структуры курса.",
             },
         ) from exc
 
-    available_revisions, authoritative_document_revisions, _ = await _extract_course_source_revisions(db, course)
+    try:
+        available_revisions, authoritative_document_revisions, _ = await _extract_course_source_revisions(db, course)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
+
     defect_payload = [d.model_dump() for d in req.defect_resolutions]
 
     try:

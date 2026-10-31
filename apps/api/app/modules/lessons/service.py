@@ -2,23 +2,19 @@
 
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.courses import Course
+from app.modules.courses.release_service import (
+    touch_course as _touch_course,
+)
+from app.modules.courses.release_service import (
+    touch_course_by_lesson as _touch_course_by_lesson,
+)
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.lessons.schemas import LessonCreate, LessonUpdate, ModuleCreate, ModuleUpdate
-
-
-async def _touch_course(db: AsyncSession, course_id: object, tenant_id: object) -> None:
-    """Updates parent Course updated_at timestamp to synchronize content versioning and locking."""
-    if course_id is not None and tenant_id is not None:
-        await db.execute(
-            update(Course)
-            .where(Course.id == course_id, Course.tenant_id == tenant_id)
-            .values(updated_at=func.now())
-        )
 
 
 async def _mark_lesson_quizzes_needs_review(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> None:
@@ -163,6 +159,13 @@ async def reorder_items(db: AsyncSession, item_type: str, ids_order: list[UUID],
         await db.execute(
             update(model).where(model.id == item_id, model.tenant_id == tenant_id).values(order_index=index)
         )
+    if ids_order:
+        if item_type == "module":
+            first_mod = await db.scalar(select(Module).where(Module.id == ids_order[0], Module.tenant_id == tenant_id))
+            if first_mod:
+                await _touch_course(db, first_mod.course_id, tenant_id)
+        elif item_type == "lesson":
+            await _touch_course_by_lesson(db, ids_order[0], tenant_id)
 
 
 async def reorder_lessons_in_module(
@@ -252,6 +255,7 @@ async def create_content_block(
     )
     db.add(block)
     await _mark_lesson_quizzes_needs_review(db, lesson_id, tenant_id)
+    await _touch_course_by_lesson(db, lesson_id, tenant_id)
     await db.flush()
     return block
 
@@ -284,6 +288,7 @@ async def update_content_block(
         block.metadata_ = metadata_
     if learner_visible_change:
         await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
+        await _touch_course_by_lesson(db, lesson.id, tenant_id)
     await db.flush()
     return block
 
@@ -299,6 +304,7 @@ async def delete_content_block(db: AsyncSession, block_id: UUID, tenant_id: UUID
     if not lesson or lesson.tenant_id != tenant_id:
         return False
     await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
+    await _touch_course_by_lesson(db, lesson.id, tenant_id)
     await db.delete(block)
     return True
 
@@ -320,3 +326,4 @@ async def reorder_content_blocks(db: AsyncSession, lesson_id: UUID, ids_order: l
             await db.execute(sa_update(ContentBlock).where(ContentBlock.id == block_id).values(order_index=index))
     if changed:
         await _mark_lesson_quizzes_needs_review(db, lesson_id, tenant_id)
+        await _touch_course_by_lesson(db, lesson_id, tenant_id)

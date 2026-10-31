@@ -31,6 +31,30 @@ def _make_user(role: str = "methodologist", tenant_id: UUID | None = None, user_
     )
 
 
+def _make_document(
+    doc_id: UUID,
+    tenant_id: UUID,
+    title: str = "Тестовый регламент",
+    filename: str = "reglament.pdf",
+    version: int = 1,
+    content_sha256: str = "sha256-test",
+    source_family_id: UUID | None = None,
+):
+    return SimpleNamespace(
+        id=doc_id,
+        tenant_id=tenant_id,
+        title=title,
+        filename=filename,
+        category="general",
+        content_type="application/pdf",
+        size=1024,
+        version=version,
+        content_sha256=content_sha256,
+        source_family_id=source_family_id or uuid4(),
+        index_revision=1,
+    )
+
+
 def _make_course(
     course_id: UUID,
     tenant_id: UUID,
@@ -159,6 +183,8 @@ def _build_test_app(
                     return [les for m in getattr(matched, "modules", []) for les in getattr(m, "lessons", [])]
                 if "FROM CONTENT_BLOCKS" in statement_str:
                     return [blk for m in getattr(matched, "modules", []) for les in getattr(m, "lessons", []) for blk in getattr(les, "blocks", [])]
+                if "FROM DOCUMENTS" in statement_str:
+                    return list(getattr(matched, "_mock_documents", []))
                 return []
 
             return SimpleNamespace(
@@ -835,3 +861,278 @@ async def test_resolve_source_uncertainty_preserves_independent_publication_bloc
         pub_resp = await ac.post(f"/courses/{course_id}/publish")
         assert pub_resp.status_code == 409
         assert pub_resp.json()["detail"]["code"] == "course_review_required"
+
+
+@pytest.mark.asyncio
+async def test_source_uncertainty_declared_document_missing_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify that if any declared document (course, instruction, or lesson) is missing from DB, both GET and POST fail closed with 409."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    missing_doc_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-1")
+    course.source_document_ids = [missing_doc_id]
+    course._mock_documents = []  # Document missing from database
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # GET inspection endpoint fails closed
+        get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert get_resp.status_code == 409
+        get_err = get_resp.json()["detail"]
+        assert get_err["code"] == "source_uncertainty_resolution_rejected"
+        assert f"'{missing_doc_id}' не найден в базе данных тенанта" in get_err["message"]
+
+        # POST resolution endpoint fails closed
+        post_resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Попытка снятия холда с отсутствующим в базе данных документом источника",
+                "expected_content_hash": "0" * 64,
+                "verified_revision": "rev-1",
+                "defect_resolutions": [],
+            },
+        )
+        assert post_resp.status_code == 409
+        post_err = post_resp.json()["detail"]
+        assert post_err["code"] == "source_uncertainty_resolution_rejected"
+        assert f"'{missing_doc_id}' не найден в базе данных тенанта" in post_err["message"]
+
+
+@pytest.mark.asyncio
+async def test_source_uncertainty_lesson_declared_document_missing_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify lesson-level declared source document missing from DB causes 409 fail closed."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    missing_doc_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-1")
+    # Attach missing document ID to lesson
+    course.modules[0].lessons[0].source_document_ids = [missing_doc_id]
+    course._mock_documents = []
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert get_resp.status_code == 409
+        assert f"'{missing_doc_id}' не найден в базе данных тенанта" in get_resp.json()["detail"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_source_uncertainty_metadata_contradicting_db_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    """Verify DB Document is sole authoritative source; analysis metadata cannot overwrite it, and contradictions fail closed."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    doc_id = uuid4()
+    real_db_revision = "real-db-hash-99999999999999999999999999999999"
+    stale_analysis_rev = "stale-metadata-cannot-overwrite-db"
+
+    mock_doc = _make_document(
+        doc_id=doc_id,
+        tenant_id=tenant_id,
+        title="Официальный регламент предприятия",
+        filename="reglament.pdf",
+        version=1,
+        content_sha256=real_db_revision,
+    )
+
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    sa = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_revision": stale_analysis_rev,
+        "source_documents": [{"id": str(doc_id), "revision": stale_analysis_rev}],
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=sa, default_revision=None)
+    course.source_document_ids = [doc_id]
+    course._mock_documents = [mock_doc]
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # GET rejects contradictory analysis metadata with 409 Conflict
+        get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert get_resp.status_code == 409
+        get_msg = get_resp.json()["detail"]["message"]
+        assert "Конфликт ревизий" in get_msg
+        assert stale_analysis_rev in get_msg
+
+        # POST rejects contradictory analysis metadata with 409 Conflict
+        post_resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Попытка утверждения со старыми метаданными",
+                "expected_content_hash": "0" * 64,
+                "verified_revision": stale_analysis_rev,
+                "defect_resolutions": [],
+            },
+        )
+        assert post_resp.status_code == 409
+        post_msg = post_resp.json()["detail"]["message"]
+        assert "Конфликт ревизий" in post_msg
+
+
+@pytest.mark.asyncio
+async def test_source_uncertainty_authoritative_db_revision_enforced_and_resolved(monkeypatch: pytest.MonkeyPatch):
+    """Verify multi-document authoritative revisions are extracted from DB and verified strictly without metadata overwrite."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    doc1_id = uuid4()
+    doc2_id = uuid4()
+
+    doc1 = _make_document(
+        doc_id=doc1_id,
+        tenant_id=tenant_id,
+        title="Регламент А",
+        filename="reg_a.pdf",
+        version=1,
+        content_sha256="sha256-authoritative-doc1",
+    )
+    doc2 = _make_document(
+        doc_id=doc2_id,
+        tenant_id=tenant_id,
+        title="Регламент Б",
+        filename="reg_b.pdf",
+        version=2,
+        content_sha256="sha256-authoritative-doc2",
+    )
+
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    sa = {
+        SOURCE_UNCERTAINTY_KEY: {"status": "review_required"},
+        "source_documents": [
+            {"id": str(doc1_id), "revision": "sha256-authoritative-doc1"},
+            {"id": str(doc2_id), "revision": "sha256-authoritative-doc2"},
+        ],
+    }
+    course = _make_course(course_id, tenant_id, source_analysis=sa, default_revision=None)
+    course.source_document_ids = [str(doc1_id), str(doc2_id)]
+    course._mock_documents = [doc1, doc2]
+    audit_log: list[dict] = []
+
+    app, session = _build_test_app(course, user, audit_log, monkeypatch)
+    content_hash = await compute_course_content_snapshot_hash(session, course)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # GET returns exact authoritative DB revisions
+        get_resp = await ac.get(f"/courses/{course_id}/source-uncertainty")
+        assert get_resp.status_code == 200
+        get_data = get_resp.json()
+        assert len(get_data["source_documents"]) == 2
+        doc_map = {d["document_id"]: d["authoritative_revision"] for d in get_data["source_documents"]}
+        assert doc_map[str(doc1_id)] == "sha256-authoritative-doc1"
+        assert doc_map[str(doc2_id)] == "sha256-authoritative-doc2"
+
+        # POST with wrong revision for doc2 fails with 409
+        bad_post = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист передал неверную ревизию для документа Б",
+                "expected_content_hash": content_hash,
+                "verified_revision": "sha256-authoritative-doc1",
+                "verified_revisions": {
+                    str(doc1_id): "sha256-authoritative-doc1",
+                    str(doc2_id): "wrong-sha",
+                },
+                "defect_resolutions": [],
+            },
+        )
+        assert bad_post.status_code == 409
+        assert "Несоответствие ревизии для документа" in bad_post.json()["detail"]["message"]
+
+        # POST with exact authoritative DB revisions succeeds
+        ok_post = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист сверил оба регламента с актуальными ревизиями в БД",
+                "expected_content_hash": content_hash,
+                "verified_revision": "sha256-authoritative-doc1",
+                "verified_revisions": {
+                    str(doc1_id): "sha256-authoritative-doc1",
+                    str(doc2_id): "sha256-authoritative-doc2",
+                },
+                "defect_resolutions": [],
+            },
+        )
+        assert ok_post.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_content_block_and_quiz_mutations_touch_parent_course():
+    """Verify content blocks and quiz CRUD touch parent course updated_at and invalidate release snapshot hash."""
+    from app.modules.courses.release_service import touch_course, touch_course_by_lesson
+
+    touched_ids: list[object] = []
+
+    class MockTouchSession:
+        async def execute(self, stmt):
+            s = str(stmt).upper()
+            if "UPDATE COURSES" in s:
+                touched_ids.append("course_updated")
+            return SimpleNamespace(
+                scalar_one_or_none=lambda: uuid4() if "FROM MODULES" in s else None,
+                scalars=lambda: SimpleNamespace(all=lambda: []),
+            )
+
+    sess = MockTouchSession()
+    # Direct course touch
+    await touch_course(sess, uuid4(), uuid4())  # type: ignore[arg-type]
+    assert len(touched_ids) == 1
+
+    # Lesson-based touch
+    await touch_course_by_lesson(sess, uuid4(), uuid4())  # type: ignore[arg-type]
+    assert len(touched_ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_two_concurrent_transactions_simulation(monkeypatch: pytest.MonkeyPatch):
+    """Verify two independent concurrent transactions: Session 2 commits mutation during review, invalidating snapshot under row lock."""
+    tenant_id = uuid4()
+    course_id = uuid4()
+    user = _make_user(role="methodologist", tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, default_revision="rev-concurrent-v1")
+    audit_log: list[dict] = []
+
+    # Session 1: Methodologist review session
+    app, session1 = _build_test_app(course, user, audit_log, monkeypatch)
+
+    # 1. Methodologist begins review, reads course content and computes snapshot hash H1
+    h1 = await compute_course_content_snapshot_hash(session1, course)
+
+    # 2. Session 2 (Concurrent author): adds a new content block to the lesson and commits
+    new_block = SimpleNamespace(
+        id=uuid4(),
+        lesson_id=course.modules[0].lessons[0].id,
+        tenant_id=tenant_id,
+        block_type="text",
+        content="Новый блок с инструкцией по эвакуации, добавленный параллельным автором",
+        metadata_={},
+        order_index=1,
+    )
+    course.modules[0].lessons[0].blocks.append(new_block)
+    course.updated_at = datetime.now(UTC)
+
+    # 3. Methodologist finishes review and submits resolution referencing original hash H1
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            f"/courses/{course_id}/resolve-source-uncertainty",
+            json={
+                "reason": "Методист завершил проверку и отправляет согласование",
+                "expected_content_hash": h1,
+                "verified_revision": "rev-concurrent-v1",
+                "defect_resolutions": [],
+            },
+        )
+
+    # 4. Under row lock, server computes authoritative hash H2 (which includes new content block)
+    # Sees H1 != H2 and rejects with 409 Conflict.
+    assert resp.status_code == 409
+    err = resp.json()["detail"]
+    assert err["code"] == "source_uncertainty_resolution_rejected"
+    assert "Несоответствие версии содержания курса" in err["message"]
+    assert "Курс был изменен после проверки" in err["message"]
+    assert len(audit_log) == 0  # No audit record written for rejected attempt
