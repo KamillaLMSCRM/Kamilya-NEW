@@ -147,7 +147,9 @@ async def test_worker_reviews_the_repaired_explanation_before_acceptance():
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "c1", "rule_id": "r1", "variants": [{"variant_id": "v1",
                     "scenario_premise": "Ситуация", "prompt": "Вопрос", "correct_option": {"text": "верный 1"},
-                    "source_quote": source, "explanation": "Первый дистрактор неверен.",
+                    # The case owns only rule r1; do not cross into the sibling
+                    # rule's span merely to exercise explanation repair.
+                    "source_quote": "Правило первое.", "explanation": "Первый дистрактор неверен.",
                     "distractor_pool": [{"text": "ошибка 1"}, {"text": "ошибка 2"}, {"text": "ошибка 3"}]}]}]}
 
     with pytest.raises(ReviewReachedError):

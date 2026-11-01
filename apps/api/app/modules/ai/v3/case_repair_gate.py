@@ -96,8 +96,10 @@ async def review_staged_case(
             return False, {}
         compatibility = await pipeline.review_question_compatibility(question.scenario_premise, question.prompt,
                                                                      texts, exact_source_units, reference_context)
-        entry["compatibility"] = compatibility
-        valid, reason = _validate_question_entailment(compatibility, flags)
+        from app.modules.ai.v3.compatibility_recheck import recheck_compatibility
+        valid, reason = await recheck_compatibility(
+            pipeline, question.scenario_premise, question.prompt, texts, flags,
+            exact_source_units, reference_context, compatibility, entry)
         if not valid:
             record.update(rejected="candidate_compatibility_failed", rejection_reason=reason)
             return False, {}

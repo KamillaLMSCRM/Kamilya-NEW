@@ -1120,6 +1120,8 @@ async def test_unverified_rule_quotes_flagged_and_isolated():
     # 1. Unverified quote violation must be detected
     violations = artifacts.diagnostics["violations"]
     assert any("Неподтвержденная цитата в правиле r-fake-quote" in v for v in violations)
+    assert any("цитата не подтверждена целиком" in v for v in violations)
+    assert artifacts.diagnostics["requires_source_review"] is True
     # 2. It must be explicitly tagged as unverified in prompt passed to critic
     assert any("НЕВЕРИФИЦИРОВАНО" in frag for frag in passed_source_fragments)
     # 3. Overall verdict must be FAIL

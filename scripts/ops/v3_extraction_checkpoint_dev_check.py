@@ -13,48 +13,30 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "ops"))
 import ai_generation_realization_dev_check as base
+from v3_gate_timing import GateTiming, instrument_engine, measured_journal, verify_pool_reset
 
-base.SOURCE_PATHS = (
-    "apps/api/app/modules/ai/direct_source.py",
-    "apps/api/app/modules/ai/pipeline.py",
-    "apps/api/app/modules/ai/router.py",
-    "apps/api/app/modules/ai/schemas.py",
-    "apps/api/app/modules/ai/llm_client.py",
-    "apps/api/app/modules/ai/v3/adapter.py",
-    "apps/api/app/modules/ai/v3/engine.py",
-    "apps/api/app/modules/ai/v3/service.py",
-    "apps/api/app/modules/ai/v3/validator.py",
-    "apps/api/app/modules/ai/v3/prompts.py",
-    "apps/api/app/modules/ai/v3/models.py",
-    "apps/api/app/modules/ai/v3/extraction_checkpoint.py",
-    "apps/api/app/modules/ai/v3/stage_checkpoint.py",
-    "apps/api/app/modules/ai/v3/option_repair.py",
-    "apps/api/app/modules/ai/v3/explanation_repair.py",
-    "apps/api/app/modules/ai/v3/citation_review.py",
-    "apps/api/app/modules/ai/v3/citation_expansion.py",
-    "apps/api/app/modules/ai/v3/case_repair_gate.py",
-    "apps/api/app/modules/ai/v3/reference_coverage.py",
-    "apps/api/app/modules/ai/v3/source_units.py",
-    "apps/api/app/modules/ai/v3/partitioned_extraction.py",
-    "apps/api/app/modules/ai/v3/source_reference_decisions.py",
-    "apps/api/app/modules/ai/worker_lesson_cycle.py",
-    "apps/api/app/modules/ai/generation_checkpoint.py",
-    "apps/api/app/modules/ai/delivery_ownership.py",
-    "apps/api/app/modules/quizzes/models.py",
-    "apps/api/app/modules/quizzes/router.py",
-    "apps/api/app/modules/quizzes/schemas.py",
-    "apps/api/app/modules/quizzes/service.py",
-    "apps/api/app/modules/courses/release_service.py",
-    "apps/api/app/modules/course_approval/service.py",
+TIMING = GateTiming()
+POOLED = False
+
+_EXECUTED_SUPPORT_PATHS = (
+    "apps/api/alembic/versions/0158_ai_generation_checkpoints.py",
+    "apps/api/alembic/versions/0159_ai_generation_omitted_lessons.py",
     "apps/api/alembic/versions/0184_question_source_quote.py",
-    "apps/web/src/app/courses/quiz/[quizId]/preview/page.tsx",
-    "apps/web/src/i18n/locales/ru.json",
-    "apps/web/src/i18n/locales/en.json",
-    "apps/web/src/i18n/locales/kk.json",
     "scripts/ops/ai_generation_checkpoint_dev_check.py",
     "scripts/ops/ai_generation_realization_dev_check.py",
+    "scripts/ops/kb_rag_isolated_dev_gate.py",
     "scripts/ops/v3_extraction_checkpoint_dev_check.py",
+    "scripts/ops/v3_gate_timing.py",
 )
+
+
+def _project_python_sources() -> tuple[str, ...]:
+    """Enumerate application Python source deterministically, excluding runtimes/packages."""
+    app_root = ROOT / "apps" / "api" / "app"
+    return tuple(sorted(path.relative_to(ROOT).as_posix() for path in app_root.rglob("*.py")))
+
+
+base.SOURCE_PATHS = tuple(sorted(set(_project_python_sources()) | set(_EXECUTED_SUPPORT_PATHS)))
 
 
 async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
@@ -63,7 +45,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
     class ProgressChecks(list[str]):
         def append(self, item: str) -> None:
             target_checks.append(item)
-            print(json.dumps({"checkpoint": item}), flush=True)
+            print(json.dumps(TIMING.checkpoint(item)), flush=True)
 
     progress = ProgressChecks()
     print(json.dumps({"checkpoint": "exercise_started"}), flush=True)
@@ -94,6 +76,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
                                            generate_v3_course_from_corpus)
     from app.modules.ai.v3.stage_checkpoint import stage_once
     from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+    WorkerCycleJournal = measured_journal(WorkerCycleJournal, TIMING)
 
     checks = progress
     from app.modules.ai.v3.engine import V3GenerationPipeline
@@ -239,6 +222,9 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
     load_all_models()
     configure_mappers()
     sessions = async_sessionmaker(runtime, expire_on_commit=False)
+    if POOLED:
+        await verify_pool_reset(sessions, tenant_a, tenant_b, schema)
+        checks.append("pooled_tenant_reset_verified")
     journal = WorkerCycleJournal(str(tenant_a), job_a, sessions)
     identity = {"tenant_id": str(tenant_a), "job_id": job_a, "document_id": "synthetic-doc",
                 "source_revision": "synthetic-revision", "source_sha256": "a" * 64,
@@ -831,6 +817,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
 
 
 def main() -> int:
+    global POOLED
     parser = argparse.ArgumentParser()
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--expected-source-sha256")
@@ -851,13 +838,16 @@ def main() -> int:
 
         original_engine_factory = canonical.create_async_engine
 
-        def pooled_engine(*engine_args: Any, **engine_kwargs: Any) -> Any:
-            engine_kwargs.pop("poolclass", None)
-            engine_kwargs.update(pool_size=2, max_overflow=0, pool_timeout=20, pool_pre_ping=True)
-            return original_engine_factory(*engine_args, **engine_kwargs)
+        def timed_engine(*engine_args: Any, **engine_kwargs: Any) -> Any:
+            from sqlalchemy import event
 
-        if args.pooled:
-            canonical.create_async_engine = pooled_engine
+            if args.pooled:
+                engine_kwargs.pop("poolclass", None)
+                engine_kwargs.update(pool_size=2, max_overflow=0, pool_timeout=20, pool_pre_ping=True)
+            return instrument_engine(original_engine_factory(*engine_args, **engine_kwargs), TIMING, event)
+
+        POOLED = args.pooled
+        canonical.create_async_engine = timed_engine
         try:
             result = asyncio.run(asyncio.wait_for(base.execute(env_file=base.canonical_env_file(),
                 revision=args.expected_public_revision, expected_source=args.expected_source_sha256,
@@ -873,11 +863,13 @@ def main() -> int:
                     "partial_repair_replay", "table_leadin_note_replay", "large_table_split_scope", "canonical_quote_guard", "rendered_rule_quote_replay", "lesson_exact_source_context", "lesson_claim_review_replay", "unsafe_repair_rejected_replay", "claim_table_row_context", "claim_subsection_context", "question_completeness_contract", "distractor_feedback_replay", "lesson_objective_prompt_scope", "confirmed_reference_link", "confirmed_reference_cross_field_hold", "confirmed_source_edge_with_unbound_model_occurrences", "order_independent_explanation", "citation_source_and_partial_contract"}
         flags = {name: result.get(name) is True for name in ("passed", "cleanup", "shared_migration_head_unchanged", "source_unchanged")}
         ok = all(flags.values()) and required.issubset(set(result.get("checks", [])))
+        print(json.dumps(TIMING.checkpoint("gate_finished")), flush=True)
         print(json.dumps({"status": "PASS" if ok else "BLOCKED", **flags, "checks": sorted(required & set(result.get("checks", []))),
                           "error_class": result.get("error_type"), "failed_check": result.get("failed_check"),
                           "source_sha256": result.get("source_sha256"), "connection_mode": "pooled" if args.pooled else "fresh"}))
         return 0 if ok else 1
     except Exception as exc:
+        print(json.dumps(TIMING.checkpoint("gate_failed")), flush=True)
         print(json.dumps({"status": "BLOCKED", "error_class": type(exc).__name__}))
         return 1
 

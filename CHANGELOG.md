@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — V3 evidence and review custody, 2026-11-01
+
+- Preserve source-bound citation holds without rerunning dependent reviews for
+  ungrounded variants; continue independent lesson and valid-sibling reviews.
+- Recheck structurally inconsistent compatibility judgments only when no other
+  substantive failure is present, and retain the original review evidence.
+- Fingerprint all application Python sources used by the isolated checkpoint
+  gate and record bounded timing without source or credential contents.
+
 ### Changed — V3 generation DEV candidate, 2026-11-01
 
 - Preserve verified source context and references during lesson and question

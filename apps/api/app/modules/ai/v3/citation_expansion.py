@@ -1,4 +1,4 @@
-"""Propose one contiguous, rule-owned citation candidate; never certify meaning."""
+"""Propose one contiguous, source-unit citation candidate; never certify meaning."""
 
 import hashlib
 import json
@@ -12,16 +12,33 @@ from app.modules.ai.v3.models import RuleEntity, V3Lesson
 
 
 def propose_rule_quote_expansion(corpus: DirectSourceCorpus, rule: RuleEntity, original: str) -> str | None:
-    """Return an exact containing rule quote only when both spans are source-bound.
+    """Return the complete contiguous rule span when the displayed quote is short.
 
-    A candidate is not a fix until the full answer and explanation are checked
-    against it independently. No disjoint excerpts are joined here.
+    The extracted ``source_quote`` is the rule's semantic anchor, while its
+    offsets identify an extraction-unit span in the authenticated document.
+    The offsets prove document/revision/span provenance, not that every
+    sentence in the unit belongs semantically to this rule. Answers and
+    explanations may use more than the anchor sentence, so expand only to that
+    exact contiguous unit and leave semantic support to the independent review.
+    No disjoint excerpts are joined here and expansion never certifies meaning.
     """
-    candidate = rule.source_quote
-    if (not isinstance(original, str) or not isinstance(candidate, str) or not original.strip()
-            or original == candidate or original not in candidate):
+    anchor = rule.source_quote
+    if (not isinstance(original, str) or not original.strip() or not isinstance(anchor, str)
+            or not anchor.strip() or original not in anchor):
         return None
-    if not bind_displayed_citation(corpus, rule, original) or not bind_displayed_citation(corpus, rule, candidate):
+    matching = [doc for doc in corpus.documents if doc.doc_id == rule.doc_id
+                and doc.source_revision == rule.source_revision and doc.source_text is not None]
+    if (len(matching) != 1 or type(rule.source_start) is not int or type(rule.source_end) is not int):
+        return None
+    source = matching[0].source_text or ""
+    if not 0 <= rule.source_start < rule.source_end <= len(source):
+        return None
+    candidate = source[rule.source_start:rule.source_end]
+    if not candidate.strip() or original == candidate:
+        return None
+    if (not bind_displayed_citation(corpus, rule, anchor)
+            or not bind_displayed_citation(corpus, rule, original)
+            or not bind_displayed_citation(corpus, rule, candidate)):
         return None
     return candidate
 
