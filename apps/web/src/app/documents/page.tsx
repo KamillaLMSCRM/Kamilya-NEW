@@ -34,6 +34,8 @@ import { documentProcessingErrorMessage } from '@/lib/documentProcessingErrors';
 import { useDebounce } from '@/lib/useDebounce';
 import { useAuthStore } from '@/store/authStore';
 import { SourceActualityPanel } from '@/features/source-actuality/SourceActualityPanel';
+import { DocumentInspection } from '@/features/learning-workspace/DocumentInspection';
+import { workspaceCopy } from '@/features/learning-workspace/copy';
 import {
   documentDeleteError,
   getDuplicateDocumentConflict,
@@ -93,13 +95,28 @@ interface YouTubeAnalysisStatus {
 }
 
 export default function DocumentsPage() {
+  const actor = useAuthStore((state) => state.user);
+  const session = useAuthStore((state) => Boolean(state.accessToken));
+  const sessionEpoch = useAuthStore((state) => state.sessionEpoch);
+  const scope = JSON.stringify([actor?.user_id, actor?.tenant_id, actor?.role, actor?.impersonated_by, actor?.impersonated_role, session, sessionEpoch]);
+  return <ScopedDocumentsPage key={scope} />;
+}
+
+function ScopedDocumentsPage() {
   const router = useRouter();
-  const { t, tp } = useT();
+  const { t, tp, lang } = useT();
   const user = useAuthStore((state) => state.user);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const inspectionScope = JSON.stringify([user?.tenant_id, user?.user_id, user?.role, accessToken]);
+  const m = workspaceCopy(lang);
+  const [sourceInspection, setSourceInspection] = useState<{ scope: string; documentId: string } | null>(null);
   const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const pollingJobRef = useRef<string | null>(null);
   const [documents, setDocuments] = useState<DocumentCatalogItem[]>([]);
+  const inspectedDocument = sourceInspection?.scope === inspectionScope ? documents.find((item) => item.id === sourceInspection.documentId) : null;
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -164,15 +181,16 @@ export default function DocumentsPage() {
       params.set('lifecycle_status', lifecycleFilter);
       if (cursor) params.set('cursor', cursor);
       const response = await api.get<DocumentCatalogResponse>(`/v1/documents/catalog?${params.toString()}`);
+      if (!alive.current) return;
       setDocuments((current) => append ? [...current, ...response.data.items] : response.data.items);
       setNextCursor(response.data.page.next_cursor);
       setHasMore(response.data.page.has_more);
     } catch (error) {
+      if (!alive.current) return;
       console.error('Document catalog load failed', error);
       setLoadError(t('documents.loadFailed'));
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (alive.current) { setLoading(false); setLoadingMore(false); }
     }
   }, [categoryFilter, debouncedSearch, lifecycleFilter, statusFilter, t]);
 
@@ -452,6 +470,7 @@ export default function DocumentsPage() {
       const response = await api.get(`/v1/documents/${document.id}/download`, {
         responseType: 'blob',
       });
+      if (!alive.current) return;
       const href = URL.createObjectURL(response.data);
       const anchor = window.document.createElement('a');
       anchor.href = href;
@@ -459,10 +478,11 @@ export default function DocumentsPage() {
       anchor.click();
       URL.revokeObjectURL(href);
     } catch (error) {
+      if (!alive.current) return;
       console.error('Document download failed', error);
       toast.error(t('documents.downloadFailed'));
     } finally {
-      setDownloadingId(null);
+      if (alive.current) setDownloadingId(null);
     }
   };
 
@@ -474,13 +494,15 @@ export default function DocumentsPage() {
       const response = await api.get<DocumentUsageResponse>(
         `/v1/documents/${document.id}/usages?limit=100`
       );
+      if (!alive.current) return;
       setUsageData(response.data);
     } catch (error) {
+      if (!alive.current) return;
       console.error('Document usages load failed', error);
       toast.error(t('documents.usagesLoadFailed'));
       setUsageDocument(null);
     } finally {
-      setUsageLoading(false);
+      if (alive.current) setUsageLoading(false);
     }
   };
 
@@ -521,6 +543,7 @@ export default function DocumentsPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-foreground">{t('documents.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('documents.subtitle')}</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{m.sourceIntro}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {youtubeEnabled && (
@@ -686,7 +709,7 @@ export default function DocumentsPage() {
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="hidden grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-xs font-semibold text-muted-foreground lg:grid">
+          <div className="hidden grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-xs font-semibold text-muted-foreground 2xl:grid">
             <span>{t('documents.name')}</span>
             <span>{t('documents.category')}</span>
             <span>{t('documents.indexStatus')}</span>
@@ -706,6 +729,7 @@ export default function DocumentsPage() {
               onReindex={() => void handleReindex(document)}
               onUploadVersion={() => openUpload(document)}
               onOpenUsages={() => void openUsages(document)}
+              onInspect={() => setSourceInspection({ scope: inspectionScope, documentId: document.id })}
               formatSize={formatSize}
               t={t}
             />
@@ -903,6 +927,15 @@ export default function DocumentsPage() {
         </div>
       )}
 
+      {inspectedDocument && <DocumentInspection
+        document={inspectedDocument}
+        lang={lang}
+        downloading={downloadingId === inspectedDocument.id}
+        onClose={() => setSourceInspection(null)}
+        onDownload={() => void handleDownload(inspectedDocument)}
+        onUsages={() => { setSourceInspection(null); void openUsages(inspectedDocument); }}
+      />}
+
       {usageDocument && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
@@ -973,6 +1006,7 @@ function DocumentRow({
   onReindex,
   onUploadVersion,
   onOpenUsages,
+  onInspect,
   formatSize,
   t,
 }: {
@@ -985,19 +1019,20 @@ function DocumentRow({
   onReindex: () => void;
   onUploadVersion: () => void;
   onOpenUsages: () => void;
+  onInspect: () => void;
   formatSize: (value: number) => string;
   t: (key: any, params?: Record<string, string | number>) => string;
 }) {
   const usage = document.usages_summary;
   const isActive = document.lifecycle_status === 'active';
   return (
-    <div className="grid gap-3 border-b border-border px-4 py-3 last:border-b-0 lg:grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] lg:items-center">
+    <div className="grid min-w-0 gap-3 border-b border-border px-4 py-4 last:border-b-0 2xl:grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] 2xl:items-center">
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
           {fileIcon(document.content_type)}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{document.title}</p>
+          <button type="button" onClick={onInspect} className="max-w-full break-words text-left text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{document.title}</button>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{document.filename} · {formatSize(document.size)}</p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
             {t('documents.addedByAt', {
@@ -1009,14 +1044,14 @@ function DocumentRow({
         </div>
       </div>
       <div className="text-sm text-foreground">
-        <span className="mr-2 text-xs text-muted-foreground lg:hidden">{t('documents.category')}:</span>
+        <span className="mr-2 text-xs text-muted-foreground 2xl:hidden">{t('documents.category')}:</span>
         {document.category === 'job_instruction' ? t('documents.categoryInstruction') : t('documents.categoryGeneral')}
       </div>
       <div>
         <StatusBadge document={document} t={t} />
       </div>
       <div className="text-sm text-foreground">
-        <span className="mr-2 text-xs text-muted-foreground lg:hidden">{t('documents.version')}:</span>
+        <span className="mr-2 text-xs text-muted-foreground 2xl:hidden">{t('documents.version')}:</span>
         <span>v{document.version}</span>
         {document.is_latest && (
           <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
@@ -1025,7 +1060,7 @@ function DocumentRow({
         )}
       </div>
       <div className="text-sm text-foreground">
-        <span className="mr-2 text-xs text-muted-foreground lg:hidden">{t('documents.usedIn')}:</span>
+        <span className="mr-2 text-xs text-muted-foreground 2xl:hidden">{t('documents.usedIn')}:</span>
         {usage?.total ? (
           <button type="button" onClick={onOpenUsages} className="text-primary underline-offset-2 hover:underline">
             {t('documents.usageCount', { count: usage.total })}

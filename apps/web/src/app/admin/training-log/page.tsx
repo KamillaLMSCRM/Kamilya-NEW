@@ -37,6 +37,7 @@ import { LearnerAnswers, LearningInsightsPanel, canUseLearningInsights } from '@
 import { useLearningInsightsT } from '@/features/learning-insights/i18n';
 import { LearningActionCenter } from '@/features/learning-actions/LearningActionCenter';
 import type { AssignmentReason, RequirementAction, RequirementState } from '@/features/mandatory-training/types';
+import { workspaceCopy } from '@/features/learning-workspace/copy';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -149,6 +150,7 @@ const DELIVERY_OPTIONS: Array<{ value: string; label: string }> = [
 
 export default function AdminTrainingLogPage() {
   const { t, lang } = useT();
+  const m = workspaceCopy(lang);
   const { text: insightsText } = useLearningInsightsT();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -169,10 +171,11 @@ export default function AdminTrainingLogPage() {
 
   const filters = browserState.filters;
   const includeHistory = Boolean(filters.history);
-  const [page, setPage] = useState<TrainingLogPage | null>(null);
-  const [summary, setSummary] = useState<TrainingLogSummary | null>(null);
+  const [pageResult, setPageResult] = useState<{ scope: string; value: TrainingLogPage } | null>(null);
+  const [summaryResult, setSummaryResult] = useState<{ scope: string; value: TrainingLogSummary } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ scope: string; message: string } | null>(null);
+  const pageGeneration = useRef(0);
   const [limit, setLimit] = useState(100);
   const [offset, setOffset] = useState(0);
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<Set<string>>(new Set());
@@ -224,38 +227,52 @@ export default function AdminTrainingLogPage() {
     buildTrainingLogFilterQuery({ ...filters, history: includeHistory || undefined }, debouncedSearch).toString()
   ), [debouncedSearch, filters, includeHistory]);
 
+  const pageScope = JSON.stringify([accessToken, user?.user_id, user?.tenant_id, user?.role, queryString]);
+  const summaryScope = JSON.stringify([accessToken, user?.user_id, user?.tenant_id, user?.role, summaryQueryString]);
+  const currentPageScope = useRef(pageScope);
+  currentPageScope.current = pageScope;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const page = pageResult?.scope === pageScope ? pageResult.value : null;
+  const summary = summaryResult?.scope === summaryScope ? summaryResult.value : null;
+  const error = failure?.scope === pageScope ? failure.message : null;
+
   const fetchPage = useCallback(async () => {
     if (!accessToken) return;
+    const request = ++pageGeneration.current;
+    const isCurrent = () => request === pageGeneration.current && currentPageScope.current === pageScope;
     setLoading(true);
-    setError(null);
+    setFailure(null);
     try {
       const res = await api.get<TrainingLogPage>(
         `/v1/admin/training-log?${queryString}`,
       );
-      setPage(res.data);
+      if (isCurrent()) setPageResult({ scope: pageScope, value: res.data });
     } catch (e: any) {
       const msg =
         e?.response?.data?.detail ||
         e?.message ||
         t('trainingLog.errors.loadFailed');
-      setError(String(msg));
-      toast.error(String(msg));
+      if (isCurrent()) { setFailure({ scope: pageScope, message: String(msg) }); toast.error(String(msg)); }
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [accessToken, queryString, t]);
+  }, [accessToken, pageScope, queryString, t]);
 
   useEffect(() => {
-    fetchPage();
+    void fetchPage();
+    return () => { pageGeneration.current += 1; };
   }, [fetchPage]);
 
   useEffect(() => {
     if (!accessToken) return;
+    let active = true;
     const suffix = summaryQueryString ? `?${summaryQueryString}` : '';
     api.get<TrainingLogSummary>(`/v1/admin/training-log/summary${suffix}`)
-      .then((res) => setSummary(res.data))
-      .catch(() => setSummary(null));
-  }, [accessToken, summaryQueryString]);
+      .then((res) => { if (active) setSummaryResult({ scope: summaryScope, value: res.data }); })
+      .catch(() => { if (active) setSummaryResult(null); });
+    return () => { active = false; };
+  }, [accessToken, summaryScope, summaryQueryString]);
 
   const courseCatalogIdentityKey = JSON.stringify({
     tenantId: user?.tenant_id ?? null,
@@ -308,11 +325,13 @@ export default function AdminTrainingLogPage() {
 
   const exportCsv = useCallback(async () => {
     if (!accessToken) return;
+    const scope = pageScope;
     try {
       const res = await api.get(`/v1/admin/training-log?${queryString}&format=csv&lang=${lang}`, {
         responseType: 'blob',
       });
       const blob = res.data as Blob;
+      if (!mounted.current || currentPageScope.current !== scope) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -324,13 +343,14 @@ export default function AdminTrainingLogPage() {
       URL.revokeObjectURL(url);
       toast.success(t('trainingLog.export.success'));
     } catch (e: any) {
+      if (!mounted.current || currentPageScope.current !== scope) return;
       const msg =
         e?.response?.data?.detail ||
         e?.message ||
         t('trainingLog.errors.exportFailed');
       toast.error(String(msg));
     }
-  }, [accessToken, lang, queryString, t]);
+  }, [accessToken, lang, pageScope, queryString, t]);
 
   const signedScanEventIds = useMemo(() => (
     isMethodologist
@@ -438,6 +458,7 @@ export default function AdminTrainingLogPage() {
           <p className="text-sm text-muted-foreground mt-1">
             {t('trainingLog.subtitle')}
           </p>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{m.logHint}</p>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
           <Button
@@ -483,6 +504,8 @@ export default function AdminTrainingLogPage() {
         </div>
       </header>
 
+      <p className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-6 text-muted-foreground">{m.exportScope}</p>
+
       {filters.enrollment_id && (
         <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
           {t('trainingLog.selectedAssignment')}
@@ -505,12 +528,13 @@ export default function AdminTrainingLogPage() {
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? 0} />
-        <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? 0} />
-        <SummaryCard label={t('trainingLog.filter.status.inProgress')} value={summary?.in_progress ?? 0} />
-        <SummaryCard label={t('trainingLog.filter.status.completed')} value={summary?.completed ?? 0} />
-        <SummaryCard label={t('trainingLog.filter.status.overdue')} value={summary?.overdue ?? 0} />
+        <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? null} selected={!filters.status} onClick={() => updateFilters(({ status: _status, ...rest }) => rest)} />
+        <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? null} selected={filters.status === 'assigned'} onClick={() => updateFilters((current) => ({ ...current, status: 'assigned' }))} />
+        <SummaryCard label={t('trainingLog.filter.status.inProgress')} value={summary?.in_progress ?? null} selected={filters.status === 'in_progress'} onClick={() => updateFilters((current) => ({ ...current, status: 'in_progress' }))} />
+        <SummaryCard label={t('trainingLog.filter.status.completed')} value={summary?.completed ?? null} selected={filters.status === 'completed'} onClick={() => updateFilters((current) => ({ ...current, status: 'completed' }))} />
+        <SummaryCard label={t('trainingLog.filter.status.overdue')} value={summary?.overdue ?? null} selected={filters.status === 'overdue'} onClick={() => updateFilters((current) => ({ ...current, status: 'overdue' }))} />
       </div>
+      <p className="text-xs text-muted-foreground">{summary ? m.summaryScope : m.summaryUnavailable}</p>
 
       {/* Filters */}
       <Card>
@@ -627,14 +651,14 @@ export default function AdminTrainingLogPage() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          {loading && !page ? (
+          {(loading || !page && !error) && !page ? (
             <div className="p-8 space-y-3">
               <Skeleton className="h-6 w-full" />
               <Skeleton className="h-6 w-full" />
               <Skeleton className="h-6 w-3/4" />
             </div>
           ) : error ? (
-            <div className="p-8 text-center text-destructive">{error}</div>
+            <div role="alert" className="space-y-3 p-8 text-center text-destructive"><p>{error}</p><Button type="button" variant="outline" onClick={() => void fetchPage()}>{m.retry}</Button></div>
           ) : items.length === 0 ? (
             <div className="p-10 text-center">
               <p className="font-medium text-foreground">{t('trainingLog.empty')}</p>
@@ -652,7 +676,7 @@ export default function AdminTrainingLogPage() {
               <div className="divide-y divide-border lg:hidden" data-testid="training-log-mobile-list">
                 {items.map((row, idx) => {
                   return (
-                  <article key={`${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
+                  <article key={row.enrollment_id || `${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
                     <div>
                       <h2 className="font-medium text-foreground">{row.full_name}</h2>
                       {isMethodologist ? (
@@ -1058,14 +1082,12 @@ function EvidenceDownloadButton({
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({ label, value, onClick, selected }: { label: string; value: number | null; onClick: () => void; selected: boolean }) {
   return (
-    <Card>
-      <CardContent className="p-4">
+    <button type="button" onClick={onClick} disabled={value === null} aria-pressed={selected} className={`min-w-0 rounded-xl border bg-card p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70 ${selected ? 'border-primary/40' : 'border-border hover:border-primary/30'}`}>
         <div className="text-xs font-medium text-muted-foreground">{label}</div>
-        <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value}</div>
-      </CardContent>
-    </Card>
+        <div className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value ?? '—'}</div>
+    </button>
   );
 }
 

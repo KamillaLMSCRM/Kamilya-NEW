@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const configureMock = vi.hoisted(() => vi.fn());
@@ -22,6 +22,7 @@ import { ReviewerDecisionPanel } from '@/components/course-approval/ReviewerDeci
 import { ReviewCoursePlayer } from '@/components/course-approval/ReviewCoursePlayer';
 import { ReviewRequestScreen } from '@/components/course-approval/ReviewRequestScreen';
 import ScopedReviewRequestPage from '@/app/course-review-access/review/requests/[requestId]/page';
+import { useAuthStore } from '@/store/authStore';
 
 const snapshot = { schema_version: 1, release_version: 3, course: { id: 'course', title: 'Курс' }, modules: [{ id: 'module', title: 'Модуль', order_index: 0, lessons: [{ id: 'lesson', title: 'Урок', content_type: 'text', content: 'Текст', order_index: 0, quizzes: [{ id: 'quiz', title: 'Тест', pass_score: 80, questions: [{ id: 'question', text: 'Вопрос', type: 'single_choice', points: 1, order_index: 0, choices: [{ id: 'choice-1', text: 'Правильный текст', order_index: 0 }] }] }] }] }] };
 const resumeSnapshot = { ...snapshot, release_version: 4, modules: [{ ...snapshot.modules[0], lessons: [snapshot.modules[0].lessons[0], { id: 'lesson-2', title: 'Второй урок', content_type: 'text', content: '# Второй урок\n\nТекст второго урока', order_index: 1, quizzes: [] }] }] };
@@ -82,6 +83,8 @@ describe('course approval workflow UI', () => {
     expect(decisionMock).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Согласовать версию' }));
+    expect(decisionMock).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить решение' }));
     await waitFor(() => expect(decisionMock).toHaveBeenCalledWith('attempt', 'approve', null, true, undefined));
   });
 
@@ -90,6 +93,80 @@ describe('course approval workflow UI', () => {
     expect(screen.getByText('Правильный текст')).toBeInTheDocument();
     expect(screen.queryByText(/is_correct/i)).not.toBeInTheDocument();
     expect(screen.getByText('Режим проверки')).toBeInTheDocument();
+  });
+
+  it('freezes the trimmed return reason in the decision confirmation', async () => {
+    render(<ReviewerDecisionPanel attemptId="attempt-return" snapshotLabel="snapshot-a" activityState="completed" />);
+    expect(screen.getByRole('button', { name: 'Вернуть на доработку' })).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '  Уточните условие задачи  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Вернуть на доработку' }));
+    expect(decisionMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toHaveTextContent('snapshot-a');
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить решение' }));
+    await waitFor(() => expect(decisionMock).toHaveBeenCalledWith('attempt-return', 'return', 'Уточните условие задачи', false, undefined));
+  });
+
+  it('dismisses a prepared decision when the attempt or snapshot changes', () => {
+    const view = render(<ReviewerDecisionPanel attemptId="attempt-a" snapshotLabel="sha-a" activityState="completed" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Согласовать версию' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    view.rerender(<ReviewerDecisionPanel attemptId="attempt-b" snapshotLabel="sha-b" activityState="completed" />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(decisionMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks retrying a conflicting decision until the request is reloaded', async () => {
+    decisionMock.mockRejectedValueOnce({ response: { status: 409 } });
+    const reload = vi.fn();
+    render(<ReviewerDecisionPanel attemptId="attempt" activityState="completed" onReload={reload} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Согласовать версию' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить решение' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('button', { name: 'Согласовать версию' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a delayed old-attempt decision callback', async () => {
+    let resolve!: (value: object) => void;
+    decisionMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const submitted = vi.fn();
+    const view = render(<ReviewerDecisionPanel attemptId="attempt-a" activityState="completed" onSubmitted={submitted} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Согласовать версию' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить решение' }));
+    view.rerender(<ReviewerDecisionPanel attemptId="attempt-b" activityState="completed" onSubmitted={submitted} />);
+    await act(async () => resolve({}));
+    expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it('does not restore a late old-request snapshot over a new request', async () => {
+    let resolve!: (value: unknown) => void;
+    getRequestMock.mockReturnValueOnce(new Promise((done) => { resolve = done; })).mockResolvedValue({ request_id: 'request-b', revision_id: 'rev-b', outcome: 'pending' });
+    startAttemptMock.mockResolvedValueOnce({ attempt_id: 'attempt-a', snapshot_sha256: 'sha-a', activity_state: 'completed', snapshot })
+      .mockResolvedValueOnce({ attempt_id: 'attempt-b', snapshot_sha256: 'sha-b', activity_state: 'completed', snapshot });
+    const view = render(<ReviewRequestScreen requestId="request-a" />);
+    view.rerender(<ReviewRequestScreen requestId="request-b" />);
+    await screen.findByText('Снимок: sha-b');
+    await act(async () => resolve({ request_id: 'request-a', revision_id: 'rev-a', outcome: 'pending' }));
+    expect(screen.queryByText('Снимок: sha-a')).not.toBeInTheDocument();
+    expect(screen.getByText('Снимок: sha-b')).toBeInTheDocument();
+  });
+
+  it('rejects an old ordinary-session review after its actor changes', async () => {
+    const original = useAuthStore.getState();
+    let resolve!: (value: unknown) => void;
+    act(() => useAuthStore.setState({ accessToken: 'ordinary-a', user: { user_id: 'reviewer-a', tenant_id: 'tenant-a', role: 'methodologist' } as never }));
+    getRequestMock.mockReturnValueOnce(new Promise((done) => { resolve = done; })).mockResolvedValue({ request_id: 'request', revision_id: 'rev-b', outcome: 'pending' });
+    startAttemptMock.mockResolvedValueOnce({ attempt_id: 'attempt-a', snapshot_sha256: 'sha-a', activity_state: 'completed', snapshot })
+      .mockResolvedValueOnce({ attempt_id: 'attempt-b', snapshot_sha256: 'sha-b', activity_state: 'completed', snapshot });
+    const view = render(<ReviewRequestScreen requestId="request" />);
+    act(() => useAuthStore.setState({ accessToken: 'ordinary-b', user: { user_id: 'reviewer-b', tenant_id: 'tenant-b', role: 'methodologist' } as never }));
+    await screen.findByText('Снимок: sha-b');
+    await act(async () => resolve({ request_id: 'request', revision_id: 'rev-a', outcome: 'pending' }));
+    expect(screen.queryByText('Снимок: sha-a')).not.toBeInTheDocument();
+    expect(screen.getByText('Снимок: sha-b')).toBeInTheDocument();
+    view.unmount();
+    act(() => useAuthStore.setState({ user: original.user, accessToken: original.accessToken }));
   });
 
   it('sends interactive quiz answers only through the review progress endpoint', async () => {
@@ -148,6 +225,7 @@ describe('course approval workflow UI', () => {
     const view = render(<ReviewRequestScreen requestId="request" token="scoped-token" onCompleted={onCompleted} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить решение' }));
     await waitFor(() => expect(decisionMock).toHaveBeenCalledWith('attempt-decision', 'approve', null, false, 'scoped-token'));
     expect(await screen.findByRole('status')).toHaveTextContent('Решение сохранено');
     expect(screen.getByText(/Проверка завершена/i)).toBeInTheDocument();
@@ -166,6 +244,7 @@ describe('course approval workflow UI', () => {
     startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-close', revision_id: 'revision', snapshot_sha256: 'sha-close', activity_state: 'completed', snapshot });
     render(<ScopedReviewRequestPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить решение' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Решение сохранено');
     expect(sessionStorage.getItem('course_review_token')).toBeNull();
     expect(replaceMock).not.toHaveBeenCalled();
@@ -173,11 +252,30 @@ describe('course approval workflow UI', () => {
     expect(replaceMock).toHaveBeenCalledExactlyOnceWith('/login');
   });
 
+  it('does not show another capability the completed decision for the same request', async () => {
+    getScopedRequestMock.mockResolvedValue({ request_id: 'request', revision_id: 'revision', outcome: 'pending', reviewer: { id: 'reviewer' } });
+    startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-a', snapshot_sha256: 'sha-a', activity_state: 'completed', snapshot });
+    const view = render(<ReviewRequestScreen requestId="request" token="capability-a" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить решение' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Решение сохранено'));
+    startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-b', snapshot_sha256: 'sha-b', activity_state: 'completed', snapshot });
+    view.rerender(<ReviewRequestScreen requestId="request" token="capability-b" />);
+    await waitFor(() => expect(getScopedRequestMock).toHaveBeenLastCalledWith('capability-b', 'request'));
+    expect(await screen.findByText('Снимок: sha-b')).toBeInTheDocument();
+    expect(screen.queryByText('Решение сохранено')).not.toBeInTheDocument();
+    getRequestMock.mockResolvedValue({ request_id: 'request', revision_id: 'revision', outcome: 'pending' });
+    view.rerender(<ReviewRequestScreen requestId="request" />);
+    await waitFor(() => expect(getRequestMock).toHaveBeenCalledWith('request'));
+    expect(screen.queryByText('Решение сохранено')).not.toBeInTheDocument();
+  });
+
   it('does not carry completion confirmation to a different request', async () => {
     getRequestMock.mockResolvedValue({ request_id: 'request', revision_id: 'revision', outcome: 'pending', delivery_mode: 'personal_link', reviewer_ids: ['reviewer'] });
     startAttemptMock.mockResolvedValue({ attempt_id: 'attempt-other', revision_id: 'revision', snapshot_sha256: 'sha-other', activity_state: 'completed', snapshot });
     const view = render(<ReviewRequestScreen requestId="request" onCompleted={() => undefined} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Согласовать версию' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить решение' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Решение сохранено'));
 
     getRequestMock.mockResolvedValue({ request_id: 'request-2', revision_id: 'revision-2', outcome: 'pending', delivery_mode: 'personal_link', reviewer_ids: ['reviewer'] });

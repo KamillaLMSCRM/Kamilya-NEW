@@ -89,6 +89,11 @@ export function getCurrentUser(): AuthUser | null {
   return _user;
 }
 
+/** Changes on explicit session replacement or logout, but not token refresh. */
+export function getAuthSessionEpoch(): number {
+  return _authEpoch;
+}
+
 export function setAuth(accessToken: string, user: AuthUser): void {
   _authEpoch += 1;
   _accessToken = accessToken;

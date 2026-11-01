@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
@@ -8,6 +8,8 @@ const toastMock = vi.hoisted(() => ({
 }));
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(false));
 const routerPushMock = vi.hoisted(() => vi.fn());
+const routeMock = vi.hoisted(() => ({ courseId: 'course-1' }));
+const chatHarness = vi.hoisted(() => ({ reload: null as (() => Promise<void>) | null }));
 const correctionHarness = vi.hoisted(() => ({ enabled: false, props: null as any }));
 
 vi.mock('@/features/methodologist-workbench/LessonCorrectionPanel', async () => {
@@ -21,7 +23,7 @@ vi.mock('@/features/methodologist-workbench/LessonCorrectionPanel', async () => 
 });
 
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ id: 'course-1' }),
+  useParams: () => ({ id: routeMock.courseId }),
   useRouter: () => ({ push: routerPushMock, replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
@@ -74,7 +76,7 @@ vi.mock('@/components/ui/ConfirmDialog', () => ({
 }));
 
 vi.mock('@/components/ui/Toast', () => ({ toast: toastMock }));
-vi.mock('@/components/ai/AIChatPanel', () => ({ AIChatPanel: () => null }));
+vi.mock('@/components/ai/AIChatPanel', () => ({ AIChatPanel: (props: { onLessonApplied: () => Promise<void> }) => { chatHarness.reload = props.onLessonApplied; return null; } }));
 
 import CourseEditPage from '@/app/courses/[id]/edit/page';
 import { useAuthStore } from '@/store/authStore';
@@ -176,6 +178,171 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('preserves an unsaved lesson through same-actor token rotation and uses the latest token to save', async () => {
+    setupFetch(); render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Keep dirty lesson on refresh' } });
+    act(() => useAuthStore.setState({ accessToken: 'rotated-token' }));
+    expect(screen.getByDisplayValue('Keep dirty lesson on refresh')).toBeInTheDocument();
+    expect(screen.getByText('Есть несохранённые изменения')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/v1/lessons/lesson-1'), expect.objectContaining({ method: 'PATCH', headers: expect.objectContaining({ Authorization: 'Bearer rotated-token' }) })));
+  });
+
+  it.each(['success', 'failure'] as const)('rejects an obsolete same-scope metadata generation after a newer refresh (%s)', async (oldOutcome) => {
+    let resolveOld!: (response: Response) => void;
+    let rejectOld!: (error: Error) => void;
+    const oldRead = new Promise<Response>((resolve, reject) => { resolveOld = resolve; rejectOld = reject; });
+    setupFetch(); const implementation = fetchMock.getMockImplementation()!;
+    let courseReads = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/v1/courses/course-1')) {
+        courseReads += 1;
+        if (courseReads === 2) return oldRead;
+        if (courseReads > 2) return Promise.resolve(jsonResponse({ ...course, title: 'Latest metadata generation' }));
+      }
+      return implementation(input, init);
+    });
+    render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Saved edit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() => expect(courseReads).toBe(2));
+    await act(async () => { await chatHarness.reload!(); });
+    await screen.findByRole('link', { name: 'Latest metadata generation' });
+    await act(async () => {
+      if (oldOutcome === 'success') resolveOld(jsonResponse({ ...course, title: 'Obsolete generation' }));
+      else rejectOld(new Error('Obsolete generation failed'));
+      await oldRead.catch(() => undefined);
+    });
+    expect(screen.getByRole('link', { name: 'Latest metadata generation' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Obsolete generation' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeEnabled();
+  });
+
+  it.each([
+    ['actor', 'success', 'success'], ['actor', 'failure', 'success'],
+    ['actor', 'success', 'failure'], ['actor', 'failure', 'failure'],
+    ['course', 'success', 'success'], ['course', 'failure', 'success'],
+    ['course', 'success', 'failure'], ['course', 'failure', 'failure'],
+    ['tenant', 'success', 'success'], ['tenant', 'failure', 'success'],
+    ['tenant', 'success', 'failure'], ['tenant', 'failure', 'failure'],
+    ['session', 'success', 'success'], ['session', 'failure', 'success'],
+  ] as const)('rejects an old post-save %s-scope readback (%s) after the new scope load (%s)', async (scopeChange, oldOutcome, newOutcome) => {
+    let resolveOld!: (response: Response) => void;
+    let rejectOld!: (reason: Error) => void;
+    const oldRead = new Promise<Response>((resolve, reject) => { resolveOld = resolve; rejectOld = reject; });
+    const user = { user_id: 'author-1', tenant_id: 'tenant-1', tenant: null, role: 'methodologist', full_name: 'Author', email: null, telegram_id: '' };
+    useAuthStore.setState({ user });
+    setupFetch();
+    const implementation = fetchMock.getMockImplementation()!;
+    let phase: 'old' | 'new' = 'old';
+    let courseReads = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (/\/v1\/courses\/course-[12]$/.test(url)) {
+        if (phase === 'old' && ++courseReads > 1) return oldRead;
+        if (phase === 'new') return Promise.resolve(jsonResponse(newOutcome === 'failure' ? { detail: 'New scope unavailable' } : { ...course, id: routeMock.courseId, title: 'Current scope course' }, newOutcome === 'failure' ? 503 : 200));
+      }
+      if (phase === 'new' && url.endsWith('/structure')) return Promise.resolve(jsonResponse(structure));
+      return implementation(input, init);
+    });
+    const view = render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Saved before scope change' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() => expect(courseReads).toBe(2));
+    phase = 'new';
+    act(() => {
+      if (scopeChange === 'course') routeMock.courseId = 'course-2';
+      if (scopeChange === 'actor') useAuthStore.setState({ accessToken: 'new-token', user: { ...user, user_id: 'author-2' } });
+      if (scopeChange === 'tenant') useAuthStore.setState({ user: { ...user, tenant_id: 'tenant-2' } });
+      if (scopeChange === 'session') useAuthStore.setState((state) => ({ sessionEpoch: state.sessionEpoch + 1 }));
+      view.rerender(<CourseEditPage />);
+    });
+    if (newOutcome === 'failure') await screen.findByRole('button', { name: 'Повторить' });
+    else await screen.findByRole('link', { name: 'Current scope course' });
+    await act(async () => {
+      if (oldOutcome === 'success') resolveOld(jsonResponse({ ...course, title: 'Obsolete readback course' }));
+      else rejectOld(new Error('Old scope failed late'));
+      await oldRead.catch(() => undefined);
+    });
+    expect(screen.queryByRole('link', { name: 'Obsolete readback course' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Saved before scope change')).not.toBeInTheDocument();
+    if (newOutcome === 'failure') {
+      expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByRole('link', { name: 'Current scope course' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeEnabled();
+    }
+  });
+
+  it('formats selected canonical text, keeps the dirty guard, and renders it with the existing preview', async () => {
+    setupFetch(); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    const textarea = await screen.findByRole('textbox', { name: 'Содержание урока' }) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Сохранить смысл' } });
+    textarea.setSelectionRange(0, 9);
+    fireEvent.click(screen.getByRole('button', { name: 'Полужирный' }));
+    expect(textarea).toHaveValue('**Сохранить** смысл');
+    expect(textarea).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Предпросмотр' }));
+    expect(screen.getByText('Сохранить').tagName).toBe('STRONG');
+    expect(screen.getByRole('button', { name: 'Предпросмотр' })).toHaveAttribute('aria-pressed', 'true');
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+  });
+
+  it('keeps the selected lesson and its quiz context when next-lesson navigation is declined', async () => {
+    setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Unsaved' } });
+    expect(screen.getByRole('link', { name: 'Вопросы этого урока' })).toHaveAttribute('href', '/quizzes?lessonId=lesson-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    expect(screen.getByDisplayValue('Unsaved')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Введение' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('opens only a lesson from the loaded structure for a context deep link', async () => {
+    window.history.replaceState({}, '', '/courses/course-1/edit?lessonId=lesson-2');
+    setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
+    expect(await screen.findByDisplayValue('## Практика')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Практика' })).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('offers retry instead of treating a failed structure read as an empty course', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ detail: 'Unavailable' }, 503)); vi.stubGlobal('fetch', fetchMock);
+    render(<CourseEditPage />);
+    expect(await screen.findByRole('button', { name: 'Повторить' })).toBeInTheDocument();
+    expect(screen.queryByText('courses.noModules')).not.toBeInTheDocument();
+    setupFetch(); fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByRole('button', { name: 'Введение' })).toBeInTheDocument();
+  });
+
+  it('does not claim current approval if the post-save review status cannot be read', async () => {
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true });
+    const implementation = fetchMock.getMockImplementation()!;
+    let courseReads = 0;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/v1/courses/course-1') && ++courseReads > 1) return Promise.resolve(jsonResponse({ detail: 'Unavailable' }, 503));
+      return implementation(input, init);
+    });
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Saved edit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument());
+    expect(screen.queryByText('Одобрено')).not.toBeInTheDocument();
+    expect(screen.queryByText('authenticatedUi.editor.reviewed')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeDisabled();
+    expect(screen.getByDisplayValue('Saved edit')).toBeInTheDocument();
+    expect(screen.queryByText('Есть несохранённые изменения')).not.toBeInTheDocument();
+    expect(toastMock.success).toHaveBeenCalledWith('authenticatedUi.editor.lessonSaved');
+  });
+
   it('names the module rename field for keyboard and screen-reader users', async () => {
     setupFetch();
     render(<CourseEditPage />);
@@ -236,6 +403,8 @@ describe('course lesson editor', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    routeMock.courseId = 'course-1';
+    chatHarness.reload = null;
     correctionHarness.enabled = false; correctionHarness.props = null;
     window.history.replaceState({}, '', '/courses/course-1/edit');
     useAuthStore.setState({

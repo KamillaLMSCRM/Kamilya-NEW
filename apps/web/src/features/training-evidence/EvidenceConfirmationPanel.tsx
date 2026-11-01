@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Download, Mail, RefreshCw, ShieldCheck, Upload } from 'lucide-react';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
+import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
+import { useLanguageStore } from '@/store/languageStore';
 
 export interface LearnerEvidenceEvent {
   id: string;
@@ -60,7 +62,16 @@ function procedureLabel(type: string, activityKind: EvidenceConfirmationPanelPro
   return type;
 }
 
-export function EvidenceConfirmationPanel({
+export function EvidenceConfirmationPanel(props: EvidenceConfirmationPanelProps) {
+  const actor = useAuthStore((state) => state.user);
+  const token = useAuthStore((state) => state.accessToken);
+  const sessionEpoch = useAuthStore((state) => state.sessionEpoch);
+  const scope = JSON.stringify([props.eventId, props.activityKind, actor?.user_id, actor?.tenant_id, actor?.role,
+    actor?.impersonated_by, actor?.impersonated_role, Boolean(token), sessionEpoch]);
+  return <ScopedEvidenceConfirmationPanel key={scope} {...props} />;
+}
+
+function ScopedEvidenceConfirmationPanel({
   eventId,
   activityTitle,
   activityKind,
@@ -71,6 +82,8 @@ export function EvidenceConfirmationPanel({
   onConfirmed,
 }: EvidenceConfirmationPanelProps) {
   const { t } = useT();
+  const lang = useLanguageStore((state) => state.lang);
+  const m = getLearnerWorkspaceCopy(lang);
   const learnerEmail = useAuthStore((state) => state.user?.email ?? null);
   const [event, setEvent] = useState<LearnerEvidenceEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,6 +94,8 @@ export function EvidenceConfirmationPanel({
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [downloading, setDownloading] = useState(false);
   const [signedCopyLedger, setSignedCopyLedger] = useState<LearnerSignedCopyLedger | null>(null);
   const [signedCopyLoading, setSignedCopyLoading] = useState(false);
@@ -95,27 +110,34 @@ export function EvidenceConfirmationPanel({
       const response = await api.get<LearnerSignedCopyLedger>(
         `/v1/training-evidence/events/mine/${eventId}/signed-scans`,
       );
+      if (!alive.current) return;
       setSignedCopyLedger(response.data);
     } catch (requestError: any) {
-      setSignedCopyError(requestError?.response?.data?.message || 'Не удалось получить статус подписанного экземпляра.');
+      if (!alive.current) return;
+      setSignedCopyError(requestError?.response?.data?.message || t('evidenceConfirmation.signedCopyLoadFailed'));
     } finally {
-      setSignedCopyLoading(false);
+      if (alive.current) setSignedCopyLoading(false);
     }
-  }, [activityKind, eventId]);
+  }, [activityKind, eventId, t]);
 
   const loadEvent = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get<LearnerEvidenceEvent>(`/v1/training-evidence/events/mine/${eventId}`);
+      if (!alive.current) return;
+      if (response.data.id !== eventId
+        || response.data.procedure_type !== (activityKind === 'quiz' ? 'knowledge_check' : 'training')
+        || !['pending', 'confirmed', 'not_required'].includes(response.data.confirmation_status)) throw new Error(t('evidenceConfirmation.errors.load'));
       setEvent(response.data);
       setConfirmed(response.data.confirmation_status === 'confirmed');
     } catch (requestError: any) {
+      if (!alive.current) return;
       setError(requestError?.response?.data?.message || t('evidenceConfirmation.errors.load'));
     } finally {
-      setLoading(false);
+      if (alive.current) setLoading(false);
     }
-  }, [eventId, t]);
+  }, [eventId, activityKind, t]);
 
   useEffect(() => {
     void loadEvent();
@@ -126,8 +148,9 @@ export function EvidenceConfirmationPanel({
   }, [loadSignedCopies]);
 
   const uploadSignedCopy = async (file: File) => {
+    if (!alive.current || signedCopyUploading) return;
     if (!SIGNED_COPY_TYPES.has(file.type) || file.size <= 0 || file.size > MAX_SIGNED_COPY_BYTES) {
-      setSignedCopyError('Выберите PDF, JPEG или PNG размером до 10 МБ.');
+      setSignedCopyError(t('evidenceConfirmation.signedCopyInvalid'));
       return;
     }
     setSignedCopyUploading(true);
@@ -138,15 +161,18 @@ export function EvidenceConfirmationPanel({
       await api.post(`/v1/training-evidence/events/mine/${eventId}/signed-scans`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      if (!alive.current) return;
       await loadSignedCopies();
     } catch (requestError: any) {
-      setSignedCopyError(requestError?.response?.data?.message || 'Не удалось загрузить подписанный экземпляр.');
+      if (!alive.current) return;
+      setSignedCopyError(requestError?.response?.data?.message || t('evidenceConfirmation.signedCopyUploadFailed'));
     } finally {
-      setSignedCopyUploading(false);
+      if (alive.current) setSignedCopyUploading(false);
     }
   };
 
   const requestCode = async () => {
+    if (!alive.current || requesting || event?.confirmation_status !== 'pending') return;
     setRequesting(true);
     setError(null);
     try {
@@ -154,17 +180,19 @@ export function EvidenceConfirmationPanel({
         `/v1/training-evidence/step-up/events/${eventId}/request`,
         {},
       );
+      if (!alive.current) return;
       setChallengeId(response.data.challenge_id);
       setRetryAfter(response.data.retry_after ?? null);
     } catch (requestError: any) {
+      if (!alive.current) return;
       setError(requestError?.response?.data?.message || t('evidenceConfirmation.errors.request'));
     } finally {
-      setRequesting(false);
+      if (alive.current) setRequesting(false);
     }
   };
 
   const verifyCode = async () => {
-    if (!challengeId || !/^\d{6}$/.test(code)) return;
+    if (!alive.current || verifying || event?.confirmation_status !== 'pending' || !challengeId || !/^\d{6}$/.test(code)) return;
     setVerifying(true);
     setError(null);
     try {
@@ -172,15 +200,18 @@ export function EvidenceConfirmationPanel({
         challenge_id: challengeId,
         code,
       });
+      if (!alive.current) return;
       setConfirmed(true);
       setChallengeId(null);
       setCode('');
       await loadEvent();
+      if (!alive.current) return;
       onConfirmed?.();
     } catch (requestError: any) {
+      if (!alive.current) return;
       setError(requestError?.response?.data?.message || t('evidenceConfirmation.errors.verify'));
     } finally {
-      setVerifying(false);
+      if (alive.current) setVerifying(false);
     }
   };
 
@@ -192,6 +223,7 @@ export function EvidenceConfirmationPanel({
         `/v1/training-evidence/events/mine/${eventId}/export`,
         { params: { format: 'pdf' }, responseType: 'blob' },
       );
+      if (!alive.current) return;
       const url = URL.createObjectURL(response.data);
       const anchor = document.createElement('a');
       anchor.href = url;
@@ -201,16 +233,18 @@ export function EvidenceConfirmationPanel({
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (requestError: any) {
-      setError(requestError?.response?.data?.message || 'Не удалось скачать подтверждение прохождения.');
+      if (!alive.current) return;
+      setError(requestError?.response?.data?.message || t('evidenceConfirmation.downloadFailed'));
     } finally {
-      setDownloading(false);
+      if (alive.current) setDownloading(false);
     }
   };
 
   const title = event?.procedure_title || activityTitle;
   const statement = event?.confirmation_statement;
   const version = event?.release_version ?? event?.confirmation_object_version;
-  const statusText = confirmed
+  const notRequired = event?.confirmation_status === 'not_required';
+  const statusText = notRequired ? m.confirmationNotRequired : confirmed
     ? t('evidenceConfirmation.status.confirmed')
     : t('evidenceConfirmation.status.pending');
 
@@ -265,8 +299,8 @@ export function EvidenceConfirmationPanel({
             {confirmed ? <CheckCircle2 className="h-5 w-5 text-success" /> : <ShieldCheck className="h-5 w-5" />}
           </div>
           <div className="min-w-0">
-            <CardTitle className="text-lg">{t('evidenceConfirmation.title')}</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">{t('evidenceConfirmation.subtitle')}</p>
+            <CardTitle className="text-lg">{notRequired ? m.confirmationNotRequired : t('evidenceConfirmation.title')}</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">{notRequired ? m.noConfirmationHint : confirmed ? t('evidenceConfirmation.status.confirmed') : t('evidenceConfirmation.subtitle')}</p>
           </div>
         </div>
       </CardHeader>
@@ -298,7 +332,7 @@ export function EvidenceConfirmationPanel({
           )}
         </dl>
 
-        {statement ? (
+        {notRequired ? <p className="text-sm text-muted-foreground">{m.noConfirmationHint}</p> : statement ? (
           <div className="rounded-md border border-border bg-muted/40 p-4">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('evidenceConfirmation.statement')}</p>
             <p className="mt-2 text-sm leading-6 text-foreground">{statement}</p>
@@ -310,14 +344,13 @@ export function EvidenceConfirmationPanel({
         )}
 
         <div className="flex items-center gap-2 text-sm" role="status">
-          {confirmed ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> : <Clock3 className="h-4 w-4 text-warning" aria-hidden="true" />}
+          {confirmed || notRequired ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" /> : <Clock3 className="h-4 w-4 text-warning" aria-hidden="true" />}
           <span className={confirmed ? 'text-success' : 'text-muted-foreground'}>{statusText}</span>
         </div>
 
         <div className="rounded-md border border-border bg-muted/30 p-4">
           <p className="text-sm text-muted-foreground">
-            Скачайте индивидуальное подтверждение прохождения. Его можно распечатать,
-            подписать вручную и передать в головной офис.
+            {t('evidenceConfirmation.pdfDescription')}
           </p>
           <Button
             className="mt-3"
@@ -327,33 +360,34 @@ export function EvidenceConfirmationPanel({
             disabled={downloading}
           >
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-            {downloading ? 'Подготовка PDF…' : 'Скачать подтверждение прохождения'}
+            {downloading ? t('evidenceConfirmation.downloadingPdf') : t('evidenceConfirmation.downloadPdf')}
           </Button>
         </div>
+
+        {error && (confirmed || notRequired || !learnerEmail) && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
         {activityKind === 'course' && (
           <div className="space-y-3 rounded-md border border-border bg-muted/30 p-4">
             <div>
-              <p className="text-sm font-medium text-foreground">Подписанный экземпляр</p>
+              <p className="text-sm font-medium text-foreground">{t('evidenceConfirmation.signedCopy')}</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                После подписи сфотографируйте или отсканируйте все страницы и загрузите их здесь.
-                Файл автоматически привяжется к вашему назначению, курсу и его опубликованной версии.
+                {t('evidenceConfirmation.signedCopyHint')}
               </p>
             </div>
             <div className="text-sm" role="status">
               {signedCopyLoading && !signedCopyLedger
-                ? 'Проверяем статус…'
+                ? t('evidenceConfirmation.signedCopyLoading')
                 : signedCopyLedger?.status === 'accepted'
-                  ? 'Подписанный экземпляр принят'
+                  ? t('evidenceConfirmation.signedCopyAccepted')
                   : signedCopyLedger?.status === 'uploaded_pending_review'
-                    ? 'Загружен — ожидает проверки'
+                    ? t('evidenceConfirmation.signedCopyPending')
                     : signedCopyLedger?.status === 'replacement_requested'
-                      ? `Нужна замена: ${signedCopyLedger.scans.at(-1)?.latest_review_reason || 'уточните причину у методиста'}`
-                      : 'Подписанный экземпляр ещё не загружен'}
+                      ? t('evidenceConfirmation.signedCopyReplace', { reason: signedCopyLedger.scans.at(-1)?.latest_review_reason || t('evidenceConfirmation.signedCopyReason') })
+                      : t('evidenceConfirmation.signedCopyMissing')}
             </div>
             <label className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-accent">
               {signedCopyUploading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              {signedCopyUploading ? 'Загрузка…' : 'Загрузить подписанный экземпляр'}
+              {signedCopyUploading ? t('evidenceConfirmation.signedCopyUploading') : t('evidenceConfirmation.signedCopyUpload')}
               <input
                 type="file"
                 className="sr-only"
@@ -366,12 +400,12 @@ export function EvidenceConfirmationPanel({
                 }}
               />
             </label>
-            <p className="text-xs text-muted-foreground">PDF, JPEG или PNG · до 10 МБ</p>
+            <p className="text-xs text-muted-foreground">{t('evidenceConfirmation.signedCopyFormats')}</p>
             {signedCopyError && <p className="text-sm text-destructive" role="alert">{signedCopyError}</p>}
           </div>
         )}
 
-        {!confirmed && learnerEmail && (
+        {!confirmed && !notRequired && learnerEmail && (
           <div className="space-y-3 rounded-md border border-border p-4">
             <p className="text-sm text-muted-foreground">{t('evidenceConfirmation.explanation')}</p>
             {!challengeId ? (
@@ -410,11 +444,9 @@ export function EvidenceConfirmationPanel({
           </div>
         )}
 
-        {!confirmed && !learnerEmail && (
+        {!confirmed && !notRequired && !learnerEmail && (
           <div className="rounded-md border border-border p-4 text-sm text-muted-foreground">
-            Электронное подтверждение недоступно, потому что у сотрудника нет email. Скачайте PDF,
-            подпишите его вручную и передайте в головной офис; зафиксированный системой результат
-            прохождения при этом сохраняется.
+            {t('evidenceConfirmation.noEmailFallback')}
           </div>
         )}
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, createContext, useContext } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import Sidebar from './Sidebar';
@@ -14,6 +15,7 @@ import { DemoBanner } from '@/components/demo/DemoBanner';
 import { getAuthRedirect } from '@/lib/rolePolicy';
 import { getSessionExpiryMs, startSessionDeadlineGuard } from '@/lib/sessionDeadline';
 import { getAccessToken } from '@/lib/auth';
+import { isFocusedLearnerRoute } from '@/features/learner-workspace/copy';
 
 const SidebarContext = createContext({ collapsed: false });
 
@@ -28,6 +30,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, accessToken, initialized, initialize, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const focusedLearning = isFocusedLearnerRoute(user?.role, pathname || '');
   // Track active generation to surface a toast when it finishes (so a user
   // who navigated away still gets notified). The /ai/generate page itself
   // owns its own progress UI; we don't render anything visible at the
@@ -160,12 +163,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <DemoLimitProvider>
       <SidebarContext.Provider value={{ collapsed }}>
         <div className="min-h-screen bg-background grain">
-          <Sidebar
+          {(!focusedLearning || mobileSidebarOpen) && <Sidebar
             collapsed={collapsed}
             mobileOpen={mobileSidebarOpen}
             onToggle={() => setCollapsed((c) => !c)}
             onClose={() => setMobileSidebarOpen(false)}
-          />
+          />}
           {mobileSidebarOpen && (
             <button
               type="button"
@@ -176,12 +179,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
           <CommandPalette />
           <main
-            className="app-shell-main transition-all duration-300"
+            className={focusedLearning ? 'min-h-screen min-w-0' : 'app-shell-main transition-all duration-300'}
+            data-learning-focused={focusedLearning ? 'true' : 'false'}
             data-sidebar-collapsed={collapsed ? 'true' : 'false'}
           >
             <DemoBanner />
             <TopBar onMenuClick={() => setMobileSidebarOpen(true)} />
-            <div className="px-4 py-6 md:px-6">{children}</div>
+            {focusedLearning && (
+              <nav aria-label={t('student.enrolledCourses')} className="border-b border-border bg-card px-4 py-2 md:px-6">
+                <Link href="/my-courses" className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-medium text-primary hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+                  <span aria-hidden="true">←</span>{t('student.enrolledCourses')}
+                </Link>
+              </nav>
+            )}
+            <div className={focusedLearning ? '' : 'px-4 py-6 md:px-6'}>{children}</div>
           </main>
         </div>
       </SidebarContext.Provider>

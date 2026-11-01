@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 const authUser = vi.hoisted(() => ({ email: 'learner@example.kz' as string | null }));
+const authState = vi.hoisted(() => ({ accessToken: 'token', sessionEpoch: 1 }));
 const tMock = vi.hoisted(() => (
   key: string,
   params?: Record<string, string | number>,
@@ -13,7 +14,7 @@ vi.mock('@/i18n/useT', () => ({
   useT: () => ({ t: tMock }),
 }));
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: (selector: (state: { user: { email: string | null } }) => unknown) => selector({ user: authUser }),
+  useAuthStore: (selector: (state: { user: { email: string | null } }) => unknown) => selector({ user: authUser, ...authState } as { user: { email: string | null } }),
 }));
 
 import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
@@ -45,11 +46,40 @@ describe('EvidenceConfirmationPanel', () => {
     }));
     apiMock.post.mockReturnValue({ data: { challenge_id: 'challenge-123456789', expires_in: 600 } });
     authUser.email = 'learner@example.kz';
+    authState.accessToken = 'token'; authState.sessionEpoch = 1;
     vi.stubGlobal('URL', {
       ...URL,
       createObjectURL: vi.fn(() => 'blob:evidence'),
       revokeObjectURL: vi.fn(),
     });
+  });
+
+  it('ignores a delayed verification after same-user session replacement', async () => {
+    let resolve!: (value: { data: unknown }) => void;
+    const onConfirmed = vi.fn();
+    apiMock.post.mockImplementation((path: string) => path.endsWith('/verify')
+      ? new Promise((done) => { resolve = done; }) : { data: { challenge_id: 'challenge-123456789', expires_in: 600 } });
+    const props = { eventId: 'event-1', activityTitle: 'Synthetic', activityKind: 'course' as const, continueHref: '/courses', onConfirmed };
+    const view = render(<EvidenceConfirmationPanel {...props} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'evidenceConfirmation.requestCode' }));
+    fireEvent.change(await screen.findByLabelText('evidenceConfirmation.codeLabel'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'evidenceConfirmation.confirm' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledTimes(2));
+    authState.sessionEpoch += 1; view.rerender(<EvidenceConfirmationPanel {...props} />);
+    await act(async () => { resolve({ data: {} }); });
+    expect(onConfirmed).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('evidenceConfirmation.codeLabel')).not.toBeInTheDocument();
+  });
+
+  it('retains challenge on refresh but clears it on explicit session replacement', async () => {
+    const props = { eventId: 'event-1', activityTitle: 'Synthetic', activityKind: 'course' as const, continueHref: '/courses' };
+    const view = render(<EvidenceConfirmationPanel {...props} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'evidenceConfirmation.requestCode' }));
+    expect(await screen.findByLabelText('evidenceConfirmation.codeLabel')).toBeInTheDocument();
+    authState.accessToken = 'refreshed'; view.rerender(<EvidenceConfirmationPanel {...props} />);
+    expect(screen.getByLabelText('evidenceConfirmation.codeLabel')).toBeInTheDocument();
+    authState.sessionEpoch += 1; view.rerender(<EvidenceConfirmationPanel {...props} />);
+    expect(screen.queryByLabelText('evidenceConfirmation.codeLabel')).not.toBeInTheDocument();
   });
 
   it('loads own event, requests OTP with an empty body, and verifies only challenge id and code', async () => {
@@ -103,7 +133,7 @@ describe('EvidenceConfirmationPanel', () => {
         : { data: pendingEvent }
     ));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Скачать подтверждение прохождения' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'evidenceConfirmation.downloadPdf' }));
 
     await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(
       '/v1/training-evidence/events/mine/event-1/export',
@@ -121,7 +151,7 @@ describe('EvidenceConfirmationPanel', () => {
       />,
     );
 
-    expect(await screen.findByText(/Электронное подтверждение недоступно/)).toBeInTheDocument();
+    expect(await screen.findByText('evidenceConfirmation.noEmailFallback')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'evidenceConfirmation.requestCode' })).not.toBeInTheDocument();
   });
 
@@ -134,7 +164,7 @@ describe('EvidenceConfirmationPanel', () => {
       />,
     );
 
-    await screen.findByText('Подписанный экземпляр ещё не загружен');
+    await screen.findByText('evidenceConfirmation.signedCopyMissing');
     const inputs = container.querySelectorAll('input[type="file"]');
     expect(inputs).toHaveLength(1);
     fireEvent.change(inputs[0], {

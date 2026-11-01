@@ -21,6 +21,8 @@ const translateMock = vi.hoisted(() => (key: string) => ({
   'authenticatedUi.player.timeExpiredDescription': 'Материалы и тестирование закрыты. Обратитесь к методисту, чтобы получить новое окно доступа.',
   'authenticatedUi.player.timeRemaining': 'Оставшееся время на курс и тест',
   'authenticatedUi.player.timerHint': 'Таймер не сбрасывается при обновлении страницы.',
+  'authenticatedUi.player.sessionExpiredTitle': 'Время прохождения истекло',
+  'authenticatedUi.player.sessionExpiredDescription': 'Эта персональная сессия больше не даёт доступ к курсу и тесту. Запросите у методиста новое окно доступа.',
 }[key] || key));
 const translatePluralMock = vi.hoisted(() => (key: string, count: number) => `${count} ${key}`);
 
@@ -45,8 +47,8 @@ vi.mock('@/lib/useIdleTimeout', () => ({
   useIdleTimeout: () => ({ warningSeconds: null }),
 }));
 
-vi.mock('@/features/training-evidence/EvidenceConfirmationPanel', () => ({
-  EvidenceConfirmationPanel: ({ eventId }: { eventId: string }) => (
+vi.mock('@/features/learner-workspace/LearnerEvidenceConfirmation', () => ({
+  LearnerEvidenceConfirmation: ({ eventId }: { eventId: string }) => (
     <div data-testid="completion-evidence-event">{eventId}</div>
   ),
 }));
@@ -207,6 +209,7 @@ describe('course player role modes', () => {
     useAuthStore.setState({ accessToken: 'student-old-token', user: { user_id: 'student-old', role: 'student' } as never, initialized: true });
     const view = render(<CoursePlayerPage />);
     await screen.findByRole('heading', { name: 'Шестой урок' });
+    fireEvent.click(screen.getByRole('button', { name: 'Помощь по уроку' }));
     fireEvent.change(screen.getByPlaceholderText('authenticatedUi.player.assistantPlaceholder'), { target: { value: 'Old learner question' } });
     fireEvent.click(screen.getByRole('button', { name: 'authenticatedUi.player.ask' }));
     await waitFor(() => expect(resolveReply).toBeTypeOf('function'));
@@ -274,6 +277,59 @@ describe('course player role modes', () => {
     expect(root).toHaveClass('flex-col', 'md:flex-row');
     expect(outline).toHaveClass('w-full', 'md:w-80');
     expect(content).toBeInTheDocument();
+    const toggle = screen.getByRole('button', { name: 'Оглавление курса' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    const lessonButton = screen.getByRole('button', { name: 'Урок: Шестой урок' });
+    expect(lessonButton).toHaveAttribute('aria-current', 'step');
+    fireEvent.click(lessonButton);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('heading', { name: 'Шестой урок' })).toHaveFocus();
+    expect(screen.queryByPlaceholderText('authenticatedUi.player.assistantPlaceholder')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/assistant/messages'))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Помощь по уроку' }));
+    expect(screen.getByPlaceholderText('authenticatedUi.player.assistantPlaceholder')).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/assistant/messages'))).toBe(true));
+  });
+
+  it('opens the resumable occurrence instead of an older same-course completion', async () => {
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/student/dashboard')
+      ? Promise.resolve(jsonResponse({ enrolled_courses: [
+        { course_id: 'course-1', enrollment_id: 'old', enrollment_status: 'completed', can_resume: false },
+        { course_id: 'course-1', enrollment_id: 'current', enrollment_status: 'in_progress', can_resume: true },
+      ] })) : original(input, init));
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never });
+    render(<CoursePlayerPage />);
+    expect(await screen.findByRole('heading', { name: 'Шестой урок' })).toBeInTheDocument();
+    expect(screen.queryByText('courses.courseComplete')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('enrollment_id=old'))).toBe(false);
+  });
+
+  it('does not offer re-enrollment when only non-resumable occurrences exist', async () => {
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/student/dashboard')
+      ? Promise.resolve(jsonResponse({ enrolled_courses: [{ course_id: 'course-1', enrollment_status: 'completed', can_resume: false }] })) : original(input, init));
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never });
+    render(<CoursePlayerPage />);
+    await screen.findByText(/Продолжение этого назначения пока недоступно/);
+    expect(screen.queryByRole('button', { name: 'courses.enrollButton' })).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
+  it('retries a failed assignment read instead of presenting an unconfirmed enrollment action', async () => {
+    const original = fetchMock.getMockImplementation()!;
+    let failed = true;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/student/dashboard') && failed
+      ? Promise.resolve(jsonResponse({}, 503)) : original(input, init));
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-1', role: 'student' } as never });
+    render(<CoursePlayerPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить');
+    expect(screen.queryByRole('button', { name: 'courses.enrollButton' })).not.toBeInTheDocument();
+    failed = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await screen.findByRole('heading', { name: 'Шестой урок' });
   });
 
   it('persists the current lesson before moving to the next lesson without a manual confirmation action', async () => {
@@ -802,6 +858,35 @@ describe('course player role modes', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Время, отведённое на прохождение, истекло');
     expect(screen.getByRole('button', { name: 'Начать тест' })).toBeDisabled();
+  });
+
+  it('explains the expired assignment when protected course reads return HTTP409', async () => {
+    setupFetch({
+      server_now: '2026-08-13T09:31:00Z',
+      access_policy: {
+        enrollment_id: 'enrollment-1', delivery_mode: 'personal_link',
+        completion_window_started_at: '2026-08-13T09:00:00Z',
+        completion_window_expires_at: '2026-08-13T09:30:00Z', due_at: null, state: 'expired',
+      },
+    });
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (['/v1/courses/course-1', '/v1/courses/course-1/structure', '/v1/progress/courses/course-1/completed-ids'].some((path) => url.endsWith(path))) {
+        return Promise.resolve(jsonResponse({ detail: 'assignment_access_expired' }, 409));
+      }
+      return original(input, init);
+    });
+    useAuthStore.setState({ accessToken: 'assignment-token', user: { user_id: 'student-1', role: 'student' } as never });
+    render(<CoursePlayerPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Время прохождения истекло');
+    expect(screen.getByRole('alert')).toHaveTextContent('Эта персональная сессия больше не даёт доступ к курсу и тесту. Запросите у методиста новое окно доступа.');
+    expect(screen.queryByRole('button', { name: 'Повторить' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Начать тест' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Завершить курс' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'courses.enrollButton' })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('authenticatedUi.player.assistantPlaceholder')).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST' || init?.method === 'PUT')).toBe(false);
   });
 
   it('embeds SCORM only from the dedicated origin with a restrictive sandbox', async () => {

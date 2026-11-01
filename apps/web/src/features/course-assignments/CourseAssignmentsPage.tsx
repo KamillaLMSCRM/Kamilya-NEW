@@ -15,8 +15,12 @@ import {
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
+import { getAuthSessionEpoch } from '@/lib/auth';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
+import { AssignmentSelectionPreview } from '@/features/learning-workspace/AssignmentSelectionPreview';
+import { workspaceCopy } from '@/features/learning-workspace/copy';
+import { authorSessionScope } from '@/features/course-authoring/authorSession';
 
 interface Course {
   id: string;
@@ -197,7 +201,16 @@ const REMINDER_ERROR_LABEL_KEYS = {
 // ── component ─────────────────────────────────────────────
 
 export default function EnrollmentsPage() {
-  const { t, tp } = useT();
+  const actor = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const sessionEpoch = useAuthStore((s) => s.sessionEpoch);
+  const scope = authorSessionScope({ accessToken, user: actor, sessionEpoch });
+  return <AssignmentsContent key={`${scope.generation}:${sessionEpoch}`} />;
+}
+
+function AssignmentsContent() {
+  const { t, tp, lang } = useT();
+  const m = workspaceCopy(lang);
   const translatedLabel = (
     labels: Record<string, TranslationKey>,
     value: string,
@@ -212,6 +225,11 @@ export default function EnrollmentsPage() {
   const [repeatTarget, setRepeatTarget] = useState<string | null>(null);
   const [repeating, setRepeating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [enrollmentReadState, setEnrollmentReadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const enrollmentRequest = useRef(0);
+  const alive = useRef(true);
+  const assignmentCommand = useRef(false);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; enrollmentRequest.current += 1; }; }, []);
   const [enrolling, setEnrolling] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [accessLinks, setAccessLinks] = useState<AccessLink[]>([]);
@@ -236,6 +254,12 @@ export default function EnrollmentsPage() {
   const reminderHistoryControllers = useRef<Record<string, AbortController>>({});
   const token = useAuthStore((s) => s.accessToken);
   const userRole = useAuthStore((s) => s.user?.role);
+  const tokenRef = useRef(token);
+  const selectedCourseRef = useRef(selectedCourse);
+  tokenRef.current = token;
+  selectedCourseRef.current = selectedCourse;
+  const dataRequest = useRef(0);
+  const recurringRequest = useRef(0);
   const canManageAssignments = userRole === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const reminderAuthTokenRef = useRef(token);
@@ -262,9 +286,21 @@ export default function EnrollmentsPage() {
   const [completionWindowMinutes, setCompletionWindowMinutes] = useState<number | null>(null);
   const [linkValidityDays, setLinkValidityDays] = useState(7);
   const [dueAt, setDueAt] = useState('');
+  const selectionIdentity = JSON.stringify([selectedCourse, [...selectedUsers].sort(), deliveryMode, completionWindowMinutes, linkValidityDays, dueAt, userRole]);
+  const selectionIdentityRef = useRef(selectionIdentity);
+  const contextEpoch = useRef(0);
+  if (selectionIdentityRef.current !== selectionIdentity) contextEpoch.current += 1;
+  selectionIdentityRef.current = selectionIdentity;
+  const captureCurrentAction = () => {
+    const epoch = contextEpoch.current;
+    return () => alive.current && Boolean(token) && tokenRef.current === token
+      && selectedCourseRef.current === selectedCourse && contextEpoch.current === epoch;
+  };
 
   const fetchData = useCallback(async () => {
-    if (!token || !canManageAssignments) return;
+    if (!token || !canManageAssignments || !alive.current || tokenRef.current !== token) return;
+    const request = ++dataRequest.current;
+    const isCurrent = () => alive.current && tokenRef.current === token && dataRequest.current === request;
     try {
       const [coursesRes, usersRes] = await Promise.all([
         fetch(`${API_URL}/v1/courses?per_page=100`, {
@@ -279,14 +315,16 @@ export default function EnrollmentsPage() {
       ]);
       if (coursesRes.ok) {
         const data = await coursesRes.json();
+        if (!isCurrent()) return;
         setCourses(Array.isArray(data) ? data.filter((course) => course.status === 'published') : []);
       }
       if (usersRes.ok) {
         const data = await usersRes.json();
+        if (!isCurrent()) return;
         setUsers(data.users || []);
       }
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, [token, API_URL, canManageAssignments]);
 
@@ -295,15 +333,17 @@ export default function EnrollmentsPage() {
   }, [fetchData]);
 
   const fetchRecurringRules = useCallback(async () => {
-    if (!token || !canManageAssignments) return;
+    if (!token || !canManageAssignments || !alive.current || tokenRef.current !== token) return;
+    const request = ++recurringRequest.current;
+    const isCurrent = () => alive.current && tokenRef.current === token && recurringRequest.current === request;
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [rulesResponse, occurrencesResponse] = await Promise.all([
         fetch(`${API_URL}/v1/learning-cycles`, { headers }),
         fetch(`${API_URL}/v1/learning-cycles/occurrences`, { headers }),
       ]);
-      if (rulesResponse.ok) setRecurringRules(await rulesResponse.json());
-      if (occurrencesResponse.ok) setRecurringOccurrences(await occurrencesResponse.json());
+      if (rulesResponse.ok) { const rules = await rulesResponse.json(); if (isCurrent()) setRecurringRules(rules); }
+      if (occurrencesResponse.ok) { const occurrences = await occurrencesResponse.json(); if (isCurrent()) setRecurringOccurrences(occurrences); }
     } catch {
       // The assignments workflow remains usable if the preview API is absent.
     }
@@ -313,17 +353,36 @@ export default function EnrollmentsPage() {
     void fetchRecurringRules();
   }, [fetchRecurringRules]);
 
-  const fetchEnrollments = useCallback(async (courseId: string) => {
+  const fetchEnrollments = useCallback(async (courseId: string, preserveSelection = false) => {
+    if (!alive.current || tokenRef.current !== token) return;
+    const request = ++enrollmentRequest.current;
+    const isCurrent = () => alive.current && tokenRef.current === token && request === enrollmentRequest.current;
+    if (selectedCourseRef.current !== courseId) {
+      contextEpoch.current += 1;
+      setIssuedNoEmailAccess(null);
+      setAccessLinks([]);
+    }
+    selectedCourseRef.current = courseId;
     setSelectedCourse(courseId);
-    setSelectedUsers(new Set());
+    if (!preserveSelection) setSelectedUsers(new Set());
+    setEnrollments([]);
+    setAccessStates({});
     setStatusFilter('all'); // сброс при смене курса
-    if (!token || !courseId) return;
+    if (!token || !courseId) { setEnrollmentReadState('idle'); return; }
+    setEnrollmentReadState('loading');
+    try {
     const res = await fetch(`${API_URL}/v1/courses/${courseId}/enrollments`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) {
+    if (!isCurrent()) return;
+    if (!res.ok) throw new Error('enrollment_read_failed');
       const items = await res.json() as Enrollment[];
+      if (!isCurrent()) return;
       setEnrollments(items);
+      if (!assignmentCommand.current) {
+        setSelectedUsers((current) => new Set([...current].filter((id) => !items.some((item) => item.user_id === id))));
+      }
+      setEnrollmentReadState('ready');
       const noEmail = items.filter((item) => !users.find((user) => user.id === item.user_id)?.email);
       const states = await Promise.all(noEmail.map(async (item) => {
         const response = await fetch(`${API_URL}/v1/courses/enrollments/${item.id}/access`, {
@@ -331,9 +390,23 @@ export default function EnrollmentsPage() {
         });
         return response.ok ? await response.json() as EnrollmentAccess : null;
       }));
-      setAccessStates(Object.fromEntries(states.filter(Boolean).map((state) => [state!.enrollment_id, state!] as const)));
+      if (isCurrent()) setAccessStates(Object.fromEntries(states.filter(Boolean).map((state) => [state!.enrollment_id, state!] as const)));
+    } catch {
+      if (isCurrent()) setEnrollmentReadState('error');
     }
   }, [API_URL, token, users]);
+
+  const fetchEnrollmentsRef = useRef(fetchEnrollments);
+  fetchEnrollmentsRef.current = fetchEnrollments;
+
+  const enrollmentToken = useRef(token);
+  useEffect(() => {
+    const previous = enrollmentToken.current;
+    enrollmentToken.current = token;
+    if (previous && token && previous !== token && selectedCourseRef.current) {
+      void fetchEnrollments(selectedCourseRef.current, true);
+    }
+  }, [token, fetchEnrollments]);
 
   useEffect(() => {
     if (loading || preselectionApplied.current) return;
@@ -355,9 +428,20 @@ export default function EnrollmentsPage() {
   }, [courses, fetchEnrollments, loading, searchParams, users]);
 
   const handleEnroll = async () => {
-    if (!selectedCourse || selectedUsers.size === 0) return;
+    if (!selectedCourse || selectedUsers.size === 0 || enrolling || assignmentCommand.current || enrollmentReadState !== 'ready' || !alive.current || !canManageAssignments || !token) return;
     const selected = users.filter((user) => selectedUsers.has(user.id));
     const course = courses.find((item) => item.id === selectedCourse);
+    if (!course || course.status !== 'published' || selected.length !== selectedUsers.size
+      || selected.some((user) => user.role !== 'student')
+      || enrollments.some((item) => item.course_id === selectedCourse && selectedUsers.has(item.user_id))) {
+      toast.error(m.invalidSelection);
+      return;
+    }
+    const confirmedSelection = selectionIdentity;
+    const confirmedEpoch = contextEpoch.current;
+    const confirmedAuthEpoch = getAuthSessionEpoch();
+    const commandIsCurrent = () => alive.current && selectionIdentityRef.current === confirmedSelection
+      && contextEpoch.current === confirmedEpoch && getAuthSessionEpoch() === confirmedAuthEpoch;
     const withoutAccess = selected.filter((user) => user.has_login_access === false);
     const personalLink = deliveryMode === 'personal_link';
     const withoutEmail = selected.filter((user) => !user.email?.trim());
@@ -373,7 +457,12 @@ export default function EnrollmentsPage() {
       });
       return;
     }
+    if (personalLink && dueAt && !Number.isFinite(new Date(dueAt).getTime())) {
+      toast.error(m.invalidDate);
+      return;
+    }
     const dueAtIso = personalLink && dueAt ? new Date(dueAt).toISOString() : null;
+    assignmentCommand.current = true;
     const ok = await confirm({
       title: t('courseAssignments.confirm.assignTitle'),
       message: [
@@ -386,8 +475,14 @@ export default function EnrollmentsPage() {
       ].filter(Boolean).join(' '),
       variant: 'info',
       confirmLabel: t('courseAssignments.actions.assign'),
-    });
-    if (!ok) return;
+    }).catch(() => false);
+    if (!ok) { assignmentCommand.current = false; return; }
+    if (!commandIsCurrent() || tokenRef.current !== token) {
+      assignmentCommand.current = false;
+      if (!alive.current) return;
+      toast.error(m.selectionChanged);
+      return;
+    }
     setEnrolling(true);
     try {
       if (personalLink) {
@@ -411,6 +506,7 @@ export default function EnrollmentsPage() {
           throw new Error(error?.detail || t('courseAssignments.errors.createPersonalAccess'));
         }
         const credential = await response.json() as NoEmailAccessIssue;
+        if (!commandIsCurrent()) return;
         const learner = usersById.get(selectedUserId);
         setIssuedNoEmailAccess({
           ...credential,
@@ -418,7 +514,7 @@ export default function EnrollmentsPage() {
         });
         toast.success(t('courseAssignments.success.personalLinkReady'));
         setSelectedUsers(new Set());
-        await fetchEnrollments(selectedCourse);
+        await fetchEnrollmentsRef.current(selectedCourse);
         return;
       }
       const res = await fetch(`${API_URL}/v1/courses/${selectedCourse}/enrollments`, {
@@ -439,6 +535,7 @@ export default function EnrollmentsPage() {
         throw new Error(err?.detail || 'Assignment failed');
       }
       const created = await res.json();
+      if (!commandIsCurrent()) return;
       if (Array.isArray(created) && created.length > 0) {
         toast.success(`${t('courseAssignments.success.assigned')}: ${tp('common.counts.learner', created.length)}`);
       } else {
@@ -449,15 +546,19 @@ export default function EnrollmentsPage() {
         toast.info(t('courseAssignments.info.accessSetupAfterSave'));
       }
       setSelectedUsers(new Set());
-      await fetchEnrollments(selectedCourse);
+      await fetchEnrollmentsRef.current(selectedCourse);
     } catch (err: any) {
-      toast.error(t('common.saveFailed'), { description: err?.message });
+      if (commandIsCurrent()) toast.error(t('common.saveFailed'), { description: err?.message });
     } finally {
-      setEnrolling(false);
+      assignmentCommand.current = false;
+      if (alive.current) setEnrolling(false);
     }
   };
 
   const handleUnenroll = async (enrollment: Enrollment) => {
+    const scopeCurrent = captureCurrentAction();
+    const isCurrent = () => scopeCurrent() && enrollment.course_id === selectedCourse;
+    if (!isCurrent()) return;
     const sourceInfo = getAssignmentSourceInfo(enrollment.source);
     if (sourceInfo.managedByRule) {
       toast.info(t(sourceInfo.labelKey), {
@@ -470,23 +571,26 @@ export default function EnrollmentsPage() {
       variant: 'danger',
       confirmLabel: t('dialogs.delete'),
     });
-    if (!ok) return;
+    if (!ok || !isCurrent()) return;
     try {
       const res = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!isCurrent()) return;
       if (!res.ok) throw new Error('Unenroll failed');
       toast.success(t('toast.courseDeleted'));
       fetchEnrollments(selectedCourse);
     } catch (err: any) {
-      toast.error(t('common.saveFailed'), { description: err?.message });
+      if (isCurrent()) toast.error(t('common.saveFailed'), { description: err?.message });
     }
   };
 
   const repeatEnrollment = async (enrollment: Enrollment) => {
+    const scopeCurrent = captureCurrentAction();
+    const isCurrent = () => scopeCurrent() && enrollment.course_id === selectedCourse;
     const reason = (repeatReasons[enrollment.id] || '').trim();
-    if (!reason || !selectedCourse || !token || enrollment.source !== 'manual') return;
+    if (!reason || !isCurrent() || enrollment.source !== 'manual') return;
     setRepeating(true);
     try {
       const response = await fetch(`${API_URL}/v1/courses/${selectedCourse}/reassignments`, {
@@ -498,11 +602,13 @@ export default function EnrollmentsPage() {
           reason,
         }),
       });
+      if (!isCurrent()) return;
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error?.message || error?.detail || t('courseAssignments.repeat.failed'));
       }
       const result = await response.json() as ReassignmentResult;
+      if (!isCurrent()) return;
       setIssuedNoEmailAccess(null);
       if (result.delivery_mode === 'personal_link' && result.personal_access) {
         const learner = users.find((item) => item.id === enrollment.user_id);
@@ -518,13 +624,14 @@ export default function EnrollmentsPage() {
       setRepeatReasons((current) => ({ ...current, [enrollment.id]: '' }));
       await fetchEnrollments(selectedCourse);
     } catch (error: any) {
-      toast.error(t('courseAssignments.repeat.failed'), { description: error?.message });
+      if (isCurrent()) toast.error(t('courseAssignments.repeat.failed'), { description: error?.message });
     } finally {
-      setRepeating(false);
+      if (alive.current) setRepeating(false);
     }
   };
 
   const toggleUser = (userId: string) => {
+    contextEpoch.current += 1;
     setSelectedUsers((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) next.delete(userId);
@@ -569,25 +676,32 @@ export default function EnrollmentsPage() {
     return new Set(enrollments.map((e) => e.user_id));
   }, [enrollments]);
   const availableUsers = useMemo(() => {
+    if (!selectedCourse || enrollmentReadState !== 'ready') return [];
     return users.filter(
       (u) => u.role === 'student' && matchesUserQuery(u, userSearch) && !enrolledUserIds.has(u.id),
     );
-  }, [users, userSearch, enrolledUserIds]);
+  }, [users, userSearch, enrolledUserIds, selectedCourse, enrollmentReadState]);
 
-  const copyAccessLink = async (url: string) => {
+  const copyAccessLink = async (url: string, isCurrent = captureCurrentAction()) => {
+    if (!isCurrent()) return;
     await navigator.clipboard.writeText(url);
-    toast.success(t('courseAssignments.success.accessLinkCopied'));
+    if (isCurrent()) toast.success(t('courseAssignments.success.accessLinkCopied'));
   };
 
   const handleAssignmentAccess = async (enrollment: Enrollment, learner?: User) => {
+    const scopeCurrent = captureCurrentAction();
+    const isCurrent = () => scopeCurrent() && enrollment.course_id === selectedCourse;
+    if (!isCurrent()) return;
     const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!isCurrent()) return;
     if (!response.ok) {
       toast.error(t('courseAssignments.errors.accessState'));
       return;
     }
     const access = await response.json() as EnrollmentAccess;
+    if (!isCurrent()) return;
     if (access.access_kind === 'access_without_email' || access.access_kind === 'personal_link') {
       if (access.state === 'available') {
         const approved = await confirm({
@@ -596,18 +710,20 @@ export default function EnrollmentsPage() {
           variant: 'danger',
           confirmLabel: t('courseAssignments.actions.reissue'),
         });
-        if (!approved) return;
+        if (!approved || !isCurrent()) return;
       }
       const issued = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ delivery_mode: 'personal_link' }),
       });
+      if (!isCurrent()) return;
       if (!issued.ok) {
         toast.error(t('courseAssignments.errors.preparePersonalAccess'));
         return;
       }
       const credential = await issued.json() as NoEmailAccessIssue;
+      if (!isCurrent()) return;
       setAccessStates((current) => ({ ...current, [enrollment.id]: {
         enrollment_id: enrollment.id, user_id: enrollment.user_id,
         access_kind: access.access_kind, state: 'available', access_url: null,
@@ -620,7 +736,7 @@ export default function EnrollmentsPage() {
       return;
     }
     if (access.access_url) {
-      await copyAccessLink(access.access_url);
+      await copyAccessLink(access.access_url, isCurrent);
       return;
     }
     if (!learner) return;
@@ -628,29 +744,36 @@ export default function EnrollmentsPage() {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!isCurrent()) return;
     if (!invitationRes.ok) {
       const error = await invitationRes.json().catch(() => ({}));
+      if (!isCurrent()) return;
       toast.error(t('courseAssignments.errors.prepareActivation'), { description: error?.detail });
       return;
     }
     const invitation = await invitationRes.json() as AccessLink;
+    if (!isCurrent()) return;
     setAccessLinks([invitation]);
     toast.success(t('courseAssignments.success.activationReady'));
   };
 
   const handleRevokeAssignmentAccess = async (enrollment: Enrollment, learner?: User) => {
+    const scopeCurrent = captureCurrentAction();
+    const isCurrent = () => scopeCurrent() && enrollment.course_id === selectedCourse;
+    if (!isCurrent()) return;
     const approved = await confirm({
       title: t('courseAssignments.confirm.revokeTitle'),
       message: `${t('courseAssignments.confirm.revokeMessagePrefix')} ${learner ? `${learner.first_name} ${learner.last_name}`.trim() : t('courseAssignments.fallback.employee')} ${t('courseAssignments.confirm.revokeMessageSuffix')}`,
       variant: 'danger',
       confirmLabel: t('courseAssignments.actions.revokeAccess'),
     });
-    if (!approved) return;
+    if (!approved || !isCurrent()) return;
     const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/access-policy/revoke`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ reason: 'revoked_from_assignments_ui' }),
     });
+    if (!isCurrent()) return;
     if (!response.ok) {
       toast.error(t('courseAssignments.errors.revokeAccess'));
       return;
@@ -675,9 +798,13 @@ export default function EnrollmentsPage() {
   };
 
   const resendNotification = async (enrollment: Enrollment) => {
+    const scopeCurrent = captureCurrentAction();
+    const isCurrent = () => scopeCurrent() && enrollment.course_id === selectedCourse;
+    if (!isCurrent()) return;
     const response = await fetch(`${API_URL}/v1/courses/enrollments/${enrollment.id}/notification/resend`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
     });
+    if (!isCurrent()) return;
     if (!response.ok) {
       toast.error(t('courseAssignments.errors.resendNotification'));
       return;
@@ -687,7 +814,8 @@ export default function EnrollmentsPage() {
   };
 
   const createRecurringRule = async () => {
-    if (!recurringCourseId || !recurringUserId) return;
+    const isCurrent = () => alive.current && Boolean(token) && tokenRef.current === token;
+    if (!recurringCourseId || !recurringUserId || !isCurrent()) return;
     setSavingRule(true);
     try {
       const response = await fetch(`${API_URL}/v1/learning-cycles`, {
@@ -703,24 +831,29 @@ export default function EnrollmentsPage() {
           due_days: dueDays,
         }),
       });
+      if (!isCurrent()) return;
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
+        if (!isCurrent()) return;
         throw new Error(error?.detail || t('courseAssignments.errors.saveRule'));
       }
       toast.success(t('courseAssignments.success.ruleDraftSaved'));
       await fetchRecurringRules();
     } catch (error: any) {
-      toast.error(t('courseAssignments.errors.saveRule'), { description: error?.message });
+      if (isCurrent()) toast.error(t('courseAssignments.errors.saveRule'), { description: error?.message });
     } finally {
-      setSavingRule(false);
+      if (alive.current) setSavingRule(false);
     }
   };
 
   const deactivateRecurringRule = async (ruleId: string) => {
+    const isCurrent = () => alive.current && Boolean(token) && tokenRef.current === token;
+    if (!isCurrent()) return;
     const response = await fetch(`${API_URL}/v1/learning-cycles/${ruleId}/deactivate`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!isCurrent()) return;
     if (response.ok) await fetchRecurringRules();
     else toast.error(t('courseAssignments.errors.stopRule'));
   };
@@ -816,14 +949,18 @@ export default function EnrollmentsPage() {
   };
 
   const activateRecurringRule = async (ruleId: string) => {
+    const isCurrent = () => alive.current && Boolean(token) && tokenRef.current === token;
+    if (!isCurrent()) return;
     const response = await fetch(`${API_URL}/v1/learning-cycles/${ruleId}/activate`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` },
     });
+    if (!isCurrent()) return;
     if (response.ok) {
       toast.success(t('courseAssignments.success.ruleStarted'));
       await fetchRecurringRules();
     } else {
       const error = await response.json().catch(() => ({}));
+      if (!isCurrent()) return;
       toast.error(t('courseAssignments.errors.startRule'), { description: error?.detail });
     }
   };
@@ -903,8 +1040,10 @@ export default function EnrollmentsPage() {
                 variant="outline"
                 size="sm"
                 onClick={async () => {
+                  const isCurrent = captureCurrentAction();
+                  if (!isCurrent()) return;
                   await navigator.clipboard.writeText(issuedNoEmailAccess.temporary_pin);
-                  toast.success(t('courseAssignments.success.pinCopied'));
+                  if (isCurrent()) toast.success(t('courseAssignments.success.pinCopied'));
                 }}
               >
                 <KeyRound className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -966,7 +1105,7 @@ export default function EnrollmentsPage() {
                 </div>}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <h3 className="font-medium text-sm text-muted-foreground">
-                    {t('courses.enrollments')}: {filteredEnrollments.length}
+                    {t('courses.enrollments')}: {enrollmentReadState === 'ready' ? filteredEnrollments.length : '—'}
                     {filteredEnrollments.length !== enrollments.length &&
                       ` ${t('courseAssignments.ui.ofTotal', { total: enrollments.length })}`}
                   </h3>
@@ -997,7 +1136,7 @@ export default function EnrollmentsPage() {
                   />
                 )}
 
-                {filteredEnrollments.length === 0 ? (
+                {enrollmentReadState !== 'ready' ? <p className="text-sm text-muted-foreground">{m.enrollmentsUnknown}</p> : filteredEnrollments.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     {enrollments.length === 0
                       ? t('courseAssignments.emptyEnrollments')
@@ -1151,7 +1290,7 @@ export default function EnrollmentsPage() {
               <Button
                 onClick={handleEnroll}
                 disabled={
-                  !selectedCourse || selectedUsers.size === 0 || enrolling
+                  !selectedCourse || selectedUsers.size === 0 || enrolling || enrollmentReadState !== 'ready'
                   || (deliveryMode === 'personal_link' && selectedUsers.size !== 1)
                 }
               >
@@ -1168,7 +1307,7 @@ export default function EnrollmentsPage() {
                   name="delivery-mode"
                   value="email"
                   checked={deliveryMode === 'email'}
-                  onChange={() => setDeliveryMode('email')}
+                  onChange={() => { contextEpoch.current += 1; setDeliveryMode('email'); }}
                 />
                 <span><b>{t('courseAssignments.ui.email')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.emailHint')}</span></span>
               </label>
@@ -1178,7 +1317,7 @@ export default function EnrollmentsPage() {
                   name="delivery-mode"
                   value="personal_link"
                   checked={deliveryMode === 'personal_link'}
-                  onChange={() => setDeliveryMode('personal_link')}
+                  onChange={() => { contextEpoch.current += 1; setDeliveryMode('personal_link'); }}
                 />
                 <span><b>{t('courseAssignments.ui.personalLink')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.personalLinkHint')}</span></span>
               </label>
@@ -1194,7 +1333,7 @@ export default function EnrollmentsPage() {
                       max={1440}
                       value={completionWindowMinutes ?? ''}
                       placeholder={t('courseAssignments.ui.unlimited')}
-                      onChange={(event) => setCompletionWindowMinutes(event.target.value ? Number(event.target.value) : null)}
+                      onChange={(event) => { contextEpoch.current += 1; setCompletionWindowMinutes(event.target.value ? Number(event.target.value) : null); }}
                     />
                     <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.completionWindowHint')}</span>
                   </label>
@@ -1207,7 +1346,7 @@ export default function EnrollmentsPage() {
                       min={1}
                       max={31}
                       value={linkValidityDays}
-                      onChange={(event) => setLinkValidityDays(Number(event.target.value))}
+                      onChange={(event) => { contextEpoch.current += 1; setLinkValidityDays(Number(event.target.value)); }}
                     />
                     <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.linkValidityHint')}</span>
                   </label>
@@ -1218,7 +1357,7 @@ export default function EnrollmentsPage() {
                       type="datetime-local"
                       aria-label={t('courseAssignments.ui.dueDateAria')}
                       value={dueAt}
-                      onChange={(event) => setDueAt(event.target.value)}
+                      onChange={(event) => { contextEpoch.current += 1; setDueAt(event.target.value); }}
                     />
                     <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.dueDateHint')}</span>
                   </label>
@@ -1230,8 +1369,18 @@ export default function EnrollmentsPage() {
                 </p>
               )}
             </fieldset>
+            <AssignmentSelectionPreview
+              lang={lang}
+              courseTitle={courses.find((course) => course.id === selectedCourse)?.title}
+              names={users.filter((learner) => selectedUsers.has(learner.id)).map((learner) => `${learner.first_name} ${learner.last_name}`.trim())}
+              existingCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse).map((item) => item.user_id)).size : null}
+              completedCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse && item.status === 'completed').map((item) => item.user_id)).size : null}
+              deliveryLabel={t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email')}
+            />
+            {enrollmentReadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
+            {enrollmentReadState === 'error' && <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 p-3 text-sm"><p>{t('common.loadFailed')}</p><Button type="button" variant="outline" size="sm" onClick={() => void fetchEnrollments(selectedCourse)}>{m.retry}</Button></div>}
             <p className="text-sm text-muted-foreground">
-              {selectedCourse
+              {selectedCourse && enrollmentReadState !== 'ready' ? m.recipientsUnknown : selectedCourse
                 ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
                 : t('courseAssignments.ui.selectCourseHint')}
             </p>
@@ -1241,7 +1390,7 @@ export default function EnrollmentsPage() {
               placeholder={t('courseAssignments.ui.searchLearner')}
             />
             <div className="max-h-96 overflow-y-auto space-y-1">
-              {availableUsers.length === 0 && users.length > 0 ? (
+              {selectedCourse && enrollmentReadState !== 'ready' ? null : availableUsers.length === 0 && users.length > 0 ? (
                 <p className="text-xs text-muted-foreground p-2">
                   {selectedCourse
                     ? t('courseAssignments.ui.allAlreadyAssigned')

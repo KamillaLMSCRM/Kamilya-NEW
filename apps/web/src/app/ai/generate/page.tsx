@@ -135,7 +135,7 @@ interface DocumentIndexProgress {
   status: string;
 }
 export default function AIGeneratePage() {
-  const { t, tp } = useT();
+  const { t, tp, lang } = useT();
   const stages = [
     { key: 'ingestion', label: t('aiGeneration.stages.ingestion'), icon: FileText, color: 'text-primary' },
     { key: 'architect', label: t('aiGeneration.stages.architect'), icon: Building2, color: 'text-accent' },
@@ -1365,6 +1365,7 @@ export default function AIGeneratePage() {
       {step === 'generate' && currentJob && (
         <div className="space-y-6">
           <GenerationProgressPanel
+            lang={lang}
             job={currentJob}
             stages={stages}
             title={t('ai.progress')}
