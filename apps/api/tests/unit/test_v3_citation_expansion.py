@@ -10,7 +10,11 @@ from app.modules.ai.v3.citation_expansion import (
     propose_rule_quote_expansion,
     stage_citation_candidate,
 )
-from app.modules.ai.v3.citation_review import bind_displayed_citation, build_citation_review_items, review_displayed_citations
+from app.modules.ai.v3.citation_review import (
+    bind_displayed_citation,
+    build_citation_review_items,
+    review_displayed_citations,
+)
 from app.modules.ai.v3.models import RuleEntity, V3Lesson, V3Option, V3QuestionVariant, V3ScenarioCase
 
 

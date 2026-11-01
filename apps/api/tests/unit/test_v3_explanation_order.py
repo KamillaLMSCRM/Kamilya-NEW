@@ -124,7 +124,6 @@ async def test_worker_reviews_the_repaired_explanation_before_acceptance():
     from app.modules.ai.v3.service import generate_v3_course_from_corpus
     from tests.unit.test_v3_partitioned_extraction import Journal, corpus
 
-    source = "Правило первое.\n\nПравило второе."
     events = []
 
     class ReviewReachedError(Exception):

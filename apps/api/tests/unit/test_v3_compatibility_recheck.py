@@ -8,7 +8,6 @@ import pytest
 from app.modules.ai.v3.compatibility_recheck import recheck_compatibility
 from app.modules.ai.v3.service import _validate_question_entailment
 
-
 FIXTURE = Path(__file__).with_name("fixtures") / "v3_compatibility_report_case3_case4.json"
 
 

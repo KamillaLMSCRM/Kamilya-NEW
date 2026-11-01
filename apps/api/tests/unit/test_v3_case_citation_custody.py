@@ -272,9 +272,11 @@ async def test_all_held_case_lesson_does_not_fallback_to_compatibility_questions
 @pytest.mark.asyncio
 async def test_repaired_valid_sibling_is_cited_while_held_sibling_stays_blocked(monkeypatch):
     from dataclasses import replace
+
     from app.modules.ai.direct_source import DirectSourceCorpus, DirectSourceDocument
     from app.modules.ai.evidence_engine.models import CourseIntent
-    from app.modules.ai.v3 import case_repair_gate, citation_expansion, citation_review as citation_review_module, option_repair, service
+    from app.modules.ai.v3 import case_repair_gate, citation_expansion, option_repair, service
+    from app.modules.ai.v3 import citation_review as citation_review_module
     from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, RuleEntity, V3Course
     from tests.unit.test_v3_partitioned_extraction import Journal
 
