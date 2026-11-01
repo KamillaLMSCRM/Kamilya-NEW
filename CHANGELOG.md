@@ -35,6 +35,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep the prepared source plan when lesson writing changes the learner-facing
   title or objective; reject changed source ownership before further inference.
   Full-course semantic acceptance and runtime rollout remain open.
+### Learning workspace UX (prepared branch, 2026-11-01)
+
+- Improve assignment cards, deadlines, focused lesson reading, mobile/keyboard
+  outline, optional help and aggregate-only quiz results with real confirmation.
+- Add canonical Markdown controls, factual course readiness, lesson/test context,
+  visible saved/dirty states and scoped recovery of unsaved question edits.
+- Add original-document inspection using real metadata, clearer saved-generation
+  recovery, work-queue filters, selected-recipient preview, snapshot-bound review
+  confirmation and explicit training-log/whole-filter CSV scope.
+- Preserve same-actor credential-refresh work and reject obsolete actor, event,
+  request, selection and export continuations. Keep existing grading, roles,
+  approval, OTP, learning history, API and schema owners unchanged.
+- V1 does not simulate OCR correction, A/B provenance, independent-reviewer
+  enforcement, snapshot diff or unsupported audience/reporting filters. No paid
+  inference, feature activation, version bump, merge or deployment is included.
 
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 

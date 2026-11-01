@@ -31,6 +31,23 @@ beforeEach(() => {
 });
 
 describe('/ai/generate job workflow parity', () => {
+  it('shows a held job with read-only refresh and no resume or cancel', async () => {
+    const heldJob = { ...activeJob, status: 'reconciliation_required', course_id: null,
+      message: 'Сохранение требует проверки. Обратитесь к администратору.' };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: heldJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Сохранение требует проверки');
+    expect(screen.queryByText('Отменить')).not.toBeInTheDocument();
+    expect(screen.queryByText('Продолжить')).not.toBeInTheDocument();
+    const previousReads = apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${activeJob.id}`).length;
+    fireEvent.click(screen.getByRole('button', { name: 'Проверить снова' }));
+    await waitFor(() => expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${activeJob.id}`).length).toBeGreaterThan(previousReads));
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
   it('loads full lesson content before allowing an edit from a truncated preview excerpt', async () => {
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
     const fullContent = '# Полный урок\n\n' + 'Полный текст урока. '.repeat(80);

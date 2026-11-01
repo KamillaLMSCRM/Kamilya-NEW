@@ -354,7 +354,9 @@ async def release_generation_reservation_once(
         return False
     tenant_value = str(tenant_id)
     job = await get_ai_job(db, job_id, tenant_id=tenant_value, for_update=True)
-    if job is None or job.course_id is not None:
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if job is None or job.course_id is not None or has_pending(getattr(job, "result", None)):
         return False
     params = dict(job.params or {})
     legacy_new_course = "documents" in params and not params.get("action")
@@ -383,6 +385,12 @@ def _generation_delivery_predicate(job_id: str, delivery_id: str) -> Any:
     return or_(stored == delivery_id, legacy_initial)
 
 
+def _no_pending_stage() -> Any:
+    from app.modules.ai.v3.pending_stage_transactions import pending_sql_predicate
+
+    return ~pending_sql_predicate()
+
+
 async def claim_generation_execution(
     db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
@@ -402,6 +410,7 @@ async def claim_generation_execution(
         AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
         AIJob.params["source_analysis"]["analysis_mode"].as_string()
         == CURRENT_SOURCE_ANALYSIS_MODE,
+        _no_pending_stage(),
     ]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
@@ -430,6 +439,7 @@ async def interrupt_pending_generation_execution(
             _generation_delivery_predicate(job_id, delivery_id),
             AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
             AIJob.params["source_analysis"]["analysis_mode"].as_string() == CURRENT_SOURCE_ANALYSIS_MODE,
+            _no_pending_stage(),
         ).values(
             status="interrupted", stage="interrupted", message=GENERATION_INTERRUPTED_MESSAGE,
             errors=["generation_interrupted"], completed_at=None, updated_at=datetime.now(UTC),
@@ -455,6 +465,7 @@ async def retire_legacy_generation_execution(
             AIJob.status == "pending",
             AIJob.tenant_id == tenant_id,
             _generation_delivery_predicate(job_id, delivery_id),
+            _no_pending_stage(),
             or_(
                 AIJob.params["source_analysis"]["generation_engine"].as_string().is_(None),
                 AIJob.params["source_analysis"]["generation_engine"].as_string().notin_(SUPPORTED_GENERATION_ENGINES),
@@ -490,7 +501,7 @@ async def fail_claimed_generation_execution(
         raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
     predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
-                  _generation_delivery_predicate(job_id, delivery_id)]
+                  _generation_delivery_predicate(job_id, delivery_id), _no_pending_stage()]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="failed", stage="failed", message=message,
@@ -509,7 +520,7 @@ async def interrupt_claimed_generation_execution(
         raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
     predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
-                  _generation_delivery_predicate(job_id, delivery_id)]
+                  _generation_delivery_predicate(job_id, delivery_id), _no_pending_stage()]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="interrupted",
@@ -526,7 +537,10 @@ async def interrupt_claimed_generation_execution(
 
 def is_resumable_generation_job(job: AIJob) -> bool:
     """Only explicit evidence_v2 interruptions can be resumed."""
-    return bool(job.status == "interrupted" and job_uses_current_generation_engine(job))
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    return bool(job.status == "interrupted" and job_uses_current_generation_engine(job)
+                and not has_pending(getattr(job, "result", None)))
 
 
 async def get_user_jobs(

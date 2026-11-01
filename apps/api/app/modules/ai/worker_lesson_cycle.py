@@ -425,21 +425,30 @@ class WorkerCycleJournal:
 
     async def read_owned_value(self, key: str, expected_plan: dict[str, Any]) -> dict[str, Any] | None:
         """Read only a checkpoint whose persisted plan belongs to this tenant and job."""
-        generation_key = self._owned_key(key)
         async with self.sessions() as session:
-            plan = await self.repository.load_plan(session, tenant_id=self.tenant_id, generation_key=generation_key)
-            if (plan.source_job_id != self.job_id or plan.plan_revision != f"{PLAN_POLICY}/{POLICY_VERSION}"
-                    or not json_equivalent(dict(plan.plan_payload), expected_plan)
-                    or plan.lessons != (PlannedLesson("cycle", "lesson", 0, 0),)):
-                return None
-            rows = await self.repository.load_checkpoints(session, tenant_id=self.tenant_id, generation_key=generation_key)
-            if len(rows) != 1:
-                return None
-            row = rows[0]
-            if (row.module_key != "cycle" or row.lesson_key != "lesson"
-                    or row.assessment_status != "completed" or row.assessment_payload is None):
-                return None
-            return dict(row.assessment_payload)
+            return await self.read_owned_value_in_session(session, key, expected_plan)
+
+    async def lock_owned_session(self, session: Any) -> None:
+        """Lock and verify delivery in the caller's still-open transaction."""
+        await self._lock_delivery(session)
+
+    async def read_owned_value_in_session(self, session: Any, key: str,
+                                          expected_plan: dict[str, Any]) -> dict[str, Any] | None:
+        """Read in caller's session; caller must first lock_owned_session."""
+        generation_key = self._owned_key(key)
+        plan = await self.repository.load_plan(session, tenant_id=self.tenant_id, generation_key=generation_key)
+        if (plan.source_job_id != self.job_id or plan.plan_revision != f"{PLAN_POLICY}/{POLICY_VERSION}"
+                or not json_equivalent(dict(plan.plan_payload), expected_plan)
+                or plan.lessons != (PlannedLesson("cycle", "lesson", 0, 0),)):
+            return None
+        rows = await self.repository.load_checkpoints(session, tenant_id=self.tenant_id, generation_key=generation_key)
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        if (row.module_key != "cycle" or row.lesson_key != "lesson"
+                or row.assessment_status != "completed" or row.assessment_payload is None):
+            return None
+        return dict(row.assessment_payload)
 
     async def read_owned_realization(self, key: str, expected_plan: dict[str, Any]) -> dict[str, Any] | None:
         """Read one realization atomically and fail closed on drift/incomplete state."""

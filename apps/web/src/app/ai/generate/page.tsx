@@ -135,7 +135,7 @@ interface DocumentIndexProgress {
   status: string;
 }
 export default function AIGeneratePage() {
-  const { t, tp } = useT();
+  const { t, tp, lang } = useT();
   const stages = [
     { key: 'ingestion', label: t('aiGeneration.stages.ingestion'), icon: FileText, color: 'text-primary' },
     { key: 'architect', label: t('aiGeneration.stages.architect'), icon: Building2, color: 'text-accent' },
@@ -1364,7 +1364,15 @@ export default function AIGeneratePage() {
       {/* STEP 2: Generation progress */}
       {step === 'generate' && currentJob && (
         <div className="space-y-6">
-          <GenerationProgressPanel
+          {currentJob.status === 'reconciliation_required' ? (
+            <div role="alert" className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-foreground">
+              <p>{currentJob.message}</p>
+              <button type="button" className="mt-3 underline" onClick={() => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message }))}>
+                {t('asyncOperation.checkAgain')}
+              </button>
+            </div>
+          ) : <GenerationProgressPanel
+            lang={lang}
             job={currentJob}
             stages={stages}
             title={t('ai.progress')}
@@ -1381,7 +1389,7 @@ export default function AIGeneratePage() {
             completedUnitsLabel={t('ai.savedLessonsProgress')}
             onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
             onCancel={savedAssessmentDraftId ? createNewCourse : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
-          />
+          />}
 
           {currentJob.status === 'completed' && currentJob.course_id && (
             <button

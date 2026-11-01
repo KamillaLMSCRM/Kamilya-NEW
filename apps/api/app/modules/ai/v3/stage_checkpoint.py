@@ -17,18 +17,39 @@ def _digest(value: Any) -> str:
                                      allow_nan=False).encode("utf-8")).hexdigest()
 
 
+def stage_plan(journal: ExtractionJournal, *, stage: str, group_id: str, source_sha256: str,
+               route_fingerprint: str, messages: list[dict[str, str]],
+               response_format: dict[str, Any] | None) -> dict[str, Any]:
+    if stage not in {"lesson", "review", "repair"} or not group_id.strip():
+        raise ValueError("v3_stage_identity_invalid")
+    if not all(re.fullmatch(r"[0-9a-f]{64}", digest) for digest in (source_sha256, route_fingerprint)):
+        raise ValueError("v3_stage_identity_invalid")
+    return {"schema": "v3-stage-checkpoint-v1", "tenant_id": journal.tenant_id, "job_id": journal.job_id,
+            "stage": stage, "group_id": group_id, "source_sha256": source_sha256,
+            "route_fingerprint": route_fingerprint, "request_sha256": _digest([messages, response_format])}
+
+
+async def read_verified_stage_result(journal: ExtractionJournal, plan: dict[str, Any]) -> dict[str, Any]:
+    """Read the owned completed stage; a caller-provided response is never evidence."""
+    if plan.get("tenant_id") != journal.tenant_id or plan.get("job_id") != journal.job_id:
+        raise ValueError("v3_stage_owner_mismatch")
+    signature = _digest(plan)
+    value = await journal.read_owned_value(f"v3-stage-result:{signature}", plan)
+    if not isinstance(value, dict) or value.get("identity") != signature:
+        raise ValueError("v3_stage_checkpoint_invalid")
+    response = value.get("response")
+    if not isinstance(response, dict) or not response or value.get("response_sha256") != _digest(response):
+        raise ValueError("v3_stage_checkpoint_invalid")
+    return cast(dict[str, Any], json.loads(json.dumps(response, ensure_ascii=False, allow_nan=False)))
+
+
 async def stage_once(
     journal: ExtractionJournal, *, stage: str, group_id: str, source_sha256: str,
     route_fingerprint: str, messages: list[dict[str, str]], response_format: dict[str, Any] | None,
     invoke: Callable[[], Awaitable[dict[str, Any]]],
 ) -> dict[str, Any]:
-    if stage not in {"lesson", "review", "repair"} or not group_id.strip():
-        raise ValueError("v3_stage_identity_invalid")
-    if not all(re.fullmatch(r"[0-9a-f]{64}", digest) for digest in (source_sha256, route_fingerprint)):
-        raise ValueError("v3_stage_identity_invalid")
-    plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": journal.tenant_id, "job_id": journal.job_id,
-            "stage": stage, "group_id": group_id, "source_sha256": source_sha256,
-            "route_fingerprint": route_fingerprint, "request_sha256": _digest([messages, response_format])}
+    plan = stage_plan(journal, stage=stage, group_id=group_id, source_sha256=source_sha256,
+                      route_fingerprint=route_fingerprint, messages=messages, response_format=response_format)
     signature = _digest(plan)
     result_key, claim_key = f"v3-stage-result:{signature}", f"v3-stage-claim:{signature}"
 
@@ -50,6 +71,21 @@ async def stage_once(
         if value.get("response_sha256") != _digest(response):
             raise ValueError("v3_stage_checkpoint_invalid")
         return response
+
+    from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+
+    if isinstance(journal, PendingStageJournal) and type(journal) is not PendingStageJournal:
+        raise ValueError("pending_journal_type_invalid")
+    if type(journal) is PendingStageJournal:
+        def validate_value(value: dict[str, Any]) -> dict[str, Any]:
+            if value.get("identity") != signature:
+                raise ValueError("v3_stage_checkpoint_invalid")
+            response = validate(value.get("response"))
+            if value.get("response_sha256") != _digest(response):
+                raise ValueError("v3_stage_checkpoint_invalid")
+            return response
+        return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
+                                         validate_value=validate_value, validate_response=validate, invoke=invoke)
 
     prepared = await journal.prepare(result_key, plan)
     restored = await load_result()

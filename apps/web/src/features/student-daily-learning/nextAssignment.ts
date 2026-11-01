@@ -33,7 +33,7 @@ export function selectNextAssignment<T extends LearnerAssignment>(courses: T[]):
 }
 
 export function safeResumeHref(course: LearnerAssignment): string {
-  if (!UUID_RE.test(course.course_id)) return '/courses';
+  if (!UUID_RE.test(course.course_id)) return '/my-courses';
   const base = `/courses/${course.course_id}`;
   const href = course.resume_href;
   if (!href) return base;

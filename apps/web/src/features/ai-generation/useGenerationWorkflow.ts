@@ -15,7 +15,7 @@ import {
 
 const activeJobStorageKey = 'ai_active_job_id';
 const workflowContextStorageKey = 'ai_generation_workflow_context';
-const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running';
+const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running' || job.status === 'reconciliation_required';
 const isRestorable = (job: AIGenerationJob) => isActive(job) || job.status === 'interrupted';
 
 function readWorkflowContext(): AIGenerationWorkflowContext | null {

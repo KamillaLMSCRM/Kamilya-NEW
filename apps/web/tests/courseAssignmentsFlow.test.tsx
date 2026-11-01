@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 const fetchMock = vi.hoisted(() => vi.fn());
 const queryState = vi.hoisted(() => ({ value: 'courseId=course-1&employeeId=user-1' }));
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const assignmentAuth = vi.hoisted(() => ({ accessToken: 'test-token', sessionEpoch: 0, user: { role: 'methodologist', user_id: 'actor-1', tenant_id: 'tenant-1' } }));
 const toastMock = vi.hoisted(() => ({
   error: vi.fn(),
   info: vi.fn(),
@@ -15,10 +16,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(queryState.value),
 }));
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: (selector: (state: any) => unknown) => selector({
-    accessToken: 'test-token',
-    user: { role: 'methodologist' },
-  }),
+  useAuthStore: (selector: (state: any) => unknown) => selector(assignmentAuth),
 }));
 vi.mock('@/i18n/useT', async () => {
   const { default: ru } = await import('@/i18n/locales/ru.json');
@@ -44,6 +42,7 @@ vi.mock('@/components/ui/ConfirmDialog', () => ({
 vi.mock('@/components/ui/Toast', () => ({ toast: toastMock }));
 
 import CourseAssignmentsPage from '@/features/course-assignments/CourseAssignmentsPage';
+import { getAuthSessionEpoch, setAuth } from '@/lib/auth';
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -54,6 +53,9 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe('contextual course assignment flow', () => {
   beforeEach(() => {
+    assignmentAuth.accessToken = 'test-token';
+    assignmentAuth.sessionEpoch = getAuthSessionEpoch();
+    assignmentAuth.user = { role: 'methodologist', user_id: 'actor-1', tenant_id: 'tenant-1' };
     queryState.value = 'courseId=course-1&employeeId=user-1';
     fetchMock.mockReset();
     confirmMock.mockClear();
@@ -123,6 +125,73 @@ describe('contextual course assignment flow', () => {
     });
     expect(screen.queryByRole('option', { name: 'Черновик' })).not.toBeInTheDocument();
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
+  });
+
+  it('keeps a manual selection when the same session refreshes its access token', async () => {
+    queryState.value = 'courseId=course-1';
+    const view = render(<CourseAssignmentsPage />);
+    const checkbox = await screen.findByRole('checkbox');
+    await waitFor(() => expect(checkbox).toBeEnabled());
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
+    assignmentAuth.accessToken = 'refreshed-token';
+    view.rerender(<CourseAssignmentsPage />);
+    await waitFor(() => expect(screen.getByRole('checkbox')).toBeChecked());
+  });
+
+  it('clears a manual selection when the actor or tenant changes', async () => {
+    queryState.value = 'courseId=course-1';
+    const view = render(<CourseAssignmentsPage />);
+    const checkbox = await screen.findByRole('checkbox');
+    await waitFor(() => expect(checkbox).toBeEnabled());
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
+    assignmentAuth.user = { role: 'methodologist', user_id: 'actor-2', tenant_id: 'tenant-2' };
+    view.rerender(<CourseAssignmentsPage />);
+    await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
+  });
+
+  it('does not replace refreshed course data with a delayed response from the old token', async () => {
+    queryState.value = '';
+    const fallback = fetchMock.getMockImplementation()!;
+    let resolveOld!: (value: Response) => void;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).includes('/v1/courses?')) {
+        const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
+        if (authorization === 'Bearer test-token') return new Promise((resolve) => { resolveOld = resolve; });
+        return Promise.resolve(jsonResponse([{ id: 'new-course', title: 'Новый список', status: 'published' }]));
+      }
+      return fallback(input, init);
+    });
+    const view = render(<CourseAssignmentsPage />);
+    await waitFor(() => expect(resolveOld).toBeTypeOf('function'));
+    assignmentAuth.accessToken = 'refreshed-token';
+    view.rerender(<CourseAssignmentsPage />);
+    expect(await screen.findAllByRole('option', { name: 'Новый список' })).not.toHaveLength(0);
+    await act(async () => resolveOld(jsonResponse([{ id: 'stale', title: 'Устаревший список', status: 'published' }])));
+    expect(screen.queryByRole('option', { name: 'Устаревший список' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('option', { name: 'Новый список' })).not.toHaveLength(0);
+  });
+
+  it('reloads enrollment state on token refresh and ignores the old delayed response', async () => {
+    queryState.value = 'courseId=course-1';
+    const fallback = fetchMock.getMockImplementation()!;
+    let resolveOld!: (value: Response) => void;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments')) {
+        const authorization = (init?.headers as Record<string, string> | undefined)?.Authorization;
+        if (authorization === 'Bearer test-token') return new Promise((resolve) => { resolveOld = resolve; });
+        return Promise.resolve(jsonResponse([]));
+      }
+      return fallback(input, init);
+    });
+    const view = render(<CourseAssignmentsPage />);
+    await waitFor(() => expect(resolveOld).toBeTypeOf('function'));
+    assignmentAuth.accessToken = 'refreshed-token';
+    view.rerender(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('checkbox', { name: 'Алия Садыкова' })).toBeInTheDocument();
+    await act(async () => resolveOld(jsonResponse([{ id: 'stale', user_id: 'user-1', course_id: 'course-1', status: 'enrolled', source: 'manual' }])));
+    expect(screen.getByRole('checkbox', { name: 'Алия Садыкова' })).toBeInTheDocument();
   });
 
   it('keeps the mobile assignment cards and selectors shrinkable while the enrollment table owns horizontal scrolling', async () => {
@@ -216,6 +285,60 @@ describe('contextual course assignment flow', () => {
     ));
     await waitFor(() => expect(enrollmentReads).toBeGreaterThanOrEqual(2));
     expect(toastMock.success).toHaveBeenCalledWith('Новое назначение создано; прежняя история сохранена.');
+  });
+
+  it('does not revive a late reassignment after switching A to B and back to A', async () => {
+    const fallback = fetchMock.getMockImplementation()!;
+    let resolveRepeat!: (value: Response) => void;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([
+        { id: 'course-1', title: 'Первый', status: 'published' }, { id: 'course-2', title: 'Второй', status: 'published' },
+      ]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([
+        { id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual' },
+      ]));
+      if (!init?.method && url.endsWith('/v1/courses/course-2/enrollments')) return Promise.resolve(jsonResponse([]));
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/reassignments')) return new Promise((resolve) => { resolveRepeat = resolve; });
+      return fallback(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
+    fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Повторное обучение' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
+    await waitFor(() => expect(resolveRepeat).toBeTypeOf('function'));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Курс для назначения' }), { target: { value: 'course-2' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Курс для назначения' }), { target: { value: 'course-1' } });
+    await act(async () => resolveRepeat(jsonResponse({ delivery_mode: 'personal_link', personal_access: {
+      enrollment_id: 'new-enrollment', access_url: 'https://example.invalid/secret', temporary_pin: '123456',
+    } }, 201)));
+    expect(screen.getByRole('combobox', { name: 'Курс для назначения' })).toHaveValue('course-1');
+    expect(screen.queryByText('PIN: 123456')).not.toBeInTheDocument();
+  });
+
+  it('clears an already issued personal link and PIN when the course changes', async () => {
+    const fallback = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([
+        { id: 'course-1', title: 'Первый', status: 'published' }, { id: 'course-2', title: 'Второй', status: 'published' },
+      ]));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([
+        { id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual' },
+      ]));
+      if (!init?.method && url.endsWith('/v1/courses/course-2/enrollments')) return Promise.resolve(jsonResponse([]));
+      if (init?.method === 'POST' && url.endsWith('/v1/courses/course-1/reassignments')) return Promise.resolve(jsonResponse({
+        delivery_mode: 'personal_link', personal_access: { enrollment_id: 'new-enrollment', access_url: 'https://example.invalid/secret', temporary_pin: '123456' },
+      }, 201));
+      return fallback(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
+    fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Повторное обучение' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
+    expect(await screen.findByText('PIN: 123456')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Курс для назначения' }), { target: { value: 'course-2' } });
+    expect(screen.queryByText('PIN: 123456')).not.toBeInTheDocument();
   });
 
   it('shows the API reason when a repeated assignment cannot be created', async () => {
@@ -322,6 +445,30 @@ describe('contextual course assignment flow', () => {
     expect(screen.queryByRole('button', { name: 'Запустить' })).not.toBeInTheDocument();
   });
 
+  it('does not reload recurring rules with an old token after a delayed save', async () => {
+    const fallback = fetchMock.getMockImplementation()!;
+    let resolveSave!: (value: Response) => void;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST' && String(input).endsWith('/v1/learning-cycles')) return new Promise((resolve) => { resolveSave = resolve; });
+      return fallback(input, init);
+    });
+    const view = render(<CourseAssignmentsPage />);
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Курс' }), { target: { value: 'course-1' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Обучающийся' }), { target: { value: 'user-1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить черновик' }));
+    await waitFor(() => expect(resolveSave).toBeTypeOf('function'));
+    assignmentAuth.accessToken = 'refreshed-token';
+    view.rerender(<CourseAssignmentsPage />);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith('/v1/learning-cycles')
+      && !init?.method && (init?.headers as Record<string, string>)?.Authorization === 'Bearer refreshed-token')).toBe(true));
+    const oldReads = () => fetchMock.mock.calls.filter(([url, init]) => String(url).endsWith('/v1/learning-cycles')
+      && !init?.method && (init?.headers as Record<string, string>)?.Authorization === 'Bearer test-token').length;
+    const before = oldReads();
+    await act(async () => resolveSave(jsonResponse({ id: 'rule-1', status: 'draft' }, 201)));
+    expect(oldReads()).toBe(before);
+    expect(toastMock.success).not.toHaveBeenCalled();
+  });
+
   it('renders overdue and completed-late occurrence reporting', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
@@ -364,6 +511,98 @@ describe('contextual course assignment flow', () => {
       expect.stringContaining('/v1/users/user-1/invitation-link'),
       expect.anything(),
     );
+  });
+
+  it('does not assign after the delivery selection changes during confirmation', async () => {
+    let resolve!: (value: boolean) => void;
+    confirmMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить (1)' }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    await act(async () => resolve(true));
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+    expect(toastMock.error).toHaveBeenCalledWith(expect.stringContaining('изменился'));
+  });
+
+  it('does not revive a confirmation after a learner is deselected and reselected', async () => {
+    let resolve!: (value: boolean) => void;
+    confirmMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить (1)' }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    const learner = screen.getByRole('checkbox', { name: 'Алия Садыкова' });
+    fireEvent.click(learner);
+    fireEvent.click(learner);
+    await act(async () => resolve(true));
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it('requires fresh confirmation when the access token rotates during confirmation', async () => {
+    let resolve!: (value: boolean) => void;
+    confirmMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    const view = render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Назначить (1)' }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    assignmentAuth.accessToken = 'refreshed-token';
+    view.rerender(<CourseAssignmentsPage />);
+    await act(async () => resolve(true));
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+    expect(toastMock.error).toHaveBeenCalledWith(expect.stringContaining('изменился'));
+  });
+
+  it('opens only one confirmation for repeated assignment clicks', async () => {
+    let resolve!: (value: boolean) => void;
+    confirmMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    render(<CourseAssignmentsPage />);
+    const button = await screen.findByRole('button', { name: 'Назначить (1)' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    await act(async () => resolve(false));
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+  });
+
+  it.each(['email', 'personal_link'] as const)('does not restore course A after its delayed %s assignment completes', async (delivery) => {
+    let resolve!: (value: Response) => void;
+    const baseline = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([
+        { id: 'course-1', title: 'Охрана труда', status: 'published' }, { id: 'course-2', title: 'Другой курс', status: 'published' },
+      ]));
+      if (!init?.method && url.endsWith('/v1/courses/course-2/enrollments')) return Promise.resolve(jsonResponse([]));
+      if (init?.method === 'POST') return new Promise((done) => { resolve = done; });
+      return baseline(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    const assign = await screen.findByRole('button', { name: 'Назначить (1)' });
+    if (delivery === 'personal_link') fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    fireEvent.click(assign);
+    await waitFor(() => expect(resolve).toBeTypeOf('function'));
+    const picker = screen.getByRole('combobox', { name: 'Курс для назначения' });
+    fireEvent.change(picker, { target: { value: 'course-2' } });
+    await screen.findByRole('checkbox', { name: 'Алия Садыкова' });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Алия Садыкова' }));
+    await act(async () => resolve(jsonResponse(delivery === 'email' ? [{ id: 'new' }] : { access_url: 'https://example.invalid/old', temporary_pin: '123456' })));
+    expect(picker).toHaveValue('course-2');
+    expect(screen.getByRole('checkbox', { name: 'Алия Садыкова' })).toBeChecked();
+    expect(screen.queryByText('https://example.invalid/old')).not.toBeInTheDocument();
+  });
+
+  it.each(['pending', 'failed'] as const)('does not call unknown enrollment data empty or fully assigned (%s)', async (state) => {
+    const baseline = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments')) return state === 'pending'
+        ? new Promise(() => {}) : Promise.resolve(jsonResponse({}, 503));
+      return baseline(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    await screen.findByRole('button', { name: 'Назначить (1)' });
+    if (state === 'failed') await screen.findByRole('alert');
+    expect(screen.queryByText('На этот курс пока никто не записан')).not.toBeInTheDocument();
+    expect(screen.queryByText('Все обучающиеся уже назначены на этот курс')).not.toBeInTheDocument();
+    expect(screen.getByText('Состав назначений пока не подтверждён.')).toBeInTheDocument();
   });
 
   it('lets the methodologist explicitly choose a personal link and completion window', async () => {
@@ -471,6 +710,26 @@ describe('contextual course assignment flow', () => {
     expect(screen.getByText('Доступ отозван')).toBeInTheDocument();
   });
 
+  it('does not revoke access after the actor changes while confirmation is open', async () => {
+    const fallback = fetchMock.getMockImplementation()!;
+    let resolve!: (value: boolean) => void;
+    confirmMock.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: null, role: 'student' }] }));
+      if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([{ id: 'enrollment-1', user_id: 'user-1', course_id: 'course-1', status: 'completed', source: 'manual', enrolled_at: '2026-01-01T00:00:00Z' }]));
+      if (!init?.method && url.endsWith('/v1/courses/enrollments/enrollment-1/access')) return Promise.resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_kind: 'personal_link', state: 'available', access_url: null, message: 'ready' }));
+      return fallback(input, init);
+    });
+    const view = render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Отозвать доступ' }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalled());
+    assignmentAuth.user = { role: 'methodologist', user_id: 'actor-2', tenant_id: 'tenant-2' };
+    view.rerender(<CourseAssignmentsPage />);
+    await act(async () => resolve(true));
+    expect(fetchMock.mock.calls.filter(([url, init]) => String(url).includes('/access-policy/revoke') && init?.method === 'POST')).toHaveLength(0);
+  });
+
   it('keeps enrollment controls and personal-link settings on shared visual rows', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
@@ -518,4 +777,70 @@ describe('contextual course assignment flow', () => {
       expect.objectContaining({ method: 'POST' }),
     ));
   });
+
+it('preserves one-time credentials and reloads using the refreshed token', async () => {
+  let resolve!: (value: Response) => void;
+  const baseline = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'POST' && String(input).endsWith('/personal-link-enrollment')) return new Promise((done) => { resolve = done; });
+    if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments') && (init?.headers as Record<string, string>)?.Authorization === 'Bearer refreshed-token') return Promise.resolve(jsonResponse([{ id: 'enrollment-1', course_id: 'course-1', user_id: 'user-1', status: 'enrolled' }]));
+    return baseline(input, init);
+  });
+  const view = render(<CourseAssignmentsPage />);
+  const assign = await screen.findByRole('button', { name: 'Назначить (1)' });
+  fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+  fireEvent.click(assign);
+  await waitFor(() => expect(resolve).toBeTypeOf('function'));
+  assignmentAuth.accessToken = 'refreshed-token';
+  view.rerender(<CourseAssignmentsPage />);
+  await waitFor(() => expect(fetchMock.mock.calls.some(([input, init]) => !init?.method && String(input).endsWith('/v1/courses/course-1/enrollments') && (init?.headers as Record<string, string>)?.Authorization === 'Bearer refreshed-token')).toBe(true));
+  await screen.findByRole('heading', { name: 'Назначения обучения: 1' });
+  await act(async () => resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_url: 'https://example.invalid/once', temporary_pin: '123456' }, 201)));
+  expect(await screen.findByText('https://example.invalid/once')).toBeInTheDocument();
+  expect(screen.getByText(/PIN: 123456/)).toBeInTheDocument();
+  await waitFor(() => expect(fetchMock.mock.calls.filter(([input, init]) => !init?.method && String(input).endsWith('/v1/courses/course-1/enrollments') && (init?.headers as Record<string, string>)?.Authorization === 'Bearer refreshed-token').length).toBeGreaterThanOrEqual(2));
+});
+
+it('does not reveal an in-flight credential after the acting user changes', async () => {
+  let resolve!: (value: Response) => void;
+  const baseline = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'POST' && String(input).endsWith('/personal-link-enrollment')) return new Promise((done) => { resolve = done; });
+    return baseline(input, init);
+  });
+  const view = render(<CourseAssignmentsPage />);
+  const assign = await screen.findByRole('button', { name: 'Назначить (1)' });
+  fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+  fireEvent.click(assign);
+  await waitFor(() => expect(resolve).toBeTypeOf('function'));
+  assignmentAuth.user = { ...assignmentAuth.user, user_id: 'actor-2' };
+  assignmentAuth.accessToken = 'other-actor-token';
+  view.rerender(<CourseAssignmentsPage />);
+  await act(async () => resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_url: 'https://example.invalid/private', temporary_pin: '123456' }, 201)));
+  expect(screen.queryByText('https://example.invalid/private')).not.toBeInTheDocument();
+  expect(screen.queryByText('123456')).not.toBeInTheDocument();
+});
+
+
+it('does not reveal an in-flight credential after same-identity session replacement', async () => {
+  let resolve!: (value: Response) => void;
+  const baseline = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'POST' && String(input).endsWith('/personal-link-enrollment')) return new Promise((done) => { resolve = done; });
+    return baseline(input, init);
+  });
+  const view = render(<CourseAssignmentsPage />);
+  const assign = await screen.findByRole('button', { name: 'Назначить (1)' });
+  fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+  fireEvent.click(assign);
+  await waitFor(() => expect(resolve).toBeTypeOf('function'));
+  setAuth('new-session-token', assignmentAuth.user as Parameters<typeof setAuth>[1]);
+  assignmentAuth.sessionEpoch = getAuthSessionEpoch();
+  assignmentAuth.accessToken = 'new-session-token';
+  view.rerender(<CourseAssignmentsPage />);
+  await act(async () => resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_url: 'https://example.invalid/private', temporary_pin: '123456' }, 201)));
+  expect(screen.queryByText('https://example.invalid/private')).not.toBeInTheDocument();
+  expect(screen.queryByText(/PIN: 123456/)).not.toBeInTheDocument();
+});
+
 });

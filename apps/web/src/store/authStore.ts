@@ -3,6 +3,7 @@ import {
   AuthUser,
   getAccessToken,
   getCurrentUser,
+  getAuthSessionEpoch,
   setAuth as setAuthMemory,
   clearAuth as clearAuthMemory,
   restoreSession,
@@ -15,6 +16,7 @@ import {
 interface AuthStore {
   accessToken: string | null;
   user: AuthUser | null;
+  sessionEpoch: number;
   /** True once we've attempted to restore the session from the refresh cookie. */
   initialized: boolean;
   /** Initialize from the refresh cookie (call once on app mount). */
@@ -35,6 +37,7 @@ interface AuthStore {
 const initialState = {
   accessToken: typeof window === 'undefined' ? null : getAccessToken(),
   user: typeof window === 'undefined' ? null : getCurrentUser(),
+  sessionEpoch: getAuthSessionEpoch(),
   initialized: false,
 };
 
@@ -42,7 +45,7 @@ export const useAuthStore = create<AuthStore>((set) => {
   // Subscribe to in-memory auth changes so the Zustand store stays in sync
   // with anything that calls setAuth/clearAuth directly (e.g. refresh logic).
   subscribeAuth(({ accessToken, user }) => {
-    set({ accessToken, user });
+    set({ accessToken, user, sessionEpoch: getAuthSessionEpoch() });
   });
 
   return {

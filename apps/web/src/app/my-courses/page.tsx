@@ -7,10 +7,11 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { CheckCircle2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useLanguageStore } from '@/store/languageStore';
+import { safeResumeHref, studentDailyLearningCopy, type LearnerAssignment } from '@/features/student-daily-learning/nextAssignment';
+import { AssignmentDetails } from '@/features/student-daily-learning/AssignmentDetails';
 
-interface EnrolledCourse {
-  course_id: string;
-  title: string;
+interface EnrolledCourse extends LearnerAssignment {
   description: string;
   status: string;
   enrollment_status: string;
@@ -21,14 +22,21 @@ interface EnrolledCourse {
 }
 
 export default function MyCoursesPage() {
+  const user = useAuthStore((state) => state.user);
+  const hasSession = useAuthStore((state) => Boolean(state.accessToken));
+  return <ScopedMyCourses key={`${user?.user_id}:${user?.tenant_id}:${user?.role}:${hasSession}`} />;
+}
+
+function ScopedMyCourses() {
   const { t, tp } = useT();
+  const lang = useLanguageStore((state) => state.lang);
+  const copy = studentDailyLearningCopy[lang] ?? studentDailyLearningCopy.ru;
   const [courses, setCourses] = useState<EnrolledCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
-  const token = useAuthStore((s) => s.accessToken);
-  const hasSession = Boolean(token);
+  const hasSession = useAuthStore((state) => Boolean(state.accessToken));
 
   const fetchCourses = useCallback(async (isActive: () => boolean) => {
     if (!hasSession) {
@@ -82,6 +90,7 @@ export default function MyCoursesPage() {
           {(['all', 'active', 'completed'] as const).map((f) => (
             <button
               key={f}
+              aria-pressed={filter === f}
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 filter === f
@@ -107,8 +116,8 @@ export default function MyCoursesPage() {
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCourses.map((course) => (
-            <Card key={course.course_id} className="hover:shadow-md transition-shadow">
+          {filteredCourses.map((course, index) => (
+            <Card key={course.enrollment_id || `${course.course_id}:${index}`} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-2">
                   <h3 className="font-medium line-clamp-2">{course.title}</h3>
@@ -120,11 +129,12 @@ export default function MyCoursesPage() {
                 </div>
 
                 <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
+                <AssignmentDetails course={course} />
 
                 <div className="mb-3">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>
-                      {course.completed_lessons} из {tp('common.counts.lessonTotal', course.total_lessons)}
+                      {t('courses.lessonsCount', { done: course.completed_lessons, totalText: tp('common.counts.lessonTotal', course.total_lessons) })}
                     </span>
                     <span>{course.progress_percent}%</span>
                   </div>
@@ -137,11 +147,11 @@ export default function MyCoursesPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Link href={`/courses/${course.course_id}`} className="flex-1">
+                  {course.can_resume === false ? <p role="status" className="text-sm text-muted-foreground">{copy.assignmentAccessRequired}</p> : <Link href={safeResumeHref(course)} className="flex-1">
                     <Button variant="outline" className="w-full" size="sm">
-                      {course.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}
+                      {course.enrollment_status === 'completed' ? t('courses.viewResult') : course.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}
                     </Button>
-                  </Link>
+                  </Link>}
                   {course.enrollment_status === 'completed' && (
                     <Link href="/certificates">
                       <Button size="sm">{t('courses.viewCertificate')}</Button>

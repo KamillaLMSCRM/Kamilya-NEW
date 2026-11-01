@@ -11,7 +11,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, ChevronRight, ChevronLeft, Clock, AlertTriangle } from 'lucide-react';
 import { clearAuth } from '@/lib/auth';
 import { useIdleTimeout } from '@/lib/useIdleTimeout';
-import { EvidenceConfirmationPanel } from '@/features/training-evidence/EvidenceConfirmationPanel';
+import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
+import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
+import { useLanguageStore } from '@/store/languageStore';
+import { studentDailyLearningCopy } from '@/features/student-daily-learning/nextAssignment';
 import { isTrustedScormBridgeMessage, type ScormBridgeStatus } from '@/features/scorm/bridge';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
 
@@ -94,6 +97,11 @@ export default function CoursePlayerPage() {
   const params = useParams();
   const courseId = params?.id as string;
   const { t, tp } = useT();
+  const lang = useLanguageStore((state) => state.lang);
+  const workspaceCopy = getLearnerWorkspaceCopy(lang);
+  const [outlineOpen, setOutlineOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const lessonHeadingRef = useRef<HTMLHeadingElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedLessonId = searchParams.get('lessonId');
@@ -101,6 +109,8 @@ export default function CoursePlayerPage() {
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [occurrenceUnavailable, setOccurrenceUnavailable] = useState(false);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [courseCompleted, setCourseCompleted] = useState(false);
@@ -152,6 +162,8 @@ export default function CoursePlayerPage() {
       setSelectedLesson(null);
       setCompletedLessons(new Set());
       setEnrolled(null);
+      setLoadError(false);
+      setOccurrenceUnavailable(false);
       setCourseCompleted(false);
       setCompletionEvidenceEventId(null);
       setEnrolling(false);
@@ -163,6 +175,8 @@ export default function CoursePlayerPage() {
       setAssistantMessages([]);
       setAssistantInput('');
       setAssistantLoading(false);
+      setAssistantOpen(false);
+      setOutlineOpen(false);
       setAssignmentAccessPolicy(null);
       setAssignmentDeadlineMs(null);
       setAssignmentRemainingSeconds(null);
@@ -295,7 +309,7 @@ export default function CoursePlayerPage() {
   }, [selectedLesson, fetchQuizForLesson]);
 
   useEffect(() => {
-    if (!token || !courseId || !selectedLessonId || course?.delivery_type === 'scorm') return;
+    if (!assistantOpen || !token || !courseId || !selectedLessonId || course?.delivery_type === 'scorm') return;
     let cancelled = false;
     const loadMessages = async () => {
       try {
@@ -317,7 +331,7 @@ export default function CoursePlayerPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, courseId, selectedLessonId, course?.delivery_type, API_URL]);
+  }, [assistantOpen, token, courseId, selectedLessonId, course?.delivery_type, API_URL]);
 
   useEffect(() => {
     if (course?.delivery_type !== 'scorm' || !token || !courseId) return;
@@ -382,6 +396,7 @@ export default function CoursePlayerPage() {
   }, [scormLaunchSession]);
 
   const fetchData = useCallback(async () => {
+    setLoadError(false);
     const requestGeneration = ++dataLoadGenerationRef.current;
     const requestScope = previewProgressScope;
     const requestPreview = isPrivilegedPreview;
@@ -402,12 +417,14 @@ export default function CoursePlayerPage() {
       ]);
       if (!isCurrentRequest()) return;
 
+      let accessDenied = false;
       if (accessWindowRes.ok) {
         const accessWindow: AssignmentAccessWindow | null = await accessWindowRes.json();
         if (!isCurrentRequest()) return;
         if (accessWindow) {
           const policy = accessWindow.access_policy;
           setAssignmentAccessPolicy(policy);
+          accessDenied = policy.state === 'expired' || policy.state === 'revoked';
           const serverNowMs = Date.parse(accessWindow.server_now);
           const deadlines = [policy.completion_window_expires_at, policy.due_at]
             .filter((value): value is string => Boolean(value))
@@ -416,6 +433,7 @@ export default function CoursePlayerPage() {
           if (deadlines.length > 0 && Number.isFinite(serverNowMs)) {
             const remainingMs = Math.min(...deadlines) - serverNowMs;
             setAssignmentDeadlineMs(Date.now() + Math.max(0, remainingMs));
+            accessDenied ||= remainingMs <= 0;
           } else {
             setAssignmentDeadlineMs(null);
           }
@@ -425,9 +443,26 @@ export default function CoursePlayerPage() {
         }
       }
 
+      // Protected reads intentionally return409 for an expired assignment.
+      // Interpret the authoritative access window before treating that as an
+      // unavailable course; never offer enrollment, progress or quiz actions.
+      if (courseRes.status === 409 && accessDenied) {
+        setCourse(null);
+        setModules([]);
+        setSelectedLesson(null);
+        setEnrolled(null);
+        setCourseCompleted(false);
+        setCompletionEvidenceEventId(null);
+        setQuizLoadState(null);
+        setAssignmentRemainingSeconds(0);
+        return;
+      }
+      if (!courseRes.ok && courseRes.status !== 404) throw new Error('course_unavailable');
+
       if (courseRes.ok) {
         const courseData = await courseRes.json();
         if (!isCurrentRequest()) return;
+        if (courseData.delivery_type !== 'scorm' && !structRes.ok) throw new Error('structure_unavailable');
         setCourse(courseData);
       }
 
@@ -441,9 +476,14 @@ export default function CoursePlayerPage() {
         if (dashboardRes.ok) {
           const dashboard = await dashboardRes.json();
           if (!isCurrentRequest()) return;
-          const enrolledCourse = (dashboard.enrolled_courses || []).find(
-            (item: { course_id: string; enrollment_id?: string; enrollment_status?: string }) => item.course_id === courseId
+          // The default course route resolves the server-selected occurrence.
+          // Never let an older same-course completion hide the current work.
+          const occurrences = (dashboard.enrolled_courses || []).filter(
+            (item: { course_id: string }) => item.course_id === courseId,
           );
+          const enrolledCourse = occurrences.find((item: { can_resume?: boolean }) => item.can_resume === true)
+            ?? occurrences.find((item: { can_resume?: boolean }) => item.can_resume === undefined);
+          setOccurrenceUnavailable(occurrences.length > 0 && !enrolledCourse);
           setEnrolled(Boolean(enrolledCourse));
           const isCompleted = enrolledCourse?.enrollment_status === 'completed';
           setCourseCompleted(isCompleted);
@@ -458,6 +498,7 @@ export default function CoursePlayerPage() {
               { headers },
             );
             if (!isCurrentRequest()) return;
+            if (!evidenceRes.ok) throw new Error('completion_evidence_unavailable');
             if (evidenceRes.ok) {
               const evidenceEvents: Array<{ id: string }> = await evidenceRes.json();
               if (!isCurrentRequest()) return;
@@ -465,7 +506,7 @@ export default function CoursePlayerPage() {
             }
           }
         } else {
-          setEnrolled(false);
+          throw new Error('assignment_unavailable');
         }
       } else {
         setEnrolled(false);
@@ -496,6 +537,7 @@ export default function CoursePlayerPage() {
         setSelectedLesson(requestedLesson || first || allLessons[0]);
       }
     } catch (e) {
+      if (isCurrentRequest()) setLoadError(true);
       console.error(e);
     } finally {
       if (isCurrentRequest()) setLoading(false);
@@ -711,6 +753,7 @@ export default function CoursePlayerPage() {
     || assignmentRemainingSeconds === 0;
 
   if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loadError) return <div role="alert" className="space-y-3 p-6"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchData()}>{t('common.retry')}</Button></div>;
   if (!course && assignmentAccessBlocked) return <AssignmentAccessExpired />;
   if (!course) return <div className="p-6">{t('errors.notFound')}</div>;
 
@@ -728,10 +771,10 @@ export default function CoursePlayerPage() {
         {kioskSessionNotice}
         <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
-          <p className="text-muted-foreground mb-6">{t('courses.enrollRequired')}</p>
-          <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
+          <p className="text-muted-foreground mb-6">{occurrenceUnavailable ? studentDailyLearningCopy[lang].assignmentAccessRequired : t('courses.enrollRequired')}</p>
+          {!occurrenceUnavailable && <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
             {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
-          </button>
+          </button>}
           <Link href={courseListHref} className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> {t('courses.backToCourses')}
           </Link>
@@ -750,7 +793,7 @@ export default function CoursePlayerPage() {
             <p className="text-muted-foreground">{t('courses.courseComplete')}</p>
           </div>
           {completionEvidenceEventId ? (
-            <EvidenceConfirmationPanel
+            <LearnerEvidenceConfirmation
               eventId={completionEvidenceEventId}
               activityTitle={course.title}
               activityKind="course"
@@ -833,7 +876,7 @@ export default function CoursePlayerPage() {
     <div className="min-h-screen bg-muted flex flex-col md:flex-row">
       {kioskSessionNotice}
       {/* Left sidebar — TOC */}
-      <div className="w-full md:w-80 bg-card border-b md:border-b-0 md:border-r flex flex-col">
+      <div className="w-full md:w-80 md:shrink-0 bg-card border-b md:border-b-0 md:border-r flex flex-col">
         <div className="p-4 border-b">
           <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
@@ -848,28 +891,37 @@ export default function CoursePlayerPage() {
               totalText: tp('common.counts.lessonTotal', totalLessons),
             })} ({progressPercent}%)
           </p>
+          <Button type="button" variant="outline" className="mt-3 w-full md:hidden" aria-expanded={outlineOpen} aria-controls="learner-course-outline" onClick={() => setOutlineOpen((value) => !value)}>{workspaceCopy.outline}</Button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <nav id="learner-course-outline" aria-label={workspaceCopy.outline} className={`${outlineOpen ? 'block' : 'hidden'} max-h-[50dvh] md:max-h-none md:block flex-1 overflow-y-auto p-4 space-y-3`}>
           {modules.map((mod) => (
             <div key={mod.id}>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{mod.title}</p>
               {mod.lessons.map((lesson) => (
-                <div
+                <button
+                  type="button"
                   key={lesson.id}
-                  className={`text-sm p-2 rounded cursor-pointer flex items-center gap-2 ${selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'}`}
+                  aria-label={`${workspaceCopy.lesson}: ${lesson.title}`}
+                  aria-current={selectedLesson?.id === lesson.id ? 'step' : undefined}
+                  disabled={assignmentAccessBlocked}
+                  className={`w-full text-left text-sm p-3 rounded flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50 ${selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'}`}
                   onClick={() => {
-                    if (!assignmentAccessBlocked) setSelectedLesson(lesson);
+                    if (!assignmentAccessBlocked) {
+                      setSelectedLesson(lesson);
+                      setOutlineOpen(false);
+                      lessonHeadingRef.current?.focus();
+                    }
                   }}
                 >
                   <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-success text-white border-success' : 'border-border'}`}>
                     {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
                   </span>
                   {lesson.title}
-                </div>
+                </button>
               ))}
             </div>
           ))}
-        </div>
+        </nav>
       </div>
 
       {/* Center — lesson content + quiz */}
@@ -878,9 +930,16 @@ export default function CoursePlayerPage() {
           <AssignmentAccessTimer remainingSeconds={assignmentRemainingSeconds} blocked={assignmentAccessBlocked} />
         )}
         {selectedLesson ? (
-          <div className="mx-auto grid max-w-6xl gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className={`mx-auto grid gap-6 ${assistantOpen ? 'max-w-6xl xl:grid-cols-[minmax(0,1fr)_340px]' : 'max-w-3xl'}`}>
             <div className="min-w-0">
-            <h1 className="text-2xl font-bold mb-6">{selectedLesson.title}</h1>
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h1 ref={lessonHeadingRef} tabIndex={-1} className="break-words text-2xl font-bold focus:outline-none">{selectedLesson.title}</h1>
+                <p className="mt-2 text-sm text-muted-foreground">{workspaceCopy.learningHint}</p>
+                {lessonCompleted && <p className="mt-2 text-xs font-medium text-success">{workspaceCopy.materialDone}</p>}
+              </div>
+              <Button type="button" variant="outline" aria-expanded={assistantOpen} aria-controls="learner-lesson-help" onClick={() => setAssistantOpen((value) => !value)}>{workspaceCopy.help}</Button>
+            </div>
 
             <div className="prose max-w-none">
               {selectedLesson.content ? (
@@ -1003,7 +1062,7 @@ export default function CoursePlayerPage() {
               ) : null}
             </div>
             </div>
-            <aside className="h-fit rounded-xl border border-border bg-card p-4 shadow-sm">
+            {assistantOpen && <aside id="learner-lesson-help" aria-label={workspaceCopy.help} className="h-fit rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="mb-3">
                 <h2 className="text-sm font-semibold text-foreground">{t('authenticatedUi.player.assistantTitle')}</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -1030,6 +1089,7 @@ export default function CoursePlayerPage() {
               </div>
               <div className="mt-3 space-y-2">
                 <textarea
+                  aria-label={t('authenticatedUi.player.assistantPlaceholder')}
                   value={assistantInput}
                   disabled={assignmentAccessBlocked}
                   onChange={(e) => setAssistantInput(e.target.value)}
@@ -1046,7 +1106,7 @@ export default function CoursePlayerPage() {
                 {t('authenticatedUi.player.ask')}
                 </Button>
               </div>
-            </aside>
+            </aside>}
           </div>
         ) : (
           <div className="flex items-center justify-center h-64 text-muted-foreground">

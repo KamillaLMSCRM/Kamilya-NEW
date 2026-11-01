@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const fetchMock = vi.hoisted(() => vi.fn());
 const routerPushMock = vi.hoisted(() => vi.fn());
 const routerBackMock = vi.hoisted(() => vi.fn());
-const routeState = vi.hoisted(() => ({ search: 'courseId=course-1&lessonId=lesson-1' }));
+const routeState = vi.hoisted(() => ({ search: 'courseId=course-1&lessonId=lesson-1', quizId: 'quiz-1' }));
 
 vi.mock('next/navigation', () => ({
-  useParams: () => ({ quizId: 'quiz-1' }),
+  useParams: () => ({ quizId: routeState.quizId }),
   useSearchParams: () => new URLSearchParams(routeState.search),
   useRouter: () => ({ back: routerBackMock, push: routerPushMock, replace: vi.fn() }),
 }));
@@ -27,6 +27,9 @@ vi.mock('@/i18n/useT', () => ({
 
 vi.mock('@/components/ui/Toast', () => ({
   toast: { dismiss: vi.fn(), success: vi.fn(), error: vi.fn() },
+}));
+vi.mock('@/features/learner-workspace/LearnerEvidenceConfirmation', () => ({
+  LearnerEvidenceConfirmation: ({ eventId, activityKind }: { eventId: string; activityKind: string }) => <div data-testid="quiz-evidence">{activityKind}:{eventId}</div>,
 }));
 
 import QuizPlayerPage from '@/app/courses/quiz/[quizId]/page';
@@ -79,6 +82,7 @@ describe('learner quiz result navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     routeState.search = 'courseId=course-1&lessonId=lesson-1';
+    routeState.quizId = 'quiz-1';
     quizPayload = quiz;
     previousAttempts = [];
     attemptsStatus = 200;
@@ -90,7 +94,7 @@ describe('learner quiz result navigation', () => {
     ];
     useAuthStore.setState({
       accessToken: 'student-token',
-      user: { id: 'student-1', email: 'student@example.com', role: 'student' } as never,
+      user: { user_id: 'student-1', tenant_id: 'tenant-1', email: 'student@example.com', role: 'student' } as never,
       initialized: true,
     });
     fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -134,6 +138,8 @@ describe('learner quiz result navigation', () => {
     expect(screen.getByRole('link', { name: 'Следующий урок' })).toHaveAttribute(
       'href', '/courses/course-1?lessonId=lesson-2',
     );
+    expect(screen.queryByTestId('quiz-evidence')).not.toBeInTheDocument();
+    expect(screen.getByText('Тест пройден. Это не означает завершение всего курса.')).toBeInTheDocument();
   });
 
   it('downloads the immediate result as a validated PDF and revokes its object URL', async () => {
@@ -485,6 +491,7 @@ describe('learner quiz result navigation', () => {
     await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/attempts'))).toHaveLength(2));
     expect(screen.queryByRole('button', { name: 'quiz.tryAgain' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Вернуться к курсу' })).toBeInTheDocument();
+    expect(screen.getByText('Попытки исчерпаны. Обратитесь к методисту, чтобы уточнить дальнейшие действия.')).toBeInTheDocument();
   });
 
   it('does not offer retry when refreshing history after submission fails', async () => {
@@ -503,6 +510,155 @@ describe('learner quiz result navigation', () => {
     await screen.findByText('Попытка не пройдена');
     expect(screen.queryByRole('button', { name: 'quiz.tryAgain' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Вернуться к курсу' })).toBeInTheDocument();
+    attemptsStatus = 200;
+    previousAttempts = [{ id: 'attempt-1', score_percent: 0, passed: false, started_at: '', completed_at: '' }];
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
+    expect(screen.getByText('Попытка не пройдена')).toBeInTheDocument();
+    expect(await screen.findByText('Осталось попыток: 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'quiz.tryAgain' })).toBeEnabled();
+  });
+
+  it('shows only the aggregate result and passes the real submitted event identity to confirmation', async () => {
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/submit')
+      ? Promise.resolve(jsonResponse({ attempt: { id: 'attempt-1', score_percent: 100 }, passed: true, message: 'Тест пройден', training_evidence_event_id: 'event-quiz-1', correct_answers: [{ answer: 'SECRET KEY' }], explanation: 'INVENTED TOPIC ADVICE' }))
+      : original(input, init));
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    expect(await screen.findByTestId('quiz-evidence')).toHaveTextContent('quiz:event-quiz-1');
+    expect(screen.queryByText('Верный ответ?')).not.toBeInTheDocument();
+    expect(screen.queryByText('SECRET KEY')).not.toBeInTheDocument();
+    expect(screen.queryByText('INVENTED TOPIC ADVICE')).not.toBeInTheDocument();
+  });
+
+  it('ignores a delayed submission after the learner actor changes', async () => {
+    let resolve!: (value: Response) => void;
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/submit')
+      ? new Promise<Response>((done) => { resolve = done; }) : original(input, init));
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    act(() => useAuthStore.setState({ accessToken: 'new-student-token', user: { user_id: 'student-2', tenant_id: 'tenant-1', role: 'student' } as never }));
+    await screen.findByText('Верный ответ?');
+    await act(async () => { resolve(jsonResponse({ attempt: { score_percent: 100 }, passed: true, message: 'OLD RESULT', training_evidence_event_id: 'old-event' })); });
+    expect(screen.queryByText('OLD RESULT')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('quiz-evidence')).not.toBeInTheDocument();
+    expect(screen.getByRole('radio')).not.toBeChecked();
+  });
+
+  it('preserves selected answers and the running standalone timer on token-only rotation', async () => {
+    routeState.search = '';
+    quizPayload = { ...quiz, time_limit: 1 };
+    vi.useFakeTimers();
+    await act(async () => { render(<QuizPlayerPage />); });
+    fireEvent.click(screen.getByRole('radio'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(screen.getByRole('timer')).toHaveTextContent('0:55');
+    const callsBeforeRotation = fetchMock.mock.calls.length;
+    await act(async () => { useAuthStore.setState({ accessToken: 'refreshed-student-token' }); });
+    expect(screen.getByRole('radio')).toBeChecked();
+    expect(screen.getByRole('timer')).toHaveTextContent('0:55');
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeRotation);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    expect(screen.getByRole('timer')).toHaveTextContent('0:54');
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    await act(async () => undefined);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/submit'), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer refreshed-student-token' }) }));
+  });
+
+  it('preserves the confirmed result and its exact evidence identity on token-only rotation', async () => {
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/submit')
+      ? Promise.resolve(jsonResponse({ attempt: { id: 'attempt-1', score_percent: 100 }, passed: true, message: 'Тест пройден', training_evidence_event_id: 'event-quiz-1' }))
+      : original(input, init));
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    await screen.findByTestId('quiz-evidence');
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/attempts'))).toHaveLength(2));
+    const callsBeforeRotation = fetchMock.mock.calls.length;
+    act(() => useAuthStore.setState({ accessToken: 'refreshed-student-token' }));
+    expect(screen.getByText('Тест пройден')).toBeInTheDocument();
+    expect(screen.getByTestId('quiz-evidence')).toHaveTextContent('quiz:event-quiz-1');
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeRotation);
+  });
+
+  it('accepts the in-flight result for the same learner after a credential refresh', async () => {
+    let resolve!: (value: Response) => void;
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/submit')
+      ? new Promise<Response>((done) => { resolve = done; }) : original(input, init));
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    act(() => useAuthStore.setState({ accessToken: 'refreshed-student-token' }));
+    await act(async () => { resolve(jsonResponse({ attempt: { id: 'attempt-1', score_percent: 100 }, passed: true, message: 'Тест пройден', training_evidence_event_id: 'event-quiz-1' })); });
+    expect(screen.getByTestId('quiz-evidence')).toHaveTextContent('quiz:event-quiz-1');
+    expect(fetchMock).toHaveBeenLastCalledWith(expect.stringContaining('/attempts'), expect.objectContaining({ headers: { Authorization: 'Bearer refreshed-student-token' } }));
+  });
+
+  it.each(['actor', 'tenant', 'role', 'course', 'lesson', 'quiz'])('clears existing answers on a %s identity change, not just token changes', async (change) => {
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/quizzes/quiz-2')
+      ? Promise.resolve(jsonResponse({ ...quiz, id: 'quiz-2' })) : original(input, init));
+    const view = render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    expect(screen.getByRole('radio')).toBeChecked();
+    if (change === 'actor' || change === 'tenant' || change === 'role') {
+      act(() => useAuthStore.setState({ user: {
+        user_id: change === 'actor' ? 'student-2' : 'student-1',
+        tenant_id: change === 'tenant' ? 'tenant-2' : 'tenant-1',
+        role: change === 'role' ? 'methodologist' : 'student',
+      } as never }));
+    } else {
+      if (change === 'quiz') routeState.quizId = 'quiz-2';
+      else routeState.search = change === 'course' ? 'courseId=course-2&lessonId=lesson-1' : 'courseId=course-1&lessonId=lesson-2';
+      view.rerender(<QuizPlayerPage />);
+    }
+    expect(await screen.findByRole('radio')).not.toBeChecked();
+    expect(screen.queryByTestId('quiz-evidence')).not.toBeInTheDocument();
+  });
+
+  it('clears the old attempt and rejects late result-history callbacks when the server assignment occurrence changes', async () => {
+    accessWindowPayload = { server_now: '2026-11-01T10:00:00Z', access_policy: { enrollment_id: 'assignment-1', due_at: null, completion_window_expires_at: null } };
+    let resolveOldHistory!: (value: Response) => void;
+    let historyReads = 0;
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/submit')) return Promise.resolve(jsonResponse({ attempt: { id: 'attempt-1', score_percent: 0 }, passed: false, message: 'OLD ASSIGNMENT RESULT', training_evidence_event_id: 'old-event' }));
+      if (String(input).endsWith('/attempts') && ++historyReads === 2) return new Promise<Response>((done) => { resolveOldHistory = done; });
+      return original(input, init);
+    });
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    fireEvent.click(screen.getByRole('radio'));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    await screen.findByText('OLD ASSIGNMENT RESULT');
+    accessWindowPayload = { server_now: '2026-11-01T10:00:00Z', access_policy: { enrollment_id: 'assignment-2', due_at: null, completion_window_expires_at: null } };
+    fireEvent.click(screen.getByRole('button', { name: 'common.retry' }));
+    expect(await screen.findByRole('radio')).not.toBeChecked();
+    expect(screen.queryByText('OLD ASSIGNMENT RESULT')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('quiz-evidence')).not.toBeInTheDocument();
+    await act(async () => { resolveOldHistory(jsonResponse(Array.from({ length: 3 }, (_, index) => ({ id: `old-${index}`, score_percent: 0, passed: false })))); });
+    expect(screen.getByRole('radio')).toBeEnabled();
+    expect(screen.queryByText('quiz.attemptLimit')).not.toBeInTheDocument();
+  });
+
+  it('does not allow privileged actors to submit learner attempts', async () => {
+    useAuthStore.setState({ user: { user_id: 'methodologist-1', role: 'methodologist' } as never });
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    expect(screen.getByRole('radio')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'quiz.finish' })).toBeDisabled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/submit'))).toBe(false);
   });
 
 });

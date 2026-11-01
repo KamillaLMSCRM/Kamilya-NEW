@@ -1,6 +1,7 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-10-30.
+Current as of: 2026-11-01.
+
 
 ## AI-REALIZATION-001 - Whole-lesson recovery missed native persistence and validation contracts
 
@@ -46,6 +47,41 @@ Current as of: 2026-10-30.
   contract evidence, not a measured production-token saving or course-quality GO.
 - Prevention: keep source identity separate from presentation outputs and test the
   complete source-plan -> writer -> assessor -> durable restore seam.
+
+## UX-SESSION-001 - Credential rotation and obsolete continuations used the wrong UI lifetime
+
+- Recurrence, 2026-11-01 independent review: the assignment form still keyed its component by the raw access token. A real token-only refresh reset a manually selected recipient. A regression reproduced the loss on branch 5ec30252. The isolated fix uses the existing actor/session generation scope, preserving token-only refresh while resetting on actor or tenant change. Assignment and author-workspace regressions: 41 passed; lint/type passed. This fix and its broader concurrent-read implications require final review and deployed acceptance; not yet released.
+
+- Date:2026-11-01; local learning-workspace candidate, not deployed acceptance.
+- Symptom: token-only refresh erased entered quiz answers; delayed PDF/CSV or
+  assignment responses could continue after navigation/context change; hidden
+  OTP also hid an otherwise valid PDF error. Technical loading states could
+  incorrectly claim empty/fully assigned enrollment data.
+  Visual inspection also found an email-code subtitle below `not_required` and
+  Russian-only retained PDF actions in the English result screen.
+- Cause: access token used as component identity rather than transport; async
+  continuations lacked the event/actor/mount or confirmed-selection boundary;
+  rendering coupled independent download errors to confirmation requirements.
+- Fix: preserve same-actor quiz/OTP state on credential refresh, reset real scope
+  changes, suppress stale export/download/readback and feedback, render unknown
+  enrollment data honestly and keep PDF errors visible without OTP. Source
+  inspection derives the current catalog row; review receipts bind capability.
+  Evidence subtitles respect the confirmed/not-required state; PDF/signed-copy
+  presentation and fallback errors use canonical RU/KK/EN translations.
+- Verification: deferred actor/event PDF, CSV unmount resolve/reject, assignment
+  selection/readback, review capability replacement and source-refresh negatives;
+  final root6file82PASS. Initial root negative run had7 genuine failures and2
+  assignment-selector test errors, separately corrected. Learner corrected
+  player/navigation/layout77PASS and independent source re-review accepted.
+  Final visual-copy delta: panel/player/locale5files94PASS, lint/type PASS.
+  Document boundary follow-up: an executable actor-switch/source-download
+  regression reproduced retained old catalog content. The document workspace
+  now remounts on actor/tenant/role/session changes (not token refresh), and
+  rejects obsolete catalog/usage/download continuations. Focused3files23PASS.
+- Prevention: test token-only continuity separately from actor/tenant/event
+  replacement; resolve old response bodies after the new scope is visible, and
+  cover unmount as well as mounted identity changes. UI metadata/selection is
+  never new authorization or server-owned saved-content truth.
 
 ## DEV-BROKER-TLS-001 - Supported IP certificate client was not used by renewal timer
 

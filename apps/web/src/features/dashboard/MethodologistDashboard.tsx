@@ -17,6 +17,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
 import { loadMethodologistDashboard } from './api';
 import type { MethodologistDashboardModel } from './model';
+import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { buildTrainingLogBrowserHref, type TrainingLogFilters } from '@/app/admin/training-log/query';
 
 const copy = {
@@ -59,6 +60,7 @@ const copy = {
     noJobs: 'Активных или проблемных генераций нет.',
     running: 'В работе',
     jobAttention: 'Требует внимания',
+    reconciliationRequired: 'Сохранение или проверка результата',
     courseGeneration: 'Создание курса',
     failedGeneration: 'Не удалось создать курс',
     jobStage: 'Этап: {stage}',
@@ -113,6 +115,7 @@ const copy = {
     noJobs: 'There are no active or problematic generations.',
     running: 'In progress',
     jobAttention: 'Needs attention',
+    reconciliationRequired: 'Saving or result verification required',
     courseGeneration: 'Course generation',
     failedGeneration: 'Course generation failed',
     jobStage: 'Stage: {stage}',
@@ -167,6 +170,7 @@ const copy = {
     noJobs: 'Белсенді немесе мәселелі генерация жоқ.',
     running: 'Орындалуда',
     jobAttention: 'Назар аудару қажет',
+    reconciliationRequired: 'Сақтау немесе нәтижені тексеру қажет',
     courseGeneration: 'Курс жасау',
     failedGeneration: 'Курсты жасау мүмкін болмады',
     jobStage: 'Кезең: {stage}',
@@ -192,7 +196,10 @@ export function MethodologistDashboard() {
   const user = useAuthStore((state) => state.user);
   const lang = useLanguageStore((state) => state.lang);
   const m = copy[lang as keyof typeof copy] ?? copy.ru;
+  const w = workspaceCopy(lang);
   const [model, setModel] = useState<MethodologistDashboardModel | null>(null);
+  const [workView, setWorkView] = useState<'all' | 'training' | 'content'>('all');
+  const [refresh, setRefresh] = useState(0);
   const allowed = Boolean(user?.tenant_id && user.role === 'methodologist');
 
   useEffect(() => {
@@ -220,7 +227,7 @@ export function MethodologistDashboard() {
         });
       });
     return () => controller.abort();
-  }, [allowed, user?.tenant_id, user?.user_id]);
+  }, [allowed, user?.tenant_id, user?.user_id, refresh]);
 
   if (!allowed) return null;
 
@@ -252,10 +259,20 @@ export function MethodologistDashboard() {
         <Link href="/ai/generate" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"><FilePlus2 className="h-4 w-4" />{m.newCourse}</Link>
       </header>
 
-      {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 animate-spin" />{m.loading}</div>}
-      {model && !model.learningAvailable && <div role="status" className="flex items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" />{m.unavailable}</div>}
+      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6" aria-label={w.queueTitle}>
+        <h2 className="text-xl font-semibold tracking-tight text-foreground">{w.queueTitle}</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{w.queueHint}</p>
+        <nav className="mt-4 flex flex-wrap gap-2" aria-label={w.allWork}>
+          {([['all', w.allWork], ['training', w.trainingWork], ['content', w.contentWork]] as const).map(([value, label]) => (
+            <button key={value} type="button" aria-pressed={workView === value} onClick={() => setWorkView(value)} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${workView === value ? 'border-primary/30 bg-card text-primary' : 'border-transparent text-muted-foreground hover:bg-card/70'}`}>{label}</button>
+          ))}
+        </nav>
+      </section>
 
-      {model?.training && model.attention && <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+      {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 animate-spin" />{m.loading}</div>}
+      {model && !model.learningAvailable && <div role="status" className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" /><p className="min-w-0 flex-1 basis-64">{m.unavailable}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="min-h-10 rounded-lg border border-current/20 px-3 py-2 text-sm font-medium">{w.retry}</button></div>}
+
+      {workView !== 'content' && model?.training && model.attention && <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
           <SectionHeading id="attention-title" title={m.attention} hint={m.attentionHint} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -284,16 +301,17 @@ export function MethodologistDashboard() {
         </section>
       </div>}
 
-      {model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
+      {workView !== 'training' && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
         <SectionHeading id="content-title" title={m.content} hint={m.contentHint} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
         {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></dl>
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.45fr)]">
           <div className="rounded-xl border border-border">{model.content.jobs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{m.noJobs}</p> : <ul className="divide-y divide-border">{model.content.jobs.map((job) => {
             const active = job.status === 'pending' || job.status === 'running';
-            const title = job.course_title || (active ? m.courseGeneration : m.failedGeneration);
+            const reconciliation = job.status === 'reconciliation_required';
+            const title = job.course_title || (active || reconciliation ? m.courseGeneration : m.failedGeneration);
             const details = `${m.jobStage.replace('{stage}', jobStageLabel(job.stage))} · ${m.jobRequest.replace('{id}', job.id.slice(0, 8))}`;
-            return <li key={job.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{title}</p><p className="mt-0.5 text-xs text-muted-foreground">{details}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>{active ? m.running : m.jobAttention}</span></li>;
+            return <li key={job.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{title}</p><p className="mt-0.5 text-xs text-muted-foreground">{details}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>{reconciliation ? m.reconciliationRequired : active ? m.running : m.jobAttention}</span></li>;
           })}</ul>}</div>
           <nav aria-label={m.quickActions} className="space-y-2"><h3 className="mb-3 font-semibold text-foreground">{m.quickActions}</h3><QuickLink href="/ai/generate" label={m.createFromMaterials} icon={<FilePlus2 className="h-4 w-4" />} /><QuickLink href="/courses" label={m.reviewCourses} icon={<BookOpen className="h-4 w-4" />} /><QuickLink href="/training-log" label={m.trainingLog} icon={<Clock3 className="h-4 w-4" />} /></nav>
         </div>

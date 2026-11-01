@@ -1,6 +1,8 @@
 import { AsyncOperationStatus, resolveAsyncOperationState } from '@/components/ui/AsyncOperationStatus';
 import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import { CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { workspaceCopy } from '@/features/learning-workspace/copy';
 
 export interface GenerationStage {
   key: string;
@@ -26,13 +28,15 @@ interface GenerationProgressPanelProps {
   completedUnitsLabel: string;
   onRetry: () => void;
   onCancel: () => void;
+  lang?: string;
 }
 
 export function GenerationProgressPanel({
   job, stages, title, labels, retryLabel, checkAgainLabel, cancelLabel, cancelQueuedLabel,
   queueTitle, activeJobs, queuePosition, estimatedWait, queueEstimateHint, completedUnitsLabel,
-  onRetry, onCancel,
+  onRetry, onCancel, lang = 'ru',
 }: GenerationProgressPanelProps) {
+  const m = workspaceCopy(lang);
   const state = resolveAsyncOperationState(job);
   const currentStageIndex = stages.findIndex((stage) => stage.key === job.stage);
   const hasExactUnits = (
@@ -44,6 +48,17 @@ export function GenerationProgressPanel({
   );
 
   return <div className="space-y-6">
+    {(job.status === 'interrupted' || state === 'stalled' || state === 'failed') && (
+      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6" aria-label={m.generationTitle}>
+        <h3 className="text-lg font-semibold text-foreground">{m.generationTitle}</h3>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{m.generationHint}</p>
+        <p className="mt-2 text-xs leading-6 text-muted-foreground">{m.resumeHint}</p>
+        {job.course_id && <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <p className="text-sm text-foreground">{m.savedDraft}</p>
+          <Link href={`/courses/${encodeURIComponent(job.course_id)}/edit`} className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium text-primary hover:bg-muted">{m.openDraft}</Link>
+        </div>}
+      </section>
+    )}
     <AsyncOperationStatus
       operation={job}
       title={title}
@@ -75,6 +90,7 @@ export function GenerationProgressPanel({
     </div>}
 
     <div className="space-y-2">
+      <p className="text-xs leading-6 text-muted-foreground">{m.stepsHint}</p>
       {stages.map((stage, index) => {
         const isAllDone = job.stage === 'completed' || job.status === 'completed';
         const isActive = !isAllDone && job.stage === stage.key;

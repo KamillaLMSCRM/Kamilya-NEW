@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigation = vi.hoisted(() => ({
@@ -6,6 +6,8 @@ const navigation = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
 }));
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('@/components/ui/Toast', () => ({ toast }));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: navigation.replace, push: navigation.push }),
@@ -76,6 +78,30 @@ beforeEach(() => {
 });
 
 describe('training log deadline presentation', () => {
+  it.each(['resolve', 'reject'] as const)('suppresses old exports and feedback after unmount (%s)', async (outcome) => {
+    let resolve!: (value: unknown) => void;
+    let reject!: (reason: Error) => void;
+    apiMock.get.mockImplementation((url: string) => {
+      if (url.includes('format=csv')) return new Promise((yes, no) => { resolve = yes; reject = no; }) as never;
+      if (url === '/v1/courses') return Promise.resolve({ data: [] }) as never;
+      if (url.includes('/summary')) return Promise.resolve({ data: { total: 1 } }) as never;
+      return Promise.resolve({ data: { items: [trainingLogRow({})], total: 1, limit: 100, offset: 0 } }) as never;
+    });
+    const createUrl = vi.fn().mockReturnValue('blob:old-export');
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: createUrl });
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const view = render(<AdminTrainingLogPage />);
+    await screen.findAllByText('Deadline course');
+    fireEvent.click(screen.getByRole('button', { name: 'trainingLog.export.csv' }));
+    view.unmount();
+    await act(async () => { if (outcome === 'resolve') resolve({ data: new Blob(['old-report']) }); else reject(new Error('old error')); });
+    expect(createUrl).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+    click.mockRestore();
+  });
   it('keeps course titles read-only for an active admin, even with a secondary methodologist role', async () => {
     const user = useAuthStore.getState().user!;
     useAuthStore.setState({ user: { ...user, role: 'admin', roles: ['admin', 'methodologist'] } });

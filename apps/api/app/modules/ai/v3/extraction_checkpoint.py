@@ -126,6 +126,21 @@ async def extract_once(
             raise ValueError("v3_extraction_checkpoint_invalid")
         return response
 
+    from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+
+    if isinstance(journal, PendingStageJournal) and type(journal) is not PendingStageJournal:
+        raise ValueError("pending_journal_type_invalid")
+    if type(journal) is PendingStageJournal:
+        def validate_value(value: dict[str, Any]) -> dict[str, Any]:
+            if value.get("identity") != signature or not isinstance(value.get("response_sha256"), str):
+                raise ValueError("v3_extraction_checkpoint_invalid")
+            response = _validate_response(value.get("response"))
+            if _digest(response) != value["response_sha256"]:
+                raise ValueError("v3_extraction_checkpoint_invalid")
+            return response
+        return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
+                                         validate_value=validate_value, validate_response=_validate_response, invoke=invoke)
+
     prepared_result = await journal.prepare(result_key, plan)
     restored = await load_result()
     if prepared_result is not None and restored is None:

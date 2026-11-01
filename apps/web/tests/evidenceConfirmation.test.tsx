@@ -103,7 +103,7 @@ describe('EvidenceConfirmationPanel', () => {
         : { data: pendingEvent }
     ));
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Скачать подтверждение прохождения' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'evidenceConfirmation.downloadPdf' }));
 
     await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(
       '/v1/training-evidence/events/mine/event-1/export',
@@ -121,7 +121,7 @@ describe('EvidenceConfirmationPanel', () => {
       />,
     );
 
-    expect(await screen.findByText(/Электронное подтверждение недоступно/)).toBeInTheDocument();
+    expect(await screen.findByText('evidenceConfirmation.noEmailFallback')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'evidenceConfirmation.requestCode' })).not.toBeInTheDocument();
   });
 
@@ -134,7 +134,7 @@ describe('EvidenceConfirmationPanel', () => {
       />,
     );
 
-    await screen.findByText('Подписанный экземпляр ещё не загружен');
+    await screen.findByText('evidenceConfirmation.signedCopyMissing');
     const inputs = container.querySelectorAll('input[type="file"]');
     expect(inputs).toHaveLength(1);
     fireEvent.change(inputs[0], {

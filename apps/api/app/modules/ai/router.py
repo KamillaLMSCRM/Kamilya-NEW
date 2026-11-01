@@ -353,6 +353,27 @@ def _job_progress_detail(job: AIJob) -> dict[str, int | str]:
     return result
 
 
+def _visible_job_errors(job: AIJob) -> list[str] | None:
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if job.status == "running" or not has_pending(getattr(job, "result", None)):
+        return cast(list[str] | None, job.errors)
+    errors = list(job.errors or [])
+    code = "source_first_commit_pending_or_unknown"
+    if code not in errors:
+        errors.append(code)
+    return errors
+
+
+def _visible_job_status_message(job: AIJob) -> tuple[str, str]:
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if job.status != "running" and has_pending(getattr(job, "result", None)):
+        return ("reconciliation_required",
+                "Генерация выполняется или требует проверки. Обновите статус; если он не изменится, обратитесь к администратору. Не запускайте генерацию повторно.")
+    return str(job.status), str(job.message or "")
+
+
 async def _job_response(
     db: AsyncSession,
     job: AIJob,
@@ -375,9 +396,10 @@ async def _job_response(
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
+    visible_status, visible_message = _visible_job_status_message(job)
     return AIJobResponse(
         id=job.id,
-        status=job.status,
+        status=visible_status,
         job_type=_job_type(job),
         course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
@@ -385,8 +407,8 @@ async def _job_response(
         started_at=job.started_at,
         progress=job.progress,
         stage=job.stage,
-        message=message if message is not None else (job.message or ""),
-        errors=job.errors,
+        message=visible_message if visible_status == "reconciliation_required" else (message if message is not None else visible_message),
+        errors=_visible_job_errors(job),
         mixed_language_warning=mixed_language_warning,
         **_job_progress_detail(job),
         **queue_metadata,
@@ -490,6 +512,18 @@ async def submit_course_generation(
     # Every new job is bound to the active engine. Historical jobs
     # without this marker fail closed and must be submitted as a new generation.
     analysis_payload["generation_engine"] = CURRENT_GENERATION_ENGINE
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, admission_marker
+
+    analysis_payload.pop(QA_PENDING_KEY, None)
+    try:
+        qa_pending_marker = admission_marker(
+            settings=get_settings(), tenant_id=cast(UUID, user.tenant_id), user_id=cast(UUID, user.id),
+            course_id=req.course_id, source_first=False,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="qa_luna_pending_admission_unavailable") from exc
+    if qa_pending_marker is not None:
+        analysis_payload[QA_PENDING_KEY] = qa_pending_marker
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
             status_code=409,
@@ -679,7 +713,7 @@ async def list_jobs(
     return [
         AIJobResponse(
             id=j.id,
-            status=j.status,
+            status=_visible_job_status_message(j)[0],
             job_type=_job_type(j),
             course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
@@ -687,8 +721,8 @@ async def list_jobs(
             started_at=j.started_at,
             progress=j.progress,
             stage=j.stage,
-            message=j.message or "",
-            errors=j.errors,
+            message=_visible_job_status_message(j)[1],
+            errors=_visible_job_errors(j),
             **_job_progress_detail(j),
         )
         for j in jobs
@@ -763,6 +797,11 @@ async def cancel_generation(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if has_pending(getattr(job, "result", None)):
+        raise HTTPException(status_code=409, detail={"code": "v3_stage_pending_or_unknown"})
+
     if job.status == "cancelled":
         try:
             await _cleanup_cancelled_generation_reservation(db, job_id, user, tenant_id)
@@ -831,6 +870,10 @@ async def resume_generation(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if has_pending(getattr(job, "result", None)):
+        raise HTTPException(status_code=409, detail={"code": "v3_stage_pending_or_unknown"})
     if not job_uses_current_generation_engine(job):
         raise HTTPException(
             status_code=409,
@@ -946,12 +989,14 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
 
     try:
         while True:
+            visible_status, visible_message = _visible_job_status_message(job)
             await websocket.send_json({
                 "job_id": job.id,
-                "status": job.status,
+                "status": visible_status,
                 "stage": job.stage,
                 "progress": job.progress,
-                "message": job.message or "",
+                "message": visible_message,
+                "errors": _visible_job_errors(job),
                 **_job_progress_detail(job),
             })
 

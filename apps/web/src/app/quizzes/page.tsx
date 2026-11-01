@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 import { Card, CardContent, Button, Badge, Input, Modal } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
-import { getAccessToken } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { QuestionAssistantPreview } from '@/components/quizzes/QuestionAssistantPreview';
+import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
+import { bindQuestionDraftScope, clearQuestionDraft, readQuestionDraft, retainQuestionDraft, sameQuestionDraftScope, sameSavedQuestion, type QuestionEditorSnapshot } from '@/features/quiz-authoring/questionDraft';
+import { currentAuthorSession, sameAuthorSession } from '@/features/course-authoring/authorSession';
 import {
   CheckCircle2,
   ChevronDown,
@@ -94,25 +97,18 @@ const EMPTY_CHOICES = () => [
   { text: '', is_correct: false },
 ];
 
-type QuestionEditorSnapshot = {
-  text: string;
-  type: string;
-  points: number;
-  explanation: string;
-  choices: Array<{ id?: string; text: string; is_correct: boolean }>;
-};
-
 function questionEditorSnapshot(
-  question: Pick<Question, 'text' | 'type' | 'points' | 'explanation' | 'choices'>,
+  question: Pick<Question, 'text' | 'type' | 'points' | 'explanation' | 'choices' | 'order_index'>,
 ): QuestionEditorSnapshot {
   return {
     text: question.text,
     type: question.type,
     points: question.points,
     explanation: question.explanation || '',
+    order_index: question.order_index,
     choices: [...question.choices]
       .sort((left, right) => left.order_index - right.order_index)
-      .map((choice) => ({ id: choice.id, text: choice.text, is_correct: choice.is_correct })),
+      .map((choice) => ({ id: choice.id, text: choice.text, is_correct: choice.is_correct, order_index: choice.order_index })),
   };
 }
 
@@ -145,12 +141,48 @@ function apiErrorMessage(error: unknown) {
   return (error as Error).message;
 }
 
+function findGroupedQuiz(grouped: QuizGroupedResponse | null, id: string) {
+  return grouped?.courses.flatMap((course) => course.modules.flatMap((courseModule) => courseModule.lessons.flatMap((lesson) => lesson.quiz ? [lesson.quiz] : [])))
+    .concat(grouped.orphans.map((orphan) => orphan.quiz)).find((quiz) => quiz.id === id) ?? null;
+}
+
 export default function QuizzesAdminPage() {
-  const { t, tp } = useT();
+  const { t, tp, lang } = useT();
+  const copy = authorWorkspaceCopy(lang);
+  const token = useAuthStore((s) => s.accessToken);
+  const actor = useAuthStore((s) => s.user);
+  const latestTokenRef = useRef(token);
+  latestTokenRef.current = token;
+  const authRef = useRef({ accessToken: token, user: actor });
+  authRef.current = { accessToken: token, user: actor };
+  const draftScope = currentAuthorSession(authRef.current);
+  const scopeRef = useRef({ identity: draftScope, generation: 0, mounted: true });
+  if (scopeRef.current.identity !== draftScope) scopeRef.current = { identity: draftScope, generation: scopeRef.current.generation + 1, mounted: true };
+  const requestGenerationRef = useRef({ read: 0, mutation: 0, question: 0 });
+  const editorGenerationRef = useRef(0);
+  const groupedScopeRef = useRef<typeof draftScope | null>(null);
+  const editorOwnerRef = useRef(draftScope);
+  const recoveredDraftRef = useRef(readQuestionDraft(draftScope));
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [draftRecoveryUnavailable, setDraftRecoveryUnavailable] = useState(false);
+  const [questionConflict, setQuestionConflict] = useState(false);
     const { confirm, dialog } = useConfirm();
   const [grouped, setGrouped] = useState<QuizGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const initialLessonRef = useRef<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const selectedQuizRef = useRef(selectedQuiz);
+  selectedQuizRef.current = selectedQuiz;
+  const beginRequest = useCallback((channel: 'read' | 'mutation' | 'question', quizId?: string) => {
+    const captured = { ...scopeRef.current };
+    if (!captured.mounted || captured.identity !== draftScope || !sameAuthorSession(captured.identity, currentAuthorSession(authRef.current))) return () => false;
+    const generation = ++requestGenerationRef.current[channel];
+    return () => scopeRef.current.mounted && captured.identity === draftScope && captured.identity === scopeRef.current.identity
+      && captured.generation === scopeRef.current.generation && generation === requestGenerationRef.current[channel]
+      && sameAuthorSession(captured.identity, currentAuthorSession(authRef.current))
+      && (quizId === undefined || selectedQuizRef.current?.id === quizId);
+  }, [draftScope]);
   const [editing, setEditing] = useState(false);
   // Cascade selector state — Course → Module → Lesson. Replaces the old
   // free-form "Lesson ID (UUID)" input that forced methodologists to
@@ -176,6 +208,7 @@ export default function QuizzesAdminPage() {
   const [questionEditorMode, setQuestionEditorMode] = useState<'create' | 'edit' | null>(null);
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [savingQuestion, setSavingQuestion] = useState(false);
+  const [discardQuestionPrompt, setDiscardQuestionPrompt] = useState(false);
   // Inline edit form for pass_score / attempt_limit / time_limit.
   // Previously these were visible-only ("readonly" labels) — adding
   // the edit form is the change requested in the 2026-06-26 review.
@@ -208,7 +241,25 @@ export default function QuizzesAdminPage() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [aiGuidance, setAiGuidance] = useState('');
-  const token = useAuthStore((s) => s.accessToken);
+  useLayoutEffect(() => {
+    scopeRef.current.mounted = true;
+    bindQuestionDraftScope(draftScope);
+    if (editorOwnerRef.current !== draftScope) {
+      editorOwnerRef.current = draftScope; groupedScopeRef.current = null;
+      recoveredDraftRef.current = readQuestionDraft(draftScope);
+      editorGenerationRef.current += 1; initialLessonRef.current = null;
+      setGrouped(null); setSelectedQuiz(null); setOpenCourses({});
+      setNewQuestion(EMPTY_QUESTION); setNewChoices(EMPTY_CHOICES());
+      setQuestionEditorMode(null); setEditingQuestionId(null); setSavedQuestionSnapshot(null);
+      setSavingQuestion(false); setDiscardQuestionPrompt(false); setQuestionConflict(false);
+      setDraftRestored(false); setDraftRecoveryUnavailable(false);
+      setShowCreateQuiz(false); setNewQuiz({ course_id: '', module_id: '', lesson_id: '', title: '', pass_score: 80, time_limit: '', attempt_limit: 3 });
+      setEditingSettings(false); setSavingSettings(false); setSettingsDraft({ pass_score: 80, time_limit: '', attempt_limit: 3 });
+      setAiDraft(null); setAiGenerating(false); setAiGuidance(''); setAiDifficulty('medium');
+      setLoading(true); setLoadError(false);
+    }
+    return () => { scopeRef.current.mounted = false; scopeRef.current.generation += 1; };
+  }, [draftScope]);
   // Initialize the auth store from localStorage on mount. Without this,
   // if the user refreshes the page (or navigates directly to /quizzes
   // without going through the Layout's useEffect), token is null until
@@ -222,20 +273,84 @@ export default function QuizzesAdminPage() {
   // (`/v1/courses` + lazy `/v1/courses/{id}/preview`) which left quizzes
   // in a misleading "orphan" bucket until previews loaded.
   const fetchGrouped = useCallback(async () => {
-    if (!(token || getAccessToken())) return;
+    const isCurrent = beginRequest('read');
+    if (!latestTokenRef.current || !isCurrent()) return;
     setLoading(true);
     try {
       const res = await api.get<QuizGroupedResponse>('/v1/quizzes/grouped');
-      setGrouped(res.data);
+      const data = await res.data;
+      if (!isCurrent()) return;
+      groupedScopeRef.current = draftScope;
+      setGrouped(data);
+      setLoadError(false);
     } catch {
-      // Preserve the previous non-blocking initial load behavior. The shared
-      // client still handles refresh/logout and the page remains usable.
+      if (isCurrent()) setLoadError(true);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [token]);
+  }, [draftScope, beginRequest]);
 
   useEffect(() => { fetchGrouped(); }, [fetchGrouped]);
+
+  useEffect(() => {
+    if (!grouped || groupedScopeRef.current !== draftScope) return;
+    if (recoveredDraftRef.current) return;
+    const lessonId = new URLSearchParams(window.location.search).get('lessonId');
+    if (!lessonId || initialLessonRef.current === lessonId) return;
+    initialLessonRef.current = lessonId;
+    for (const course of grouped.courses) {
+      for (const courseModule of course.modules) {
+        const lesson = courseModule.lessons.find((item) => item.id === lessonId);
+        if (lesson) {
+          if (lesson.quiz) setSelectedQuiz(lesson.quiz);
+          else {
+            setNewQuiz((current) => ({ ...current, course_id: course.id, module_id: courseModule.id, lesson_id: lesson.id }));
+            setShowCreateQuiz(true);
+          }
+          setOpenCourses((current) => ({ ...current, [course.id]: true }));
+          return;
+        }
+      }
+    }
+  }, [grouped, draftScope]);
+
+  useEffect(() => {
+    const draft = recoveredDraftRef.current;
+    if (!draft || !grouped || groupedScopeRef.current !== draftScope) return;
+    const quiz = findGroupedQuiz(grouped, draft.quizId);
+    const question = quiz?.questions.find((item) => item.id === draft.questionId);
+    if (!quiz || (draft.mode === 'edit' && !question)) {
+      setDraftRecoveryUnavailable(true);
+      setQuestionConflict(false);
+      return; // Keep the draft, but never turn missing saved context into a write target.
+    }
+    if (draft.mode === 'edit' && question && !sameSavedQuestion(draft.savedSnapshot, questionEditorSnapshot(question))) {
+      setQuestionConflict(true); setDraftRecoveryUnavailable(false);
+      return;
+    }
+    recoveredDraftRef.current = null;
+    editorGenerationRef.current += 1;
+    setSelectedQuiz(quiz); setNewQuestion(draft.question); setNewChoices(draft.choices);
+    setSavedQuestionSnapshot(draft.savedSnapshot); setEditingQuestionId(draft.questionId); setQuestionEditorMode(draft.mode);
+    setDraftRestored(true); setDraftRecoveryUnavailable(false); setQuestionConflict(false);
+  }, [grouped, draftScope]);
+
+  useEffect(() => {
+    if (questionEditorMode !== 'edit' || !selectedQuiz || !savedQuestionSnapshot || groupedScopeRef.current !== draftScope) return;
+    const saved = findGroupedQuiz(grouped, selectedQuiz.id)?.questions.find((question) => question.id === editingQuestionId);
+    setQuestionConflict(!saved || !sameSavedQuestion(savedQuestionSnapshot, questionEditorSnapshot(saved)));
+  }, [grouped, selectedQuiz, editingQuestionId, questionEditorMode, savedQuestionSnapshot, draftScope]);
+
+  const selectedContext = useMemo(() => {
+    if (!selectedQuiz || !grouped) return null;
+    for (const course of grouped.courses) {
+      for (const courseModule of course.modules) {
+        const lesson = courseModule.lessons.find((item) => item.quiz?.id === selectedQuiz.id);
+        if (lesson) return { course, module: courseModule, lesson };
+      }
+    }
+    return null;
+  }, [grouped, selectedQuiz]);
 
   // Flat list of every quiz, regardless of placement in the tree. Used
   // by the "Тесты" badge count and by the orphan-less delete handler
@@ -261,7 +376,8 @@ export default function QuizzesAdminPage() {
 
   const handleCreateQuiz = async () => {
     const title = newQuiz.title.trim();
-    if (!token || !newQuiz.lesson_id || !title) return;
+    const isCurrent = beginRequest('mutation');
+    if (!latestTokenRef.current || !newQuiz.lesson_id || !title || !isCurrent()) return;
     try {
       const res = await api.post<Quiz>('/v1/quizzes', {
         lesson_id: newQuiz.lesson_id,
@@ -270,7 +386,8 @@ export default function QuizzesAdminPage() {
         time_limit: newQuiz.time_limit ? parseInt(newQuiz.time_limit) : null,
         attempt_limit: newQuiz.attempt_limit,
       });
-      const quiz = res.data;
+      const quiz = await res.data;
+      if (!isCurrent()) return;
       setSelectedQuiz(quiz);
       setShowCreateQuiz(false);
       setNewQuiz({
@@ -285,7 +402,7 @@ export default function QuizzesAdminPage() {
       // Refresh the tree so the new quiz appears under the chosen lesson.
       await fetchGrouped();
     } catch (error) {
-      toast.error(`${t('authenticatedUi.quizUi.createFailed')}: ${apiErrorMessage(error)}`);
+      if (isCurrent()) toast.error(`${t('authenticatedUi.quizUi.createFailed')}: ${apiErrorMessage(error)}`);
     }
   };
 
@@ -293,7 +410,8 @@ export default function QuizzesAdminPage() {
   // falls back to DeepSeek) and returns a draft. We do NOT save yet;
   // the methodologist reviews in the preview modal first.
   const handleGenerateWithAI = async () => {
-    if (!token || !newQuiz.lesson_id) return;
+    const isCurrent = beginRequest('mutation');
+    if (!latestTokenRef.current || !newQuiz.lesson_id || !isCurrent()) return;
     setAiGenerating(true);
     try {
       const res = await api.post('/v1/quizzes/generate', {
@@ -303,7 +421,8 @@ export default function QuizzesAdminPage() {
           language: 'ru',
           guidance: aiGuidance.trim() || null,
       });
-      const draft = res.data;
+      const draft = await res.data;
+      if (!isCurrent()) return;
       setAiDraft(draft);
       // Pre-fill the create form with the AI's suggested values so the
       // methodologist can tweak before saving.
@@ -313,9 +432,9 @@ export default function QuizzesAdminPage() {
         pass_score: draft.suggested_pass_score,
       }));
     } catch (e) {
-      toast.error(`${t('authenticatedUi.quizUi.aiFailed')}: ${apiErrorMessage(e)}`);
+      if (isCurrent()) toast.error(`${t('authenticatedUi.quizUi.aiFailed')}: ${apiErrorMessage(e)}`);
     } finally {
-      setAiGenerating(false);
+      if (isCurrent()) setAiGenerating(false);
     }
   };
 
@@ -325,7 +444,8 @@ export default function QuizzesAdminPage() {
   // question one at a time. (Acceptable trade-off — methodologist is
   // already reviewing the draft at this point, the latency is fine.)
   const handleSaveAiDraft = async () => {
-    if (!aiDraft || !token) return;
+    const isCurrent = beginRequest('mutation');
+    if (!aiDraft || !latestTokenRef.current || !isCurrent()) return;
     if (!newQuiz.lesson_id) {
       toast.error(t('authenticatedUi.quizUi.selectLesson'));
       return;
@@ -340,12 +460,14 @@ export default function QuizzesAdminPage() {
           time_limit: newQuiz.time_limit ? parseInt(newQuiz.time_limit) : null,
           attempt_limit: newQuiz.attempt_limit,
       });
-      const quiz = createRes.data;
+      const quiz = await createRes.data;
+      if (!isCurrent()) return;
 
       // 2. Add each question. Failures here leave a partial quiz — the
       // methodologist can edit/clean it up via the regular UI.
       let added = 0;
       for (const q of aiDraft.questions) {
+        if (!isCurrent()) return;
         try {
           await api.post(`/v1/quizzes/${quiz.id}/questions`, {
             text: q.text,
@@ -359,6 +481,7 @@ export default function QuizzesAdminPage() {
               order_index: i,
             })),
           });
+          if (!isCurrent()) return;
           added++;
         } catch (error) {
           // fetch() used to continue after an HTTP error but abort after a
@@ -368,24 +491,27 @@ export default function QuizzesAdminPage() {
       }
 
       // 3. Refresh everything.
+      if (!isCurrent()) return;
       setAiDraft(null);
       setShowCreateQuiz(false);
       setAiGuidance('');
       await fetchGrouped();
+      if (!isCurrent()) return;
       toast.success(
         t('authenticatedUi.quizUi.created', { added, total: tp('common.counts.question', aiDraft.questions.length) })
       );
     } catch (e) {
-      toast.error(`${t('authenticatedUi.quizUi.saveFailed')}: ${apiErrorMessage(e)}`);
+      if (isCurrent()) toast.error(`${t('authenticatedUi.quizUi.saveFailed')}: ${apiErrorMessage(e)}`);
     } finally {
-      setAiGenerating(false);
+      if (isCurrent()) setAiGenerating(false);
     }
   };
 
-  const applyUpdatedQuiz = useCallback((updated: Quiz) => {
-    setSelectedQuiz(updated);
+  const applyUpdatedQuiz = useCallback((updated: Quiz, isCurrent: () => boolean) => {
+    if (!isCurrent()) return;
+    setSelectedQuiz((current) => isCurrent() ? updated : current);
     setGrouped((current) => {
-      if (!current) return current;
+      if (!current || !isCurrent()) return current;
       return {
         ...current,
         courses: current.courses.map((course) => ({
@@ -404,22 +530,41 @@ export default function QuizzesAdminPage() {
     });
   }, []);
 
-  const closeQuestionEditor = () => {
+  const resetQuestionEditor = () => {
     if (savingQuestion) return;
+    clearQuestionDraft(draftScope);
+    editorGenerationRef.current += 1; setQuestionConflict(false);
+    setDraftRestored(false);
     setQuestionEditorMode(null);
     setEditingQuestionId(null);
     setSavedQuestionSnapshot(null);
+    setDiscardQuestionPrompt(false);
+  };
+
+  const closeQuestionEditor = () => {
+    if (savingQuestion) return;
+    if (isQuestionEditorDirty) { setDiscardQuestionPrompt(true); return; }
+    resetQuestionEditor();
   };
 
   const openCreateQuestionEditor = () => {
+    if (recoveredDraftRef.current) return;
+    editorGenerationRef.current += 1; setQuestionConflict(false);
+    setDraftRestored(false);
     setNewQuestion(EMPTY_QUESTION);
-    setNewChoices(EMPTY_CHOICES());
+    const choices = EMPTY_CHOICES();
+    setNewChoices(choices);
     setEditingQuestionId(null);
-    setSavedQuestionSnapshot(null);
+    setSavedQuestionSnapshot({ ...EMPTY_QUESTION, choices });
+    setDiscardQuestionPrompt(false);
     setQuestionEditorMode('create');
   };
 
   const openEditQuestionEditor = (question: Question) => {
+    if (recoveredDraftRef.current) return;
+    editorGenerationRef.current += 1; setQuestionConflict(false);
+    setDraftRestored(false);
+    setDiscardQuestionPrompt(false);
     setNewQuestion({
       text: question.text,
       type: question.type,
@@ -447,8 +592,30 @@ export default function QuizzesAdminPage() {
     [newChoices, newQuestion, savedQuestionSnapshot],
   );
 
+  useLayoutEffect(() => {
+    if (editorOwnerRef.current !== draftScope || !questionEditorMode || !selectedQuiz || !savedQuestionSnapshot) return;
+    if (!sameQuestionDraftScope(draftScope, currentAuthorSession(authRef.current))) return;
+    if (!isQuestionEditorDirty) { clearQuestionDraft(draftScope); return; }
+    retainQuestionDraft(draftScope, { quizId: selectedQuiz.id, questionId: editingQuestionId, mode: questionEditorMode, question: newQuestion, choices: newChoices, savedSnapshot: savedQuestionSnapshot });
+  }, [draftScope, questionEditorMode, selectedQuiz, savedQuestionSnapshot, isQuestionEditorDirty, editingQuestionId, newQuestion, newChoices]);
+
+  useEffect(() => {
+    if (!questionEditorMode || (!isQuestionEditorDirty && !savingQuestion)) return;
+    const guardUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', guardUnload);
+    return () => window.removeEventListener('beforeunload', guardUnload);
+  }, [questionEditorMode, isQuestionEditorDirty, savingQuestion]);
+
   const handleSaveQuestion = async () => {
-    if (!token || !selectedQuiz || !questionEditorMode || !newQuestion.text.trim()) return;
+    if (!latestTokenRef.current || !selectedQuiz || !questionEditorMode || !newQuestion.text.trim() || questionConflict) return;
+    const currentRequest = beginRequest('question', selectedQuiz.id);
+    const editorGeneration = editorGenerationRef.current;
+    const isCurrent = () => currentRequest() && editorGeneration === editorGenerationRef.current;
+    if (!isCurrent()) return;
+    if (questionEditorMode === 'edit') {
+      const saved = findGroupedQuiz(grouped, selectedQuiz.id)?.questions.find((question) => question.id === editingQuestionId);
+      if (!saved || !savedQuestionSnapshot || !sameSavedQuestion(savedQuestionSnapshot, questionEditorSnapshot(saved))) { setQuestionConflict(true); return; }
+    }
     const choices = newChoices
       .filter((choice) => choice.text.trim())
       .map((choice, index) => ({
@@ -467,6 +634,7 @@ export default function QuizzesAdminPage() {
     }
 
     setSavingQuestion(true);
+    const submittedDraft = readQuestionDraft(draftScope);
     try {
       const isEditing = questionEditorMode === 'edit' && editingQuestionId;
       const payload = {
@@ -483,52 +651,63 @@ export default function QuizzesAdminPage() {
       const res = isEditing
         ? await api.put<Quiz>(`/v1/quizzes/${selectedQuiz.id}/questions/${editingQuestionId}`, payload)
         : await api.post<Quiz>(`/v1/quizzes/${selectedQuiz.id}/questions`, payload);
-      const updated = res.data;
-      applyUpdatedQuiz(updated);
+      const updated = await res.data;
+      if (!isCurrent()) return;
+      if (updated.id !== selectedQuiz.id) throw new Error('Quiz identity mismatch');
+      applyUpdatedQuiz(updated, isCurrent);
+      clearQuestionDraft(draftScope, submittedDraft);
+      setDraftRestored(false);
       setQuestionEditorMode(null);
       setEditingQuestionId(null);
       setSavedQuestionSnapshot(null);
+      setDiscardQuestionPrompt(false);
       toast.success(isEditing ? t('authenticatedUi.quizUi.questionUpdated') : t('authenticatedUi.quizUi.questionAdded'));
     } catch (error) {
-      toast.error(t('authenticatedUi.quizUi.saveQuestionFailed'), { description: apiErrorMessage(error) });
+      if (isCurrent()) toast.error(t('authenticatedUi.quizUi.saveQuestionFailed'), { description: apiErrorMessage(error) });
     } finally {
-      setSavingQuestion(false);
+      if (isCurrent()) setSavingQuestion(false);
     }
   };
 
   const handleDeleteQuestion = async (questionId: string) => {
-    if (!token || !selectedQuiz) return;
+    if (!latestTokenRef.current || !selectedQuiz) return;
+    const isCurrent = beginRequest('mutation', selectedQuiz.id);
+    if (!isCurrent()) return;
     const ok = await confirm({
       title: t('dialogs.confirmDeleteQuestion'),
       variant: 'danger',
       confirmLabel: t('dialogs.delete'),
     });
-    if (!ok) return;
+    if (!ok || !isCurrent()) return;
     try {
       const res = await api.delete<Quiz>(`/v1/quizzes/${selectedQuiz.id}/questions/${questionId}`);
-      const quiz = res.data;
-      applyUpdatedQuiz(quiz);
+      const quiz = await res.data;
+      if (!isCurrent()) return;
+      if (quiz.id !== selectedQuiz.id) throw new Error('Quiz identity mismatch');
+      applyUpdatedQuiz(quiz, isCurrent);
       return;
     } catch (error) {
-      toast.error(t('authenticatedUi.quizUi.deleteQuestionFailed'), { description: apiErrorMessage(error) });
+      if (isCurrent()) toast.error(t('authenticatedUi.quizUi.deleteQuestionFailed'), { description: apiErrorMessage(error) });
     }
   };
 
   const handleDeleteQuiz = async (quizId: string) => {
-    if (!token) return;
+    const isCurrent = beginRequest('mutation', quizId);
+    if (!latestTokenRef.current || !isCurrent()) return;
     const ok = await confirm({
       title: t('dialogs.confirmDeleteQuiz'),
       variant: 'danger',
       confirmLabel: t('dialogs.delete'),
     });
-    if (!ok) return;
+    if (!ok || !isCurrent()) return;
     try {
       await api.delete(`/v1/quizzes/${quizId}`);
+      if (!isCurrent()) return;
       setSelectedQuiz(null);
       await fetchGrouped();
       return;
     } catch (error) {
-      toast.error(t('authenticatedUi.quizUi.deleteQuizFailed'), { description: apiErrorMessage(error) });
+      if (isCurrent()) toast.error(t('authenticatedUi.quizUi.deleteQuizFailed'), { description: apiErrorMessage(error) });
     }
   };
 
@@ -548,7 +727,9 @@ export default function QuizzesAdminPage() {
   // already supports partial updates on these three fields — see
   // Pydantic QuizUpdate in app.modules.quizzes.schemas.
   const handleSaveQuizSettings = async () => {
-    if (!selectedQuiz || !token) return;
+    if (!selectedQuiz || !latestTokenRef.current) return;
+    const isCurrent = beginRequest('mutation', selectedQuiz.id);
+    if (!isCurrent()) return;
     setSavingSettings(true);
     try {
       const body: Record<string, unknown> = {
@@ -567,31 +748,40 @@ export default function QuizzesAdminPage() {
         body.time_limit = n;
       }
       const res = await api.put<Quiz>(`/v1/quizzes/${selectedQuiz.id}`, body);
-      const updated = res.data;
-      applyUpdatedQuiz(updated);
+      const updated = await res.data;
+      if (!isCurrent()) return;
+      if (updated.id !== selectedQuiz.id) throw new Error('Quiz identity mismatch');
+      applyUpdatedQuiz(updated, isCurrent);
       setEditingSettings(false);
       toast.success(t('authenticatedUi.quizUi.settingsSaved'));
     } catch (e) {
-      toast.error(`${t('authenticatedUi.quizUi.saveFailed')}: ${apiErrorMessage(e)}`);
+      if (isCurrent()) toast.error(`${t('authenticatedUi.quizUi.saveFailed')}: ${apiErrorMessage(e)}`);
     } finally {
-      setSavingSettings(false);
+      if (isCurrent()) setSavingSettings(false);
     }
   };
 
   const handleApproveQuiz = async () => {
-    if (!selectedQuiz || !token) return;
+    if (!selectedQuiz || !latestTokenRef.current) return;
+    const isCurrent = beginRequest('mutation', selectedQuiz.id);
+    if (!isCurrent()) return;
     try {
       const response = await api.post<Quiz>(`/v1/quizzes/${selectedQuiz.id}/approve`);
-      applyUpdatedQuiz(response.data);
+      const updated = await response.data;
+      if (!isCurrent()) return;
+      if (updated.id !== selectedQuiz.id) throw new Error('Quiz identity mismatch');
+      applyUpdatedQuiz(updated, isCurrent);
       toast.success(t('authenticatedUi.quizUi.approved'));
     } catch (error) {
-      toast.error(`${t('authenticatedUi.quizUi.approveFailed')}: ${apiErrorMessage(error)}`);
+      if (isCurrent()) toast.error(`${t('authenticatedUi.quizUi.approveFailed')}: ${apiErrorMessage(error)}`);
     }
   };
 
   // (Removed dev-only "Load quiz by ID" handler — the grouped list panel
 // is the only supported way to pick a quiz now. Methodologists don't
 // have access to UUIDs without opening the database.)
+
+  if (editorOwnerRef.current !== draftScope) return <div className="p-6">{t('common.loading')}</div>;
 
   return (
     <div className="mx-auto max-w-[1560px] space-y-5 px-1">
@@ -606,6 +796,19 @@ export default function QuizzesAdminPage() {
           {t('quiz.create')}
         </Button>
       </div>
+
+      {recoveredDraftRef.current && (draftRecoveryUnavailable || questionConflict) && <div role="alert" className="space-y-3 rounded-lg border border-amber-300 p-4 text-sm">
+        <p>{questionConflict ? copy.draftConflict : copy.draftRecoveryUnavailable}</p>
+        <div className="space-y-2 whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-3">
+          <p>{recoveredDraftRef.current.question.text}</p>
+          {recoveredDraftRef.current.choices.map((choice, index) => <p key={choice.id ?? index}>{choice.is_correct ? '✓ ' : ''}{choice.text}</p>)}
+          <p>{recoveredDraftRef.current.question.explanation}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => void fetchGrouped()}>{copy.retry}</Button>
+          <Button variant="outline" onClick={() => { clearQuestionDraft(draftScope); recoveredDraftRef.current = null; setDraftRecoveryUnavailable(false); setQuestionConflict(false); }}>{copy.discard}</Button>
+        </div>
+      </div>}
 
       {/* Create Quiz Form */}
       {showCreateQuiz && (
@@ -953,10 +1156,12 @@ export default function QuizzesAdminPage() {
           <CardContent className="p-0">
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.quizUi.tests')}</h3>
-              <Badge variant="secondary" className="bg-muted text-foreground">{flatQuizzes.length}</Badge>
+              <Badge variant="secondary" className="bg-muted text-foreground">{loadError && !grouped ? '—' : flatQuizzes.length + (grouped?.orphans.length ?? 0)}</Badge>
             </div>
             {loading ? (
               <p className="px-4 py-5 text-sm text-muted-foreground">{t('authenticatedUi.quizUi.loading')}</p>
+            ) : loadError ? (
+              <div role="alert" className="space-y-3 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchGrouped()}>{copy.retry}</Button></div>
             ) : grouped && grouped.courses.every((c) => c.modules.every((m) => m.lessons.every((l) => !l.quiz))) && grouped.orphans.length === 0 ? (
               <p className="px-4 py-5 text-sm leading-6 text-muted-foreground">
                 {t('authenticatedUi.quizUi.empty')}
@@ -1052,6 +1257,13 @@ export default function QuizzesAdminPage() {
         {/* Selected Quiz */}
         {selectedQuiz ? (
           <div className="min-w-0 space-y-5">
+            {selectedContext && <nav aria-label={copy.context} className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm">
+              <p className="break-words text-muted-foreground">{selectedContext.course.title} · {selectedContext.module.title} · {selectedContext.lesson.title}</p>
+              <div className="flex flex-wrap gap-4 font-medium text-primary">
+                <Link className="inline-flex min-h-10 items-center" href={`/courses/${encodeURIComponent(selectedContext.course.id)}?lessonId=${encodeURIComponent(selectedContext.lesson.id)}`}>{copy.openLesson}</Link>
+                <Link className="inline-flex min-h-10 items-center" href={`/courses/${encodeURIComponent(selectedContext.course.id)}/edit?lessonId=${encodeURIComponent(selectedContext.lesson.id)}`}>{copy.editLesson}</Link>
+              </div>
+            </nav>}
             <Card className="border-border/70 shadow-none">
               <CardContent className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1069,6 +1281,8 @@ export default function QuizzesAdminPage() {
                         {t('authenticatedUi.quizUi.aiWarning')}
                       </div>
                     )}
+                    {selectedQuiz.review_status === 'approved' && <Badge variant="outline" className="mt-3">{copy.approved}</Badge>}
+                    <p className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">{copy.questionHint}</p>
                   </div>
                   {selectedQuiz.review_status === 'needs_review' && (
                     <Button size="sm" onClick={handleApproveQuiz}>
@@ -1190,14 +1404,20 @@ export default function QuizzesAdminPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h4 className="text-base font-semibold text-foreground">{t('authenticatedUi.quizUi.questions')}</h4>
-                <Button size="sm" className="h-9" onClick={openCreateQuestionEditor}>
+                <Button size="sm" className="h-9" onClick={openCreateQuestionEditor} disabled={draftRecoveryUnavailable || questionConflict}>
                   <Plus className="mr-1.5 h-4 w-4" />
                   {t('common.create')} {t('authenticatedUi.quizUi.question')}
                 </Button>
               </div>
 
+              {selectedQuiz.questions.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">{copy.noQuestions}</p>}
+              {selectedQuiz.questions.length > 0 && <nav aria-label={copy.questionNavigation} className="flex flex-wrap gap-2">
+                {selectedQuiz.questions.map((question, index) => <a key={question.id} href={`#question-${question.id}`} className="inline-flex min-h-10 items-center rounded-md border border-border px-3 text-sm text-primary" aria-label={`${copy.question} ${index + 1}: ${question.text}`}>{index + 1}</a>)}
+              </nav>}
+
               {selectedQuiz.questions.map((q, i) => (
-                <Card key={q.id} className="border-border/70 shadow-none">
+                <article key={q.id} id={`question-${q.id}`} tabIndex={-1} aria-label={`${copy.question} ${i + 1}`} className="scroll-mt-4 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Card className="border-border/70 shadow-none">
                   <CardContent className="p-0">
                     <div className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 px-4 py-4 lg:grid-cols-[44px_minmax(0,1fr)_auto] lg:gap-4">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted text-sm font-medium tabular-nums text-muted-foreground">
@@ -1231,6 +1451,7 @@ export default function QuizzesAdminPage() {
                           variant="outline"
                           size="sm"
                           className="h-9"
+                          disabled={draftRecoveryUnavailable || questionConflict}
                           onClick={() => openEditQuestionEditor(q)}
                         >
                           <Pencil className="mr-1.5 h-4 w-4" />
@@ -1249,6 +1470,7 @@ export default function QuizzesAdminPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </article>
               ))}
             </div>
 
@@ -1271,6 +1493,16 @@ export default function QuizzesAdminPage() {
         className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-4xl overscroll-contain overflow-y-auto p-5 sm:p-6"
       >
         <div className="space-y-5">
+          <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+            <p className="break-words text-sm text-muted-foreground">{selectedContext ? `${selectedContext.course.title} · ${selectedContext.module.title} · ${selectedContext.lesson.title}` : t('authenticatedUi.quizUi.noLesson')} · {selectedQuiz?.title}</p>
+            <p role="status" className={`text-sm font-medium ${isQuestionEditorDirty ? 'text-amber-700' : 'text-muted-foreground'}`}>
+              {savingQuestion ? t('common.saving') : questionEditorMode === 'create' ? copy.questionNew : isQuestionEditorDirty ? copy.questionDirty : copy.questionSaved}
+            </p>
+            <p className="text-xs leading-5 text-muted-foreground">{copy.questionHint}</p>
+            <p className="text-xs leading-5 text-muted-foreground">{draftRestored ? copy.draftRestored : copy.draftNavigationHint}</p>
+          </div>
+          {questionConflict && <p role="alert" className="rounded-md border border-amber-300 p-3 text-sm">{copy.draftConflict}</p>}
+          <fieldset disabled={savingQuestion || questionConflict} className="min-w-0 space-y-5 border-0 p-0" aria-label={t('authenticatedUi.quizUi.editQuestion')}>
           <label className="block space-y-2">
             <span className="text-sm font-medium text-foreground">{t('authenticatedUi.quizUi.questionText')}</span>
             <textarea
@@ -1444,7 +1676,7 @@ export default function QuizzesAdminPage() {
               key={editingQuestionId}
               quizId={selectedQuiz.id}
               questionId={editingQuestionId}
-              isDirty={isQuestionEditorDirty}
+              isDirty={isQuestionEditorDirty || questionConflict}
               disabledReason={t('authenticatedUi.quizUi.assistantDisabled')}
             />
           ) : questionEditorMode === 'edit' && selectedQuiz && editingQuestionId ? (
@@ -1452,6 +1684,15 @@ export default function QuizzesAdminPage() {
               {t('authenticatedUi.quizUi.assistantAvailable')}
             </p>
           ) : null}
+          </fieldset>
+
+          {discardQuestionPrompt && <div role="alert" className="space-y-3 rounded-md border border-amber-300 p-3">
+            <p className="text-sm font-medium">{copy.discardTitle}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setDiscardQuestionPrompt(false)}>{copy.stay}</Button>
+              <Button variant="outline" onClick={resetQuestionEditor}>{copy.discard}</Button>
+            </div>
+          </div>}
 
           <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
             <Button variant="outline" onClick={closeQuestionEditor} disabled={savingQuestion}>
@@ -1461,6 +1702,7 @@ export default function QuizzesAdminPage() {
               onClick={handleSaveQuestion}
               disabled={
                 savingQuestion ||
+                questionConflict ||
                 !newQuestion.text.trim() ||
                 newQuestion.type === 'matching'
               }

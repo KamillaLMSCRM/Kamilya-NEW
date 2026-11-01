@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
+import { Card, CardContent, Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import Link from 'next/link';
 import { CheckCircle2, PlayCircle } from 'lucide-react';
 import { useLanguageStore } from '@/store/languageStore';
 import { assignmentSourceLabel, formatAssignmentDueAt, safeResumeHref, selectNextAssignment, studentDailyLearningCopy } from '@/features/student-daily-learning/nextAssignment';
+import { AssignmentDetails } from '@/features/student-daily-learning/AssignmentDetails';
+import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 
 interface EnrolledCourse {
   enrollment_id?: string;
@@ -39,6 +41,12 @@ interface DashboardData {
 }
 
 export default function StudentDashboardPage() {
+  const token = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
+  return <ScopedStudentDashboard key={`${token}:${user?.user_id}:${user?.tenant_id}:${user?.role}`} />;
+}
+
+function ScopedStudentDashboard() {
   const { t, tp } = useT();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,7 +116,7 @@ export default function StudentDashboardPage() {
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary">{t('student.resumeTitle')}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">{getLearnerWorkspaceCopy(lang).next}</p>
               <h2 className="mt-1 break-words text-lg font-semibold text-foreground">{nextCourse.title}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 {nextCourse.progress_percent >= 100 ? copy.remainingSteps : t('student.resumeDescription', { percent: nextCourse.progress_percent })}
@@ -182,6 +190,7 @@ export default function StudentDashboardPage() {
                   </div>
 
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
+                  <AssignmentDetails course={course} />
 
                   <div className="mb-3">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
@@ -205,7 +214,7 @@ export default function StudentDashboardPage() {
                     {course.can_resume === false ? (
                       <p className="text-sm text-muted-foreground" role="status">{copy.assignmentAccessRequired}</p>
                     ) : (
-                      <Link href={`/courses/${course.course_id}`} className="flex-1">
+                      <Link href={safeResumeHref(course)} className="flex-1">
                         <Button variant="outline" className="w-full" size="sm">
                           {course.enrollment_status === 'completed'
                             ? t('courses.viewResult')

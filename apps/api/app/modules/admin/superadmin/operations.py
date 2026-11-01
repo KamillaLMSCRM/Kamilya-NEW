@@ -608,6 +608,8 @@ class SuperadminOperationsService:
     ) -> tuple[list[AIJob], bool]:
         """Collect bounded candidates across tenants under tenant-scoped RLS."""
 
+        from app.modules.ai.v3.pending_stage_transactions import pending_sql_predicate
+
         activity_at = func.coalesce(AIJob.updated_at, AIJob.created_at)
         candidates: list[AIJob] = []
         per_tenant_limit = MAX_STALE_AI_JOB_RECOVERY + 1
@@ -618,6 +620,7 @@ class SuperadminOperationsService:
                 .where(
                     AIJob.status.in_(("pending", "running")),
                     activity_at <= cutoff,
+                    ~pending_sql_predicate(),
                 )
                 .order_by(activity_at.asc(), AIJob.created_at.asc())
                 .limit(per_tenant_limit)
@@ -929,9 +932,10 @@ class SuperadminOperationsService:
                 await self._set_tenant_context(tenant_id)
                 dirty_jobs: list[AIJob] = []
                 for job in tenant_jobs:
+                    from app.modules.ai.v3.pending_stage_transactions import has_pending
                     # The lock makes this check stable for this transaction.
                     # Keep the guard explicit so future statuses fail closed.
-                    if job.status not in {"pending", "running"}:
+                    if job.status not in {"pending", "running"} or has_pending(getattr(job, "result", None)):
                         skipped_count += 1
                         continue
                     previous_status = job.status

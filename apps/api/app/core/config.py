@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     AI_LESSON_CYCLE_DEV_ENABLED: bool = False
     AI_LESSON_CYCLE_DEV_TENANTS: list[str] = Field(default_factory=list)
     AI_QA_LUNA_DEV_ENABLED: bool = False
+    AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED: bool = False
 
     # Demo-login flags removed in favor of the simpler rule:
     #   - non-production env: admin and superadmin demo-login always work.

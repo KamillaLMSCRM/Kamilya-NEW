@@ -34,6 +34,7 @@ from app.modules.ai.generation_engine import (
     RETIRED_GENERATION_ENGINE_CODE,
     uses_current_generation_engine,
 )
+from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
     ResilientEmbeddingsClient,
@@ -110,7 +111,7 @@ async def _update_job_db(
     """Update job state; return whether a saved V2 review outcome was restored."""
     from sqlalchemy import text
 
-    from app.modules.ai.job_service import update_ai_job
+    from app.modules.ai.job_service import get_ai_job, update_ai_job
     async with async_session_factory() as session:
         tenant_value = str(tenant_id) if tenant_id else None
         if not tenant_value and delivery_id.get() is not None:
@@ -119,6 +120,13 @@ async def _update_job_db(
             await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_value})
         if tenant_value:
             await lock_owned_delivery(session, job_id, tenant_value, require_running=True)
+            if kwargs.get("status") in {"failed", "interrupted", "cancelled", "completed"}:
+                from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
+                from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+                locked_job = await get_ai_job(session, job_id, tenant_id=tenant_value, for_update=True)
+                if locked_job is not None and has_pending(locked_job.result):
+                    raise ExtractionOutcomeUnknownError("generation_stage_outcome_unknown")
         progress_detail_supplied = "progress_detail" in kwargs
         progress_detail = kwargs.pop("progress_detail", None)
         completion_result = kwargs.pop("completion_result", None)
@@ -144,6 +152,44 @@ async def _update_job_db(
                 params["progress_detail"] = progress_detail
             job.params = params  # type: ignore[assignment]
         await session.commit()
+        return False
+
+
+async def _persist_pending_stage_hold(job_id: str, tenant_id: UUID | None, user_id: UUID | None,
+                                      *, expected_qa_marker: object = None) -> bool:
+    """Persist an owned reconciliation hold, retaining or establishing a durable fence.
+
+    A killed worker or unavailable database cannot perform this transition.
+    """
+    from app.modules.ai.v3.pending_stage_transactions import _locked_job, has_pending
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+
+    if tenant_id is None or user_id is None:
+        return False
+    journal = WorkerCycleJournal(str(tenant_id), job_id, async_session_factory)
+    try:
+        async with journal.sessions() as session:
+            job = await _locked_job(session, journal, user_id)
+            if not has_pending(job.result):
+                from app.modules.ai.qa_luna_dev_route import QA_TENANT
+                from app.modules.ai.v3.pending_stage_transactions import KEY
+                from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY, POLICY
+
+                params = job.params if isinstance(job.params, dict) else {}
+                analysis = params.get("source_analysis")
+                if (tenant_id != QA_TENANT or expected_qa_marker != POLICY or job.course_id is not None
+                        or not isinstance(analysis, dict) or analysis.get(QA_KEY) != POLICY
+                        or analysis.get("generation_engine") != "evidence_v3"):
+                    return False
+                job.result = {**(job.result if isinstance(job.result, dict) else {}), KEY: None}
+            job.status = job.stage = "interrupted"
+            job.message = "Результат этапа требует проверки."
+            job.errors = ["generation_stage_outcome_unknown"]
+            job.completed_at = None
+            job.updated_at = datetime.now(UTC)
+            await session.commit()
+            return True
+    except Exception:
         return False
 
 
@@ -507,6 +553,38 @@ async def _run_v3_generation(
 
     if str(corpus.tenant_id) != str(tenant_id):
         raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, check_worker_marker
+
+    journal: Any = WorkerCycleJournal(str(tenant_id), state.job_id, async_session_factory)
+    pending_mode = False
+    if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
+        from app.modules.ai.v3.pending_stage_transactions import _locked_job
+        from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+        from app.modules.ai.v3.owned_source_context import load_owned_source_context
+
+        if not isinstance(user_id, UUID):
+            raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        async with journal.sessions() as session:
+            job = await _locked_job(session, journal, user_id)
+            analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
+            stored = analysis.get(QA_PENDING_KEY) if isinstance(analysis, dict) else None
+            dispatched = state.source_analysis.get(QA_PENDING_KEY)
+            try:
+                pending_mode = check_worker_marker(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                                                   stored=stored, dispatched=dispatched, course_id=job.course_id)
+            except ValueError as exc:
+                raise ExtractionOutcomeUnknownError("qa_luna_pending_route_unverified") from exc
+        if pending_mode:
+            journal = PendingStageJournal(str(tenant_id), user_id, state.job_id, async_session_factory)
+            context = await load_owned_source_context(journal=journal, tenant_id=tenant_id,
+                                                      user_id=user_id, job_id=state.job_id)
+            async def verify_qa_source(session: Any, job: Any, plan: dict[str, Any]) -> bool:
+                current = job.params.get("source_analysis") if isinstance(job.params, dict) else None
+                return (isinstance(current, dict) and current.get(QA_PENDING_KEY) == stored
+                        and await context.verify_locked(session, job, plan) is True)
+            journal.verify_source = verify_qa_source
+            corpus = context.corpus
     reference_decisions = await _load_owned_reference_decisions(
         state.job_id, tenant_id, user_id, list(corpus.document_ids),
     )
@@ -519,6 +597,8 @@ async def _run_v3_generation(
             temperature=policy.number("generation.temperature"),
         )
         if generation_client is None:
+            if pending_mode:
+                raise ExtractionOutcomeUnknownError("qa_luna_pending_provider_unavailable")
             generation_client = await ResilientLLMClient.from_settings_async(
                 tenant_id=tenant_id,
                 temperature=policy.number("generation.temperature"),
@@ -568,7 +648,7 @@ async def _run_v3_generation(
             state.job_id,
             tenant_id=tenant_id,
         ),
-        extraction_journal=WorkerCycleJournal(str(tenant_id), state.job_id, async_session_factory),
+        extraction_journal=journal,
         route_fingerprint=generation_client.cache_fingerprint(),
         reference_decisions=reference_decisions,
     )
@@ -978,7 +1058,8 @@ class OwnedGenerationCancelledError(asyncio.CancelledError):
 
 
 async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: list[str],
-                                       user_id: UUID | None) -> None:
+                                       user_id: UUID | None, expected_engine: str | None = None,
+                                       expected_qa_marker: Any = None) -> None:
     """Check the live job selection; this is not an atomic source snapshot."""
     from sqlalchemy import text
 
@@ -997,6 +1078,18 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
         if job.status != "running":
             raise DirectSourceError("generation_source_job_mismatch")
         _validate_generation_source_selection(job.params, documents)
+        if expected_engine is not None:
+            params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+            analysis = params.get("source_analysis")
+            stored_engine = analysis.get("generation_engine") if isinstance(analysis, dict) else None
+            if stored_engine != expected_engine:
+                raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+            if expected_engine == "evidence_v3":
+                from app.modules.ai.v3.qa_luna_pending_policy import KEY, POLICY
+                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] != POLICY:
+                    raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+                if (analysis.get(KEY) if isinstance(analysis, dict) else None) != expected_qa_marker:
+                    raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
 
 
 async def _run_generation_pipeline_inner(
@@ -1036,11 +1129,17 @@ async def _run_generation_pipeline_inner(
         # Before identity and selection are checked, this caller has no authority
         # to change a job or its reservation. A successful read is not a lease.
         try:
+            from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, POLICY as QA_PENDING_POLICY
+
+            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] != QA_PENDING_POLICY:
+                raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if not uses_current_generation_engine(state.source_analysis):
                 raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)
             if tenant_id is None:
                 raise DirectSourceError("tenant_id_required")
-            await _check_generation_source_job(job_id, tenant_id, documents, user_id)
+            await _check_generation_source_job(job_id, tenant_id, documents, user_id,
+                                               str(state.source_analysis.get("generation_engine", "")),
+                                               state.source_analysis.get("qa_luna_pending_journal_policy"))
             initial_identity_checked = True
             if re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", str(job_id)):
                 timeout_context.job_id.set(str(job_id))
@@ -1073,7 +1172,9 @@ async def _run_generation_pipeline_inner(
             return state
 
         timeout_boundary = "source_owner_db"
-        await _check_generation_source_job(job_id, tenant_id, documents, user_id)
+        await _check_generation_source_job(job_id, tenant_id, documents, user_id,
+                                               str(state.source_analysis.get("generation_engine", "")),
+                                               state.source_analysis.get("qa_luna_pending_journal_policy"))
         timeout_boundary = "direct_source"
         corpus = await load_direct_source_corpus(
             documents,
@@ -1081,7 +1182,9 @@ async def _run_generation_pipeline_inner(
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
         )
         timeout_boundary = "source_owner_db"
-        await _check_generation_source_job(job_id, tenant_id, documents, user_id)
+        await _check_generation_source_job(job_id, tenant_id, documents, user_id,
+                                               str(state.source_analysis.get("generation_engine", "")),
+                                               state.source_analysis.get("qa_luna_pending_journal_policy"))
         timeout_boundary = "generation_execution"
         engine_name = str(state.source_analysis.get("generation_engine", ""))
         if engine_name in ("evidence_v3", "v3_cogen") or not engine_name:
@@ -1148,6 +1251,12 @@ async def _run_generation_pipeline_inner(
             )
         logger.info("Evidence V2 generation complete for job %s", job_id)
         return state
+    except ExtractionOutcomeUnknownError:
+        state.status = state.stage = "interrupted"
+        state.message = "Результат этапа требует проверки."
+        state.errors = ["generation_stage_outcome_unknown"]
+        await _persist_pending_stage_hold(job_id, tenant_id, user_id,
+                                          expected_qa_marker=state.source_analysis.get("qa_luna_pending_journal_policy"))
     except GenerationJobOwnerMismatchError as error:
         # A delivery without owner authority must not update or refund this job.
         state.status = "failed"
@@ -1159,15 +1268,16 @@ async def _run_generation_pipeline_inner(
         state.stage = "interrupted"
         state.message = GENERATION_PROVIDER_INTERRUPTED_MESSAGE
         state.errors = [GENERATION_PROVIDER_INTERRUPTED_CODE]
-        await _update_job_db(
-            job_id,
-            tenant_id=tenant_id,
-            status="interrupted",
-            stage="interrupted",
-            message=state.message,
-            errors=state.errors,
-            completed_at=None,
-        )
+        try:
+            await _update_job_db(
+                job_id, tenant_id=tenant_id, status="interrupted", stage="interrupted",
+                message=state.message, errors=state.errors, completed_at=None,
+            )
+        except ExtractionOutcomeUnknownError:
+            state.message = "Результат этапа требует проверки."
+            state.errors = ["generation_stage_outcome_unknown"]
+            await _persist_pending_stage_hold(job_id, tenant_id, user_id,
+                                              expected_qa_marker=state.source_analysis.get("qa_luna_pending_journal_policy"))
         logger.warning("Evidence V2 paused after provider exhaustion for job %s", job_id)
     except SoftTimeLimitExceeded:
         if not initial_identity_checked:
@@ -1176,15 +1286,16 @@ async def _run_generation_pipeline_inner(
         state.stage = "interrupted"
         state.message = "Генерация приостановлена по лимиту времени. Продолжите задачу позднее."
         state.errors = ["generation_interrupted"]
-        await _update_job_db(
-            job_id,
-            tenant_id=tenant_id,
-            status="interrupted",
-            stage="interrupted",
-            message=state.message,
-            errors=state.errors,
-            completed_at=None,
-        )
+        try:
+            await _update_job_db(
+                job_id, tenant_id=tenant_id, status="interrupted", stage="interrupted",
+                message=state.message, errors=state.errors, completed_at=None,
+            )
+        except ExtractionOutcomeUnknownError:
+            state.message = "Результат этапа требует проверки."
+            state.errors = ["generation_stage_outcome_unknown"]
+            await _persist_pending_stage_hold(job_id, tenant_id, user_id,
+                                              expected_qa_marker=state.source_analysis.get("qa_luna_pending_journal_policy"))
         logger.warning("Evidence V2 interrupted for job %s", job_id)
     except asyncio.CancelledError as error:
         if not initial_identity_checked and not isinstance(error, OwnedGenerationCancelledError):
@@ -1202,6 +1313,13 @@ async def _run_generation_pipeline_inner(
                 completed_at=datetime.now(UTC),
                 progress_detail=None,
             )
+        except ExtractionOutcomeUnknownError:
+            state.status = state.stage = "interrupted"
+            state.message = "Результат этапа требует проверки."
+            state.errors = ["generation_stage_outcome_unknown"]
+            await _persist_pending_stage_hold(job_id, tenant_id, user_id,
+                                              expected_qa_marker=state.source_analysis.get("qa_luna_pending_journal_policy"))
+            return state
         except Exception:
             logger.exception("Could not persist cancelled generation job %s", job_id)
         if tenant_id and reservation_required:
@@ -1235,6 +1353,13 @@ async def _run_generation_pipeline_inner(
                 errors=state.errors,
                 completed_at=datetime.now(UTC),
             )
+        except ExtractionOutcomeUnknownError:
+            state.status = state.stage = "interrupted"
+            state.message = "Результат этапа требует проверки."
+            state.errors = ["generation_stage_outcome_unknown"]
+            await _persist_pending_stage_hold(job_id, tenant_id, user_id,
+                                              expected_qa_marker=state.source_analysis.get("qa_luna_pending_journal_policy"))
+            return state
         except Exception:
             logger.exception("Could not persist failed generation job %s", job_id)
         if tenant_id and reservation_required:

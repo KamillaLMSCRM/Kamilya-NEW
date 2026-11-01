@@ -23,6 +23,18 @@ function leafStrings(value: unknown, prefix = ''): Array<[string, string]> {
 const englishPlaceholder = /^(?:Configure |No (?:procedures|retention)|New |Create |Edit(?: |$)|Stable |Procedure |Confirmation |Retention |Evidence |Legal |Internal |Acknowledgement|Admission |Manual |Email |One-time |Could |This |Draft|Active|Retired|Preview|Execution|Policy|Training|Knowledge|Separate |Commission |Authorized |Effective|Approval |Name$|Description$|Version$|Type$|Quorum$|Record$|Rule$|Days$|Activate$|Retire$|Purge|Delete |Run |The |Add |Cannot |Available|Section|Action)/i;
 
 describe('training procedure and retention translations', () => {
+  it('localizes retained evidence downloads and signed-copy controls in all three languages', () => {
+    for (const locale of Object.values(locales)) {
+      expect(leafKeys(locale.evidenceConfirmation)).toEqual(leafKeys(en.evidenceConfirmation));
+      expect(locale.evidenceConfirmation.downloadPdf).toBeTruthy();
+      expect(locale.evidenceConfirmation.signedCopyUpload).toBeTruthy();
+      expect(locale.evidenceConfirmation.noEmailFallback).toBeTruthy();
+      expect(locale.evidenceConfirmation.signedCopyReplace).toContain('{reason}');
+    }
+    expect(en.evidenceConfirmation.downloadPdf).toBe('Download completion record');
+    expect(en.evidenceConfirmation.pdfDescription).not.toMatch(/[А-Яа-яЁё]/);
+    expect(kk.evidenceConfirmation.downloadPdf).not.toBe(ru.evidenceConfirmation.downloadPdf);
+  });
   it('keeps the two section structures identical in ru, kk and en', () => {
     for (const section of sections) {
       const expected = leafKeys(locales.en[section]);

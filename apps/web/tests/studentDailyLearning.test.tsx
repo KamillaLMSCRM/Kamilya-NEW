@@ -107,7 +107,7 @@ describe('learner daily assignment selection', () => {
       .toBe(`/courses/${id}?lessonId=123e4567-e89b-42d3-a456-426614174001`);
     expect(safeResumeHref(course({ resume_href: 'https://example.com/courses/other' }))).toBe(`/courses/${id}`);
     expect(safeResumeHref(course({ resume_href: `/courses/${id}/edit` }))).toBe(`/courses/${id}`);
-    expect(safeResumeHref(course({ course_id: '../admin', resume_href: '/../admin' }))).toBe('/courses');
+    expect(safeResumeHref(course({ course_id: '../admin', resume_href: '/../admin' }))).toBe('/my-courses');
   });
 
   it('localizes assignment sources and learner error recovery in all supported languages', () => {
@@ -152,9 +152,9 @@ describe('student dashboard request state', () => {
       json: async () => ({
         user_id: 'learner', full_name: 'Learner',
         enrolled_courses: [
-          { course_id: 'completed-course', title: 'Completed', description: '', enrollment_status: 'completed', can_resume: true, progress_percent: 100, total_lessons: 1, completed_lessons: 1 },
-          { course_id: 'active-course', title: 'Active', description: '', enrollment_status: 'in_progress', can_resume: true, progress_percent: 50, total_lessons: 2, completed_lessons: 1 },
-          { course_id: 'new-course', title: 'New', description: '', enrollment_status: 'in_progress', can_resume: true, progress_percent: 0, total_lessons: 2, completed_lessons: 0 },
+          { course_id: '123e4567-e89b-42d3-a456-426614174000', title: 'Completed', description: '', enrollment_status: 'completed', can_resume: true, progress_percent: 100, total_lessons: 1, completed_lessons: 1 },
+          { course_id: '123e4567-e89b-42d3-a456-426614174001', title: 'Active', description: '', enrollment_status: 'in_progress', can_resume: true, progress_percent: 50, total_lessons: 2, completed_lessons: 1 },
+          { course_id: '123e4567-e89b-42d3-a456-426614174002', title: 'New', description: '', enrollment_status: 'in_progress', can_resume: true, progress_percent: 0, total_lessons: 2, completed_lessons: 0 },
         ],
         total_courses: 3, completed_courses: 1, total_progress_percent: 50, certificates_count: 1,
       }),
@@ -162,8 +162,8 @@ describe('student dashboard request state', () => {
     render(<StudentDashboardPage />);
 
     expect(await screen.findByText('courses.viewResult')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'courses.viewResult' })).toHaveAttribute('href', '/courses/completed-course');
-    expect(screen.getAllByRole('link', { name: 'courses.continueCourse' }).some((link) => link.getAttribute('href') === '/courses/active-course')).toBe(true);
+    expect(screen.getByRole('link', { name: 'courses.viewResult' })).toHaveAttribute('href', '/courses/123e4567-e89b-42d3-a456-426614174000');
+    expect(screen.getAllByRole('link', { name: 'courses.continueCourse' }).some((link) => link.getAttribute('href') === '/courses/123e4567-e89b-42d3-a456-426614174001')).toBe(true);
     expect(screen.getAllByText('courses.continueCourse').length).toBeGreaterThan(0);
     expect(screen.getByText('courses.startCourse')).toBeInTheDocument();
   });

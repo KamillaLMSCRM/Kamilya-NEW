@@ -11,6 +11,9 @@ import { toast } from '@/components/ui/Toast';
 import { CheckCircle2, Download, Loader2, XCircle } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { isPdfPreview } from '@/lib/pdfPreview';
+import { useLanguageStore } from '@/store/languageStore';
+import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
+import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
 
 interface QuizChoice {
   id: string;
@@ -77,6 +80,7 @@ interface CourseModule {
 interface AssignmentAccessWindow {
   server_now: string;
   access_policy: {
+    enrollment_id?: string;
     completion_window_expires_at: string | null;
     due_at: string | null;
   };
@@ -84,17 +88,33 @@ interface AssignmentAccessWindow {
 
 export default function QuizPlayerPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const token = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
+  // A refreshed credential is not a new attempt. Reset only on a session,
+  // actor/tenant/role or learning-context transition, never token rotation.
+  const scope = `${params?.quizId}:${searchParams.get('courseId')}:${searchParams.get('lessonId')}:${Boolean(token)}:${user?.user_id}:${user?.tenant_id}:${user?.role}`;
+  return <ScopedQuizPlayer key={scope} />;
+}
+
+function ScopedQuizPlayer() {
+  const params = useParams();
   const quizId = params?.quizId as string;
   const searchParams = useSearchParams();
   const router = useRouter();
   const parentCourseId = searchParams.get('courseId');
   const { t } = useT();
+  const lang = useLanguageStore((state) => state.lang);
+  const copy = getLearnerWorkspaceCopy(lang);
   const token = useAuthStore((s) => s.accessToken);
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
   const user = useAuthStore((s) => s.user);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -110,8 +130,17 @@ export default function QuizPlayerPage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const handleSubmitRef = useRef<() => void>(() => undefined);
   const attemptStartedAtRef = useRef(Date.now());
+  const mountedRef = useRef(true);
+  const loadGenerationRef = useRef(0);
+  const submitPendingRef = useRef(false);
+  const assignmentIdentityRef = useRef<string | null | undefined>(undefined);
+  const actionGenerationRef = useRef(0);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; loadGenerationRef.current += 1; };
+  }, []);
   const attemptsUsed = attempts.length;
-  const canAttempt = quiz !== null && attemptsLoaded && attemptsUsed < quiz.attempt_limit;
+  const canAttempt = user?.role === 'student' && quiz !== null && attemptsLoaded && attemptsUsed < quiz.attempt_limit;
 
   const getChoiceLabel = (choice: QuizChoice) => choice.text;
 
@@ -119,17 +148,21 @@ export default function QuizPlayerPage() {
     if (!token || downloadingAttemptId) return;
     setDownloadingAttemptId(attemptId);
     setDownloadError(null);
+    const actionGeneration = actionGenerationRef.current;
+    const isCurrentAction = () => mountedRef.current && actionGeneration === actionGenerationRef.current;
     try {
       const response = await fetch(`${API_URL}/v1/training-evidence/quiz-attempts/mine/${encodeURIComponent(attemptId)}/export`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!isCurrentAction()) return;
       if (response.status === 409) {
-        setDownloadError('Бланк для этой попытки недоступен. Обратитесь к методисту: он проверит результат в журнале обучения.');
+        setDownloadError(copy.legacyDownload);
         return;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       if (!await isPdfPreview(blob)) throw new Error('Invalid PDF');
+      if (!isCurrentAction()) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -140,35 +173,67 @@ export default function QuizPlayerPage() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch {
-      setDownloadError('Не удалось скачать результат теста. Повторите попытку.');
+      if (isCurrentAction()) setDownloadError(copy.downloadFailed);
     } finally {
-      setDownloadingAttemptId(null);
+      if (isCurrentAction()) setDownloadingAttemptId(null);
     }
-  }, [API_URL, downloadingAttemptId, token]);
+  }, [API_URL, downloadingAttemptId, token, copy]);
 
   const fetchQuiz = useCallback(async () => {
-    if (!quizId || !token) return;
+    const requestToken = tokenRef.current;
+    if (!quizId || !requestToken) return;
+    const generation = ++loadGenerationRef.current;
+    const isCurrent = () => mountedRef.current && generation === loadGenerationRef.current;
+    setLoading(true);
+    setLoadError(false);
     setAttemptsLoaded(false);
     try {
       const [quizRes, attemptsRes, structureRes, accessWindowRes] = await Promise.all([
-        fetch(`${API_URL}/v1/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_URL}/v1/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${requestToken}` } }),
+        fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${requestToken}` } }),
         parentCourseId
-          ? fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${token}` } })
+          ? fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${requestToken}` } })
           : Promise.resolve(null),
         parentCourseId
-          ? fetch(`${API_URL}/v1/courses/${parentCourseId}/access-window`, { headers: { Authorization: `Bearer ${token}` } })
+          ? fetch(`${API_URL}/v1/courses/${parentCourseId}/access-window`, { headers: { Authorization: `Bearer ${requestToken}` } })
           : Promise.resolve(null),
       ]);
+      if (!isCurrent()) return;
+      const accessWindow: AssignmentAccessWindow | null = accessWindowRes?.ok ? await accessWindowRes.json() : null;
+      if (!isCurrent()) return;
+      if (!parentCourseId || accessWindowRes?.ok) {
+        const assignmentIdentity = accessWindow?.access_policy.enrollment_id ?? null;
+        if (assignmentIdentityRef.current !== undefined && assignmentIdentityRef.current !== assignmentIdentity) {
+          actionGenerationRef.current += 1;
+          submitPendingRef.current = false;
+          setAnswers({});
+          setResult(null);
+          setCurrentIdx(0);
+          setTimeLeft(null);
+          setAttempts([]);
+          setCourseModules([]);
+          setAssignmentDeadlineMs(null);
+          setAssignmentRemainingSeconds(null);
+          setDownloadError(null);
+          setDownloadingAttemptId(null);
+          setSubmitting(false);
+          attemptStartedAtRef.current = Date.now();
+        }
+        assignmentIdentityRef.current = assignmentIdentity;
+      }
+      if (!quizRes.ok) throw new Error('quiz_unavailable');
       if (quizRes.ok) {
         const data = await quizRes.json();
+        if (!isCurrent()) return;
+        if (!data || data.id !== quizId || !Array.isArray(data.questions)) throw new Error('invalid_quiz');
         setQuiz(data);
         if (!parentCourseId && data.time_limit) {
-          setTimeLeft(data.time_limit * 60);
+          setTimeLeft((current) => current ?? data.time_limit * 60);
         }
       }
       if (attemptsRes?.ok) {
         const history = await attemptsRes.json();
+        if (!isCurrent()) return;
         if (Array.isArray(history)) {
           setAttempts(history);
           setAttemptsLoaded(true);
@@ -176,10 +241,10 @@ export default function QuizPlayerPage() {
       }
       if (structureRes?.ok) {
         const structure = await structureRes.json();
+        if (!isCurrent()) return;
         setCourseModules(structure.modules || []);
       }
       if (accessWindowRes?.ok) {
-        const accessWindow: AssignmentAccessWindow | null = await accessWindowRes.json();
         if (accessWindow) {
           const serverNowMs = Date.parse(accessWindow.server_now);
           const deadlines = [
@@ -196,11 +261,11 @@ export default function QuizPlayerPage() {
       }
     } catch {
       // Unconfirmed attempt history must never grant permission to submit.
-      setAttemptsLoaded(false);
+      if (isCurrent()) { setAttemptsLoaded(false); setLoadError(true); }
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [quizId, token, API_URL, parentCourseId]);
+  }, [quizId, API_URL, parentCourseId]);
 
   useEffect(() => {
     fetchQuiz();
@@ -252,11 +317,14 @@ export default function QuizPlayerPage() {
   };
 
   const handleSubmit = async (timerExpired = false) => {
-    if (!quizId || !token || submitting || result || attemptBlocked) return;
+    if (!quizId || !token || submitPendingRef.current || submitting || result || attemptBlocked) return;
     // Only timer expiry may consume an incomplete attempt. Manual submission
     // must match the visible progress count, including deselected multi-selects.
     if (!timerExpired && (!quiz?.questions.length || quiz.questions.some((q) => !answers[q.id]?.length))) return;
     setSubmitting(true);
+    submitPendingRef.current = true;
+    const actionGeneration = actionGenerationRef.current;
+    const isCurrentAction = () => mountedRef.current && actionGeneration === actionGenerationRef.current;
     try {
       const submission = {
         answers: quiz?.questions.map((q) => ({
@@ -272,15 +340,19 @@ export default function QuizPlayerPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(submission),
       });
+      if (!isCurrentAction()) return;
       if (res.ok) {
         const data = await res.json();
+        if (!isCurrentAction()) return;
         setResult(data);
         if (timerRef.current) clearInterval(timerRef.current);
         setAttemptsLoaded(false);
         try {
-          const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${token}` } });
+          const attemptsRes = await fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${tokenRef.current}` } });
+          if (!isCurrentAction()) return;
           if (attemptsRes.ok) {
             const history = await attemptsRes.json();
+            if (!isCurrentAction()) return;
             if (Array.isArray(history)) {
               setAttempts(history);
               setAttemptsLoaded(true);
@@ -289,17 +361,19 @@ export default function QuizPlayerPage() {
         } catch {
           // Keep the confirmed result, but do not retry with stale attempt data.
         }
+        if (!isCurrentAction()) return;
         toast.dismiss();
         const scorePercent = data.attempt.score_percent;
         toast.success(`${data.passed ? t('quiz.passed') : t('quiz.failed')} ${t('quiz.result', { score: scorePercent })}`);
       } else {
         const err = await res.json();
+        if (!isCurrentAction()) return;
         toast.error(t('common.saveFailed'), { description: err.detail || t('quiz.submissionFailedDescription') });
       }
     } catch {
-      toast.error(t('common.saveFailed'), { description: t('quiz.submissionFailedDescription') });
+      if (isCurrentAction()) toast.error(t('common.saveFailed'), { description: t('quiz.submissionFailedDescription') });
     } finally {
-      setSubmitting(false);
+      if (isCurrentAction()) { submitPendingRef.current = false; setSubmitting(false); }
     }
   };
 
@@ -311,6 +385,7 @@ export default function QuizPlayerPage() {
     setResult(null);
     setAnswers({});
     setCurrentIdx(0);
+    setTimeLeft(null);
     setLoading(true);
     attemptStartedAtRef.current = Date.now();
     fetchQuiz();
@@ -322,8 +397,8 @@ export default function QuizPlayerPage() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
-  if (!quiz) return <div className="p-6">{t('common.error')}: Quiz not found</div>;
+  if (loading && !result) return <div className="p-6">{t('common.loading')}</div>;
+  if (!quiz || (loadError && !result)) return <div className="space-y-3 p-6" role="alert"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchQuiz()}>{t('common.retry')}</Button></div>;
 
   const currentQ = quiz.questions[currentIdx];
   const totalQuestions = quiz.questions.length;
@@ -349,10 +424,10 @@ export default function QuizPlayerPage() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <div className="max-w-3xl mx-auto p-6 space-y-6">
+      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">{quiz.title}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">{result ? copy.result : t('quiz.passScore') + ': ' + quiz.pass_score + '%'}</p><h1 className="break-words text-xl font-bold">{quiz.title}</h1></div>
           <div className="flex items-center gap-4">
             {visibleRemainingSeconds !== null && !result && (
               <div
@@ -386,7 +461,8 @@ export default function QuizPlayerPage() {
 
         {!canAttempt && !result && (
           <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive space-y-3">
-            <p>{t(attemptsLoaded ? 'quiz.attemptLimit' : 'quiz.attemptHistoryUnavailable')}</p>
+            <p>{user?.role !== 'student' ? t('courses.backToCourse') : t(attemptsLoaded ? 'quiz.attemptLimit' : 'quiz.attemptHistoryUnavailable')}</p>
+            {!attemptsLoaded && <Button variant="outline" onClick={() => void fetchQuiz()}>{t('common.retry')}</Button>}
             {courseHref ? (
               <Link href={courseHref} className="underline">{t('courses.backToCourse')}</Link>
             ) : (
@@ -402,22 +478,24 @@ export default function QuizPlayerPage() {
               <div className={`${result.passed ? 'text-success' : 'text-destructive'}`}>
                 {result.passed ? <CheckCircle2 className="w-12 h-12 mx-auto" /> : <XCircle className="w-12 h-12 mx-auto" />}
               </div>
-              <p className="text-lg font-semibold">
+              <p className="text-lg font-semibold" role="status">
                 {result.message}
               </p>
+              <p className="text-sm text-muted-foreground">{result.passed ? copy.passHint : copy.failHint}</p>
               <p className="text-sm text-muted-foreground">
-                {resultScore}%
+                {resultScore}% · {t('quiz.passScore')}: {quiz.pass_score}%
               </p>
+              {!result.passed && <div className="space-y-2"><p className="text-sm" role="status">{!attemptsLoaded ? t('quiz.attemptHistoryUnavailable') : attemptsUsed >= quiz.attempt_limit ? copy.exhausted : `${copy.attemptsRemaining}: ${Math.max(0, quiz.attempt_limit - attemptsUsed)}`}</p>{!attemptsLoaded && <Button variant="outline" onClick={() => void fetchQuiz()}>{t('common.retry')}</Button>}</div>}
               <Button
                 variant="outline"
                 onClick={() => void downloadAttempt(result.attempt.id)}
                 disabled={downloadingAttemptId !== null}
               >
                 {downloadingAttemptId === result.attempt.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                {downloadingAttemptId === result.attempt.id ? 'Подготовка PDF…' : 'Скачать результат теста'}
+                {downloadingAttemptId === result.attempt.id ? copy.preparing : copy.download}
               </Button>
               {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
-              <div className="flex gap-3 justify-center mt-4">
+              <div className="flex flex-wrap gap-3 justify-center mt-4">
                 {canAttempt && !assignmentBlocked && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
@@ -445,6 +523,14 @@ export default function QuizPlayerPage() {
           </Card>
         )}
 
+        {result?.training_evidence_event_id && user?.role === 'student' && (
+          <LearnerEvidenceConfirmation
+            eventId={result.training_evidence_event_id}
+            activityTitle={quiz.title}
+            activityKind="quiz"
+          />
+        )}
+
         {result?.passed && !nextLessonHref && (
           <Card>
             <CardContent className="space-y-3 p-5">
@@ -467,6 +553,7 @@ export default function QuizPlayerPage() {
               return (
                 <button
                   key={q.id}
+                  aria-current={i === currentIdx ? 'step' : undefined}
                   onClick={() => setCurrentIdx(i)}
                   disabled={attemptBlocked}
                   className={`w-9 h-9 rounded-full text-sm font-medium border transition-colors ${
@@ -571,7 +658,7 @@ export default function QuizPlayerPage() {
                       {a.passed ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                     </span>
                     <span className="text-muted-foreground">
-                      {new Date(a.started_at).toLocaleDateString('ru-RU')}
+                      {new Date(a.started_at).toLocaleDateString(lang)}
                     </span>
                     <Button
                       type="button"
@@ -581,7 +668,7 @@ export default function QuizPlayerPage() {
                       disabled={downloadingAttemptId !== null}
                     >
                       {downloadingAttemptId === a.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
-                      {downloadingAttemptId === a.id ? 'Подготовка…' : 'Скачать PDF'}
+                      {downloadingAttemptId === a.id ? copy.preparing : copy.downloadPdf}
                     </Button>
                   </div>
                 ))}
