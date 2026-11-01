@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — V3 generation DEV candidate, 2026-11-01
+
+- Preserve verified source context and references during lesson and question
+  generation; keep uncertain or unmatched evidence for methodologist review.
+- Retain original questions when a proposed repair fails independent review,
+  and preserve question citations through authoring and course release.
+- Resume completed generation stages without silently repeating a request
+  whose outcome is unknown. Full-course acceptance and deployment remain open.
+
 ### Fixed — local generation candidate, 2026-10-30
 
 - Recover committed lesson bodies, surface/teaching evidence and questions with
