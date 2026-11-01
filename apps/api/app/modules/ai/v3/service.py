@@ -1630,10 +1630,16 @@ async def generate_v3_course_from_corpus(
     route_fingerprint: str = "",
     reference_decisions: tuple[SourceReferenceDecision, ...] = (),
     allow_unreviewed_on_unknown: bool = False,
+    direct_client: Any = None,
+    direct_max_output_tokens: int = 8192,
 ) -> GenerationArtifacts:
     """End-to-end generator integrating V3 Co-Generation with production direct-source corpus."""
     if allow_unreviewed_on_unknown and extraction_journal is None:
         raise ValueError("v3_unknown_review_requires_journal")
+    if direct_client is not None and extraction_journal is None:
+        raise ValueError("direct_owned_journal_required")
+    if direct_client is not None and direct_max_output_tokens != 8192:
+        raise ValueError("direct_owned_output_policy_invalid")
     full_text, doc_sha = _extract_corpus_text(corpus)
     source_documents = tuple(doc.source_text if doc.source_text is not None else
                              "\n\n".join(chunk.text.strip() for chunk in doc.chunks if chunk.text.strip())
@@ -1681,6 +1687,7 @@ async def generate_v3_course_from_corpus(
 
         rule_model, extraction_warnings = await extract_partitioned_rule_model(
             corpus, extraction_journal, route_fingerprint, llm_invoker, cancellation_callback,
+            direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens,
         )
     else:
         rule_model = await pipeline.extract_rule_model(
@@ -1751,7 +1758,8 @@ async def generate_v3_course_from_corpus(
 
                 return await stage_once(extraction_journal, stage=stage, group_id=group_id,
                                         source_sha256=doc_sha, route_fingerprint=route_fingerprint,
-                                        messages=messages, response_format=response_format, invoke=invoke)
+                                        messages=messages, response_format=response_format, invoke=invoke,
+                                        direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens)
 
             return V3GenerationPipeline(invoke_stage)
 

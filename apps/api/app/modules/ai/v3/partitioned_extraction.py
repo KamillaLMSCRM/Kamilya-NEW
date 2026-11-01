@@ -55,6 +55,7 @@ async def extract_partitioned_rule_model(
     route_fingerprint: str,
     invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
+    *, direct_client: Any = None, direct_max_output_tokens: int = 8192,
 ) -> tuple[DocumentRuleModel, list[str]]:
     """Extract exact source units. Context is navigational, never coverage proof."""
     if not corpus.documents or any(doc.source_text is None or not doc.source_revision for doc in corpus.documents):
@@ -104,7 +105,8 @@ async def extract_partitioned_rule_model(
             async def call(payload: list[dict[str, str]] = messages) -> dict[str, Any]:
                 return await invoke(payload, {"type": "json_object"})
 
-            response = await extract_once(journal, identity, call)
+            response = await extract_once(journal, identity, call, direct_client=direct_client,
+                                          direct_messages=messages, direct_max_output_tokens=direct_max_output_tokens)
             source_section = source_section_label(doc.source_text, unit)
             if source_section and len(corpus.documents) > 1:
                 source_section = f"{doc.title} (документ {doc_index}): {source_section}"

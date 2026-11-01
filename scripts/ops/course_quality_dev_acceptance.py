@@ -30,6 +30,7 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = ROOT / "apps" / "api"
 TERMINAL_JOB_STATUSES = {"completed", "failed", "cancelled"}
+HELD_JOB_STATUSES = {"interrupted", "reconciliation_required"}
 QA_TENANT_ID = "a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"
 QA_METHODOLOGIST_ID = "5187fa5f-c046-4e35-945e-5c95f469a886"
 
@@ -358,7 +359,7 @@ def poll_job(
         if marker != last_marker:
             stage(f"{label}:{marker[0]}:{marker[1]}:{marker[2]}")
             last_marker = marker
-        if marker[0] in TERMINAL_JOB_STATUSES:
+        if marker[0] in TERMINAL_JOB_STATUSES | HELD_JOB_STATUSES:
             return payload
         time.sleep(4)
     raise AcceptanceError(f"{label}_timeout")

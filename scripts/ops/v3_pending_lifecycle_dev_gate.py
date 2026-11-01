@@ -206,6 +206,102 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
             raise AssertionError("pending_race_replay_invalid")
         checks.append("concurrent_distinct_digest_claim_fenced")
         checks.extend(("owned_sequential_duplicate_finalize", "foreign_tenant_user_denied"))
+
+        from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient, ResponsesClientError
+        from app.modules.ai.direct_luna_responses_contract import COUNT_ENDPOINT, GENERATION_ENDPOINT
+        from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+        from app.modules.ai.v3.stage_checkpoint import stage_once, stage_plan
+
+        async def verify_fixture(_session: Any, _job: Any, _plan: Any) -> bool:
+            return True  # Synthetic fixture only; no source-fidelity claim.
+
+        direct_journal = PendingStageJournal(str(tenant_a), user_id, job_a, sessions, verify_source=verify_fixture)
+        client = DirectLunaResponsesClient(api_key="synthetic-only", tenant_id=tenant_a, user_id=user_id, job_id=job_a)
+        calls: list[str] = []
+        mode = "success"
+
+        async def fake_post(endpoint: str, _payload: dict[str, Any]) -> str:
+            if endpoint not in (COUNT_ENDPOINT, GENERATION_ENDPOINT):
+                raise AssertionError("direct_gate_unexpected_endpoint")
+            calls.append(endpoint)
+            async with sessions() as check:
+                await canonical.set_tenant(check, tenant_a)
+                pending = await check.scalar(select(pending_sql_predicate()).where(AIJob.id == job_a))
+            if endpoint == COUNT_ENDPOINT:
+                if pending is not False:
+                    raise AssertionError("direct_count_after_claim")
+                if mode == "count_failure":
+                    raise ResponsesClientError("synthetic_count_failure")
+                return json.dumps({"object": "response.input_tokens", "input_tokens": 12})
+            if pending is not True:
+                raise AssertionError("direct_generation_without_claim")
+            if mode == "unknown":
+                raise ResponsesClientError("synthetic_unknown")
+            return json.dumps({"model": "gpt-6-luna", "status": "completed", "output": [
+                {"type": "message", "role": "assistant", "status": "completed",
+                 "content": [{"type": "output_text", "text": '{"ok":true}'}]}]})
+
+        # Replace the only transport method before stage invocation. No provider
+        # endpoint can be reached by this exercise.
+        client._post = fake_post
+
+        async def forbidden_legacy() -> dict[str, Any]:
+            raise AssertionError("direct_gate_legacy_invoke")
+
+        async def direct_stage(group: str) -> dict[str, Any]:
+            return await stage_once(direct_journal, stage="lesson", group_id=group,
+                source_sha256="a" * 64, route_fingerprint="b" * 64,
+                messages=[{"role": "user", "content": "synthetic"}], response_format={"type": "json_object"},
+                invoke=forbidden_legacy, direct_client=client, direct_max_output_tokens=128)
+
+        try:
+            if await direct_stage("direct-success") != {"ok": True}:
+                raise AssertionError("direct_result_invalid")
+            if await direct_stage("direct-success") != {"ok": True} or calls != [COUNT_ENDPOINT, GENERATION_ENDPOINT]:
+                raise AssertionError("direct_replay_called_transport")
+            mode = "count_failure"
+            try:
+                await direct_stage("direct-count-failure")
+            except ResponsesClientError:
+                pass
+            else:
+                raise AssertionError("direct_count_failure_accepted")
+            async with sessions() as check:
+                await canonical.set_tenant(check, tenant_a)
+                if await check.scalar(select(pending_sql_predicate()).where(AIJob.id == job_a)) is not False:
+                    raise AssertionError("direct_count_failure_claimed")
+                failed_plan = stage_plan(direct_journal, stage="lesson", group_id="direct-count-failure",
+                    source_sha256="a" * 64, route_fingerprint="b" * 64,
+                    messages=[{"role": "user", "content": "synthetic"}], response_format={"type": "json_object"})
+                failed_digest = _digest(failed_plan)
+                result_key = direct_journal._owned_key(f"v3-stage-result:{failed_digest}")
+                claim_key = direct_journal._owned_key(f"v3-stage-claim:{failed_digest}")
+                plans = await check.scalar(text("""SELECT count(*) FROM ai_generation_runs
+                    WHERE tenant_id = CAST(:tenant AS uuid) AND source_job_id = :job
+                    AND generation_key IN (:result_key, :claim_key)"""),
+                    {"tenant": str(tenant_a), "job": job_a, "result_key": result_key, "claim_key": claim_key})
+                if plans != 0:
+                    raise AssertionError("direct_count_failure_plan_exists")
+            mode = "unknown"
+            try:
+                await direct_stage("direct-unknown")
+            except ExtractionOutcomeUnknownError:
+                pass
+            else:
+                raise AssertionError("direct_unknown_not_held")
+            before = list(calls)
+            try:
+                await direct_stage("direct-unknown")
+            except ExtractionOutcomeUnknownError:
+                pass
+            else:
+                raise AssertionError("direct_unknown_retried")
+            if calls != before or calls != [COUNT_ENDPOINT, GENERATION_ENDPOINT, COUNT_ENDPOINT,
+                                            COUNT_ENDPOINT, GENERATION_ENDPOINT]:
+                raise AssertionError("direct_call_count_invalid")
+            checks.append("direct_fake_count_claim_replay_unknown")
+        finally:
+            client.close()
     finally:
         delivery_id.reset(token)
 
@@ -255,7 +351,7 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
         base.exercise = original
     expected = {"runtime_role_restricted", "migration_upgrade_downgrade_reupgrade", "rls_force_and_acl",
                 "sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
-                "concurrent_distinct_digest_claim_fenced"}
+                "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True
             or result.get("passed") is not True or result.get("cleanup") is not True

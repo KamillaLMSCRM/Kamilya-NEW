@@ -46,3 +46,12 @@ def test_appended_checks_match_expected_gate_checks():
     assignment = next(node for node in execute.body if isinstance(node, ast.Assign)
                       and any(isinstance(target, ast.Name) and target.id == "expected" for target in node.targets))
     assert names | {"runtime_role_restricted", "migration_upgrade_downgrade_reupgrade", "rls_force_and_acl"} == ast.literal_eval(assignment.value)
+
+
+def test_direct_gate_installs_fake_transport_and_checks_all_boundaries():
+    source = PATH.read_text(encoding="utf-8")
+    for token in ("client._post = fake_post", "direct_gate_unexpected_endpoint", "direct_count_after_claim",
+                  "direct_generation_without_claim", "direct_replay_called_transport",
+                  "direct_count_failure_claimed", "direct_count_failure_plan_exists", "direct_unknown_retried", "direct_call_count_invalid",
+                  "direct_fake_count_claim_replay_unknown"):
+        assert token in source

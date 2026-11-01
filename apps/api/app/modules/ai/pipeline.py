@@ -173,12 +173,12 @@ async def _persist_pending_stage_hold(job_id: str, tenant_id: UUID | None, user_
             if not has_pending(job.result):
                 from app.modules.ai.qa_luna_dev_route import QA_TENANT
                 from app.modules.ai.v3.pending_stage_transactions import KEY
-                from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY, POLICY
+                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY as QA_KEY, POLICY
 
                 params = job.params if isinstance(job.params, dict) else {}
                 analysis = params.get("source_analysis")
-                if (tenant_id != QA_TENANT or expected_qa_marker != POLICY or job.course_id is not None
-                        or not isinstance(analysis, dict) or analysis.get(QA_KEY) != POLICY
+                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY) or job.course_id is not None
+                        or not isinstance(analysis, dict) or analysis.get(QA_KEY) != expected_qa_marker
                         or analysis.get("generation_engine") != "evidence_v3"):
                     return False
                 job.result = {**(job.result if isinstance(job.result, dict) else {}), KEY: None}
@@ -554,10 +554,11 @@ async def _run_v3_generation(
     if str(corpus.tenant_id) != str(tenant_id):
         raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
-    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, check_worker_marker
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY as QA_PENDING_KEY, check_worker_marker
 
     journal: Any = WorkerCycleJournal(str(tenant_id), state.job_id, async_session_factory)
     pending_mode = False
+    direct_client: Any = None
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.pending_stage_transactions import _locked_job
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -591,11 +592,19 @@ async def _run_v3_generation(
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
-        generation_client = await qa_luna_dev_client(
-            settings=get_settings(),
-            tenant_id=tenant_id,
-            temperature=policy.number("generation.temperature"),
-        )
+        if pending_mode and state.source_analysis.get(QA_PENDING_KEY) == DIRECT_POLICY:
+            from app.modules.ai.direct_luna_responses_factory import create_direct_qa_responses_client
+
+            try:
+                direct_client = create_direct_qa_responses_client(settings=get_settings(), tenant_id=tenant_id,
+                    user_id=user_id, job_id=state.job_id)
+            except ValueError as exc:
+                raise ExtractionOutcomeUnknownError("direct_qa_responses_unavailable") from exc
+            generation_client = direct_client
+        else:
+            generation_client = await qa_luna_dev_client(
+                settings=get_settings(), tenant_id=tenant_id, temperature=policy.number("generation.temperature"),
+            )
         if generation_client is None:
             if pending_mode:
                 raise ExtractionOutcomeUnknownError("qa_luna_pending_provider_unavailable")
@@ -635,23 +644,28 @@ async def _run_v3_generation(
             progress_detail=detail,
         )
 
-    artifacts = await generate_v3_course_from_corpus(
-        corpus,
-        intent=CourseIntent(
-            purpose=(guidance or "").strip(),
-            audience=target_audience.strip(),
-            emphasis=tuple(value.strip() for value in (goals or []) if value.strip()),
-        ),
-        generation_client=generation_client,
-        progress_callback=report_progress,
-        cancellation_callback=lambda: _check_cancelled_async(
-            state.job_id,
-            tenant_id=tenant_id,
-        ),
-        extraction_journal=journal,
-        route_fingerprint=generation_client.cache_fingerprint(),
-        reference_decisions=reference_decisions,
-    )
+    try:
+        artifacts = await generate_v3_course_from_corpus(
+            corpus,
+            intent=CourseIntent(
+                purpose=(guidance or "").strip(),
+                audience=target_audience.strip(),
+                emphasis=tuple(value.strip() for value in (goals or []) if value.strip()),
+            ),
+            generation_client=generation_client,
+            progress_callback=report_progress,
+            cancellation_callback=lambda: _check_cancelled_async(
+                state.job_id,
+                tenant_id=tenant_id,
+            ),
+            extraction_journal=journal,
+            route_fingerprint=generation_client.cache_fingerprint(),
+            reference_decisions=reference_decisions,
+            direct_client=direct_client,
+        )
+    finally:
+        if direct_client is not None:
+            direct_client.close()
 
     requires_review = bool(
         artifacts.diagnostics.get("requires_source_review", True)
@@ -1085,8 +1099,8 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
             if stored_engine != expected_engine:
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if expected_engine == "evidence_v3":
-                from app.modules.ai.v3.qa_luna_pending_policy import KEY, POLICY
-                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] != POLICY:
+                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY, POLICY
+                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY):
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
                 if (analysis.get(KEY) if isinstance(analysis, dict) else None) != expected_qa_marker:
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
@@ -1129,9 +1143,9 @@ async def _run_generation_pipeline_inner(
         # Before identity and selection are checked, this caller has no authority
         # to change a job or its reservation. A successful read is not a lease.
         try:
-            from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, POLICY as QA_PENDING_POLICY
+            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY as QA_PENDING_KEY, POLICY as QA_PENDING_POLICY
 
-            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] != QA_PENDING_POLICY:
+            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY):
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if not uses_current_generation_engine(state.source_analysis):
                 raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)

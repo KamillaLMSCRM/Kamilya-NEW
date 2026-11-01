@@ -157,3 +157,86 @@ async def test_pending_v3_provider_unavailable_never_falls_back(monkeypatch):
         await pipeline._run_v3_generation(state, corpus, tenant_id=QA_TENANT, user_id=user,
             target_audience="", guidance=None, goals=None, max_total_lessons=None)
     fallback.assert_not_awaited()
+
+
+def test_direct_admission_is_server_scoped_and_flag_off_never_downgrades():
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+    cfg = settings()
+    cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
+    user = uuid4()
+    assert admission_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user, course_id=None, source_first=False) == DIRECT_POLICY
+    assert admission_marker(settings=cfg, tenant_id=uuid4(), user_id=user, course_id=None, source_first=False) is None
+    cfg.DEPLOYMENT_ENVIRONMENT = "production"
+    with pytest.raises(ValueError):
+        admission_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user, course_id=None, source_first=False)
+    cfg.DEPLOYMENT_ENVIRONMENT = "render-development-worker"
+    assert check_worker_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user, stored=DIRECT_POLICY, dispatched=DIRECT_POLICY, course_id=None)
+    cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = False
+    with pytest.raises(ValueError):
+        check_worker_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user, stored=DIRECT_POLICY, dispatched=DIRECT_POLICY, course_id=None)
+
+
+def test_direct_factory_protects_secret_and_binds_rotation():
+    from pydantic import SecretStr
+
+    from app.modules.ai.direct_luna_responses_factory import create_direct_qa_responses_client
+    cfg = settings("render-development-worker")
+    cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
+    cfg.AI_DIRECT_LUNA_QA_API_KEY = SecretStr("synthetic-secret")
+    cfg.AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION = "r1"
+    user = uuid4()
+    first = create_direct_qa_responses_client(settings=cfg, tenant_id=QA_TENANT, user_id=user, job_id="job")
+    fingerprint = first.cache_fingerprint()
+    assert "synthetic-secret" not in repr(first) and "synthetic-secret" not in fingerprint
+    cfg.AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION = "r2"
+    second = create_direct_qa_responses_client(settings=cfg, tenant_id=QA_TENANT, user_id=user, job_id="job")
+    assert second.cache_fingerprint() != fingerprint
+    cfg.AI_DIRECT_LUNA_QA_API_KEY = SecretStr("")
+    with pytest.raises(ValueError):
+        create_direct_qa_responses_client(settings=cfg, tenant_id=QA_TENANT, user_id=user, job_id="job")
+    first.close()
+    second.close()
+
+
+@pytest.mark.asyncio
+async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(monkeypatch):
+    from pydantic import SecretStr
+
+    from app.core import config
+    from app.modules.admin.runtime_configuration import runtime
+    from app.modules.ai import pipeline, qa_luna_dev_route
+    from app.modules.ai.v3 import owned_source_context, pending_stage_transactions, service
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+
+    cfg = settings("render-development-worker")
+    cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
+    cfg.AI_DIRECT_LUNA_QA_API_KEY = SecretStr("synthetic-secret")
+    cfg.AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION = "r1"
+    user = uuid4()
+    monkeypatch.setattr(config, "get_settings", lambda: cfg)
+    monkeypatch.setattr(pipeline, "_load_owned_reference_decisions", AsyncMock(return_value=()))
+    locked = SimpleNamespace(params={"source_analysis": {"qa_luna_pending_journal_policy": DIRECT_POLICY}}, course_id=None)
+    monkeypatch.setattr(pending_stage_transactions, "_locked_job", AsyncMock(return_value=locked))
+    class Session:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+    monkeypatch.setattr(pipeline, "async_session_factory", Session)
+    corpus = SimpleNamespace(tenant_id=str(QA_TENANT), document_ids=["doc"])
+    context = SimpleNamespace(corpus=corpus, verify_locked=AsyncMock(return_value=True))
+    monkeypatch.setattr(owned_source_context, "load_owned_source_context", AsyncMock(return_value=context))
+    legacy = AsyncMock(side_effect=AssertionError("legacy fallback forbidden"))
+    monkeypatch.setattr(qa_luna_dev_route, "qa_luna_dev_client", legacy)
+    class Policy:
+        def number(self, _name): return 0.2
+    monkeypatch.setattr(runtime, "resolve_runtime_settings", AsyncMock(return_value=Policy()))
+    from contextlib import nullcontext
+    monkeypatch.setattr(runtime, "runtime_settings_scope", lambda _value: nullcontext())
+    generator = AsyncMock(side_effect=RuntimeError("stop after selection"))
+    monkeypatch.setattr(service, "generate_v3_course_from_corpus", generator)
+    state = SimpleNamespace(job_id="job", source_analysis={"qa_luna_pending_journal_policy": DIRECT_POLICY})
+    with pytest.raises(RuntimeError, match="stop after selection"):
+        await pipeline._run_v3_generation(state, corpus, tenant_id=QA_TENANT, user_id=user,
+                                          target_audience="", guidance=None, goals=None, max_total_lessons=None)
+    client = generator.await_args.kwargs["direct_client"]
+    assert client is generator.await_args.kwargs["generation_client"] and client._closed
+    legacy.assert_not_awaited()

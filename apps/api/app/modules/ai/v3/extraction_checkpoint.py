@@ -92,6 +92,8 @@ async def extract_once(
     journal: ExtractionJournal,
     identity: Mapping[str, str],
     invoke: Callable[[], Awaitable[dict[str, Any]]],
+    *, direct_client: Any = None, direct_messages: list[dict[str, str]] | None = None,
+    direct_max_output_tokens: int = 8192,
 ) -> dict[str, Any]:
     """Claim, invoke and durably replay one exact request without blind retries.
 
@@ -138,9 +140,19 @@ async def extract_once(
             if _digest(response) != value["response_sha256"]:
                 raise ValueError("v3_extraction_checkpoint_invalid")
             return response
+        if direct_client is not None:
+            if direct_messages is None:
+                raise ValueError("direct_owned_messages_required")
+            from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
+
+            return await run_direct_owned_stage(journal=journal, client=direct_client, plan=plan,
+                result_key=result_key, claim_key=claim_key, validate_value=validate_value,
+                validate_response=_validate_response, messages=direct_messages, max_output_tokens=direct_max_output_tokens)
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
                                          validate_value=validate_value, validate_response=_validate_response, invoke=invoke)
 
+    if direct_client is not None:
+        raise ValueError("direct_owned_journal_required")
     prepared_result = await journal.prepare(result_key, plan)
     restored = await load_result()
     if prepared_result is not None and restored is None:

@@ -730,3 +730,54 @@ def test_runner_retains_source_when_course_delete_unconfirmed(tmp_path, monkeypa
     assert ("DELETE", f"v1/documents/{doc}") not in calls
     assert not report["cleanup"]["course"] and not report["cleanup"]["document"]
     assert "document_retained_course_cleanup_unconfirmed" in report["cleanup_failures"]
+
+
+
+@pytest.mark.parametrize("status", ["interrupted", "reconciliation_required"])
+def test_runner_held_job_stops_polling_and_retains_receipt_and_sources(tmp_path, monkeypatch, status):
+    evidence = tmp_path / ".release-evidence"
+    evidence.mkdir()
+    xlsx = tmp_path / "synthetic.xlsx"
+    xlsx.write_bytes(b"synthetic")
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    monkeypatch.setattr(MODULE, "dotenv_values", lambda _path: {"DEV_QA_METHODOLOGIST_EMAIL": "test", "DEV_QA_METHODOLOGIST_PASSWORD": "test"})
+    monkeypatch.setattr(MODULE, "approved_fixture_bytes", lambda _path: b"synthetic")
+    monkeypatch.setattr(MODULE, "fixture_focus_terms", lambda _content: set())
+    monkeypatch.setattr(MODULE, "health_url", lambda _base: "https://synthetic.invalid/health")
+    monkeypatch.setattr(MODULE, "poll_document", lambda *_a, **_kw: {"index": {"chunks_total": 1, "chunks_indexed": 1, "status": "ready"}})
+    sleep = Mock(side_effect=AssertionError("held job must not poll again"))
+    monkeypatch.setattr(MODULE.time, "sleep", sleep)
+    doc, job = "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"
+    calls = []
+    def response(code, value): return SimpleNamespace(status_code=code, json=lambda: value)
+    class Client:
+        def __init__(self, *args):
+            self.http = SimpleNamespace(get=lambda _url: response(200, {"release_sha": "sha"}))
+        def _expect(self, value, statuses, _label):
+            if value.status_code not in statuses:
+                raise MODULE.AcceptanceError("synthetic_http_error")
+        def login(self): return {"user": {"role": "methodologist", "tenant_id": MODULE.QA_TENANT_ID, "user_id": MODULE.QA_METHODOLOGIST_ID}}
+        def request(self, method, path, **kwargs):
+            calls.append((method, path))
+            if path == "v1/documents/upload":
+                return response(201, {"id": doc})
+            if path == "v1/ai/document-compatibility":
+                return response(200, {})
+            if path == "v1/ai/generate-course":
+                return response(202, {"id": job})
+            if path == f"v1/ai/jobs/{job}":
+                return response(200, {"id": job, "status": status, "stage": "interrupted", "progress": 34})
+            raise AssertionError("unexpected request")
+        def close(self): pass
+    monkeypatch.setattr(MODULE, "DevClient", Client)
+    args = SimpleNamespace(env_file=tmp_path / "env", xlsx=xlsx, custody=evidence / "receipt.jsonl",
+        api_base="synthetic", browser_origin="synthetic", expected_release_sha="sha", worker_health_url=None,
+        index_timeout=1, execute_local_worker=False, generation_timeout=60, review_output=None)
+    report = MODULE.run(args)
+    events = [json.loads(line) for line in args.custody.read_text(encoding="utf-8").splitlines()]
+    assert report["generation"]["status"] == status
+    assert report["cleanup"] == {"course": False, "document": False}
+    assert events[-1]["state"] == "retained" and events[-1]["document_id"] == doc and events[-1]["job_id"] == job
+    assert not any(method == "DELETE" or path.endswith("/cancel") for method, path in calls)
+    assert sum(path == f"v1/ai/jobs/{job}" for _, path in calls) == 2
+    sleep.assert_not_called()

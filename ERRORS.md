@@ -1,7 +1,39 @@
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-01.
+Current as of: 2026-11-02.
 
+
+## AI-PROVIDER-006 - DEV QA Luna bridge returned HTTP 400 during a held stage
+
+- Date: 2026-11-02.
+- Symptom: synthetic DEV job `b97da84c-3aad-401d-b3f4-252c5ac69ff5` reached
+  a held reconciliation state at 34% after the existing Luna bridge returned
+  HTTP 400. The original job and source remain held for reconciliation.
+- Cause: not established. The checked-in connector allowlist is a plausible
+  incompatibility with the requested reasoning field, but the deployed
+  connector binary and precise provider error were not independently verified.
+- Fix: preserve the held job and inspect exact connector identity and sanitized
+  classification before attributing cause; do not replay an uncertain stage.
+- Verification: a separate bounded direct Responses synthetic smoke returned
+  `gpt-6-luna`, with input 22, output 34 and reasoning 20 tokens. This proves
+  only that independent small request, not the failed bridge or course flow.
+- Prevention: preserve source and pending ownership evidence on unknown
+  provider outcomes; do not infer connector behavior from a different binary.
+
+## DEV-GATE-004 - Held generation status did not stop acceptance polling
+
+- Date: 2026-11-02.
+- Symptom: the DEV acceptance runner kept polling after a synthetic generation
+  reported `reconciliation_required`, despite the job being held at 34%.
+- Cause: polling recognized only completed, failed and cancelled as stop
+  statuses; held states were intentionally excluded from cleanup eligibility.
+- Fix: stop polling for interrupted or reconciliation-required states while
+  keeping those states ineligible for cancellation or source/course deletion.
+- Verification: synthetic fake-run tests for both held states passed, proving
+  no further polling sleep, no cancellation or deletion, and a retained receipt
+  with owned job and document identifiers. Live successor behavior is unverified.
+- Prevention: distinguish poll-stop statuses from cleanup-safe terminal states,
+  and test uncertain outcomes through the complete runner cleanup path.
 
 ## AI-REALIZATION-001 - Whole-lesson recovery missed native persistence and validation contracts
 

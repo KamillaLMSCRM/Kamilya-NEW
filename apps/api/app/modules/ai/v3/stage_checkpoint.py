@@ -47,6 +47,7 @@ async def stage_once(
     journal: ExtractionJournal, *, stage: str, group_id: str, source_sha256: str,
     route_fingerprint: str, messages: list[dict[str, str]], response_format: dict[str, Any] | None,
     invoke: Callable[[], Awaitable[dict[str, Any]]],
+    direct_client: Any = None, direct_max_output_tokens: int = 8192,
 ) -> dict[str, Any]:
     plan = stage_plan(journal, stage=stage, group_id=group_id, source_sha256=source_sha256,
                       route_fingerprint=route_fingerprint, messages=messages, response_format=response_format)
@@ -84,9 +85,19 @@ async def stage_once(
             if value.get("response_sha256") != _digest(response):
                 raise ValueError("v3_stage_checkpoint_invalid")
             return response
+        if direct_client is not None:
+            if response_format not in (None, {"type": "json_object"}):
+                raise ValueError("direct_owned_format_invalid")
+            from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
+
+            return await run_direct_owned_stage(journal=journal, client=direct_client, plan=plan,
+                result_key=result_key, claim_key=claim_key, validate_value=validate_value,
+                validate_response=validate, messages=messages, max_output_tokens=direct_max_output_tokens)
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
                                          validate_value=validate_value, validate_response=validate, invoke=invoke)
 
+    if direct_client is not None:
+        raise ValueError("direct_owned_journal_required")
     prepared = await journal.prepare(result_key, plan)
     restored = await load_result()
     if restored is not None:
