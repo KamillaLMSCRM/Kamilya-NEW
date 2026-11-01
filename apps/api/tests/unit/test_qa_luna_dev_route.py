@@ -59,6 +59,8 @@ async def test_qa_single_reserve_provider_and_no_fallback(monkeypatch):
     assert len(client._clients) == 1
     assert client._clients[0].config.name == "chatgpt-reserve"
     assert client._clients[0].config.model == "gpt-5.6-luna"
+    assert client._clients[0].config.extra_body["reasoning_effort"] == "medium"
+    assert "reasoning_effort" not in config.extra_body
     assert client._clients[0].max_retries == 0
 
 @pytest.mark.asyncio

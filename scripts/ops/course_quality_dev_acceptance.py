@@ -21,6 +21,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
+from uuid import UUID
 
 import httpx
 from dotenv import dotenv_values, load_dotenv
@@ -29,6 +30,67 @@ from openpyxl import load_workbook
 ROOT = Path(__file__).resolve().parents[2]
 API_ROOT = ROOT / "apps" / "api"
 TERMINAL_JOB_STATUSES = {"completed", "failed", "cancelled"}
+QA_TENANT_ID = "a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"
+QA_METHODOLOGIST_ID = "5187fa5f-c046-4e35-945e-5c95f469a886"
+
+
+def verify_synthetic_identity(user: Any) -> None:
+    if (not isinstance(user, dict) or user.get("role") != "methodologist"
+            or user.get("tenant_id") != QA_TENANT_ID or user.get("user_id") != QA_METHODOLOGIST_ID):
+        raise AcceptanceError("synthetic_user_identity_mismatch")
+
+
+def cleanup_is_safe(client: Any, job_id: str, submission_started: bool) -> tuple[bool, str]:
+    """Do not cancel or destroy source while dispatch or reconciliation is uncertain."""
+    if not job_id:
+        return (not submission_started, "" if not submission_started else "generation_submission_unknown")
+    try:
+        response = client.request("GET", f"v1/ai/jobs/{job_id}")
+        if response.status_code != 200:
+            return False, "generation_status_unknown"
+        job = response.json()
+        if not isinstance(job, dict) or job.get("id") != job_id:
+            return False, "generation_status_unknown"
+        if job.get("status") not in TERMINAL_JOB_STATUSES:
+            return False, "generation_not_terminal"
+        return True, str(job.get("course_id") or "")
+    except Exception:
+        return False, "generation_status_unknown"
+
+
+def upload_acknowledged(document_id: str, upload_started: bool) -> bool:
+    if not upload_started:
+        return True
+    try:
+        return str(UUID(document_id)) == document_id
+    except (TypeError, ValueError):
+        return False
+
+
+class CustodyReceipt:
+    """Exclusive append-only intent and acknowledgement events under release evidence."""
+
+    def __init__(self, path: Path):
+        root = (ROOT / ".release-evidence").resolve(strict=True)
+        if path.is_symlink() or not path.parent.resolve(strict=True).is_relative_to(root):
+            raise ValueError("custody_path_invalid")
+        cursor = path.parent
+        while cursor != cursor.parent:
+            if cursor.is_symlink():
+                raise ValueError("custody_path_invalid")
+            cursor = cursor.parent
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        self.handle = os.fdopen(descriptor, "w", encoding="utf-8", newline="\n")
+
+    def record(self, state: str, *, document_id: str = "", job_id: str = "", course_id: str = "") -> None:
+        event = {"state": state, "tenant_id": QA_TENANT_ID, "user_id": QA_METHODOLOGIST_ID,
+                 "document_id": document_id, "job_id": job_id, "course_id": course_id}
+        self.handle.write(json.dumps(event, sort_keys=True) + "\n")
+        self.handle.flush()
+        os.fsync(self.handle.fileno())
+
+    def close(self) -> None:
+        self.handle.close()
 META_QUESTION_PATTERNS = (
     re.compile(
         r"\b(?:о ч[её]м|что именно)\s+(?:этот|в этом)\s+(?:урок|курс|раздел|модул)",
@@ -903,6 +965,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     fixture_content = approved_fixture_bytes(xlsx)
     fixture_sha256 = hashlib.sha256(fixture_content).hexdigest()
     focus_terms = fixture_focus_terms(fixture_content)
+    receipt = CustodyReceipt(args.custody)
+    custody_ok = True
+
+    def record(state: str, **ids: str) -> None:
+        nonlocal custody_ok
+        try:
+            receipt.record(state, **ids)
+        except Exception:
+            custody_ok = False
+            raise
 
     report: dict[str, Any] = {
         "passed": False,
@@ -920,8 +992,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else None
     )
     document_id = ""
+    upload_started = False
     course_id = ""
     generation_job_id = ""
+    generation_submission_started = False
     tenant_id = ""
     cleanup_failures: list[str] = []
     accepted_lesson_evidence: list[dict[str, Any]] = []
@@ -943,6 +1017,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         stage("login")
         login = client.login()
         login_user = login.get("user") or {}
+        verify_synthetic_identity(login_user)
         role = str(login_user.get("role") or "")
         if role != "methodologist":
             raise AcceptanceError("synthetic_user_not_methodologist")
@@ -953,6 +1028,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         report["checks"].append("synthetic_methodologist_login")
 
         stage("upload")
+        record("upload_intent")
+        upload_started = True
         upload = client.request(
             "POST",
             "v1/documents/upload",
@@ -968,8 +1045,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         client._expect(upload, {201}, "upload")
         upload_payload = upload.json()
         document_id = str(upload_payload.get("id") or "")
-        if not document_id:
+        if not upload_acknowledged(document_id, upload_started):
             raise AcceptanceError("upload_missing_document_id")
+        record("upload_acknowledged", document_id=document_id)
         report["checks"].append("xlsx_uploaded")
 
         document = poll_document(
@@ -1024,6 +1102,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         report["checks"].append("adaptive_course_size")
 
         stage("generation_submit")
+        record("generation_intent", document_id=document_id)
+        generation_submission_started = True
         generation = client.request(
             "POST",
             "v1/ai/generate-course",
@@ -1039,8 +1119,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         client._expect(generation, {202}, "generation_submit")
         generation_job_id = str(generation.json().get("id") or "")
-        if not generation_job_id:
+        if not upload_acknowledged(generation_job_id, True):
             raise AcceptanceError("generation_missing_job_id")
+        record("generation_acknowledged", document_id=document_id, job_id=generation_job_id)
         report["checks"].append("blank_intent_generation_accepted")
 
         if args.execute_local_worker:
@@ -1145,17 +1226,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         report["failure"] = str(exc) if isinstance(exc, AcceptanceError) else type(exc).__name__
     finally:
         stage("cleanup")
-        if generation_job_id:
+        safe_cleanup, cleanup_detail = cleanup_is_safe(client, generation_job_id, generation_submission_started)
+        if safe_cleanup and cleanup_detail:
+            course_id = course_id or cleanup_detail
+        if not upload_acknowledged(document_id, upload_started):
+            safe_cleanup, cleanup_detail = False, "document_upload_outcome_unknown"
+        if not custody_ok:
+            safe_cleanup, cleanup_detail = False, "custody_write_unknown"
+        if custody_ok:
             try:
-                response = client.request("GET", f"v1/ai/jobs/{generation_job_id}")
-                if response.status_code == 200:
-                    job = response.json()
-                    course_id = course_id or str(job.get("course_id") or "")
-                    if job.get("status") not in TERMINAL_JOB_STATUSES:
-                        client.request("POST", f"v1/ai/jobs/{generation_job_id}/cancel")
+                record("cleanup_ready" if safe_cleanup else "retained",
+                       document_id=document_id if upload_acknowledged(document_id, True) else "",
+                       job_id=generation_job_id if upload_acknowledged(generation_job_id, True) else "",
+                       course_id=course_id if upload_acknowledged(course_id, True) else "")
             except Exception:
-                cleanup_failures.append("generation_cancel_failed")
-        if course_id:
+                safe_cleanup, cleanup_detail = False, "custody_write_unknown"
+        if not safe_cleanup:
+            cleanup_failures.append(cleanup_detail)
+        if course_id and safe_cleanup:
 
             def delete_course() -> None:
                 response = client.request("DELETE", f"v1/courses/{course_id}")
@@ -1163,9 +1251,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 report["cleanup"]["course"] = True
 
             cleanup_object(delete_course, cleanup_failures, "course_cleanup_failed")
-        else:
+        elif not course_id and safe_cleanup:
             report["cleanup"]["course"] = True
-        if document_id:
+        if document_id and safe_cleanup and report["cleanup"]["course"]:
 
             def delete_document() -> None:
                 response = client.request("DELETE", f"v1/documents/{document_id}")
@@ -1191,11 +1279,23 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 report["cleanup"]["document"] = True
 
             cleanup_object(delete_document, cleanup_failures, "document_cleanup_failed")
-        else:
+        elif document_id and safe_cleanup:
+            cleanup_failures.append("document_retained_course_cleanup_unconfirmed")
+        elif not document_id and safe_cleanup:
             report["cleanup"]["document"] = True
         if cleanup_failures:
             report["cleanup_failures"] = cleanup_failures
             report["passed"] = False
+        if custody_ok:
+            try:
+                record("cleaned" if not cleanup_failures else "retained",
+                       document_id=document_id if upload_acknowledged(document_id, True) else "",
+                       job_id=generation_job_id if upload_acknowledged(generation_job_id, True) else "",
+                       course_id=course_id if upload_acknowledged(course_id, True) else "")
+            except Exception:
+                report["passed"] = False
+                report.setdefault("cleanup_failures", []).append("custody_write_unknown")
+        receipt.close()
         client.close()
     return report
 
@@ -1213,6 +1313,7 @@ def main() -> int:
     parser.add_argument("--execute-local-worker", action="store_true")
     parser.add_argument("--review-output", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--custody", type=Path, required=True)
     args = parser.parse_args()
     try:
         report = run(args)

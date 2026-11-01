@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from billiard.exceptions import SoftTimeLimitExceeded
+from sqlalchemy.dialects import postgresql
 
 from app.modules.ai import job_service
 
@@ -32,7 +33,7 @@ async def test_claim_generation_execution_is_atomic_and_commits():
     assert "set_current_tenant" in str(context_statement)
     assert db.execute.await_args_list[0].args[1] == {"tid": tenant_id}
     statement = db.execute.await_args_list[1].args[0]
-    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+    compiled = str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
     assert "ai_jobs.status = 'pending'" in compiled
     assert "generation_engine" in compiled
     assert "evidence_v2" in compiled
@@ -71,7 +72,7 @@ async def test_interrupt_generation_execution_is_atomic_resumable_and_commits():
     db.commit.assert_awaited_once()
     assert len(db.execute.await_args_list) == 2
     statement = db.execute.await_args_list[1].args[0]
-    compiled_statement = statement.compile()
+    compiled_statement = statement.compile(dialect=postgresql.dialect())
     compiled = str(compiled_statement)
     assert "ai_jobs.status" in compiled
     assert "UPDATE ai_jobs" in compiled

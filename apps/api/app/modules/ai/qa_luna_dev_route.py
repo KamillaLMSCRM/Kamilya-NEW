@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 from uuid import UUID
 
@@ -33,4 +34,5 @@ async def qa_luna_dev_client(*, settings: Any, tenant_id: UUID, temperature: flo
     providers = _generation_fallback_providers((CHATGPT_RESERVE_ROUTE_ID,))
     if len(providers) != 1 or providers[0].model != "gpt-5.6-luna":
         raise RuntimeError("dev_qa_luna_provider_not_configured")
-    return ResilientLLMClient(providers, temperature=temperature, max_retries_per_provider=0)
+    provider = replace(providers[0], extra_body={**providers[0].extra_body, "reasoning_effort": "medium"})
+    return ResilientLLMClient([provider], temperature=temperature, max_retries_per_provider=0)
