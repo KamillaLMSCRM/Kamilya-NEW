@@ -20,7 +20,9 @@ async def test_pending_hold_predicate_binds_tenant_delivery_and_engine(delivery)
     sql = str(compiled)
     values = compiled.params.values()
     assert "tenant_id" in sql and "status" in sql
-    assert all(value in values for value in ("tenant", "job", delivery, "pending", "interrupted", "evidence_v2", "direct_source"))
+    assert all(value in values for value in ("tenant", "job", delivery, "pending", "interrupted", "direct_source"))
+    assert any(isinstance(value, list | tuple) and {"evidence_v2", "evidence_v3", "v3_cogen"} <= set(value)
+               for value in values)
     assert "delivery_task_id" in values
     assert ("resume_count" in values) == (delivery == "job")
     db.commit.assert_awaited_once()

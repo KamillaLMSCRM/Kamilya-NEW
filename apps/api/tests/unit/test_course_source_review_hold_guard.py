@@ -66,12 +66,14 @@ async def test_generated_surface_hold_remains_after_manual_lesson_edit():
     from app.modules.lessons.service import update_lesson
 
     course_id, course, db, user = scenario({"evidence_v2": {"quality_status": "lesson_surface_needs_review"}})
-    lesson = SimpleNamespace(id=uuid4(), tenant_id=user.tenant_id, title="Original", content="Original text",
+    lesson = SimpleNamespace(id=uuid4(), tenant_id=user.tenant_id, module_id=uuid4(), title="Original", content="Original text",
         source_document_ids=[uuid4()], source_validation_status="verified")
     lesson_db = SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(scalar_one_or_none=lambda: lesson)),
-        flush=AsyncMock(), refresh=AsyncMock())
-    with patch("app.modules.lessons.service._mark_lesson_quizzes_needs_review", new=AsyncMock()):
+        scalar=AsyncMock(return_value=SimpleNamespace(course_id=course_id)), flush=AsyncMock(), refresh=AsyncMock())
+    with patch("app.modules.lessons.service._mark_lesson_quizzes_needs_review", new=AsyncMock()), \
+         patch("app.modules.lessons.service._touch_course", new=AsyncMock()) as touch_course:
         await update_lesson(lesson_db, lesson.id, user.tenant_id, LessonUpdate(content="Edited text"))
+    touch_course.assert_awaited_once_with(lesson_db, course_id, user.tenant_id)
     assert lesson.source_validation_status == "needs_review"
     with patch("app.modules.courses.source_uncertainty.qa_source_holds_enabled", return_value=True):
         with pytest.raises(HTTPException) as error:

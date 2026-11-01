@@ -256,7 +256,8 @@ def test_provider_actual_http_post_timeout(caplog, monkeypatch):
     assert caught.value is err and "provider_http_post" in caplog.text and "private provider token" not in caplog.text
 
 
-def test_pipeline_actual_saving_progress_timeout_label(caplog, monkeypatch):
+@pytest.mark.parametrize("engine_name", ["evidence_v2", "v3_cogen"])
+def test_pipeline_actual_saving_progress_timeout_label(caplog, monkeypatch, engine_name):
     mod = load_copy("pipeline")
     err = TimeoutError("private-db-at-save")
 
@@ -276,10 +277,12 @@ def test_pipeline_actual_saving_progress_timeout_label(caplog, monkeypatch):
     monkeypatch.setattr(mod, "_update_job_db", update)
     monkeypatch.setattr(mod, "load_direct_source_corpus", source)
     monkeypatch.setattr(mod, "_run_evidence_v2_generation", noop)
+    monkeypatch.setattr(mod, "_run_v3_generation", noop)
     monkeypatch.setattr(mod, "_check_cancelled_async", noop)
     monkeypatch.setattr(mod, "_release_generation_reservation", noop)
     with caplog.at_level(logging.WARNING):
-        result = asyncio.run(mod.run_generation_pipeline("job", [], tenant_id=uuid.uuid4()))
+        result = asyncio.run(mod.run_generation_pipeline("job", [], tenant_id=uuid.uuid4(),
+                                                          source_analysis={"generation_engine": engine_name}))
     assert result.status == "failed" and "saving_progress_db" in caplog.text and "private-db-at-save" not in caplog.text
 
 

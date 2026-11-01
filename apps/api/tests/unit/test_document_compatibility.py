@@ -728,6 +728,9 @@ async def test_manual_edit_marks_grounded_lesson_for_source_review() -> None:
         async def execute(self, statement):
             return _Result()
 
+        async def scalar(self, statement):
+            return None
+
         async def flush(self):
             return None
 
