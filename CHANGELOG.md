@@ -165,6 +165,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tenant reads, preserve terminal link reasons and existing OTP requirements.
   Synthetic two-tenant DEV proof PASS; public migration/deployment not performed.
 
+## [0.11.67] - 2026-11-02
+
+### Frontend
+
+- Prepare the learning workspace for course authoring, assignments, learner
+  navigation, evidence confirmation and scoped training results.
+- Preserve session boundaries across authoring and learner workflows while
+  retaining work through ordinary token refresh.
+
+This candidate is frontend-only. The production API and workers remain on
+version 0.11.66; no backend runtime, database, model or provider change is
+included. Release and live acceptance remain pending.
+
 ## [0.11.66] - 2026-10-27
 
 ### Fixed
