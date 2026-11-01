@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and preserve question citations through authoring and course release.
 - Resume completed generation stages without silently repeating a request
   whose outcome is unknown. Full-course acceptance and deployment remain open.
+- Update PDF parsing and redirect dependencies to patched security releases.
 
 ### Fixed — local generation candidate, 2026-10-30
 
