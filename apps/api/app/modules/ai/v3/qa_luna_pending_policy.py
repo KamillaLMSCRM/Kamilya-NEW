@@ -8,7 +8,8 @@ from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
 KEY = "qa_luna_pending_journal_policy"
 POLICY = "qa-luna-pending-journal-v1"
-DIRECT_POLICY = "qa-direct-luna-pending-v1"
+DIRECT_POLICY_V1 = "qa-direct-luna-pending-v1"
+DIRECT_POLICY = "qa-direct-luna-explanation-v2"
 
 
 def admission_marker(*, settings: Any, tenant_id: UUID, user_id: UUID, course_id: Any,

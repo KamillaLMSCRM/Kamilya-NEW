@@ -142,7 +142,7 @@ async def test_failed_recheck_keeps_original_question_and_both_reviews(failure_s
                                 else 'SUPPORTED' if item['text'] == 'верный 1' else 'CONTRADICTED')]]}
         if 'Сравни каждый ответ с источником' in system:
             answer_calls.append(('completeness', True))
-            return {'answers': [{'index': 0, 'omissions': ['условие'] if failure_stage == 'completeness' else []}]}
+            return {'answers': [{'index': 0, 'omissions': ['условие'] if failure_stage == 'completeness' else []}], 'explanation_review': {"verdict": "SUPPORTED", "claims": [{"claim": "Fact", "status": "SUPPORTED", "reason": "Source"}], "summary": "Checked"}}
         return {'lesson_id': 'l1', 'title': 'Урок', 'module_title': 'Модуль', 'content': 'Правило',
                 'cases': [{'case_id': 'c1', 'rule_id': 'r1', 'variants': [{'variant_id': 'v1',
                     'scenario_premise': 'Ситуация', 'prompt': 'Вопрос', 'correct_option': {'text': 'верный 1'},

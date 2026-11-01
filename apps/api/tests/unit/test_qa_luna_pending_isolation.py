@@ -240,3 +240,18 @@ async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(m
     client = generator.await_args.kwargs["direct_client"]
     assert client is generator.await_args.kwargs["generation_client"] and client._closed
     legacy.assert_not_awaited()
+
+
+def test_previous_direct_policy_is_not_reinterpreted_by_new_worker():
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1
+
+    cfg = settings()
+    cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
+    cfg.DEPLOYMENT_ENVIRONMENT = "render-development-worker"
+    user = uuid4()
+    assert DIRECT_POLICY != DIRECT_POLICY_V1
+    for stored, dispatched in ((DIRECT_POLICY_V1, DIRECT_POLICY_V1),
+                               (DIRECT_POLICY_V1, DIRECT_POLICY), (DIRECT_POLICY, DIRECT_POLICY_V1)):
+        with pytest.raises(ValueError, match="qa_luna_pending_worker_unavailable"):
+            check_worker_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user,
+                                stored=stored, dispatched=dispatched, course_id=None)

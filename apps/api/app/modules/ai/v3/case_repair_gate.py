@@ -50,6 +50,7 @@ async def review_staged_case(
     from dataclasses import replace
 
     from app.modules.ai.v3.service import (
+        _direct_explanation_requires_hold,
         _review_source_unit_fragments,
         _validate_answer_completeness,
         _validate_critic_response,
@@ -61,6 +62,11 @@ async def review_staged_case(
         record["rejected"] = "candidate_case_identity_or_source_invalid"
         return False, {}
     ci, case = matches[0]
+    if (getattr(pipeline, "explanation_consistency", False) and (not case.variants or len({variant.variant_id for variant in case.variants}) != len(case.variants)
+            or any(not isinstance(variant.explanation, str) or _direct_explanation_requires_hold(variant.explanation)
+                   for variant in case.variants))):
+        record["rejected"] = "candidate_explanation_identity_invalid"
+        return False, {}
     linked = [rule for rule in review_rules if rule.rule_id == case.rule_id]
     if len(linked) != 1 or not _review_source_unit_fragments(linked, corpus):
         record["rejected"] = "candidate_rule_source_invalid"
@@ -105,9 +111,10 @@ async def review_staged_case(
             return False, {}
         answer = next(option.text for option in question.options if option.is_correct)
         completeness = await pipeline.review_answer_completeness(question.scenario_premise, question.prompt, answer,
-                                                                 exact_source_units, reference_context)
+                                                                 exact_source_units, reference_context,
+                                                                 explanation=question.explanation, options=texts)
         entry["completeness"] = completeness
-        valid, reason = _validate_answer_completeness(completeness)
+        valid, reason = _validate_answer_completeness(completeness, explanation_consistency=getattr(pipeline, "explanation_consistency", False))
         if not valid:
             record.update(rejected="candidate_completeness_failed", rejection_reason=reason)
             return False, {}

@@ -173,11 +173,11 @@ async def _persist_pending_stage_hold(job_id: str, tenant_id: UUID | None, user_
             if not has_pending(job.result):
                 from app.modules.ai.qa_luna_dev_route import QA_TENANT
                 from app.modules.ai.v3.pending_stage_transactions import KEY
-                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY as QA_KEY, POLICY
+                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, KEY as QA_KEY, POLICY
 
                 params = job.params if isinstance(job.params, dict) else {}
                 analysis = params.get("source_analysis")
-                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY) or job.course_id is not None
+                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1) or job.course_id is not None
                         or not isinstance(analysis, dict) or analysis.get(QA_KEY) != expected_qa_marker
                         or analysis.get("generation_engine") != "evidence_v3"):
                     return False
@@ -1099,8 +1099,8 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
             if stored_engine != expected_engine:
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if expected_engine == "evidence_v3":
-                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY, POLICY
-                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY):
+                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, KEY, POLICY
+                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1):
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
                 if (analysis.get(KEY) if isinstance(analysis, dict) else None) != expected_qa_marker:
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
@@ -1143,9 +1143,9 @@ async def _run_generation_pipeline_inner(
         # Before identity and selection are checked, this caller has no authority
         # to change a job or its reservation. A successful read is not a lease.
         try:
-            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY as QA_PENDING_KEY, POLICY as QA_PENDING_POLICY
+            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, KEY as QA_PENDING_KEY, POLICY as QA_PENDING_POLICY
 
-            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY):
+            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY, DIRECT_POLICY_V1):
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if not uses_current_generation_engine(state.source_analysis):
                 raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)

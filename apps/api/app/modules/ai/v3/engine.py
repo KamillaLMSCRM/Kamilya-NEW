@@ -20,6 +20,7 @@ from app.modules.ai.v3.models import (
 from app.modules.ai.v3.prompts import (
     ANSWER_COMPLETENESS_SYSTEM_PROMPT,
     ANSWER_ENTAILMENT_SYSTEM_PROMPT,
+    EXPLANATION_COMPLETENESS_SYSTEM_PROMPT,
     LESSON_COGEN_SYSTEM_PROMPT,
     LESSON_OBJECTIVE_CLAIM_SUFFIX,
     LESSON_PROSE_LOGIC_SUFFIX,
@@ -35,12 +36,14 @@ logger = logging.getLogger(__name__)
 class V3GenerationPipeline:
     """End-to-end pipeline implementing the V3 Didactic Co-Generation Architecture."""
 
-    def __init__(self, llm_invoker: Callable[[list[dict[str, str]], dict[str, Any] | None], Any]) -> None:
+    def __init__(self, llm_invoker: Callable[[list[dict[str, str]], dict[str, Any] | None], Any],
+                 *, explanation_consistency: bool = False) -> None:
         """
         llm_invoker: async or sync callable that accepts messages list and optional response_format,
         returning a parsed JSON dict or string.
         """
         self.invoker = llm_invoker
+        self.explanation_consistency = explanation_consistency
 
     async def extract_rule_model(
         self,
@@ -337,16 +340,19 @@ class V3GenerationPipeline:
 
     async def review_answer_completeness(
         self, scenario: str, question: str, answer: str, source_fragments: list[str],
-        reference_context: tuple[str, ...] = (),
+        reference_context: tuple[str, ...] = (), *, explanation: str, options: list[str],
     ) -> dict[str, Any]:
-        """Independently check the answer for omitted source obligations."""
+        """Check the keyed answer and its displayed explanation against the source."""
         payload: dict[str, Any] = {"source": "\n---\n".join(source_fragments),
                                    "question": scenario + "\n\nВопрос: " + question,
                                    "answers": [answer]}
+        if self.explanation_consistency:
+            payload.update(displayed_options=options, explanation=explanation)
         if reference_context:
             payload["reference_context_not_source_quote"] = list(reference_context)
         return await self._call_llm([
-            {"role": "system", "content": ANSWER_COMPLETENESS_SYSTEM_PROMPT},
+            {"role": "system", "content": (EXPLANATION_COMPLETENESS_SYSTEM_PROMPT if self.explanation_consistency
+                                             else ANSWER_COMPLETENESS_SYSTEM_PROMPT)},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ])
 

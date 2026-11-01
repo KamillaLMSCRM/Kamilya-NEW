@@ -1277,7 +1277,8 @@ def _lesson_claim_subparts(section: str) -> list[tuple[str, str]]:
 
 def _validate_answer_entailment(value: Any) -> tuple[bool, str]:
     allowed = {"SUPPORTED", "CONTRADICTED", "UNCERTAIN"}
-    if not isinstance(value, dict) or value.get("verdict") not in allowed:
+    if (not isinstance(value, dict) or not isinstance(value.get("verdict"), str)
+            or value["verdict"] not in allowed):
         return False, "невалидный вердикт проверки ответа"
     claims = value.get("claims")
     if not isinstance(claims, list) or not claims or not isinstance(value.get("summary"), str) or not value["summary"].strip():
@@ -1285,7 +1286,8 @@ def _validate_answer_entailment(value: Any) -> tuple[bool, str]:
     statuses: list[str] = []
     for claim in claims:
         if (not isinstance(claim, dict) or not isinstance(claim.get("claim"), str) or not claim["claim"].strip()
-                or claim.get("status") not in allowed or not isinstance(claim.get("reason"), str)
+                or not isinstance(claim.get("status"), str) or claim["status"] not in allowed
+                or not isinstance(claim.get("reason"), str)
                 or not claim["reason"].strip()):
             return False, "невалидное утверждение в проверке ответа"
         statuses.append(claim["status"])
@@ -1297,7 +1299,7 @@ def _validate_answer_entailment(value: Any) -> tuple[bool, str]:
     return True, ""
 
 
-def _validate_answer_completeness(value: Any) -> tuple[bool, str]:
+def _validate_answer_completeness(value: Any, *, explanation_consistency: bool = True) -> tuple[bool, str]:
     if not isinstance(value, dict) or not isinstance(value.get("answers"), list) or len(value["answers"]) != 1:
         return False, "нет независимой проверки полноты ответа"
     answer = value["answers"][0]
@@ -1308,6 +1310,16 @@ def _validate_answer_completeness(value: Any) -> tuple[bool, str]:
         return False, "некорректный результат проверки полноты"
     if omissions:
         return False, "пропущены обязательные элементы: " + "; ".join(omissions)
+    if not explanation_consistency:
+        return True, ""
+    explanation = value.get("explanation_review")
+    if not isinstance(explanation, dict):
+        return False, "проверка объяснения отсутствует"
+    valid, error = _validate_answer_entailment(explanation)
+    if not valid:
+        return False, "проверка объяснения: " + error
+    if explanation.get("verdict") != "SUPPORTED":
+        return False, "объяснение не подтверждено: " + str(explanation.get("verdict"))
     return True, ""
 
 
@@ -1362,6 +1374,22 @@ def _flagged_incorrect_options(value: Any, expected: list[bool]) -> list[dict[st
         return []
     return [by_index[i] for i, is_correct in enumerate(expected)
             if not is_correct and by_index[i]["verdict"] in {"SUPPORTED", "UNCERTAIN"}]
+
+
+def _direct_explanation_requires_hold(explanation: str) -> bool:
+    """Reject unstable option-position references; semantic review remains mandatory."""
+    from app.modules.ai.v3.validator import has_order_dependent_feedback
+
+    return (not explanation.strip() or has_order_dependent_feedback(explanation)
+            or bool(re.search(r"\b(?:последн\w*|предпоследн\w*)\s+(?:ответ\w*|вариант\w*)\b"
+                              r"|\b(?:last|penultimate)\s+(?:answer|option)\b", explanation, re.IGNORECASE)))
+
+
+def _question_explanation(lesson: V3Lesson, question_id: str) -> str:
+    """Return the uniquely bound displayed explanation, or fail closed."""
+    matches = ([v.explanation for c in lesson.cases for v in c.variants if v.variant_id == question_id]
+               if lesson.cases else [q.explanation for q in lesson.questions if q.question_id == question_id])
+    return matches[0] if len(matches) == 1 and isinstance(matches[0], str) else ""
 
 
 def _question_option_inputs(lesson: V3Lesson) -> list[tuple[str, str, str, list[tuple[str, bool]], str]]:
@@ -1669,7 +1697,7 @@ async def generate_v3_course_from_corpus(
         parsed: dict[str, Any] = json.loads(raw_text)
         return parsed
 
-    pipeline = V3GenerationPipeline(llm_invoker)
+    pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=direct_client is not None)
 
     # Stage 1: Extract structured rule model
     if progress_callback:
@@ -1761,7 +1789,7 @@ async def generate_v3_course_from_corpus(
                                         messages=messages, response_format=response_format, invoke=invoke,
                                         direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens)
 
-            return V3GenerationPipeline(invoke_stage)
+            return V3GenerationPipeline(invoke_stage, explanation_consistency=direct_client is not None)
 
         group_reference_context = reference_context_for_rules(
             corpus.tenant_id, corpus.documents, reference_decisions, group.primary_rules)
@@ -2050,6 +2078,10 @@ async def generate_v3_course_from_corpus(
                         all_parts_passed = False
                         semantic_violations.append(f"Урок {lesson.lesson_id}: неполный вопрос или правильный ответ")
                         continue
+                    if direct_client is not None and _direct_explanation_requires_hold(_question_explanation(lesson, question_id)):
+                        all_parts_passed = False
+                        semantic_violations.append(f"Урок {lesson.lesson_id}, вопрос {question_id}: отсутствует объяснение")
+                        continue
                     linked_rules = [rule for rule in review_rules if rule.rule_id == rule_id]
                     if len(linked_rules) != 1 or not _review_source_unit_fragments(linked_rules, corpus):
                         all_parts_passed = False
@@ -2114,7 +2146,8 @@ async def generate_v3_course_from_corpus(
                                 matching_cases = [case for case in candidate.cases
                                     if any(variant.variant_id == question_id for variant in case.variants)]
                                 matching_answers = [row for row in _question_option_inputs(candidate) if row[0] == question_id]
-                                if new_violations or len(matching_cases) != 1 or len(matching_answers) != 1:
+                                if (new_violations or len(matching_cases) != 1 or len(matching_answers) != 1
+                                        or (direct_client is not None and _direct_explanation_requires_hold(_question_explanation(candidate, question_id)))):
                                     attempt["rejected"] = "v3_distractor_feedback_structural_regression"
                                 else:
                                     _qid, new_scenario, new_question, new_options, _rule_id = matching_answers[0]
@@ -2145,9 +2178,10 @@ async def generate_v3_course_from_corpus(
                                                 correct_text = next(text for text, flag in new_options if flag)
                                                 complete = await stage_pipeline("review").review_answer_completeness(
                                                     new_scenario, new_question, correct_text, exact_source_units,
-                                                    group_reference_context)
+                                                    group_reference_context, explanation=_question_explanation(candidate, question_id),
+                                                    options=[text for text, _ in new_options])
                                                 attempt["completeness"] = complete
-                                                if _validate_answer_completeness(complete)[0]:
+                                                if _validate_answer_completeness(complete, explanation_consistency=direct_client is not None)[0]:
                                                     lesson = candidate
                                                     generated_lessons[-1] = lesson
                                                     attempt["accepted"] = True
@@ -2174,9 +2208,10 @@ async def generate_v3_course_from_corpus(
                         continue
                     correct_answer = next(text for text, is_correct in options if is_correct)
                     completeness = await stage_pipeline("review").review_answer_completeness(
-                        scenario, question, correct_answer, exact_source_units, group_reference_context)
+                        scenario, question, correct_answer, exact_source_units, group_reference_context,
+                        explanation=_question_explanation(lesson, question_id), options=[text for text, _ in options])
                     answer_checks[-1]["completeness"] = completeness
-                    valid, error = _validate_answer_completeness(completeness)
+                    valid, error = _validate_answer_completeness(completeness, explanation_consistency=direct_client is not None)
                     if not valid:
                         all_parts_passed = False
                         semantic_violations.append(

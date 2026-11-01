@@ -155,3 +155,72 @@ async def test_worker_reviews_the_repaired_explanation_before_acceptance():
         await generate_v3_course_from_corpus(corpus(), intent=CourseIntent(), generation_client=invoke,
                                             extraction_journal=Journal(), route_fingerprint="a" * 64)
     assert events == ["repair", "review"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("explanation", [
+    "Последний ответ ошибочно объединяет характеристики двух коллекций.",
+    "Сначала документ направляют после согласования.",
+    "Сотрудник вправе пропустить проверку при любом результате.",
+    "Лимит составляет 20 вместо 10 единиц.",
+])
+async def test_existing_completeness_call_binds_explanation_and_options(explanation):
+    import json
+
+    from app.modules.ai.v3.engine import V3GenerationPipeline
+    from app.modules.ai.v3.service import _validate_answer_completeness
+
+    seen = []
+    async def invoke(messages, response_format):
+        seen.append(messages)
+        return {"answers": [{"index": 0, "omissions": []}], "explanation_review": {
+            "verdict": "CONTRADICTED", "claims": [{"claim": explanation, "status": "CONTRADICTED",
+            "reason": "Противоречит источнику или правильному ответу."}], "summary": "Противоречие."}}
+
+    pipeline = V3GenerationPipeline(invoke, explanation_consistency=True)
+    options = ["ошибка A", "ошибка B", "ошибка C", "правильный ответ"]
+    result = await pipeline.review_answer_completeness("ситуация", "вопрос", options[-1], ["источник"],
+                                                       explanation=explanation, options=options)
+    payload = json.loads(seen[0][1]["content"])
+    assert payload["explanation"] == explanation and payload["displayed_options"] == options
+    assert payload["answers"] == [options[-1]] and len(seen) == 1
+    assert not _validate_answer_completeness(result)[0]
+
+
+@pytest.mark.parametrize("review", [None, {}, {"verdict": []}, {"verdict": "SUPPORTED", "claims": [
+    {"claim": "факт", "status": [], "reason": "источник"}], "summary": "проверено"}, {"verdict": "UNCERTAIN", "claims": [
+    {"claim": "факт", "status": "UNCERTAIN", "reason": "источник неясен"}], "summary": "неясно"},
+    {"verdict": "SUPPORTED", "claims": [{"claim": "факт", "status": "CONTRADICTED", "reason": "нет"}],
+     "summary": "противоречие"}])
+def test_missing_uncertain_and_inconsistent_explanation_reviews_hold(review):
+    from app.modules.ai.v3.service import _validate_answer_completeness
+
+    assert not _validate_answer_completeness({"answers": [{"index": 0, "omissions": []}],
+                                              "explanation_review": review})[0]
+
+
+def test_direct_qa_holds_retained_q4_without_model_call():
+    from app.modules.ai.v3.service import _direct_explanation_requires_hold
+
+    assert _direct_explanation_requires_hold("Последний ответ ошибочно объединяет характеристики двух коллекций.")
+    assert _direct_explanation_requires_hold("The last option is incorrect.")
+    assert not _direct_explanation_requires_hold("На последнем этапе проверяют документ.")
+
+
+@pytest.mark.asyncio
+async def test_legacy_completeness_payload_and_prompt_keep_original_identity():
+    import json
+
+    from app.modules.ai.v3.engine import V3GenerationPipeline
+    from app.modules.ai.v3.prompts import ANSWER_COMPLETENESS_SYSTEM_PROMPT
+
+    calls = []
+    async def invoke(messages, _format):
+        calls.append(messages)
+        return {"answers": [{"index": 0, "omissions": []}]}
+
+    await V3GenerationPipeline(invoke).review_answer_completeness(
+        "scenario", "question", "answer", ["source"], explanation="not sent", options=["answer"])
+    assert calls[0][0]["content"] == ANSWER_COMPLETENESS_SYSTEM_PROMPT
+    assert json.loads(calls[0][1]["content"]) == {
+        "source": "source", "question": "scenario\n\nВопрос: question", "answers": ["answer"]}

@@ -50,6 +50,7 @@ def test_cached_answer_review_is_bound_to_order_and_source_context():
 class FakeReview:
     def __init__(self, failure):
         self.failure = failure
+        self.explanation_consistency = True
         self.calls = []
 
     async def review_lesson(self, *args, **kwargs):
@@ -77,9 +78,11 @@ class FakeReview:
             raise TimeoutError("unknown")
         return self.options(texts, self.failure == "compatibility")
 
-    async def review_answer_completeness(self, scenario, prompt, answer, units, context):
+    async def review_answer_completeness(self, scenario, prompt, answer, units, context, *, explanation, options):
+        assert explanation and len(options) == 4
         self.calls.append("completeness")
-        return {"answers": [{"index": 0, "omissions": ["объект"] if self.failure == "completeness" else []}]}
+        return {"answers": [{"index": 0, "omissions": ["объект"] if self.failure == "completeness" else []}],
+                "explanation_review": {"verdict": "SUPPORTED", "claims": [{"claim": "Проверить", "status": "SUPPORTED", "reason": "Источник"}], "summary": "Проверено"}}
 
 
 @pytest.mark.asyncio
@@ -121,3 +124,17 @@ async def test_one_failed_variant_rejects_the_entire_multi_variant_candidate():
                                               False, SecondFails(None), record)
     assert not accepted and not cache and record["rejected"] == "candidate_option_review_failed"
     assert len(record["answer_rechecks"]) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("explanation", ["", "   "])
+async def test_blank_candidate_explanation_holds_before_review(explanation):
+    lesson, rule, corpus, source = fixture()
+    case = lesson.cases[0]
+    variant = replace(case.variants[0], explanation=explanation)
+    lesson = replace(lesson, cases=(replace(case, variants=(variant,)),))
+    pipeline = FakeReview(None)
+    record = {}
+    accepted, cache = await review_staged_case(lesson, "c1", [rule], corpus, [source], [source], (), False, pipeline, record)
+    assert not accepted and not cache and not pipeline.calls
+    assert record["rejected"] == "candidate_explanation_identity_invalid"

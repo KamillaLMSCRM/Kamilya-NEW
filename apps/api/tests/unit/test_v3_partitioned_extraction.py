@@ -351,7 +351,7 @@ async def test_qa_unknown_review_retains_prior_review_and_never_calls_provider_t
         calls.append("lesson")
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": f"case-{key}", "rule_id": f"Правило {word}.", "variants": [{
-                    "variant_id": f"v-{key}", "prompt": "question", "correct_option": {"text": "right"},
+                    "variant_id": f"v-{key}", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "right"},
                     "source_quote": f"Правило {word}.",
                     "distractor_pool": [{"text": "wrong"}, {"text": "other"}, {"text": "false"}]}]}
                     for key, word in (("a", "первое"), ("b", "второе"))]}
@@ -401,7 +401,7 @@ async def test_qa_unknown_answer_review_retains_completed_checks_without_retry()
         calls.append("lesson")
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": f"case-{key}", "rule_id": f"Правило {word}.", "variants": [{
-                    "variant_id": f"v-{key}", "scenario_premise": f"scenario-{key}", "prompt": "question",
+                    "variant_id": f"v-{key}", "scenario_premise": f"scenario-{key}", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question",
                     "correct_option": {"text": "right"}, "source_quote": f"Правило {word}.",
                     "distractor_pool": [{"text": "wrong"}, {"text": "other"}, {"text": "false"}]}]}
                     for key, word in (("a", "первое"), ("b", "второе"))]}
@@ -446,7 +446,7 @@ async def test_qa_unknown_repair_preserves_original_critic_defect_without_retry(
         calls.append("lesson")
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "case-a", "rule_id": "Правило первое.", "variants": [{
-                    "variant_id": "v-a", "prompt": "question", "correct_option": {"text": "right"},
+                    "variant_id": "v-a", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "right"},
                     "source_quote": "Правило первое.",
                     "distractor_pool": [{"text": "wrong"}, {"text": "other"}, {"text": "false"}]}]}]}
 
@@ -494,7 +494,7 @@ async def test_qa_unknown_recheck_keeps_repair_history_and_original_defect():
         calls.append("lesson")
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "case-a", "rule_id": "Правило первое.", "variants": [{
-                    "variant_id": "v-a", "prompt": "question", "correct_option": {"text": "right"},
+                    "variant_id": "v-a", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "right"},
                     "source_quote": "Правило первое.",
                     "distractor_pool": [{"text": "wrong"}, {"text": "other"}, {"text": "false"}]}]}]}
 
@@ -570,7 +570,7 @@ async def test_case_reviews_keep_all_defects_and_replay_without_provider_calls()
             return {"verdict": "NEEDS_REVISION", "factual_score": 4, "alignment_score": 4,
                     "didactic_score": 3, "summary": "Выявлены существенные замечания.",
                     "defects": [{"issue": f"defect-{marker}"}]}
-        variants = [{"variant_id": "v", "prompt": "?", "correct_option": {"text": "yes"},
+        variants = [{"variant_id": "v", "explanation": "Источник подтверждает правильный ответ.", "prompt": "?", "correct_option": {"text": "yes"},
                      "distractor_pool": [{"text": "a"}, {"text": "b"}, {"text": "c"}]}]
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "case-a", "rule_id": "Правило первое.", "variants": variants},
@@ -613,7 +613,7 @@ async def test_answer_contradiction_cannot_be_hidden_by_passing_case_review():
             return {"verdict": "PASS", "factual_score": 5, "alignment_score": 5, "didactic_score": 5,
                     "summary": "Проверка выполнена.", "defects": []}
         variants = [
-            {"variant_id": name, "prompt": "question", "correct_option": {"text": answer},
+            {"variant_id": name, "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": answer},
              "distractor_pool": [{"text": "a"}, {"text": "b"}, {"text": "c"}]}
             for name, answer in (("good", "good-answer"), ("bad", "bad-answer"))
         ]
@@ -653,7 +653,7 @@ async def test_unlinked_answer_cannot_borrow_unrelated_source_unit():
                     "summary": "Проверка выполнена.", "defects": []}
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "c", "rule_id": "missing-rule", "variants": [
-                    {"variant_id": "v", "prompt": "question", "correct_option": {"text": "answer"},
+                    {"variant_id": "v", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "answer"},
                      "distractor_pool": [{"text": "a"}, {"text": "b"}, {"text": "c"}]}]}]}
 
     result = await generate_v3_course_from_corpus(corpus(), intent=CourseIntent(), generation_client=invoke,
@@ -703,7 +703,7 @@ async def test_worker_repairs_shortcuts_then_reviews_all_options_and_replays(ove
             payload = json.loads(messages[1]["content"])
             assert payload["answers"] == ["очень длинный ответ"]
             assert "is_correct" not in messages[1]["content"]
-            return {"answers": [{"index": 0, "omissions": omissions}]}
+            return {"answers": [{"index": 0, "omissions": omissions}], "explanation_review": {"verdict": "SUPPORTED", "claims": [{"claim": "Fact", "status": "SUPPORTED", "reason": "Source"}], "summary": "Checked"}}
         if "независимый контролер" in system:
             calls.append("review")
             return {"verdict": "PASS", "factual_score": 5, "alignment_score": 5, "didactic_score": 5,
@@ -711,7 +711,7 @@ async def test_worker_repairs_shortcuts_then_reviews_all_options_and_replays(ove
         calls.append("lesson")
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": f"c{i}", "rule_id": f"Правило {word}.", "variants": [
-                    {"variant_id": f"v{i}", "prompt": "question", "correct_option": {"text": "очень длинный ответ"},
+                    {"variant_id": f"v{i}", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "очень длинный ответ"},
                      "source_quote": f"Правило {word}.",
                      "distractor_pool": [{"text": "а"}, {"text": "б"}, {"text": "в"}]}]}
                     for i, word in ((1, "первое"), (2, "второе"))]}
@@ -723,7 +723,7 @@ async def test_worker_repairs_shortcuts_then_reviews_all_options_and_replays(ove
     result = await generate()
     assert calls.count("repair") == 1 and calls.count("review") == 2 and calls.count("options") == 2
     assert calls.count("compatibility") == 2
-    # Identical question/answer/source requests share the exact saved result.
+    # Legacy completeness requests still share their original identity.
     assert calls.count("completeness") == (0 if overlap else 1)
     assert any("отредактированы" in item for item in result.content.source_warnings)
     assert result.diagnostics["requires_source_review"]
@@ -762,7 +762,7 @@ async def test_targeted_review_repair_rechecks_case_and_answers_then_replays(rec
             return {"verdict": "PASS", "factual_score": 5, "alignment_score": 5, "didactic_score": 5,
                     "summary": "Проверка выполнена.", "defects": defects}
         if "Сравни каждый ответ с источником" in system:
-            return {"answers": [{"index": 0, "omissions": []}]}
+            return {"answers": [{"index": 0, "omissions": []}], "explanation_review": {"verdict": "SUPPORTED", "claims": [{"claim": "Fact", "status": "SUPPORTED", "reason": "Source"}], "summary": "Checked"}}
         if "Проверь каждое фактическое утверждение" in system or "Проверь совместимость описанного" in system:
             calls.append("answer")
             values = json.loads(messages[1]["content"].split("ВАРИАНТЫ:\n", 1)[1])
@@ -771,7 +771,7 @@ async def test_targeted_review_repair_rechecks_case_and_answers_then_replays(rec
                                 "summary": "Проверено по источнику."} for item in values]}
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "case-a", "rule_id": "Правило первое.", "variants": [
-                    {"variant_id": "v1", "prompt": "question", "correct_option": {"text": "right"},
+                    {"variant_id": "v1", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "right"},
                      "source_quote": "Правило первое.",
                      "distractor_pool": [{"text": "wrong"}, {"text": "false"}, {"text": "other"}]}]}]}
 
@@ -839,10 +839,10 @@ async def test_uncertain_distractor_repair_is_scoped_rechecked_and_replayed(rech
                                "claims": [{"claim": "x", "status": status, "reason": "source"}], "summary": "checked"})
             return {"options": result}
         if "Сравни каждый ответ с источником и вопросом" in system:
-            return {"answers": [{"index": 0, "omissions": []}]}
+            return {"answers": [{"index": 0, "omissions": []}], "explanation_review": {"verdict": "SUPPORTED", "claims": [{"claim": "Fact", "status": "SUPPORTED", "reason": "Source"}], "summary": "Checked"}}
         return {"lesson_id": "l1", "title": "Урок", "module_title": "Модуль", "content": "Текст",
                 "cases": [{"case_id": "case-a", "rule_id": "Правило первое.", "variants": [
-                    {"variant_id": "v1", "prompt": "question", "correct_option": {"text": "right!"},
+                    {"variant_id": "v1", "explanation": "Источник подтверждает правильный ответ.", "prompt": "question", "correct_option": {"text": "right!"},
                      "source_quote": "Правило первое.",
                      "distractor_pool": [{"text": "unclear"}, {"text": "false!"}, {"text": "other!"}]}]}]}
 

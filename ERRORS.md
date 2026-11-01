@@ -3,6 +3,32 @@
 Current as of: 2026-11-02.
 
 
+## AI-V3-QUALITY-001 - Explanation contradicted a marked-correct answer
+
+- Date: 2026-11-02.
+- Symptom: a completed synthetic direct-Luna DEV course contained a fourth
+  question whose explanation called the last answer incorrect although that
+  answer was marked correct. The answer itself matched the retained source.
+- Cause: the generated explanation contained an option-position reference;
+  the existing positional guard did not recognize the last answer, while the
+  existing option critic did not receive the explanation. General lesson
+  review did not catch this case. The cause of the model's wording is unknown.
+- Fix: the local fresh direct-QA v2 candidate holds this position reference and
+  extends the existing keyed completeness critic to check explanation, options,
+  answer and source. Missing or uncertain judgments remain held; legacy review
+  requests retain their previous contract. No release or runtime claim follows.
+- Verification: offline synthetic tests cover the retained sentence, request
+  identity, malformed and uncertain verdicts, and v1/v2 policy fencing. The
+  V3-focused suite passed 405 tests before the final legacy identity regression;
+  that regression and its focused suite passed 30 tests. Model semantic accuracy
+  and full-course quality remain unverified.
+- Prevention: the reported roughly 30-call synthetic course is a cost and latency
+  concern requiring measured per-stage accounting; aggregate evidence alone does
+  not prove unnecessary calls. Distinct displayed option order can reduce request
+  deduplication. Preserve old uncertain claims and drain old workers before any
+  policy rollout; do not automatically replay an uncertain provider call.
+
+
 ## AI-PROVIDER-006 - DEV QA Luna bridge returned HTTP 400 during a held stage
 
 - Date: 2026-11-02.

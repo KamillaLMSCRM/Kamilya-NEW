@@ -37,4 +37,5 @@ def test_independent_completeness_rejects_saved_d07_omissions_and_invalid_result
                     {'answers': [{'index': 1, 'omissions': []}]},
                     {'answers': [{'index': 0, 'omissions': []}, {'index': 0, 'omissions': []}]}):
         assert not _validate_answer_completeness(invalid)[0]
-    assert _validate_answer_completeness({'answers': [{'index': 0, 'omissions': []}]})[0]
+    assert not _validate_answer_completeness({'answers': [{'index': 0, 'omissions': []}]})[0]
+    assert _validate_answer_completeness({'answers': [{'index': 0, 'omissions': []}], 'explanation_review': {"verdict": "SUPPORTED", "claims": [{"claim": "Fact", "status": "SUPPORTED", "reason": "Source"}], "summary": "Checked"}})[0]
