@@ -94,11 +94,14 @@ class QualityAPISession:
     """One process owns one ledger, including reservations surviving interruptions."""
 
     def __init__(self, *, key_file: Path, ledger: Path, model: str = "gpt-6-luna",
-                 output_tokens: int = 16_384, budget_micro_usd: int = MAX_BUDGET,
+                 output_tokens: int = 16_384, budget_micro_usd: int | None = None,
                  replay_requests: frozenset[str] = frozenset()):
         if model not in PRICES or type(output_tokens) is not int or not 512 <= output_tokens <= 32_768:
             raise ValueError("quality_api_profile_invalid")
-        if type(budget_micro_usd) is not int or not 0 < budget_micro_usd <= MAX_BUDGET:
+        if budget_micro_usd is None:
+            if model != "gpt-6-luna":
+                raise ValueError("quality_api_unbounded_model_not_authorized")
+        elif type(budget_micro_usd) is not int or not 0 < budget_micro_usd <= MAX_BUDGET:
             raise ValueError("quality_api_budget_invalid")
         if not ledger.parent.is_dir() or ledger.is_symlink():
             raise ValueError("quality_api_evidence_directory_invalid")
@@ -118,9 +121,12 @@ class QualityAPISession:
                     raise ValueError("quality_api_ledger_invalid")
                 for row in self.state["calls"]:
                     if (not isinstance(row, dict) or type(row.get("charged_micro_usd")) is not int
-                            or not 0 <= row["charged_micro_usd"] <= MAX_BUDGET):
+                            or row["charged_micro_usd"] < 0
+                            or (budget_micro_usd is not None and row["charged_micro_usd"] > MAX_BUDGET)):
                         raise ValueError("quality_api_ledger_invalid")
             else:
+                if any(ledger.parent.glob("response-*.json")):
+                    raise ValueError("quality_api_evidence_directory_not_empty")
                 self.state = {"schema": "generation-quality-budget-v1", "budget_micro_usd": budget_micro_usd, "calls": []}
                 self._persist()
         except BaseException:
@@ -151,7 +157,8 @@ class QualityAPISession:
             self._lock_path.unlink()
 
     async def ainvoke_validated(self, messages: Any, parser: Callable[[str], Any],
-                               response_format: dict | None = None, **kwargs: Any) -> Any:
+                               response_format: dict | None = None, *, allow_repeat_completed: bool = False,
+                               **kwargs: Any) -> Any:
         from app.modules.ai.llm_client import (
             AllProvidersFailedError,
             ValidatedCallFailureReason,
@@ -160,6 +167,8 @@ class QualityAPISession:
         )
 
         async with self._operation:
+            if type(allow_repeat_completed) is not bool:
+                raise ValueError("quality_api_repeat_flag_invalid")
             if (not isinstance(messages, list) or any(not isinstance(row, dict)
                     or set(row) != {"role", "content"} or row["role"] not in {"system", "user", "assistant"}
                     or not isinstance(row["content"], str) for row in messages)):
@@ -176,15 +185,27 @@ class QualityAPISession:
             # reserve additional framing overhead. Tools/images are not accepted.
             request_sha256 = hashlib.sha256(encoded).hexdigest()
             if request_sha256 in self.replay_requests:
-                saved = [row for row in self.state["calls"] if row.get("request_sha256") == request_sha256
-                         and row.get("status") == "completed" and row.get("response_sha256")]
-                if len(saved) != 1:
+                prior = [row for row in self.state["calls"] if row.get("request_sha256") == request_sha256]
+                if any(row.get("status") != "completed" or not row.get("response_sha256") for row in prior):
+                    raise QualityBudgetStopped("quality_api_prior_outcome_unknown")
+                saved = prior
+                if not saved:
+                    raise ValueError("quality_api_replay_not_found")
+                versions = []
+                for entry in saved:
+                    artifact = self.path.parent / f"response-{entry['ordinal']:04d}.json"
+                    data = json.loads(artifact.read_bytes())
+                    if (hashlib.sha256(_json(data)).hexdigest() != entry["response_sha256"]
+                            or data.get("model") != self.model):
+                        raise ValueError("quality_api_replay_identity_changed")
+                    versions.append(data)
+                try:
+                    contents = [version["choices"][0]["message"]["content"] for version in versions]
+                except (KeyError, IndexError, TypeError):
+                    raise ValueError("quality_api_replay_identity_changed") from None
+                if not all(isinstance(content, str) and content == contents[0] for content in contents):
                     raise ValueError("quality_api_replay_not_unique")
-                artifact = self.path.parent / f"response-{saved[0]['ordinal']:04d}.json"
-                data = json.loads(artifact.read_bytes())
-                if (hashlib.sha256(_json(data)).hexdigest() != saved[0]["response_sha256"]
-                        or data.get("model") != self.model):
-                    raise ValueError("quality_api_replay_identity_changed")
+                data = versions[0]
                 try:
                     value = parser(data["choices"][0]["message"]["content"])
                 except (ValueError, TypeError, KeyError):
@@ -198,9 +219,16 @@ class QualityAPISession:
                     value=value, attempt_count=0, failure_reasons=(),
                     prompt_tokens=replay_prompt if type(replay_prompt) is int and replay_prompt >= 0 else 0,
                     completion_tokens=replay_completion if type(replay_completion) is int and replay_completion >= 0 else 0)
+            prior = [row for row in self.state["calls"] if row.get("request_sha256") == request_sha256]
+            if prior:
+                if any(row.get("status") != "completed" or not row.get("response_sha256") for row in prior):
+                    raise QualityBudgetStopped("quality_api_prior_outcome_unknown")
+                if not allow_repeat_completed:
+                    raise QualityBudgetStopped("quality_api_prior_completed_use_explicit_replay")
             _input, _output, ceiling_input, ceiling_output = PRICES[self.model]
             reserved = _cost(len(encoded) + 4096, ceiling_input) + _cost(self.output_tokens, ceiling_output)
-            if self.charged_micro_usd + reserved > self.state["budget_micro_usd"]:
+            budget = self.state["budget_micro_usd"]
+            if budget is not None and self.charged_micro_usd + reserved > budget:
                 raise QualityBudgetStopped("quality_api_budget_exhausted")
             record = {"ordinal": len(self.state["calls"]), "request_sha256": request_sha256,
                       "model": self.model, "reasoning": "medium", "status": "outcome_unknown",
@@ -234,8 +262,7 @@ class QualityAPISession:
                     raise QualityBudgetStopped("quality_api_model_identity_changed")
                 record.update(input_tokens=input_tokens, output_tokens=output_tokens,
                     reasoning_tokens=usage.get("completion_tokens_details", {}).get("reasoning_tokens"),
-                    status="completed", actual_model=data["model"],
-                    charged_micro_usd=_cost(input_tokens, ceiling_input) + _cost(output_tokens, ceiling_output))
+                    actual_model=data["model"])
                 # A price-table estimate is separate from the conservative budget charge.
                 long_context = input_tokens > 272_000
                 record["estimated_cost_micro_usd"] = (
@@ -247,7 +274,11 @@ class QualityAPISession:
                 artifact = self.path.parent / f"response-{record['ordinal']:04d}.json"
                 with artifact.open("xb") as stream:
                     stream.write(_json(data))
+                    stream.flush()
+                    os.fsync(stream.fileno())
                 record["response_sha256"] = hashlib.sha256(_json(data)).hexdigest()
+                record["status"] = "completed"
+                record["charged_micro_usd"] = _cost(input_tokens, ceiling_input) + _cost(output_tokens, ceiling_output)
                 self._persist()  # Paid output survives even when its parser rejects.
                 try:
                     value = parser(content)

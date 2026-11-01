@@ -60,6 +60,7 @@ def learner_safe_review_snapshot(snapshot: dict[str, object]) -> dict[str, objec
         "review_comment",
         "review_status",
         "is_correct",
+        "source_quote",
     }
 
     def strip(value: object) -> object:

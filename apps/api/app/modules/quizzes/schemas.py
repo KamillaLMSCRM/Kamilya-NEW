@@ -21,6 +21,7 @@ class QuestionResponse(BaseModel):
     type: str
     points: int
     explanation: str | None = None
+    source_quote: str | None = None
     order_index: int
     choices: list[QuizChoiceResponse] = []
     model_config = {"from_attributes": True}

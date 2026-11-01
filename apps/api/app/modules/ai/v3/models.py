@@ -30,6 +30,10 @@ class RuleEntity:
     source_quote: str = ""
     doc_id: str = ""
     source_revision: str = ""
+    source_family: str = ""
+    source_topic: str = ""
+    source_start: int | None = None
+    source_end: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -56,6 +60,7 @@ class CurriculumGroup:
     primary_rules: tuple[RuleEntity, ...]
     context_prerequisite_rules: tuple[RuleEntity, ...] = ()
     unresolved_dependencies: tuple[str, ...] = ()
+    context_neighbor_rules: tuple[RuleEntity, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -65,6 +70,7 @@ class CurriculumGroup:
             "primary_rules": [r.to_dict() for r in self.primary_rules],
             "context_prerequisite_rules": [r.to_dict() for r in self.context_prerequisite_rules],
             "unresolved_dependencies": list(self.unresolved_dependencies),
+            "context_neighbor_rules": [r.to_dict() for r in self.context_neighbor_rules],
         }
 
 

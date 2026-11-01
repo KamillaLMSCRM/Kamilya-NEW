@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.modules.ai.v3.models import V3Course
+
+_POSITION_WORD = r"(?:перв\w*|втор\w*|трет\w*|четв[её]рт\w*|first|second|third|fourth)"
+_OPTION_WORD = r"(?:вариант\w*|ответ\w*|дистрактор\w*|option\w*|answer\w*|distractor\w*)"
+_POSITIONAL_FEEDBACK = re.compile(
+    rf"\b(?:{_POSITION_WORD}\s+(?:(?:неверн\w*|неправильн\w*|правильн\w*|ошибочн\w*|incorrect|wrong|correct)\s+)?{_OPTION_WORD}"
+    rf"|{_OPTION_WORD}\s*\(?(?:№\s*\d{{1,3}}|[1-9]|(?-i:[А-ГA-D])|{_POSITION_WORD})\b\)?"
+    rf"|(?:выбер\w*|select|choose)\s+{_POSITION_WORD})",
+    re.IGNORECASE,
+)
+
+
+def has_order_dependent_feedback(explanation: str) -> bool:
+    """Detect explicit position-based feedback; a clean result is not semantic proof."""
+    return bool(_POSITIONAL_FEEDBACK.search(explanation))
 
 
 @dataclass(frozen=True)
@@ -23,6 +38,8 @@ class QualityMetrics:
     longest_correct_percent: float
     anti_cheating_distractor_overlap_percent: float
     source_quotes_found_percent: float
+    shortest_correct_count: int = 0
+    shortest_correct_percent: float = 0.0
     unverified_quotes: list[str] = field(default_factory=list)
 
 
@@ -54,6 +71,8 @@ class ValidationReport:
                 "length_bias_ratio_mean": self.metrics.length_bias_ratio_mean,
                 "longest_correct_count": self.metrics.longest_correct_count,
                 "longest_correct_percent": self.metrics.longest_correct_percent,
+                "shortest_correct_count": self.metrics.shortest_correct_count,
+                "shortest_correct_percent": self.metrics.shortest_correct_percent,
                 "anti_cheating_distractor_overlap_percent": self.metrics.anti_cheating_distractor_overlap_percent,
                 "source_quotes_found_percent": self.metrics.source_quotes_found_percent,
                 "unverified_quotes": self.metrics.unverified_quotes,
@@ -107,11 +126,37 @@ def normalize_text_for_search(text: str) -> str:
     return norm_text
 
 
+def normalize_literal_quote(text: str) -> str:
+    """Normalize case and whitespace without erasing table boundaries."""
+    return normalize_literal_quote_with_char_map(text)[0]
+
+
+def normalize_literal_quote_with_char_map(text: str) -> tuple[str, list[int]]:
+    """Preserve delimiters and reversible positions while collapsing whitespace."""
+    chars: list[str] = []
+    offsets: list[int] = []
+    pending_space: int | None = None
+    for index, char in enumerate(text):
+        if char.isspace():
+            if chars and pending_space is None:
+                pending_space = index
+            continue
+        if pending_space is not None:
+            chars.append(" ")
+            offsets.append(pending_space)
+            pending_space = None
+        for lowered in char.lower():
+            chars.append(lowered)
+            offsets.append(index)
+    return "".join(chars), offsets
+
+
 def validate_v3_course(
     course: V3Course,
     source_document_text: str = "",
     *,
     max_longest_correct_ratio: float = 0.25,
+    source_documents: tuple[str, ...] | None = None,
 ) -> ValidationReport:
     """Rigorous offline validation of V3Course against didactic and structural invariants.
 
@@ -121,10 +166,11 @@ def validate_v3_course(
     Therefore, quality_status is ALWAYS returned as 'needs_review', never falsely claiming 'verified' without
     an independent two-factor semantic audit.
     """
-    norm_source = normalize_text_for_search(source_document_text) if source_document_text else ""
+    sources = source_documents if source_documents is not None else (source_document_text,)
+    normalized_sources = tuple(normalize_literal_quote(value) for value in sources if value.strip())
     violations: list[str] = []
 
-    if not norm_source:
+    if not normalized_sources:
         violations.append("Source document text is empty; citation grounding cannot be verified.")
 
     total_cases = 0
@@ -136,6 +182,7 @@ def validate_v3_course(
     distractor_categories: dict[str, int] = {}
     length_ratios: list[float] = []
     longest_correct_count = 0
+    shortest_correct_count = 0
     quotes_verified = 0
     unverified_quotes: list[str] = []
     case_overlap_flags = 0
@@ -161,6 +208,8 @@ def validate_v3_course(
             for v_idx, variant in enumerate(variants, 1):
                 # Assemble question exactly as production adapter does
                 assembled = variant.assemble_question(seed=100 + c_idx * 10 + v_idx)
+                if has_order_dependent_feedback(assembled.explanation):
+                    violations.append(f"Variant {variant.variant_id} has order-dependent explanation")
                 opts = assembled.options
                 total_options += len(opts)
 
@@ -203,12 +252,14 @@ def validate_v3_course(
                     # Shortcut: correct is strictly longest
                     if corr_len > max(wrong_lens):
                         longest_correct_count += 1
+                    if corr_len < min(wrong_lens):
+                        shortest_correct_count += 1
 
                 # Invariant 5: Strict Full-Quote Grounding (no 6-word shortcut)
                 quote = variant.source_quote.strip()
-                if quote and norm_source:
-                    norm_q = normalize_text_for_search(quote)
-                    if norm_q and norm_q in norm_source:
+                if quote and normalized_sources:
+                    norm_q = normalize_literal_quote(quote)
+                    if norm_q and any(norm_q in source for source in normalized_sources):
                         quotes_verified += 1
                     else:
                         unverified_quotes.append(f"{variant.variant_id}: '{quote[:70]}...'")
@@ -226,6 +277,7 @@ def validate_v3_course(
     zero_bin_pct = (zero_binary_count / n_var) * 100.0
     mean_ratio = round(sum(length_ratios) / max(1, len(length_ratios)), 2)
     longest_corr_pct = round((longest_correct_count / n_var) * 100.0, 1)
+    shortest_corr_pct = round((shortest_correct_count / n_var) * 100.0, 1)
     overlap_pct = (case_overlap_flags / max(1, total_cases)) * 100.0
     quote_pct = round((quotes_verified / n_var) * 100.0, 1)
 
@@ -243,9 +295,16 @@ def validate_v3_course(
             f"Invariant 4 (Shortcut Gate) failed: correct answer is longest in {longest_corr_pct:.1f}% of questions "
             f"(maximum allowed {max_longest_correct_ratio*100:.1f}%)"
         )
+    # A few questions cannot establish a reliable pattern. A strict shortest
+    # answer in a majority of a larger set is a review-blocking clue, not a
+    # semantic assessment of any individual answer.
+    if total_variants >= 4 and shortest_correct_count * 2 > total_variants:
+        violations.append(
+            f"Invariant 4 (Shortcut Gate) failed: correct answer is shortest in {shortest_corr_pct:.1f}% of questions"
+        )
     if overlap_pct > 0.0:
         violations.append(f"Invariant 5 failed: distractor overlap across variants is {overlap_pct:.1f}% (required 0%)")
-    if norm_source and quote_pct < 95.0:
+    if normalized_sources and quote_pct < 95.0:
         violations.append(f"Invariant 6 failed: full source quote fidelity is {quote_pct:.1f}% (required >= 95%)")
 
     passed = len(violations) == 0
@@ -266,6 +325,8 @@ def validate_v3_course(
         length_bias_ratio_mean=mean_ratio,
         longest_correct_count=longest_correct_count,
         longest_correct_percent=longest_corr_pct,
+        shortest_correct_count=shortest_correct_count,
+        shortest_correct_percent=shortest_corr_pct,
         anti_cheating_distractor_overlap_percent=overlap_pct,
         source_quotes_found_percent=quote_pct,
         unverified_quotes=unverified_quotes,

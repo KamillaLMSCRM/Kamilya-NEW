@@ -653,6 +653,7 @@
     "selectedAnswer": "Выбрано",
     "correctAnswer": "Правильный ответ",
     "explanation": "Пояснение",
+    "sourceQuoteForReview": "Цитата источника — требуется проверка",
     "submissionFailedDescription": "Не удалось отправить ответы",
     "attemptHistoryUnavailable": "Не удалось проверить оставшиеся попытки. Обновите страницу, чтобы повторить проверку.",
     "assignmentTimeLeft": "Оставшееся время на курс и тест",

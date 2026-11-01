@@ -117,6 +117,8 @@ async def test_direct_source_converts_every_selected_original_without_embeddings
         f"document:{hashlib.sha256(second_blob).hexdigest()}",
     ]
     assert all(document.chunks for document in corpus.documents)
+    assert corpus.documents[0].source_text == first_blob.decode()
+    assert corpus.documents[1].source_text == second_blob.decode()
     assert "Первый обязательный источник" in corpus.documents[0].chunks[0].text
     assert "Второй обязательный источник" in corpus.documents[1].chunks[0].text
 

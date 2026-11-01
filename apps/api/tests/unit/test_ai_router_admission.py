@@ -27,7 +27,12 @@ def _lenient_db(rows=None, scalar=None):
 async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     tenant_id = uuid4()
     user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id)
-    request = AIGenerateRequest(documents=[uuid4()])
+    document_id = uuid4()
+    request = AIGenerateRequest(documents=[document_id], reference_decisions=[{
+        "document_id": document_id, "source_revision": "document:" + "a" * 64,
+        "converted_text_sha256": "b" * 64, "reference_start": 0, "reference_end": 3,
+        "reference_exact": "ref", "target_start": 4, "target_end": 10, "target_exact": "target", "confirmed": True,
+    }])
     analysis = SimpleNamespace(
         status="compatible",
         score=1.0,
@@ -79,6 +84,9 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     assert error.value.headers == {"Retry-After": "510"}
     check_quota.assert_awaited_once()
     release_quota.assert_awaited_once_with(db, user.id, tenant_id)
+    saved_decision = submit.await_args.kwargs["params"]["reference_decisions"][0]
+    assert saved_decision["approved_by"] == str(user.id) and saved_decision["tenant_id"] == str(tenant_id)
+    assert saved_decision["authority"] == "methodologist_confirmed"
 
 
 @pytest.mark.asyncio

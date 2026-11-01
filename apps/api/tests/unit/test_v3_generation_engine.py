@@ -432,6 +432,32 @@ def test_validate_v3_course_detects_length_shortcut():
     assert any("Shortcut Gate" in v for v in report.violations)
 
 
+def test_quote_validator_rejects_composite_across_table_rows():
+    from app.modules.ai.v3.validator import validate_v3_course
+
+    source = "| Категория А | 100 |\n| Категория Б | 200 |"
+    course = V3Course.from_dict({"course_id": "q", "title": "t", "document_sha256": "a" * 64,
+        "lessons": [{"lesson_id": "l", "title": "Урок", "content": "Текст", "cases": [{"case_id": "c",
+            "rule_id": "r", "variants": [{"variant_id": "v", "scenario_premise": "Ситуация", "prompt": "Вопрос?",
+                "correct_option": {"text": "правильный"}, "distractor_pool": [{"text": "ошибка 11"},
+                    {"text": "ошибка 22"}, {"text": "ошибка 33"}], "source_quote": "100 Категория Б"}]}]}]})
+    result = validate_v3_course(course, source_document_text=source)
+    assert any("Citation grounding failure" in violation for violation in result.violations)
+
+
+def test_quote_validator_does_not_join_distinct_documents():
+    from app.modules.ai.v3.validator import validate_v3_course
+
+    documents = ("Первый источник заканчивается словом альфа", "бета начинает второй источник")
+    course = V3Course.from_dict({"course_id": "q", "title": "t", "document_sha256": "a" * 64,
+        "lessons": [{"lesson_id": "l", "title": "Урок", "content": "Текст", "cases": [{"case_id": "c",
+            "rule_id": "r", "variants": [{"variant_id": "v", "scenario_premise": "Ситуация", "prompt": "Вопрос?",
+                "correct_option": {"text": "правильный"}, "distractor_pool": [{"text": "ошибка 11"},
+                    {"text": "ошибка 22"}, {"text": "ошибка 33"}], "source_quote": "альфа бета"}]}]}]})
+    result = validate_v3_course(course, source_document_text="\n\n".join(documents), source_documents=documents)
+    assert any("Citation grounding failure" in violation for violation in result.violations)
+
+
 def test_validate_v3_course_detects_invented_quote_and_missing_source():
     """Verify that validate_v3_course strictly fails on invented quotes and missing source text."""
     from app.modules.ai.v3.validator import validate_v3_course
@@ -1615,6 +1641,12 @@ async def test_mock_session_persistence_and_methodologist_review_lock(monkeypatc
     saved_lessons = [v for v in session.added if isinstance(v, Lesson)]
     assert len(saved_lessons) == 1
     assert saved_lessons[0].source_validation_status == "needs_review"
+    # The citation generated for the question must survive the normal save path.
+    from app.modules.quizzes.models import Question
+
+    saved_questions = [v for v in session.added if isinstance(v, Question)]
+    assert len(saved_questions) == 1
+    assert saved_questions[0].source_quote == "Цитата"
 
     # Verify methodologist review/publish guard BLOCKS approval while hold marker exists
     with pytest.raises(HTTPException) as hold_err:

@@ -37,6 +37,20 @@ def canonical_json_sha256(payload: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _question_snapshot_payload(question: Question, choices: list[QuizChoice]) -> dict[str, Any]:
+    result = {
+        "id": str(question.id), "text": question.text, "type": question.type,
+        "points": question.points, "explanation": question.explanation,
+        "order_index": question.order_index, "pool_group": question.pool_group,
+        "choices": [{"id": str(choice.id), "text": choice.text, "is_correct": bool(choice.is_correct),
+                     "order_index": choice.order_index} for choice in choices],
+    }
+    # Preserve the legacy snapshot shape for questions created without a quote.
+    if getattr(question, "source_quote", None):
+        result["source_quote"] = question.source_quote
+    return result
+
+
 async def touch_course(db: AsyncSession, course_id: object, tenant_id: object) -> None:
     """Updates parent Course updated_at timestamp to synchronize content versioning and locking."""
     from sqlalchemy import update
@@ -283,25 +297,8 @@ async def build_course_release_snapshot(
         .all()
     )
 
-    def choice_payload(choice: QuizChoice) -> dict[str, Any]:
-        return {
-            "id": str(choice.id),
-            "text": choice.text,
-            "is_correct": bool(choice.is_correct),
-            "order_index": choice.order_index,
-        }
-
     def question_payload(question: Question) -> dict[str, Any]:
-        return {
-            "id": str(question.id),
-            "text": question.text,
-            "type": question.type,
-            "points": question.points,
-            "explanation": question.explanation,
-            "order_index": question.order_index,
-            "pool_group": question.pool_group,
-            "choices": [choice_payload(choice) for choice in choices_by_question.get(question.id, [])],
-        }
+        return _question_snapshot_payload(question, choices_by_question.get(question.id, []))
 
     def quiz_payload(quiz: Quiz) -> dict[str, Any]:
         return {

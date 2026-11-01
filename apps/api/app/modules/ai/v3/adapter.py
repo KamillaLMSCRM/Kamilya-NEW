@@ -114,6 +114,8 @@ def v3_course_to_generation_artifacts(
     warnings: list[str] = []
     if course.validation_report and course.validation_report.get("violations"):
         warnings.extend(course.validation_report["violations"])
+    if course.validation_report and course.validation_report.get("coverage_review_signals"):
+        warnings.extend(course.validation_report["coverage_review_signals"])
 
     content = CourseContent(
         title=course.title,

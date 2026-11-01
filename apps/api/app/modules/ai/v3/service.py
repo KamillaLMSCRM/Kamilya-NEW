@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from app.modules.ai.direct_source import DirectSourceCorpus
@@ -15,20 +15,36 @@ from app.modules.ai.evidence_engine.application import GenerationArtifacts
 from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.engine import V3GenerationPipeline
+from app.modules.ai.v3.extraction_checkpoint import ExtractionJournal, ExtractionOutcomeUnknownError
 from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, RuleEntity, V3Course, V3Lesson
-from app.modules.ai.v3.validator import normalize_text_for_search, normalize_with_char_map, validate_v3_course
+from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision, reference_context_for_rules
+from app.modules.ai.v3.source_units import find_rendered_quote_spans, rendered_candidate_preserves_table_boundaries
+from app.modules.ai.v3.validator import (
+    normalize_literal_quote,
+    normalize_literal_quote_with_char_map,
+    validate_v3_course,
+)
+from app.modules.ai.v3.validator import (
+    normalize_text_for_search as normalize_text_for_search,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def _extract_corpus_text(corpus: DirectSourceCorpus) -> tuple[str, str]:
-    """Concatenates chunk text across all documents in the corpus and computes SHA256.
+    """Use the retained converted source and compute its SHA256.
 
     IMPORTANT: Metadata headers (document titles, filenames) are strictly excluded from full_text
     so that citation grounding validates exclusively against authentic chunk contents.
     """
     text_parts: list[str] = []
     for doc in corpus.documents:
+        if doc.source_text is not None:
+            if doc.source_text:
+                text_parts.append(doc.source_text)
+            continue
+        # Legacy captured corpora have no original text; preserve all chunks
+        # verbatim rather than guessing whether a repeated passage is overlap.
         for chunk in doc.chunks:
             c = chunk.text.strip()
             if c:
@@ -49,20 +65,21 @@ class QuoteOccurrence:
     char_start: int
     char_end: int
     matched_text: str
+    scope: str = "chunk"
 
 
 def find_quote_occurrences_in_corpus(
     quote: str,
     corpus: DirectSourceCorpus,
 ) -> list[QuoteOccurrence]:
-    """Finds all exact occurrences of quote inside document chunks with verified original coordinates.
+    """Find exact occurrences in the canonical source, or legacy chunks when unavailable.
 
     Guarantees that chunk.text[char_start:char_end] strictly matches the quote without truncating words.
     """
     clean_quote = quote.strip()
     if not clean_quote:
         return []
-    norm_q = normalize_text_for_search(clean_quote)
+    norm_q = normalize_literal_quote(clean_quote)
     if not norm_q:
         return []
 
@@ -70,9 +87,34 @@ def find_quote_occurrences_in_corpus(
     match_len = len(norm_q)
 
     for doc in corpus.documents:
+        doc_rev = (doc.source_revision or "").strip()
+        if doc.source_text is not None:
+            # When a full working source exists it is authoritative. Chunks
+            # can be stale even when the original document revision matches.
+            # Conflicting or absent chunk revisions remain a review hold.
+            if not doc_rev or not doc.chunks or any(
+                chunk.doc_id != doc.doc_id or (chunk.source_revision or "").strip() != doc_rev
+                for chunk in doc.chunks
+            ):
+                continue
+            norm_doc, doc_map = normalize_literal_quote_with_char_map(doc.source_text)
+            start_pos = 0
+            while (idx := norm_doc.find(norm_q, start_pos)) >= 0:
+                orig_start = doc_map[idx]
+                orig_end = doc_map[idx + match_len - 1] + 1
+                matched_slice = doc.source_text[orig_start:orig_end]
+                if normalize_literal_quote(matched_slice) == normalize_literal_quote(clean_quote):
+                    occurrences.append(QuoteOccurrence(
+                        doc_id=doc.doc_id, chunk_id="", doc_revision=doc_rev,
+                        chunk_revision="", source_revision=doc_rev,
+                        char_start=orig_start, char_end=orig_end, matched_text=matched_slice, scope="document",
+                    ))
+                start_pos = idx + 1
+            continue
+
         for chunk in doc.chunks:
             c_text = chunk.text
-            norm_c, char_map = normalize_with_char_map(c_text)
+            norm_c, char_map = normalize_literal_quote_with_char_map(c_text)
             chunk_rev = (chunk.source_revision or "").strip()
             doc_rev = (doc.source_revision or "").strip()
             effective_rev = chunk_rev or doc_rev
@@ -85,7 +127,9 @@ def find_quote_occurrences_in_corpus(
                 orig_end = char_map[idx + match_len - 1] + 1
                 matched_slice = c_text[orig_start:orig_end]
                 # Reverse verification check: normalized slice must match norm_q
-                if normalize_text_for_search(matched_slice) == norm_q:
+                # Do not silently join different table cells into one claimed
+                # quotation when the submitted quote contains no delimiters.
+                if normalize_literal_quote(matched_slice) == normalize_literal_quote(clean_quote):
                     occurrences.append(
                         QuoteOccurrence(
                             doc_id=doc.doc_id,
@@ -99,6 +143,7 @@ def find_quote_occurrences_in_corpus(
                         )
                     )
                 start_pos = idx + 1
+
 
     return occurrences
 
@@ -116,9 +161,9 @@ def _find_quote_in_corpus(
         doc_matches = [occ for occ in occurrences if occ.doc_id == preferred_doc_id]
         if doc_matches:
             first = doc_matches[0]
-            return True, first.doc_id, first.chunk_id, first.char_start, first.char_end
+            return True, first.doc_id, first.chunk_id or None, first.char_start, first.char_end
     first = occurrences[0]
-    return True, first.doc_id, first.chunk_id, first.char_start, first.char_end
+    return True, first.doc_id, first.chunk_id or None, first.char_start, first.char_end
 
 
 def _occurrence_matches_revision(occ: QuoteOccurrence, rule_rev: str) -> tuple[bool, str]:
@@ -134,6 +179,13 @@ def _occurrence_matches_revision(occ: QuoteOccurrence, rule_rev: str) -> tuple[b
     chunk_rev = (occ.chunk_revision or "").strip()
     doc_rev = (occ.doc_revision or "").strip()
     rule_rev = (rule_rev or "").strip()
+
+    if occ.scope == "document":
+        if not doc_rev or not rule_rev:
+            return False, "Неизвестная ревизия документа или правила требует проверки"
+        if doc_rev != rule_rev:
+            return False, f"Несоответствие ревизии документа '{occ.doc_id}' и правила"
+        return True, ""
 
     # 1. Unknown / missing revisions must fail verification and stay for review
     if not chunk_rev:
@@ -196,6 +248,20 @@ def _verify_rule_quote_grounding(
 
     all_occurrences = find_quote_occurrences_in_corpus(raw_q, corpus)
     if not all_occurrences:
+        # Candidate retrieval is diagnostic only: stripping display markup can
+        # be ambiguous and document offsets differ from chunk coordinates.
+        for doc in corpus.documents:
+            if (rule.doc_id and rule.doc_id != doc.doc_id) or not rule.source_revision:
+                continue
+            if doc.source_revision != rule.source_revision or doc.source_text is None:
+                continue
+            spans = find_rendered_quote_spans(doc.source_text, raw_q)
+            if spans:
+                return False, (
+                    f"Неподтвержденная цитата в правиле {rule.rule_id}: найдено возможное соответствие "
+                    f"с учетом форматирования в документе {doc.doc_id} ({len(spans)} совпадений); "
+                    "необходимо сопоставить с точным исходным фрагментом"
+                ), []
         return False, (
             f"Неподтвержденная цитата в правиле {rule.rule_id} ('{rule.title}'): фрагмент карты правил отсутствует в содержимом документов корпуса"
         ), []
@@ -251,12 +317,31 @@ def _verify_rule_quote_grounding(
             return False, err_msg, all_occurrences
         target_matches = rev_matches
 
+    # A rule extracted from a source unit must not be certified with text
+    # taken only from a neighboring unit, even in the same document/revision.
+    if rule.source_start is not None or rule.source_end is not None:
+        if (type(rule.source_start) is not int or type(rule.source_end) is not int
+                or rule.source_start < 0 or rule.source_end <= rule.source_start):
+            return False, f"Некорректная граница источника правила {rule.rule_id}", target_matches
+        in_unit = [occ for occ in target_matches if occ.scope == "document"
+                   and rule.source_start <= occ.char_start < occ.char_end <= rule.source_end
+                   and any(doc.doc_id == occ.doc_id and doc.source_revision == occ.doc_revision
+                           and doc.source_text is not None and rule.source_end <= len(doc.source_text)
+                           for doc in corpus.documents)]
+        if not in_unit:
+            return False, f"Цитата правила {rule.rule_id} находится вне его исходного фрагмента", target_matches
+        target_matches = in_unit
+
     primary = target_matches[0]
     multi_note = f" (всего совпадений в документе: {len(target_matches)})" if len(target_matches) > 1 else ""
+    location = (
+        "координаты полного текста"
+        if primary.scope == "document"
+        else f"Чанк {primary.chunk_id} (rev: {primary.chunk_revision or primary.doc_revision or 'n/a'})"
+    )
     fragment_str = (
         f"[Верифицированная цитата | Документ {primary.doc_id} (rev: {primary.doc_revision or 'n/a'}) | "
-        f"Чанк {primary.chunk_id} (rev: {primary.chunk_revision or primary.doc_revision or 'n/a'}){multi_note} | "
-        f"({primary.char_start}:{primary.char_end})]: {primary.matched_text}"
+        f"{location}{multi_note} | ({primary.char_start}:{primary.char_end})]: {primary.matched_text}"
     )
     return True, fragment_str, target_matches
 
@@ -386,20 +471,7 @@ def _sanitize_rules(
         taken_ids.add(assigned_id)
 
         if assigned_id != r.rule_id:
-            r = RuleEntity(
-                rule_id=assigned_id,
-                section=r.section,
-                title=r.title,
-                statement=r.statement,
-                conditions=r.conditions,
-                exceptions=r.exceptions,
-                actors=r.actors,
-                timing=r.timing,
-                consequences=r.consequences,
-                source_quote=r.source_quote,
-                doc_id=r.doc_id,
-                source_revision=r.source_revision,
-            )
+            r = replace(r, rule_id=assigned_id)
         sanitized.append(r)
         if raw_id:
             raw_to_rules.setdefault(raw_id, []).append(r)
@@ -413,6 +485,7 @@ def _find_direct_rule_dependencies(
     clause_index: dict[str, list[RuleEntity]],
     raw_to_rules: dict[str, list[RuleEntity]],
     current_section: str,
+    confirmed_clauses: dict[str, RuleEntity] | None = None,
 ) -> tuple[list[RuleEntity], list[str]]:
     """Discovers direct dependencies for a rule using boundary-safe regex, compound hierarchy, and ambiguous reference tracking."""
     text = f"{rule.statement} {' '.join(rule.conditions)} {' '.join(rule.exceptions)} {rule.timing} {rule.consequences}"
@@ -523,6 +596,11 @@ def _find_direct_rule_dependencies(
     referenced_clauses = CLAUSE_REF_RE.findall(remaining_text)
     for clause_str in referenced_clauses:
         clause_clean = clause_str.strip().rstrip(".")
+        confirmed = (confirmed_clauses or {}).get(clause_clean)
+        if confirmed is not None:
+            if confirmed.rule_id != rule.rule_id and confirmed not in direct_deps:
+                direct_deps.append(confirmed)
+            continue
         candidates = [c for c in clause_index.get(clause_clean, []) if c.rule_id != rule.rule_id]
         if not candidates:
             unresolved.append(f"Неразрешенная ссылка на пункт '{clause_clean}' в правиле '{rule.rule_id}'")
@@ -543,6 +621,79 @@ def _find_direct_rule_dependencies(
                     direct_deps.append(c)
 
     return direct_deps, unresolved
+
+
+def _confirmed_reference_rule_links(
+    corpus: DirectSourceCorpus, rules: list[RuleEntity], decisions: tuple[SourceReferenceDecision, ...],
+    *, source_only: bool = False,
+) -> dict[str, dict[str, RuleEntity]]:
+    """Bind a confirmed source occurrence to one exact source-backed target rule.
+
+    A source unit may contain many rules; unit overlap alone is not identity.
+    Ambiguous quotes, multiple occurrences, or competing decisions remain unresolved.
+    """
+    reference_context_for_rules(corpus.tenant_id, corpus.documents, decisions, ())
+    candidates: dict[tuple[str, str], list[RuleEntity]] = {}
+    for decision in decisions:
+        clauses = CLAUSE_REF_RE.findall(decision.reference_exact)
+        if len(clauses) != 1:
+            continue
+        clause = clauses[0].strip().rstrip(".")
+        referring: list[RuleEntity] = []
+        targets: list[RuleEntity] = []
+        for rule in rules:
+            if rule.doc_id != decision.document_id or rule.source_revision != decision.source_revision:
+                continue
+            grounded, _, occurrences = _verify_rule_quote_grounding(rule, corpus)
+            owned = [occ for occ in occurrences if occ.doc_id == decision.document_id
+                     and occ.source_revision == decision.source_revision and occ.scope == "document"]
+            if not grounded or len(owned) != 1:
+                continue
+            occ = owned[0]
+            if occ.char_start <= decision.reference_start < decision.reference_end <= occ.char_end:
+                fields = [rule.statement, *rule.conditions, *rule.exceptions, rule.timing, rule.consequences]
+                per_field = [[value.strip().rstrip(".") for value in CLAUSE_REF_RE.findall(field)] for field in fields]
+                quoted = [value.strip().rstrip(".") for value in CLAUSE_REF_RE.findall(rule.source_quote)]
+                projections = {rule.source_quote.strip().rstrip(". ").casefold(),
+                               decision.reference_exact.strip().rstrip(". ").casefold()}
+                exact_projection = any(field.strip().rstrip(". ").casefold() in projections
+                                       for field in fields if field.strip())
+                if quoted.count(clause) == 1 and (source_only or (
+                        sum(values.count(clause) for values in per_field) == 1 and exact_projection)):
+                    referring.append(rule)
+            if occ.char_start == decision.target_start and occ.char_end == decision.target_end:
+                targets.append(rule)
+        if len(referring) == 1 and len(targets) == 1 and referring[0].rule_id != targets[0].rule_id:
+            candidates.setdefault((referring[0].rule_id, clause), []).append(targets[0])
+    result: dict[str, dict[str, RuleEntity]] = {}
+    for (rule_id, clause), linked in candidates.items():
+        if len(linked) == 1:
+            result.setdefault(rule_id, {})[clause] = linked[0]
+    return result
+
+
+def _confirmed_source_reference_clauses(
+    corpus: DirectSourceCorpus, rules: list[RuleEntity], decisions: tuple[SourceReferenceDecision, ...],
+) -> dict[str, set[str]]:
+    """Identify references in verified source quotes even if target binding is ambiguous."""
+    reference_context_for_rules(corpus.tenant_id, corpus.documents, decisions, ())
+    result: dict[str, set[str]] = {}
+    for decision in decisions:
+        clauses = CLAUSE_REF_RE.findall(decision.reference_exact)
+        if len(clauses) != 1:
+            continue
+        clause = clauses[0].strip().rstrip(".")
+        for rule in rules:
+            if rule.doc_id != decision.document_id or rule.source_revision != decision.source_revision:
+                continue
+            grounded, _, occurrences = _verify_rule_quote_grounding(rule, corpus)
+            owned = [occ for occ in occurrences if occ.doc_id == decision.document_id
+                     and occ.source_revision == decision.source_revision and occ.scope == "document"]
+            quoted = [value.strip().rstrip(".") for value in CLAUSE_REF_RE.findall(rule.source_quote)]
+            if (grounded and len(owned) == 1 and quoted.count(clause) == 1
+                    and owned[0].char_start <= decision.reference_start < decision.reference_end <= owned[0].char_end):
+                result.setdefault(rule.rule_id, set()).add(clause)
+    return result
 
 
 def _validate_critic_response(
@@ -686,7 +837,69 @@ def _validate_critic_response(
     return True, ""
 
 
-def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGroup]:
+def _rule_source_span(rule: RuleEntity) -> tuple[str, str, int, int] | None:
+    start, end = rule.source_start, rule.source_end
+    if (not rule.doc_id or not rule.source_revision or type(start) is not int or type(end) is not int
+            or start < 0 or end <= start):
+        return None
+    return (rule.doc_id, rule.source_revision, start, end)
+
+
+def _source_atomic_blocks(rules: list[RuleEntity]) -> list[list[RuleEntity]]:
+    """Keep table families and rules from the same exact source unit together."""
+    parent = list(range(len(rules)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    identities: dict[tuple[Any, ...], int] = {}
+    for index, rule in enumerate(rules):
+        keys: list[tuple[Any, ...]] = []
+        if rule.source_family:
+            keys.append(("family", rule.doc_id, rule.source_revision, rule.source_family))
+        span = _rule_source_span(rule)
+        if span is not None:
+            keys.append(("span", *span))
+        for key in keys:
+            if key in identities:
+                left, right = find(index), find(identities[key])
+                if left != right:
+                    parent[left] = right
+            else:
+                identities[key] = index
+    blocks: dict[int, list[RuleEntity]] = {}
+    for index, rule in enumerate(rules):
+        blocks.setdefault(find(index), []).append(rule)
+    return list(blocks.values())
+
+
+# These are planning targets for one table family, not document limits.
+# They trigger only when distinct source topics can be retained separately.
+_SHARED_FAMILY_RULE_TARGET = 12
+_SHARED_FAMILY_SPAN_TARGET = 12000
+
+
+def _large_shared_topic_family(rules: list[RuleEntity]) -> bool:
+    topics = {rule.source_topic for rule in rules if rule.source_topic}
+    if len(topics) < 2 or not any(not rule.source_topic for rule in rules):
+        return False
+    spans = [_rule_source_span(rule) for rule in rules]
+    if any(span is None for span in spans):
+        return False
+    typed = [span for span in spans if span is not None]
+    if len({(span[0], span[1]) for span in typed}) != 1:
+        return False
+    return (len(rules) > _SHARED_FAMILY_RULE_TARGET or
+            max(span[3] for span in typed) - min(span[2] for span in typed) > _SHARED_FAMILY_SPAN_TARGET)
+
+
+def _build_curriculum_groups(
+    rule_model: DocumentRuleModel, *, corpus: DirectSourceCorpus | None = None,
+    reference_decisions: tuple[SourceReferenceDecision, ...] = (),
+) -> list[CurriculumGroup]:
     """Builds resilient curriculum groups with unique stable IDs and multi-level transitive dependency closures.
 
     Guarantees:
@@ -697,6 +910,22 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
     5. Natural clause/point reference resolution with ambiguous reference detection.
     """
     sanitized_rules, raw_to_rules = _sanitize_rules(rule_model.rules)
+    confirmed_links = (_confirmed_reference_rule_links(corpus, sanitized_rules, reference_decisions)
+                       if corpus is not None and reference_decisions else {})
+    # A verified source occurrence may require its target as context even when
+    # individual model paraphrases cannot be bound to that occurrence. Keep
+    # those paraphrases unresolved: the edge is not a verdict about them.
+    source_edges = (_confirmed_reference_rule_links(corpus, sanitized_rules, reference_decisions, source_only=True)
+                    if corpus is not None and reference_decisions else {})
+    source_clauses = (_confirmed_source_reference_clauses(corpus, sanitized_rules, reference_decisions)
+                      if corpus is not None and reference_decisions else {})
+    unmatched_references: list[str] = []
+    if corpus is not None and reference_decisions:
+        from app.modules.ai.v3.reference_coverage import unmatched_confirmed_references
+
+        unmatched_references = unmatched_confirmed_references(corpus, sanitized_rules, reference_decisions)
+        if not sanitized_rules and unmatched_references:
+            raise ValueError("v3_confirmed_reference_without_extracted_rule")
 
     # Invariant: unique IDs
     all_rule_ids = [r.rule_id for r in sanitized_rules]
@@ -721,6 +950,48 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
                 )
             )
             group_counter += 1
+        elif any(rule.source_family or _rule_source_span(rule) is not None for rule in r_list):
+            # Keep source-table rows in the same group rather than splitting
+            # related thresholds and conditions at an arbitrary rule count.
+            blocks = _source_atomic_blocks(r_list)
+            # Source-labelled table rows may be separate teaching topics. Only
+            # subdivide an oversized family when every row has a known label;
+            # the complete family is added back as context below.
+            refined: list[list[RuleEntity]] = []
+            for block in blocks:
+                topics = {r.source_topic for r in block}
+                span_topics: dict[tuple[str, str, int, int], set[str]] = {}
+                for item in block:
+                    span = _rule_source_span(item)
+                    if span is not None:
+                        span_topics.setdefault(span, set()).add(item.source_topic)
+                spans_cross_topics = any(len(values) > 1 for values in span_topics.values())
+                split_labeled = len(block) > 6 and "" not in topics and len(topics) > 1
+                split_large_shared = _large_shared_topic_family(block)
+                if (split_labeled or split_large_shared) and not spans_cross_topics:
+                    shared = [r for r in block if not r.source_topic]
+                    for topic in dict.fromkeys(r.source_topic for r in block if r.source_topic):
+                        topic_rules = [r for r in block if r.source_topic == topic]
+                        refined.append(shared + topic_rules if shared else topic_rules)
+                        shared = []
+                else:
+                    refined.append(block)
+            blocks = refined
+            chunks: list[list[RuleEntity]] = []
+            current: list[RuleEntity] = []
+            packing_limit = 6 if any(rule.source_family for rule in r_list) else 5
+            for block in blocks:
+                if current and len(current) + len(block) > packing_limit:
+                    chunks.append(current)
+                    current = []
+                current.extend(block)
+            if current:
+                chunks.append(current)
+            for chunk_idx, chunk in enumerate(chunks):
+                part_title = f"{sec} (Часть {chunk_idx + 1})" if len(chunks) > 1 else sec
+                groups.append(CurriculumGroup(group_id=f"cg-{group_counter:03d}", display_title=part_title,
+                                              section=sec, primary_rules=tuple(chunk)))
+                group_counter += 1
         else:
             for chunk_idx in range(0, len(r_list), 5):
                 chunk = r_list[chunk_idx : chunk_idx + 5]
@@ -777,12 +1048,15 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
     # Build multi-level transitive dependency closure across groups
     groups_with_dependencies: list[CurriculumGroup] = []
 
-    for g in groups:
+    for group_index, g in enumerate(groups):
         primary_ids = {r.rule_id for r in g.primary_rules}
         visited_ids = set(primary_ids)
         queue = list(g.primary_rules)
         prereqs: list[RuleEntity] = []
-        group_unresolved: list[str] = []
+        group_unresolved: list[str] = [
+            f"Подтвержденная ссылка источника {identity[:12]} не связана с единственным извлеченным правилом"
+            for identity in unmatched_references
+        ]
 
         while queue:
             curr_rule = queue.pop(0)
@@ -792,7 +1066,30 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
                 clause_index=clause_index,
                 raw_to_rules=raw_to_rules,
                 current_section=g.section,
+                confirmed_clauses=confirmed_links.get(curr_rule.rule_id),
             )
+            direct_deps.extend(source_edges.get(curr_rule.rule_id, {}).values())
+            missing_source_edges = source_clauses.get(curr_rule.rule_id, set()) - set(source_edges.get(curr_rule.rule_id, {}))
+            for clause in sorted(missing_source_edges):
+                direct_unresolved.append(
+                    f"Неразрешенная ссылка на пункт '{clause}' в исходном фрагменте правила "
+                    f"'{curr_rule.rule_id}': целевое правило отсутствует или неоднозначно"
+                )
+            # A unique numbered candidate does not establish which of several
+            # generated mentions corresponds to the confirmed source span.
+            unbound = source_clauses.get(curr_rule.rule_id, set()) - set(confirmed_links.get(curr_rule.rule_id, {}))
+            fields = [("statement", curr_rule.statement),
+                      *((f"conditions[{i}]", value) for i, value in enumerate(curr_rule.conditions)),
+                      *((f"exceptions[{i}]", value) for i, value in enumerate(curr_rule.exceptions)),
+                      ("timing", curr_rule.timing), ("consequences", curr_rule.consequences)]
+            for field_name, value in fields:
+                for match in CLAUSE_REF_RE.finditer(value):
+                    clause = match.group(1).strip().rstrip(".")
+                    if clause in unbound:
+                        direct_unresolved.append(
+                            f"Неразрешенная ссылка на пункт '{clause}' в правиле '{curr_rule.rule_id}', "
+                            f"поле {field_name}, позиция {match.start()}: нет привязки к исходному фрагменту"
+                        )
             for u in direct_unresolved:
                 if u not in group_unresolved:
                     group_unresolved.append(u)
@@ -803,6 +1100,29 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
                     prereqs.append(dep)
                     queue.append(dep)
 
+        neighbors: list[RuleEntity] = []
+        families = {(r.doc_id, r.source_revision, r.source_family) for r in g.primary_rules if r.source_family}
+        family_rules = {identity: [r for r in sanitized_rules
+                                   if (r.doc_id, r.source_revision, r.source_family) == identity]
+                        for identity in families}
+        large_families = {identity for identity, members in family_rules.items() if _large_shared_topic_family(members)}
+        if large_families:
+            group_unresolved.append("Большая таблица разделена по исходным темам; проверить межтематические зависимости")
+        for related in sanitized_rules:
+            identity = (related.doc_id, related.source_revision, related.source_family)
+            if related.source_family and identity in families and related.rule_id not in visited_ids:
+                # Shared unlabelled notes remain in every topic's context. Other
+                # topics enter through explicit dependency closure or adjacency.
+                if identity in large_families and related.source_topic:
+                    continue
+                neighbors.append(related)
+                visited_ids.add(related.rule_id)
+        for neighbor_index in (group_index - 1, group_index + 1):
+            if 0 <= neighbor_index < len(groups) and groups[neighbor_index].section == g.section:
+                for neighbor_rule in groups[neighbor_index].primary_rules:
+                    if neighbor_rule.rule_id not in visited_ids:
+                        neighbors.append(neighbor_rule)
+                        visited_ids.add(neighbor_rule.rule_id)
         groups_with_dependencies.append(
             CurriculumGroup(
                 group_id=g.group_id,
@@ -811,10 +1131,438 @@ def _build_curriculum_groups(rule_model: DocumentRuleModel) -> list[CurriculumGr
                 primary_rules=g.primary_rules,
                 context_prerequisite_rules=tuple(prereqs),
                 unresolved_dependencies=tuple(group_unresolved),
+                context_neighbor_rules=tuple(neighbors),
             )
         )
 
     return groups_with_dependencies
+
+
+def _cases_outside_primary_rule_scope(lesson: V3Lesson, rules: list[RuleEntity]) -> list[tuple[str, str]]:
+    """Identify case links that do not establish a primary-rule target."""
+    primary = {rule.rule_id for rule in rules}
+    if lesson.cases:
+        return [(case.case_id if isinstance(case.case_id, str) else "",
+                 case.rule_id if isinstance(case.rule_id, str) else "")
+                for case in lesson.cases if not isinstance(case.rule_id, str) or case.rule_id not in primary]
+    return [(question.question_id if isinstance(question.question_id, str) else "",
+             question.rule_id if isinstance(question.rule_id, str) else "")
+            for question in lesson.questions if not isinstance(question.rule_id, str) or question.rule_id not in primary]
+
+
+def _unassessed_primary_rule_ids(lesson: V3Lesson, rules: list[RuleEntity]) -> list[str]:
+    """Find rules without a direct nonempty assessment link, not semantic coverage."""
+    linked = {case.rule_id for case in lesson.cases if case.rule_id and case.variants}
+    linked.update(question.rule_id for question in lesson.questions if question.rule_id)
+    return [rule.rule_id for rule in rules if rule.rule_id not in linked]
+
+
+def _semantic_review_parts(lesson: V3Lesson) -> list[V3Lesson]:
+    """Keep the complete lesson while reviewing each independently exported case."""
+    if lesson.cases:
+        return [replace(lesson, cases=(case,), questions=()) for case in lesson.cases]
+    if lesson.questions:
+        return [replace(lesson, questions=(question,)) for question in lesson.questions]
+    return [lesson]
+
+
+def _lesson_objective_section(text: str) -> bool:
+    """Select only explicitly labelled learning-objective sections for the tailored prompt."""
+    first = text.lstrip().split("\n", 1)[0].strip()
+    return bool(re.match(r"^#{1,6}\s*(?:цел(?:ь|и)(?:\s+(?:урока|обучения))?|учебные\s+цели|результаты\s+обучения)\s*:?[#\s]*$",
+                         first, re.IGNORECASE))
+
+
+def _lesson_claim_sections(text: str) -> list[str]:
+    """Partition on real Markdown headings without losing text or splitting fences."""
+    boundaries: list[int] = []
+    offset = 0
+    fence: str | None = None
+    for line in text.splitlines(keepends=True):
+        match = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if match:
+            marker = match.group(1)[0]
+            if fence is None:
+                fence = marker
+            elif marker == fence:
+                fence = None
+        elif fence is None and re.match(r"^ {0,3}#{1,2}[ \t]+\S", line):
+            boundaries.append(offset)
+        offset += len(line)
+    if len(boundaries) < 2:
+        return [text]
+    chunks: list[str] = []
+    start = 0
+    for boundary in boundaries[1:]:
+        segment = text[start:boundary]
+        # A document title belongs with the following section, not a model call.
+        if segment.strip() and all(re.match(r"^ {0,3}#{1,2}[ \t]+\S", line)
+                                   for line in segment.splitlines() if line.strip()):
+            continue
+        chunks.append(segment)
+        start = boundary
+    chunks.append(text[start:])
+    return chunks
+
+
+def _lesson_claim_table_parts(section: str) -> list[tuple[str, str]]:
+    """Split a long Markdown table by complete rows, retaining exact header context."""
+    lines = section.splitlines(keepends=True)
+    offsets: list[int] = []
+    pos = 0
+    fences: str | None = None
+    delimiters: list[int] = []
+    for index, line in enumerate(lines):
+        offsets.append(pos)
+        pos += len(line)
+        fence_match = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if fence_match:
+            marker = fence_match.group(1)[0]
+            fences = marker if fences is None else (None if fences == marker else fences)
+            continue
+        if fences is None and index and re.fullmatch(r"\s*\|(?:\s*:?-{3,}:?\s*\|)+\s*", line):
+            if lines[index - 1].lstrip().startswith("|"):
+                delimiters.append(index)
+    if len(delimiters) != 1:
+        return [(section, "")]
+    delimiter = delimiters[0]
+    rows: list[int] = []
+    index = delimiter + 1
+    while index < len(lines) and lines[index].lstrip().startswith("|"):
+        rows.append(index)
+        index += 1
+    if len(rows) <= 3:
+        return [(section, "")]
+    header = lines[delimiter - 1] + lines[delimiter]
+    heading = next((line.strip() for line in lines[:delimiter - 1]
+                    if re.match(r"^ {0,3}#{1,3}[ \t]+\S", line)), "")
+    context = (heading + "\n" if heading else "") + header
+    start = 0
+    parts: list[tuple[str, str]] = []
+    for row_index in rows[3::3]:
+        end = offsets[row_index]
+        parts.append((section[start:end], "" if start == 0 else context))
+        start = end
+    parts.append((section[start:], context))
+    return parts
+
+
+def _lesson_claim_subparts(section: str) -> list[tuple[str, str]]:
+    """Keep complete nested Markdown subsections together in small logical groups."""
+    headings: list[int] = []
+    parent_heading = ""
+    fence: str | None = None
+    offset = 0
+    for line in section.splitlines(keepends=True):
+        match = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if match:
+            marker = match.group(1)[0]
+            fence = marker if fence is None else (None if fence == marker else fence)
+        elif fence is None:
+            if not parent_heading and re.match(r"^ {0,3}#{1,2}[ \t]+\S", line):
+                parent_heading = line.strip()
+            if re.match(r"^ {0,3}#{3}[ \t]+\S", line):
+                headings.append(offset)
+        offset += len(line)
+    if len(headings) <= 3:
+        return [(section, "")]
+    result: list[tuple[str, str]] = []
+    start = 0
+    for boundary in headings[3::3]:
+        result.append((section[start:boundary], "" if start == 0 else parent_heading))
+        start = boundary
+    result.append((section[start:], parent_heading))
+    return result
+
+
+def _validate_answer_entailment(value: Any) -> tuple[bool, str]:
+    allowed = {"SUPPORTED", "CONTRADICTED", "UNCERTAIN"}
+    if not isinstance(value, dict) or value.get("verdict") not in allowed:
+        return False, "невалидный вердикт проверки ответа"
+    claims = value.get("claims")
+    if not isinstance(claims, list) or not claims or not isinstance(value.get("summary"), str) or not value["summary"].strip():
+        return False, "проверка ответа не содержит утверждений или обоснования"
+    statuses: list[str] = []
+    for claim in claims:
+        if (not isinstance(claim, dict) or not isinstance(claim.get("claim"), str) or not claim["claim"].strip()
+                or claim.get("status") not in allowed or not isinstance(claim.get("reason"), str)
+                or not claim["reason"].strip()):
+            return False, "невалидное утверждение в проверке ответа"
+        statuses.append(claim["status"])
+    verdict = value["verdict"]
+    if ((verdict == "SUPPORTED" and any(status != "SUPPORTED" for status in statuses))
+            or (verdict == "CONTRADICTED" and "CONTRADICTED" not in statuses)
+            or (verdict == "UNCERTAIN" and ("UNCERTAIN" not in statuses or "CONTRADICTED" in statuses))):
+        return False, "вердикт проверки ответа противоречит статусам утверждений"
+    return True, ""
+
+
+def _validate_answer_completeness(value: Any) -> tuple[bool, str]:
+    if not isinstance(value, dict) or not isinstance(value.get("answers"), list) or len(value["answers"]) != 1:
+        return False, "нет независимой проверки полноты ответа"
+    answer = value["answers"][0]
+    if not isinstance(answer, dict) or type(answer.get("index")) is not int or answer["index"] != 0:
+        return False, "неверный индекс проверки полноты"
+    omissions = answer.get("omissions")
+    if not isinstance(omissions, list) or any(not isinstance(item, str) or not item.strip() for item in omissions):
+        return False, "некорректный результат проверки полноты"
+    if omissions:
+        return False, "пропущены обязательные элементы: " + "; ".join(omissions)
+    return True, ""
+
+
+def _validate_question_entailment(value: Any, expected: list[bool]) -> tuple[bool, str]:
+    if not isinstance(value, dict) or not isinstance(value.get("options"), list):
+        return False, "нет проверки всех вариантов ответа"
+    by_index: dict[int, dict[str, Any]] = {}
+    for item in value["options"]:
+        if not isinstance(item, dict) or type(item.get("index")) is not int:
+            return False, "невалидный индекс варианта ответа"
+        index = item["index"]
+        if index in by_index or not 0 <= index < len(expected):
+            return False, "повторный или посторонний вариант ответа"
+        by_index[index] = item
+    if set(by_index) != set(range(len(expected))):
+        return False, "проверены не все варианты ответа"
+    for index, is_correct in enumerate(expected):
+        valid, error = _validate_answer_entailment(by_index[index])
+        if not valid:
+            return False, f"вариант {index}: {error}"
+        omissions = by_index[index].get("omitted_required_elements")
+        if not isinstance(omissions, list) or any(not isinstance(item, str) or not item.strip() for item in omissions):
+            return False, f"вариант {index}: нет корректной проверки полноты ответа"
+        if is_correct and omissions:
+            return False, f"вариант {index}: пропущены обязательные элементы ответа"
+        required = "SUPPORTED" if is_correct else "CONTRADICTED"
+        if by_index[index]["verdict"] != required:
+            return False, f"вариант {index}: ожидался {required}, получен {by_index[index]['verdict']}"
+    return True, ""
+
+
+def _flagged_incorrect_options(value: Any, expected: list[bool]) -> list[dict[str, Any]]:
+    """Only repair identifiable wrong options when the correct one is supported."""
+    if (len(expected) != 4 or sum(expected) != 1 or not isinstance(value, dict)
+            or not isinstance(value.get("options"), list) or len(value["options"]) != len(expected)):
+        return []
+    by_index: dict[int, dict[str, Any]] = {}
+    for item in value["options"]:
+        if not isinstance(item, dict) or type(item.get("index")) is not int:
+            return []
+        index = item["index"]
+        if not 0 <= index < len(expected) or index in by_index or not _validate_answer_entailment(item)[0]:
+            return []
+        omissions = item.get("omitted_required_elements")
+        if not isinstance(omissions, list) or any(not isinstance(x, str) or not x.strip() for x in omissions):
+            return []
+        by_index[index] = item
+    if set(by_index) != set(range(len(expected))):
+        return []
+    correct = by_index[expected.index(True)]
+    if correct["verdict"] != "SUPPORTED" or correct["omitted_required_elements"]:
+        return []
+    return [by_index[i] for i, is_correct in enumerate(expected)
+            if not is_correct and by_index[i]["verdict"] in {"SUPPORTED", "UNCERTAIN"}]
+
+
+def _question_option_inputs(lesson: V3Lesson) -> list[tuple[str, str, str, list[tuple[str, bool]], str]]:
+    if lesson.cases:
+        result = []
+        for case_index, case in enumerate(lesson.cases, 1):
+            for variant_index, variant in enumerate(case.variants, 1):
+                assembled = variant.assemble_question(seed=100 + case_index * 10 + variant_index)
+                result.append((variant.variant_id, assembled.scenario_premise, variant.prompt,
+                               [(option.text, option.is_correct) for option in assembled.options], case.rule_id))
+        return result
+    return [(question.question_id, question.scenario_premise, question.prompt,
+             [(option.text, option.is_correct) for option in question.options], question.rule_id)
+            for question in lesson.questions]
+
+
+def _review_source_unit_fragments(rules: list[RuleEntity], corpus: DirectSourceCorpus) -> list[str]:
+    """Retrieve exact same-revision source units; never certify model quotes."""
+    fragments: list[str] = []
+    seen: set[tuple[str, str, int, int]] = set()
+    for rule in rules:
+        if not rule.doc_id or not rule.source_revision:
+            continue
+        matching = [doc for doc in corpus.documents if doc.doc_id == rule.doc_id
+                    and doc.source_revision == rule.source_revision and doc.source_text is not None]
+        if len(matching) != 1 or type(rule.source_start) is not int or type(rule.source_end) is not int:
+            continue
+        doc = matching[0]
+        assert doc.source_text is not None
+        if not (0 <= rule.source_start < rule.source_end <= len(doc.source_text)):
+            continue
+        identity = (doc.doc_id, doc.source_revision, rule.source_start, rule.source_end)
+        if identity not in seen:
+            seen.add(identity)
+            working_sha = hashlib.sha256(doc.source_text.encode("utf-8")).hexdigest()
+            fragments.append(f"[Исходный блок документа {doc.doc_id}, ревизия {doc.source_revision}, "
+                             f"SHA256 рабочего текста {working_sha}, {rule.source_start}:{rule.source_end}]: "
+                             + doc.source_text[rule.source_start:rule.source_end])
+    return fragments
+
+
+def _bind_rendered_quote_candidates(
+    lesson: V3Lesson, rules: list[RuleEntity], corpus: DirectSourceCorpus,
+) -> tuple[V3Lesson, list[str]]:
+    """Bind only unique rendered candidates to exact revision-owned source spans.
+
+    This preserves literal provenance; it does not certify that the source span
+    supports the answer. A review signal is always emitted for changed quotes.
+    """
+    warnings: list[str] = []
+    updated_cases = []
+    for case in lesson.cases:
+        matching_rules = [r for r in rules if r.rule_id == case.rule_id]
+        updated_variants = []
+        for variant in case.variants:
+            replacement = variant
+            if len(matching_rules) == 1 and variant.source_quote.strip():
+                rule = matching_rules[0]
+                docs = [doc for doc in corpus.documents if doc.doc_id == rule.doc_id
+                        and doc.source_revision == rule.source_revision and doc.source_text is not None]
+                if len(docs) == 1 and rule.source_start is not None and rule.source_end is not None:
+                    source = docs[0].source_text or ""
+                    if 0 <= rule.source_start < rule.source_end <= len(source):
+                        quote = variant.source_quote.strip()
+                        if normalize_literal_quote(quote) not in normalize_literal_quote(source):
+                            spans = find_rendered_quote_spans(source, quote)
+                            if len(spans) == 1:
+                                start, end = spans[0]
+                                if (rule.source_start <= start < end <= rule.source_end
+                                        and rendered_candidate_preserves_table_boundaries(source[start:end], quote)):
+                                    replacement = replace(variant, source_quote=source[start:end])
+                                    quote_sha = hashlib.sha256(quote.encode("utf-8")).hexdigest()
+                                    warnings.append(
+                                        f"Урок {lesson.lesson_id}, вопрос {variant.variant_id}: цитата привязана "
+                                        f"к исходному фрагменту {rule.doc_id} {rule.source_revision} "
+                                        f"({start}:{end}), исходная формулировка SHA256={quote_sha}; "
+                                        "требуется смысловая проверка"
+                                    )
+            updated_variants.append(replacement)
+        updated_cases.append(replace(case, variants=tuple(updated_variants)))
+    if not warnings:
+        return lesson, []
+    cases = tuple(updated_cases)
+    questions = tuple(case.variants[0].assemble_question(seed=42) for case in cases if case.variants)
+    return replace(lesson, cases=cases, questions=questions), warnings
+
+
+async def _repair_option_shortcuts(
+    lesson: V3Lesson, source: str, source_sha: str, source_fragments: list[str],
+    invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
+    reference_context: tuple[str, ...] = (),
+    source_documents: tuple[str, ...] | None = None,
+) -> tuple[V3Lesson, bool]:
+    """Attempt one scoped repair only for structural option defects.
+
+    A passed structural recheck is not semantic approval. Other defects are
+    retained for the normal fail-closed validation path, without a repair call.
+    """
+    from app.modules.ai.v3.option_repair import repair_length_shortcuts, repair_options
+
+    current = V3Course(course_id="repair-check", title=lesson.title, document_sha256=source_sha, lessons=(lesson,))
+    report = validate_v3_course(current, source_document_text=source, source_documents=source_documents)
+    eligible = ("Anti-cheating violation:", "Invariant 4", "Invariant 5")
+    if (not report.violations or not lesson.cases or not source_fragments
+            or any(not issue.startswith(eligible) for issue in report.violations)):
+        return lesson, False
+    def complete_lesson_passes(partial: V3Lesson) -> bool:
+        partial_course = replace(current, lessons=(partial,))
+        return validate_v3_course(partial_course, source_document_text=source,
+                                  source_documents=source_documents).structural_verdict == "PASS"
+
+    if (all(issue.startswith("Invariant 4") for issue in report.violations)
+            and any("correct answer is longest" in issue or "correct answer is shortest" in issue
+                    for issue in report.violations)):
+        candidate = await repair_length_shortcuts(lesson, list(report.violations), source_fragments, invoke,
+                                                  reference_context)
+    else:
+        candidate = await repair_options(lesson, list(report.violations), source_fragments, invoke, reference_context,
+                                         accept_partial=complete_lesson_passes)
+    updated = replace(current, lessons=(candidate,))
+    if validate_v3_course(updated, source_document_text=source, source_documents=source_documents).structural_verdict != "PASS":
+        raise ValueError("v3_option_repair_failed_validation")
+    return candidate, True
+
+
+class SemanticRepairRejectedError(ValueError):
+    """A completed repair candidate violated a local preservation invariant."""
+
+
+async def _repair_reviewed_case(
+    lesson: V3Lesson, part: V3Lesson, review: Any, source: str, source_sha: str,
+    source_fragments: list[str],
+    invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
+    reference_context: tuple[str, ...] = (),
+    source_documents: tuple[str, ...] | None = None,
+) -> tuple[V3Lesson, bool]:
+    """Repair a uniquely identified question case without touching other cases.
+
+    This applies a candidate only; callers must repeat semantic and answer
+    checks. Unscoped or mixed defects are preserved for human review.
+    """
+    from app.modules.ai.v3.case_repair_gate import case_compatibility_identity_matches
+    from app.modules.ai.v3.option_repair import repair_options
+
+    if (not isinstance(review, dict) or len(part.cases) != 1 or not source_fragments
+            or part.lesson_id != lesson.lesson_id):
+        return lesson, False
+    case = part.cases[0]
+    if (not isinstance(case.case_id, str) or not case.case_id or not case.variants
+            or any(not isinstance(v.variant_id, str) or not v.variant_id for v in case.variants)
+            or len({v.variant_id for v in case.variants}) != len(case.variants)):
+        return lesson, False
+    matches = [item for item in lesson.cases if item.case_id == case.case_id]
+    if (len(matches) != 1 or matches[0] != case
+            or not case_compatibility_identity_matches(lesson, case.case_id)):
+        return lesson, False
+    defects = review.get("defects")
+    if not isinstance(defects, list) or not defects:
+        return lesson, False
+    ids = {case.case_id, *(variant.variant_id for variant in case.variants)}
+    if any(not isinstance(item, dict) or item.get("scope") != "question"
+           or not isinstance(item.get("question_id"), str) or item["question_id"] not in ids
+           or not isinstance(item.get("issue"), str)
+           or not item["issue"].strip() for item in defects):
+        return lesson, False
+    issues = [item["issue"] for item in defects]
+    defect_ids = {item["question_id"] for item in defects}
+    target_ids = ({v.variant_id for v in case.variants} if case.case_id in defect_ids else defect_ids)
+    selected = tuple(v for v in case.variants if v.variant_id in target_ids)
+    isolated = replace(lesson, cases=(replace(case, variants=selected),), questions=())
+
+    async def exact_answer_invoke(
+        messages: list[dict[str, str]], response_format: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        messages = [dict(message) for message in messages]
+        messages[0]["content"] += "\nСохрани правильный ответ дословно, без изменений текста."
+        return await invoke(messages, response_format)
+
+    candidate = await repair_options(isolated, issues, source_fragments, exact_answer_invoke, reference_context)
+    repaired_variants = candidate.cases[0].variants
+    if any(before.correct_option.text != after.correct_option.text for before, after in zip(
+        selected, repaired_variants, strict=True
+    )):
+        raise SemanticRepairRejectedError("v3_semantic_repair_changed_correct_answer")
+    repaired = {before.variant_id: replace(after, correct_option=before.correct_option)
+                for before, after in zip(selected, repaired_variants, strict=True)}
+    updated_case = replace(case, variants=tuple(repaired.get(v.variant_id, v) for v in case.variants))
+    cases = tuple(updated_case if item.case_id == case.case_id else item for item in lesson.cases)
+    questions = tuple(
+        updated_case.variants[0].assemble_question(seed=42)
+        if item.case_id == case.case_id and case.variants[0].variant_id in target_ids else old
+        for item, old in zip(lesson.cases, lesson.questions, strict=True)
+    ) if lesson.questions else ()
+    updated = replace(lesson, cases=cases, questions=questions)
+    before_course = V3Course(course_id="repair-check", title=lesson.title, document_sha256=source_sha, lessons=(lesson,))
+    after_course = replace(before_course, lessons=(updated,))
+    before = validate_v3_course(before_course, source_document_text=source, source_documents=source_documents)
+    after = validate_v3_course(after_course, source_document_text=source, source_documents=source_documents)
+    if set(after.violations) - set(before.violations):
+        raise SemanticRepairRejectedError("v3_semantic_repair_added_structural_violations")
+    return updated, True
 
 
 async def generate_v3_course_from_corpus(
@@ -824,9 +1572,21 @@ async def generate_v3_course_from_corpus(
     generation_client: Any,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
+    extraction_journal: ExtractionJournal | None = None,
+    route_fingerprint: str = "",
+    reference_decisions: tuple[SourceReferenceDecision, ...] = (),
+    allow_unreviewed_on_unknown: bool = False,
 ) -> GenerationArtifacts:
     """End-to-end generator integrating V3 Co-Generation with production direct-source corpus."""
+    if allow_unreviewed_on_unknown and extraction_journal is None:
+        raise ValueError("v3_unknown_review_requires_journal")
     full_text, doc_sha = _extract_corpus_text(corpus)
+    source_documents = tuple(doc.source_text if doc.source_text is not None else
+                             "\n\n".join(chunk.text.strip() for chunk in doc.chunks if chunk.text.strip())
+                             for doc in corpus.documents)
+    # These objects are accepted only from a trusted server-side caller. They
+    # are never inferred from model output or document conversion metadata.
+    reference_context_for_rules(corpus.tenant_id, corpus.documents, reference_decisions, ())
     first_title = corpus.documents[0].title if corpus.documents else "Курс по регламенту"
 
     async def llm_invoker(messages: list[dict[str, str]], response_format: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -836,6 +1596,8 @@ async def generate_v3_course_from_corpus(
         # ResilientLLMClient support
         if hasattr(generation_client, "ainvoke"):
             res = await generation_client.ainvoke(messages, response_format=response_format)
+            if getattr(res, "finish_reason", None) in {"length", "content_filter"} or getattr(res, "content_is_reasoning", False):
+                raise ValueError("v3_provider_incomplete_response")
             raw_text = res.content if hasattr(res, "content") else str(res)
         elif callable(generation_client):
             raw_text = await generation_client(messages, response_format)
@@ -859,20 +1621,28 @@ async def generate_v3_course_from_corpus(
     default_doc_id = corpus.documents[0].doc_id if len(corpus.documents) == 1 else ""
     default_revision = corpus.documents[0].source_revision if len(corpus.documents) == 1 else ""
 
-    rule_model: DocumentRuleModel = await pipeline.extract_rule_model(
-        document_title=first_title,
-        document_text=full_text,
-        document_sha256=doc_sha,
-        doc_id=default_doc_id,
-        source_revision=default_revision,
-    )
+    extraction_warnings: list[str] = []
+    if extraction_journal is not None:
+        from app.modules.ai.v3.partitioned_extraction import extract_partitioned_rule_model
+
+        rule_model, extraction_warnings = await extract_partitioned_rule_model(
+            corpus, extraction_journal, route_fingerprint, llm_invoker, cancellation_callback,
+        )
+    else:
+        rule_model = await pipeline.extract_rule_model(
+            document_title=first_title,
+            document_text=full_text,
+            document_sha256=doc_sha,
+            doc_id=default_doc_id,
+            source_revision=default_revision,
+        )
     logger.info("V3 Engine: Step 1 complete. Extracted %d rules.", len(rule_model.rules))
 
     if cancellation_callback:
         await cancellation_callback()
 
     # Stage 2: Resilient curriculum grouping with unique group IDs and dependency closures
-    curriculum_groups = _build_curriculum_groups(rule_model)
+    curriculum_groups = _build_curriculum_groups(rule_model, corpus=corpus, reference_decisions=reference_decisions)
     total_lessons = len(curriculum_groups)
 
     generated_lessons: list[V3Lesson] = []
@@ -881,6 +1651,16 @@ async def generate_v3_course_from_corpus(
 
     # Stage 3: Co-generate each lesson paired with assessment cases
     semantic_violations: list[str] = []
+    semantic_repairs: list[dict[str, Any]] = []
+    coverage_review_signals: list[str] = list(extraction_warnings)
+    if reference_decisions:
+        coverage_review_signals.append("Учитываются уточнения ссылок источника; требуется проверка методиста")
+    for doc in corpus.documents:
+        if doc.source_text is None:
+            coverage_review_signals.append(
+                f"Документ {doc.doc_id}: полный конвертированный текст не сохранён; "
+                "проверить порядок и перекрытия фрагментов источника"
+            )
 
     for idx, group in enumerate(curriculum_groups, 1):
         if cancellation_callback:
@@ -905,22 +1685,102 @@ async def generate_v3_course_from_corpus(
             len(group.primary_rules),
             len(group.context_prerequisite_rules),
         )
-        lesson = await pipeline.generate_lesson_with_scenarios(
+        def stage_pipeline(stage: str, group_id: str = group.group_id) -> V3GenerationPipeline:
+            if extraction_journal is None:
+                return pipeline
+            from app.modules.ai.v3.stage_checkpoint import stage_once
+
+            async def invoke_stage(messages: list[dict[str, str]], response_format: dict[str, Any] | None) -> dict[str, Any]:
+                async def invoke() -> dict[str, Any]:
+                    return await llm_invoker(messages, response_format)
+
+                return await stage_once(extraction_journal, stage=stage, group_id=group_id,
+                                        source_sha256=doc_sha, route_fingerprint=route_fingerprint,
+                                        messages=messages, response_format=response_format, invoke=invoke)
+
+            return V3GenerationPipeline(invoke_stage)
+
+        group_reference_context = reference_context_for_rules(
+            corpus.tenant_id, corpus.documents, reference_decisions, group.primary_rules)
+        primary_sources = _review_source_unit_fragments(list(group.primary_rules), corpus)
+        related_sources = _review_source_unit_fragments(
+            list(group.context_prerequisite_rules) + list(group.context_neighbor_rules), corpus)
+        related_sources = [fragment for fragment in related_sources if fragment not in primary_sources]
+        if extraction_journal is not None:
+            for source_rule in group.primary_rules:
+                if not _review_source_unit_fragments([source_rule], corpus):
+                    semantic_violations.append(
+                        f"Правило {source_rule.rule_id}: отсутствует точный исходный блок для генерации урока"
+                    )
+        lesson = await stage_pipeline("lesson").generate_lesson_with_scenarios(
             module_title=first_title,
             lesson_theme=group.display_title,
             rules=list(group.primary_rules),
             existing_lessons_summary=lessons_summary,
             prerequisite_rules=list(group.context_prerequisite_rules),
+            neighbor_rules=list(group.context_neighbor_rules),
+            reference_context=group_reference_context,
+            primary_source_fragments=tuple(primary_sources),
+            related_source_fragments=tuple(related_sources),
             audience=intent.audience,
             purpose=intent.purpose,
             emphasis=intent.emphasis,
         )
+        if extraction_journal is not None:
+            repair_rules = (list(group.primary_rules) + list(group.context_prerequisite_rules)
+                            + list(group.context_neighbor_rules))
+            lesson, quote_signals = _bind_rendered_quote_candidates(lesson, repair_rules, corpus)
+            coverage_review_signals.extend(quote_signals)
+            repair_sources = _review_source_unit_fragments(repair_rules, corpus)
+            from app.modules.ai.v3.explanation_repair import repair_order_dependent_explanations
+
+            repair_sources_by_rule: dict[str, list[str]] = {}
+            for repair_case in lesson.cases:
+                linked = [rule for rule in repair_rules if rule.rule_id == repair_case.rule_id]
+                if len(linked) == 1 and _verify_rule_quote_grounding(linked[0], corpus)[0]:
+                    repair_sources_by_rule[repair_case.rule_id] = _review_source_unit_fragments(linked, corpus)
+            lesson, explanations_repaired = await repair_order_dependent_explanations(
+                lesson, repair_sources_by_rule, stage_pipeline("repair").invoker, group_reference_context,
+            )
+            if explanations_repaired:
+                coverage_review_signals.append(
+                    f"Урок {lesson.lesson_id}: объяснения исправлены без привязки к порядку; "
+                    "требуется смысловая проверка"
+                )
+            lesson, repaired = await _repair_option_shortcuts(
+                lesson, full_text, doc_sha, repair_sources, stage_pipeline("repair").invoker, group_reference_context,
+                source_documents,
+            )
+            if repaired:
+                coverage_review_signals.append(
+                    f"Урок {lesson.lesson_id}: варианты ответов отредактированы; требуется смысловая проверка"
+                )
         generated_lessons.append(lesson)
         lessons_summary += f"\n- {lesson.title}: {lesson.content[:150]}..."
 
+        # A rule assigned to a lesson is not evidence that a test assesses it.
+        # This is a review signal, not a semantic judgment that coverage is absent:
+        # a question linked to one rule may assess multiple closely related rules.
+        for rule_id in _unassessed_primary_rule_ids(lesson, list(group.primary_rules)):
+            coverage_review_signals.append(
+                f"Урок {lesson.lesson_id}: нет прямой связи вопроса с правилом {rule_id}; "
+                "необходима проверка покрытия с учётом связанных правил"
+            )
+        for case_id, rule_id in _cases_outside_primary_rule_scope(lesson, list(group.primary_rules)):
+            coverage_review_signals.append(
+                f"Урок {lesson.lesson_id}, кейс {case_id}: связь с правилом {rule_id or '(не указано)'} "
+                "вне основных правил урока; проверить тему и возможный повтор"
+            )
+
         # Stage 4: Run Two-Factor semantic review with verified source fragments
+        part_reviews: list[dict[str, Any]] = []
+        answer_checks: list[dict[str, Any]] = []
+        lesson_claim_reviews: list[dict[str, Any]] = []
+        citation_checks: list[dict[str, Any]] = []
+        accepted_case_checks: dict[str, dict[str, Any]] = {}
         try:
-            review_rules = list(group.primary_rules) + list(group.context_prerequisite_rules)
+            review_rules = (list(group.primary_rules) + list(group.context_prerequisite_rules)
+                            + list(group.context_neighbor_rules))
             source_frags: list[str] = []
             for r in review_rules:
                 is_grounded, frag_report, occs = _verify_rule_quote_grounding(r, corpus)
@@ -942,47 +1802,352 @@ async def generate_v3_course_from_corpus(
                             f"[НЕВЕРИФИЦИРОВАНО, отсутствует в тексте оригинала | {r.rule_id}]: {raw_q}"
                         )
 
-            review_res = await pipeline.review_lesson(lesson, review_rules, source_fragments=source_frags)
-            semantic_reviews[lesson.lesson_id] = review_res
+            # Exact source units provide context without certifying model quotes.
+            exact_source_units = _review_source_unit_fragments(review_rules, corpus)
+            source_frags.extend(exact_source_units)
+            parts = _semantic_review_parts(lesson)
+            all_parts_passed = True
+            if len(parts) > 1:
+                coverage_review_signals.append(
+                    f"Урок {lesson.lesson_id}: межкейсовые смысловые повторы и полноту проверить отдельно"
+                )
+            for part_index, part in enumerate(parts, 1):
+                review_res = await stage_pipeline("review").review_lesson(
+                    part, review_rules, source_fragments=source_frags, partial_case=len(parts) > 1,
+                    reference_context=group_reference_context,
+                )
+                # Retain the original review even if a later repair/recheck has
+                # an unknown outcome and QA continues under a review hold.
+                part_reviews.append(review_res)
+                is_valid, schema_err = _validate_critic_response(review_res, lesson.lesson_id, lesson.title)
+                if extraction_journal is not None and (not is_valid or str(review_res.get("verdict", "")).strip().upper() != "PASS"):
+                    original_review = review_res
+                    try:
+                        repaired_lesson, was_repaired = await _repair_reviewed_case(
+                            lesson, part, review_res, full_text, doc_sha, exact_source_units,
+                            stage_pipeline("repair").invoker, group_reference_context, source_documents,
+                        )
+                    except SemanticRepairRejectedError as repair_error:
+                        rejection = str(repair_error)
+                        semantic_repairs.append({"lesson_id": lesson.lesson_id, "case_id": part.cases[0].case_id,
+                                                 "original_review": original_review, "recheck": None,
+                                                 "rejected": rejection})
+                        coverage_review_signals.append(
+                            f"Урок {lesson.lesson_id}: правка отклонена; сохранены исходный вопрос и замечания"
+                        )
+                        repaired_lesson, was_repaired = lesson, False
+                    if was_repaired:
+                        case_id = part.cases[0].case_id
+                        repair_record: dict[str, Any] = {"lesson_id": lesson.lesson_id, "case_id": case_id,
+                                                         "original_review": original_review, "recheck": None}
+                        semantic_repairs.append(repair_record)
+                        from app.modules.ai.v3.case_repair_gate import review_staged_case
 
-            # Strict schema validation: check full response schema
-            is_valid, schema_err = _validate_critic_response(review_res, lesson.lesson_id, lesson.title)
-            if not is_valid:
-                semantic_violations.append(schema_err)
-            else:
+                        accepted, cached_checks = await review_staged_case(
+                            repaired_lesson, case_id, review_rules, corpus, source_frags, exact_source_units,
+                            group_reference_context, len(parts) > 1, stage_pipeline("review"), repair_record,
+                        )
+                        if accepted:
+                            lesson = repaired_lesson
+                            generated_lessons[-1] = lesson
+                            accepted_case_checks.update(cached_checks)
+                            review_res = repair_record["recheck"]
+                            part_reviews[-1] = review_res
+                            is_valid, schema_err = _validate_critic_response(review_res, lesson.lesson_id, lesson.title)
+                            repair_record["accepted"] = True
+                            coverage_review_signals.append(
+                                f"Урок {lesson.lesson_id}, кейс {case_id}: варианты исправлены и перепроверены; "
+                                "сохранено исходное замечание"
+                            )
+                        else:
+                            all_parts_passed = False
+                            semantic_violations.append(
+                                f"Урок {lesson.lesson_id}, кейс {case_id}: правка отклонена: "
+                                f"{repair_record.get('rejected', 'candidate_unverified')}"
+                            )
+                if not is_valid:
+                    all_parts_passed = False
+                    semantic_violations.append(f"Проверка части {part_index}: {schema_err}")
+                    continue
                 verdict = str(review_res.get("verdict", "")).strip().upper()
-                defects = review_res.get("defects") or []
-                if not isinstance(defects, list):
-                    defects = [str(defects)]
+                if verdict != "PASS":
+                    all_parts_passed = False
+                    for defect in review_res.get("defects") or []:
+                        semantic_violations.append(
+                            f"Семантический критик: урок {lesson.lesson_id}, часть {part_index}: {defect}"
+                        )
+            # The general critic can miss invented claims in lesson prose even
+            # when the question itself is supported. Audit prose once per
+            # lesson, not once per case. A failed case must not hide prose defects.
+            if lesson.content.strip():
+                if not exact_source_units:
+                    all_parts_passed = False
+                    semantic_violations.append(f"Урок {lesson.lesson_id}: нет исходных блоков для проверки текста")
+                else:
+                    sections = _lesson_claim_sections(lesson.content)
+                    if len(sections) > 1:
+                        coverage_review_signals.append(
+                            f"Урок {lesson.lesson_id}: зависимости между частями текста требуют отдельной проверки"
+                        )
+                    for section_index, section in enumerate(sections, 1):
+                        table_parts = _lesson_claim_table_parts(section)
+                        if len(table_parts) > 1:
+                            coverage_review_signals.append(
+                                f"Урок {lesson.lesson_id}, часть {section_index}: "
+                                "связи между строками таблицы требуют отдельной проверки"
+                            )
+                        for table_index, (table_text, table_context) in enumerate(table_parts, 1):
+                            subparts = _lesson_claim_subparts(table_text)
+                            if len(subparts) > 1:
+                                coverage_review_signals.append(
+                                    f"Урок {lesson.lesson_id}, часть {section_index}: "
+                                    "связи между подразделами требуют отдельной проверки"
+                                )
+                            for subpart_index, (part_text, parent_heading) in enumerate(subparts, 1):
+                                scenario = (f"Часть {section_index} из {len(sections)} одного урока; "
+                                            "не делайте выводов о содержании отсутствующих частей.")
+                                if len(table_parts) > 1:
+                                    scenario += (f"\nГруппа строк таблицы {table_index} из {len(table_parts)}; "
+                                                 "заголовок таблицы из урока для контекста:\n" + table_context)
+                                if len(subparts) > 1:
+                                    scenario += (f"\nГруппа подразделов {subpart_index} из {len(subparts)}; "
+                                                 "родительский заголовок урока для контекста:\n" + parent_heading)
+                                claim_review = await stage_pipeline("review").review_answer(
+                                    scenario, "Фактические утверждения текста урока", part_text,
+                                    exact_source_units, group_reference_context,
+                                    lesson_claims=_lesson_objective_section(section),
+                                    source_prose=True,
+                                )
+                                lesson_claim_reviews.append({"section": section_index, "table_part": table_index,
+                                                             "subpart": subpart_index, "review": claim_review})
+                                valid, error = _validate_answer_entailment(claim_review)
+                                if not valid or claim_review.get("verdict") != "SUPPORTED":
+                                    all_parts_passed = False
+                                    semantic_violations.append(
+                                        f"Урок {lesson.lesson_id}: проверка текста: "
+                                        f"{error if not valid else claim_review.get('verdict')} "
+                                        f"(часть {section_index})"
+                                    )
+            answers = _question_option_inputs(lesson)
+            if answers and not exact_source_units:
+                all_parts_passed = False
+                semantic_violations.append(f"Урок {lesson.lesson_id}: нет точных исходных блоков для проверки ответов")
+            else:
+                for question_id, scenario, question, options, rule_id in answers:
+                    if (not question_id or not question or len(options) != 4
+                            or sum(is_correct for _, is_correct in options) != 1
+                            or any(not text.strip() for text, _ in options)):
+                        all_parts_passed = False
+                        semantic_violations.append(f"Урок {lesson.lesson_id}: неполный вопрос или правильный ответ")
+                        continue
+                    linked_rules = [rule for rule in review_rules if rule.rule_id == rule_id]
+                    if len(linked_rules) != 1 or not _review_source_unit_fragments(linked_rules, corpus):
+                        all_parts_passed = False
+                        semantic_violations.append(
+                            f"Урок {lesson.lesson_id}, вопрос {question_id}: нет однозначного исходного блока связанного правила"
+                        )
+                        continue
+                    from app.modules.ai.v3.case_repair_gate import answer_review_fingerprint
+                    from app.modules.ai.v3.citation_expansion import citation_question_fingerprint
 
-                if verdict == "PASS":
-                    pass  # Full validated PASS with confidence, rationale, and zero defects
-                elif verdict == "FAIL":
-                    if defects:
-                        for defect in defects:
-                            semantic_violations.append(
-                                f"Семантический критик отклонил урок {lesson.lesson_id} ({lesson.title}): {defect}"
+                    cached = accepted_case_checks.get(question_id)
+                    if (cached and cached["fingerprint"] == citation_question_fingerprint(
+                            lesson, f"{question_id}-assembled")
+                            and cached["answer_review_fingerprint"] == answer_review_fingerprint(
+                                scenario, question, options, rule_id, exact_source_units, group_reference_context)):
+                        answer_checks.append(cached["check"])
+                        continue
+                    answer_review = await stage_pipeline("review").review_question_options(
+                        scenario, question, [text for text, _ in options], exact_source_units, group_reference_context)
+                    answer_checks.append({"question_id": question_id, "review": answer_review})
+                    valid, error = _validate_question_entailment(answer_review, [correct for _, correct in options])
+                    if not valid:
+                        flagged = _flagged_incorrect_options(answer_review, [correct for _, correct in options])
+                        if extraction_journal is not None and flagged and lesson.cases:
+                            from app.modules.ai.v3.option_repair import (
+                                DistractorFeedbackRejectedError,
+                                repair_distractor_feedback,
                             )
-                    else:
+
+                            attempt: dict[str, Any] = {"original_review": answer_review, "recheck": None}
+                            answer_checks[-1]["distractor_repair"] = attempt
+                            try:
+                                candidate = await repair_distractor_feedback(
+                                    lesson, question_id, flagged, exact_source_units,
+                                    stage_pipeline("repair").invoker, group_reference_context,
+                                )
+                            except DistractorFeedbackRejectedError as rejected:
+                                attempt["rejected"] = str(rejected)
+                            else:
+                                original_course = V3Course(course_id="feedback-check", title=lesson.title,
+                                    document_sha256=doc_sha, lessons=(lesson,))
+                                original_report = validate_v3_course(original_course, source_document_text=full_text,
+                                                                     source_documents=source_documents)
+                                candidate_report = validate_v3_course(replace(original_course, lessons=(candidate,)),
+                                    source_document_text=full_text, source_documents=source_documents)
+                                new_violations = set(candidate_report.violations) - set(original_report.violations)
+                                matching_cases = [case for case in candidate.cases
+                                    if any(variant.variant_id == question_id for variant in case.variants)]
+                                matching_answers = [row for row in _question_option_inputs(candidate) if row[0] == question_id]
+                                if new_violations or len(matching_cases) != 1 or len(matching_answers) != 1:
+                                    attempt["rejected"] = "v3_distractor_feedback_structural_regression"
+                                else:
+                                    _qid, new_scenario, new_question, new_options, _rule_id = matching_answers[0]
+                                    case_part = replace(candidate, cases=(matching_cases[0],), questions=())
+                                    case_review = await stage_pipeline("review").review_lesson(
+                                        case_part, review_rules, source_fragments=source_frags,
+                                        partial_case=len(parts) > 1, reference_context=group_reference_context)
+                                    critic_ok, _critic_error = _validate_critic_response(
+                                        case_review, candidate.lesson_id, candidate.title)
+                                    attempt["case_recheck"] = case_review
+                                    if critic_ok and str(case_review.get("verdict", "")).strip().upper() == "PASS":
+                                        revised = await stage_pipeline("review").review_question_options(
+                                            new_scenario, new_question, [text for text, _ in new_options],
+                                            exact_source_units, group_reference_context)
+                                        attempt["recheck"] = revised
+                                        revised_ok, _ = _validate_question_entailment(
+                                            revised, [correct for _, correct in new_options])
+                                        if revised_ok:
+                                            compatible = await stage_pipeline("review").review_question_compatibility(
+                                                new_scenario, new_question, [text for text, _ in new_options],
+                                                exact_source_units, group_reference_context)
+                                            attempt["compatibility"] = compatible
+                                            compatible_ok, _ = _validate_question_entailment(
+                                                compatible, [correct for _, correct in new_options])
+                                            if compatible_ok:
+                                                correct_text = next(text for text, flag in new_options if flag)
+                                                complete = await stage_pipeline("review").review_answer_completeness(
+                                                    new_scenario, new_question, correct_text, exact_source_units,
+                                                    group_reference_context)
+                                                attempt["completeness"] = complete
+                                                if _validate_answer_completeness(complete)[0]:
+                                                    lesson = candidate
+                                                    generated_lessons[-1] = lesson
+                                                    attempt["accepted"] = True
+                                                    coverage_review_signals.append(
+                                                        f"Урок {lesson.lesson_id}, вопрос {question_id}: "
+                                                        "неверный вариант исправлен по замечанию и перепроверен"
+                                                    )
+                                                    continue
+                        all_parts_passed = False
+                        semantic_violations.append(f"Урок {lesson.lesson_id}, вопрос {question_id}: {error}")
+                        continue
+                    compatibility = await stage_pipeline("review").review_question_compatibility(
+                        scenario, question, [text for text, _ in options], exact_source_units, group_reference_context)
+                    answer_checks[-1]["compatibility"] = compatibility
+                    valid, error = _validate_question_entailment(compatibility, [correct for _, correct in options])
+                    if not valid:
+                        all_parts_passed = False
                         semantic_violations.append(
-                            f"Семантический критик отклонил урок {lesson.lesson_id} ({lesson.title}) с вердиктом FAIL (детали дефекта не предоставлены)"
+                            f"Урок {lesson.lesson_id}, вопрос {question_id}: проверка совместимости: {error}"
                         )
-                elif verdict == "NEEDS_REVISION":
-                    if defects:
-                        for defect in defects:
-                            semantic_violations.append(
-                                f"Семантический критик запросил доработку урока {lesson.lesson_id} ({lesson.title}): {defect}"
-                            )
-                    else:
+                        continue
+                    correct_answer = next(text for text, is_correct in options if is_correct)
+                    completeness = await stage_pipeline("review").review_answer_completeness(
+                        scenario, question, correct_answer, exact_source_units, group_reference_context)
+                    answer_checks[-1]["completeness"] = completeness
+                    valid, error = _validate_answer_completeness(completeness)
+                    if not valid:
+                        all_parts_passed = False
                         semantic_violations.append(
-                            f"Семантический критик запросил доработку урока {lesson.lesson_id} ({lesson.title}) с вердиктом NEEDS_REVISION"
+                            f"Урок {lesson.lesson_id}, вопрос {question_id}: проверка полноты: {error}"
                         )
-        except Exception as review_err:
-            logger.warning("V3 Engine: Two-factor semantic review skipped due to error: %s", review_err)
-            semantic_reviews[lesson.lesson_id] = {"verdict": "ERROR", "error": str(review_err)}
-            semantic_violations.append(
-                f"Ошибка выполнения семантической проверки урока {lesson.lesson_id}: {review_err}"
+            # Run after all question repairs: an exact quote can still support
+            # only part of the answer. Provenance and semantic support are
+            # separate checks; no complete result establishes infallibility.
+            from app.modules.ai.v3.citation_expansion import (
+                citation_question_fingerprint,
+                propose_rule_quote_expansion,
+                stage_citation_candidate,
             )
+            from app.modules.ai.v3.citation_review import (
+                CitationReviewInvalidError,
+                build_citation_review_items,
+                review_displayed_citations,
+            )
+
+            citation_items, citation_issues = build_citation_review_items(lesson, review_rules, corpus)
+            for issue in citation_issues:
+                all_parts_passed = False
+                semantic_violations.append(f"Урок {lesson.lesson_id}: источник цитаты не подтверждён: {issue}")
+            for offset in range(0, len(citation_items), 8):
+                batch = citation_items[offset:offset + 8]
+                fingerprints = {item["id"]: citation_question_fingerprint(lesson, item["id"]) for item in batch}
+                try:
+                    reviewed = await review_displayed_citations(batch, stage_pipeline("review").invoker)
+                except CitationReviewInvalidError as error:
+                    all_parts_passed = False
+                    semantic_violations.append(f"Урок {lesson.lesson_id}: проверка цитат не завершена: {error}")
+                    continue
+                for item in batch:
+                    result = reviewed[item["id"]]
+                    record: dict[str, Any] = {"question_id": item["id"], "source_identity": item["source_identity"],
+                                              "review": result}
+                    citation_checks.append(record)
+                    if result["verdict"] == "PARTIAL":
+                        if lesson.cases:
+                            rule_ids = [case.rule_id for case in lesson.cases for variant in case.variants
+                                        if f"{variant.variant_id}-assembled" == item["id"]]
+                        else:
+                            rule_ids = [q.rule_id for q in lesson.questions if q.question_id == item["id"]]
+                        linked = [rule for rule in review_rules if len(rule_ids) == 1 and rule.rule_id == rule_ids[0]]
+                        fingerprint = fingerprints[item["id"]]
+                        if len(linked) == 1 and fingerprint:
+                            quote_candidate = propose_rule_quote_expansion(corpus, linked[0], item["displayed_quote"])
+                            staged = (stage_citation_candidate(lesson, linked[0], corpus, item, quote_candidate, fingerprint)
+                                      if quote_candidate else None)
+                            if quote_candidate and staged is not None:
+                                staged_items, _ = build_citation_review_items(staged, review_rules, corpus)
+                                matches = [candidate_item for candidate_item in staged_items
+                                           if candidate_item["id"] == item["id"]]
+                                if len(matches) == 1:
+                                    record["candidate_source_identity"] = matches[0]["source_identity"]
+                                    try:
+                                        candidate_review = (await review_displayed_citations(
+                                            matches, stage_pipeline("review").invoker))[item["id"]]
+                                    except CitationReviewInvalidError as error:
+                                        record["candidate_error"] = str(error)
+                                    else:
+                                        record["candidate_review"] = candidate_review
+                                        confirmed = stage_citation_candidate(
+                                            lesson, linked[0], corpus, item, quote_candidate, fingerprint)
+                                        if candidate_review["verdict"] == "COMPLETE" and confirmed is not None:
+                                            lesson = confirmed
+                                            generated_lessons[-1] = lesson
+                                            record["candidate_accepted"] = True
+                                            coverage_review_signals.append(
+                                                f"Урок {lesson.lesson_id}, вопрос {item['id']}: "
+                                                "цитата расширена до исходного фрагмента и требует смысловой проверки"
+                                            )
+                                            continue
+                    if result["verdict"] != "COMPLETE":
+                        all_parts_passed = False
+                        semantic_violations.append(
+                            f"Урок {lesson.lesson_id}, вопрос {item['id']}: "
+                            f"цитата подтверждает ответ не полностью: {result['verdict']}"
+                        )
+            semantic_reviews[lesson.lesson_id] = {
+                "verdict": "PASS" if all_parts_passed else "NEEDS_REVISION", "parts": part_reviews,
+                "lesson_claim_reviews": lesson_claim_reviews, "answer_checks": answer_checks,
+                "citation_checks": citation_checks,
+            }
+        except Exception as review_err:
+            unknown_review = isinstance(review_err, ExtractionOutcomeUnknownError)
+            if extraction_journal is not None and not (allow_unreviewed_on_unknown and unknown_review):
+                raise
+            logger.warning("V3 Engine: Two-factor semantic review skipped due to error: %s", review_err)
+            semantic_reviews[lesson.lesson_id] = {"verdict": "ERROR", "error": str(review_err),
+                                                   "parts": part_reviews, "lesson_claim_reviews": lesson_claim_reviews,
+                                                   "answer_checks": answer_checks, "citation_checks": citation_checks}
+            if unknown_review:
+                semantic_violations.append(
+                    f"Урок {lesson.lesson_id}: исход предыдущей проверки неизвестен; "
+                    "повтор не выполнялся, необходима ручная проверка всего урока"
+                )
+            else:
+                semantic_violations.append(
+                    f"Ошибка выполнения семантической проверки урока {lesson.lesson_id}: {review_err}"
+                )
 
     unvalidated_course = V3Course(
         course_id=f"course-v3-{doc_sha[:12]}",
@@ -992,7 +2157,7 @@ async def generate_v3_course_from_corpus(
         quality_verdict="needs_review",
     )
 
-    report = validate_v3_course(unvalidated_course, full_text)
+    report = validate_v3_course(unvalidated_course, full_text, source_documents=source_documents)
     # Automated structural validation never falsely certifies semantic truth; status remains needs_review
     quality_verdict = report.quality_status
     if report.structural_verdict != "PASS":
@@ -1006,6 +2171,8 @@ async def generate_v3_course_from_corpus(
 
     validation_payload = report.to_dict()
     validation_payload["semantic_reviews"] = semantic_reviews
+    validation_payload["semantic_repairs"] = semantic_repairs
+    validation_payload["coverage_review_signals"] = coverage_review_signals
 
     # Propagate semantic review violations into the validation report
     all_violations = list(validation_payload.get("violations", []))

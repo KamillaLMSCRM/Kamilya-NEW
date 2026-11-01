@@ -756,6 +756,9 @@ class DirectSourceDocument:
     editorial_document: SourceEditorialDocument | None = None
     review_only_source_context: tuple[dict[str, str], ...] = ()
     review_only_source_unresolved: bool = False
+    # Exact converted working text before chunk overlap. None denotes an older
+    # capture whose full text was not retained; do not reconstruct by guessing.
+    source_text: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -945,6 +948,7 @@ async def build_direct_source_corpus(
                 category=str(document.category or "general"),
                 source_revision=source_revision,
                 chunks=chunks,
+                source_text=markdown,
                 conversion_fidelity=fidelity,
                 review_only_source_context=review_only_context,
                 review_only_source_unresolved=review_only_unresolved,

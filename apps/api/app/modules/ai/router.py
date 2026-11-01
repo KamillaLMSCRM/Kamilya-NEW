@@ -432,6 +432,7 @@ async def submit_course_generation(
         generation_lesson_ceiling,
         recommend_course_structure,
     )
+    from app.modules.ai.v3.source_reference_decisions import admit_reference_decisions
 
     if len(req.documents) > MULTI_DOCUMENT_MAX_SOURCES:
         raise HTTPException(
@@ -444,6 +445,9 @@ async def submit_course_generation(
         )
 
     tenant_id = UUID(str(user.tenant_id))
+    confirmed_reference_records = admit_reference_decisions(
+        req.reference_decisions, str(tenant_id), str(user.id), req.documents,
+    )
     analysis = await analyze_document_set(
         db,
         tenant_id,
@@ -599,6 +603,7 @@ async def submit_course_generation(
                 "source_strategy": req.source_strategy,
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
+                "reference_decisions": confirmed_reference_records,
                 "reuse_reason": req.reuse_reason,
             },
             task_name="generate_course",

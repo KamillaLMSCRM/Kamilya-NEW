@@ -467,11 +467,32 @@ async def _run_evidence_v2_generation(
     }
 
 
+async def _load_owned_reference_decisions(
+    job_id: str, tenant_id: UUID, user_id: UUID | None, documents: list[str],
+) -> tuple[Any, ...]:
+    """Read decisions from the owned persisted job, never from queue payload metadata."""
+    from sqlalchemy import text
+
+    from app.modules.ai.job_service import get_ai_job
+    from app.modules.ai.v3.source_reference_decisions import hydrate_reference_decisions
+
+    async with async_session_factory() as session:
+        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+        await lock_owned_delivery(session, job_id, str(tenant_id), require_running=True)
+        job = await get_ai_job(session, job_id, tenant_id=str(tenant_id))
+        if job is None or user_id is None or job.user_id != user_id or job.status != "running":
+            raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        _validate_generation_source_selection(job.params, documents)
+        params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+        return hydrate_reference_decisions(params.get("reference_decisions", []), str(tenant_id), str(user_id), documents)
+
+
 async def _run_v3_generation(
     state: GenerationState,
     corpus: DirectSourceCorpus,
     *,
     tenant_id: UUID,
+    user_id: UUID | None,
     target_audience: str,
     guidance: str | None,
     goals: list[str] | None,
@@ -482,6 +503,13 @@ async def _run_v3_generation(
     from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings, runtime_settings_scope
     from app.modules.ai.qa_luna_dev_route import qa_luna_dev_client
     from app.modules.ai.v3.service import generate_v3_course_from_corpus
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+
+    if str(corpus.tenant_id) != str(tenant_id):
+        raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+    reference_decisions = await _load_owned_reference_decisions(
+        state.job_id, tenant_id, user_id, list(corpus.document_ids),
+    )
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
@@ -540,6 +568,9 @@ async def _run_v3_generation(
             state.job_id,
             tenant_id=tenant_id,
         ),
+        extraction_journal=WorkerCycleJournal(str(tenant_id), state.job_id, async_session_factory),
+        route_fingerprint=generation_client.cache_fingerprint(),
+        reference_decisions=reference_decisions,
     )
 
     requires_review = bool(
@@ -781,6 +812,7 @@ async def _save_generation_to_db(
                                         type="MCQ",
                                         points=1,
                                         explanation=mcq.explanation,
+                                        source_quote=mcq.source_quote or None,
                                         order_index=q_idx,
                                         pool_group=getattr(mcq, "pool_group", None),
                                     )
@@ -1057,6 +1089,7 @@ async def _run_generation_pipeline_inner(
                 state,
                 corpus,
                 tenant_id=tenant_id,
+                user_id=user_id,
                 target_audience=target_audience,
                 guidance=guidance,
                 goals=goals,

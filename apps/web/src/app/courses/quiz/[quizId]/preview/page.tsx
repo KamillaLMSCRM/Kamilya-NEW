@@ -23,6 +23,7 @@ interface QuizQuestion {
   type: string;
   points: number;
   explanation: string | null;
+  source_quote?: string | null;
   order_index: number;
   choices: QuizChoice[];
 }
@@ -279,6 +280,13 @@ export default function QuizMethodologistPreviewPage() {
                       );
                     })}
                   </div>
+
+                  {question.source_quote && (
+                    <details className="rounded-lg bg-muted p-3 text-sm">
+                      <summary className="cursor-pointer font-medium">{t('quiz.sourceQuoteForReview')}</summary>
+                      <p className="mt-2 whitespace-pre-wrap">{question.source_quote}</p>
+                    </details>
+                  )}
 
                   {graded && question.explanation && (
                     <div className="rounded-lg bg-muted p-3 text-sm">

@@ -827,16 +827,21 @@ class LLMClient(_BaseProviderClient):
             content=content,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
+            finish_reason=data["choices"][0].get("finish_reason"),
+            content_is_reasoning=not bool(msg.get("content")) and bool(msg.get("reasoning")),
         )
 
 
 class _LLMResponse:
     """Simple response wrapper matching LangChain's .content attribute."""
 
-    def __init__(self, content: str, *, prompt_tokens: int = 0, completion_tokens: int = 0):
+    def __init__(self, content: str, *, prompt_tokens: int = 0, completion_tokens: int = 0,
+                 finish_reason: str | None = None, content_is_reasoning: bool = False):
         self.content = content
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
+        self.finish_reason = finish_reason
+        self.content_is_reasoning = content_is_reasoning
 
 
 T = TypeVar("T")

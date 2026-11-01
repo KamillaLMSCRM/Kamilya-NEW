@@ -10,6 +10,36 @@ MULTI_DOCUMENT_MAX_SOURCES = 5
 CourseFormat = Literal["automatic", "brief", "standard", "detailed"]
 
 
+class SourceReferenceDecisionInput(BaseModel):
+    """An explicit human interpretation, verified again against the source by the worker."""
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: UUID
+    source_revision: str = Field(pattern=r"^document:[0-9a-f]{64}$")
+    converted_text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    reference_start: int = Field(ge=0, strict=True)
+    reference_end: int = Field(ge=1, strict=True)
+    reference_exact: str = Field(min_length=1, max_length=4096)
+    target_start: int = Field(ge=0, strict=True)
+    target_end: int = Field(ge=1, strict=True)
+    target_exact: str = Field(min_length=1, max_length=8192)
+    confirmed: Literal[True]
+
+    @model_validator(mode="before")
+    @classmethod
+    def require_explicit_boolean_confirmation(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or value.get("confirmed") is not True:
+            raise ValueError("explicit reference decision confirmation is required")
+        return value
+
+    @model_validator(mode="after")
+    def validate_spans(self) -> Self:
+        if (self.reference_end - self.reference_start != len(self.reference_exact)
+                or self.target_end - self.target_start != len(self.target_exact)):
+            raise ValueError("reference decision span lengths must match exact text")
+        return self
+
+
 class AIGenerateRequest(BaseModel):
     course_id: UUID | None = None
     # No upper schema cap: any over-limit document count must reach the
@@ -17,6 +47,7 @@ class AIGenerateRequest(BaseModel):
     # framework validation leakage. Request-body limits at the ingress bound
     # abuse; the endpoint enforces the 5-source product cap.
     documents: List[UUID] = Field(min_length=1, description="Source document IDs")
+    reference_decisions: list[SourceReferenceDecisionInput] = Field(default_factory=list)
     target_audience: str = Field(default="", max_length=2000, description="Target audience description")
     course_intent: str = Field(
         default="",
@@ -44,6 +75,11 @@ class AIGenerateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_combination_goal(self) -> Self:
+        if any(item.document_id not in self.documents for item in self.reference_decisions):
+            raise ValueError("reference decision must belong to a selected document")
+        identities = {(item.document_id, item.reference_start, item.reference_end) for item in self.reference_decisions}
+        if len(identities) != len(self.reference_decisions):
+            raise ValueError("duplicate reference decision")
         # Deduplicate while preserving the user's first-occurrence order so
         # retries stay deterministic and provenance is unambiguous. The
         # per-submission source cap is enforced at the endpoint with a stable

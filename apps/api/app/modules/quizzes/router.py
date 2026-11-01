@@ -53,6 +53,11 @@ router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 router.include_router(editor_assistant_router)
 
 
+def _invalidate_question_source_quote(question: Question) -> None:
+    """A content edit invalidates a generation-time quotation."""
+    question.source_quote = None  # type: ignore[assignment]
+
+
 async def _require_quiz_tenant(db: AsyncSession, quiz_id: UUID, tenant_id: UUID) -> Quiz:
     """Resolve a quiz only inside the caller's tenant boundary."""
     result = await db.execute(select(Quiz).where(Quiz.id == quiz_id, Quiz.tenant_id == tenant_id))
@@ -817,6 +822,8 @@ async def update_question(
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
+    if {"text", "type", "explanation", "choices"} & req.model_fields_set:
+        _invalidate_question_source_quote(question)
     if req.text is not None:
         question.text = req.text
     if req.type is not None:
@@ -922,6 +929,7 @@ async def create_choice(
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
+    _invalidate_question_source_quote(question)
     choice = QuizChoice(
         id=uuid4(),
         question_id=question_id,
@@ -955,6 +963,8 @@ async def update_choice(
     choice = await db.get(QuizChoice, choice_id)
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
+    if req.text is not None or req.is_correct is not None:
+        _invalidate_question_source_quote(question)
     if req.text is not None:
         choice.text = req.text
     if req.is_correct is not None:
@@ -985,6 +995,7 @@ async def delete_choice(
     choice = await db.get(QuizChoice, choice_id)
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
+    _invalidate_question_source_quote(question)
     await db.delete(choice)
     await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
     await db.flush()
