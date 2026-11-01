@@ -96,7 +96,8 @@ def harness(monkeypatch):
         id=str(uuid4()), tenant_id=tenant_id, user_id=user_id, course_id=None,
         status="running", stage="ingestion", progress=5, message="", errors=None,
         completed_at=None, updated_at=datetime.now(UTC),
-        params={"documents": [str(uuid4())], "generation_reservation_required": True},
+        params={"documents": [str(uuid4())], "generation_reservation_required": True,
+                "source_analysis": {"analysis_mode": "direct_source", "generation_engine": "evidence_v2"}},
         result={"delivery_task_id": "delivery-1", "resume_count": 0},
     )
     session = MemorySession(job)

@@ -52,7 +52,7 @@ Current as of: 2026-11-01.
 
 - Recurrence, 2026-11-01 independent review: the assignment form still keyed its component by the raw access token. A real token-only refresh reset a manually selected recipient. A regression reproduced the loss on branch 5ec30252. The isolated fix uses the existing actor/session generation scope, preserving token-only refresh while resetting on actor or tenant change. Assignment and author-workspace regressions: 41 passed; lint/type passed. This fix and its broader concurrent-read implications require final review and deployed acceptance; not yet released.
 
-- Date:2026-11-01; local learning-workspace candidate, not deployed acceptance.
+- Date: 2026-11-01; local learning-workspace candidate, not deployed acceptance.
 - Symptom: token-only refresh erased entered quiz answers; delayed PDF/CSV or
   assignment responses could continue after navigation/context change; hidden
   OTP also hid an otherwise valid PDF error. Technical loading states could
