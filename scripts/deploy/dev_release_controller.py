@@ -601,6 +601,7 @@ class LiveProviderAdapter:
             "plan": details.get("plan"),
             "branch": result.get("branch"),
             "auto_deploy": result.get("autoDeploy"),
+            "status": result.get("suspended"),
         }
 
     def staff_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]:

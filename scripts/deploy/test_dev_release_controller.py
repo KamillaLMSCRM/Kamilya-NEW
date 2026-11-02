@@ -250,6 +250,14 @@ class MainControllerTests(unittest.TestCase):
 
 
 class DevReleaseControllerTests(unittest.TestCase):
+    def test_live_render_contract_reads_real_suspension_field(self) -> None:
+        adapter = object.__new__(controller.LiveProviderAdapter)
+        adapter.render_token = "fixture"
+        for status in ("suspended", "not_suspended", None):
+            adapter._http_json = mock.Mock(return_value={"serviceDetails": {"plan": "free"},
+                "branch": "dev", "autoDeploy": "no", "suspended": status})
+            self.assertEqual(adapter.render_service("fixture")["status"], status)
+
     def test_live_vm_probe_accepts_actual_docker_name_and_preserves_identity(self) -> None:
         image = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64
         adapter = object.__new__(controller.LiveProviderAdapter)
