@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — V3 direct QA generation, 2026-11-02
 
+- Bound DEV TLS broker reads so an idle health check cannot indefinitely block
+  the course-generation consumer; preserve production transport settings.
 - Resolve confirmed references through literal source spans while keeping owner
   interpretations separate; retain completed work when a reference needs review.
 - Preserve revision-bound source references and related conditions for review.
