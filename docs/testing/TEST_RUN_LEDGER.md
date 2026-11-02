@@ -5501,3 +5501,11 @@ Rules:
 - New PostgreSQL17check proof pending; earlier16check proof is not substituted.
 - Standards367:9sourceextractions reused/zero newextractioncalls; one firstlesson HTTP200/19208ms content_json rejection, held/no course, usageUNKNOWN. No replay. Synthetic actualCLIprobe:onecall11099ms7543input726output,strictJSONobject/appliedschema verified, extra synthetic_shape=false and fullcourseunaccepted.
 - Accepted704runtime is separate from local typed candidate; production unchanged.
+
+
+## 2026-11-03 — actual shared reserve state and isolated DEV staging
+
+- PG17 PASS at frozen source750457fb636cbacacb2174b86418fc22ca5b0f96058094ff65e6294fbc3c9c80, disposableaicp_dev_d744b72222a3 removed/public0184unchanged.
+- e75 CI41528151214/all7, backendbuild41529251017/prodSKIPPED, connectorbuild41529251726 SUCCESS; both immutable image attestations verified.
+- Actual reserve ACTIVE; no shared update made. First remote inventory output violated bounded evidence format and was corrected; initial connector preflight lacked finite phase, then safe readonly phase diagnosed ACTIVE. Timeout360 rejected locally (max300), no action. No guessed state or provider retry.
+- DEV704 warm drain proof3a79c189...PASS/cleanexit0/no forcekill. V4 route75testsPASS/2platformskips; initial existing ops test invocation lacked apps/api PYTHONPATH (48PASS/2skips/one import error), corrected canonical environment75PASS. No new model call.

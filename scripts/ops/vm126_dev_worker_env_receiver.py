@@ -18,6 +18,7 @@ DATABASE_PROJECT_FINGERPRINT = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586
 REDIS_HOST = "173.249.51.164"
 REDIS_PORT = 6380
 REDIS_DB = "/1"
+ISOLATED_MANAGED_CONNECTOR_URL = "http://172.17.0.1:19000/v1"
 KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 VALUE_RE = re.compile(r"^[^\x00\r\n]+$")
 RELEASE_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -80,7 +81,10 @@ def _validate_luna_mode(values: dict[str, str]) -> None:
             raise ValueError("luna_mode_invalid")
         if (not values.get("AI_MANAGED_LUNA_QA_CREDENTIAL_REVISION")
             or not values.get("CHATGPT_RESERVE_TOKEN")
-            or values.get("CHATGPT_RESERVE_URL") != "http://127.0.0.1:18999/v1"
+            or values.get("CHATGPT_RESERVE_URL") not in (
+                {"http://127.0.0.1:18999/v1", ISOLATED_MANAGED_CONNECTOR_URL}
+                if values.get("DEPLOYMENT_ENVIRONMENT") == "vm-development-worker"
+                else {"http://127.0.0.1:18999/v1"})
             or values.get("CHATGPT_RESERVE_MODEL") != "gpt-5.6-luna"
             or values.get("CHATGPT_RESERVE_AUTH_MODE") != "codex_cli"):
             raise ValueError("luna_mode_invalid")
@@ -123,11 +127,15 @@ def validate_payload(payload: bytes, release_sha: str, expected_hash: str) -> di
     return {"release_sha": release_sha, "payload_sha256": actual_hash, "keycount": str(len(values))}
 
 
-def build_payload_from_render_values(source: dict[str, str], release_sha: str) -> bytes:
+def build_payload_from_render_values(source: dict[str, str], release_sha: str, *,
+                                     isolated_managed_connector: bool = False) -> bytes:
     """Normalize an authenticated Render worker snapshot without logging values."""
     if source.get("DEPLOYMENT_ENVIRONMENT") != "render-development-worker":
         raise ValueError("source_environment_invalid")
     _validate_luna_mode(source)
+    if (type(isolated_managed_connector) is not bool
+            or isolated_managed_connector and source.get("AI_MANAGED_LUNA_QA_DEV_ENABLED") != "true"):
+        raise ValueError("isolated_managed_connector_invalid")
     if source.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or source.get("AI_QA_LUNA_DEV_ENABLED") != "true" or source.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true":
         raise ValueError("source_flags_invalid")
     tenants = source.get("AI_LESSON_CYCLE_DEV_TENANTS", "")
@@ -147,6 +155,8 @@ def build_payload_from_render_values(source: dict[str, str], release_sha: str) -
         "CELERY_QUEUES": "ai,documents,maintenance",
         "CELERY_CONCURRENCY": "1",
     })
+    if isolated_managed_connector:
+        values["CHATGPT_RESERVE_URL"] = ISOLATED_MANAGED_CONNECTOR_URL
     body = "".join(f"{key}={values[key]}\n" for key in sorted(values)).encode()
     validate_payload(body, release_sha, hashlib.sha256(body).hexdigest())
     return body

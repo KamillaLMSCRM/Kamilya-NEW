@@ -22,6 +22,8 @@ RECEIVER_PATH = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-
 RECEIVER_SHA = "a7470cca32295122245796acf17c9f8d6e3c7b904f417ac78b8ee069354b61ae"
 RECEIVER_PATH_V3 = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v3.py"
 RECEIVER_SHA_V3 = "5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a"
+RECEIVER_PATH_V4 = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v4.py"
+RECEIVER_SHA_V4 = "4310ca718a53b48988a28501fa76517aa560e0e2246f0ec7b69821f4113ebc81"
 STATUS_RE = re.compile(r"^STATUS\|status=(installed|already_present)\|release_sha=([0-9a-f]{40})\|payload_sha256=([0-9a-f]{64})\|keycount=([1-9][0-9]{0,2})$")
 
 
@@ -40,8 +42,9 @@ def stage_payload(payload: bytes, release_sha: str, receiver_sha: str, runner: C
     payload_hash = hashlib.sha256(payload).hexdigest()
     validated = validate_payload(payload, release_sha, payload_hash)
     managed = b"AI_MANAGED_LUNA_QA_DEV_ENABLED=true\n" in payload.splitlines(keepends=True)
-    receiver_path = RECEIVER_PATH_V3 if managed else RECEIVER_PATH
-    if receiver_sha != (RECEIVER_SHA_V3 if managed else RECEIVER_SHA):
+    isolated = managed and b"CHATGPT_RESERVE_URL=http://172.17.0.1:19000/v1\n" in payload.splitlines(keepends=True)
+    receiver_path = RECEIVER_PATH_V4 if isolated else RECEIVER_PATH_V3 if managed else RECEIVER_PATH
+    if receiver_sha != (RECEIVER_SHA_V4 if isolated else RECEIVER_SHA_V3 if managed else RECEIVER_SHA):
         raise ValueError("receiver_identity_invalid")
     identity = runner(VM126.command(timeout, "hostname"), b"")
     if identity.exit_code != 0 or identity.stdout.decode("ascii", "ignore").strip().casefold() != VM126.expected_hostname.casefold():

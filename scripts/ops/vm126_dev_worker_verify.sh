@@ -23,6 +23,7 @@ ROOT = Path("/opt/kamilya-dev-worker/releases")
 EXPECTED_IDENTITY = None
 RECEIVER_SHA = "a7470cca32295122245796acf17c9f8d6e3c7b904f417ac78b8ee069354b61ae"
 RECEIVER_SHA_V3 = "5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a"
+RECEIVER_SHA_V4 = "4310ca718a53b48988a28501fa76517aa560e0e2246f0ec7b69821f4113ebc81"
 IMAGE_RE = re.compile(r"ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64}")
 HEALTH_CODE = r"""
 from app.core.celery_app import celery_app
@@ -86,7 +87,8 @@ def secure_file(path, mode):
 
 def receiver_identity(staged, receiver_source):
     managed = staged.get("AI_MANAGED_LUNA_QA_DEV_ENABLED", "false") == "true"
-    expected = RECEIVER_SHA_V3 if managed else RECEIVER_SHA
+    isolated = managed and staged.get("CHATGPT_RESERVE_URL") == "http://172.17.0.1:19000/v1"
+    expected = RECEIVER_SHA_V4 if isolated else RECEIVER_SHA_V3 if managed else RECEIVER_SHA
     if hashlib.sha256(receiver_source).hexdigest() != expected: raise ValueError("receiver_changed")
     return managed
 
@@ -103,7 +105,8 @@ def main():
         if env_sha != expected["environment_sha256"]: raise ValueError("expected_identity_mismatch")
         staged=env_values(payload.decode("utf-8").splitlines())
         managed=staged.get("AI_MANAGED_LUNA_QA_DEV_ENABLED", "false") == "true"
-        receiver_path=ROOT/("vm126_dev_worker_env_receiver-v3.py" if managed else "vm126_dev_worker_env_receiver-v2.py")
+        isolated=managed and staged.get("CHATGPT_RESERVE_URL")=="http://172.17.0.1:19000/v1"
+        receiver_path=ROOT/("vm126_dev_worker_env_receiver-v4.py" if isolated else "vm126_dev_worker_env_receiver-v3.py" if managed else "vm126_dev_worker_env_receiver-v2.py")
         receiver_source=secure_file(receiver_path,0o600)
         receiver_identity(staged,receiver_source)
         spec=importlib.util.spec_from_file_location("owned_receiver",receiver_path)

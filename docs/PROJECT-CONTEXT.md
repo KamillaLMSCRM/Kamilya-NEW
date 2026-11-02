@@ -25,6 +25,12 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
+## Live override — 2026-11-03 isolated connector preparation
+
+- Shared production routing actually includes chatgpt_reserve (readonly runtime preflight); do not treat historical OFF as current. Its connector957be32f/egress75829b1c imageed5b65da and all production containers remain unchanged. No shared connector replacement was executed.
+- DEV704 worker3dee25e3f708aca26e625c32e1c4c3bdaa7b315905e7895624e3f9fa14e70363 is cleanly EXITED/restartNO after verified idle warm drain, under original name. No current DEV consumer until isolated route/new worker acceptance. Historical delivery704 below is historical, not current liveness.
+- Planned separate DEV project uses exact typed connector image0cb9133ce7f2551a717d504b0f0707e6e96f20518e2f9909322c8e26e82e5452 on already-paid VM capacity, private bridge172.17.0.1:19000 only. Immutable V4 receiver and exact staged45key hash required. No sourceRender/global provider order/production network/SSH permission changes; new route not yet deployed.
+
 ## Current isolated DEV worker — 2026-11-02
 
 - Current canonical delivery REL-DEV-SOURCE704AEBCF-20261103 RELEASE_OK:704aebcfe45a9f6776c5fda6660adea57f5a4383,image70419a9dfc70af20ef41eff421a662b61772a33f29c7e49da00f012159d3495d; CI41518946174/all7,build41519799083/prodSKIPPED,artifact13175854695/attestationexit0. Sole kamilya-dev-worker3dee25e3f708aca26e625c32e1c4c3bdaa7b315905e7895624e3f9fa14e70363 restart0/unless-stopped,26runtimehashes/ping/queues/restrictedDB/privateconverterPASS. RenderAPIdep-dbkf7s1srm7s7389mlc0,Verceldpl_9ePX9bwGFDh4XcXiR61ibjVMY3og. Old0b7 exited0 after warm termination, retained rollback-0b7ad8cf. Current new typed-author/private-custody candidate is not deployed yet.
