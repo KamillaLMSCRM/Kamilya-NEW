@@ -47,6 +47,7 @@ class SourceReferenceDecisionInput(BaseModel):
 
 
 class AIGenerateRequest(BaseModel):
+    completed_extraction_parent_job_id: UUID | None = None
     course_id: UUID | None = None
     # No upper schema cap: any over-limit document count must reach the
     # endpoint and fail with the stable `too_many_documents` code instead of

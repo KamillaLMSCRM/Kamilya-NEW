@@ -1,3 +1,20 @@
+# Current implementation reconciliation — 2026-11-02 managed749 continuation
+
+Owner requires a working released engine and full production generation/quality acceptance. Current deployed DEV749 supports the alternate managed Luna; productionUX70/engine7c35/customer courses remain separate. The following is source/test status, not semantic course GO.
+
+| Accepted proposal | Actual current implementation | Remaining gate |
+|---|---|---|
+| Source blocks with dependencies | engine primary/related fragments, prerequisites/neighbors and source-reference decisions; source planner/context/family tests | Three original courses against67 independent families/16 ambiguities |
+| Co-generate lesson and tests | generate_lesson_with_scenarios creates lesson, cases and assembled questions | Full current-model course yield/readback |
+| Exact source references/citations | citation_review/expansion, rule_quote_binding, adapter provenance | Independent meaning and source coverage, including displayed export |
+| Scoped repair preserving other findings | case_repair_gate, compatibility_recheck, explanation/prose/targeted distractor repair | Saved regressions plus actual-model final content |
+| Diversity and nonduplicate tests | final diversity observation, exact cross-lesson guard; source-bound targeted repair remains owned-only | Full-course diversity and coverage |
+| Provider-neutral quality | Local fresh-revision ordinary semantic parity in service.py; independent review accepted | Ordinary worker/DeepSeek runtime proof |
+| Durable recovery without repeated extraction | Local explicit same-route parent reuse with original checkpoint revalidation and child hash-only provenance | Disposable realPG concurrency/cold/source drift, DEV worker |
+| Accurate cost and error accounting | Original metadata retained; reused stages create no new provider checkpoint; finite diagnostics local | Complete fresh-run calls/time/tokens/unknown outcomes |
+
+Immediate sequence: finish combined regressions and realPG15; freeze and deliver exact candidate to existing DEV API/VMworker; acknowledge only exact owned synthetic unknown disposition while retaining all history; reuse nine saved extractions and diagnose purposeful first lesson with fixed diagnostics; complete all three originals/matrix on Luna. Then ordinary DeepSeek parity/quality, protected selective backend release atop productionUX70 and full live synthetic upload-to-confirmation acceptance. Do not relax validators or copy old usage into new calls. The tiny synthetic Luna lesson control is transport/shape proof only.
+
 # Current V3 review of external analyses — 2026-11-02
 
 Authority: owner asked to study analysis0211 дипсик.txt and continues to authorize V3 DEV quality acceptance then protected release. The older V2 packet and one-control budget below are historical; current explicit Luna API authority is reasonable justified calls, reasoning enabled, not a new arbitrary provider spend limit. ProductionUX70 is separately released; currentDEV applicationBC is not three-course quality acceptance. Local candidate2726742d contains preclaim continuation/ambiguous-dispatch fixes; web recovery patch remains under final gates.

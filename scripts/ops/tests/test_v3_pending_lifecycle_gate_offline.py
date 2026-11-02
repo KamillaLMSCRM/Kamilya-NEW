@@ -90,3 +90,9 @@ def test_managed_drift_hash_does_not_reuse_prior_fixture_value():
     assert value != "b" * 64
     assert value != hashlib.sha256(b"Synthetic managed source.").hexdigest()
     assert len(value) == 64
+
+
+def test_reuse_fixture_requires_guard_before_access():
+    helper = runpy.run_path(str(ROOT / "scripts/ops/v3_completed_extraction_reuse_dev_check.py"))
+    with pytest.raises(RuntimeError, match="unreviewed"):
+        asyncio.run(helper["exercise"](None, None, "public"))

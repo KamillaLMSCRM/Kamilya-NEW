@@ -1053,6 +1053,9 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
                 print(f"EVIDENCE|phase=managed_stage|sqlstate={safe_state}|constraint={safe_constraint}", flush=True)
             raise
         checks.append("managed_owned_stage_replay_unknown_fenced")
+        from v3_completed_extraction_reuse_dev_check import exercise as exercise_reuse
+        await exercise_reuse(owner, runtime, schema, execution_enabled=EXECUTION_ENABLED)
+        checks.append("completed_extraction_parent_reuse_origin_cold_concurrency_fenced")
     finally:
         delivery_id.reset(token)
 
@@ -1112,6 +1115,7 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                 "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls",
                 "fresh_revision_policy_source_drift_fenced", "abandon_owned_pending_race_fenced",
                 "managed_owned_stage_replay_unknown_fenced",
+                "completed_extraction_parent_reuse_origin_cold_concurrency_fenced",
                 "cooperative_interrupt_resume_cold_replay_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True

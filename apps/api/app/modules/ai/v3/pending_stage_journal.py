@@ -27,6 +27,7 @@ class PendingStageJournal(WorkerCycleJournal):
         super().__init__(tenant_id, job_id, session_factory)
         self.user_id = user_id
         self.verify_source = verify_source
+        self.completed_extraction_parent_job_id: str | None = None
 
     async def run_pending(self, *, plan: dict[str, Any], result_key: str, claim_key: str,
                           validate_value: Callable[[dict[str, Any]], dict[str, Any]],

@@ -1657,16 +1657,29 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
                                   cancellation_callback: Any, signals: list[str], violations: list[str],
                                   repair_contexts: list[Any] | None = None,
                                   review_records: dict[str, Any] | None = None,
-                                  allow_repair: bool = False) -> None:
+                                  allow_repair: bool = False, revision_policy: str | None = None) -> None:
     from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
+    from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
 
-    if policy not in OWNED_POLICIES:
+    owned = policy in OWNED_POLICIES
+    if not owned and (revision_policy != REVISION_POLICY or policy is not None):
         return
     from app.modules.ai.v3.diversity_review import review_final_lesson
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
     from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
 
-    if (type(journal) is not PendingStageJournal or direct_client is None
-            or not callable(journal.verify_source) or journal.tenant_id != corpus.tenant_id):
+    if owned:
+        valid = (type(journal) is PendingStageJournal and direct_client is not None
+                 and callable(journal.verify_source) and journal.tenant_id == corpus.tenant_id)
+    else:
+        source_context = getattr(journal, "expected_revision_source", None)
+        valid = (type(journal) is WorkerCycleJournal and direct_client is None
+                 and journal.tenant_id == corpus.tenant_id
+                 and journal.expected_revision_policy == REVISION_POLICY
+                 and type(source_context) is OwnedSourceContext
+                 and source_context.journal is journal and source_context.corpus is corpus)
+    if not valid:
         raise ExtractionOutcomeUnknownError("v3_diversity_owned_context_unverified")
     for lesson_index, (final_lesson, (group_id, primary_rules)) in enumerate(zip(lessons, groups, strict=True)):
         if cancellation_callback:
@@ -1696,7 +1709,7 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
                 "status": observed.get("status"), "fingerprint": observed.get("fingerprint"),
                 "overlaps": observed.get("overlaps", []), "omissions": safe_omissions,
                 "inventory_completeness": observed.get("inventory_completeness", "unknown")}}
-        if (allow_repair and repair_contexts is not None and review_records is not None
+        if (owned and allow_repair and repair_contexts is not None and review_records is not None
                 and observed.get("status") == "review_required"
                 and isinstance(observed.get("overlaps"), list) and len(observed["overlaps"]) == 1
                 and isinstance(observed.get("omissions"), list) and len(observed["omissions"]) == 1):
@@ -1811,7 +1824,9 @@ async def generate_v3_course_from_corpus(
         parsed: dict[str, Any] = json.loads(raw_text)
         return parsed
 
-    pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=direct_client is not None,
+    neutral_fresh_quality = scoped_revision and authenticated_qa_policy is None
+    quality_explanations = neutral_fresh_quality or direct_client is not None
+    pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=quality_explanations,
                                     scoped_revision=scoped_revision)
 
     # Stage 1: Extract structured rule model
@@ -1906,7 +1921,7 @@ async def generate_v3_course_from_corpus(
                                         messages=messages, response_format=response_format, invoke=invoke,
                                         direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens)
 
-            return V3GenerationPipeline(invoke_stage, explanation_consistency=direct_client is not None,
+            return V3GenerationPipeline(invoke_stage, explanation_consistency=quality_explanations,
                                         scoped_revision=scoped_revision)
 
         group_reference_context = reference_context_for_rules(
@@ -2278,7 +2293,7 @@ async def generate_v3_course_from_corpus(
                         all_parts_passed = False
                         semantic_violations.append(f"Урок {lesson.lesson_id}: неполный вопрос или правильный ответ")
                         continue
-                    if direct_client is not None and _direct_explanation_requires_hold(_question_explanation(lesson, question_id)):
+                    if quality_explanations and _direct_explanation_requires_hold(_question_explanation(lesson, question_id)):
                         all_parts_passed = False
                         semantic_violations.append(f"Урок {lesson.lesson_id}, вопрос {question_id}: отсутствует объяснение")
                         continue
@@ -2347,7 +2362,7 @@ async def generate_v3_course_from_corpus(
                                     if any(variant.variant_id == question_id for variant in case.variants)]
                                 matching_answers = [row for row in _question_option_inputs(candidate) if row[0] == question_id]
                                 if (new_violations or len(matching_cases) != 1 or len(matching_answers) != 1
-                                        or (direct_client is not None and _direct_explanation_requires_hold(_question_explanation(candidate, question_id)))):
+                                        or (quality_explanations and _direct_explanation_requires_hold(_question_explanation(candidate, question_id)))):
                                     attempt["rejected"] = "v3_distractor_feedback_structural_regression"
                                 else:
                                     _qid, new_scenario, new_question, new_options, _rule_id = matching_answers[0]
@@ -2381,7 +2396,7 @@ async def generate_v3_course_from_corpus(
                                                     group_reference_context, explanation=_question_explanation(candidate, question_id),
                                                     options=[text for text, _ in new_options])
                                                 attempt["completeness"] = complete
-                                                if _validate_answer_completeness(complete, explanation_consistency=direct_client is not None)[0]:
+                                                if _validate_answer_completeness(complete, explanation_consistency=quality_explanations)[0]:
                                                     lesson = candidate
                                                     generated_lessons[-1] = lesson
                                                     attempt["accepted"] = True
@@ -2411,7 +2426,7 @@ async def generate_v3_course_from_corpus(
                         scenario, question, correct_answer, exact_source_units, group_reference_context,
                         explanation=_question_explanation(lesson, question_id), options=[text for text, _ in options])
                     answer_checks[-1]["completeness"] = completeness
-                    valid, error = _validate_answer_completeness(completeness, explanation_consistency=direct_client is not None)
+                    valid, error = _validate_answer_completeness(completeness, explanation_consistency=quality_explanations)
                     if not valid:
                         all_parts_passed = False
                         semantic_violations.append(
@@ -2564,10 +2579,10 @@ async def generate_v3_course_from_corpus(
         invoke=invoke_diversity, max_tokens=direct_max_output_tokens, cancellation_callback=cancellation_callback,
         signals=coverage_review_signals, violations=semantic_violations,
         repair_contexts=generated_repair_contexts, review_records=semantic_reviews,
-        allow_repair=not reference_decisions,
+        allow_repair=not reference_decisions, revision_policy=revision_policy,
     )
 
-    if authenticated_qa_policy in OWNED_POLICIES:
+    if neutral_fresh_quality or authenticated_qa_policy in OWNED_POLICIES:
         from app.modules.ai.v3.exact_duplicate_review import has_cross_lesson_duplicate
 
         if has_cross_lesson_duplicate(generated_lessons):
@@ -2620,7 +2635,7 @@ async def generate_v3_course_from_corpus(
         await progress_callback("quality", total_lessons + 1, total_lessons + 1, None, None)
 
     adapter_options: dict[str, Any] = {}
-    if authenticated_qa_policy in OWNED_POLICIES:
+    if neutral_fresh_quality or authenticated_qa_policy in OWNED_POLICIES:
         adapter_options = {"source_corpus": corpus, "source_rules": tuple(
             rule for _group_id, rules in generated_primary_groups for rule in rules), "exact_narrative_facts": True}
     artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),

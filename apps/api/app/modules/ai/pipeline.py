@@ -620,6 +620,8 @@ async def _run_v3_generation(
         if pending_mode:
             authenticated_qa_policy = stored
             journal = PendingStageJournal(str(tenant_id), user_id, state.job_id, async_session_factory)
+            from app.modules.ai.v3.completed_extraction_reuse import read_parent_marker
+            journal.completed_extraction_parent_job_id = read_parent_marker(job.params, stored)
             context = await load_owned_source_context(journal=journal, tenant_id=tenant_id,
                                                       user_id=user_id, job_id=state.job_id)
             owned_source_context = context
@@ -638,6 +640,7 @@ async def _run_v3_generation(
                 return (isinstance(current, dict) and policy_matches(current, revision_policy)
                         and current.get(QA_PENDING_KEY) == stored
                         and route_valid
+                        and read_parent_marker(job.params, stored) == journal.completed_extraction_parent_job_id
                         and await context.verify_locked(session, job, plan) is True)
             journal.verify_source = verify_qa_source
             corpus = context.corpus

@@ -46,10 +46,17 @@ def test_changed_source_or_reference_context_fences_promotion():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["accept", "reject", "malformed", "unknown", "lesson_scope", "mixed", "general_reject", "general_unknown", "legacy"])
 async def test_service_one_repair_rechecks_before_promotion(mode, monkeypatch):
+    import hashlib
+    from dataclasses import replace
+    from unittest.mock import AsyncMock
+    from uuid import uuid4
+
     from app.modules.ai.evidence_engine.models import CourseIntent
     from app.modules.ai.v3 import service
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
     from app.modules.ai.v3.revision_policy import POLICY
     from app.modules.ai.v3.service import generate_v3_course_from_corpus
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
     from tests.unit.test_v3_partitioned_extraction import Journal, corpus
 
     original = "Источник не устанавливает срок."
@@ -98,24 +105,45 @@ async def test_service_one_repair_rechecks_before_promotion(mode, monkeypatch):
                     "source_quote": "Правило первое.\n\nПравило второе.",
                     "distractor_pool": [{"text": "ошибка 1"}, {"text": "ошибка 2"}, {"text": "ошибка 3"}]}]}]}
 
-    journal = Journal()
+    memory = Journal()
+    tenant, actor = uuid4(), uuid4()
+    source = replace(corpus(), tenant_id=str(tenant))
+    journal = WorkerCycleJournal(str(tenant), memory.job_id, lambda: None)
+    context = OwnedSourceContext(source, journal, tenant, actor, memory.job_id, tuple(source.document_ids))
+    verifier = AsyncMock(return_value=True)
+    context.verify_locked = verifier
+    journal.expected_revision_policy = POLICY
+    journal.expected_revision_actor = actor
+    journal.expected_revision_source = context
+    journal.expected_revision_plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": str(tenant),
+        "job_id": memory.job_id, "source_sha256": hashlib.sha256(source.documents[0].source_text.encode()).hexdigest()}
+    def checked(method):
+        async def call(*args):
+            assert await context.verify_locked(None, None, journal.expected_revision_plan) is True
+            return await method(*args)
+        return call
+    journal.prepare = checked(memory.prepare)
+    journal.save_value = checked(memory.save_value)
+    journal.read_owned_value = checked(memory.read_owned_value)
     if mode in {"unknown", "general_unknown"}:
         from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
         with pytest.raises(TimeoutError):
-            await generate_v3_course_from_corpus(corpus(), intent=CourseIntent(), generation_client=invoke,
+            await generate_v3_course_from_corpus(source, intent=CourseIntent(), generation_client=invoke,
                                                  extraction_journal=journal, route_fingerprint="a" * 64, revision_policy=POLICY)
         with pytest.raises(ExtractionOutcomeUnknownError):
-            await generate_v3_course_from_corpus(corpus(), intent=CourseIntent(), generation_client=invoke,
+            await generate_v3_course_from_corpus(source, intent=CourseIntent(), generation_client=invoke,
                                                  extraction_journal=journal, route_fingerprint="a" * 64, revision_policy=POLICY)
-        partial = await generate_v3_course_from_corpus(corpus(), intent=CourseIntent(), generation_client=invoke,
+        partial = await generate_v3_course_from_corpus(source, intent=CourseIntent(), generation_client=invoke,
             extraction_journal=journal, route_fingerprint="a" * 64, revision_policy=POLICY, allow_unreviewed_on_unknown=True)
         assert partial.content.modules[0].lessons[0].content == original
         assert partial.diagnostics["requires_source_review"]
         assert calls["repair"] == 1 and calls["review"] == 2
+        assert verifier.await_count > 0
         return
-    result = await generate_v3_course_from_corpus(corpus(), intent=CourseIntent(), generation_client=invoke,
+    result = await generate_v3_course_from_corpus(source, intent=CourseIntent(), generation_client=invoke,
                                                 extraction_journal=journal, route_fingerprint="a" * 64,
                                                 revision_policy=None if mode == "legacy" else POLICY)
+    assert verifier.await_count > 0
     assert calls["repair"] == (0 if mode == "legacy" else 1)
     assert calls["review"] == (1 if mode in {"malformed", "legacy"} else 2)
     lesson = result.content.modules[0].lessons[0]

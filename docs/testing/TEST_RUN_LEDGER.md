@@ -5442,3 +5442,40 @@ Rules:
 - FirstmanagedPG attempt FAILED/IntegrityError after13legacychecks; cleanuptrue/public0184unchanged. Source shows fixture source-drift hash reused an earlier active same-tenantdocument hash. Newmanageddrift uses job-derived SHA checkedunused; uniqueconstraint unchanged. Failedreceipt retained.
 - FinalmanagedPG14PASS source66f566b5c2a4eb3c7e0e410908abf5038fd0392b7dc8211cf659172601c74309/base dc3638968181af3d6b8d203eb218515b9ad278ed1fca07579b648616b8b546b9, schemaaicp_dev_9bd3fe9313f7/cleanuptrue/public0184unchanged. Actualownedsource/journal/RLS/source/deliverydrift/coldreplay/unknownhold, syntheticprovider. This doesnot prove fullmanagedfinalsave or coursequality.
 - ImmutableVMreceiver-v3 installed5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a, v2untouched. No managedworker/envflag deployment or newcourse yet; exactCI/image/reconcile next.
+
+
+## 2026-11-02 Managed DEV749 delivered and first full Standards held
+
+- Source749d14b9/CI41489149574 all7/build41490326624/artifact13164021654/imagea27df6b3b46e8e2b3c6596eb319684e1b0eea3c495d1d41605bb5b1a190fc55c accepted canonicalREL-DEV-MANAGED749-20261102 RELEASE_OK. APIdep-dbkcfa5g1s2s739uvblg/webdpl_2cpHQxP14QKHzb8krhZYaGhABSEY/VM2d237...3947 exactsource,restarts0. ActualSettings/source19hashes/privateconnector/DBrestricted/converter200 PASS, oldAACrollbackretained, productionunchanged. No globalreserve/credentials/plan/role/resource change.
+- Owned3e429 normalAPIabandon ONEpost; result/params-excldisposition/checkpoints hashesunchanged,2responses/pending/reservation retained. First helper stopped beforeabandonPOST on DBvsAPIstatus preflight; corrected expectedAPIreconciliation_required. No refund/replay/clear.
+- One freshfullStandards eaa6ed20 admitted17:31:55UTC/ownerp2count1;9extractresponses72069input8909output, unreportedreasoning/cacheCOUNTSunknown. Firstlesson28c287... held40%, no course. Claim→hold33.187s, no prooftimeout/quota/outputlimit; priorclient discardedcause. Readonlyexport9cachedresponses81818B/SHAfdef46e296ee51cb42443fb86cb091e9df031c4d21457d7fe544b34fc92e0560 for OFFLINE reconstruction only. OriginalMD fromsavedcorpus177verified8d71182...3896, zero OCR/model.
+- Future manageddiagnostics local23mockPASS (boundedfinitecodes/counters/status/privacy/cancel/onerequest), no acceptance/cap/retrychange, notdeployed. Actualheldoutcome unchanged. Full3courses/DeepSeek/prodengine NOTACCEPTED.
+
+## RUN-20261102-MANAGED749-METADATA-OFFLINE-RECOVERY-01
+
+- Timestamp:2026-11-02T18:10:00Z; base749d14b9f99b0b8a8fc677b55d33b3312463525e plus local diagnostic and unwired lookup drafts.
+- Account metadata: main weekly quota58% used/42% remaining; catalog onlygpt-5.6-luna, actual active reasoningLOW. Official app-server read-only methods, inference0/accountwrites0/billingwrites0. ScriptSHAaae8b3adbd591666cf431213207234bc4a7c588e4fdf850f4701ff3cc386e60b. No old failure-cause inference.
+- Saved replay: nine owned extractions,26rules/six groups; first-lesson reconstructed requestSHA a6b354dee909b9c29cdf29ba328b62d5dd9606a0748c1e6ea07ad69ad4247ad6 equals durable pending request; provider/network denied. Payload26255bytes under524288; max_tokens8192 valid. This is input reconstruction, NOT accepted output.
+- Root canonical focused43PASS/1.49s;23 diagnostics and20 completed-extraction read-only lookup tests. Independent lookup review found missing child pending fence; UNWIRED and not realPG accepted. No import or accounting mutation implemented.
+- Current held job eaa6ed20-2eb9-4139-a430-de0e7695ddc0 retains9outputs/unknown first-lesson marker, no course. No re-extraction/replay/refund/clear/abandon/new model call. Production/customer courses unchanged.
+
+## RUN-20261102-MANAGED749-RECOVERY-LOCAL-CORRECTION-02
+
+- Scope: resolve independent read-only preclaim lookup review before any integration. Reject any child pending-marker presence (including null/malformed), preserve cancellation; candidate grants no write/provider permission.22focusedPASS/1.26s, including2new child-pending negatives.
+- Intermediate root test had2failures/20passes due to missing import in the added fence; fixed exact import and reran. First canonical baseline flagged2no-any-return plus2I001; added typed JSON casts and sorted imports. Final canonical baselinePASS ruff1005/mypy2172; no baseline relaxation.
+- Lookup remains UNWIRED, no realPG/import/accounting acceptance, no new model/provider/DB/Git/runtime mutation. Deployed DEV749 and old held eaa are unchanged.
+
+## RUN-20261102-MANAGED-LUNA-FRESH-SYNTHETIC-LESSON-01
+
+- Recorded:2026-11-02T18:15:05.248493+00:00; existing VM126 connector modelgpt-5.6-luna/reasoningLOW. One distinct synthetic source/control, no held-stage/original-source replay, no customer/DB/account/billing mutation.
+- Actual elapsed8696ms/input6920/output444; cached/reasoning counters unknown. Structured one-lesson/three-question JSON with4unique options each, valid answer indices and exact source quotes passed deterministic checks. OutputSHA c944b80ee8b401c7f646afae3c1b134ff12732e81732409babefaf466e145beb. Raw content not printed/stored by this control; no independent semantic acceptance claimed.
+- ScriptSHA c4b5c76ed9a3673a7bb90cfad0def88ff794db0df5ace1cb18e67251ba878aba; remote syntax/SHA/identity verified/exit0; receipt .release-evidence/luna-rejection/managed-cli-fresh-synthetic-lesson-control-result.json.
+- This demonstrates managed route structured-generation ability only. Three originals not accepted; eaa retained unchanged; no duplicate active run.
+
+## RUN-20261102-REUSE-PARITY-COMBINED-01
+
+- Base749d14b9 plus explicit parent provenance reuse, provider-neutral fresh quality and sanitized diagnostics. Independent reviews accepted after root fixed child-replay bypass (RED repro), malformed/null/changed parent intent and strictJSON comparison.
+- First full suite4766PASS/8FAIL61.57s: standalone prose fixtures lacked authenticated revision source context. Corrected fixtures retain source verification and original repair assertions;84focusedPASS. Final full4774PASS/56.25s; baseline1005/2173PASS; ops10PASS.
+- RealPG R1 source266a5f77e4c59d65e1f2764ad878fa94d5411c6f06b20381fc50b64380dd3e92 passed14 then new helper DBAPIError; schemaaicp_dev_d8554f33772e cleanuptrue/public0184/source unchanged. Failure retained.
+- Fixture now passes aware datetime rather than string to timestamp binding and logs only finite phase/class/SQLstate on failure. RealPG R2 source6694fa4cdc3b12085e44873deea0eb9b102d49e37a16b02e5675b424576e74fd/base dc3638968181af3d6b8d203eb218515b9ad278ed1fca07579b648616b8b546b9: all15PASS, including concurrent/cold reused extraction, immutable parent, no child provider checkpoint/copied usage, source drift hold. Custody .release-evidence/dev/managed-reuse-r2-20261102-custody.result.json; cleanuptrue/public0184unchanged.
+- Zero new model calls. Full current courses/DEVruntime/DeepSeek/production OPEN; EAA old9responses/pending unchanged. No graph-derived acceptance; checkout navigation runtime/index unavailable, bounded source fallback.

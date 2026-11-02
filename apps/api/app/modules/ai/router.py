@@ -542,6 +542,15 @@ async def submit_course_generation(
         raise HTTPException(status_code=503, detail="qa_luna_pending_admission_unavailable") from exc
     if qa_pending_marker is not None:
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
+    if req.completed_extraction_parent_job_id is not None:
+        from app.modules.ai.v3.completed_extraction_reuse import validate_parent_admission
+        try:
+            await validate_parent_admission(db, tenant_id=tenant_id, user_id=user.id,
+                parent_job_id=req.completed_extraction_parent_job_id, policy=qa_pending_marker,
+                documents=[str(value) for value in req.documents], references=confirmed_reference_records,
+                course_id=req.course_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="completed_extraction_parent_unverified") from exc
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
             status_code=409,
@@ -656,6 +665,8 @@ async def submit_course_generation(
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
                 "reference_decisions": confirmed_reference_records,
+                **({"completed_extraction_parent_job_id": str(req.completed_extraction_parent_job_id)}
+                   if req.completed_extraction_parent_job_id is not None else {}),
                 "reuse_reason": req.reuse_reason,
             },
             task_name="generate_course",

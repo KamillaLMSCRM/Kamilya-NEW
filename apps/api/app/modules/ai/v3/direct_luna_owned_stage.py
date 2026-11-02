@@ -48,6 +48,12 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
         verify_source = guarded
     inspection = await inspect_owned_stage(journal=journal, user_id=journal.user_id, plan=plan,
         result_key=result_key, claim_key=claim_key, validate=validate_with_metadata, verify_source=verify_source)
+    if journal.completed_extraction_parent_job_id is not None and plan.get("schema") == "v3-rule-extraction-checkpoint-v1":
+        if type(client) is not ManagedLunaClient:
+            raise ExtractionOutcomeUnknownError("v3_extraction_reuse_route_invalid")
+        from app.modules.ai.v3.completed_extraction_reuse import reuse_completed_extraction
+        return await reuse_completed_extraction(journal, plan, journal.completed_extraction_parent_job_id)
+
     if inspection.decision == 'replay':
         if inspection.result is None:
             raise ValueError('direct_owned_replay_invalid')

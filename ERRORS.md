@@ -1,10 +1,29 @@
-## AI-PROVIDER-007 - HTTP429 lost its rejection classification
+## AI-REUSE-001 - Complete extraction work was stranded behind a later unknown stage
+
+- Date: 2026-11-02.
+- Symptom: managed Standards job retained nine complete source extractions but a later unknown lesson blocked progress; a fresh job could only repeat the extraction work.
+- Cause: checkpoints are correctly job-bound, but no explicit same-source/same-route parent reuse contract existed. Reusing a response without binding actor, revision, source decisions and accounting would lose custody or count old usage again. The generic owned reader checks assessment completion only, so reuse must separately verify content and review completion.
+- Fix: explicit parent UUID admission is limited to fresh managed QA, same actor/tenant, original source decisions and an older normally abandoned unknown job. The worker revalidates source/route/complete checkpoints under its child lock, records hash-only origin provenance and returns the parent response without a provider call or fake child provider checkpoint. Historical usage remains solely on the parent. Null/changed parent intent, existing child stages, pending state and JSON type drift are fenced.
+- Verification: explicit child-replay bypass reproduced RED then corrected;82 focused owned/pipeline/reuse tests PASS. Independent integration and disposable-PG harness reviews accepted. Actual disposable PG15PASS at source6694fa4cdc3b12085e44873deea0eb9b102d49e37a16b02e5675b424576e74fd: cold/concurrent reuse, source drift, no new provider checkpoint/usage and immutable parent verified; cleanuptrue/public0184unchanged. Deployed worker/course acceptance remains open. First attempt passed14thenDBAPIError; timestamp fixture input changed to typed datetime and finite failure phase added before successful new custody run. Old failure not rewritten.
+- Prevention: cache reuse is an explicit source-bound operation, never an implicit cache miss fallback. Preserve parent state and original usage, verify all checkpoint phases, and revalidate parent intent at every locked stage.
+
+## AI-QUALITY-009 - Semantic validation strength depended on the model transport
+
+- Date: 2026-11-02.
+- Symptom: fresh ordinary DeepSeek V3 jobs skipped explanation consistency, final diversity, exact duplicate and detailed provenance checks exercised on owned Luna QA.
+- Cause: semantic capabilities were selected by direct-client presence or QA custody policy instead of the authenticated fresh revision contract.
+- Fix: fresh ordinary revision jobs receive the same semantic checks with the actual WorkerCycleJournal and verified revision source context. Owned source/claim custody and automatic diversity repair remain separately gated; legacy routes keep their prior contract.
+- Verification:65 focused parity/adjacent tests PASS and independent source review accepted. First full suite4766PASS/8FAIL exposed prose-repair fixtures missing the newly required ordinary source context; fixtures were updated without weakening the production check; final4774unitPASS/56.25s and84focusedparity/prosePASS. Real ordinary-worker and full-course semantic acceptance remain open.
+- Prevention: separate provider-independent quality rules from transport and persistence capabilities. Prove the ordinary worker source binding and compare full courses before accepting a model switch for release.
+
+## AI-PROVIDER-007 - Provider failures lost rejection and validation classification
 
 - Date:2026-11-02.
 - Symptom: exact AAC DEV Standards job3e917b5c interrupted34% on its third extraction; two completed responses retained, no course and worker restart0.
 - Cause: actual transport logs prove generation HTTP429, but the client maps every non200 to transport_unknown and discards safe subtype/retry metadata. Quota versus request rate is NOT proven; owner suspects quota and requests the alternate Luna. No payload receipt can be reconstructed from a discarded body.
 - Fix: alternate managed-auth QA integration is implemented locally and independently reviewed with a distinct server policy and route fingerprint; do not replay or clear the old pending claim. Future typed429 diagnostic retention remains open. Existing private connector readiness succeeds, actual model5.6 and reasoninglow; old QA adapter sends an unsupported reasoning_effort field and must not be reused unchanged.
 - Verification: current exact container459f3c38 logs HTTP429; two completed usage records input2123/output2083/reasoning866. Non-generative managed readiness16:45:58UTC PASS, zero inference/businesswrites. This is not semantic/course acceptance or evidence that quota is exhausted. Follow-up: one managed tiny control passed9137ms/6701input19output,4720unitPASS, actual disposablePG14PASS/cleanup/public0184unchanged. No managed completecourse or deployedroute accepted yet. Safe real-PG fixture hash collision was corrected without changing uniqueconstraints; old failedreceipt retained.
+- Recurrence: actual managedDEV749eaa saved9extractions thenheldfirstlesson after33.187s, not a proven60stimeout. NewManagedclient again collapsedHTTP/validation outcomes andloggednone. Local futurediagnostics nowallowlisted/bounded/status+elapsed+validatedusage only,23mocktestsPASS; no rawsource/body/key/URL/error text, no retry/acceptancechange. Oldpending28c... and all9responses retained. Exactoldcause remainsunknown; ninecachedresponses exported for OFFLINE request reconstruction, no modelrepeat. This is not three-courseacceptance.
 - Prevention: preserve provider protocol, model and reasoning identity; distinguish readiness from inference, known rejection from transport uncertainty. A provider switch starts a fresh route identity and cannot authorize replay/refund of an uncertain prior claim.
 
 # Error and Recurrence Prevention Log

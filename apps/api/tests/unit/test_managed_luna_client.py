@@ -151,3 +151,40 @@ async def test_http_cancellation_propagates_without_second_call(monkeypatch):
     with pytest.raises(ManagedLunaError):
         await client.invoke(token, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
     assert requests == ["/v1/chat/completions"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("code", ["not_configured", "authorization_required", "unavailable", "protocol_mismatch", "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected", "secret-unrecognized"])
+async def test_error_diagnostics_allowlist_without_body_or_retry(setup, caplog, code):
+    import logging
+    client, tenant, user, state, requests = setup
+    state["status"] = 503
+    state["body"] = {"error": code, "private": "sensitive-source"}
+    caplog.set_level(logging.INFO, logger="app.modules.ai.managed_luna_client")
+    token = await client.prepare([{"role": "user", "content": "sensitive-source"}], max_output_tokens=8, ownership_checkpoint=AsyncMock(return_value=True))
+    with pytest.raises(ManagedLunaError):
+        await client.invoke(token, tenant_id=tenant, user_id=user, job_id="job", stage_id="a" * 64, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+    assert "category=" + ("http_error" if code == "secret-unrecognized" else code) in caplog.text
+    assert "sensitive-source" not in caplog.text and "private-secret" not in caplog.text and "secret-unrecognized" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_logging_failure_does_not_change_success(setup, monkeypatch):
+    client, tenant, user, _, requests = setup
+    monkeypatch.setattr("app.modules.ai.managed_luna_client.logger.info", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("private")))
+    token = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=8, ownership_checkpoint=AsyncMock(return_value=True))
+    result = await client.invoke(token, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    assert result.content == {"ok": True} and len(requests) == 1
+
+
+def test_diagnostic_bounds_untrusted_numeric_fields(caplog):
+    import logging
+
+    from app.modules.ai.managed_luna_client import _diagnostic
+    caplog.set_level(logging.INFO, logger="app.modules.ai.managed_luna_client")
+    giant = 10**100
+    _diagnostic("response", "not-a-uuid-secret", "a" * 64, 0.0, 999, "validated", giant, True)
+    assert "status=None" in caplog.text
+    assert "input_tokens=None" in caplog.text and "output_tokens=None" in caplog.text
+    assert str(giant) not in caplog.text and "not-a-uuid-secret" not in caplog.text

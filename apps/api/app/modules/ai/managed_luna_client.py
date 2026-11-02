@@ -5,7 +5,9 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import re
+import time
 from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
 from typing import Any, cast
@@ -22,6 +24,29 @@ MODEL = "gpt-5.6-luna"
 MAX_INPUT_BYTES = 524288
 MAX_RESPONSE_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
+logger = logging.getLogger(__name__)
+ERROR_CODES = frozenset({"not_configured", "authorization_required", "unavailable", "protocol_mismatch",
+                         "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected"})
+
+
+def _diagnostic(phase: str, job_id: str, stage_id: str | None, started: float,
+                status: int | None, category: str, incoming: int | None = None,
+                outgoing: int | None = None) -> None:
+    try:
+        canonical_job = str(UUID(job_id)) if str(UUID(job_id)) == job_id else None
+    except (ValueError, TypeError, AttributeError):
+        canonical_job = None
+    def bounded(value: object, minimum: int = 0, maximum: int = 2**63 - 1) -> int | None:
+        return value if type(value) is int and minimum <= value <= maximum else None
+
+    try:
+        elapsed = bounded(int((time.monotonic() - started) * 1000))
+        logger.info("managed_luna phase=%s job_id=%s stage_sha256=%s status=%s elapsed_ms=%s category=%s input_tokens=%s output_tokens=%s",
+                    phase, canonical_job, stage_id, bounded(status, 100, 599), elapsed,
+                    category, bounded(incoming), bounded(outgoing))
+    except Exception:
+        pass
+
 
 
 class ManagedLunaError(RuntimeError):
@@ -116,6 +141,10 @@ class ManagedLunaClient:
         await self._check(ownership_checkpoint)
         if self._closed:
             raise ManagedLunaError("managed_luna_closed")
+        started = time.monotonic()
+        status = None
+        category = "transport"
+        _diagnostic("attempt", job_id, stage_id, started, None, "started")
         failed = False
         raw = bytearray()
         try:
@@ -126,12 +155,30 @@ class ManagedLunaClient:
                     async with client.stream("POST", self._url, content=payload,
                         headers={"Authorization": "Bearer " + self._token, "Content-Type": "application/json",
                                  "Accept-Encoding": "identity"}) as response:
-                        if response.status_code != 200 or response.headers.get("content-encoding", "identity").lower() != "identity":
+                        status = response.status_code
+                        if status != 200:
+                            failed = True
+                            category = "http_error"
+                            error_raw = bytearray()
+                            async for chunk in response.aiter_raw():
+                                if len(error_raw) + len(chunk) > 4096:
+                                    break
+                                error_raw.extend(chunk)
+                            try:
+                                parsed_error = json.loads(error_raw)
+                                code = parsed_error.get("error") if isinstance(parsed_error, dict) else None
+                                if isinstance(code, str) and code in ERROR_CODES:
+                                    category = code
+                            except Exception:
+                                pass
+                        elif response.headers.get("content-encoding", "identity").lower() != "identity":
+                            category = "encoding"
                             failed = True
                         else:
                             async for chunk in response.aiter_raw():
                                 raw.extend(chunk)
                                 if len(raw) > MAX_RESPONSE_BYTES:
+                                    category = "response_limit"
                                     failed = True
                                     break
         except asyncio.CancelledError:
@@ -139,19 +186,30 @@ class ManagedLunaClient:
         except Exception:
             failed = True
         if failed:
+            _diagnostic("failure", job_id, stage_id, started, status, category)
             raise ManagedLunaError("managed_luna_outcome_unknown")
+        _diagnostic("response", job_id, stage_id, started, status, "body_received")
+        category = "envelope"
         try:
             body = parse_source_first_response(raw.decode("utf-8"))
+            category = "model"
+            if body.get("model") != MODEL:
+                raise ValueError
+            category = "choices"
             choices = body.get("choices")
             if body.get("model") != MODEL or not isinstance(choices, list) or len(choices) != 1:
                 raise ValueError
+            category = "message"
             message = choices[0].get("message") if isinstance(choices[0], dict) else None
             if (not isinstance(message, dict) or set(message) not in ({"content"}, {"role", "content"})
                     or message.get("role", "assistant") != "assistant" or not isinstance(message.get("content"), str)):
                 raise ValueError
+            category = "content_limit"
             if len(message["content"].encode("utf-8")) > MAX_CONTENT_BYTES:
                 raise ValueError
+            category = "content_json"
             content = parse_source_first_response(message["content"])
+            category = "usage"
             usage = body.get("usage")
             if not isinstance(usage, dict):
                 raise ValueError
@@ -161,5 +219,7 @@ class ManagedLunaClient:
                 raise ValueError
             result = ResponsesResult(content=content, model=MODEL, usage=LunaUsage(incoming, outgoing, None, None))
         except Exception:
+            _diagnostic("failure", job_id, stage_id, started, status, category)
             raise ManagedLunaError("managed_luna_response_invalid") from None
+        _diagnostic("response", job_id, stage_id, started, status, "validated", incoming, outgoing)
         return result
