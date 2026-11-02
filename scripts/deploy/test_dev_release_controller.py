@@ -95,6 +95,13 @@ class FakeProviders:
             "https://worker.example.test/": "ok",
             "https://dev.example.test/login": {"http_status": 200},
         }
+        self.repo_root = ROOT
+        self.vm_worker = {
+            "container_name": "kamilya-dev-worker",
+            "image": "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64,
+            "status": "running",
+            "restarts": 0,
+        }
 
     def remote_branch_sha(self, repository: str, branch: str) -> str:
         self.calls.append(("remote_branch_sha", repository, branch))
@@ -137,6 +144,10 @@ class FakeProviders:
     def read_health(self, url: str):
         self.calls.append(("read_health", url))
         return self.health[url]
+
+    def inspect_vm_worker(self, container: str, image: str) -> dict:
+        self.calls.append(("inspect_vm_worker", container, image))
+        return self.vm_worker
 
 
 class MainFakeAdapter:
@@ -239,6 +250,24 @@ class MainControllerTests(unittest.TestCase):
 
 
 class DevReleaseControllerTests(unittest.TestCase):
+    def test_live_vm_probe_accepts_actual_docker_name_and_preserves_identity(self) -> None:
+        image = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64
+        adapter = object.__new__(controller.LiveProviderAdapter)
+        adapter.repo_root = Path(__file__).resolve().parents[2]
+        adapter.env_file = adapter.repo_root / ".env"
+        for name in ("/kamilya-dev-worker", "kamilya-dev-worker", "/another-worker"):
+            with self.subTest(name=name), mock.patch.object(controller.kz_remote_exec, "load_script"), mock.patch.object(
+                controller.kz_remote_exec, "run_remote", return_value={"evidence": [
+                    f"EVIDENCE|container={name}|image={image}|status=running|restarts=0"]}
+            ):
+                if name == "/another-worker":
+                    with self.assertRaises(controller.DevReleaseBlocked):
+                        adapter.inspect_vm_worker("kamilya-dev-worker", image)
+                else:
+                    result = adapter.inspect_vm_worker("kamilya-dev-worker", image)
+                    self.assertEqual(result["container_name"], "kamilya-dev-worker")
+                    self.assertEqual(result["image"], image)
+
     def test_live_push_uses_project_controlled_git_credential_helper(self) -> None:
         adapter = object.__new__(controller.LiveProviderAdapter)
         adapter._project_command = mock.Mock(
@@ -291,6 +320,60 @@ class DevReleaseControllerTests(unittest.TestCase):
                 controller.DevReleaseBlocked, "schema_gate_required"
             ):
                 controller.load_packet(packet, digest)
+
+    def test_vm126_packet_requires_exact_receipt_and_readonly_worker_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            evidence = root / ".release-evidence" / "vm-receipt.json"
+            image = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64
+            receipt = {"release_sha": RELEASE, "image": image, "ci_run_id": 91}
+            raw = json.dumps(receipt, sort_keys=True, separators=(",", ":")).encode()
+            evidence.parent.mkdir(parents=True)
+            evidence.write_bytes(raw)
+            probe = root / controller.VM_PROBE_PATH
+            probe.parent.mkdir(parents=True)
+            probe.write_bytes((ROOT / controller.VM_PROBE_PATH).read_bytes())
+            data = packet_data()
+            data.update({
+                "worker_hosting": "vm126",
+                "vm_worker": {
+                    "container_name": "kamilya-dev-worker",
+                    "image": image,
+                    "release_image_receipt_path": str(evidence),
+                    "release_image_receipt_sha256": hashlib.sha256(raw).hexdigest(),
+                    "ci_run_id": 91,
+                    "probe_sha256": hashlib.sha256(probe.read_bytes()).hexdigest(),
+                },
+            })
+            providers = FakeProviders()
+            providers.repo_root = root
+            result = controller.DevReleaseController(data, providers)._verify_vm_worker()
+            self.assertEqual(result["status"], "running")
+            self.assertIn(("inspect_vm_worker", "kamilya-dev-worker", image), providers.calls)
+
+            data["vm_worker"]["release_image_receipt_sha256"] = "0" * 64
+            with self.assertRaisesRegex(controller.DevReleaseBlocked, "vm_worker_receipt_digest_mismatch"):
+                controller.DevReleaseController(data, providers)._verify_vm_worker()
+
+    def test_vm126_blocks_foreign_container_or_nonrunning_worker(self) -> None:
+        data = packet_data()
+        data.update({
+            "worker_hosting": "vm126",
+            "vm_worker": {
+                "container_name": "other-container",
+                "image": "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64,
+                "release_image_receipt_path": ".release-evidence/missing.json",
+                "release_image_receipt_sha256": "b" * 64,
+                "ci_run_id": 91,
+                "probe_sha256": "c" * 64,
+            },
+        })
+        with self.assertRaisesRegex(controller.DevReleaseBlocked, "vm_worker_container_invalid"):
+            controller.validate_packet(data)
+
+    def test_legacy_packet_keeps_render_default(self) -> None:
+        validated = controller.validate_packet(packet_data())
+        self.assertNotIn("worker_hosting", validated)
 
     def test_execute_runs_one_exact_deterministic_dev_release(self) -> None:
         providers = FakeProviders()

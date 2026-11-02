@@ -287,6 +287,16 @@ export default function AIGeneratePage() {
     });
   }, [scopeKey]);
 
+  useEffect(() => {
+    const conflict = generationConflictRef.current;
+    if (!conflict || conflict.status !== 'active' || !conflict.job) return;
+    if (currentJob && currentJob.id !== conflict.jobId) return;
+    if (!currentJob || isTerminalJob(currentJob)) {
+      generationConflictRef.current = null;
+      setGenerationConflict(null);
+    }
+  }, [currentJob]);
+
   // Result-step state: preview of the generated course + approval.
   const [preview, setPreview] = useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);

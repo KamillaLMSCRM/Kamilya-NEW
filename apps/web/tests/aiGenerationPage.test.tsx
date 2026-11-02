@@ -803,6 +803,31 @@ describe('/ai/generate generation conflict recovery', () => {
     window.history.pushState({}, '', '/');
   });
 
+  it('clears the conflict banner when the recovered task is explicitly cancelled', async () => {
+    mockCatalogWith(readyDocuments);
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: { ...existingJob, progress: 76 } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') throw { response: { status: 409, data: { detail: { code: 'generation_already_in_progress', job_id: existingJobId } } } };
+      if (url === `/v1/ai/jobs/${existingJobId}/cancel`) return { data: { ...existingJob, status: 'cancelled', progress: 76 } } as any;
+      throw new Error(`Unexpected POST ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    expect(await screen.findByText('Прогресс существующей генерации: 76%.')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: 'Отменить' }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}/cancel`));
+    await waitFor(() => expect(screen.queryByText('Для этого набора документов уже идёт генерация.')).not.toBeInTheDocument());
+  });
+
   it.each(['session', 'unmount', 'token'])('adopts a late successful admission only in its live actor scope (%s)', async (change) => {
     mockCatalogWith(readyDocuments);
     let resolveGeneration!: (value: unknown) => void;

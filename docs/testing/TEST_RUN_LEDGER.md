@@ -5350,3 +5350,24 @@ Rules:
   `.release-evidence/realization-postgres-gate/schema-custody-r3.json`.
 - No model calls, public migrations, customer data, release or deployed-worker
   acceptance. Full-source/course semantics and actual worker recovery remain OPEN.
+
+
+### 2026-11-02 — scoped revision and isolated worker preparation
+
+- Frozen V3 source in luna-transport-observability worktree: 754 tests PASS,
+  Ruff1005/Mypy2171 baseline PASS, unchanged debt. Initial wiring unit failed due
+  to an unmocked new loader; fixed owned fake plus unexpected-session denial.
+- Real canonical Supabase DEV disposable schema aicp_dev_863b7f99a6ed:
+  11checks PASS including fresh policy/source drift reads/writes, foreign tenant,
+  atomic claim/replay/cold hold, historical reservation refund, migrations and RLS.
+  Cleanup true, shared public0184 unchanged, source hash
+  9b5875724386d3ceea93704d970d6c47ff08e6ec17ef34f793165cb151a3dbdc.
+  Custody .release-evidence/dev/revision-policy-20261102-custody.json and result.
+- Receiver/helper/controller local suite133PASS,2Linux-only skips; additional
+  actual Docker /name probe regression brings134PASS and9subtests. No model calls.
+- Standards live DEV source d571: admitted one V3 job5f396873, no complete course.
+  Render Free process shut down at12:21:16UTC during a request. Last result unknown,
+  retained pending/unacked; no repeat/cancel/refund/ack. Partial18saved responses
+  snapshot accounts40839input/28196output/9906reasoning, not total billing.
+- This is source/transaction preparation, not three full courses or production
+  engine acceptance. Production UX70 remains separately accepted.

@@ -76,7 +76,7 @@ DOCKER_EVIDENCE_FORMAT = (
     "status={{.State.Status}}|restarts={{.RestartCount}}"
 )
 DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
-    r"(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1"
+    r"(?:kamilya-dev-worker|(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1)"
 )
 DOCKER_AI_WORKER_LOG_CONTAINER_RE = re.compile(
     r"(?:kamilya-runtime|kamilya-(?:blue|green))-worker-ai-1"
@@ -119,6 +119,9 @@ API_LOG_COMMAND_RE = re.compile(
     rb"(?m)^\s*sudo -n docker logs --since 15m --tail 200 "
     rb"(?:kamilya-runtime|kamilya-(?:blue|green))-api-1\s*$"
 )
+CAPACITY_MAX_INTEGER = 2**63 - 1
+CAPACITY_DF_TOKENS = ("df", "-B1", "--output=size,used,avail,pcent,target", "/")
+CAPACITY_FREE_TOKENS = ("free", "-b")
 GENERATION_ERROR_LOG_RE = re.compile(
     r"Evidence V2 failed for job "
     r"(?P<job>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}) "
@@ -471,8 +474,87 @@ def api_log_evidence_lines(output: bytes) -> list[str]:
     return lines
 
 
+def capacity_evidence_lines(output: bytes) -> list[str]:
+    """Keep only validated root-disk and memory totals from the exact capacity probe."""
+    try:
+        text = output.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GateBlocked("remote_capacity_contract_invalid") from exc
+
+    disk_rows: list[tuple[int, int, int, int]] = []
+    memory_rows: list[tuple[int, int, int, int, int, int]] = []
+    for raw_line in text.splitlines():
+        fields = raw_line.split()
+        if fields and fields[-1] == "/":
+            if len(fields) != 5 or not fields[3].endswith("%"):
+                raise GateBlocked("remote_capacity_contract_invalid")
+            try:
+                values = tuple(int(value) for value in (*fields[:3], fields[3][:-1]))
+            except ValueError as exc:
+                raise GateBlocked("remote_capacity_contract_invalid") from exc
+            disk_rows.append(values)  # type: ignore[arg-type]
+        elif fields and fields[0] == "Mem:":
+            if len(fields) != 7:
+                raise GateBlocked("remote_capacity_contract_invalid")
+            try:
+                memory_rows.append(tuple(int(value) for value in fields[1:7]))
+            except ValueError as exc:
+                raise GateBlocked("remote_capacity_contract_invalid") from exc
+
+    if len(disk_rows) != 1 or len(memory_rows) != 1:
+        raise GateBlocked("remote_capacity_contract_invalid")
+    disk_total, disk_used, disk_available, disk_percent = disk_rows[0]
+    mem_total, mem_used, mem_free, mem_shared, mem_cache, mem_available = memory_rows[0]
+    if (
+        any(value > CAPACITY_MAX_INTEGER for value in (*disk_rows[0], *memory_rows[0]))
+        or disk_total <= 0 or disk_used < 0 or disk_available < 0 or not 0 <= disk_percent <= 100
+        or disk_used > disk_total or disk_available > disk_total
+        or disk_used + disk_available > disk_total
+        or mem_total <= 0 or any(value < 0 for value in memory_rows[0][1:])
+        or any(value > mem_total for value in (mem_used, mem_free, mem_shared, mem_cache, mem_available))
+    ):
+        raise GateBlocked("remote_capacity_contract_invalid")
+    lines = [
+        f"EVIDENCE|root_disk_total_bytes={disk_total}",
+        f"EVIDENCE|root_disk_used_bytes={disk_used}",
+        f"EVIDENCE|root_disk_available_bytes={disk_available}",
+        f"EVIDENCE|root_disk_percent={disk_percent}",
+        f"EVIDENCE|memory_total_bytes={mem_total}",
+        f"EVIDENCE|memory_used_bytes={mem_used}",
+        f"EVIDENCE|memory_available_bytes={mem_available}",
+        f"EVIDENCE|memory_cache_bytes={mem_cache}",
+    ]
+    if any(not EVIDENCE_LINE_RE.fullmatch(line) for line in lines):
+        raise GateBlocked("remote_capacity_contract_invalid")
+    return lines
+
+
 def _uses_api_log_sanitizer(payload: bytes) -> bool:
     return API_LOG_COMMAND_RE.search(payload) is not None
+
+
+def _uses_capacity_sanitizer(payload: bytes) -> bool:
+    try:
+        lines = [line.strip() for line in payload.decode("utf-8").splitlines()
+                 if line.strip() and not line.lstrip().startswith("#")]
+    except UnicodeDecodeError:
+        return False
+    df_count = 0
+    free_count = 0
+    for line in lines:
+        try:
+            tokens = tuple(shlex.split(line, posix=True))
+        except ValueError:
+            return False
+        if tokens[:2] == ("sudo", "-n"):
+            tokens = tokens[2:]
+        if tokens == CAPACITY_DF_TOKENS:
+            df_count += 1
+        elif tokens == CAPACITY_FREE_TOKENS:
+            free_count += 1
+        elif tokens and tokens[0] in {"df", "free"}:
+            return False
+    return df_count == 1 and free_count == 1
 
 
 def run_channel(client: Any, command: str, payload: bytes, timeout: int) -> StageResult:
@@ -555,7 +637,11 @@ def execute_stages(
     if execution.exit_code != 0:
         try:
             raw_output = execution.stdout + b"\n" + execution.stderr
-            sanitizer = api_log_evidence_lines if _uses_api_log_sanitizer(payload) else evidence_lines
+            sanitizer = (
+                capacity_evidence_lines if _uses_capacity_sanitizer(payload)
+                else api_log_evidence_lines if _uses_api_log_sanitizer(payload)
+                else evidence_lines
+            )
             sanitized_evidence = sanitizer(raw_output)
         except GateBlocked:
             sanitized_evidence = []
@@ -568,7 +654,8 @@ def execute_stages(
         "server_timeout_seconds": timeout,
         "remote_execution_exit_code": execution.exit_code,
         "evidence": (
-            api_log_evidence_lines if _uses_api_log_sanitizer(payload) else evidence_lines
+            capacity_evidence_lines if _uses_capacity_sanitizer(payload)
+            else api_log_evidence_lines if _uses_api_log_sanitizer(payload) else evidence_lines
         )(execution.stdout + b"\n" + execution.stderr),
         "stdout_bytes": len(execution.stdout),
         "stdout_sha256": hashlib.sha256(execution.stdout).hexdigest(),

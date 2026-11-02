@@ -22,6 +22,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Protocol
+from scripts.ops import kz_remote_exec
 
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -48,6 +49,10 @@ WEB_CORRECTION_KEY = "NEXT_PUBLIC_METHODOLOGIST_LESSON_CORRECTION_ENABLED"
 API_STAFF_KEY = "STAFF_STRUCTURE_V3_ENABLED"
 WEB_STAFF_KEY = "NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED"
 DEV_PROJECT_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e"
+VM_WORKER_CONTAINER = "kamilya-dev-worker"
+VM_WORKER_IMAGE_RE = re.compile(r"^ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64}$")
+VM_RECEIPT_SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+VM_PROBE_PATH = Path("scripts/ops/vm126_dev_worker_readonly.sh")
 
 
 class DevReleaseBlocked(RuntimeError):
@@ -113,6 +118,8 @@ class ProviderAdapter(Protocol):
 
     def read_health(self, url: str) -> Any: ...
 
+    def inspect_vm_worker(self, container: str, image: str) -> Mapping[str, Any]: ...
+
     def verify_source_ci(self, run_id: int, release_sha: str, repository: str) -> Mapping[str, Any]: ...
 
     def workbench_flags(self, packet: Mapping[str, Any]) -> Mapping[str, bool]: ...
@@ -144,6 +151,7 @@ class LiveProviderAdapter:
         poll_seconds: float = 5.0,
     ) -> None:
         self.repo_root = repo_root.resolve()
+        self.env_file = env_file
         values = _read_env_file(env_file)
         self.vercel_token = _required_secret(values, "vercel_token", "VERCEL_TOKEN")
         self.render_token = _required_secret(values, "RENDER_API_KEY")
@@ -152,6 +160,29 @@ class LiveProviderAdapter:
         self.github_helper = self.repo_root / "scripts/ops/with_project_github_token.py"
         if not self.github_helper.is_file():
             raise DevReleaseBlocked("canonical_github_helper_missing")
+
+    def inspect_vm_worker(self, container: str, image: str) -> Mapping[str, Any]:
+        """Run only the tracked, read-only VM126 probe through the canonical route."""
+        del container
+        probe = self.repo_root / VM_PROBE_PATH
+        if not probe.is_file() or probe.is_symlink():
+            raise DevReleaseBlocked("vm_worker_probe_missing")
+        manifest = kz_remote_exec.load_script(
+            probe, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+        )
+        result = kz_remote_exec.run_remote(
+            manifest, self.env_file, kz_remote_exec.DEFAULT_KNOWN_HOSTS, 30
+        )
+        evidence = result.get("evidence")
+        if not isinstance(evidence, list) or len(evidence) != 1 or not isinstance(evidence[0], str):
+            raise DevReleaseBlocked("vm_worker_probe_evidence_invalid")
+        match = re.fullmatch(
+            r"EVIDENCE\|container=/?(kamilya-dev-worker)\|image=(ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64})\|status=(running|[a-z_]+)\|restarts=([0-9]+)",
+            evidence[0],
+        )
+        if not match or match.group(2) != image:
+            raise DevReleaseBlocked("vm_worker_runtime_identity_mismatch")
+        return {"container_name": match.group(1), "image": match.group(2), "status": match.group(3), "restarts": int(match.group(4))}
 
     def _project_command(self, command: list[str], *, timeout: int = 60):
         completed = subprocess.run(
@@ -730,6 +761,17 @@ def _literal_flag(value: Any, *, reason: str = "provider_workbench_flag_not_lite
     return value == "true"
 
 
+def _has_symlink_ancestor(path: Path) -> bool:
+    cursor = path
+    while True:
+        if cursor.is_symlink():
+            return True
+        parent = cursor.parent
+        if parent == cursor:
+            return False
+        cursor = parent
+
+
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -750,6 +792,10 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
     if schema not in (PACKET_SCHEMA, *ACTIVATION_REVISIONS):
         raise DevReleaseBlocked("release_packet_schema_invalid")
     expected = {"schema", "release_id", "release_sha", "expected_previous_sha", "repository", "branch", "migration_scope", "github", "vercel", "render"}
+    if "worker_hosting" in data:
+        expected.add("worker_hosting")
+        if data.get("worker_hosting") == "vm126":
+            expected.add("vm_worker")
     if schema in ACTIVATION_REVISIONS:
         expected.update({"workbench_enabled", "configuration_ci_run_id", "schema_evidence"})
     if schema in {DOCUMENT_ACTIVATION_SCHEMA, CORRECTION_ACTIVATION_SCHEMA, STAFF_ACTIVATION_SCHEMA}:
@@ -806,6 +852,25 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
         raise DevReleaseBlocked("schema_gate_required")
     if data.get("branch") != "dev":
         raise DevReleaseBlocked("dev_branch_required")
+    hosting = data.get("worker_hosting", "render")
+    if hosting not in {"render", "vm126"}:
+        raise DevReleaseBlocked("worker_hosting_invalid")
+    if hosting == "vm126":
+        vm = _require_mapping(data, "vm_worker")
+        if set(vm) != {"container_name", "image", "release_image_receipt_path", "release_image_receipt_sha256", "ci_run_id", "probe_sha256"}:
+            raise DevReleaseBlocked("vm_worker_fields_invalid")
+        if vm.get("container_name") != VM_WORKER_CONTAINER:
+            raise DevReleaseBlocked("vm_worker_container_invalid")
+        if not isinstance(vm.get("image"), str) or not VM_WORKER_IMAGE_RE.fullmatch(vm["image"]):
+            raise DevReleaseBlocked("vm_worker_image_invalid")
+        if not isinstance(vm.get("release_image_receipt_sha256"), str) or not VM_RECEIPT_SHA_RE.fullmatch(vm["release_image_receipt_sha256"]):
+            raise DevReleaseBlocked("vm_worker_receipt_digest_invalid")
+        if type(vm.get("ci_run_id")) is not int or vm["ci_run_id"] <= 0:
+            raise DevReleaseBlocked("vm_worker_ci_run_id_invalid")
+        if not isinstance(vm.get("probe_sha256"), str) or not VM_RECEIPT_SHA_RE.fullmatch(vm["probe_sha256"]):
+            raise DevReleaseBlocked("vm_worker_probe_digest_invalid")
+    elif "vm_worker" in data:
+        raise DevReleaseBlocked("vm_worker_unexpected")
 
     github = _require_mapping(data, "github")
     vercel = _require_mapping(data, "vercel")
@@ -1039,9 +1104,9 @@ class DevReleaseController:
         vercel = self._vercel()
         render = self._deploy_render()
         health = self._health()
+        vm_worker = self._verify_vm_worker() if self.packet.get("worker_hosting", "render") == "vm126" else None
         configuration = self._configuration()
-        return self._bounded(
-            {
+        result = {
                 "status": "RELEASE_OK",
                 "release_id": release_id,
                 "release_sha": release_sha,
@@ -1051,9 +1116,10 @@ class DevReleaseController:
                 "vercel": vercel,
                 "render": render,
                 "health": health,
+                **({"vm_worker": vm_worker} if vm_worker else {}),
                 **({"configuration": configuration, "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST"} if configuration else {}),
             }
-        )
+        return self._bounded(result)
 
     def reconcile(self) -> dict[str, Any]:
         self._schema_gate()
@@ -1079,6 +1145,7 @@ class DevReleaseController:
             ),
         }
         health = self._health()
+        vm_worker = self._verify_vm_worker() if self.packet.get("worker_hosting", "render") == "vm126" else None
         configuration = self._configuration()
         return self._bounded(
             {
@@ -1090,6 +1157,7 @@ class DevReleaseController:
                 "vercel": vercel,
                 "render": render,
                 "health": health,
+                **({"vm_worker": vm_worker} if vm_worker else {}),
                 **({"configuration": configuration, "product_go": "NOT_VERIFIED_UNTIL_EXACT_DEPLOY_AND_LIVE_TEST"} if configuration else {}),
             }
         )
@@ -1148,10 +1216,15 @@ class DevReleaseController:
 
         cfg = _require_mapping(self.packet, "render")
         expected_plan = cfg["expected_plan"]
-        for key, auto_deploy_key in (
-            ("api_service_id", "api_auto_deploy"),
-            ("worker_service_id", "worker_auto_deploy"),
-        ):
+        pairs = [("api_service_id", "api_auto_deploy")]
+        if self.packet.get("worker_hosting", "render") == "render":
+            pairs.append(("worker_service_id", "worker_auto_deploy"))
+        else:
+            worker = self.providers.render_service(str(cfg["worker_service_id"]))
+            if worker.get("plan") != cfg["expected_plan"] or worker.get("status") != "suspended":
+                raise DevReleaseBlocked("render_worker_not_suspended")
+            self._verify_vm_worker()
+        for key, auto_deploy_key in pairs:
             service = self.providers.render_service(str(cfg[key]))
             if service.get("plan") != expected_plan:
                 raise DevReleaseBlocked("render_plan_mismatch")
@@ -1160,14 +1233,46 @@ class DevReleaseController:
             if service.get("auto_deploy") != cfg[auto_deploy_key]:
                 raise DevReleaseBlocked("render_auto_deploy_mismatch")
 
+    def _verify_vm_worker(self) -> dict[str, Any]:
+        vm = _require_mapping(self.packet, "vm_worker")
+        probe = self.providers.repo_root.resolve() / VM_PROBE_PATH
+        if probe.is_symlink() or not probe.is_file() or hashlib.sha256(probe.read_bytes()).hexdigest() != vm["probe_sha256"]:
+            raise DevReleaseBlocked("vm_worker_probe_digest_mismatch")
+        receipt_path = Path(str(vm["release_image_receipt_path"]))
+        root = self.providers.repo_root.resolve()
+        if not receipt_path.is_absolute():
+            receipt_path = root / receipt_path
+        try:
+            path = receipt_path.resolve()
+        except OSError as exc:
+            raise DevReleaseBlocked("vm_worker_receipt_unreadable") from exc
+        evidence_root = root / ".release-evidence"
+        if _has_symlink_ancestor(receipt_path) or not path.is_relative_to(evidence_root) or not path.is_file() or path.stat().st_size > 8192:
+            raise DevReleaseBlocked("vm_worker_receipt_not_canonical")
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != vm["release_image_receipt_sha256"]:
+            raise DevReleaseBlocked("vm_worker_receipt_digest_mismatch")
+        try:
+            receipt = json.loads(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise DevReleaseBlocked("vm_worker_receipt_json_invalid") from exc
+        if not isinstance(receipt, Mapping) or set(receipt) != {"release_sha", "image", "ci_run_id"}:
+            raise DevReleaseBlocked("vm_worker_receipt_shape_invalid")
+        if receipt.get("release_sha") != self.packet["release_sha"] or receipt.get("image") != vm["image"] or receipt.get("ci_run_id") != vm["ci_run_id"]:
+            raise DevReleaseBlocked("vm_worker_receipt_identity_mismatch")
+        observed = self.providers.inspect_vm_worker(VM_WORKER_CONTAINER, vm["image"])
+        if observed.get("container_name") != VM_WORKER_CONTAINER or observed.get("image") != vm["image"] or observed.get("status") != "running":
+            raise DevReleaseBlocked("vm_worker_runtime_identity_mismatch")
+        return {"container_name": VM_WORKER_CONTAINER, "image": vm["image"], "status": "running", "restarts": observed.get("restarts")}
+
     def _deploy_render(self) -> dict[str, Any]:
         cfg = _require_mapping(self.packet, "render")
         release_sha = str(self.packet["release_sha"])
         result: dict[str, Any] = {}
-        for label, key in (
-            ("api", "api_service_id"),
-            ("worker", "worker_service_id"),
-        ):
+        targets = [("api", "api_service_id")]
+        if self.packet.get("worker_hosting", "render") == "render":
+            targets.append(("worker", "worker_service_id"))
+        for label, key in targets:
             service_id = str(cfg[key])
             existing = self.providers.find_render(service_id, release_sha)
             failed = {

@@ -1171,6 +1171,17 @@ Current as of: 2026-11-02.
 - Prevention: distinguish provider deployment status, HTTP readiness, consumer
   liveness and business completion. Human review time can exceed Free idle time.
 
+
+- Recurrence, 2026-11-02: ordinary QA Standards job `5f396873-a2ff-4b19-8099-0a4f97c58b9f`
+  stopped advancing at 50 percent. Bounded exact worker logs show process shutdown
+  during the next Luna request at 12:21:16 UTC, about 15 minutes after readiness.
+  The last provider outcome is unknown; one original broker message remains
+  unacknowledged. No replay, cancellation, refund or manual acknowledgement.
+  Capacity on the already-paid VM126 is verified; an isolated DEV-only worker is
+  being prepared under the owner's existing migration instruction. Neither the
+  provider plan nor production workers are changed. Source and local tests alone
+  are not runtime migration or full-course acceptance.
+
 ## CERTIFICATE-DOWNLOAD-002 - Storage redirect violated the browser connection policy
 
 - Date:2026-10-12; repair deployed46; DEV and production download acceptance PASS.
@@ -9212,3 +9223,27 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   privileges/hidden parents, valid and four corrupt-reference cases, exact roles,
   policies, rows/catalog preservation and fresh schema/role absence. An empty
   privileged upgrade and HTTP health cannot substitute for this role-bound gate.
+
+
+## AI-SCOPED-REVISION-001 - Repair could not change the question it was asked to repair
+
+- Date: 2026-11-02.
+- Symptom: the saved Standards answer retained a binary question prompt after
+  review identified that prompt; its options-only repair could not edit that field.
+  A generated lesson also inferred a document-wide absence from one source subset.
+- Cause: repair scope excluded the defective prompt, and prose criticisms had no
+  atomic, source-checked repair path. Changing prompt behavior without a persisted
+  policy would also alter checkpoint identities for existing jobs.
+- Fix: new admitted jobs receive a server-owned revision policy. Explicit scoped
+  question repair can update the targeted prompt while preserving the correct
+  answer, scenario, citation and sibling cases. One exact-span prose proposal must
+  pass independent part rechecks and a complete lesson review before promotion.
+  The journal rechecks persisted policy, owner, source selection and document
+  revision in the transaction; legacy jobs keep their prior behavior.
+- Verification: frozen engine V3 suite 754 passed; Python baseline ruff1005 and
+  mypy2171 passed without changing debt baselines. Independent source review found
+  no concrete blocker. Actual isolated PostgreSQL gate passed11 checks, cleanup true and public0184 unchanged; full-course
+  semantics, VM worker and deployed DEV acceptance remain unverified.
+- Prevention: repair tools must cover the precise defect, preserve untouched
+  evidence and require fresh independent validation. Unknown provider outcomes
+  remain held. Never change existing-job policy or turn partial proof into GO.

@@ -1,3 +1,11 @@
+# Current continuation — 2026-11-02 scoped repair and isolated DEV worker
+
+- result: Production UX70 is released and browser accepted; engine acceptance remains open. Latest DEV d5713cf6. Standards job 5f396873-a2ff-4b19-8099-0a4f97c58b9f is running/stale50%, no course: Render Free worker shutdown during Luna request at12:21:16UTC, outcome unknown. Do not replay/cancel/refund/ack it.
+- changed: Scoped prompt/prose repair and persisted revision policy are committed locally db2230b1. VM126 migration uses fixed DEV container, Supabase DEV/RedisDB1, no production networks/mounts/credentials. Infrastructure receiver/controller changes are still local; no VM consumer exists yet.
+- verified: V3 754PASS, baseline1005/2171; independent source review no concrete blocker. Capacity24,666,288,128B disk and7,828,799,488B available memory; production four7c35 containers remain running/restarts0. Receiver/controller/helper134 tests PASS (2 Linux-only skipped); actual isolated PG gate11PASS/cleanuptrue/public0184 unchanged in separate engine worktree, custody revision-policy-20261102-custody.json. No full new course accepted.
+- blockers: Render Free web worker spins down during outbound work. Preserve original unacked message/pending custody. Locks fence save after concurrent source drift but cannot guarantee zero provider work after a later drift. Do not claim this transaction test proves full model semantics.
+- next: Reconcile exact PG gate/cleanup, finish reviewed receiver and immutable CI image, suspend only old existing Free DEV consumer and start isolated VM consumer, deploy exact API/web/worker through canonical controller; then three complete Luna courses/matrix, DeepSeek, and protected production after success. No client course changes, paid resources, voice, tariffs or rights.
+
 # Kamilya LMS: handoff для следующего Codex
 
 ## Local engine continuation — 2026-10-30
