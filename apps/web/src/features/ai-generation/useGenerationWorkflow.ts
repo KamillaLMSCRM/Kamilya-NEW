@@ -43,7 +43,7 @@ function clearWorkflowContext() {
 
 function actionForPolledJob(job: AIGenerationJob): GenerationWorkflowAction {
   if (job.status === 'completed') return { type: 'job_completed', job };
-  if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted') return { type: 'job_terminal', job };
+  if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted' || job.status === 'abandoned') return { type: 'job_terminal', job };
   return { type: 'job_active', job };
 }
 

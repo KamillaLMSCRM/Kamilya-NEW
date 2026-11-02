@@ -144,7 +144,7 @@ function isCanonicalJobId(value: unknown): value is string {
 }
 
 function isTerminalJob(job: AIGenerationJob): boolean {
-  return ['completed', 'failed', 'cancelled'].includes(job.status);
+  return ['completed', 'failed', 'cancelled', 'abandoned'].includes(job.status);
 }
 
 interface DocumentIndexProgress {
@@ -156,6 +156,11 @@ interface DocumentIndexProgress {
 }
 export default function AIGeneratePage() {
   const { t, tp, lang } = useT();
+  const unknownAbandonCopy = lang === 'ru'
+    ? { action: 'Оставить как прерванную (результат неизвестен)', refresh: 'Обновить статус', title: 'Оставить эту генерацию прерванной?', description: 'Результат у провайдера и стоимость неизвестны. Текущий запрос никогда не будет повторён; история, источники и учёт сохранятся. Следующая генерация будет отдельной затратой.', acknowledge: 'Я понимаю, что результат и стоимость неизвестны.', cancel: 'Продолжить наблюдение', confirm: 'Оставить прерванной', submitting: 'Сохраняем…', abandoned: 'Генерация оставлена прерванной; результат и стоимость провайдера неизвестны.', failed: 'Не удалось оставить генерацию прерванной.' }
+    : lang === 'kk'
+      ? { action: 'Аяқталмаған деп белгілеу (нәтиже белгісіз)', refresh: 'Күйін жаңарту', title: 'Бұл генерацияны аяқталмаған деп белгілейсіз бе?', description: 'Провайдердің нәтижесі мен құны белгісіз. Ағымдағы сұрау ешқашан қайталанбайды; тарих, бастапқы материалдар және есеп жазбасы сақталады. Кейінгі генерация бөлек шығын болады.', acknowledge: 'Нәтиже мен құнның белгісіз екенін түсінемін.', cancel: 'Бақылауды жалғастыру', confirm: 'Аяқталмаған деп белгілеу', submitting: 'Сақталуда…', abandoned: 'Генерация аяқталмаған деп белгіленді; провайдер нәтижесі мен құны белгісіз.', failed: 'Генерацияны аяқталмаған деп белгілеу мүмкін болмады.' }
+    : { action: 'Mark abandoned (outcome unknown)', refresh: 'Refresh outcome', title: 'Abandon this generation?', description: 'The provider outcome and cost are unknown. The current request will never be retried; its history, sources and accounting record stay retained. A later generation is a separate cost.', acknowledge: 'I understand the outcome and cost are unknown.', cancel: 'Keep monitoring', confirm: 'Abandon generation', submitting: 'Abandoning…', abandoned: 'Generation abandoned; provider outcome and cost remain unknown.', failed: 'Could not reconcile the generation.' };
   const stages = [
     { key: 'ingestion', label: t('aiGeneration.stages.ingestion'), icon: FileText, color: 'text-primary' },
     { key: 'architect', label: t('aiGeneration.stages.architect'), icon: Building2, color: 'text-accent' },
@@ -223,6 +228,12 @@ export default function AIGeneratePage() {
   const [admissionError, setAdmissionError] = useState(false);
   const [admissionRetryAfter, setAdmissionRetryAfter] = useState<number | null>(null);
   const [generationConflict, setGenerationConflict] = useState<GenerationConflictState | null>(null);
+  const [abandonDialog, setAbandonDialog] = useState(false);
+  const [abandonAcknowledged, setAbandonAcknowledged] = useState(false);
+  const [abandonSubmitting, setAbandonSubmitting] = useState(false);
+  const [abandonReconcileOnly, setAbandonReconcileOnly] = useState(false);
+  const [abandonTargetJobId, setAbandonTargetJobId] = useState<string | null>(null);
+  const abandonAttemptedRef = useRef<string | null>(null);
   const [generationSubmitting, setGenerationSubmitting] = useState(false);
   const [reuseDialog, setReuseDialog] = useState<{
     open: boolean;
@@ -745,6 +756,49 @@ export default function AIGeneratePage() {
     }
   };
 
+  const abandonUnknownGeneration = async () => {
+    const admitted = generationConflictRef.current;
+    const target = abandonTargetJobId === currentJob?.id ? currentJob
+      : abandonTargetJobId === admitted?.job?.id ? admitted.job : null;
+    if (!abandonAcknowledged || abandonSubmitting || !target || !target.abandon_available) return;
+    const reconcileOnly = abandonAttemptedRef.current === target.id;
+    abandonAttemptedRef.current = target.id;
+    setAbandonSubmitting(true);
+    try {
+      if (!reconcileOnly) {
+        try {
+          await api.post(`/v1/ai/jobs/${target.id}/abandon-unknown`, {
+            acknowledge_outcome_and_cost_unknown: true,
+          });
+        } catch {
+          // The acknowledgement may have committed; reconcile before showing failure.
+        }
+      }
+      const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${target.id}`);
+      const job = response.data;
+      if (!isCanonicalJobId(job?.id) || job.id !== target.id) throw new Error('abandon_job_identity_mismatch');
+      if (job.status !== 'abandoned') {
+        setAbandonReconcileOnly(true);
+        toast.error(unknownAbandonCopy.failed, { description: t('aiGeneration.errors.generationConflictReadFailed') });
+        return;
+      }
+      resetWorkflow();
+      if (admitted) setGenerationConflict({ ...admitted, status: 'terminal', job });
+      setAbandonDialog(false);
+      setAbandonAcknowledged(false);
+      setAbandonReconcileOnly(false);
+      setAbandonTargetJobId(null);
+      abandonAttemptedRef.current = null;
+    } catch (error: any) {
+      setAbandonReconcileOnly(true);
+      toast.error(unknownAbandonCopy.failed, {
+        description: t('aiGeneration.errors.generationConflictReadFailed'),
+      });
+    } finally {
+      setAbandonSubmitting(false);
+    }
+  };
+
   // ── Result step: fetch preview + course meta (with review status) ──
   const loadCoursePreview = async (courseId: string) => {
     setPreviewLoading(true);
@@ -1087,7 +1141,7 @@ export default function AIGeneratePage() {
             </>
           ) : generationConflict.status === 'terminal' ? (
             <>
-              <p className="font-medium">{t('aiGeneration.errors.generationConflictTerminal')}</p>
+              <p className="font-medium">{generationConflict.job?.status === 'abandoned' ? unknownAbandonCopy.abandoned : t('aiGeneration.errors.generationConflictTerminal')}</p>
               <button type="button" className="mt-3 underline" onClick={() => { generationConflictRef.current = null; setGenerationConflict(null); }}>
                 {t('aiGeneration.errors.generationConflictPrepareNew')}
               </button>
@@ -1104,11 +1158,18 @@ export default function AIGeneratePage() {
               <p className="font-medium">{t('aiGeneration.errors.generationConflict')}</p>
               <p className="mt-1 text-muted-foreground">{t('aiGeneration.errors.generationConflictHint')}</p>
               {generationConflict.status === 'active' && generationConflict.job ? (
-                <p className="mt-2 text-muted-foreground">
-                  {t('aiGeneration.errors.generationConflictProgress', {
-                    progress: generationConflict.job.progress ?? 0,
-                  })}
-                </p>
+                <>
+                  <p className="mt-2 text-muted-foreground">
+                    {t('aiGeneration.errors.generationConflictProgress', {
+                      progress: generationConflict.job.progress ?? 0,
+                    })}
+                  </p>
+                  {generationConflict.job.abandon_available && (
+                    <button type="button" className="mt-3 rounded-lg border border-destructive/40 px-3 py-2 font-medium hover:bg-destructive/10" onClick={() => { setAbandonTargetJobId(generationConflict.job!.id); setAbandonDialog(true); }}>
+                      {abandonReconcileOnly ? unknownAbandonCopy.refresh : unknownAbandonCopy.action}
+                    </button>
+                  )}
+                </>
               ) : (
                 <button
                   type="button"
@@ -1123,6 +1184,22 @@ export default function AIGeneratePage() {
               )}
             </>
           )}
+        </div>
+      )}
+      {abandonDialog && (generationConflict?.job ?? currentJob)?.abandon_available && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="unknown-abandon-title">
+          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-card-lg">
+            <h2 id="unknown-abandon-title" className="text-lg font-semibold">{unknownAbandonCopy.title}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{unknownAbandonCopy.description}</p>
+            <label className="mt-4 flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={abandonAcknowledged} onChange={(event) => setAbandonAcknowledged(event.target.checked)} />
+              <span>{unknownAbandonCopy.acknowledge}</span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="rounded-lg border px-3 py-2" disabled={abandonSubmitting} onClick={() => { setAbandonDialog(false); setAbandonAcknowledged(false); setAbandonTargetJobId(null); }}>{unknownAbandonCopy.cancel}</button>
+              <button type="button" className="rounded-lg bg-destructive px-3 py-2 text-destructive-foreground disabled:opacity-50" disabled={!abandonAcknowledged || abandonSubmitting} onClick={() => void abandonUnknownGeneration()}>{abandonSubmitting ? unknownAbandonCopy.submitting : abandonReconcileOnly ? unknownAbandonCopy.refresh : unknownAbandonCopy.confirm}</button>
+            </div>
+          </div>
         </div>
       )}
       {step === 'documents' && (
@@ -1545,6 +1622,11 @@ export default function AIGeneratePage() {
       {/* STEP 2: Generation progress */}
       {step === 'generate' && currentJob && (
         <div className="space-y-6">
+          {currentJob.abandon_available && (
+            <button type="button" className="rounded-lg border border-destructive/40 px-3 py-2 font-medium hover:bg-destructive/10" onClick={() => { setAbandonTargetJobId(currentJob.id); setAbandonDialog(true); }}>
+              {abandonReconcileOnly ? unknownAbandonCopy.refresh : unknownAbandonCopy.action}
+            </button>
+          )}
           {currentJob.status === 'reconciliation_required' ? (
             <div role="alert" className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-foreground">
               <p>{currentJob.message}</p>

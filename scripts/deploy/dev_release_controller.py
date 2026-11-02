@@ -19,7 +19,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 from scripts.ops import kz_remote_exec
@@ -52,7 +52,7 @@ DEV_PROJECT_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82
 VM_WORKER_CONTAINER = "kamilya-dev-worker"
 VM_WORKER_IMAGE_RE = re.compile(r"^ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64}$")
 VM_RECEIPT_SHA_RE = re.compile(r"^[0-9a-f]{64}$")
-VM_PROBE_PATH = Path("scripts/ops/vm126_dev_worker_readonly.sh")
+VM_PROBE_PATH = Path("scripts/ops/vm126_dev_worker_verify.sh")
 
 
 class DevReleaseBlocked(RuntimeError):
@@ -118,7 +118,7 @@ class ProviderAdapter(Protocol):
 
     def read_health(self, url: str) -> Any: ...
 
-    def inspect_vm_worker(self, container: str, image: str) -> Mapping[str, Any]: ...
+    def inspect_vm_worker(self, container: str, image: str, release_sha: str, environment_sha256: str, probe_sha256: str) -> Mapping[str, Any]: ...
 
     def verify_source_ci(self, run_id: int, release_sha: str, repository: str) -> Mapping[str, Any]: ...
 
@@ -161,28 +161,39 @@ class LiveProviderAdapter:
         if not self.github_helper.is_file():
             raise DevReleaseBlocked("canonical_github_helper_missing")
 
-    def inspect_vm_worker(self, container: str, image: str) -> Mapping[str, Any]:
-        """Run only the tracked, read-only VM126 probe through the canonical route."""
+    def inspect_vm_worker(self, container: str, image: str, release_sha: str, environment_sha256: str, probe_sha256: str) -> Mapping[str, Any]:
+        """Run only the tracked DEV consumer verification through the canonical route."""
         del container
         probe = self.repo_root / VM_PROBE_PATH
         if not probe.is_file() or probe.is_symlink():
             raise DevReleaseBlocked("vm_worker_probe_missing")
         manifest = kz_remote_exec.load_script(
-            probe, target="vm126", mode="read-only", correlation_id="", expected_sha256=""
+            probe, target="vm126", mode="mutation", correlation_id="DEV-WORKER-VM-VERIFY", expected_sha256=probe_sha256
         )
+        identity = {"image": image, "release_sha": release_sha, "environment_sha256": environment_sha256}
+        if (not VM_WORKER_IMAGE_RE.fullmatch(image) or not SHA_RE.fullmatch(release_sha)
+                or not VM_RECEIPT_SHA_RE.fullmatch(environment_sha256)):
+            raise DevReleaseBlocked("vm_worker_expected_identity_invalid")
+        marker = b"EXPECTED_IDENTITY = None\n"
+        if manifest.payload.count(marker) != 1:
+            raise DevReleaseBlocked("vm_worker_expected_identity_marker_invalid")
+        payload = manifest.payload.replace(marker, ("EXPECTED_IDENTITY = " + repr(identity) + "\n").encode("ascii"))
+        manifest = replace(manifest, payload=payload, sha256=hashlib.sha256(payload).hexdigest())
         result = kz_remote_exec.run_remote(
-            manifest, self.env_file, kz_remote_exec.DEFAULT_KNOWN_HOSTS, 30
+            manifest, self.env_file, kz_remote_exec.DEFAULT_KNOWN_HOSTS, 60
         )
         evidence = result.get("evidence")
         if not isinstance(evidence, list) or len(evidence) != 1 or not isinstance(evidence[0], str):
             raise DevReleaseBlocked("vm_worker_probe_evidence_invalid")
         match = re.fullmatch(
-            r"EVIDENCE\|container=/?(kamilya-dev-worker)\|image=(ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64})\|status=(running|[a-z_]+)\|restarts=([0-9]+)",
-            evidence[0],
-        )
+            r"EVIDENCE\|container=(kamilya-dev-worker)\|image=(ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64})"
+            r"\|release_sha=([0-9a-f]{40})\|env_sha256=([0-9a-f]{64})\|container_id=([0-9a-f]{64})"
+            r"\|configuration=verified\|consumer=ready\|restarts=([0-9]+)", evidence[0])
         if not match or match.group(2) != image:
             raise DevReleaseBlocked("vm_worker_runtime_identity_mismatch")
-        return {"container_name": match.group(1), "image": match.group(2), "status": match.group(3), "restarts": int(match.group(4))}
+        return {"container_name": match.group(1), "image": match.group(2), "status": "running",
+                "release_sha": match.group(3), "environment_sha256": match.group(4), "container_id": match.group(5),
+                "configuration": "verified", "consumer": "ready", "restarts": int(match.group(6))}
 
     def _project_command(self, command: list[str], *, timeout: int = 60):
         completed = subprocess.run(
@@ -858,7 +869,7 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
         raise DevReleaseBlocked("worker_hosting_invalid")
     if hosting == "vm126":
         vm = _require_mapping(data, "vm_worker")
-        if set(vm) != {"container_name", "image", "release_image_receipt_path", "release_image_receipt_sha256", "ci_run_id", "probe_sha256"}:
+        if set(vm) != {"container_name", "image", "release_image_receipt_path", "release_image_receipt_sha256", "ci_run_id", "probe_sha256", "environment_sha256"}:
             raise DevReleaseBlocked("vm_worker_fields_invalid")
         if vm.get("container_name") != VM_WORKER_CONTAINER:
             raise DevReleaseBlocked("vm_worker_container_invalid")
@@ -870,6 +881,8 @@ def validate_packet(data: Mapping[str, Any]) -> dict[str, Any]:
             raise DevReleaseBlocked("vm_worker_ci_run_id_invalid")
         if not isinstance(vm.get("probe_sha256"), str) or not VM_RECEIPT_SHA_RE.fullmatch(vm["probe_sha256"]):
             raise DevReleaseBlocked("vm_worker_probe_digest_invalid")
+        if not isinstance(vm.get("environment_sha256"), str) or not VM_RECEIPT_SHA_RE.fullmatch(vm["environment_sha256"]):
+            raise DevReleaseBlocked("vm_worker_environment_digest_invalid")
     elif "vm_worker" in data:
         raise DevReleaseBlocked("vm_worker_unexpected")
 
@@ -1261,10 +1274,18 @@ class DevReleaseController:
             raise DevReleaseBlocked("vm_worker_receipt_shape_invalid")
         if receipt.get("release_sha") != self.packet["release_sha"] or receipt.get("image") != vm["image"] or receipt.get("ci_run_id") != vm["ci_run_id"]:
             raise DevReleaseBlocked("vm_worker_receipt_identity_mismatch")
-        observed = self.providers.inspect_vm_worker(VM_WORKER_CONTAINER, vm["image"])
+        observed = self.providers.inspect_vm_worker(VM_WORKER_CONTAINER, vm["image"], self.packet["release_sha"], vm["environment_sha256"], vm["probe_sha256"])
         if observed.get("container_name") != VM_WORKER_CONTAINER or observed.get("image") != vm["image"] or observed.get("status") != "running":
             raise DevReleaseBlocked("vm_worker_runtime_identity_mismatch")
-        return {"container_name": VM_WORKER_CONTAINER, "image": vm["image"], "status": "running", "restarts": observed.get("restarts")}
+        if (observed.get("release_sha") != self.packet["release_sha"]
+                or observed.get("environment_sha256") != vm["environment_sha256"]
+                or observed.get("configuration") != "verified" or observed.get("consumer") != "ready"
+                or not isinstance(observed.get("container_id"), str)
+                or not re.fullmatch(r"[0-9a-f]{64}", observed["container_id"])):
+            raise DevReleaseBlocked("vm_worker_effective_configuration_mismatch")
+        return {"container_name": VM_WORKER_CONTAINER, "image": vm["image"], "status": "running",
+                "container_id": observed["container_id"], "configuration": "verified", "consumer": "ready",
+                "environment_sha256": observed["environment_sha256"], "restarts": observed.get("restarts")}
 
     def _deploy_render(self) -> dict[str, Any]:
         cfg = _require_mapping(self.packet, "render")
@@ -1311,7 +1332,8 @@ class DevReleaseController:
         render = _require_mapping(self.packet, "render")
         vercel = _require_mapping(self.packet, "vercel")
         api = self._read_health("api", str(render["api_health_url"]))
-        worker = self._read_health("worker", str(render["worker_health_url"]))
+        worker = (self._verify_vm_worker() if self.packet.get("worker_hosting", "render") == "vm126"
+                  else self._read_health("worker", str(render["worker_health_url"])))
         frontend = self._read_health("frontend", str(vercel["public_url"]))
         if not isinstance(api, Mapping) or api.get("status") != "ok":
             raise DevReleaseBlocked("api_health_not_ok")
@@ -1319,7 +1341,7 @@ class DevReleaseController:
             raise DevReleaseBlocked("api_environment_mismatch")
         if api.get("release_sha") != self.packet["release_sha"]:
             raise DevReleaseBlocked("api_release_sha_mismatch")
-        if worker != "ok":
+        if self.packet.get("worker_hosting", "render") == "render" and worker != "ok":
             raise DevReleaseBlocked("worker_health_not_ok")
         if not isinstance(frontend, Mapping) or frontend.get("http_status") != 200:
             raise DevReleaseBlocked("frontend_health_not_ok")

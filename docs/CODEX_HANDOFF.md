@@ -1,3 +1,11 @@
+# Current continuation — 2026-11-02 VM migration and unknown disposition
+
+- result: Production UX70 remains released/accepted. Engine not accepted. Old Free DEV consumer srv-dar2dvbncjis73bsda3g is explicitly suspended for the authorized migration, plan unchanged. VM receiver installed and root0700/0600/selftest verified; no VM consumer yet.
+- changed: Scoped prompt/prose repair db2230b1 and explicit acknowledged unknown disposition fa7f4369 are integrated locally. Preserve unknown job5f396873-a2ff-4b19-8099-0a4f97c58b9f and original unacked delivery; no repeat/refund/clear. Endpoint and UI require owner acknowledgement before terminal disposition; not used live yet.
+- verified: Full backend4675PASS; real isolated PG12PASS/cleanuptrue/public0184unchanged, custody abandonment-20261102-custody.json in engine worktree. CIe487 failed phone-shaped UUID; deterministic fix preserves UUID but still masks adjacent phones and credential UUIDs. Root improved VM probe with effective env/queue/consumer/boot proof, not metadata only.
+- blockers: Candidate still requires final web tests, exact CI/image and live VM readback. Existing20minsoft/25minhard task lifecycle remains a separate long-course concern; no cooperative continuation was found. Do not claim3courses, semantic acceptance or zero cost after unknown. Locks fence later save, not already-dispatched provider cost.
+- next: Freeze combined candidate; CI then immutable build-only image (deploy_to_production=false); stage exact env for finalSHA, start isolated VM worker once, verify queues/health/produnchanged; DEVcontroller reconcile; use normal UI for explicit unknown disposition and fresh complete Luna courses, independent matrix, DeepSeek, then protected production. No plans/resources/rights/voice/customer changes. Automation2 stays paused to prevent duplicate work.
+
 # Current continuation — 2026-11-02 scoped repair and isolated DEV worker
 
 - result: Production UX70 is released and browser accepted; engine acceptance remains open. Latest DEV d5713cf6. Standards job 5f396873-a2ff-4b19-8099-0a4f97c58b9f is running/stale50%, no course: Render Free worker shutdown during Luna request at12:21:16UTC, outcome unknown. Do not replay/cancel/refund/ack it.

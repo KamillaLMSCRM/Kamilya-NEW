@@ -101,6 +101,11 @@ class FakeProviders:
             "image": "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64,
             "status": "running",
             "restarts": 0,
+            "release_sha": RELEASE,
+            "environment_sha256": "b" * 64,
+            "container_id": "c" * 64,
+            "configuration": "verified",
+            "consumer": "ready",
         }
 
     def remote_branch_sha(self, repository: str, branch: str) -> str:
@@ -145,7 +150,7 @@ class FakeProviders:
         self.calls.append(("read_health", url))
         return self.health[url]
 
-    def inspect_vm_worker(self, container: str, image: str) -> dict:
+    def inspect_vm_worker(self, container: str, image: str, release_sha: str, environment_sha256: str, probe_sha256: str) -> dict:
         self.calls.append(("inspect_vm_worker", container, image))
         return self.vm_worker
 
@@ -250,10 +255,22 @@ class MainControllerTests(unittest.TestCase):
 
 
 class DevReleaseControllerTests(unittest.TestCase):
+    def test_vm_health_never_calls_suspended_render_worker(self) -> None:
+        release = object.__new__(controller.DevReleaseController)
+        object.__setattr__(release, "packet", packet_data() | {"worker_hosting": "vm126"})
+        def health(label, url):
+            if label == "worker":
+                self.fail("VM health must never wake the retired Render consumer")
+            return ({"status": "ok", "deployment_environment": "render-development", "release_sha": RELEASE}
+                    if label == "api" else {"http_status": 200})
+        with mock.patch.object(controller.DevReleaseController, "_verify_vm_worker", return_value={"status": "running"}) as probe, mock.patch.object(controller.DevReleaseController, "_read_health", side_effect=health):
+            self.assertEqual(release._health()["worker"]["status"], "running")
+            probe.assert_called_once()
+
     def test_tracked_vm_probe_is_a_valid_canonical_read_only_script(self) -> None:
         root = Path(__file__).resolve().parents[2]
         manifest = controller.kz_remote_exec.load_script(root / controller.VM_PROBE_PATH,
-            target="vm126", mode="read-only", correlation_id="", expected_sha256="")
+            target="vm126", mode="mutation", correlation_id="DEV-WORKER-VM-VERIFY", expected_sha256="")
         self.assertEqual(manifest.target, "vm126")
         self.assertIn(b"kamilya-dev-worker", manifest.payload)
 
@@ -270,16 +287,16 @@ class DevReleaseControllerTests(unittest.TestCase):
         adapter = object.__new__(controller.LiveProviderAdapter)
         adapter.repo_root = Path(__file__).resolve().parents[2]
         adapter.env_file = adapter.repo_root / ".env"
-        for name in ("/kamilya-dev-worker", "kamilya-dev-worker", "/another-worker"):
-            with self.subTest(name=name), mock.patch.object(controller.kz_remote_exec, "load_script"), mock.patch.object(
+        for name in ("kamilya-dev-worker", "another-worker"):
+            with self.subTest(name=name), mock.patch.object(
                 controller.kz_remote_exec, "run_remote", return_value={"evidence": [
-                    f"EVIDENCE|container={name}|image={image}|status=running|restarts=0"]}
+                    f"EVIDENCE|container={name}|image={image}|release_sha={RELEASE}|env_sha256={'b' * 64}|container_id={'c' * 64}|configuration=verified|consumer=ready|restarts=0"]}
             ):
-                if name == "/another-worker":
+                if name == "another-worker":
                     with self.assertRaises(controller.DevReleaseBlocked):
-                        adapter.inspect_vm_worker("kamilya-dev-worker", image)
+                        adapter.inspect_vm_worker("kamilya-dev-worker", image, RELEASE, "b" * 64, hashlib.sha256((adapter.repo_root / controller.VM_PROBE_PATH).read_bytes()).hexdigest())
                 else:
-                    result = adapter.inspect_vm_worker("kamilya-dev-worker", image)
+                    result = adapter.inspect_vm_worker("kamilya-dev-worker", image, RELEASE, "b" * 64, hashlib.sha256((adapter.repo_root / controller.VM_PROBE_PATH).read_bytes()).hexdigest())
                     self.assertEqual(result["container_name"], "kamilya-dev-worker")
                     self.assertEqual(result["image"], image)
 
@@ -358,6 +375,7 @@ class DevReleaseControllerTests(unittest.TestCase):
                     "release_image_receipt_sha256": hashlib.sha256(raw).hexdigest(),
                     "ci_run_id": 91,
                     "probe_sha256": hashlib.sha256(probe.read_bytes()).hexdigest(),
+                    "environment_sha256": "b" * 64,
                 },
             })
             providers = FakeProviders()
@@ -381,6 +399,7 @@ class DevReleaseControllerTests(unittest.TestCase):
                 "release_image_receipt_sha256": "b" * 64,
                 "ci_run_id": 91,
                 "probe_sha256": "c" * 64,
+                "environment_sha256": "d" * 64,
             },
         })
         with self.assertRaisesRegex(controller.DevReleaseBlocked, "vm_worker_container_invalid"):

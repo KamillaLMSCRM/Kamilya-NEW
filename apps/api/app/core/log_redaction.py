@@ -11,6 +11,7 @@ from typing import Any
 REDACTED = "<redacted>"
 
 _EMAIL_RE = re.compile(r"(?i)(?<![\w.+-])[\w.+-]+@[a-z0-9.-]+\.[a-z]{2,}(?![\w.-])")
+_UUID_RE = re.compile(r"(?<![\w-])([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?![\w-])")
 _PHONE_RE = re.compile(r"(?<!\d)(?:\+?7|8)(?:[\s().-]*\d){10}(?!\d)")
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
 _JWT_RE = re.compile(r"(?<![\w-])eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?![\w-])")
@@ -56,7 +57,11 @@ def redact_sensitive_text(value: str) -> str:
     redacted = _BEARER_RE.sub("Bearer <redacted-token>", value)
     redacted = _JWT_RE.sub("<redacted-token>", redacted)
     redacted = _EMAIL_RE.sub("<redacted-email>", redacted)
-    redacted = _PHONE_RE.sub("<redacted-phone>", redacted)
+    # UUIDs are opaque technical IDs; digit-heavy spans can resemble a phone.
+    # Keep complete canonical IDs intact while still masking adjacent phones.
+    # Credential-key redaction runs afterward and never exempts UUID values.
+    redacted = "".join(part if index % 2 else _PHONE_RE.sub("<redacted-phone>", part)
+                       for index, part in enumerate(_UUID_RE.split(redacted)))
     redacted = _SENSITIVE_PAIR_RE.sub(lambda match: f"{match.group(1)}{REDACTED}", redacted)
     return _CAPABILITY_PATH_RE.sub(r"\1<redacted-token>", redacted)
 

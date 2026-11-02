@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AIGeneratePage from '@/app/ai/generate/page';
 import { api } from '@/lib/api';
@@ -32,6 +32,18 @@ beforeEach(() => {
 });
 
 describe('/ai/generate job workflow parity', () => {
+  it('offers unknown-outcome abandonment for an already admitted active job', async () => {
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: { ...activeJob, abandon_available: true } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click((await screen.findAllByRole('button', { name: /результат неизвестен/i }))[0]);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
   it('shows a held job with read-only refresh and no resume or cancel', async () => {
     const heldJob = { ...activeJob, status: 'reconciliation_required', course_id: null,
       message: 'Сохранение требует проверки. Обратитесь к администратору.' };
@@ -652,6 +664,99 @@ describe('/ai/generate generation conflict recovery', () => {
     await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}`));
     expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
     expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('requires explicit acknowledgement before abandoning an unknown provider outcome and reconciles the exact job', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    let reads = 0;
+    const abandonable = { ...existingJob, abandon_available: true };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) {
+        reads += 1;
+        return { data: reads > 1 ? { ...abandonable, status: 'abandoned' } : abandonable } as any;
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async (url: string, body?: unknown) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') throw { response: { status: 409, data: { detail: { code: 'generation_already_in_progress', job_id: existingJobId } } } };
+      if (url === `/v1/ai/jobs/${existingJobId}/abandon-unknown`) return { data: { ...abandonable, status: 'abandoned' } } as any;
+      throw new Error(`Unexpected POST ${url} ${JSON.stringify(body)}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /результат неизвестен/i }))[0]);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Оставить прерванной/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /результат и стоимость неизвестны/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Оставить прерванной/ }));
+    await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}/abandon-unknown`, { acknowledge_outcome_and_cost_unknown: true }));
+    await waitFor(() => expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${existingJobId}`).length).toBeGreaterThan(1));
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+    expect(await screen.findByText(/оставлена прерванной/i)).toBeInTheDocument();
+  });
+
+  it('does not expose unknown-outcome abandonment when the server does not authorize it', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: { ...existingJob, abandon_available: false } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    expect(screen.queryByRole('button', { name: /результат неизвестен/i })).not.toBeInTheDocument();
+  });
+
+  it.each(['committed', 'read_failed', 'still_running', 'wrong_id'])('reconciles a lost abandonment acknowledgement (%s) without a second POST', async (outcome) => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    const abandonable = { ...existingJob, abandon_available: true };
+    let reads = 0;
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) {
+        reads += 1;
+        if (reads > 1 && outcome === 'read_failed') throw new Error('read_unknown');
+        if (reads > 1 && outcome === 'wrong_id') return { data: { ...abandonable, id: 'ffffffff-ffff-4fff-8fff-ffffffffffff', status: 'abandoned' } } as any;
+        return { data: reads > 1 && outcome === 'committed' ? { ...abandonable, status: 'abandoned' } : abandonable } as any;
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') throw { response: { status: 409, data: { detail: { code: 'generation_already_in_progress', job_id: existingJobId } } } };
+      if (url === `/v1/ai/jobs/${existingJobId}/abandon-unknown`) throw new Error('acknowledgement_lost');
+      throw new Error(`Unexpected POST ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    fireEvent.click((await screen.findAllByRole('button', { name: /результат неизвестен/i }))[0]);
+    fireEvent.click(screen.getByRole('checkbox', { name: /результат и стоимость неизвестны/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Оставить прерванной/ }));
+    await waitFor(() => expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${existingJobId}`).length).toBeGreaterThan(1));
+    expect(apiMock.post.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${existingJobId}/abandon-unknown`)).toHaveLength(1);
+    if (outcome === 'committed') {
+      expect(await screen.findByText(/оставлена прерванной/i)).toBeInTheDocument();
+    } else {
+      const refresh = await within(screen.getByRole('dialog')).findByRole('button', { name: 'Обновить статус' });
+      fireEvent.click(refresh);
+      await waitFor(() => expect(reads).toBeGreaterThan(2));
+      expect(apiMock.post.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${existingJobId}/abandon-unknown`)).toHaveLength(1);
+      expect(screen.queryByText(/оставлена прерванной/i)).not.toBeInTheDocument();
+    }
   });
 
   it('rejects an invalid conflict id without attempting a read or a second POST', async () => {

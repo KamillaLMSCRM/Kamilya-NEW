@@ -18,6 +18,7 @@ export interface AIGenerationJob {
   estimated_wait_seconds: number | null;
   tenant_active_jobs: number | null;
   tenant_active_limit: number | null;
+  abandon_available?: boolean;
 }
 
 export interface AIGenerationWorkflowContext {

@@ -2845,6 +2845,13 @@ production runtime and cross-container readback remain pending release approval.
 - Prevention: content/provider boundaries log only opaque IDs, metrics, and error
   type. Production aggregator/Sentry canary remains a gate and uses no real PII.
 
+
+- Recurrence, 2026-11-02: CI41454279854 failed after2806passing tests because
+  a random digit-heavy job UUID was partly masked as a phone. Complete canonical
+  UUID tokens are now recognized before phone matching; adjacent phone values
+  and credential-key UUID values remain redacted. Deterministic regression and
+  Luna transport/redaction43tests pass. Related earlier class: TEST-012.
+
 ## SECURITY-013 - Backup did not authenticate ciphertext and KZ restore lacked a fail-closed command
 
 - Date: 2026-08-20.
@@ -9247,3 +9254,24 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Prevention: repair tools must cover the precise defect, preserve untouched
   evidence and require fresh independent validation. Unknown provider outcomes
   remain held. Never change existing-job policy or turn partial proof into GO.
+
+
+## AI-UNKNOWN-DISPOSITION-001 - Unknown provider stage permanently blocked same-source admission
+
+- Date: 2026-11-02.
+- Symptom: after a worker process stopped during an outbound request, the owned
+  job remained pending/running and blocked a separate generation; cancel and
+  resume correctly refused its unresolved provider claim.
+- Cause: preserving unknown-stage custody had no explicit terminal disposition.
+- Fix: owner-only acknowledged abandonment takes the same admission advisory
+  lock, tenant and job locks. It preserves the unknown claim, checkpoints,
+  source and accounting, records actor/time/digest, and fences late save,
+  redelivery and refund. A new generation follows ordinary source/limit checks.
+  The UI reconciles the exact job after a lost response and never repeats POST.
+- Verification: independent source review passed; frozen canonical Supabase DEV
+  schema aicp_dev_d264e505d14b passed12checks including observed row-lock wait,
+  preservation and foreign/late/refund negatives. Cleanup true/public0184
+  unchanged, source158136434ad1b66c30097b98c15f96881aeee69270544384ab80fe1849b78e2b.
+  This tests owned status/journal fencing, not a complete course-save race.
+- Prevention: unknown does not mean failed or free. Never erase or replay a claim
+  to unblock a source, never silently refund it, never claim provider cost is known.

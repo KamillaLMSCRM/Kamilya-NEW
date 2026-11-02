@@ -5371,3 +5371,25 @@ Rules:
   snapshot accounts40839input/28196output/9906reasoning, not total billing.
 - This is source/transaction preparation, not three full courses or production
   engine acceptance. Production UX70 remains separately accepted.
+
+
+### 2026-11-02 — terminal unknown disposition and runtime proof
+
+- Frozen isolated source15b33580: actual Supabase DEV schema
+  aicp_dev_d264e505d14b12PASS, cleanuptrue/public0184unchanged; outer source
+  158136434ad1b66c30097b98c15f96881aeee69270544384ab80fe1849b78e2b.
+  Observed real two-session row-lock wait; unknown claim/result/reservation and
+  checkpoints retained; no refund, redelivery, foreign ownership or late owned
+  write/read accepted. This is not the complete course-save race or provider proof.
+- Combined target backend4675unitPASS/61.91s; baseline1005/2171 unchanged.
+  CIe487/41454279854 failed on a phone-shaped random UUID after2806PASS;
+  deterministic redaction regression+43focused tests now pass, no masking removed.
+- Runtime receiver installed onVM126 through reviewed script7bbe4cb8...b53f87:
+  source03a946f2...3f4fa74, real Linux root0700/0600/idempotence/symlink/mode
+  selftestPASS. Secret payload transferred only in memory over SSHstdin, never
+  logged or saved locally. Old exact existing Free Render consumer suspended202,
+  independent readback suspended. New VM consumer NOT started yet.
+- Runtime probe is bound to exact image/release/envSHA before Celery health;
+  checks hardened effective Docker config, DEVscope and same boot after ping.
+  Optimized-Python negative tests prevent assert-removal false readiness.
+- No new model call, full course, new production engine or customer mutation.
