@@ -354,6 +354,7 @@ class WorkerCycleJournal:
         self.expected_revision_actor: Any = None
         self.expected_revision_source: Any = None
         self.expected_revision_plan: dict[str, Any] | None = None
+        self.expected_native_profile: dict[str, str] | None = None
 
     async def _lock_delivery(self, session: Any) -> None:
         from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
@@ -372,6 +373,10 @@ class WorkerCycleJournal:
             if (job is None or job.user_id != self.expected_revision_actor
                     or not policy_matches(params.get("source_analysis"), self.expected_revision_policy)):
                 raise DeliveryOwnershipLostError("generation_revision_policy_changed")
+            if self.expected_native_profile is not None:
+                from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY
+                if not isinstance(job.result, dict) or job.result.get(PROFILE_KEY) != self.expected_native_profile:
+                    raise DeliveryOwnershipLostError("generation_native_profile_changed")
             if (self.expected_revision_source is None or self.expected_revision_plan is None
                     or await self.expected_revision_source.verify_locked(session, job, self.expected_revision_plan) is not True):
                 raise DeliveryOwnershipLostError("generation_revision_source_changed")

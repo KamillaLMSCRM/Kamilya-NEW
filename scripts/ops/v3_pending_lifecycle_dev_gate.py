@@ -1058,6 +1058,9 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         checks.append("completed_extraction_parent_reuse_origin_cold_concurrency_fenced")
         checks.append("source_reference_review_pause_retains_completed_work")
         checks.append("managed_rejected_response_quarantine_scope_pending_preserved")
+        from v3_native_profile_pg_checks import exercise as exercise_native
+        await exercise_native(owner, runtime, schema, tenant_a, enabled=EXECUTION_ENABLED)
+        checks.append("native_v2_profile_pending_artifact_fenced")
     finally:
         delivery_id.reset(token)
 
@@ -1120,6 +1123,7 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                 "completed_extraction_parent_reuse_origin_cold_concurrency_fenced",
                 "source_reference_review_pause_retains_completed_work",
                 "managed_rejected_response_quarantine_scope_pending_preserved",
+                "native_v2_profile_pending_artifact_fenced",
                 "cooperative_interrupt_resume_cold_replay_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True

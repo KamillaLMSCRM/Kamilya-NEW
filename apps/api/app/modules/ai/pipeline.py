@@ -432,6 +432,7 @@ async def _run_evidence_v2_generation(
                 tenant_id=tenant_id,
                 temperature=policy.number("generation.temperature"),
             )
+
     embedding_client = await ResilientEmbeddingsClient.from_settings_async(
         tenant_id=tenant_id
     )
@@ -600,6 +601,7 @@ async def _run_v3_generation(
     owned_source_context: Any = None
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
+    from app.modules.ai.v3.revision_policy import POLICY as PROFILE_REVISION_POLICY
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -654,6 +656,9 @@ async def _run_v3_generation(
 
         if not isinstance(user_id, UUID):
             raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        if revision_policy == PROFILE_REVISION_POLICY:
+            from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+            journal = PendingStageJournal(str(tenant_id), user_id, state.job_id, async_session_factory)
         source_text = "\n\n".join(item.source_text for item in corpus.documents if item.source_text)
         journal.expected_revision_policy = revision_policy
         journal.expected_revision_actor = user_id
@@ -661,6 +666,13 @@ async def _run_v3_generation(
             corpus, journal, tenant_id, user_id, state.job_id, tuple(str(value) for value in corpus.document_ids))
         journal.expected_revision_plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": str(tenant_id),
             "job_id": state.job_id, "source_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest()}
+        if revision_policy == PROFILE_REVISION_POLICY:
+            async def verify_native_source(session: Any, job: Any, plan: dict[str, Any]) -> bool:
+                from app.modules.ai.v3.revision_policy import policy_matches
+                analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
+                return (policy_matches(analysis, revision_policy)
+                        and await journal.expected_revision_source.verify_locked(session, job, plan) is True)
+            journal.verify_source = verify_native_source
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
@@ -700,6 +712,12 @@ async def _run_v3_generation(
                 tenant_id=tenant_id,
                 temperature=policy.number("generation.temperature"),
             )
+        if (revision_policy == PROFILE_REVISION_POLICY and authenticated_qa_policy is None
+                and direct_client is None and type(generation_client) is ResilientLLMClient):
+            from app.modules.ai.v3.native_profile_binding import bind_native_profile
+            from app.modules.ai.v3.provider_profile import V3ProfiledClient
+            generation_client = V3ProfiledClient(generation_client, policy, job_id=state.job_id)
+            await bind_native_profile(journal=journal, user_id=user_id, client=generation_client)
 
     realization_started = time.monotonic()
 

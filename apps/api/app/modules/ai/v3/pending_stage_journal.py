@@ -17,6 +17,7 @@ from app.modules.ai.v3.pending_stage_transactions import (
     verify_repair_slot,
     verify_source_safely,
 )
+from app.modules.ai.v3.rejected_artifact import ModelArtifactRejectedError
 from app.modules.ai.v3.stage_checkpoint import _digest
 from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
 
@@ -37,6 +38,7 @@ class PendingStageJournal(WorkerCycleJournal):
                           invoke: Callable[[], Awaitable[dict[str, Any]]],
                           _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
                           _direct_metadata: Callable[[], dict[str, Any]] | None = None,
+                          _completed_response: Callable[[str, Exception], ManagedResponseRejectedError | None] | None = None,
                           ) -> dict[str, Any]:
         verify_source = self.verify_source
         if _owned_claim_guard is not None:
@@ -54,6 +56,44 @@ class PendingStageJournal(WorkerCycleJournal):
                                             verify_source=verify_source)
         if restored is not None:
             return restored
+        phase = "stage_validation"
+        received: Any = None
+        async def retain_native(rejection: ModelArtifactRejectedError) -> None:
+            from app.modules.ai.v3.managed_rejection_quarantine import retain_native_rejection
+            try:
+                await retain_native_rejection(journal=self, plan=plan, result_key=result_key, claim_key=claim_key,
+                    marker=marker, rejection=rejection, verify_source=verify_source)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
+
+        async def retain_completed(cause: Exception) -> None:
+            if isinstance(received, dict) and self.expected_native_profile is not None:
+                identity = plan.get("identity")
+                route = plan.get("route_fingerprint") or (identity.get("route_fingerprint") if isinstance(identity, dict) else None)
+                request = plan.get("request_sha256") or (identity.get("prompt_sha256") if isinstance(identity, dict) else None)
+                try:
+                    if not isinstance(route, str) or not isinstance(request, str):
+                        raise ValueError("v3_native_artifact_scope_invalid")
+                    native_rejection = ModelArtifactRejectedError.from_value(received, job_id=self.job_id, route=route,
+                                                                      request=request, phase=phase)
+                except (ValueError, TypeError):
+                    pass
+                else:
+                    await retain_native(native_rejection)
+            if _completed_response is None:
+                return
+            from app.modules.ai.v3.managed_rejection_quarantine import retain_managed_rejection
+            try:
+                rejection = _completed_response(phase, cause)
+                if rejection is not None:
+                    await retain_managed_rejection(journal=self, plan=plan, result_key=result_key, claim_key=claim_key,
+                        marker=marker, rejection=rejection, verify_source=verify_source)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                pass
         try:
             async with self.sessions() as session:
                 job = await _locked_job(session, self, self.user_id)
@@ -64,18 +104,25 @@ class PendingStageJournal(WorkerCycleJournal):
                 if entries.get(digest) != {"claim_key": claim_key, "result_key": result_key,
                                             "token": marker["claim_token"]}:
                     raise ValueError("v3_pending_marker_mismatch")
-            response = validate_response(await invoke())
+            received = await invoke()
+            response = validate_response(received)
+            phase = "stage_metadata"
             value = {"identity": digest, "response": response, "response_sha256": _digest(response)}
             if _direct_metadata is not None:
                 from app.modules.ai.v3.direct_usage_metadata import checked_metadata
                 metadata = checked_metadata(_direct_metadata())
                 value["direct_metadata"] = metadata
                 value["direct_metadata_sha256"] = _digest(metadata)
+            phase = "stage_finalize"
             return await finalize_pending(journal=self, user_id=self.user_id, plan=plan, result_key=result_key,
                                           claim_key=claim_key, marker=marker, value=value, validate=validate_value,
                                           verify_source=verify_source)
-        except ExtractionOutcomeUnknownError:
+        except ExtractionOutcomeUnknownError as exc:
+            await retain_completed(exc)
             raise
+        except ModelArtifactRejectedError as exc:
+            await retain_native(exc)
+            raise ExtractionOutcomeUnknownError("v3_pending_provider_outcome_unknown") from None
         except ManagedResponseRejectedError as exc:
             from app.modules.ai.v3.managed_rejection_quarantine import retain_managed_rejection
 
@@ -99,4 +146,6 @@ class PendingStageJournal(WorkerCycleJournal):
                 pass
             raise ExtractionOutcomeUnknownError("v3_pending_provider_outcome_unknown") from exc
         except BaseException as exc:
+            if isinstance(exc, Exception):
+                await retain_completed(exc)
             raise ExtractionOutcomeUnknownError("v3_pending_provider_outcome_unknown") from exc

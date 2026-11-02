@@ -2,7 +2,12 @@
 from typing import Any
 
 KEY = "v3_revision_policy"
-POLICY = "v3-scoped-revision-v1"
+LEGACY_POLICY = "v3-scoped-revision-v1"
+POLICY = "v3-scoped-revision-v2"
+
+
+def is_scoped_policy(value: object) -> bool:
+    return type(value) is str and value in {LEGACY_POLICY, POLICY}
 
 
 def stamp_policy(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -14,9 +19,9 @@ def read_policy(analysis: Any) -> str | None:
         raise ValueError("v3_revision_analysis_invalid")
     if KEY not in analysis:
         return None
-    if analysis[KEY] != POLICY or not isinstance(analysis[KEY], str):
+    if not is_scoped_policy(analysis[KEY]):
         raise ValueError("v3_revision_policy_invalid")
-    return POLICY
+    return str(analysis[KEY])
 
 
 def policy_matches(analysis: Any, expected: str | None) -> bool:

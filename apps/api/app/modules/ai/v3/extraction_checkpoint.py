@@ -40,7 +40,7 @@ def _digest(value: object) -> str:
 def build_extraction_identity(
     *, tenant_id: str, job_id: str, document_id: str, source_revision: str,
     source_text: str, unit: SourceUnit, context: str, messages: list[dict[str, str]],
-    route_fingerprint: str,
+    route_fingerprint: str, response_format: dict[str, Any] | None = None,
 ) -> dict[str, str]:
     """Compute custody from the actual source slice and model messages."""
     if not (0 <= unit.start < unit.end <= len(source_text)) or source_text[unit.start:unit.end] != unit.text:
@@ -53,7 +53,8 @@ def build_extraction_identity(
         "source_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
         "unit_sha256": hashlib.sha256(unit.text.encode("utf-8")).hexdigest(),
         "context_sha256": hashlib.sha256(context.encode("utf-8")).hexdigest(),
-        "prompt_sha256": _digest(messages), "route_fingerprint": route_fingerprint,
+        "prompt_sha256": _digest(messages if response_format is None else [messages, response_format]),
+        "route_fingerprint": route_fingerprint,
         "unit_start": str(unit.start), "unit_end": str(unit.end),
     }
 
@@ -93,7 +94,7 @@ async def extract_once(
     identity: Mapping[str, str],
     invoke: Callable[[], Awaitable[dict[str, Any]]],
     *, direct_client: Any = None, direct_messages: list[dict[str, str]] | None = None,
-    direct_max_output_tokens: int = 8192,
+    direct_max_output_tokens: int = 8192, response_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Claim, invoke and durably replay one exact request without blind retries.
 
@@ -102,6 +103,10 @@ async def extract_once(
     without a committed result is ambiguous even when the request may not have
     reached the provider. No LLM call is made until the claim is read back.
     """
+    if response_format is not None:
+        from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_response_format
+        if not is_rule_extraction_response_format(response_format):
+            raise ValueError("v3_extraction_format_invalid")
     if set(identity) != _IDENTITY_KEYS or any(not isinstance(v, str) or not v.strip() for v in identity.values()):
         raise ValueError("v3_extraction_identity_invalid")
     if any(not re.fullmatch(r"[0-9a-f]{64}", identity[key]) for key in _DIGEST_KEYS):
@@ -147,7 +152,8 @@ async def extract_once(
 
             return await run_direct_owned_stage(journal=journal, client=direct_client, plan=plan,
                 result_key=result_key, claim_key=claim_key, validate_value=validate_value,
-                validate_response=_validate_response, messages=direct_messages, max_output_tokens=direct_max_output_tokens)
+                validate_response=_validate_response, messages=direct_messages, max_output_tokens=direct_max_output_tokens,
+                response_format=response_format)
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
                                          validate_value=validate_value, validate_response=_validate_response, invoke=invoke)
 

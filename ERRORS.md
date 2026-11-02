@@ -9365,6 +9365,8 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Verification: 4851APIunitPASS/61.15s,49focusedPASS,91offlineproducer/workflow/lifecyclePASS,baseline1005/2173. New PostgreSQL17check proof pending; earlier16check proof is not substituted. Synthetic pinnedCLI accepted schema/strictJSONobject11099ms,7543input726output; extra synthetic_shape=false remains unaccepted, no full-course proof. New runtime deployment and allthree semantic courses remain open.
 - Prevention: constrain the artifact object rather than asking the model to encode JSON inside text. Keep formatting/shape, source semantics and full-course acceptance distinct; retain rejected bytes privately before diagnostics are lost. Unknown provider outcomes are not retryable or refundable automatically.
 
+- Follow-up2026-11-03: DEV1330 Standards ad5c3466 returned five HTTP200 responses40535input5530output, but fifth JSON-valid extraction failed downstream and its response was lost before finalizer. Exact offending field is UNKNOWN. LOCAL V2 now types extraction fields at producer, binds schema/request identity, and retains bounded complete managed response through application validation/metadata/finalization failures. Native V2 uses the same atomic pending substrate and truthful content-only rejection custody, request-local DeepSeek reasoningLOW/profile binding. Saved synthetic array-valued timing and interrupted/finalizer/source/owner/route regressions cover the failure class; they do not identify the actual lost fifth field. No blind replay or quota refund. Final integrated/PG/runtime/full-course gates remain separate.
+
 ## DEV-MODEL-ISOLATION-001 - DEV shared a connector whose production route had become active
 
 - Date: 2026-11-03.

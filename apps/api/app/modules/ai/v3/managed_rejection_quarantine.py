@@ -46,8 +46,41 @@ async def retain_managed_rejection(*, journal: Any, plan: dict[str, Any], result
     receipt = {**rejection.checked_receipt(tenant_id=journal.tenant_id, user_id=journal.user_id,
         job_id=journal.job_id, stage=digest, route_fingerprint=route),
         "stage_sha256": digest, "route_fingerprint": route}
+    await _retain(journal=journal, plan=plan, result_key=result_key, claim_key=claim_key,
+                  marker=marker, verify_source=verify_source, receipt=receipt, native=False)
+
+
+async def retain_native_rejection(*, journal: Any, plan: dict[str, Any], result_key: str, claim_key: str,
+                                  marker: dict[str, str], rejection: Any, verify_source: Any) -> None:
+    from app.modules.ai.v3.rejected_artifact import ModelArtifactRejectedError
+    _owner(plan, journal)
+    if type(rejection) is not ModelArtifactRejectedError or not callable(verify_source):
+        raise ValueError("native_quarantine_unverified")
+    identity = plan.get("identity")
+    route = plan.get("route_fingerprint") or (identity.get("route_fingerprint") if isinstance(identity, dict) else None)
+    request = plan.get("request_sha256") or (identity.get("prompt_sha256") if isinstance(identity, dict) else None)
+    expected = journal.expected_native_profile
+    if not isinstance(expected, dict) or not isinstance(route, str) or route != expected.get("fingerprint") or not isinstance(request, str):
+        raise ValueError("native_quarantine_profile_invalid")
+    receipt = {**rejection.checked_receipt(job_id=journal.job_id, route=route, request=request),
+               "stage_sha256": _digest(plan), "route_fingerprint": route}
+    await _retain(journal=journal, plan=plan, result_key=result_key, claim_key=claim_key,
+                  marker=marker, verify_source=verify_source, receipt=receipt, native=True)
+
+
+async def _retain(*, journal: Any, plan: dict[str, Any], result_key: str, claim_key: str,
+                  marker: dict[str, str], verify_source: Any, receipt: dict[str, Any], native: bool) -> None:
+    digest = _digest(plan)
     async with journal.sessions() as session:
         job = await _locked_job(session, journal, journal.user_id)
+        if native:
+            from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY
+            from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
+            from app.modules.ai.v3.revision_policy import read_policy
+            if (journal.expected_revision_policy != REVISION_POLICY
+                    or read_policy(job.params.get("source_analysis")) != REVISION_POLICY
+                    or job.result.get(PROFILE_KEY) != journal.expected_native_profile):
+                raise ValueError("native_quarantine_profile_changed")
         expected = {"claim_key": claim_key, "result_key": result_key, "token": marker.get("claim_token")}
         if marker.get("identity") != digest or checked_entries(job.result).get(digest) != expected:
             raise ValueError("managed_quarantine_marker_unverified")

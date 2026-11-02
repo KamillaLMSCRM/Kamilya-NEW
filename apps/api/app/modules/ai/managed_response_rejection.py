@@ -5,13 +5,15 @@ import base64
 import hashlib
 import json
 import re
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from app.modules.ai.direct_luna_responses_client import ResponsesResult
 from app.modules.ai.managed_luna_client import MAX_RESPONSE_BYTES, MODEL, ManagedLunaError
 
 _CODE = "managed_luna_response_rejected"
-_PHASES = frozenset({"envelope", "model", "choices", "message", "content_limit", "content_json", "usage", "structured_mode", "structured_shape"})
+_PHASES = frozenset({"envelope", "model", "choices", "message", "content_limit", "content_json", "usage", "structured_mode", "structured_shape", "stage_validation", "stage_metadata", "stage_finalize"})
 _SUBTYPES = {"source_first_qa_duplicate_key": "duplicate", "source_first_qa_nonfinite_number": "nonfinite",
              "source_first_qa_response_invalid": "nonobject"}
 
@@ -33,6 +35,13 @@ class ManagedResponseRejectedError(ManagedLunaError):
     """Raw bytes are accessible only through exact scope and route verification."""
 
     __slots__ = ("_scope", "_stage", "_route", "_wire_hash", "_phase", "_raw", "_subtype", "_position", "_sealed")
+
+    def for_completed_stage(self, phase: str, cause: Exception) -> ManagedResponseRejectedError:
+        if phase not in {"stage_validation", "stage_metadata", "stage_finalize"}:
+            raise ValueError("managed_completed_phase_invalid")
+        return ManagedResponseRejectedError(raw=self._raw, tenant_id=self._scope[0], user_id=self._scope[1],
+            job_id=self._scope[2], stage=self._stage, route_fingerprint=self._route,
+            wire_request_sha256=self._wire_hash, phase=phase, cause=cause)
 
     def __init__(self, *, raw: bytes, tenant_id: UUID, user_id: UUID, job_id: str, stage: str,
                  route_fingerprint: str, wire_request_sha256: str, phase: str, cause: Exception):
@@ -79,3 +88,13 @@ class ManagedResponseRejectedError(ManagedLunaError):
                 "body_sha256": hashlib.sha256(self._raw).hexdigest(), "byte_count": len(self._raw),
                 "wire_request_sha256": self._wire_hash, "phase": self._phase, "subtype": self._subtype,
                 "position": pos, "line": line, "column": col}
+
+
+@dataclass(frozen=True, repr=False)
+class ManagedResponsesResult(ResponsesResult):
+    """A successful transport retains one private capture until stage completion."""
+
+    _capture: ManagedResponseRejectedError | None = field(default=None, repr=False, compare=False)
+
+    def rejection_for(self, phase: str, cause: Exception) -> ManagedResponseRejectedError | None:
+        return self._capture.for_completed_stage(phase, cause) if self._capture is not None else None

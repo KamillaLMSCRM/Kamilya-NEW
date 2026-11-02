@@ -41,7 +41,7 @@ class V3GenerationPipeline:
 
     def __init__(self, llm_invoker: Callable[[list[dict[str, str]], dict[str, Any] | None], Any],
                  *, explanation_consistency: bool = False, scoped_revision: bool = False,
-                 structured_author_output: bool = False) -> None:
+                 structured_author_output: bool = False, structured_extraction_output: bool = False) -> None:
         """
         llm_invoker: async or sync callable that accepts messages list and optional response_format,
         returning a parsed JSON dict or string.
@@ -50,6 +50,7 @@ class V3GenerationPipeline:
         self.explanation_consistency = explanation_consistency
         self.scoped_revision = scoped_revision
         self.structured_author_output = structured_author_output is True
+        self.structured_extraction_output = structured_extraction_output is True
 
     async def extract_rule_model(
         self,
@@ -67,7 +68,9 @@ class V3GenerationPipeline:
                 "content": f"ДОКУМЕНТ: {document_title}\nSHA256: {document_sha256}\n\nПОЛНЫЙ ТЕКСТ:\n{document_text}",
             },
         ]
-        raw = await self._call_llm(messages)
+        from app.modules.ai.v3.extraction_response_schema import rule_extraction_response_format
+        raw = await self._call_llm(messages,
+            response_format=rule_extraction_response_format() if self.structured_extraction_output else None)
         rules = [
             RuleEntity(
                 rule_id=r["rule_id"],

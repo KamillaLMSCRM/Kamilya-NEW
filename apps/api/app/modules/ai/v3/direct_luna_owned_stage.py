@@ -31,10 +31,14 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
     expected_model = "gpt-5.6-luna" if type(client) is ManagedLunaClient else "gpt-6-luna"
     from app.modules.ai.v3.stage_checkpoint import _digest
     if response_format is not None:
-        from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
-        if (type(client) is not ManagedLunaClient or plan.get("stage") != "lesson"
-                or not is_lesson_author_response_format(response_format)
-                or plan.get("request_sha256") != _digest([messages, response_format])):
+        from app.modules.ai.v3.response_contracts import response_contract
+        kind = response_contract(response_format)
+        identity = plan.get("identity")
+        lesson = (kind == "lesson" and plan.get("stage") == "lesson"
+                  and plan.get("request_sha256") == _digest([messages, response_format]))
+        extraction = (kind == "extraction" and plan.get("schema") == "v3-rule-extraction-checkpoint-v1"
+                      and isinstance(identity, dict) and identity.get("prompt_sha256") == _digest([messages, response_format]))
+        if type(client) is not ManagedLunaClient or not (lesson or extraction):
             raise ValueError("managed_structured_plan_invalid")
     def validate_with_metadata(value: dict[str, Any]) -> dict[str, Any]:
         from app.modules.ai.v3.stage_checkpoint import _validate_direct_metadata
@@ -86,15 +90,20 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
         # Counting cannot generate a lesson. There is still no pending claim.
         raise PreclaimYieldError("generation_count_deadline_exhausted") from exc
     metadata: dict[str, Any] = {}
+    completed_response: Any = None
+    def completed_rejection(phase: str, cause: Exception) -> Any:
+        from app.modules.ai.managed_response_rejection import ManagedResponsesResult
+        return completed_response.rejection_for(phase, cause) if type(completed_response) is ManagedResponsesResult else None
     try:
         if budget is not None:
             budget.before_claim(generation_seconds=client.generation_deadline_seconds)
         async def invoke() -> dict[str, Any]:
-            nonlocal claimed
+            nonlocal claimed, completed_response
             claimed = True
             result = await client.invoke(capability, tenant_id=UUID(journal.tenant_id), user_id=journal.user_id,
                                          job_id=journal.job_id, ownership_checkpoint=checkpoint,
                                          stage_id=_digest(plan))
+            completed_response = result
             if result.model != expected_model:
                 raise ValueError("owned_luna_metadata_route_mismatch")
             metadata.update({"model": result.model, "usage": {
@@ -103,6 +112,7 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
             return result.content
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
             validate_value=validate_with_metadata, validate_response=validate_response, invoke=invoke,
-            _owned_claim_guard=_owned_claim_guard, _direct_metadata=lambda: metadata)
+            _owned_claim_guard=_owned_claim_guard, _direct_metadata=lambda: metadata,
+            **({"_completed_response": completed_rejection} if type(client) is ManagedLunaClient else {}))
     finally:
         client.discard(capability)

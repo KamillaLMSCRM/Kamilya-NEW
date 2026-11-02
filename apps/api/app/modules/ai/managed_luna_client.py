@@ -109,8 +109,8 @@ class ManagedLunaClient:
         request = {"model": MODEL, "messages": messages, "temperature": 0.2,
                    "max_tokens": max_output_tokens, "response_format": {"type": "json_object"}}
         if response_format is not None:
-            from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
-            if not is_lesson_author_response_format(response_format):
+            from app.modules.ai.v3.response_contracts import response_contract
+            if response_contract(response_format) is None:
                 raise ValueError("managed_luna_structured_format_invalid")
             request["response_format"] = response_format
             request["structured_output_policy"] = "typed-json-object-v1"
@@ -205,9 +205,9 @@ class ManagedLunaClient:
             category = "structured_mode"
             requested = json.loads(payload)
             if "structured_output_policy" in requested:
-                from app.modules.ai.v3.author_response_schema import lesson_author_schema_hash
+                from app.modules.ai.v3.response_contracts import response_contract_hash
                 if (body.get("structured_output_policy") != "typed-json-object-v1"
-                        or body.get("response_format_sha256") != lesson_author_schema_hash()):
+                        or body.get("response_format_sha256") != response_contract_hash(requested["response_format"])):
                     raise ValueError("managed_luna_structured_mode_unverified")
             elif "structured_output_policy" in body or "response_format_sha256" in body:
                 raise ValueError("managed_luna_unrequested_structured_mode")
@@ -226,9 +226,9 @@ class ManagedLunaClient:
             category = "content_json"
             content = parse_source_first_response(message["content"])
             if "structured_output_policy" in requested:
-                from app.modules.ai.v3.author_response_schema import is_lesson_author_response
+                from app.modules.ai.v3.response_contracts import matches_response_contract
                 category = "structured_shape"
-                if not is_lesson_author_response(content):
+                if not matches_response_contract(content, requested["response_format"]):
                     raise ValueError("managed_luna_structured_shape_invalid")
             category = "usage"
             usage = body.get("usage")
@@ -238,7 +238,18 @@ class ManagedLunaClient:
             limit = json.loads(payload)["max_tokens"]
             if type(incoming) is not int or incoming < 0 or type(outgoing) is not int or not 0 <= outgoing <= limit:
                 raise ValueError
-            result = ResponsesResult(content=content, model=MODEL, usage=LunaUsage(incoming, outgoing, None, None))
+            from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError, ManagedResponsesResult
+            capture = None
+            if stage_id is not None and self._token.encode("utf-8") not in raw:
+                try:
+                    capture = ManagedResponseRejectedError(raw=bytes(raw), tenant_id=tenant_id, user_id=user_id,
+                        job_id=job_id, stage=stage_id, route_fingerprint=self.cache_fingerprint(),
+                        wire_request_sha256=hashlib.sha256(payload).hexdigest(), phase="stage_validation",
+                        cause=ValueError("managed_stage_validation_unverified"))
+                except (ValueError, TypeError):
+                    pass
+            result = ManagedResponsesResult(content=content, model=MODEL,
+                usage=LunaUsage(incoming, outgoing, None, None), _capture=capture)
         except Exception as rejection:
             _diagnostic("failure", job_id, stage_id, started, status, category)
             if stage_id is not None and self._token.encode("utf-8") not in raw:

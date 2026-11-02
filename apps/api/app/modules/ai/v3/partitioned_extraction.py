@@ -56,6 +56,7 @@ async def extract_partitioned_rule_model(
     invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     *, direct_client: Any = None, direct_max_output_tokens: int = 8192,
+    structured_output: bool = False,
 ) -> tuple[DocumentRuleModel, list[str]]:
     """Extract exact source units. Context is navigational, never coverage proof."""
     if not corpus.documents or any(doc.source_text is None or not doc.source_revision for doc in corpus.documents):
@@ -96,17 +97,21 @@ async def extract_partitioned_rule_model(
                     f"СОСЕДНИЙ КОНТЕКСТ:\n{context}\n\nЦЕЛЕВОЙ ФРАГМЕНТ:\n{unit.text}"
                 )},
             ]
+            from app.modules.ai.v3.extraction_response_schema import rule_extraction_response_format
+            response_format = rule_extraction_response_format() if structured_output else {"type": "json_object"}
             identity = build_extraction_identity(
                 tenant_id=corpus.tenant_id, job_id=journal.job_id, document_id=doc.doc_id,
                 source_revision=doc.source_revision, source_text=doc.source_text, unit=unit,
                 context=context, messages=messages, route_fingerprint=route_fingerprint,
+                **({"response_format": response_format} if structured_output else {}),
             )
 
-            async def call(payload: list[dict[str, str]] = messages) -> dict[str, Any]:
-                return await invoke(payload, {"type": "json_object"})
+            async def call(payload: list[dict[str, str]] = messages, output_format: dict[str, Any] = response_format) -> dict[str, Any]:
+                return await invoke(payload, output_format)
 
             response = await extract_once(journal, identity, call, direct_client=direct_client,
-                                          direct_messages=messages, direct_max_output_tokens=direct_max_output_tokens)
+                                          direct_messages=messages, direct_max_output_tokens=direct_max_output_tokens,
+                                          **({"response_format": response_format} if structured_output else {}))
             source_section = source_section_label(doc.source_text, unit)
             if source_section and len(corpus.documents) > 1:
                 source_section = f"{doc.title} (документ {doc_index}): {source_section}"

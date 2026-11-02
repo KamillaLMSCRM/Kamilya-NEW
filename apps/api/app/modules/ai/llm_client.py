@@ -61,6 +61,7 @@ from app.modules.ai.embedding_space import EmbeddingSpace
 
 RequestProfile = Literal["evidence_low", "course_generation"]
 _REQUEST_PROFILES = (None, "evidence_low", "course_generation")
+COURSE_GENERATION_MAX_TOKENS = 16384
 
 EmbeddingProviderProgressCallback = Callable[[int, int, str], Awaitable[None]]
 EmbeddingProgressCallback = Callable[[int, int, str, int], Awaitable[None]]
@@ -217,7 +218,8 @@ def _managed_profile_attempt(
     request_profile: RequestProfile,
 ) -> tuple[LLMProviderConfig, int, float]:
     """Return one request-local managed DeepSeek attempt configuration."""
-    deadline = policy.number(f"{request_profile}.deepseek_seconds")
+    deadline = policy.number("provider.deepseek.timeout_seconds" if request_profile == "course_generation"
+                             else f"{request_profile}.deepseek_seconds")
     transport_timeout = max(config.timeout, deadline) if request_profile == "course_generation" else config.timeout
     return (
         replace(
@@ -230,7 +232,7 @@ def _managed_profile_attempt(
                 "reasoning_effort": "low",
             },
         ),
-        policy.integer(f"{request_profile}.max_tokens"),
+        COURSE_GENERATION_MAX_TOKENS if request_profile == "course_generation" else policy.integer(f"{request_profile}.max_tokens"),
         deadline,
     )
 
@@ -355,6 +357,10 @@ def _response_format_for_provider(
     response_format: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
     """Map structured-output requests to each provider's supported dialect."""
+    from app.modules.ai.v3.response_contracts import response_contract
+    if response_contract(response_format) is not None:
+        # LLMClient keeps the declared contract for validation and chooses the wire dialect.
+        return response_format
     if provider_name == "deepseek" and response_format and response_format.get("type") == "json_schema":
         return {"type": "json_object"}
     return response_format
@@ -795,9 +801,30 @@ class LLMClient(_BaseProviderClient):
                 )
             request_max_tokens = configured_max_tokens
 
+        from app.modules.ai.v3.response_contracts import (
+            matches_response_contract,
+            response_contract,
+            response_contract_hash,
+        )
+        contract = response_contract(response_format)
+        structured_reserve = contract is not None and self.config.name == "chatgpt-reserve"
+        wire_format = {"type": "json_object"} if contract is not None and not structured_reserve else response_format
+        request_messages = _structured_output_messages(messages, wire_format)
+        if contract is not None and not structured_reserve:
+            # The native JSON-object dialect needs the exact schema in trusted instructions.
+            assert response_format is not None
+            suffix = "Required response JSON schema:\n" + json.dumps(response_format["json_schema"]["schema"],
+                ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            request_messages = [dict(row) for row in request_messages]
+            for row in request_messages:
+                if row.get("role") == "system" and isinstance(row.get("content"), str):
+                    row["content"] += "\n" + suffix
+                    break
+            else:
+                request_messages = [{"role": "system", "content": suffix}, *request_messages]
         payload: dict[str, Any] = {
             "model": self.config.model,
-            "messages": _structured_output_messages(messages, response_format),
+            "messages": request_messages,
             "temperature": self.temperature,
             "max_tokens": request_max_tokens,
         }
@@ -807,12 +834,37 @@ class LLMClient(_BaseProviderClient):
         if self.config.extra_body:
             for k, v in self.config.extra_body.items():
                 payload.setdefault(k, v)
-        if response_format:
-            payload["response_format"] = response_format
+        if wire_format:
+            payload["response_format"] = wire_format
+        if structured_reserve:
+            payload["structured_output_policy"] = "typed-json-object-v1"
 
         data = await self._request(payload)
         msg = data["choices"][0]["message"]
         content = msg.get("content") or msg.get("reasoning") or ""
+        if contract is not None:
+            from app.modules.ai.source_first_response import parse_source_first_response
+            from app.modules.ai.v3.rejected_artifact import ModelArtifactRejectedError
+            assert response_format is not None
+            try:
+                if structured_reserve and (data.get("model") != self.config.model
+                        or data.get("structured_output_policy") != "typed-json-object-v1"
+                        or data.get("response_format_sha256") != response_contract_hash(response_format)):
+                    raise ValueError("v3_reserve_contract_unverified")
+                if not isinstance(msg.get("content"), str) or not matches_response_contract(
+                        parse_source_first_response(msg["content"]), response_format):
+                    raise ValueError("v3_provider_contract_invalid")
+            except ValueError:
+                rejected = msg.get("content")
+                if (not isinstance(rejected, str)
+                        or (self.config.api_key and self.config.api_key in rejected)):
+                    raise ValueError("v3_provider_contract_invalid") from None
+                observed_usage = data.get("usage")
+                observed_usage = observed_usage if isinstance(observed_usage, dict) else {}
+                raise ModelArtifactRejectedError(rejected, provider=self.config.name,
+                    model=data.get("model") if data.get("model") == self.config.model else None,
+                    input_tokens=observed_usage.get("prompt_tokens"),
+                    output_tokens=observed_usage.get("completion_tokens")) from None
         if not content:
             logger.warning(
                 f"[{self.config.name}] empty content, finish_reason=" f"{data['choices'][0].get('finish_reason')}"
@@ -829,6 +881,10 @@ class LLMClient(_BaseProviderClient):
             completion_tokens=completion_tokens,
             finish_reason=data["choices"][0].get("finish_reason"),
             content_is_reasoning=not bool(msg.get("content")) and bool(msg.get("reasoning")),
+            provider_name=self.config.name,
+            model=(data.get("model") if data.get("model") == self.config.model else None),
+            usage_complete=("prompt_tokens" in usage and "completion_tokens" in usage
+                and type(raw_prompt) is int and raw_prompt >= 0 and type(raw_completion) is int and raw_completion >= 0),
         )
 
 
@@ -836,12 +892,14 @@ class _LLMResponse:
     """Simple response wrapper matching LangChain's .content attribute."""
 
     def __init__(self, content: str, *, prompt_tokens: int = 0, completion_tokens: int = 0,
-                 finish_reason: str | None = None, content_is_reasoning: bool = False):
+                 finish_reason: str | None = None, content_is_reasoning: bool = False,
+                 provider_name: str | None = None, model: str | None = None, usage_complete: bool = False):
         self.content = content
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.finish_reason = finish_reason
         self.content_is_reasoning = content_is_reasoning
+        self.provider_name, self.model, self.usage_complete = provider_name, model, usage_complete
 
 
 T = TypeVar("T")

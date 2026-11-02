@@ -31,7 +31,7 @@ from app.modules.ai.v3.pending_stage_transactions import _locked_job, checked_en
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
 from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
-from app.modules.ai.v3.revision_policy import read_policy
+from app.modules.ai.v3.revision_policy import is_scoped_policy, read_policy
 from app.modules.ai.v3.stage_checkpoint import _digest as stage_digest
 from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
 
@@ -106,7 +106,7 @@ async def _candidate_in_session(
             or not isinstance(child_analysis, dict)
             or child_analysis.get("generation_engine") != "evidence_v3"
             or child_analysis.get(QA_KEY) != MANAGED_POLICY
-            or read_policy(child_analysis) != REVISION_POLICY
+            or not is_scoped_policy(read_policy(child_analysis))
         ):
             raise ValueError("reuse_child_invalid")
         if await journal.verify_source(session, child, plan) is not True:
@@ -139,7 +139,7 @@ async def _candidate_in_session(
             not isinstance(parent_analysis, dict)
             or parent_analysis.get("generation_engine") != "evidence_v3"
             or parent_analysis.get(QA_KEY) != MANAGED_POLICY
-            or read_policy(parent_analysis) != REVISION_POLICY
+            or read_policy(parent_analysis) != read_policy(child_analysis)
             or not isinstance(child_params.get("documents"), list)
             or not child_params["documents"]
             or not equivalent(parent_params.get("documents"), child_params["documents"])

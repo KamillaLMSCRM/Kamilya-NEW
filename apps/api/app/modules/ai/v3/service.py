@@ -1674,10 +1674,10 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
                                   review_records: dict[str, Any] | None = None,
                                   allow_repair: bool = False, revision_policy: str | None = None) -> None:
     from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
-    from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
+    from app.modules.ai.v3.revision_policy import is_scoped_policy
 
     owned = policy in OWNED_POLICIES
-    if not owned and (revision_policy != REVISION_POLICY or policy is not None):
+    if not owned and (not is_scoped_policy(revision_policy) or policy is not None):
         return
     from app.modules.ai.v3.diversity_review import review_final_lesson
     from app.modules.ai.v3.owned_source_context import OwnedSourceContext
@@ -1688,10 +1688,13 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
         valid = (type(journal) is PendingStageJournal and direct_client is not None
                  and callable(journal.verify_source) and journal.tenant_id == corpus.tenant_id)
     else:
+        from app.modules.ai.v3.revision_policy import POLICY
         source_context = getattr(journal, "expected_revision_source", None)
-        valid = (type(journal) is WorkerCycleJournal and direct_client is None
+        journal_valid = (type(journal) is WorkerCycleJournal or (revision_policy == POLICY
+            and type(journal) is PendingStageJournal and callable(journal.verify_source)))
+        valid = (journal_valid and direct_client is None
                  and journal.tenant_id == corpus.tenant_id
-                 and journal.expected_revision_policy == REVISION_POLICY
+                 and journal.expected_revision_policy == revision_policy
                  and type(source_context) is OwnedSourceContext
                  and source_context.journal is journal and source_context.corpus is corpus)
     if not valid:
@@ -1783,10 +1786,11 @@ async def generate_v3_course_from_corpus(
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
     from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
+    from app.modules.ai.v3.revision_policy import is_scoped_policy
 
-    if revision_policy is not None and revision_policy != REVISION_POLICY:
+    if revision_policy is not None and not is_scoped_policy(revision_policy):
         raise ValueError("v3_revision_policy_invalid")
-    scoped_revision = revision_policy == REVISION_POLICY
+    scoped_revision = is_scoped_policy(revision_policy)
     if allow_unreviewed_on_unknown and extraction_journal is None:
         raise ValueError("v3_unknown_review_requires_journal")
     if direct_client is not None and extraction_journal is None:
@@ -1842,10 +1846,14 @@ async def generate_v3_course_from_corpus(
     neutral_fresh_quality = scoped_revision and authenticated_qa_policy is None
     quality_explanations = neutral_fresh_quality or direct_client is not None
     from app.modules.ai.managed_luna_client import ManagedLunaClient
-    structured_author = scoped_revision and type(direct_client) is ManagedLunaClient
+    structured_author = scoped_revision and (type(direct_client) is ManagedLunaClient
+        or revision_policy == REVISION_POLICY and direct_client is None)
+    structured_extraction = revision_policy == REVISION_POLICY and (
+        type(direct_client) is ManagedLunaClient or direct_client is None)
     pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=quality_explanations,
                                     scoped_revision=scoped_revision,
-                                    **({"structured_author_output": True} if structured_author else {}))
+                                    **({"structured_author_output": True} if structured_author else {}),
+                                    **({"structured_extraction_output": True} if structured_extraction else {}))
 
     # Stage 1: Extract structured rule model
     if progress_callback:
@@ -1864,6 +1872,7 @@ async def generate_v3_course_from_corpus(
         rule_model, extraction_warnings = await extract_partitioned_rule_model(
             corpus, extraction_journal, route_fingerprint, llm_invoker, cancellation_callback,
             direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens,
+            **({"structured_output": True} if structured_extraction else {}),
         )
     else:
         rule_model = await pipeline.extract_rule_model(
