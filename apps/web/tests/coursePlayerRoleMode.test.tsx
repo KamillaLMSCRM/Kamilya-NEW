@@ -261,6 +261,29 @@ describe('course player role modes', () => {
     if (!hasEvidence) await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/my-courses'));
   });
 
+  it('persists outline navigation in the URL and restores that lesson on reload', async () => {
+    const second = { ...lesson, id: 'lesson-2', title: 'Второй урок', content: 'Текст второго урока', order_index: 1 };
+    const baseFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/courses/course-1/structure')
+      ? Promise.resolve(jsonResponse({ modules: [{ id: 'module-1', title: 'Модуль', order_index: 0, lessons: [lesson, second] }] }))
+      : String(input).endsWith('/v1/quizzes/by-lesson/lesson-2') ? Promise.resolve(jsonResponse({}, 404)) : baseFetch(input, init));
+    useAuthStore.setState({ accessToken: 'student-token', user: { id: 'student-1', role: 'student' } as never, initialized: true });
+    const view = render(<CoursePlayerPage />);
+    await screen.findByRole('heading', { name: 'Второй урок' });
+    searchParamsState.current = new URLSearchParams('context=training-log');
+    view.rerender(<CoursePlayerPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Урок: Шестой урок' }));
+    expect(routerPush).toHaveBeenLastCalledWith('/courses/course-1?context=training-log&lessonId=lesson-1');
+    fireEvent.click(screen.getByRole('button', { name: 'Урок: Второй урок' }));
+    expect(routerPush).toHaveBeenLastCalledWith('/courses/course-1?context=training-log&lessonId=lesson-2');
+    view.unmount();
+    searchParamsState.current = new URLSearchParams('lessonId=lesson-2');
+    render(<CoursePlayerPage />);
+    expect(await screen.findByRole('heading', { name: 'Второй урок' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Урок: Второй урок' })).toHaveAttribute('aria-current', 'step');
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST' || init?.method === 'PUT')).toHaveLength(0);
+  });
+
   it('stacks the course outline above lesson content on narrow screens', async () => {
     useAuthStore.setState({
       accessToken: 'student-token',
