@@ -5,7 +5,8 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
 
-from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
+from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient, ResponsesCountTimeoutError
+from app.modules.ai.v3.cooperative_budget import PreclaimYieldError, active_budget
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.owned_stage_inspection import inspect_owned_stage
 from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -56,9 +57,18 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
             await verify_source_safely(verify_source, session, job, plan)
         return True
 
-    capability = await client.prepare(messages, max_output_tokens=max_output_tokens, ownership_checkpoint=checkpoint)
+    budget = active_budget.get()
+    if budget is not None:
+        budget.before_count(generation_seconds=client.generation_deadline_seconds)
+    try:
+        capability = await client.prepare(messages, max_output_tokens=max_output_tokens, ownership_checkpoint=checkpoint)
+    except ResponsesCountTimeoutError as exc:
+        # Counting cannot generate a lesson. There is still no pending claim.
+        raise PreclaimYieldError("generation_count_deadline_exhausted") from exc
     metadata: dict[str, Any] = {}
     try:
+        if budget is not None:
+            budget.before_claim(generation_seconds=client.generation_deadline_seconds)
         async def invoke() -> dict[str, Any]:
             nonlocal claimed
             claimed = True

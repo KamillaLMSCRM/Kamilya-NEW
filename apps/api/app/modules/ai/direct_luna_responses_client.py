@@ -27,6 +27,7 @@ from app.modules.ai.direct_luna_responses_contract import (
 from app.modules.ai.source_first_response import parse_source_first_response
 
 logger = logging.getLogger(__name__)
+COUNT_DEADLINE_SECONDS = 60.0
 
 _REJECTION_STATUSES = frozenset({"incomplete", "failed", "in_progress", "queued", "cancelled"})
 _INCOMPLETE_REASONS = frozenset({"max_output_tokens", "content_filter"})
@@ -53,6 +54,10 @@ def _safe_rejection_details(body: dict[str, Any]) -> tuple[str, str, int | None,
 
 class ResponsesClientError(RuntimeError):
     """Sanitized error; generation errors indicate an unknown outcome."""
+
+
+class ResponsesCountTimeoutError(ResponsesClientError):
+    """The preclaim token-count request exceeded its deadline."""
 
 
 class ResponsesRejectedError(ResponsesClientError):
@@ -110,11 +115,16 @@ class DirectLunaResponsesClient:
                   + self._credential_revision).encode('utf-8')
         return hmac.new(self._key.encode('utf-8'), policy, hashlib.sha256).hexdigest()
 
+    @property
+    def generation_deadline_seconds(self) -> float:
+        return float(self._deadline)
+
     def __repr__(self) -> str:
         return "DirectLunaResponsesClient(<redacted>)"
 
     async def _post(self, endpoint: str, payload: dict[str, Any], *, stage_id: str | None = None) -> str:
         failed = False
+        count_timed_out = False
         raw: bytes = b""
         phase = "count" if endpoint == COUNT_ENDPOINT else "generation"
         status: int | None = None
@@ -131,7 +141,8 @@ class DirectLunaResponsesClient:
                 pass
         record("attempt")
         try:
-            async with asyncio.timeout(self._deadline):
+            deadline = min(self._deadline, COUNT_DEADLINE_SECONDS) if endpoint == COUNT_ENDPOINT else self._deadline
+            async with asyncio.timeout(deadline):
                 async with httpx.AsyncClient(timeout=TIMEOUT, trust_env=False, follow_redirects=False) as client:
                     if self._closed:
                         raise ResponsesClientError("luna_responses_client_closed")
@@ -152,10 +163,18 @@ class DirectLunaResponsesClient:
                                 parts.append(chunk)
                             if not failed:
                                 raw = b"".join(parts)
-        except (Exception, asyncio.CancelledError):
+        except asyncio.CancelledError:
+            record("cancelled")
+            raise
+        except (TimeoutError, httpx.TimeoutException):
+            failed = True
+            count_timed_out = endpoint == COUNT_ENDPOINT
+        except Exception:
             failed = True
         if failed:
             record("failed")
+            if count_timed_out:
+                raise ResponsesCountTimeoutError("luna_responses_count_timeout")
             raise ResponsesClientError("luna_responses_transport_unknown")
         try:
             text = raw.decode("utf-8")
@@ -173,7 +192,7 @@ class DirectLunaResponsesClient:
         try:
             if callable(checkpoint):
                 allowed = await checkpoint() is True
-        except (Exception, asyncio.CancelledError):
+        except Exception:
             pass
         if not allowed:
             raise ResponsesClientError("luna_responses_ownership_unverified")

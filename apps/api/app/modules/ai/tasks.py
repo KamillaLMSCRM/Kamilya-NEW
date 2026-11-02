@@ -63,6 +63,9 @@ try:
         reuse_reason: str | None = None,
     ):
         """Celery task to run the full generation pipeline."""
+        from app.modules.ai.v3.cooperative_budget import CooperativeBudget, active_budget
+
+        execution_budget = CooperativeBudget.start()
         delivery_id = getattr(self.request, "id", None)
         if not isinstance(delivery_id, str) or not delivery_id:
             logger.warning("Generation claim outcome unknown: missing delivery identity")
@@ -134,6 +137,7 @@ try:
             from app.modules.ai import delivery_ownership
 
             ownership_token = delivery_ownership.delivery_id.set(delivery_id)
+            budget_token = active_budget.set(execution_budget)
             try:
                 result = _run_async(
                     run_generation_pipeline(
@@ -157,6 +161,7 @@ try:
                     )
                 )
             finally:
+                active_budget.reset(budget_token)
                 delivery_ownership.delivery_id.reset(ownership_token)
 
             if result.status == "failed":

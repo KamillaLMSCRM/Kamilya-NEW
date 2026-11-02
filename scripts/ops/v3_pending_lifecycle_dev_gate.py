@@ -370,6 +370,120 @@ async def _exercise_abandonment(owner: Any, runtime: Any, schema: str, tenant_a:
         delivery_id.reset(token)
 
 
+async def _exercise_cooperative_resume(owner: Any, runtime: Any, schema: str, tenant_a: Any) -> None:
+    """Real restricted transactions; provider and broker are deliberately offline."""
+    if not EXECUTION_ENABLED:
+        raise RuntimeError("pending_lifecycle_gate_unreviewed")
+    from uuid import uuid4
+
+    import ai_generation_checkpoint_dev_check as canonical
+    from app.modules.ai.delivery_ownership import delivery_id
+    from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
+    from app.modules.ai.job_service import (
+        InMemoryAIJobDispatcher, claim_generation_execution, get_ai_job,
+        interrupt_claimed_generation_execution, resume_interrupted_ai_job,
+    )
+    from app.modules.ai.v3.cooperative_budget import CooperativeBudget, PreclaimYieldError, active_budget
+    from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+    from app.modules.ai.v3.stage_checkpoint import stage_once
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    canonical.validate_schema(schema)
+    job, actor, doc = str(uuid4()), uuid4(), str(uuid4())
+    params = {"documents": [doc], "source_analysis": {
+        "generation_engine": "evidence_v3", "analysis_mode": "direct_source"},
+        "course_structure": {"generation_max_total_lessons": 3},
+        "reference_decisions": [{"synthetic_bound_reference": "unchanged"}],
+        "generation_reservation_required": True, "generation_reservation_released": False}
+    async with owner.begin() as conn:
+        await conn.execute(text(f'''INSERT INTO "{schema}".ai_jobs (id,tenant_id,user_id,status,params,result)
+            VALUES(:j,:t,:u,'pending',CAST(:p AS json),CAST(:r AS json))'''),
+            {"j": job, "t": tenant_a, "u": actor, "p": json.dumps(params), "r": '{"resume_count":0}'})
+    sessions = async_sessionmaker(runtime, expire_on_commit=False)
+    calls: list[str] = []
+    async def verify(*_args: Any) -> bool:
+        return True
+    async def post(endpoint: str, _payload: dict[str, Any], **_kwargs: Any) -> str:
+        calls.append(endpoint)
+        if endpoint.endswith("input_tokens"):
+            return json.dumps({"object": "response.input_tokens", "input_tokens": 12})
+        return json.dumps({"model": "gpt-6-luna", "status": "completed", "output": [{"type": "message",
+            "role": "assistant", "status": "completed", "content": [{"type": "output_text", "text": '{"ok":true}'}]}]})
+    async def forbidden() -> dict[str, Any]:
+        raise AssertionError("cooperative_legacy_invoker_called")
+    async def snapshot() -> tuple[Any, Any]:
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_a)
+            p = await session.scalar(text("SELECT params FROM ai_jobs WHERE id=:j"), {"j": job})
+            rows = (await session.execute(text('''SELECT r.generation_key,c.assessment_status,c.assessment_payload
+                FROM ai_generation_runs r JOIN ai_generation_lesson_checkpoints c ON c.generation_run_id=r.id
+                WHERE r.source_job_id=:j AND r.tenant_id=:t ORDER BY r.generation_key'''),
+                {"j": job, "t": tenant_a})).all()
+            return p, rows
+    first_client = DirectLunaResponsesClient(api_key="synthetic", tenant_id=tenant_a, user_id=actor, job_id=job)
+    first_client._post = post  # type: ignore[method-assign]
+    arguments = {"stage": "lesson", "group_id": "complete", "source_sha256": "a"*64,
+        "route_fingerprint": "b"*64, "messages": [{"role": "user", "content": "synthetic"}],
+        "response_format": {"type": "json_object"}, "invoke": forbidden, "direct_max_output_tokens": 128}
+    token = delivery_id.set(job)
+    try:
+        async with sessions() as session:
+            if not await claim_generation_execution(session, job, str(tenant_a), job):
+                raise AssertionError("cooperative_initial_claim_failed")
+        journal = PendingStageJournal(str(tenant_a), actor, job, sessions, verify_source=verify)
+        if await stage_once(journal, **arguments, direct_client=first_client) != {"ok": True}:
+            raise AssertionError("cooperative_checkpoint_missing")
+        before = await snapshot()
+        async with sessions() as session:
+            if await interrupt_claimed_generation_execution(session, job, str(tenant_a), "foreign"):
+                raise AssertionError("cooperative_foreign_delivery_interrupted")
+            if not await interrupt_claimed_generation_execution(session, job, str(tenant_a), job):
+                raise AssertionError("cooperative_owned_interrupt_failed")
+        if await snapshot() != before:
+            raise AssertionError("cooperative_interruption_lost_state")
+        dispatcher = InMemoryAIJobDispatcher()
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_a)
+            owned = await get_ai_job(session, job, tenant_id=str(tenant_a))
+            if owned is None:
+                raise AssertionError("cooperative_owned_job_missing")
+            await resume_interrupted_ai_job(session, job=owned, tenant_id=tenant_a,
+                task_kwargs={"job_id": job}, active_limit=8, worker_concurrency=1,
+                historical_estimate_seconds=510, dispatcher=dispatcher)
+        if len(dispatcher.submissions) != 1 or await snapshot() != before:
+            raise AssertionError("cooperative_resume_changed_params_or_checkpoints")
+        new_delivery = dispatcher.submissions[0][1]
+        async with sessions() as session:
+            if await claim_generation_execution(session, job, str(tenant_a), job):
+                raise AssertionError("cooperative_old_delivery_reclaimed")
+            if not await claim_generation_execution(session, job, str(tenant_a), new_delivery):
+                raise AssertionError("cooperative_new_delivery_not_claimed")
+        cold_token = delivery_id.set(new_delivery)
+        budget_token = active_budget.set(CooperativeBudget(deadline=0))
+        cold_client = DirectLunaResponsesClient(api_key="synthetic", tenant_id=tenant_a, user_id=actor, job_id=job)
+        cold_client._post = post  # type: ignore[method-assign]
+        try:
+            cold = PendingStageJournal(str(tenant_a), actor, job, sessions, verify_source=verify)
+            if await stage_once(cold, **arguments, direct_client=cold_client) != {"ok": True}:
+                raise AssertionError("cooperative_cold_replay_failed")
+            try:
+                await stage_once(cold, **{**arguments, "group_id": "fresh"}, direct_client=cold_client)
+            except PreclaimYieldError:
+                pass
+            else:
+                raise AssertionError("cooperative_fresh_generation_not_yielded")
+            if len(calls) != 2 or await snapshot() != before:
+                raise AssertionError("cooperative_replay_or_yield_repeated_provider")
+        finally:
+            cold_client.close()
+            active_budget.reset(budget_token)
+            delivery_id.reset(cold_token)
+    finally:
+        first_client.close()
+        delivery_id.reset(token)
+
+
 async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
                    job_a: str, _resume_job: str, checks: list[str]) -> None:
     if not EXECUTION_ENABLED:
@@ -735,6 +849,8 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         checks.append("fresh_revision_policy_source_drift_fenced")
         await _exercise_abandonment(owner, runtime, schema, tenant_a, tenant_b)
         checks.append("abandon_owned_pending_race_fenced")
+        await _exercise_cooperative_resume(owner, runtime, schema, tenant_a)
+        checks.append("cooperative_interrupt_resume_cold_replay_fenced")
     finally:
         delivery_id.reset(token)
 
@@ -792,7 +908,8 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                 "sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
                 "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown",
                 "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls",
-                "fresh_revision_policy_source_drift_fenced", "abandon_owned_pending_race_fenced"}
+                "fresh_revision_policy_source_drift_fenced", "abandon_owned_pending_race_fenced",
+                "cooperative_interrupt_resume_cold_replay_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True
             or result.get("passed") is not True or result.get("cleanup") is not True

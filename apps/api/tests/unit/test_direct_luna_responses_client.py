@@ -8,7 +8,10 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient, ResponsesClientError
+from app.modules.ai.direct_luna_responses_client import (
+    DirectLunaResponsesClient,
+    ResponsesClientError,
+)
 
 
 @pytest.fixture
@@ -71,7 +74,7 @@ async def test_foreign_scope_and_cancel_do_not_generate(fixture):
     with pytest.raises(ResponsesClientError, match="capability_invalid"):
         await client.invoke(cap, tenant_id=tenant, user_id=uuid4(), job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
     cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
-    with pytest.raises(ResponsesClientError, match="ownership_unverified"):
+    with pytest.raises(asyncio.CancelledError):
         await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(side_effect=asyncio.CancelledError()))
     assert len(requests) == 2
 
@@ -111,7 +114,7 @@ async def test_transport_diagnostic_received_is_not_a_completion_claim(fixture, 
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("failure", ["timeout", "cancel", "status_429", "malformed", "incomplete"])
+@pytest.mark.parametrize("failure", ["timeout", "connect_timeout", "cancel", "status_429", "malformed", "incomplete"])
 async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, caplog, failure):
     def deny(*args, **kwargs):
         raise AssertionError("network denied")
@@ -128,6 +131,8 @@ async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, 
             return httpx.Response(200, stream=Stream(b'{"object":"response.input_tokens","input_tokens":12}'))
         if failure == "timeout":
             raise httpx.ReadTimeout("private-response-secret")
+        if failure == "connect_timeout":
+            raise httpx.ConnectTimeout("private-response-secret")
         if failure == "cancel":
             raise asyncio.CancelledError("private-response-secret")
         if failure == "status_429":
@@ -143,7 +148,7 @@ async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, 
     capability = await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
                                       max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
     with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
-        with pytest.raises(ResponsesClientError) as error:
+        with pytest.raises(asyncio.CancelledError if failure == "cancel" else ResponsesClientError) as error:
             await client.invoke(capability, tenant_id=tenant, user_id=user, job_id=job,
                                 ownership_checkpoint=AsyncMock(return_value=True), stage_id="a" * 64)
         with pytest.raises(ResponsesClientError, match="capability_invalid"):
@@ -154,8 +159,10 @@ async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, 
     assert f"job={job} stage={'a' * 64} phase=generation event=attempt" in caplog.text
     if failure == "status_429":
         assert "event=failed status=429 classification=http_status" in caplog.text
-    elif failure in ("timeout", "cancel"):
+    elif failure in ("timeout", "connect_timeout"):
         assert "event=failed status=None classification=transport_unknown" in caplog.text
+    elif failure == "cancel":
+        assert "event=cancelled status=None classification=transport_unknown" in caplog.text
     else:
         assert "event=received status=200 classification=body_received" in caplog.text
         assert str(error.value) == "luna_responses_generation_unverified"
@@ -164,7 +171,9 @@ async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, 
             category = "envelope_schema"
         assert f"luna_generation_validation job={job} stage={'a' * 64} classification={category}" in caplog.text
     for secret in ("private-response-secret", "private-synthetic-source", "synthetic-secret"):
-        assert secret not in caplog.text and secret not in str(error.value)
+        assert secret not in caplog.text
+        if failure != "cancel":
+            assert secret not in str(error.value)
 
 
 @pytest.mark.asyncio
@@ -239,11 +248,53 @@ async def test_count_timeout_sanitized_no_generation(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_count_has_60_second_deadline_generation_keeps_600(fixture, monkeypatch):
+    from app.modules.ai import direct_luna_responses_client as module
+    client, tenant, user, _, _ = fixture
+    assert client.generation_deadline_seconds == 600.0
+    actual_timeout = asyncio.timeout
+    deadlines = []
+    def record(seconds):
+        deadlines.append(seconds)
+        return actual_timeout(seconds)
+    monkeypatch.setattr(module.asyncio, "timeout", record)
+    capability = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                      ownership_checkpoint=AsyncMock(return_value=True))
+    await client.invoke(capability, tenant_id=tenant, user_id=user, job_id="job",
+                        ownership_checkpoint=AsyncMock(return_value=True))
+    assert deadlines == [60.0, 600.0]
+
+
+@pytest.mark.asyncio
+async def test_external_cancel_during_count_propagates_without_generation(monkeypatch):
+    def deny(*_args, **_kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    entered = asyncio.Event()
+    requests = []
+    async def handler(request):
+        requests.append(request.url.path)
+        entered.set()
+        await asyncio.Event().wait()
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    client = DirectLunaResponsesClient(api_key="synthetic", tenant_id=uuid4(), user_id=uuid4(), job_id="job")
+    task = asyncio.create_task(client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                              ownership_checkpoint=AsyncMock(return_value=True)))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert requests == ["/v1/responses/input_tokens"] and not client._prepared
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("result", [False, None, asyncio.CancelledError("synthetic")])
 async def test_denied_or_cancelled_ownership_prevents_count(fixture, result):
     client, _, _, _, requests = fixture
     checkpoint = AsyncMock(side_effect=result) if isinstance(result, BaseException) else AsyncMock(return_value=result)
-    with pytest.raises(ResponsesClientError, match="ownership_unverified"):
+    with pytest.raises(asyncio.CancelledError if isinstance(result, asyncio.CancelledError) else ResponsesClientError):
         await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=checkpoint)
     assert not requests
 

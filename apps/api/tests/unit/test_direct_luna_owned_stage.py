@@ -1,10 +1,14 @@
+import asyncio
+import socket
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import httpx
 import pytest
 
 from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
+from app.modules.ai.v3.cooperative_budget import PreclaimYieldError
 from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -116,6 +120,89 @@ async def test_count_failure_leaves_no_claim_or_generation(monkeypatch):
         await run_direct_owned_stage(**options(journal, client, plan, validate))
     assert not fake.plans and not has_pending(fake.job.result)
     invoke.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_real_client_count_wall_timeout_leaves_no_claim_or_generation(monkeypatch):
+    fake, journal, client, plan, validate = setup()
+    def deny(*_args, **_kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    requests = []
+    async def handler(request):
+        requests.append(request.url.path)
+        await asyncio.Event().wait()
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.COUNT_DEADLINE_SECONDS", 0.01)
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    with pytest.raises(PreclaimYieldError, match="generation_count_deadline_exhausted"):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    assert requests == ["/v1/responses/input_tokens"]
+    assert not fake.plans and not has_pending(fake.job.result)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("timeout_type", [httpx.ConnectTimeout, httpx.ReadTimeout])
+async def test_httpx_count_timeout_never_claims_or_generates(monkeypatch, timeout_type):
+    fake, journal, client, plan, validate = setup()
+    def deny(*_args, **_kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    requests = []
+    def handler(request):
+        requests.append(request.url.path)
+        raise timeout_type("synthetic private detail")
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    with pytest.raises(PreclaimYieldError, match="generation_count_deadline_exhausted"):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    assert requests == ["/v1/responses/input_tokens"]
+    assert not fake.plans and not has_pending(fake.job.result)
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_claim_retains_unknown_and_never_repeats(monkeypatch):
+    fake, journal, client, plan, validate = setup()
+    prepare = AsyncMock(return_value=object())
+    invoke = AsyncMock(side_effect=asyncio.CancelledError())
+    monkeypatch.setattr(client, "prepare", prepare)
+    monkeypatch.setattr(client, "invoke", invoke)
+    with pytest.raises(ExtractionOutcomeUnknownError):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    assert has_pending(fake.job.result)
+    with pytest.raises(ExtractionOutcomeUnknownError):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    prepare.assert_awaited_once()
+    invoke.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("timeout_type", [httpx.ConnectTimeout, httpx.ReadTimeout])
+async def test_httpx_generation_timeout_keeps_hold_no_repeat(monkeypatch, timeout_type):
+    fake, journal, client, plan, validate = setup()
+    def deny(*_args, **_kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    requests = []
+    class CountStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'{"object":"response.input_tokens","input_tokens":12}'
+    def handler(request):
+        requests.append(request.url.path)
+        if request.url.path.endswith("input_tokens"):
+            return httpx.Response(200, stream=CountStream())
+        raise timeout_type("synthetic private detail")
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    with pytest.raises(ExtractionOutcomeUnknownError):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    assert has_pending(fake.job.result)
+    with pytest.raises(ExtractionOutcomeUnknownError):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    assert requests == ["/v1/responses/input_tokens", "/v1/responses"]
 
 
 @pytest.mark.asyncio

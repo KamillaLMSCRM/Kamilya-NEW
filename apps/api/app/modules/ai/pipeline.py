@@ -40,6 +40,7 @@ from app.modules.ai.llm_client import (
     ResilientEmbeddingsClient,
     ResilientLLMClient,
 )
+from app.modules.ai.v3.cooperative_budget import PreclaimYieldError
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.writer_schema import CourseContent
 from app.modules.courses.source_uncertainty import preserve_generated_source_uncertainty
@@ -1488,6 +1489,22 @@ async def _run_generation_pipeline_inner(
             )
         logger.info("Evidence V2 generation complete for job %s", job_id)
         return state
+    except PreclaimYieldError:
+        # This exception is raised strictly before a new generation claim. The
+        # SQL update additionally fences delivery/status and rejects ANY pending
+        # marker; it preserves params, completed checkpoints and the reservation.
+        if not initial_identity_checked or tenant_id is None or delivery_id.get() is None:
+            raise DeliveryOwnershipLostError("generation_preclaim_interruption_unowned") from None
+        from app.modules.ai.job_service import interrupt_claimed_generation_execution
+
+        async with async_session_factory() as session:
+            interrupted = await interrupt_claimed_generation_execution(
+                session, job_id, str(tenant_id), delivery_id.get())
+        if not interrupted:
+            raise DeliveryOwnershipLostError("generation_preclaim_interruption_unverified") from None
+        state.status = state.stage = "interrupted"
+        state.message = "Готовые этапы сохранены. Продолжите генерацию с оставшихся этапов."
+        state.errors = ["generation_interrupted"]
     except ExtractionOutcomeUnknownError as error:
         from app.modules.ai.qa_luna_dev_route import QA_TENANT
         from app.modules.ai.v3.owned_source_context import OwnedSourceContext
