@@ -9024,3 +9024,10 @@ oneshot success0/both timers active independently verified. No threshold waiver,
 prune, resource increase or second rollout. Capacity readers must derive and guard
 actual inventory16; old twelve-count assumptions and JSON/percent evidence values
 were read-only rejected attempts. Evidence lines require bounded safe scalar fields.
+
+## UI-009 - Legacy tenant plan blocked unrelated subscription edits (2026-11-02)
+
+- Symptom: saving unrelated settings on an existing custom-plan tenant returned 422; the plan selector displayed the first supported plan instead of the stored value.
+- Cause: the form sent every field, including an unchanged legacy `custom` plan rejected by the API whitelist; the select lacked an option for the stored value.
+- Fix: show the existing legacy value and send only fields changed from the loaded tenant, preserving explicit changes and the API plan whitelist.
+- Verification: synthetic React regression exercises the real details page, legacy-plan display and changed-only payload; focused Vitest 4 passed and TypeScript noEmit passed. Full DEV/release acceptance remains pending.

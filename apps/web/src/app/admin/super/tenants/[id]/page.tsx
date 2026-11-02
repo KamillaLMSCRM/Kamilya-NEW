@@ -212,11 +212,18 @@ export default function TenantDetailPage() {
   const handleSave = async () => {
     if (!tenant) return;
     const body: Record<string, unknown> = {};
-    body.is_financial_organization = isFinancialOrganization;
+    if (isFinancialOrganization !== tenant.is_financial_organization) {
+      body.is_financial_organization = isFinancialOrganization;
+    }
     const fields = ['name', 'slug', 'status', 'plan', 'trial_ends_at', 'paid_until', 'max_users', 'max_courses_per_month', 'notes'];
     for (const f of fields) {
       const v = f === 'slug' ? normalizeSlug(editForm[f] || '') : editForm[f];
       if (v === undefined) continue;
+      const previous = tenant[f as keyof Tenant];
+      const previousFormValue = (f === 'trial_ends_at' || f === 'paid_until') && typeof previous === 'string'
+        ? previous.slice(0, 10)
+        : previous == null ? '' : String(previous);
+      if (v === previousFormValue) continue;
       if (f === 'slug' && (!SLUG_PATTERN.test(v) || v.length < 2)) {
         toast.error('Slug должен содержать минимум 2 символа: латинские буквы, цифры и дефисы.');
         return;
@@ -554,6 +561,9 @@ export default function TenantDetailPage() {
                 value={editForm.plan || ''}
                 onChange={(e) => setEditForm({ ...editForm, plan: e.target.value })}
               >
+                {tenant.plan && !PLAN_KEYS.some((plan) => plan === tenant.plan) && (
+                  <option value={tenant.plan}>{planLabel(tenant.plan)}</option>
+                )}
                 {PLAN_KEYS.map((p) => (
                   <option key={p} value={p}>
                     {t(`superadmin.plans.${p}`)}

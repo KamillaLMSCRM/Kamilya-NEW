@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.68] - 2026-11-02
+
+### Fixed
+
+- Preserve stored legacy tenant plans when editing unrelated subscription settings. Display the actual stored plan and send only explicitly changed fields.
+- Retain the learning workspace frontend from 0.11.67; production backend and generation engine are separate deployments.
+
+
 ### Historical DEV candidate: four bounded improvements (2026-10-19)
 
 - Preserve an unsaved assignment dialogue when the next request supplies only
