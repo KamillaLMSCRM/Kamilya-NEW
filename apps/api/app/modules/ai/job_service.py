@@ -52,11 +52,19 @@ class AIJobAdmissionLimitReachedError(Exception):
 
 
 class AIJobSubmissionUnavailableError(Exception):
-    """The worker is absent or rejected a job after it was admitted."""
+    """The worker is known unavailable before a publish attempt."""
 
     def __init__(self, detail: str):
         self.detail = detail
         super().__init__(detail)
+
+
+class AIJobDispatchOutcomeUnknownError(Exception):
+    """A publish was attempted and its acceptance cannot be established."""
+
+    def __init__(self, job_id: str):
+        self.job_id = job_id
+        super().__init__("ai_job_dispatch_outcome_unknown")
 
 
 class AIJobDispatcher(Protocol):
@@ -82,10 +90,10 @@ class CeleryAIJobDispatcher:
         if task is None:
             raise AIJobSubmissionUnavailableError("AI worker is unavailable")
         try:
-            task.apply_async(task_id=task_id, kwargs=kwargs)
-        except Exception as exc:
-            logger.exception("Could not enqueue AI %s job %s", task_name, task_id)
-            raise AIJobSubmissionUnavailableError("AI job could not be queued") from exc
+            task.apply_async(task_id=task_id, kwargs=kwargs, retry=False)
+        except Exception:
+            logger.warning("AI %s publish outcome unknown for delivery %s", task_name, task_id)
+            raise AIJobDispatchOutcomeUnknownError("") from None
 
 
 @dataclass
@@ -726,6 +734,8 @@ async def submit_ai_job(
             task_id=str(job.id),
             kwargs=task_kwargs(job),
         )
+    except AIJobDispatchOutcomeUnknownError:
+        raise AIJobDispatchOutcomeUnknownError(str(job.id)) from None
     except AIJobSubmissionUnavailableError as exc:
         # Admission committed: transaction-local RLS identity has expired.
         # Bind the original caller before failure state/refund writes.
@@ -822,6 +832,8 @@ async def resume_interrupted_ai_job(
             task_id=delivery_task_id,
             kwargs=task_kwargs,
         )
+    except AIJobDispatchOutcomeUnknownError:
+        raise AIJobDispatchOutcomeUnknownError(str(locked.id)) from None
     except AIJobSubmissionUnavailableError:
         await update_ai_job(
             db,

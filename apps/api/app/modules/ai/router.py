@@ -40,6 +40,7 @@ from app.modules.ai.generation_engine import (
 )
 from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
+    AIJobDispatchOutcomeUnknownError,
     AIJobSubmissionUnavailableError,
     _lock_tenant_row,
     abandon_unknown_generation,
@@ -682,6 +683,8 @@ async def submit_course_generation(
             reserve_course_generation=target_course_id is None,
             **({"before_commit": before_commit} if before_commit is not None else {}),
         )
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except Exception as exc:
         await release_ai_generation_quota(db, user.id, user.tenant_id)
         if isinstance(exc, AIJobAdmissionLimitReachedError):
@@ -962,6 +965,8 @@ async def resume_generation(
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except AIJobSubmissionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
     return await _job_response(db, resumed, queue_metadata=queue_metadata)
@@ -1861,6 +1866,8 @@ async def regenerate_module(
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except AIJobSubmissionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
 
@@ -1916,6 +1923,8 @@ async def regenerate_lesson(
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except AIJobSubmissionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
 

@@ -380,7 +380,7 @@ async def _exercise_cooperative_resume(owner: Any, runtime: Any, schema: str, te
     from app.modules.ai.delivery_ownership import delivery_id
     from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
     from app.modules.ai.job_service import (
-        InMemoryAIJobDispatcher, claim_generation_execution, get_ai_job,
+        AIJobDispatchOutcomeUnknownError, InMemoryAIJobDispatcher, claim_generation_execution, get_ai_job,
         interrupt_claimed_generation_execution, resume_interrupted_ai_job,
     )
     from app.modules.ai.v3.cooperative_budget import CooperativeBudget, PreclaimYieldError, active_budget
@@ -442,15 +442,25 @@ async def _exercise_cooperative_resume(owner: Any, runtime: Any, schema: str, te
                 raise AssertionError("cooperative_owned_interrupt_failed")
         if await snapshot() != before:
             raise AssertionError("cooperative_interruption_lost_state")
-        dispatcher = InMemoryAIJobDispatcher()
+        class AcceptedThenAckLost(InMemoryAIJobDispatcher):
+            def dispatch(self, *args: Any, **kwargs: Any) -> None:
+                super().dispatch(*args, **kwargs)
+                raise AIJobDispatchOutcomeUnknownError("")
+        dispatcher = AcceptedThenAckLost()
         async with sessions() as session:
             await canonical.set_tenant(session, tenant_a)
             owned = await get_ai_job(session, job, tenant_id=str(tenant_a))
             if owned is None:
                 raise AssertionError("cooperative_owned_job_missing")
-            await resume_interrupted_ai_job(session, job=owned, tenant_id=tenant_a,
-                task_kwargs={"job_id": job}, active_limit=8, worker_concurrency=1,
-                historical_estimate_seconds=510, dispatcher=dispatcher)
+            try:
+                await resume_interrupted_ai_job(session, job=owned, tenant_id=tenant_a,
+                    task_kwargs={"job_id": job}, active_limit=8, worker_concurrency=1,
+                    historical_estimate_seconds=510, dispatcher=dispatcher)
+            except AIJobDispatchOutcomeUnknownError as exc:
+                if exc.job_id != job:
+                    raise AssertionError("cooperative_publish_unknown_identity_invalid") from None
+            else:
+                raise AssertionError("cooperative_publish_unknown_not_reported")
         if len(dispatcher.submissions) != 1 or await snapshot() != before:
             raise AssertionError("cooperative_resume_changed_params_or_checkpoints")
         new_delivery = dispatcher.submissions[0][1]
