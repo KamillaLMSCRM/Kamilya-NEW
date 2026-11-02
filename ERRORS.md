@@ -9273,5 +9273,9 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   preservation and foreign/late/refund negatives. Cleanup true/public0184
   unchanged, source158136434ad1b66c30097b98c15f96881aeee69270544384ab80fe1849b78e2b.
   This tests owned status/journal fencing, not a complete course-save race.
+  Follow-up CI42675e2e/41458143705 exposed an older WebSocket fixture without an
+  actor ID. Shared projection now offers the action only for a real UUID actor;
+  unavailable identity returns false while normal security-context polling
+  continues. Exact WebSocket/owner regression13PASS, no permission broadened.
 - Prevention: unknown does not mean failed or free. Never erase or replay a claim
   to unblock a source, never silently refund it, never claim provider cost is known.

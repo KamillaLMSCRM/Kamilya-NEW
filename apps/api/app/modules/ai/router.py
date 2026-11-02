@@ -379,6 +379,13 @@ def _visible_job_status_message(job: AIJob) -> tuple[str, str]:
     return str(job.status), str(job.message or "")
 
 
+def _viewer_can_abandon_unknown(job: AIJob, viewer_id: object) -> bool:
+    from app.modules.ai.job_service import can_abandon_unknown
+
+    return (isinstance(viewer_id, UUID) and viewer_id == getattr(job, "user_id", None)
+            and can_abandon_unknown(job))
+
+
 async def _job_response(
     db: AsyncSession,
     job: AIJob,
@@ -388,7 +395,6 @@ async def _job_response(
     mixed_language_warning: dict[str, object] | None = None,
     viewer_id: UUID | None = None,
 ) -> AIJobResponse:
-    from app.modules.ai.job_service import can_abandon_unknown
     settings = get_settings()
     if queue_metadata is None:
         active_limit = await resolve_tenant_ai_active_limit(
@@ -407,7 +413,7 @@ async def _job_response(
     return AIJobResponse(
         id=job.id,
         status=visible_status,
-        abandon_available=viewer_id is not None and viewer_id == getattr(job, "user_id", None) and can_abandon_unknown(job),
+        abandon_available=_viewer_can_abandon_unknown(job, viewer_id),
         job_type=_job_type(job),
         course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
@@ -721,13 +727,11 @@ async def list_jobs(
     result = await db.execute(stmt)
     jobs = result.scalars().all()
 
-    from app.modules.ai.job_service import can_abandon_unknown
-
     return [
         AIJobResponse(
             id=j.id,
             status=_visible_job_status_message(j)[0],
-            abandon_available=user.id == getattr(j, "user_id", None) and can_abandon_unknown(j),
+            abandon_available=_viewer_can_abandon_unknown(j, getattr(user, "id", None)),
             job_type=_job_type(j),
             course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
@@ -1021,12 +1025,11 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
 
     try:
         while True:
-            from app.modules.ai.job_service import can_abandon_unknown
             visible_status, visible_message = _visible_job_status_message(job)
             await websocket.send_json({
                 "job_id": job.id,
                 "status": visible_status,
-                "abandon_available": user.id == getattr(job, "user_id", None) and can_abandon_unknown(job),
+                "abandon_available": _viewer_can_abandon_unknown(job, getattr(user, "id", None)),
                 "stage": job.stage,
                 "progress": job.progress,
                 "message": visible_message,

@@ -185,3 +185,12 @@ async def test_redelivery_requires_pending_status_and_no_pending_marker():
     compiled = statement.compile(dialect=postgresql.dialect())
     assert "pending" in compiled.params.values()
     assert "v3_pending_stages" in compiled.params.values()
+
+
+def test_viewer_availability_requires_authenticated_uuid_identity():
+    actor=uuid4()
+    job=fixture_job(actor)
+    assert router._viewer_can_abandon_unknown(job,actor)
+    assert not router._viewer_can_abandon_unknown(job,None)
+    assert not router._viewer_can_abandon_unknown(job,str(actor))
+    assert not router._viewer_can_abandon_unknown(job,uuid4())
