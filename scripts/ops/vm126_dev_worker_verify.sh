@@ -17,7 +17,8 @@ from pathlib import Path
 
 CONTAINER = "kamilya-dev-worker"
 NODE = "kamilya-dev-worker@vm126"
-COMMAND = ["celery", "-A", "app.core.celery_app:celery_app", "worker", "--loglevel=info", "--concurrency=1", "--queues=ai,documents,maintenance", "--hostname=" + NODE]
+CELERY_COMMAND = ["celery", "-A", "app.core.celery_app:celery_app", "worker", "--loglevel=info", "--concurrency=1", "--queues=ai,documents,maintenance", "--hostname=" + NODE]
+COMMAND = ["python", "/app/dev_private_model_runtime.py", *CELERY_COMMAND]
 ROOT = Path("/opt/kamilya-dev-worker/releases")
 EXPECTED_IDENTITY = None
 RECEIVER_SHA = "03a946f26082ed8f7a7fa90b295a48c5673da8920c05ba97db4ccbf383f4fa74"
@@ -98,6 +99,9 @@ def main():
         env_sha=hashlib.sha256(payload).hexdigest()
         receiver.validate_payload(payload,release,env_sha)
         staged=env_values(payload.decode("utf-8").splitlines())
+        if (staged.get("DEV_MODEL_SSH_ENABLED")!="true" or staged.get("DEV_OCR_SSH_ENABLED")!="true"
+                or staged.get("DEV_MODEL_SSH_ROLE")!="worker" or not staged.get("DEV_MODEL_SSH_KEY_B64")
+                or not staged.get("DEV_MODEL_SSH_KNOWN_HOST")): raise ValueError("private_supervisor_scope_invalid")
         image_rows=json.loads(docker("image","inspect",first["Image"]))
         if len(image_rows)!=1: raise ValueError("image_shape")
         inherited=env_values(image_rows[0].get("Config",{}).get("Env",[]))

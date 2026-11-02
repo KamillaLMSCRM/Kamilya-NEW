@@ -88,3 +88,12 @@ sys.modules["app.core.celery_app"]=module
 def test_expected_packet_identity_is_checked_before_consumer_probe():
     source=(ROOT/"scripts/ops/vm126_dev_worker_runtime.py").read_text(encoding="utf-8")
     assert source.index('raise ValueError("expected_identity_mismatch")') < source.index('health=docker(')
+
+
+def test_vm_worker_image_preserves_existing_private_converter_supervision():
+    dockerfile=(ROOT/"apps/api/Dockerfile").read_text(encoding="utf-8")
+    assert "openssh-client" in dockerfile
+    assert "COPY scripts/ops/dev_private_model_runtime.py /app/dev_private_model_runtime.py" in dockerfile
+    assert runtime.COMMAND[:2]==["python","/app/dev_private_model_runtime.py"]
+    assert runtime.COMMAND[2:]==runtime.CELERY_COMMAND
+    assert 'CMD ["sh", "-c", "alembic upgrade head && uvicorn' in dockerfile

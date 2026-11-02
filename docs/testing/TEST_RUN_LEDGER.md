@@ -5393,3 +5393,17 @@ Rules:
   checks hardened effective Docker config, DEVscope and same boot after ping.
   Optimized-Python negative tests prevent assert-removal false readiness.
 - No new model call, full course, new production engine or customer mutation.
+
+
+### 2026-11-02 — private dependency parity before VM start
+
+- Source5120635f exact CI41459284847 SUCCESS/all7jobs. Product/runtime/fullcourse
+  GO not implied. Source push receipts and project identity stored separately.
+- Reviewed ephemeral database-free container probe a50542f8...f182e:
+  native converterGET returned0/noresponse, connector403, embeddings0/noresponse.
+  Script execution PASS is not dependency availability. No docs/models/DB invoked.
+- Found Render supervisor derivesDOCLING_URL and owns SSHforward; bareCeleryVM
+  command would omit it. Packaging existing pinned supervisor/openssh-client,
+  preserving production defaultCMD and runtimeisolation, no ACL/port/newcredential.
+- Pure supervisor/runtime/controller90PASS; web50page+10workflowPASS/type/lint.
+  One model-affecting request has not been made since preserving unknownjob5f.

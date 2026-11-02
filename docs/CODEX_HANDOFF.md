@@ -1,3 +1,11 @@
+# Current continuation — 2026-11-02 verified CI and private worker transport
+
+- result: Source5120635f CI41459284847 SUCCESS (all7jobs). No immutable image/new VM consumer yet. ProductionUX70 remains accepted; productionengine7c35 untouched. OldFreeRenderDEVconsumer stayssuspended, pendingunknownjobs retained.
+- changed: VM image must include existing opt-in dev_private_model_runtime supervisor and openssh-client. BareCelery loses derivedDoclingURL and would fail source-review conversion; directDockerbridge privateprobe converter0/models403/embeddings0 did NOT prove reachability. Reuse existing pinned SSH supervisor/key/loopback forwards, no new ACL/publicport/target/credential/paidresource.
+- verified: LatestAPI4675unitPASS; Pg12PASS cleanuptrue/public0184unchanged; explicitunknownUI50+workflow10PASS/type/lint; supervisor/runtime/controller90PASS. Runtimeprobechecks exactwrappedcommand, stagedsourcecredentials and flags, hardenedconfig and sameboot/queueping beforeRELEASE_OK. Stagedreceiverpayload41keys (do not infer latestSHA staged).
+- blockers: Dockerfile/probe supervisor packaging follow-up stilllocal and requires itsown exactCI/build. 512CI is API/sourceproof only, not image/runtime/fullcourses. Twenty-minutesoft/25minhard application lifecycle remains open until actual fullcourse test, no automaticunknownreplay allowed.
+- next: Commitpackaging, exactCI then build-onlyworkflow with deploy_to_production=false, stagefinalSHAsecretsoverSSHstdin, startisolatedworkeronce, verifyprivateconverter+DEVbroker+DB+produnchanged, canonicalDEVcontroller. Then ordinaryUI explicitunknownabandon preservingcost/history, freshfullLunacourses/matrix, DeepSeek and protectedprod onlyafterqualityGO. Donotresumeprevunknownorchangeclientcourses/plans/rights/voice/reserve.
+
 # Current continuation — 2026-11-02 VM migration and unknown disposition
 
 - result: Production UX70 remains released/accepted. Engine not accepted. Old Free DEV consumer srv-dar2dvbncjis73bsda3g is explicitly suspended for the authorized migration, plan unchanged. VM receiver installed and root0700/0600/selftest verified; no VM consumer yet.

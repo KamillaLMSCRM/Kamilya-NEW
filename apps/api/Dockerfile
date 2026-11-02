@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libpq-dev openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --system --gid 10001 kamilya \
@@ -16,6 +16,8 @@ COPY packages /packages
 RUN poetry install --no-interaction --no-ansi --without dev --no-root --with observability
 
 COPY apps/api/ .
+# Opt-in DEV worker supervision; the production CMD remains unchanged.
+COPY scripts/ops/dev_private_model_runtime.py /app/dev_private_model_runtime.py
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
