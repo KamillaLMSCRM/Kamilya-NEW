@@ -42,14 +42,15 @@ def test_celery_dispatcher_maps_task_and_preserves_job_id():
     task.apply_async.assert_called_once_with(
         task_id="job-1",
         kwargs={"module_id": "module-1"},
+        retry=False,
     )
 
 
-def test_celery_dispatcher_wraps_enqueue_failure():
+def test_celery_dispatcher_preserves_unknown_enqueue_outcome():
     task = SimpleNamespace(apply_async=Mock(side_effect=RuntimeError("broker down")))
     with (
         patch("app.modules.ai.tasks.generate_course_task", task),
-        pytest.raises(job_service.AIJobSubmissionUnavailableError) as error,
+        pytest.raises(job_service.AIJobDispatchOutcomeUnknownError) as error,
     ):
         job_service.CeleryAIJobDispatcher().dispatch(
             "generate_course",
@@ -57,7 +58,9 @@ def test_celery_dispatcher_wraps_enqueue_failure():
             kwargs={},
         )
 
-    assert error.value.detail == "AI job could not be queued"
+    assert str(error.value) == "ai_job_dispatch_outcome_unknown"
+    assert "broker down" not in str(error.value)
+    task.apply_async.assert_called_once_with(task_id="job-1", kwargs={}, retry=False)
 
 
 @pytest.mark.asyncio
