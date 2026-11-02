@@ -1056,6 +1056,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         from v3_completed_extraction_reuse_dev_check import exercise as exercise_reuse
         await exercise_reuse(owner, runtime, schema, execution_enabled=EXECUTION_ENABLED)
         checks.append("completed_extraction_parent_reuse_origin_cold_concurrency_fenced")
+        checks.append("source_reference_review_pause_retains_completed_work")
     finally:
         delivery_id.reset(token)
 
@@ -1116,6 +1117,7 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                 "fresh_revision_policy_source_drift_fenced", "abandon_owned_pending_race_fenced",
                 "managed_owned_stage_replay_unknown_fenced",
                 "completed_extraction_parent_reuse_origin_cold_concurrency_fenced",
+                "source_reference_review_pause_retains_completed_work",
                 "cooperative_interrupt_resume_cold_replay_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True

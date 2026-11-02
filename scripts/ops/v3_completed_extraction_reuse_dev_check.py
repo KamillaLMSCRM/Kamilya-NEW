@@ -18,7 +18,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, *, execution_enabled:
     from app.models.ai_job import AIJob
     from app.modules.ai.delivery_ownership import delivery_id
     from app.modules.ai.direct_source import DirectSourceCorpus, DirectSourceDocument
-    from app.modules.ai.job_service import abandon_unknown_generation
+    from app.modules.ai.job_service import abandon_unknown_generation, interrupt_claimed_generation_execution, is_resumable_generation_job
     from app.modules.ai.managed_luna_client import ManagedLunaClient
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
     from app.modules.ai.v3.completed_extraction_reuse import PARENT_KEY, REUSE_KEY, validate_parent_admission
@@ -163,6 +163,22 @@ async def _exercise(owner: Any, runtime: Any, schema: str, *, execution_enabled:
                 await conn.execute(text(f'UPDATE "{schema}".documents SET content_sha256=:h WHERE id=:d'), {"h": source_sha, "d": document})
         if await parent_snapshot() != before:
             raise AssertionError("reuse_changed_parent_history")
+        phase["value"] = "source_review"
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant)
+            row = await session.scalar(select(AIJob).where(AIJob.id == child))
+            preserved = _digest([row.params, row.result])
+            if not await interrupt_claimed_generation_execution(session, child, str(tenant), child,
+                                                                reason="source_reference_review_required"):
+                raise AssertionError("source_review_interruption_unverified")
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant)
+            row = await session.scalar(select(AIJob).where(AIJob.id == child))
+            if (row.status != "interrupted" or row.errors != ["source_reference_review_required"]
+                    or is_resumable_generation_job(row) or _digest([row.params, row.result]) != preserved):
+                raise AssertionError("source_review_did_not_preserve_work")
+        if await parent_snapshot() != before:
+            raise AssertionError("source_review_changed_parent")
     finally:
         delivery_id.reset(token)
         parent_client.close()
@@ -180,7 +196,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, *, execution_enabled: 
         nested = getattr(original, "__cause__", None)
         sqlstate = getattr(original, "sqlstate", None) or getattr(nested, "sqlstate", None)
         safe_state = sqlstate if isinstance(sqlstate, str) and re.fullmatch(r"[0-9A-Z]{5}", sqlstate) else "unknown"
-        label = phase["value"] if phase["value"] in {"preflight", "fixture", "parent_extraction", "parent_abandon", "snapshot", "concurrent_cold", "source_drift"} else "unknown"
+        label = phase["value"] if phase["value"] in {"preflight", "fixture", "parent_extraction", "parent_abandon", "snapshot", "concurrent_cold", "source_drift", "source_review"} else "unknown"
         category = type(exc).__name__ if type(exc).__name__ in {"DBAPIError", "IntegrityError", "AssertionError", "RuntimeError", "ValueError", "ExtractionOutcomeUnknownError", "TimeoutError"} else "other"
         print("EVIDENCE|phase=reuse_" + label + "|error_class=" + category + "|sqlstate=" + safe_state, flush=True)
         raise

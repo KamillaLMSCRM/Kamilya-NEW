@@ -1512,22 +1512,26 @@ async def _run_generation_pipeline_inner(
             )
         logger.info("Evidence V2 generation complete for job %s", job_id)
         return state
-    except PreclaimYieldError:
+    except PreclaimYieldError as interruption:
         # This exception is raised strictly before a new generation claim. The
         # SQL update additionally fences delivery/status and rejects ANY pending
         # marker; it preserves params, completed checkpoints and the reservation.
         if not initial_identity_checked or tenant_id is None or delivery_id.get() is None:
             raise DeliveryOwnershipLostError("generation_preclaim_interruption_unowned") from None
         from app.modules.ai.job_service import interrupt_claimed_generation_execution
+        from app.modules.ai.v3.reference_source_view import SourceReferenceReviewRequiredError
+        source_review = isinstance(interruption, SourceReferenceReviewRequiredError)
 
         async with async_session_factory() as session:
             interrupted = await interrupt_claimed_generation_execution(
-                session, job_id, str(tenant_id), delivery_id.get())
+                session, job_id, str(tenant_id), delivery_id.get(),
+                **({"reason": "source_reference_review_required"} if source_review else {}))
         if not interrupted:
             raise DeliveryOwnershipLostError("generation_preclaim_interruption_unverified") from None
         state.status = state.stage = "interrupted"
-        state.message = "Готовые этапы сохранены. Продолжите генерацию с оставшихся этапов."
-        state.errors = ["generation_interrupted"]
+        state.message = ("Проверьте подтвержденные отсылки источника. Готовые части генерации сохранены."
+                         if source_review else "Готовые этапы сохранены. Продолжите генерацию с оставшихся этапов.")
+        state.errors = ["source_reference_review_required" if source_review else "generation_interrupted"]
     except ExtractionOutcomeUnknownError as error:
         from app.modules.ai.qa_luna_dev_route import QA_TENANT
         from app.modules.ai.v3.owned_source_context import OwnedSourceContext

@@ -9337,3 +9337,11 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   continues. Exact WebSocket/owner regression13PASS, no permission broadened.
 - Prevention: unknown does not mean failed or free. Never erase or replay a claim
   to unblock a source, never silently refund it, never claim provider cost is known.
+## AI-REFERENCE-004 - Confirmed source references depended on model paraphrase equality
+
+- Date: 2026-11-03.
+- Symptom: saved Standards extraction contained all 26 rules, but the owner-confirmed point 2 remained unresolved because its target quotation also included valid surrounding context and the referring rule repeated a paraphrase in timing.
+- Cause: grouping treated modeled projection equality and exact target quote boundaries as dependency truth. The original quotation and authenticated target span were available but had no separate planning representation.
+- Fix: fresh scoped revisions construct an immutable source-quotation planning view for uniquely grounded referring/target owners. Literal source replaces only their planning statement/quote, reference-bearing hints are quarantined, and original model/checkpoints remain unchanged. Contained targets are allowed only with this validated view. Writers and independent critics still receive actual source and separate owner interpretation; the view never grants semantic approval. Unresolved decisions pause before authoring through an owned/no-pending interruption, retaining completed work/reservation and disabling blind resume. Legacy request bytes and exact-target behavior remain unchanged.
+- Verification: exact saved nine-extraction offline replay, 26 rules/six groups, two literal source nodes and unchanged original model; final 4794 API unit tests PASS/66.32s, baseline1005/2173, independent source/substrate/lifecycle reviews accepted. Actual disposable PostgreSQL16PASS, cleanuptrue/public0184unchanged; source887aede86533efb610bfa9b99a38200a63b4d3a90769ff7d8183a90d3018c5b9, custody source-view-r1-20261103-custody.result.json. No new model call or full-course acceptance inferred.
+- Prevention: bind references to unique immutable source spans and owner receipts, not generated prose. Test ambiguous ownership, contained targets, legacy request identity, pre-author pause and checkpoint/accounting preservation together.

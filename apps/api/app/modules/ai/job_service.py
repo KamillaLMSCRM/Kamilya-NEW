@@ -615,11 +615,16 @@ async def fail_claimed_generation_execution(
 
 
 async def interrupt_claimed_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None,
+    *, reason: str = "generation_interrupted",
 ) -> bool:
-    """Make a claimed generation resumable after a worker soft time limit."""
+    """Pause before new work; preserve completed checkpoints and the reservation."""
     if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
         raise ValueError("tenant_id and delivery_id are required for worker generation execution")
+    if reason not in {"generation_interrupted", "source_reference_review_required"}:
+        raise ValueError("generation_interruption_reason_invalid")
+    message = ("Проверьте подтвержденные отсылки источника. Готовые части генерации сохранены."
+               if reason == "source_reference_review_required" else GENERATION_INTERRUPTED_MESSAGE)
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
     predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
                   _generation_delivery_predicate(job_id, delivery_id), _no_pending_stage()]
@@ -627,8 +632,8 @@ async def interrupt_claimed_generation_execution(
         update(AIJob).where(*predicates).values(
             status="interrupted",
             stage="interrupted",
-            message=GENERATION_INTERRUPTED_MESSAGE,
-            errors=["generation_interrupted"],
+            message=message,
+            errors=[reason],
             updated_at=datetime.now(UTC),
             completed_at=None,
         )
@@ -642,6 +647,7 @@ def is_resumable_generation_job(job: AIJob) -> bool:
     from app.modules.ai.v3.pending_stage_transactions import has_pending
 
     return bool(job.status == "interrupted" and job_uses_current_generation_engine(job)
+                and not (isinstance(getattr(job, "errors", None), list) and "source_reference_review_required" in job.errors)
                 and not has_pending(getattr(job, "result", None)))
 
 

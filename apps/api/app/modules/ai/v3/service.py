@@ -7,7 +7,7 @@ import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from app.modules.ai.direct_source import DirectSourceCorpus
@@ -625,7 +625,7 @@ def _find_direct_rule_dependencies(
 
 def _confirmed_reference_rule_links(
     corpus: DirectSourceCorpus, rules: list[RuleEntity], decisions: tuple[SourceReferenceDecision, ...],
-    *, source_only: bool = False,
+    *, source_only: bool = False, allow_contained_target: bool = False,
 ) -> dict[str, dict[str, RuleEntity]]:
     """Bind a confirmed source occurrence to one exact source-backed target rule.
 
@@ -661,7 +661,11 @@ def _confirmed_reference_rule_links(
                 if quoted.count(clause) == 1 and (source_only or (
                         sum(values.count(clause) for values in per_field) == 1 and exact_projection)):
                     referring.append(rule)
-            if occ.char_start == decision.target_start and occ.char_end == decision.target_end:
+            # The authenticated target can be a complete literal subspan of
+            # one uniquely grounded quote containing additional source context.
+            # Uniqueness below still rejects competing target owners.
+            if ((occ.char_start == decision.target_start and occ.char_end == decision.target_end)
+                    or (allow_contained_target and occ.char_start <= decision.target_start < decision.target_end <= occ.char_end)):
                 targets.append(rule)
         if len(referring) == 1 and len(targets) == 1 and referring[0].rule_id != targets[0].rule_id:
             candidates.setdefault((referring[0].rule_id, clause), []).append(targets[0])
@@ -899,6 +903,7 @@ def _large_shared_topic_family(rules: list[RuleEntity]) -> bool:
 def _build_curriculum_groups(
     rule_model: DocumentRuleModel, *, corpus: DirectSourceCorpus | None = None,
     reference_decisions: tuple[SourceReferenceDecision, ...] = (),
+    source_view: Any = None,
 ) -> list[CurriculumGroup]:
     """Builds resilient curriculum groups with unique stable IDs and multi-level transitive dependency closures.
 
@@ -909,13 +914,23 @@ def _build_curriculum_groups(
     4. Boundary-safe rule matching: 'r1' never matches inside 'r10'.
     5. Natural clause/point reference resolution with ambiguous reference detection.
     """
+    allow_contained_target = False
+    if source_view is not None:
+        from app.modules.ai.v3.reference_source_view import POLICY as VIEW_POLICY
+        from app.modules.ai.v3.reference_source_view import SourceReferenceView
+        if (type(source_view) is not SourceReferenceView or source_view.policy != VIEW_POLICY
+                or source_view.rule_model is not rule_model or source_view.unresolved_decision_ids):
+            raise ValueError("v3_reference_planning_view_unverified")
+        allow_contained_target = True
     sanitized_rules, raw_to_rules = _sanitize_rules(rule_model.rules)
-    confirmed_links = (_confirmed_reference_rule_links(corpus, sanitized_rules, reference_decisions)
+    confirmed_links = (_confirmed_reference_rule_links(corpus, sanitized_rules, reference_decisions,
+                                                    allow_contained_target=allow_contained_target)
                        if corpus is not None and reference_decisions else {})
     # A verified source occurrence may require its target as context even when
     # individual model paraphrases cannot be bound to that occurrence. Keep
     # those paraphrases unresolved: the edge is not a verdict about them.
-    source_edges = (_confirmed_reference_rule_links(corpus, sanitized_rules, reference_decisions, source_only=True)
+    source_edges = (_confirmed_reference_rule_links(corpus, sanitized_rules, reference_decisions, source_only=True,
+                                                 allow_contained_target=allow_contained_target)
                     if corpus is not None and reference_decisions else {})
     source_clauses = (_confirmed_source_reference_clauses(corpus, sanitized_rules, reference_decisions)
                       if corpus is not None and reference_decisions else {})
@@ -1861,7 +1876,19 @@ async def generate_v3_course_from_corpus(
         await cancellation_callback()
 
     # Stage 2: Resilient curriculum grouping with unique group IDs and dependency closures
-    curriculum_groups = _build_curriculum_groups(rule_model, corpus=corpus, reference_decisions=reference_decisions)
+    reference_view = None
+    planning_rule_model = rule_model
+    if scoped_revision and reference_decisions:
+        from app.modules.ai.v3.reference_source_view import (
+            SourceReferenceReviewRequiredError,
+            build_source_reference_view,
+        )
+        reference_view = build_source_reference_view(corpus, rule_model, reference_decisions)
+        if reference_view.unresolved_decision_ids:
+            raise SourceReferenceReviewRequiredError(reference_view.unresolved_decision_ids)
+        planning_rule_model = reference_view.rule_model
+    curriculum_groups = _build_curriculum_groups(planning_rule_model, corpus=corpus, reference_decisions=reference_decisions,
+                                                source_view=reference_view)
     total_lessons = len(curriculum_groups)
 
     generated_lessons: list[V3Lesson] = []
@@ -2614,6 +2641,13 @@ async def generate_v3_course_from_corpus(
     validation_payload["semantic_reviews"] = semantic_reviews
     validation_payload["semantic_repairs"] = semantic_repairs
     validation_payload["coverage_review_signals"] = coverage_review_signals
+    if reference_view is not None:
+        validation_payload["source_reference_planning_view"] = {
+            "policy": reference_view.policy, "fingerprint": reference_view.fingerprint,
+            "changes": [asdict(change) for change in reference_view.changes],
+            "unresolved_decision_ids": list(reference_view.unresolved_decision_ids),
+            "semantic_approval": False,
+        }
 
     # Propagate semantic review violations into the validation report
     all_violations = list(validation_payload.get("violations", []))

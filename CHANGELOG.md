@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed — V3 direct QA generation, 2026-11-02
 
+- Resolve confirmed references through literal source spans while keeping owner
+  interpretations separate; retain completed work when a reference needs review.
 - Preserve revision-bound source references and related conditions for review.
 - Hold uncertain saves and verify completed results before reporting recovery.
 - Detect repeated questions and retain review holds when a repair is uncertain.

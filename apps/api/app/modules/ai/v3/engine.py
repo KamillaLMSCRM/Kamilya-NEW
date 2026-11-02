@@ -30,6 +30,7 @@ from app.modules.ai.v3.prompts import (
     PROSE_REPAIR_SYSTEM_PROMPT,
     QA_REVIEW_SYSTEM_PROMPT,
     RULE_EXTRACTION_SYSTEM_PROMPT,
+    SOURCE_QUOTATION_VIEW_SUFFIX,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,7 +158,7 @@ class V3GenerationPipeline:
             )
 
         messages = [
-            {"role": "system", "content": LESSON_COGEN_SYSTEM_PROMPT},
+            {"role": "system", "content": LESSON_COGEN_SYSTEM_PROMPT + (SOURCE_QUOTATION_VIEW_SUFFIX if self.scoped_revision else "")},
             {"role": "user", "content": user_content},
         ]
         raw = await self._call_llm(messages)
