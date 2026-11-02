@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — V3 direct QA generation, 2026-11-02
+
+- Preserve revision-bound source references and related conditions for review.
+- Hold uncertain saves and verify completed results before reporting recovery.
+- Detect repeated questions and retain review holds when a repair is uncertain.
+
 ### Fixed — V3 evidence and review custody, 2026-11-01
 
 - Preserve source-bound citation holds without rerunning dependent reviews for

@@ -1647,6 +1647,92 @@ async def _repair_reviewed_case(
     return updated, True
 
 
+async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson],
+                                  groups: list[tuple[str, tuple[RuleEntity, ...]]], corpus: DirectSourceCorpus,
+                                  journal: Any, source_context: Any, direct_client: Any, source_sha256: str,
+                                  route_fingerprint: str, invoke: Any, max_tokens: int,
+                                  cancellation_callback: Any, signals: list[str], violations: list[str],
+                                  repair_contexts: list[Any] | None = None,
+                                  review_records: dict[str, Any] | None = None,
+                                  allow_repair: bool = False) -> None:
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+
+    if policy != DIRECT_POLICY:
+        return
+    from app.modules.ai.v3.diversity_review import review_final_lesson
+    from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+
+    if (type(journal) is not PendingStageJournal or direct_client is None
+            or not callable(journal.verify_source) or journal.tenant_id != corpus.tenant_id):
+        raise ExtractionOutcomeUnknownError("v3_diversity_owned_context_unverified")
+    for lesson_index, (final_lesson, (group_id, primary_rules)) in enumerate(zip(lessons, groups, strict=True)):
+        if cancellation_callback:
+            await cancellation_callback()
+        context_rules: tuple[RuleEntity, ...] = ()
+        if repair_contexts is not None:
+            context_rules, unresolved = repair_contexts[lesson_index]
+            if unresolved:
+                signals.append(f"Урок {final_lesson.lesson_id}: зависимые условия требуют проверки методиста")
+                violations.append(f"Урок {final_lesson.lesson_id}: проверка разнообразия отложена до проверки связанных источников")
+                continue
+        observed = await review_final_lesson(
+            lesson=final_lesson, corpus=corpus, rules=primary_rules,
+            expected_tenant_id=journal.tenant_id, expected_document_ids=source_context.selection,
+            journal=journal, group_id=f"diversity:{group_id}", source_sha256=source_sha256,
+            route_fingerprint=route_fingerprint, invoke=invoke, direct_client=direct_client,
+            direct_max_output_tokens=max_tokens, context_rules=context_rules,
+        )
+        if review_records is not None and isinstance(review_records.get(final_lesson.lesson_id), dict):
+            prior_review = review_records[final_lesson.lesson_id]
+            omissions = observed.get("omissions", [])
+            safe_omissions = [{"rule_id": item["rule_id"],
+                "quote_sha256": hashlib.sha256(item["exact_quote"].encode("utf-8")).hexdigest()}
+                for item in omissions if isinstance(item, dict) and isinstance(item.get("rule_id"), str)
+                and isinstance(item.get("exact_quote"), str)] if isinstance(omissions, list) else []
+            review_records[final_lesson.lesson_id] = {**prior_review, "diversity_observation": {
+                "status": observed.get("status"), "fingerprint": observed.get("fingerprint"),
+                "overlaps": observed.get("overlaps", []), "omissions": safe_omissions,
+                "inventory_completeness": observed.get("inventory_completeness", "unknown")}}
+        if (allow_repair and repair_contexts is not None and review_records is not None
+                and observed.get("status") == "review_required"
+                and isinstance(observed.get("overlaps"), list) and len(observed["overlaps"]) == 1
+                and isinstance(observed.get("omissions"), list) and len(observed["omissions"]) == 1):
+            from app.modules.ai.v3.diversity_repair_promotion import staged_diversity_repair
+            from app.modules.ai.v3.diversity_repair_selection import select_owned_candidate
+
+            overlap = observed["overlaps"][0]
+            if (isinstance(overlap, list) and len(overlap) == 2 and type(overlap[1]) is int):
+                selected = await select_owned_candidate(
+                    lesson=final_lesson, corpus=corpus, rules=primary_rules,
+                    expected_tenant_id=journal.tenant_id, expected_document_ids=source_context.selection,
+                    journal=journal, group_id=f"diversity:{group_id}", source_sha256=source_sha256,
+                    route_fingerprint=route_fingerprint, selected_index=overlap[1], context_rules=context_rules)
+                if selected is not None:
+                    context_rules, unresolved = repair_contexts[lesson_index]
+                    repair_feedback: dict[str, Any] = {}
+                    repaired, accepted = await staged_diversity_repair(
+                        lesson=final_lesson, corpus=corpus, rules=primary_rules, selected=selected,
+                        journal=journal, expected_document_ids=source_context.selection,
+                        review_group_id=f"diversity:{group_id}", source_sha256=source_sha256,
+                        route_fingerprint=route_fingerprint, direct_client=direct_client,
+                        max_output_tokens=max_tokens, context_rules=context_rules,
+                        unresolved_dependencies=unresolved, feedback=repair_feedback)
+                    prior = review_records.get(final_lesson.lesson_id)
+                    if isinstance(prior, dict):
+                        review_records[final_lesson.lesson_id] = {**prior, "diversity_repair": repair_feedback}
+                    if accepted:
+                        lessons[lesson_index] = repaired
+                        prior = review_records.get(final_lesson.lesson_id)
+                        if isinstance(prior, dict):
+                            review_records[final_lesson.lesson_id] = {
+                                **prior, "verdict": "NEEDS_REVISION", "prior_review_stale": True,
+                                "reason": "final_question_changed_requires_manual_review"}
+                        signals.append(f"Урок {final_lesson.lesson_id}: вопрос изменён; прежняя проверка сохранена как история, требуется проверка методиста")
+        signals.append(f"Урок {final_lesson.lesson_id}: полнота исходных целей и покрытие тестом требуют проверки методиста")
+        if observed.get("status") != "review_required" or observed.get("overlaps") or observed.get("omissions"):
+            violations.append(f"Урок {final_lesson.lesson_id}: разнообразие вопросов или полнота покрытия требуют проверки")
+
+
 async def generate_v3_course_from_corpus(
     corpus: DirectSourceCorpus,
     *,
@@ -1660,14 +1746,33 @@ async def generate_v3_course_from_corpus(
     allow_unreviewed_on_unknown: bool = False,
     direct_client: Any = None,
     direct_max_output_tokens: int = 8192,
+    authenticated_qa_policy: str | None = None,
+    owned_source_context: Any = None,
 ) -> GenerationArtifacts:
-    """End-to-end generator integrating V3 Co-Generation with production direct-source corpus."""
+    """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
     if allow_unreviewed_on_unknown and extraction_journal is None:
         raise ValueError("v3_unknown_review_requires_journal")
     if direct_client is not None and extraction_journal is None:
         raise ValueError("direct_owned_journal_required")
     if direct_client is not None and direct_max_output_tokens != 8192:
         raise ValueError("direct_owned_output_policy_invalid")
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+
+    if authenticated_qa_policy == DIRECT_POLICY:
+        from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+        from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+
+        if (type(extraction_journal) is not PendingStageJournal or direct_client is None
+                or not callable(extraction_journal.verify_source)
+                or extraction_journal.tenant_id != corpus.tenant_id
+                or type(owned_source_context) is not OwnedSourceContext
+                or owned_source_context.journal is not extraction_journal
+                or owned_source_context.corpus is not corpus
+                or str(owned_source_context.tenant_id) != extraction_journal.tenant_id
+                or owned_source_context.user_id != extraction_journal.user_id
+                or owned_source_context.job_id != extraction_journal.job_id
+                or tuple(corpus.document_ids) != owned_source_context.selection):
+            raise ExtractionOutcomeUnknownError("v3_diversity_owned_context_unverified")
     full_text, doc_sha = _extract_corpus_text(corpus)
     source_documents = tuple(doc.source_text if doc.source_text is not None else
                              "\n\n".join(chunk.text.strip() for chunk in doc.chunks if chunk.text.strip())
@@ -1736,6 +1841,8 @@ async def generate_v3_course_from_corpus(
 
     generated_lessons: list[V3Lesson] = []
     generated_lesson_rules: list[list[RuleEntity]] = []
+    generated_primary_groups: list[tuple[str, tuple[RuleEntity, ...]]] = []
+    generated_repair_contexts: list[Any] = []
     semantic_reviews: dict[str, Any] = {}
     lessons_summary = ""
 
@@ -1856,6 +1963,9 @@ async def generate_v3_course_from_corpus(
             )
         generated_lessons.append(lesson)
         generated_lesson_rules.append(repair_rules)
+        generated_primary_groups.append((group.group_id, group.primary_rules))
+        generated_repair_contexts.append((tuple(group.context_prerequisite_rules) + tuple(group.context_neighbor_rules),
+                                          tuple(group.unresolved_dependencies)))
         lessons_summary += f"\n- {lesson.title}: {lesson.content[:150]}..."
 
         # A rule assigned to a lesson is not evidence that a test assesses it.
@@ -2327,6 +2437,8 @@ async def generate_v3_course_from_corpus(
             }
         except Exception as review_err:
             unknown_review = isinstance(review_err, ExtractionOutcomeUnknownError)
+            if unknown_review and authenticated_qa_policy == DIRECT_POLICY:
+                raise
             if extraction_journal is not None and not (allow_unreviewed_on_unknown and unknown_review):
                 raise
             logger.warning("V3 Engine: Two-factor semantic review skipped due to error: %s", review_err)
@@ -2351,6 +2463,19 @@ async def generate_v3_course_from_corpus(
                        "в исходном блоке; требуется проверка источника")
             if message not in semantic_violations:
                 semantic_violations.append(message)
+
+    async def invoke_diversity(messages: list[dict[str, str]]) -> dict[str, Any]:
+        return await llm_invoker(messages, {"type": "json_object"})
+
+    await _review_final_diversity(
+        policy=authenticated_qa_policy, lessons=generated_lessons, groups=generated_primary_groups,
+        corpus=corpus, journal=extraction_journal, source_context=owned_source_context,
+        direct_client=direct_client, source_sha256=doc_sha, route_fingerprint=route_fingerprint,
+        invoke=invoke_diversity, max_tokens=direct_max_output_tokens, cancellation_callback=cancellation_callback,
+        signals=coverage_review_signals, violations=semantic_violations,
+        repair_contexts=generated_repair_contexts, review_records=semantic_reviews,
+        allow_repair=not reference_decisions,
+    )
 
     unvalidated_course = V3Course(
         course_id=f"course-v3-{doc_sha[:12]}",
@@ -2396,8 +2521,10 @@ async def generate_v3_course_from_corpus(
     if progress_callback:
         await progress_callback("quality", total_lessons + 1, total_lessons + 1, None, None)
 
-    artifacts = v3_course_to_generation_artifacts(
-        course,
-        source_document_ids=list(corpus.document_ids),
-    )
+    adapter_options: dict[str, Any] = {}
+    if authenticated_qa_policy == DIRECT_POLICY:
+        adapter_options = {"source_corpus": corpus, "source_rules": tuple(
+            rule for _group_id, rules in generated_primary_groups for rule in rules), "exact_narrative_facts": True}
+    artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),
+                                                  **adapter_options)
     return artifacts

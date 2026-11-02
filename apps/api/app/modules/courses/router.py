@@ -46,6 +46,34 @@ router = APIRouter(
 )
 
 
+def _preview_source_references(references: list[Any], lesson_source_ids: list[Any],
+                               owned_documents: dict[UUID, Any], source_analysis: Any) -> list[Any]:
+    """Add response-only names to fresh-v3 spans from the tenant-scoped document map."""
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+
+    if (not isinstance(source_analysis, dict) or source_analysis.get(KEY) != DIRECT_POLICY
+            or source_analysis.get("generation_engine") != "evidence_v3"):
+        return references
+    allowed = {str(value) for value in lesson_source_ids}
+    projected = []
+    for reference in references:
+        if not isinstance(reference, dict) or reference.get("kind") != "working_text_span_v1":
+            projected.append(reference)
+            continue
+        item = dict(reference)
+        item.pop("doc_name", None)
+        item.pop("document", None)
+        doc_id = item.get("doc_id")
+        try:
+            document = owned_documents.get(UUID(doc_id)) if isinstance(doc_id, str) and doc_id in allowed else None
+        except ValueError:
+            document = None
+        if document is not None:
+            item["doc_name"] = document.filename or document.title
+        projected.append(item)
+    return projected
+
+
 async def _hydrate_reviewer(db: AsyncSession, course: Course) -> CourseReviewer | None:
     """Resolve the reviewer user record into a small embed (best-effort).
     Returns None if there is no reviewer on this course."""
@@ -215,6 +243,7 @@ async def get_course_preview(
             quiz_q_counts[qid] = int(cnt)
 
     source_documents: list[CoursePreviewSourceDocument] = []
+    source_by_id: dict[UUID, Any] = {}
     source_ids: list[UUID] = []
     for value in cast(list[object] | None, course.source_document_ids) or []:
         try:
@@ -234,7 +263,7 @@ async def get_course_preview(
             .scalars()
             .all()
         )
-        source_by_id = {document.id: document for document in source_rows}
+        source_by_id = {cast(UUID, document.id): document for document in source_rows}
         source_documents = [
             CoursePreviewSourceDocument(
                 id=document_id,
@@ -269,7 +298,9 @@ async def get_course_preview(
                     quiz_title=quiz.title if quiz else None,
                     quiz_question_count=quiz_q_counts.get(quiz.id, 0) if quiz else 0,
                     source_document_ids=list(l.source_document_ids or []),
-                    source_references=list(l.source_references or []),
+                    source_references=_preview_source_references(
+                        list(l.source_references or []), list(l.source_document_ids or []),
+                        source_by_id, course.source_analysis),
                     source_validation_status=l.source_validation_status,
                 )
             )

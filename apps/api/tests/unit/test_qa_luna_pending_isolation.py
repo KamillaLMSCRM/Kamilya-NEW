@@ -74,6 +74,7 @@ async def test_worker_selects_pending_journal_only_from_locked_job(monkeypatch):
         await pipeline._run_v3_generation(state, corpus, tenant_id=QA_TENANT, user_id=user,
                                           target_audience="", guidance=None, goals=None, max_total_lessons=None)
     selected = generator.await_args.kwargs["extraction_journal"]
+    assert generator.await_args.kwargs["authenticated_qa_policy"] == POLICY
     assert type(selected) is PendingStageJournal and selected.user_id == user and callable(selected.verify_source)
     assert await selected.verify_source(None, locked, {"synthetic": True}) is True
     locked.params["source_analysis"]["qa_luna_pending_journal_policy"] = "tampered"
@@ -199,14 +200,17 @@ def test_direct_factory_protects_secret_and_binds_rotation():
 
 
 @pytest.mark.asyncio
-async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(monkeypatch):
+@pytest.mark.parametrize("policy_version", ["v2", "v3"])
+async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(monkeypatch, policy_version):
     from pydantic import SecretStr
 
     from app.core import config
     from app.modules.admin.runtime_configuration import runtime
     from app.modules.ai import pipeline, qa_luna_dev_route
-    from app.modules.ai.v3 import owned_source_context, pending_stage_transactions, service
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+    from app.modules.ai.v3 import owned_route_binding, owned_source_context, pending_stage_transactions, service
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V2
+
+    marker = DIRECT_POLICY_V2 if policy_version == "v2" else DIRECT_POLICY
 
     cfg = settings("render-development-worker")
     cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
@@ -215,7 +219,7 @@ async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(m
     user = uuid4()
     monkeypatch.setattr(config, "get_settings", lambda: cfg)
     monkeypatch.setattr(pipeline, "_load_owned_reference_decisions", AsyncMock(return_value=()))
-    locked = SimpleNamespace(params={"source_analysis": {"qa_luna_pending_journal_policy": DIRECT_POLICY}}, course_id=None)
+    locked = SimpleNamespace(params={"source_analysis": {"qa_luna_pending_journal_policy": marker}}, course_id=None)
     monkeypatch.setattr(pending_stage_transactions, "_locked_job", AsyncMock(return_value=locked))
     class Session:
         async def __aenter__(self): return self
@@ -224,6 +228,13 @@ async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(m
     corpus = SimpleNamespace(tenant_id=str(QA_TENANT), document_ids=["doc"])
     context = SimpleNamespace(corpus=corpus, verify_locked=AsyncMock(return_value=True))
     monkeypatch.setattr(owned_source_context, "load_owned_source_context", AsyncMock(return_value=context))
+    async def bind_route(*, journal, user_id, client):
+        assert journal.user_id == user_id == user
+        fingerprint = client.cache_fingerprint()
+        locked.result = {owned_route_binding.KEY: {"policy": owned_route_binding.POLICY, "fingerprint": fingerprint}}
+        return fingerprint
+    binding = AsyncMock(side_effect=bind_route)
+    monkeypatch.setattr(owned_route_binding, "bind_owned_route", binding)
     legacy = AsyncMock(side_effect=AssertionError("legacy fallback forbidden"))
     monkeypatch.setattr(qa_luna_dev_route, "qa_luna_dev_client", legacy)
     class Policy:
@@ -231,27 +242,46 @@ async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(m
     monkeypatch.setattr(runtime, "resolve_runtime_settings", AsyncMock(return_value=Policy()))
     from contextlib import nullcontext
     monkeypatch.setattr(runtime, "runtime_settings_scope", lambda _value: nullcontext())
-    generator = AsyncMock(side_effect=RuntimeError("stop after selection"))
+    async def stop_after_selection(*_args, **kwargs):
+        assert await kwargs["extraction_journal"].verify_source(None, locked, {"synthetic": True}) is True
+        raise RuntimeError("stop after selection")
+    generator = AsyncMock(side_effect=stop_after_selection)
     monkeypatch.setattr(service, "generate_v3_course_from_corpus", generator)
-    state = SimpleNamespace(job_id="job", source_analysis={"qa_luna_pending_journal_policy": DIRECT_POLICY})
+    state = SimpleNamespace(job_id="job", source_analysis={"qa_luna_pending_journal_policy": marker})
     with pytest.raises(RuntimeError, match="stop after selection"):
         await pipeline._run_v3_generation(state, corpus, tenant_id=QA_TENANT, user_id=user,
                                           target_audience="", guidance=None, goals=None, max_total_lessons=None)
     client = generator.await_args.kwargs["direct_client"]
+    assert generator.await_args.kwargs["authenticated_qa_policy"] == marker
+    assert generator.await_args.kwargs["owned_source_context"] is context
     assert client is generator.await_args.kwargs["generation_client"] and client._closed
+    selected = generator.await_args.kwargs["extraction_journal"]
+    assert await selected.verify_source(None, locked, {"synthetic": True}) is (policy_version == "v2")
     legacy.assert_not_awaited()
+    assert binding.await_count == (1 if policy_version == "v3" else 0)
+    generator.reset_mock()
+    locked.params["source_analysis"]["qa_luna_pending_journal_policy"] = POLICY
+    assert await selected.verify_source(None, locked, {"synthetic": True}) is False
+    from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
+    with pytest.raises(ExtractionOutcomeUnknownError, match="route_unverified"):
+        await pipeline._run_v3_generation(state, corpus, tenant_id=QA_TENANT, user_id=user,
+                                          target_audience="", guidance=None, goals=None, max_total_lessons=None)
+    generator.assert_not_awaited()
 
 
 def test_previous_direct_policy_is_not_reinterpreted_by_new_worker():
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2
 
     cfg = settings()
     cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
     cfg.DEPLOYMENT_ENVIRONMENT = "render-development-worker"
     user = uuid4()
     assert DIRECT_POLICY != DIRECT_POLICY_V1
+    assert check_worker_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user,
+                               stored=DIRECT_POLICY_V2, dispatched=DIRECT_POLICY_V2, course_id=None)
     for stored, dispatched in ((DIRECT_POLICY_V1, DIRECT_POLICY_V1),
-                               (DIRECT_POLICY_V1, DIRECT_POLICY), (DIRECT_POLICY, DIRECT_POLICY_V1)):
+                               (DIRECT_POLICY_V1, DIRECT_POLICY), (DIRECT_POLICY, DIRECT_POLICY_V1),
+                               (DIRECT_POLICY_V2, DIRECT_POLICY), (DIRECT_POLICY, DIRECT_POLICY_V2)):
         with pytest.raises(ValueError, match="qa_luna_pending_worker_unavailable"):
             check_worker_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user,
                                 stored=stored, dispatched=dispatched, course_id=None)

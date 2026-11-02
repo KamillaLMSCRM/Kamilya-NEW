@@ -48,9 +48,22 @@ async def stage_once(
     route_fingerprint: str, messages: list[dict[str, str]], response_format: dict[str, Any] | None,
     invoke: Callable[[], Awaitable[dict[str, Any]]],
     direct_client: Any = None, direct_max_output_tokens: int = 8192,
+    _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
 ) -> dict[str, Any]:
     plan = stage_plan(journal, stage=stage, group_id=group_id, source_sha256=source_sha256,
                       route_fingerprint=route_fingerprint, messages=messages, response_format=response_format)
+    from app.modules.ai.v3.diversity_owned_selection_guard import REPAIR_GROUP_PREFIX, OwnedSelectionGuard
+
+    if group_id.startswith(REPAIR_GROUP_PREFIX):
+        if type(_owned_claim_guard) is not OwnedSelectionGuard or not re.fullmatch(r"[0-9a-f]{64}", _owned_claim_guard.identity):
+            raise ExtractionOutcomeUnknownError("v3_owned_repair_guard_required")
+        if (stage != "repair" or direct_client is None or not _owned_claim_guard.review_group_id
+                or group_id != REPAIR_GROUP_PREFIX + _owned_claim_guard.review_group_id):
+            raise ExtractionOutcomeUnknownError("v3_owned_repair_group_unverified")
+        plan["owned_guard_sha256"] = _owned_claim_guard.identity
+        plan["repair_attempt_slot"] = _digest({"policy": "v3-diversity-repair-slot-v1",
+            "tenant_id": journal.tenant_id, "job_id": journal.job_id,
+            "review_group_id": _owned_claim_guard.review_group_id})
     signature = _digest(plan)
     result_key, claim_key = f"v3-stage-result:{signature}", f"v3-stage-claim:{signature}"
 
@@ -92,10 +105,14 @@ async def stage_once(
 
             return await run_direct_owned_stage(journal=journal, client=direct_client, plan=plan,
                 result_key=result_key, claim_key=claim_key, validate_value=validate_value,
-                validate_response=validate, messages=messages, max_output_tokens=direct_max_output_tokens)
+                validate_response=validate, messages=messages, max_output_tokens=direct_max_output_tokens,
+                _owned_claim_guard=_owned_claim_guard)
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
-                                         validate_value=validate_value, validate_response=validate, invoke=invoke)
+                                         validate_value=validate_value, validate_response=validate, invoke=invoke,
+                                         _owned_claim_guard=_owned_claim_guard)
 
+    if _owned_claim_guard is not None:
+        raise ValueError("v3_owned_guard_requires_pending_journal")
     if direct_client is not None:
         raise ValueError("direct_owned_journal_required")
     prepared = await journal.prepare(result_key, plan)

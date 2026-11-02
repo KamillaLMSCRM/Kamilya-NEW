@@ -7,7 +7,13 @@ from typing import Any, Literal
 
 from app.modules.ai.generation_checkpoint import AIGenerationCheckpointError, PlannedLesson
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
-from app.modules.ai.v3.pending_stage_transactions import _locked_job, _owner, checked_entries, has_pending
+from app.modules.ai.v3.pending_stage_transactions import (
+    _locked_job,
+    _owner,
+    checked_entries,
+    has_pending,
+    verify_repair_slot,
+)
 from app.modules.ai.v3.stage_checkpoint import _digest
 
 
@@ -32,6 +38,7 @@ async def inspect_owned_stage(*, journal: Any, user_id: Any, plan: dict[str, Any
         digest = _digest(plan)
         async with journal.sessions() as session:
             job = await _locked_job(session, journal, user_id)
+            repair_slot_exists = verify_repair_slot(job, plan)
             if not callable(verify_source) or await verify_source(session, job, plan) is not True:
                 raise ValueError("v3_inspection_source_unverified")
             entries = checked_entries(job.result if isinstance(job.result, dict) else {})
@@ -55,9 +62,12 @@ async def inspect_owned_stage(*, journal: Any, user_id: Any, plan: dict[str, Any
             if result_exists:
                 saved = await journal.read_owned_value_in_session(session, result_key, plan)
                 if saved is not None:
+                    verify_repair_slot(job, plan, required=True)
                     return StageInspection("replay", validate(saved))
             if claim_exists:
                 raise ExtractionOutcomeUnknownError("v3_inspection_legacy_claim")
+            if repair_slot_exists:
+                raise ExtractionOutcomeUnknownError("v3_inspection_slot_without_result")
             if has_pending(job.result):
                 # Other valid in-flight stages do not make this request complete.
                 checked_entries(job.result)

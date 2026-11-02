@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import hashlib
 import logging
 import math
 import re
@@ -16,9 +17,9 @@ from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-unt
 
 from app.core.db import async_session_factory
 from app.modules.ai import timeout_context
-from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
+from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
 from app.modules.ai.direct_source import (
     DirectSourceCorpus,
     DirectSourceError,
@@ -34,12 +35,12 @@ from app.modules.ai.generation_engine import (
     RETIRED_GENERATION_ENGINE_CODE,
     uses_current_generation_engine,
 )
-from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.llm_client import (
     AllProvidersFailedError,
     ResilientEmbeddingsClient,
     ResilientLLMClient,
 )
+from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.writer_schema import CourseContent
 from app.modules.courses.source_uncertainty import preserve_generated_source_uncertainty
 
@@ -99,6 +100,8 @@ class GenerationState:
     source_combination_goal: str = ""
     source_analysis: dict = field(default_factory=dict)
     server_source_review_required: bool = False
+    owned_v3_source_context: Any = field(default=None, repr=False)
+    owned_v3_route_fingerprint: str | None = field(default=None, repr=False)
     reuse_reason: str | None = None
 
 
@@ -173,11 +176,17 @@ async def _persist_pending_stage_hold(job_id: str, tenant_id: UUID | None, user_
             if not has_pending(job.result):
                 from app.modules.ai.qa_luna_dev_route import QA_TENANT
                 from app.modules.ai.v3.pending_stage_transactions import KEY
-                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, KEY as QA_KEY, POLICY
+                from app.modules.ai.v3.qa_luna_pending_policy import (
+                    DIRECT_POLICY,
+                    DIRECT_POLICY_V1,
+                    DIRECT_POLICY_V2,
+                    POLICY,
+                )
+                from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 
                 params = job.params if isinstance(job.params, dict) else {}
                 analysis = params.get("source_analysis")
-                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1) or job.course_id is not None
+                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2) or job.course_id is not None
                         or not isinstance(analysis, dict) or analysis.get(QA_KEY) != expected_qa_marker
                         or analysis.get("generation_engine") != "evidence_v3"):
                     return False
@@ -554,15 +563,18 @@ async def _run_v3_generation(
     if str(corpus.tenant_id) != str(tenant_id):
         raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY as QA_PENDING_KEY, check_worker_marker
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V2, check_worker_marker
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
 
     journal: Any = WorkerCycleJournal(str(tenant_id), state.job_id, async_session_factory)
     pending_mode = False
+    authenticated_qa_policy: str | None = None
+    owned_source_context: Any = None
     direct_client: Any = None
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
-        from app.modules.ai.v3.pending_stage_transactions import _locked_job
-        from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
+        from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+        from app.modules.ai.v3.pending_stage_transactions import _locked_job
 
         if not isinstance(user_id, UUID):
             raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
@@ -577,12 +589,23 @@ async def _run_v3_generation(
             except ValueError as exc:
                 raise ExtractionOutcomeUnknownError("qa_luna_pending_route_unverified") from exc
         if pending_mode:
+            authenticated_qa_policy = stored
             journal = PendingStageJournal(str(tenant_id), user_id, state.job_id, async_session_factory)
             context = await load_owned_source_context(journal=journal, tenant_id=tenant_id,
                                                       user_id=user_id, job_id=state.job_id)
+            owned_source_context = context
+            if stored == DIRECT_POLICY:
+                state.owned_v3_source_context = context
             async def verify_qa_source(session: Any, job: Any, plan: dict[str, Any]) -> bool:
+                from app.modules.ai.v3.owned_route_binding import KEY as ROUTE_KEY
+                from app.modules.ai.v3.owned_route_binding import POLICY as ROUTE_POLICY
+
                 current = job.params.get("source_analysis") if isinstance(job.params, dict) else None
+                route_valid = (stored != DIRECT_POLICY or (direct_client is not None
+                    and isinstance(job.result, dict) and job.result.get(ROUTE_KEY) == {
+                        "policy": ROUTE_POLICY, "fingerprint": direct_client.cache_fingerprint()}))
                 return (isinstance(current, dict) and current.get(QA_PENDING_KEY) == stored
+                        and route_valid
                         and await context.verify_locked(session, job, plan) is True)
             journal.verify_source = verify_qa_source
             corpus = context.corpus
@@ -592,7 +615,7 @@ async def _run_v3_generation(
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
-        if pending_mode and state.source_analysis.get(QA_PENDING_KEY) == DIRECT_POLICY:
+        if pending_mode and state.source_analysis.get(QA_PENDING_KEY) in (DIRECT_POLICY, DIRECT_POLICY_V2):
             from app.modules.ai.direct_luna_responses_factory import create_direct_qa_responses_client
 
             try:
@@ -601,6 +624,15 @@ async def _run_v3_generation(
             except ValueError as exc:
                 raise ExtractionOutcomeUnknownError("direct_qa_responses_unavailable") from exc
             generation_client = direct_client
+            if authenticated_qa_policy == DIRECT_POLICY:
+                from app.modules.ai.v3.owned_route_binding import bind_owned_route
+
+                try:
+                    state.owned_v3_route_fingerprint = await bind_owned_route(
+                        journal=journal, user_id=user_id, client=direct_client)
+                except BaseException:
+                    direct_client.close()
+                    raise
         else:
             generation_client = await qa_luna_dev_client(
                 settings=get_settings(), tenant_id=tenant_id, temperature=policy.number("generation.temperature"),
@@ -662,6 +694,8 @@ async def _run_v3_generation(
             route_fingerprint=generation_client.cache_fingerprint(),
             reference_decisions=reference_decisions,
             direct_client=direct_client,
+            authenticated_qa_policy=authenticated_qa_policy,
+            owned_source_context=owned_source_context,
         )
     finally:
         if direct_client is not None:
@@ -708,10 +742,117 @@ def _apply_assessment_omission_notices(state: GenerationState) -> None:
         state.structure.description = "\n\n".join(filter(None, (state.structure.description, notice)))
 
 
+async def _verify_fresh_v3_final_source(
+    session: Any, job: Any, state: GenerationState, tenant_id: UUID, user_id: UUID,
+    *, final_intent: dict[str, Any] | None = None,
+) -> None:
+    """Fence fresh direct-QA completion inside its owned save transaction."""
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.final_save_contract import FENCE_POLICY, INTENT_KEY
+    from app.modules.ai.v3.owned_route_binding import KEY as ROUTE_KEY
+    from app.modules.ai.v3.owned_route_binding import POLICY as ROUTE_POLICY
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+    from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+
+    params = job.params if isinstance(job.params, dict) else {}
+    analysis = params.get("source_analysis")
+    stored = analysis.get(KEY) if isinstance(analysis, dict) else None
+    dispatched = state.source_analysis.get(KEY)
+    if stored != DIRECT_POLICY and dispatched != DIRECT_POLICY and state.owned_v3_source_context is None:
+        return
+    if delivery_id.get() is None:
+        raise DeliveryOwnershipLostError("generation_delivery_ownership_lost")
+    context = state.owned_v3_source_context
+    matching_final_fence = (final_intent is not None and isinstance(job.result, dict)
+        and job.result.get(INTENT_KEY) == final_intent
+        and job.result.get(PENDING_KEY) == {"policy": FENCE_POLICY,
+            "intent_digest": final_intent.get("intent_digest"), "attempt_id": final_intent.get("attempt_id")})
+    if (stored != DIRECT_POLICY or dispatched != DIRECT_POLICY or tenant_id != QA_TENANT
+            or not isinstance(analysis, dict) or analysis.get("generation_engine") != "evidence_v3"
+            or analysis.get("analysis_mode") != "direct_source" or (has_pending(job.result) and not matching_final_fence)
+            or not isinstance(state.owned_v3_route_fingerprint, str)
+            or not isinstance(job.result, dict)
+            or job.result.get(ROUTE_KEY) != {"policy": ROUTE_POLICY,
+                                             "fingerprint": state.owned_v3_route_fingerprint}
+            or (isinstance(job.result, dict) and any(key in job.result for key in (
+                "source_first_commit_intent", "source_first_partitioned_commit_intent")))
+            or type(context) is not OwnedSourceContext or context.tenant_id != tenant_id
+            or context.user_id != user_id or context.job_id != state.job_id
+            or context.selection != tuple(state.source_document_ids)
+            or tuple(context.corpus.document_ids) != context.selection):
+        raise ExtractionOutcomeUnknownError("v3_final_source_unverified")
+    source_texts = [doc.source_text for doc in context.corpus.documents]
+    if any(not isinstance(text, str) or not text for text in source_texts):
+        raise ExtractionOutcomeUnknownError("v3_final_source_unverified")
+    source = "\n\n".join(cast(str, text) for text in source_texts)
+    plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": str(tenant_id), "job_id": state.job_id,
+            "source_sha256": hashlib.sha256(source.encode("utf-8")).hexdigest()}
+    try:
+        valid = await context.verify_locked(session, job, plan)
+    except BaseException:
+        valid = False
+    if valid is not True:
+        raise ExtractionOutcomeUnknownError("v3_final_source_unverified")
+
+
 async def _save_generation_to_db(
     state: GenerationState,
     tenant_id: UUID,
     user_id: UUID,
+    *, final_intent: dict[str, Any] | None = None,
+) -> None:
+    if final_intent is not None:
+        try:
+            await _save_generation_to_db_transaction(state, tenant_id, user_id, final_intent=final_intent)
+        except BaseException as exc:
+            raise ExtractionOutcomeUnknownError("v3_final_save_outcome_unknown") from exc
+        return
+    await _save_generation_to_db_transaction(state, tenant_id, user_id)
+
+
+async def _prepare_fresh_v3_final_intent(state: GenerationState, tenant_id: UUID, user_id: UUID) -> dict[str, Any]:
+    """Freeze final output and durably fence a fresh owned QA-v3 save."""
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.final_save_contract import make_intent, output_digest
+    from app.modules.ai.v3.final_save_owned_checkpoint import checkpoint_final_output
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+
+    try:
+        context = state.owned_v3_source_context
+        current_delivery = delivery_id.get()
+        if (tenant_id != QA_TENANT or state.source_analysis.get(KEY) != DIRECT_POLICY
+                or type(context) is not OwnedSourceContext or context.tenant_id != tenant_id
+                or context.user_id != user_id or context.job_id != state.job_id
+                or state.course_id is not None or not isinstance(current_delivery, str) or not current_delivery
+                or not isinstance(state.owned_v3_route_fingerprint, str)):
+            raise ValueError("v3_final_prepare_scope_invalid")
+        _apply_assessment_omission_notices(state)
+        documents = []
+        for doc in context.corpus.documents:
+            if not isinstance(doc.source_text, str):
+                raise ValueError("v3_final_prepare_source_invalid")
+            documents.append({"doc_id": doc.doc_id, "revision": doc.source_revision,
+                              "text_sha256": hashlib.sha256(doc.source_text.encode("utf-8")).hexdigest()})
+        digest = output_digest(structure=state.structure, content=state.content, assessment=state.assessment,
+            source_document_ids=state.source_document_ids, source_strategy=state.source_strategy,
+            source_combination_goal=state.source_combination_goal, source_analysis=state.source_analysis,
+            source_review_required=state.server_source_review_required, reuse_reason=state.reuse_reason)
+        intent = make_intent(tenant_id=str(tenant_id), user_id=str(user_id), job_id=state.job_id,
+            delivery_id=current_delivery, route_policy=DIRECT_POLICY, route_fingerprint=state.owned_v3_route_fingerprint,
+            documents=documents, output_digest=digest)
+        await checkpoint_final_output(journal=context.journal, context=context, state=state, intent=intent)
+        return intent
+    except ExtractionOutcomeUnknownError:
+        raise
+    except BaseException as exc:
+        raise ExtractionOutcomeUnknownError("v3_final_prepare_unverified") from exc
+
+
+async def _save_generation_to_db_transaction(
+    state: GenerationState, tenant_id: UUID, user_id: UUID, *, final_intent: dict[str, Any] | None = None,
 ) -> None:
     """Save generated course structure, content, and assessments to DB."""
     _require_supported_question_export_ready(state.assessment)
@@ -733,6 +874,26 @@ async def _save_generation_to_db(
         )
         if not job:
             raise RuntimeError("Generation job does not exist in this tenant")
+        await _verify_fresh_v3_final_source(session, job, state, tenant_id, user_id, final_intent=final_intent)
+        final_snapshot = None
+        if final_intent is not None:
+            from app.modules.ai.v3.final_save_snapshot import make_snapshot, validate_snapshot
+
+            if (state.course_id is not None or job.course_id is not None
+                    or final_intent.get("tenant_id") != str(tenant_id)
+                    or final_intent.get("user_id") != str(user_id)
+                    or final_intent.get("job_id") != state.job_id
+                    or final_intent.get("delivery_id") != delivery_id.get()
+                    or final_intent.get("route_fingerprint") != state.owned_v3_route_fingerprint):
+                raise ExtractionOutcomeUnknownError("v3_final_destination_unverified")
+            expected_snapshot = make_snapshot(state, final_intent)
+            checkpoint_key = "v3-final-snapshot:" + final_intent["intent_digest"]
+            checkpoint_plan = {"schema": "v3-final-snapshot-v1", "intent_digest": final_intent["intent_digest"]}
+            final_snapshot = await state.owned_v3_source_context.journal.read_owned_value_in_session(
+                session, checkpoint_key, checkpoint_plan)
+            if (final_snapshot != expected_snapshot or not validate_snapshot(
+                    final_snapshot, expected_intent_digest=final_intent["intent_digest"])):
+                raise ExtractionOutcomeUnknownError("v3_final_snapshot_unverified")
         if job.status == "cancelled":
             raise asyncio.CancelledError(f"Job {state.job_id} cancelled")
         if job.user_id is None or job.user_id != user_id:
@@ -1022,6 +1183,14 @@ async def _save_generation_to_db(
                 **({"reuse_reason": state.reuse_reason} if state.reuse_reason else {}),
             }, source_review_required=state.server_source_review_required)
         job.params = params  # type: ignore[assignment]
+        if final_intent is not None:
+            from app.modules.ai.v3.final_save_completed_reader import completed_receipt
+            from app.modules.ai.v3.final_save_contract import RECEIPT_KEY, resolve_intent
+
+            completed = resolve_intent(job.result, final_intent, course_id=str(course.id),
+                                       output_digest=final_intent["output_digest"])
+            completed[RECEIPT_KEY] = completed_receipt(final_intent, final_snapshot, str(course.id))
+            job.result = completed
         await session.commit()
         state.course_id = str(course.id)
         logger.info(f"Saved generation results to DB for course {state.course_id}")
@@ -1099,8 +1268,14 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
             if stored_engine != expected_engine:
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if expected_engine == "evidence_v3":
-                from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, KEY, POLICY
-                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1):
+                from app.modules.ai.v3.qa_luna_pending_policy import (
+                    DIRECT_POLICY,
+                    DIRECT_POLICY_V1,
+                    DIRECT_POLICY_V2,
+                    KEY,
+                    POLICY,
+                )
+                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2):
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
                 if (analysis.get(KEY) if isinstance(analysis, dict) else None) != expected_qa_marker:
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
@@ -1143,9 +1318,11 @@ async def _run_generation_pipeline_inner(
         # Before identity and selection are checked, this caller has no authority
         # to change a job or its reservation. A successful read is not a lease.
         try:
-            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, KEY as QA_PENDING_KEY, POLICY as QA_PENDING_POLICY
+            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2
+            from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
+            from app.modules.ai.v3.qa_luna_pending_policy import POLICY as QA_PENDING_POLICY
 
-            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY, DIRECT_POLICY_V1):
+            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2):
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if not uses_current_generation_engine(state.source_analysis):
                 raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)
@@ -1240,7 +1417,14 @@ async def _run_generation_pipeline_inner(
         _require_supported_question_export_ready(state.assessment)
         if user_id:
             timeout_boundary = "save_generation_db"
-            await _save_generation_to_db(state, tenant_id, user_id)
+            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+            from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
+
+            if state.source_analysis.get(QA_PENDING_KEY) == DIRECT_POLICY:
+                final_intent = await _prepare_fresh_v3_final_intent(state, tenant_id, user_id)
+                await _save_generation_to_db(state, tenant_id, user_id, final_intent=final_intent)
+            else:
+                await _save_generation_to_db(state, tenant_id, user_id)
         else:
             assert state.content is not None
             _apply_assessment_omission_notices(state)
@@ -1265,7 +1449,32 @@ async def _run_generation_pipeline_inner(
             )
         logger.info("Evidence V2 generation complete for job %s", job_id)
         return state
-    except ExtractionOutcomeUnknownError:
+    except ExtractionOutcomeUnknownError as error:
+        from app.modules.ai.qa_luna_dev_route import QA_TENANT
+        from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+        from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+        from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
+
+        context = state.owned_v3_source_context
+        if (str(error) == "v3_final_save_outcome_unknown" and not isinstance(error.__cause__, asyncio.CancelledError)
+                and tenant_id == QA_TENANT and isinstance(user_id, UUID)
+                and state.source_analysis.get(QA_PENDING_KEY) == DIRECT_POLICY
+                and type(context) is OwnedSourceContext and context.tenant_id == tenant_id
+                and context.user_id == user_id and context.job_id == job_id):
+            from app.modules.ai.v3.final_save_recovery import recover_completed_course_id
+
+            try:
+                recovered = await asyncio.wait_for(recover_completed_course_id(session_factory=async_session_factory,
+                    tenant_id=tenant_id, authenticated_actor_id=user_id, job_id=UUID(job_id)), timeout=100)
+            except Exception:
+                recovered = None
+            if recovered is not None:
+                state.status = state.stage = "completed"
+                state.progress = 100
+                state.course_id = str(recovered)
+                state.message = _generation_completion_message(state.content) if state.content else ""
+                state.errors = []
+                return state
         state.status = state.stage = "interrupted"
         state.message = "Результат этапа требует проверки."
         state.errors = ["generation_stage_outcome_unknown"]

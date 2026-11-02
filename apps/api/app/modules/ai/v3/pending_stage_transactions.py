@@ -17,6 +17,57 @@ from app.modules.ai.v3.stage_checkpoint import _digest
 
 KEY = "v3_pending_stages"
 POLICY = "v3-pending-stages-v1"
+REPAIR_SLOTS_KEY = "v3_diversity_repair_attempts"
+REPAIR_SLOTS_POLICY = "v3-diversity-repair-slot-v1"
+
+
+def verify_repair_slot(job: Any, plan: dict[str, Any], *, required: bool = False) -> bool:
+    """Validate slot under owned job lock; absence is allowed only before claim."""
+    slot = plan.get("repair_attempt_slot")
+    if slot is None:
+        return False
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
+
+    params = job.params if isinstance(job.params, dict) else {}
+    analysis = params.get("source_analysis")
+    if (not isinstance(slot, str) or not re.fullmatch(r"[0-9a-f]{64}", slot)
+            or plan.get("stage") != "repair" or str(plan.get("tenant_id")) != str(QA_TENANT)
+            or not isinstance(analysis, dict) or analysis.get(QA_KEY) != DIRECT_POLICY):
+        raise ExtractionOutcomeUnknownError("v3_repair_slot_scope_unverified")
+    result = job.result if isinstance(job.result, dict) else {}
+    value = result.get(REPAIR_SLOTS_KEY)
+    if value is None and REPAIR_SLOTS_KEY not in result and not required:
+        return False
+    if (not isinstance(value, dict) or set(value) != {"policy", "entries"}
+            or value["policy"] != REPAIR_SLOTS_POLICY or not isinstance(value["entries"], dict)
+            or not value["entries"]
+            or any(not isinstance(k, str) or not re.fullmatch(r"[0-9a-f]{64}", k)
+                   or not isinstance(v, str) or not re.fullmatch(r"[0-9a-f]{64}", v)
+                   for k, v in value["entries"].items())):
+        raise ExtractionOutcomeUnknownError("v3_repair_slot_invalid")
+    existing = value["entries"].get(slot)
+    if existing is None and not required:
+        return False
+    if existing != _digest(plan):
+        raise ExtractionOutcomeUnknownError("v3_repair_slot_already_used")
+    return True
+
+
+def install_repair_slot(job: Any, plan: dict[str, Any]) -> None:
+    slot = plan.get("repair_attempt_slot")
+    if slot is None:
+        return
+    verify_repair_slot(job, plan)
+    result = dict(job.result or {})
+    value = result.get(REPAIR_SLOTS_KEY, {"policy": REPAIR_SLOTS_POLICY, "entries": {}})
+    entries = dict(value["entries"])
+    if slot in entries:
+        raise ExtractionOutcomeUnknownError("v3_repair_slot_already_used")
+    entries[slot] = _digest(plan)
+    result[REPAIR_SLOTS_KEY] = {"policy": REPAIR_SLOTS_POLICY, "entries": entries}
+    job.result = result
 
 
 def has_pending(result: Any) -> bool:
@@ -138,6 +189,7 @@ async def claim_with_pending(*, journal: Any, user_id: Any, plan: dict[str, Any]
                 raise ExtractionOutcomeUnknownError("v3_pending_existing")
             if verify_source is not None:
                 await verify_source_safely(verify_source, session, job, plan)
+            verify_repair_slot(job, plan)
             repo = journal.repository
             async def exists(key: str) -> bool:
                 try:
@@ -152,6 +204,7 @@ async def claim_with_pending(*, journal: Any, user_id: Any, plan: dict[str, Any]
             if digest in entries:
                 raise ExtractionOutcomeUnknownError("v3_pending_existing")
             if result_exists:
+                verify_repair_slot(job, plan, required=True)
                 saved = await journal.read_owned_value_in_session(session, result_key, plan)
                 if saved is not None:
                     restored = validate(saved)
@@ -159,6 +212,7 @@ async def claim_with_pending(*, journal: Any, user_id: Any, plan: dict[str, Any]
                     return restored
             if claim_exists:
                 raise ExtractionOutcomeUnknownError("v3_pending_legacy_claim")
+            install_repair_slot(job, plan)
             for key in (result_key, claim_key):
                 await repo.create_plan(session, tenant_id=journal.tenant_id, generation_key=journal._owned_key(key),
                     plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}", source_job_id=journal.job_id, plan_payload=plan,
@@ -196,6 +250,7 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
             expected = {"claim_key": claim_key, "result_key": result_key, "token": marker.get("claim_token")}
             if entries.get(digest) != expected or marker.get("identity") != digest:
                 raise ValueError("v3_pending_marker_mismatch")
+            verify_repair_slot(job, plan, required=True)
             stored_claim = await journal.read_owned_value_in_session(session, claim_key, plan)
             if stored_claim != marker:
                 raise ValueError("v3_pending_claim_mismatch")

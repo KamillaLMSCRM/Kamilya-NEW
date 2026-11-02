@@ -2,6 +2,24 @@
 
 Current as of: 2026-11-02.
 
+## TEST-ISOLATION-001 - Synthetic V3 test entered external transport
+
+- Date: 2026-11-02.
+- Symptom: two invocations of a new fake full-service test reached the direct
+  Luna input-token transport and ended with transport-unknown errors. The test
+  used a synthetic key; no successful model response is evidenced and remote
+  receipt cannot be determined from the local error.
+- Cause: the fixture constructed a real direct client without replacing its
+  transport, and an earlier claim-review path reached the token-count endpoint.
+- Fix: the test file installs autouse socket and HTTP-client connection denials
+  before creating clients; earlier unrelated review is stubbed. The safeguard
+  is local to that file, not a network boundary for the whole test suite.
+- Verification: local denial probes and six guarded tests passed. Independent
+  static review confirmed that the observed HTTP path is blocked by the final
+  file-wide guard; it is not a process-wide firewall.
+- Prevention: offline service tests must deny network at the transport boundary
+  before constructing clients, and must not assume a fake key prevents sends.
+
 
 ## AI-V3-QUALITY-001 - Explanation contradicted a marked-correct answer
 
