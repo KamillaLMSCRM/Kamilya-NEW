@@ -205,7 +205,6 @@ def test_short_complete_fragment_is_eligible():
 async def test_owned_reader_rejects_stale_and_selects_persisted_review(monkeypatch):
     import hashlib
     import json
-    from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
     from app.modules.ai.v3.diversity_repair_selection import select_owned_candidate
@@ -234,8 +233,8 @@ async def test_owned_reader_rejects_stale_and_selects_persisted_review(monkeypat
         return object()
 
     async def invoke(_cap, **kwargs):
-        return SimpleNamespace(
-            content={
+        return _direct_response(
+            {
                 "fingerprint": fingerprints[-1],
                 "status": "observed",
                 "overlaps": [[1, 2]],
@@ -280,7 +279,6 @@ def network_denied(monkeypatch):
 async def test_owned_reader_rejects_untrusted_results(monkeypatch, network_denied, mode):
     import hashlib
     import json
-    from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
     from app.modules.ai.v3.diversity_repair_selection import select_owned_candidate
@@ -320,7 +318,7 @@ async def test_owned_reader_rejects_untrusted_results(monkeypatch, network_denie
             content["status"] = "unknown"
         if mode == "malformed":
             content["overlaps"] = [[1, 1]]
-        return SimpleNamespace(content=content)
+        return _direct_response(content)
 
     monkeypatch.setattr(client, "prepare", AsyncMock(side_effect=prepare))
     monkeypatch.setattr(client, "invoke", AsyncMock(side_effect=invoke))
@@ -364,3 +362,9 @@ async def test_owned_reader_rejects_untrusted_results(monkeypatch, network_denie
         assert await select_owned_candidate(**common, selected_index=2) is None
     client.prepare.assert_awaited_once()
     client.invoke.assert_awaited_once()
+
+
+def _direct_response(content):
+    from app.modules.ai.direct_luna_api import LunaUsage
+    from app.modules.ai.direct_luna_responses_client import ResponsesResult
+    return ResponsesResult(content=content, model="gpt-6-luna", usage=LunaUsage(None, None, None, None))

@@ -1,7 +1,6 @@
 """Offline direct-owned diversity review through the real pending journal."""
 import json
 from dataclasses import replace
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -49,7 +48,7 @@ async def test_completed_cold_replay_and_known_malformed_hold(monkeypatch, malfo
         response = {"fingerprint": fingerprint[-1], "status": "observed", "overlaps": [[1, 2]], "omissions": []}
         if malformed:
             response["overlaps"] = [[1, 1]]
-        return SimpleNamespace(content=response)
+        return _direct_response(response)
     monkeypatch.setattr(client, "prepare", AsyncMock(side_effect=prepare))
     monkeypatch.setattr(client, "invoke", AsyncMock(side_effect=invoke))
     first = await review_final_lesson(**args)
@@ -82,7 +81,7 @@ async def test_changed_final_question_and_source_make_distinct_owned_stages(monk
         fingerprints.append(json.loads(messages[1]["content"])["fingerprint"])
         return object()
     async def invoke(_cap, **_kwargs):
-        return SimpleNamespace(content={"fingerprint": fingerprints[-1], "status": "observed", "overlaps": [], "omissions": []})
+        return _direct_response({"fingerprint": fingerprints[-1], "status": "observed", "overlaps": [], "omissions": []})
     monkeypatch.setattr(client, "prepare", AsyncMock(side_effect=prepare))
     monkeypatch.setattr(client, "invoke", AsyncMock(side_effect=invoke))
     await review_final_lesson(**args)
@@ -148,7 +147,7 @@ async def test_finalize_ack_loss_recovers_only_by_owned_readback(monkeypatch):
         return object()
     async def invoke(_cap, **_kwargs):
         fake.fail_ack = True
-        return SimpleNamespace(content={"fingerprint": fingerprints[-1], "status": "observed", "overlaps": [], "omissions": []})
+        return _direct_response({"fingerprint": fingerprints[-1], "status": "observed", "overlaps": [], "omissions": []})
     monkeypatch.setattr(client, "prepare", AsyncMock(side_effect=prepare))
     monkeypatch.setattr(client, "invoke", AsyncMock(side_effect=invoke))
     with pytest.raises(ExtractionOutcomeUnknownError):
@@ -158,3 +157,9 @@ async def test_finalize_ack_loss_recovers_only_by_owned_readback(monkeypatch):
     assert result["status"] == "review_required" and not has_pending(fake.job.result)
     client.prepare.assert_awaited_once()
     client.invoke.assert_awaited_once()
+
+
+def _direct_response(content):
+    from app.modules.ai.direct_luna_api import LunaUsage
+    from app.modules.ai.direct_luna_responses_client import ResponsesResult
+    return ResponsesResult(content=content, model="gpt-6-luna", usage=LunaUsage(None, None, None, None))

@@ -1,7 +1,6 @@
 import hashlib
 import socket
 from dataclasses import replace
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -60,7 +59,7 @@ async def test_owned_author_replay_or_unknown_never_repeats(monkeypatch, timeout
         "distractors": [{"text": x, "category": "role_confusion"} for x in ("a", "b", "c")]}
     prepare = AsyncMock(return_value=object())
     invoke = AsyncMock(side_effect=TimeoutError("unknown") if timeout else None,
-                       return_value=SimpleNamespace(content=response))
+                       return_value=_direct_response(response))
     monkeypatch.setattr(client, "prepare", prepare)
     monkeypatch.setattr(client, "invoke", invoke)
     args = dict(lesson=lesson, corpus=corpus, rules=rules, selected=selected, journal=journal,
@@ -86,3 +85,9 @@ async def test_owned_author_replay_or_unknown_never_repeats(monkeypatch, timeout
             await author_owned_variant(**(args | {"lesson": changed}))
     prepare.assert_awaited_once()
     invoke.assert_awaited_once()
+
+
+def _direct_response(content):
+    from app.modules.ai.direct_luna_api import LunaUsage
+    from app.modules.ai.direct_luna_responses_client import ResponsesResult
+    return ResponsesResult(content=content, model="gpt-6-luna", usage=LunaUsage(None, None, None, None))

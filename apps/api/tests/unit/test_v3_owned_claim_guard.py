@@ -1,6 +1,5 @@
 """Offline same-transaction claim guard for selected owned evidence."""
 import socket
-from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
@@ -92,7 +91,7 @@ async def test_completed_cold_replay_rechecks_guard_without_count_or_provider(mo
         return object()
     async def invoke(_capability, *, ownership_checkpoint, **_kwargs):
         assert await ownership_checkpoint()
-        return SimpleNamespace(content={"ok": True})
+        return _direct_response({"ok": True})
     prepare_mock, invoke_mock = AsyncMock(side_effect=prepare), AsyncMock(side_effect=invoke)
     monkeypatch.setattr(client, "prepare", prepare_mock)
     monkeypatch.setattr(client, "invoke", invoke_mock)
@@ -150,7 +149,7 @@ async def test_reserved_guard_drift_at_finalize_keeps_pending_no_retry(monkeypat
         return object()
     async def invoke(_capability, *, ownership_checkpoint, **_kwargs):
         assert await ownership_checkpoint()
-        return SimpleNamespace(content={"ok": True})
+        return _direct_response({"ok": True})
     prepare_mock, invoke_mock = AsyncMock(side_effect=prepare), AsyncMock(side_effect=invoke)
     monkeypatch.setattr(client, "prepare", prepare_mock)
     monkeypatch.setattr(client, "invoke", invoke_mock)
@@ -173,7 +172,7 @@ async def test_repair_slot_cold_replay_and_changed_attempt_denied_before_count(m
     fresh_repair_scope(fake, journal)
     async def check(*_args): return True
     async def prepare(*_args, **_kwargs): return object()
-    async def invoke(*_args, **_kwargs): return SimpleNamespace(content={"ok": True})
+    async def invoke(*_args, **_kwargs): return _direct_response({"ok": True})
     monkeypatch.setattr(client, "prepare", AsyncMock(side_effect=prepare))
     monkeypatch.setattr(client, "invoke", AsyncMock(side_effect=invoke))
     args = params(journal, client, OwnedSelectionGuard("a" * 64, check, "case"))
@@ -262,7 +261,7 @@ async def test_repair_finalize_lost_ack_replays_owned_result_without_new_attempt
     async def check(*_args): return True
     async def invoke(*_args, **_kwargs):
         fake.fail_ack = True
-        return SimpleNamespace(content={"ok": True})
+        return _direct_response({"ok": True})
     monkeypatch.setattr(client, "prepare", AsyncMock(return_value=object()))
     monkeypatch.setattr(client, "invoke", AsyncMock(side_effect=invoke))
     args = params(journal, client, OwnedSelectionGuard("a" * 64, check, "case"))
@@ -283,7 +282,7 @@ async def test_existing_repair_slot_without_checkpoints_holds_before_count(monke
     fresh_repair_scope(fake, journal)
     async def check(*_args): return True
     monkeypatch.setattr(client, "prepare", AsyncMock(return_value=object()))
-    monkeypatch.setattr(client, "invoke", AsyncMock(return_value=SimpleNamespace(content={"ok": True})))
+    monkeypatch.setattr(client, "invoke", AsyncMock(return_value=_direct_response({"ok": True})))
     args = params(journal, client, OwnedSelectionGuard("a" * 64, check, "case"))
     args["group_id"] = "owned-diversity-repair:case"
     assert await stage_once(**args) == {"ok": True}
@@ -295,3 +294,9 @@ async def test_existing_repair_slot_without_checkpoints_holds_before_count(monke
         await stage_once(**args)
     client.prepare.assert_not_awaited()
     client.invoke.assert_not_awaited()
+
+
+def _direct_response(content):
+    from app.modules.ai.direct_luna_api import LunaUsage
+    from app.modules.ai.direct_luna_responses_client import ResponsesResult
+    return ResponsesResult(content=content, model="gpt-6-luna", usage=LunaUsage(None, None, None, None))
