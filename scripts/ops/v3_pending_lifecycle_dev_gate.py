@@ -220,7 +220,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         calls: list[str] = []
         mode = "success"
 
-        async def fake_post(endpoint: str, _payload: dict[str, Any]) -> str:
+        async def fake_post(endpoint: str, _payload: dict[str, Any], *, stage_id: str | None = None) -> str:
             if endpoint not in (COUNT_ENDPOINT, GENERATION_ENDPOINT):
                 raise AssertionError("direct_gate_unexpected_endpoint")
             calls.append(endpoint)
@@ -302,6 +302,80 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
             checks.append("direct_fake_count_claim_replay_unknown")
         finally:
             client.close()
+
+        # Separate disposable-schema fixture: keep the unknown job above intact.
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_a)
+            rejected_job = await session.scalar(select(AIJob).where(AIJob.id == _resume_job))
+            if rejected_job is None:
+                raise AssertionError("rejection_fixture_missing")
+            rejected_user = rejected_job.user_id
+            rejected_job.status = "running"
+            rejected_job.params = {"source_analysis": {"generation_engine": "evidence_v3"}}
+            rejected_job.result = {"synthetic_rejection_fixture": True}
+            await session.commit()
+        rejection_calls: list[str] = []
+        rejected_client = DirectLunaResponsesClient(api_key="synthetic-only", tenant_id=tenant_a,
+                                                   user_id=rejected_user, job_id=_resume_job)
+        async def fake_rejected_post(endpoint: str, _payload: dict[str, Any], *, stage_id: str | None = None) -> str:
+            if endpoint not in (COUNT_ENDPOINT, GENERATION_ENDPOINT):
+                raise AssertionError("rejection_unexpected_endpoint")
+            rejection_calls.append(endpoint)
+            if endpoint == COUNT_ENDPOINT:
+                return json.dumps({"object": "response.input_tokens", "input_tokens": 12})
+            return json.dumps({"model": "gpt-6-luna", "status": "incomplete",
+                               "incomplete_details": {"reason": "max_output_tokens"},
+                               "usage": {"input_tokens": 12, "output_tokens": 128}})
+        rejected_client._post = fake_rejected_post
+        rejection_journal = PendingStageJournal(str(tenant_a), rejected_user, _resume_job, sessions,
+                                                verify_source=verify_fixture)
+        rejection_args = dict(stage="lesson", group_id="direct-rejection",
+            source_sha256="a" * 64, route_fingerprint="b" * 64,
+            messages=[{"role": "user", "content": "synthetic"}], response_format={"type": "json_object"},
+            invoke=forbidden_legacy, direct_max_output_tokens=128)
+        rejection_plan = stage_plan(rejection_journal, **{key: rejection_args[key] for key in
+            ("stage", "group_id", "source_sha256", "route_fingerprint", "messages", "response_format")})
+        rejection_digest = _digest(rejection_plan)
+        rejection_token = delivery_id.set(_resume_job)
+        try:
+            try:
+                await stage_once(rejection_journal, **rejection_args, direct_client=rejected_client)
+            except ExtractionOutcomeUnknownError:
+                pass
+            else:
+                raise AssertionError("rejected_content_accepted")
+            async with sessions() as check:
+                await canonical.set_tenant(check, tenant_a)
+                saved = await check.scalar(select(AIJob.result).where(AIJob.id == _resume_job))
+                receipt = saved.get("v3_response_rejections", {}).get("entries", {}).get(rejection_digest)
+                if (not isinstance(receipt, dict) or receipt.get("status") != "incomplete"
+                        or receipt.get("reason") != "max_output_tokens"
+                        or receipt.get("usage", {}).get("output_tokens") != 128
+                        or not saved.get("synthetic_rejection_fixture")
+                        or await check.scalar(select(pending_sql_predicate()).where(AIJob.id == _resume_job)) is not True):
+                    raise AssertionError("rejection_receipt_not_durable")
+            rejected_client.close()
+            cold_client = DirectLunaResponsesClient(api_key="synthetic-only", tenant_id=tenant_a,
+                                                    user_id=rejected_user, job_id=_resume_job)
+            async def never_post(*_args: Any, **_kwargs: Any) -> str:
+                raise AssertionError("rejection_cold_replay_called_provider")
+            cold_client._post = never_post
+            cold_journal = PendingStageJournal(str(tenant_a), rejected_user, _resume_job, sessions,
+                                               verify_source=verify_fixture)
+            try:
+                await stage_once(cold_journal, **rejection_args, direct_client=cold_client)
+            except ExtractionOutcomeUnknownError:
+                pass
+            else:
+                raise AssertionError("rejection_cold_replay_accepted")
+            finally:
+                cold_client.close()
+            if rejection_calls != [COUNT_ENDPOINT, GENERATION_ENDPOINT]:
+                raise AssertionError("rejection_call_count_invalid")
+            checks.append("direct_rejection_receipt_durable_cold_hold")
+        finally:
+            rejected_client.close()
+            delivery_id.reset(rejection_token)
     finally:
         delivery_id.reset(token)
 
@@ -351,7 +425,8 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
         base.exercise = original
     expected = {"runtime_role_restricted", "migration_upgrade_downgrade_reupgrade", "rls_force_and_acl",
                 "sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
-                "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown"}
+                "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown",
+                "direct_rejection_receipt_durable_cold_hold"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True
             or result.get("passed") is not True or result.get("cleanup") is not True

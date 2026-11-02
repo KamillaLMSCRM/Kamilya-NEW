@@ -55,6 +55,30 @@ class ResponsesClientError(RuntimeError):
     """Sanitized error; generation errors indicate an unknown outcome."""
 
 
+class ResponsesRejectedError(ResponsesClientError):
+    """Received terminal envelope, never permission to accept, retry, or refund."""
+
+    def __init__(self, scope: tuple[UUID, UUID, str], stage: str,
+                 details: tuple[str, str, int | None, int | None, int | None, int | None]):
+        super().__init__("luna_responses_generation_unverified")
+        self._rejection_scope, self._rejection_stage, self._rejection_details = scope, stage, details
+
+    def checked_receipt(self, *, tenant_id: str, user_id: UUID, job_id: str, stage: str) -> dict[str, Any]:
+        from app.modules.ai.v3.direct_usage_metadata import checked_metadata
+
+        if (self._rejection_scope != (UUID(tenant_id), user_id, job_id) or self._rejection_stage != stage
+                or not re.fullmatch(r"[0-9a-f]{64}", stage)):
+            raise ValueError("luna_rejection_scope_invalid")
+        status, reason, inputs, outputs, cached, reasoning = self._rejection_details
+        if status not in {"incomplete", "failed", "cancelled"} or reason not in {*_INCOMPLETE_REASONS, "unknown"}:
+            raise ValueError("luna_rejection_details_invalid")
+        if status != "incomplete" and reason != "unknown":
+            raise ValueError("luna_rejection_details_invalid")
+        metadata = checked_metadata({"model": "gpt-6-luna", "usage": {"input_tokens": inputs,
+            "output_tokens": outputs, "cached_input_tokens": cached, "reasoning_tokens": reasoning}})
+        return {**metadata, "status": status, "reason": reason}
+
+
 @dataclass(frozen=True, repr=False)
 class ResponsesResult:
     content: dict[str, Any]
@@ -209,6 +233,7 @@ class DirectLunaResponsesClient:
             raw = await self._post(GENERATION_ENDPOINT, request.generation_payload(), stage_id=stage_id)
         invalid = False
         result: ResponsesResult | None = None
+        rejection: ResponsesRejectedError | None = None
         validation_stage = "envelope_schema"
         try:
             body = parse_source_first_response(raw)
@@ -223,6 +248,9 @@ class DirectLunaResponsesClient:
                     except ValueError:
                         job = "unknown"
                     status, reason, input_count, output_count, cached, reasoning = _safe_rejection_details(body)
+                    if stage_id is not None and status in {"incomplete", "failed", "cancelled"}:
+                        rejection = ResponsesRejectedError(scope, stage_id,
+                            (status, reason, input_count, output_count, cached, reasoning))
                     logger.info("luna_generation_rejected job=%s stage=%s status=%s reason=%s input_tokens=%s output_tokens=%s cached_input_tokens=%s reasoning_tokens=%s",
                                 job, stage_id or "unknown", status, reason, input_count, output_count, cached, reasoning)
                 except Exception:
@@ -271,5 +299,7 @@ class DirectLunaResponsesClient:
                             stage_id or "unknown", validation_stage)
             except Exception:
                 pass
+            if rejection is not None:
+                raise rejection
             raise ResponsesClientError("luna_responses_generation_unverified")
         return result
