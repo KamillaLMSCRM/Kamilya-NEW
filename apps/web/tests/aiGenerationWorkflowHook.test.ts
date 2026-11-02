@@ -113,4 +113,18 @@ describe('AI generation workflow recovery', () => {
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
     expect(localStorage.getItem('ai_generation_workflow_context')).toBeNull();
   });
+
+  it('allows an existing-job view to clear requested and inherited program context', () => {
+    const { result } = renderHook(() => useGenerationWorkflow('requested-program'));
+
+    act(() => { result.current.startJob(activeJob); });
+    expect(result.current.programId).toBe('requested-program');
+    expect(JSON.parse(localStorage.getItem('ai_generation_workflow_context') || '{}').program_id).toBe('requested-program');
+
+    act(() => { result.current.startJob(activeJob, { programId: 'inherited-program' }); });
+    expect(result.current.programId).toBe('inherited-program');
+    act(() => { result.current.startJob(activeJob, { programId: null }); });
+    expect(result.current.programId).toBeNull();
+    expect(JSON.parse(localStorage.getItem('ai_generation_workflow_context') || '{}').program_id).toBeNull();
+  });
 });

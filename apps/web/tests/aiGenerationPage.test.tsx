@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AIGeneratePage from '@/app/ai/generate/page';
 import { api } from '@/lib/api';
 import { useLanguageStore } from '@/store/languageStore';
+import { useAuthStore } from '@/store/authStore';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
 const toastErrorMock = vi.hoisted(() => vi.fn());
@@ -608,6 +609,239 @@ describe('/ai/generate multi-document selection contract', () => {
       expect.objectContaining({ language_confirmed: true }),
     ));
     expect(screen.queryByRole('dialog', { name: 'Документы на разных языках' })).not.toBeInTheDocument();
+  });
+});
+
+describe('/ai/generate generation conflict recovery', () => {
+  const existingJobId = '3ef30b99-7c2f-4f85-9a1e-2c3b4d5e6f70';
+  const existingJob = {
+    ...activeJob,
+    id: existingJobId,
+    course_id: null,
+    status: 'running',
+    progress: 42,
+    stage: 'content_generation',
+  } as any;
+
+  function mockConflict(detail: Record<string, unknown>) {
+    mockCatalogWith(readyDocuments);
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') throw { response: { status: 409, data: { detail } } };
+      return { data: {} } as any;
+    });
+  }
+
+  it('keeps a 409 conflict actionable and reads the exact existing job without another generation POST', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: existingJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    expect(await screen.findByText('Для этого набора документов уже идёт генерация.')).toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть существующий прогресс' }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}`));
+    expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('rejects an invalid conflict id without attempting a read or a second POST', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: 'not-a-uuid' });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    expect(await screen.findByText('Ссылка на существующую генерацию недействительна.')).toBeInTheDocument();
+    expect(apiMock.get.mock.calls.some(([url]) => String(url).includes('/v1/ai/jobs/'))).toBe(false);
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('keeps an exact-read failure visible and never retries generation automatically', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) throw { response: { status: 404 } };
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    expect(await screen.findByText('Не удалось прочитать существующую генерацию.')).toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('clears a terminal conflict only after the explicit read and does not auto-submit a new job', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: { ...existingJob, status: 'completed', progress: 100 } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    expect(await screen.findByText('Существующая генерация завершена. Можно явно подготовить новый курс.')).toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Вернуться к созданию курса' }));
+    expect(screen.queryByText('Существующая генерация завершена. Можно явно подготовить новый курс.')).not.toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('drops a pending conflict when the selected source changes before it is read', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    expect(await screen.findByText('Для этого набора документов уже идёт генерация.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Охрана труда/ }));
+    await waitFor(() => expect(screen.queryByText('Для этого набора документов уже идёт генерация.')).not.toBeInTheDocument());
+    expect(apiMock.get).not.toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}`);
+  });
+
+  it.each(['selection', 'selectionABA', 'session'])('ignores a delayed 409 after a %s scope change', async (change) => {
+    mockCatalogWith(readyDocuments);
+    let rejectGeneration!: (error: unknown) => void;
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') return new Promise((_, reject) => { rejectGeneration = reject; });
+      return { data: {} } as any;
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    if (change === 'session') {
+      act(() => useAuthStore.setState({ sessionEpoch: useAuthStore.getState().sessionEpoch + 1 }));
+    } else {
+      fireEvent.click(screen.getByRole('checkbox', { name: /Охрана труда/ }));
+      if (change === 'selectionABA') fireEvent.click(screen.getByRole('checkbox', { name: /Охрана труда/ }));
+    }
+    await act(async () => {
+      rejectGeneration({ response: { status: 409, data: { detail: { code: 'generation_already_in_progress', job_id: existingJobId } } } });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Для этого набора документов уже идёт генерация.')).not.toBeInTheDocument();
+  });
+
+  it('ignores a delayed GET after an A-B-A source selection cycle', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    let resolveRead!: (value: unknown) => void;
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return new Promise((resolve) => { resolveRead = resolve; });
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Охрана труда/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Охрана труда/ }));
+    await act(async () => {
+      resolveRead({ data: existingJob });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Прогресс генерации')).not.toBeInTheDocument();
+  });
+
+  it('keeps an admitted conflict across an access-token refresh for the same actor', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: existingJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    useAuthStore.setState({ accessToken: 'rotated-token' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}`));
+    expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+  });
+
+  it('restores an existing job with no inherited program context on a program-scoped page', async () => {
+    window.history.pushState({}, '', '?program_id=requested-program');
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: existingJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('ai_generation_workflow_context') || '{}').program_id).toBeNull();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+    window.history.pushState({}, '', '/');
+  });
+
+  it.each(['session', 'unmount', 'token'])('adopts a late successful admission only in its live actor scope (%s)', async (change) => {
+    mockCatalogWith(readyDocuments);
+    let resolveGeneration!: (value: unknown) => void;
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') return new Promise((resolve) => { resolveGeneration = resolve; });
+      throw new Error(`Unexpected POST ${url}`);
+    });
+    const view = render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const button = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+    if (change === 'unmount') view.unmount();
+    else act(() => useAuthStore.setState(change === 'session'
+      ? { sessionEpoch: useAuthStore.getState().sessionEpoch + 1 }
+      : { accessToken: 'same-actor-refreshed-token' }));
+    await act(async () => { resolveGeneration({ data: existingJob }); await Promise.resolve(); });
+    expect(localStorage.getItem('ai_active_job_id')).toBe(change === 'token' ? existingJobId : null);
+    if (change === 'token') expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+  });
+
+  it('does not persist a conflict read after the page has unmounted', async () => {
+    mockConflict({ code: 'generation_already_in_progress', job_id: existingJobId });
+    let resolveRead!: (value: unknown) => void;
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return new Promise((resolve) => { resolveRead = resolve; });
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    const view = render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const button = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть существующий прогресс' }));
+    view.unmount();
+    await act(async () => { resolveRead({ data: existingJob }); await Promise.resolve(); });
+    expect(localStorage.getItem('ai_active_job_id')).toBeNull();
   });
 });
 

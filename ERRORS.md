@@ -2,6 +2,14 @@
 
 Current as of: 2026-11-02.
 
+## AI-ADMISSION-003 - Existing generation conflict had no persistent recovery action
+
+- Date:2026-11-02; actual ordinary DEV Standards submission returned409 while old V2 job3ef30b99 remained running76. No new course/model call was admitted by this rejected request.
+- Cause: the page handled source-reuse/language acknowledgements but reduced generation_already_in_progress to a transient generic toast. Reusing startJob for an existing task could also inherit an unrelated requested/stored learning-program context. Late admitted/read responses could write workflow storage after actor change or page unmount.
+- Fix: persistent conflict with UUID validation and explicit exact read, never automatic generation/resume/cancel; synchronous actor/source/program scope revision rejects stale/ABA replies. Existing-task view explicitly clears program context through a narrow hook override; ordinary one-argument admission behaviour remains. A mounted/live-actor fence protects successful admissions and read responses; same-actor token refresh still adopts an acknowledged job. Guide and RU/KK/EN copy updated.
+- Verification: actual409 retained; root3 red late-success/unmount cases reproduced storage overwrite, then61 focused generation/reuse/workflow tests PASS, types/focused lint PASS. Root corrected a malformed deferred-GET test envelope and added initial selectionABA/session and inherited-program checks. New live DEV acceptance pending; production frontend70 remains accepted and unchanged.
+- Prevention: distinguish a definitive admission conflict from a failed generation; recover the exact existing job with no hidden mutation, and bind all async workflow adoption to the live principal/page and original program provenance.
+
 ## AI-BUDGET-002 - Cross-month cancellation refunded the current usage period
 
 - Date:2026-11-02; discovered while reconciling stale synthetic Standards V2 job3ef30b99 from29Oct. No cancellation or customer-counter mutation was executed during diagnosis.

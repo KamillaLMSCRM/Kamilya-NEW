@@ -127,6 +127,26 @@ type CourseFormat = 'automatic' | 'brief' | 'standard' | 'detailed';
 
 type Step = 'documents' | 'generate' | 'review';
 
+type GenerationConflictState = {
+  jobId: string;
+  sourceSignature: string;
+  actorSignature: string;
+  scopeKey: string;
+  scopeRevision: number;
+  status: 'unread' | 'reading' | 'active' | 'terminal' | 'error' | 'invalid';
+  job?: AIGenerationJob;
+};
+
+const canonicalJobId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isCanonicalJobId(value: unknown): value is string {
+  return typeof value === 'string' && canonicalJobId.test(value);
+}
+
+function isTerminalJob(job: AIGenerationJob): boolean {
+  return ['completed', 'failed', 'cancelled'].includes(job.status);
+}
+
 interface DocumentIndexProgress {
   jobId: string;
   current: number | null;
@@ -146,6 +166,10 @@ export default function AIGeneratePage() {
   ];
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
+  const sessionEpoch = useAuthStore((s) => s.sessionEpoch);
+  const userId = useAuthStore((s) => s.user?.user_id ?? null);
+  const tenantId = useAuthStore((s) => s.user?.tenant_id ?? null);
+  const role = useAuthStore((s) => s.user?.role ?? null);
 
   const [pageStep, setPageStep] = useState<Step>('documents');
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -198,6 +222,7 @@ export default function AIGeneratePage() {
   const [combinationGoal, setCombinationGoal] = useState('');
   const [admissionError, setAdmissionError] = useState(false);
   const [admissionRetryAfter, setAdmissionRetryAfter] = useState<number | null>(null);
+  const [generationConflict, setGenerationConflict] = useState<GenerationConflictState | null>(null);
   const [generationSubmitting, setGenerationSubmitting] = useState(false);
   const [reuseDialog, setReuseDialog] = useState<{
     open: boolean;
@@ -216,6 +241,51 @@ export default function AIGeneratePage() {
     reuseReason: ReuseReason | null;
   }>({ languageConfirmed: false, reuseReason: null });
   const fileRef = useRef<HTMLInputElement>(null);
+  const actorSignature = `${sessionEpoch}:${tenantId ?? ''}:${userId ?? ''}:${role ?? ''}`;
+  const sourceSignature = JSON.stringify({
+    documents: [...selectedDocIds].sort(),
+    language,
+    sourceStrategy,
+    combinationGoal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
+    targetAudience: targetAudience.trim(),
+    courseIntent: courseIntent.trim(),
+    courseFormat,
+    manualModules,
+    numModules: manualModules ? numModules : null,
+  });
+  const scopeKey = `${actorSignature}:${sourceSignature}:${requestedProgramId ?? ''}`;
+  const scopeRevisionRef = useRef(0);
+  const scopeKeyRef = useRef(scopeKey);
+  if (scopeKeyRef.current !== scopeKey) {
+    scopeRevisionRef.current += 1;
+    scopeKeyRef.current = scopeKey;
+  }
+  const generationConflictRef = useRef<GenerationConflictState | null>(null);
+  const actorSignatureRef = useRef(actorSignature);
+  actorSignatureRef.current = actorSignature;
+  const generationPageMountedRef = useRef(true);
+
+  useEffect(() => {
+    generationPageMountedRef.current = true;
+    return () => {
+      generationPageMountedRef.current = false;
+      scopeRevisionRef.current += 1;
+      generationConflictRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    generationConflictRef.current = generationConflict;
+  }, [generationConflict]);
+
+  useEffect(() => {
+    setGenerationConflict((current) => {
+      if (!current) return current;
+      if (current.scopeKey === scopeKey && current.scopeRevision === scopeRevisionRef.current) return current;
+      generationConflictRef.current = null;
+      return null;
+    });
+  }, [scopeKey]);
 
   // Result-step state: preview of the generated course + approval.
   const [preview, setPreview] = useState<any | null>(null);
@@ -557,8 +627,13 @@ export default function AIGeneratePage() {
 
   const handleGenerate = async (reuseReason?: ReuseReason, languageConfirmed = false) => {
     if (!canGenerate || generationSubmitting) return;
+    const requestScopeKey = scopeKey;
+    const requestScopeRevision = scopeRevisionRef.current;
+    const requestActorSignature = actorSignature;
+    generationConflictRef.current = null;
     setAdmissionError(false);
     setAdmissionRetryAfter(null);
+    setGenerationConflict(null);
     setGenerationSubmitting(true);
     const confirmedLanguage = languageConfirmed || acknowledgements.languageConfirmed;
     const confirmedReuseReason = reuseReason ?? acknowledgements.reuseReason;
@@ -575,15 +650,30 @@ export default function AIGeneratePage() {
         language_confirmed: confirmedLanguage,
         ...(confirmedReuseReason ? { reuse_reason: confirmedReuseReason } : {}),
       });
+      // An admitted job remains in its server-owned history. Do not persist it
+      // into a later account/page; same-actor access-token refresh is valid.
+      if (!generationPageMountedRef.current || actorSignatureRef.current !== requestActorSignature) return;
       setReuseDialog({ open: false, courses: [], reason: null });
       setLanguageConfirmation({ open: false, detectedLanguages: [] });
       setAcknowledgements({ languageConfirmed: false, reuseReason: null });
       startJob(res.data);
     } catch (e: any) {
+      if (!generationPageMountedRef.current || scopeKeyRef.current !== requestScopeKey || scopeRevisionRef.current !== requestScopeRevision) return;
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
       if (e?.response?.status === 429 && detail?.code === 'tenant_ai_job_limit_reached') {
         setAdmissionError(true);
         setAdmissionRetryAfter(parseRetryAfterSeconds(e));
+        return;
+      }
+      if (e?.response?.status === 409 && detail?.code === 'generation_already_in_progress') {
+        const jobId = detail?.job_id;
+        if (isCanonicalJobId(jobId)) {
+          setGenerationConflict({ jobId, sourceSignature, actorSignature, scopeKey: requestScopeKey, scopeRevision: requestScopeRevision, status: 'unread' });
+        } else {
+          setGenerationConflict({
+            jobId: '', sourceSignature, actorSignature, scopeKey: requestScopeKey, scopeRevision: requestScopeRevision, status: 'invalid',
+          });
+        }
         return;
       }
       if (['mixed_document_topics', 'source_combination_goal_required'].includes(detail?.code) && detail.analysis) {
@@ -608,6 +698,40 @@ export default function AIGeneratePage() {
       toast.error(t('aiGeneration.errors.generation'), { description: t('aiGeneration.errors.generationHint') });
     } finally {
       setGenerationSubmitting(false);
+    }
+  };
+
+  const readGenerationConflict = async () => {
+    const admitted = generationConflictRef.current;
+    if (!generationPageMountedRef.current || !admitted || admitted.status === 'reading' || admitted.status === 'invalid') return;
+    if (admitted.scopeKey !== scopeKey || admitted.scopeRevision !== scopeRevisionRef.current) return;
+    setGenerationConflict({ ...admitted, status: 'reading' });
+    try {
+      const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${admitted.jobId}`);
+      const job = response.data;
+      const current = generationConflictRef.current;
+      if (
+        !current
+        || current.jobId !== admitted.jobId
+        || current.scopeKey !== scopeKey
+        || current.scopeRevision !== scopeRevisionRef.current
+      ) return;
+      if (!isCanonicalJobId(job?.id) || job.id !== admitted.jobId) {
+        setGenerationConflict({ ...current, status: 'invalid' });
+        return;
+      }
+      if (isTerminalJob(job)) {
+        setGenerationConflict({ ...current, status: 'terminal', job });
+        return;
+      }
+      // Explicitly clear both requested and inherited program context. The
+      // existing job must never be attached to the current learning program.
+      startJob(job, { programId: null });
+      setGenerationConflict({ ...current, status: 'active', job });
+    } catch {
+      const current = generationConflictRef.current;
+      if (!current || current.jobId !== admitted.jobId || current.scopeKey !== scopeKey || current.scopeRevision !== scopeRevisionRef.current) return;
+      setGenerationConflict({ ...current, status: 'error' });
     }
   };
 
@@ -941,6 +1065,53 @@ export default function AIGeneratePage() {
                 minutes: Math.max(1, Math.ceil(admissionRetryAfter / 60)),
               })}
             </p>
+          )}
+        </div>
+      )}
+      {generationConflict && (
+        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm text-foreground" role="alert">
+          {generationConflict.status === 'invalid' ? (
+            <>
+              <p className="font-medium">{t('aiGeneration.errors.generationConflictInvalid')}</p>
+              <p className="mt-1 text-muted-foreground">{t('aiGeneration.errors.generationConflictHint')}</p>
+            </>
+          ) : generationConflict.status === 'terminal' ? (
+            <>
+              <p className="font-medium">{t('aiGeneration.errors.generationConflictTerminal')}</p>
+              <button type="button" className="mt-3 underline" onClick={() => { generationConflictRef.current = null; setGenerationConflict(null); }}>
+                {t('aiGeneration.errors.generationConflictPrepareNew')}
+              </button>
+            </>
+          ) : generationConflict.status === 'error' ? (
+            <>
+              <p className="font-medium">{t('aiGeneration.errors.generationConflictReadFailed')}</p>
+              <button type="button" className="mt-3 underline" onClick={() => void readGenerationConflict()}>
+                {t('asyncOperation.checkAgain')}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">{t('aiGeneration.errors.generationConflict')}</p>
+              <p className="mt-1 text-muted-foreground">{t('aiGeneration.errors.generationConflictHint')}</p>
+              {generationConflict.status === 'active' && generationConflict.job ? (
+                <p className="mt-2 text-muted-foreground">
+                  {t('aiGeneration.errors.generationConflictProgress', {
+                    progress: generationConflict.job.progress ?? 0,
+                  })}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 rounded-lg border border-warning/50 px-3 py-2 font-medium hover:bg-warning/10 disabled:opacity-60"
+                  disabled={generationConflict.status === 'reading'}
+                  onClick={() => void readGenerationConflict()}
+                >
+                  {generationConflict.status === 'reading'
+                    ? t('aiGeneration.errors.generationConflictReading')
+                    : t('aiGeneration.errors.generationConflictOpen')}
+                </button>
+              )}
+            </>
           )}
         </div>
       )}

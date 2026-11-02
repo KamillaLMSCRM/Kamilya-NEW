@@ -103,8 +103,10 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     }
   }, [restoreFromJobList]);
 
-  const startJob = useCallback((job: AIGenerationJob) => {
-    const programId = requestedProgramId || state.programId;
+  const startJob = useCallback((job: AIGenerationJob, options?: { programId: string | null }) => {
+    const programId = options && Object.prototype.hasOwnProperty.call(options, 'programId')
+      ? options.programId
+      : requestedProgramId || state.programId;
     localStorage.setItem(activeJobStorageKey, job.id);
     persistWorkflowContext(job.id, programId);
     dispatch({ type: 'job_started', job, programId });
