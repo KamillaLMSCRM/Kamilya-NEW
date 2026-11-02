@@ -402,6 +402,7 @@ async def test_cancelled_generation_does_not_persist_a_new_course(monkeypatch):
             id="cancelled-job",
             tenant_id=tenant_id,
             status="cancelled",
+            params={},
         )
     )
     monkeypatch.setattr(pipeline, "async_session_factory", lambda: session)
