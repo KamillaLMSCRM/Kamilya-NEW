@@ -39,6 +39,7 @@ describe('/ai/generate job workflow parity', () => {
       throw new Error(`Unexpected GET ${url}`);
     });
     render(<AIGeneratePage />);
+    expect(screen.queryByRole('button', { name: 'Отменить' })).not.toBeInTheDocument();
     fireEvent.click((await screen.findAllByRole('button', { name: /результат неизвестен/i }))[0]);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(apiMock.post).not.toHaveBeenCalled();
@@ -663,6 +664,74 @@ describe('/ai/generate generation conflict recovery', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Открыть существующий прогресс' }));
     await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}`));
     expect(await screen.findByText('Прогресс генерации')).toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('synchronously fences two same-tick generate clicks before React rerenders', async () => {
+    mockCatalogWith(readyDocuments);
+    let resolveGeneration!: (value: unknown) => void;
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') return new Promise((resolve) => { resolveGeneration = resolve; });
+      throw new Error(`Unexpected POST ${url}`);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    await act(async () => {
+      fireEvent.click(generateButton);
+      fireEvent.click(generateButton);
+    });
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+    resolveGeneration({ data: existingJob });
+    await waitFor(() => expect(screen.getByText('Прогресс генерации')).toBeInTheDocument());
+  });
+
+  it('turns a valid 503 dispatch outcome into an exact read-only conflict', async () => {
+    mockCatalogWith(readyDocuments);
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: readyDocuments, page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${existingJobId}`) return { data: existingJob } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') throw { response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: existingJobId } } } };
+      throw new Error(`Unexpected POST ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    expect(await screen.findByText('Запрос принят, но подтверждение провайдера неизвестно.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Открыть существующий прогресс' })).toBeInTheDocument();
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть существующий прогресс' }));
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith(`/v1/ai/jobs/${existingJobId}`));
+    expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
+  });
+
+  it('fails closed on a malformed 503 job id without enabling a retry or read', async () => {
+    mockCatalogWith(readyDocuments);
+    apiMock.post.mockImplementation(async (url: string) => {
+      if (url === '/v1/ai/document-compatibility') return { data: { status: 'compatible', score: 1, requires_decision: false, clusters: [] } } as any;
+      if (url === '/v1/ai/generate-course') throw { response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: 'not-a-uuid' } } } };
+      throw new Error(`Unexpected POST ${url}`);
+    });
+
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    const generateButton = await screen.findByRole('button', { name: /Генерировать/ });
+    await waitFor(() => expect(generateButton).not.toBeDisabled());
+    fireEvent.click(generateButton);
+
+    expect(await screen.findByText('Ссылка на существующую генерацию недействительна.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Открыть существующий прогресс' })).not.toBeInTheDocument();
+    expect(apiMock.get.mock.calls.some(([url]) => String(url).includes('/v1/ai/jobs/'))).toBe(false);
     expect(apiMock.post.mock.calls.filter(([url]) => url === '/v1/ai/generate-course')).toHaveLength(1);
   });
 

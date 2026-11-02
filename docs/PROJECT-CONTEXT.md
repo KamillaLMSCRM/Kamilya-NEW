@@ -25,6 +25,14 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
+## Current isolated DEV worker — 2026-11-02
+
+- Existing VM126 hosts fixed DEV container kamilya-dev-worker, source bc6d5d71665fc6ca7c8aadd4a2a4c72335bf537a/image6d337893cda6435753bc6b34533ef320080b2c416e899ed771363e8bc8478f72. Canonical REL-DEV-VM-WORKER-R2-20261102 execute RELEASE_OK and later reconcile RECONCILED. Actual consumer/effectiveenv/sameboot/DB lms_app/privateconverter verified; one pure DEVbroker task independently read back in exact e797 container logs. Historical empty pidbox reply is not evidence the consumer stopped; do not blindly restart.
+- Old Render Free worker srv-dar2dvbncjis73bsda3g remains suspended with plan unchanged. Do not wake it or create duplicate consumers. DEV API and Vercel app remain existing Free/Hobby resources. Production UX70/engine7c35/four client courses are separate and unchanged.
+- Fixed worker isolation: DEV Supabase project fingerprint5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e, runtime restricted lms_app, rediss173.249.51.164:6380/1 with verification, nonroot/read-only/1CPU/1GiB, no production networks/mounts/ports, existing pinned private SSH supervisor. V2 receiver path /opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v2.py, immutable per-release env under releases/env-v2/<SHA>/runtime.env root0600/parents0700. Secrets never belong in packets/logs/local artifacts.
+- Access: use scripts/ops/kz_remote_exec.py DEFAULT_ENV_FILE (canonical workspace C:\Kamilya New\.env) and its fixed known_hosts, not the Git credential file. Git uses primary Kamilya-NEW/.env GITHUB_TOKEN only via with_project_github_token.py. ToolPython supports Paramiko; app root .venv supports API tests/settings. Invoke controller as Python module from target worktree so scripts imports resolve; use canonical env constant.
+- Before replacing worker: verify no owned generation is in flight, stop only exact old DEV container, preserve its image/env/rollback, start one exact immutable candidate and verify source/env/consumer/privateconverter/DB/productionunchanged. Current CI/image proof is not complete-course quality acceptance. New local cooperative/dispatch recovery draft must obtain its own source CI and image before use.
+
 ## Current delivery checkpoint — production65 accepted,2026-10-19
 
 ### DEV broker operational correction — 2026-10-27

@@ -1,3 +1,34 @@
+# Current V3 review of external analyses — 2026-11-02
+
+Authority: owner asked to study analysis0211 дипсик.txt and continues to authorize V3 DEV quality acceptance then protected release. The older V2 packet and one-control budget below are historical; current explicit Luna API authority is reasonable justified calls, reasoning enabled, not a new arbitrary provider spend limit. ProductionUX70 is separately released; currentDEV applicationBC is not three-course quality acceptance. Local candidate2726742d contains preclaim continuation/ambiguous-dispatch fixes; web recovery patch remains under final gates.
+
+## Verified diagnosis and boundaries
+
+- External report explicitly inspected origin/dev bc6d5d71, which is the actual deployed DEV baseline. Its source snapshot is valid; it does not include the newer local drafts. It performed static analysis only, no new benchmark/test/runtime proof.
+- The five collision examples and34-call/0-of10 result come from docs/plans/2026-10-30_generation-engine-root-cause-and-plan.md, whose baseline is5dd36ad0 and standards-native-r1. Its executed route is evidence_engine/application → source_assessment_plan → provider_engine/final_teaching_eligibility → lesson_cycle. Those exact failures cannot be attributed to active V3 without replay. CurrentV3 uses v3/service.py/engine.py and does not call those native eligibility validators; imports of shared journal policy constants are not execution of the V2 assessment cycle.
+- Active V3 DOES have a real multiplicative audit surface: per-part lesson review, prose claims, per-question options/compatibility/completeness, displayed citations, final diversity and scoped rechecks. Saved old5f snapshot35 completedresponses breaks down9extraction/2lesson/23review/1repair. Self-consistent saved usage sums89823input/55481output (22226reasoning already INCLUDED inoutput), cachedinput1323. Unknown last request and provider billing are excluded; this is a partial course, not full-course cost or acceptance.
+- ActualV3 service.py153650bytes, old lesson_cycle526448bytes/source_assessment_plan476256bytes. Monolith concern is valid, but old-module size is not evidence that active V3 executes every old stage. Native audit false positives versus genuinely missing conditions must be separated on saved responses.
+
+## Decisions on proposals
+
+1. ACCEPT: executable shared prompt/validator contract, allowed typography/paraphrase transformations, closed reason codes, saved positive+negative replay, independently sourced coverage denominator and complete-course yield/time/calls/usage. Start from actual V3 calls and known failing savedexamples. Fail-closed is a failure containment policy, not an excuse for empty tests or hundreds of wasteful calls.
+2. PRIORITIZE after the current safe lifecycle candidate: compare independent review axes on an immutable lesson/question/source-dependency snapshot; consolidate compatible review work with exact per-question IDs/axes and strict completeness, and recheck changed parts only. Measure call/context reduction from saved shapes before a new paid benchmark. Keep an independent auditor relative to the author; do not let author self-approve.
+3. DO NOT blindly asyncio.gather direct journal stages. Current owned pending transaction deliberately fences a second distinct in-flight claim for the same job; parallelization requires a separate proven concurrency contract. Batching review evidence and parallel writes are different changes.
+4. REJECT automatic quote acceptance at96percent Levenshtein/Jaccard similarity. Exact numbers/names/dates alone do not protect negation, obligations, actor responsibility, units, scope and exceptions. Fuzzy matching may propose a source location; acceptance must reconstruct an exact revision-bound span and verify its complete governing context. Broader context is not a fabricated repaired quote.
+5. REFRAME terminal-versus-hold: absence of proof is not proof of contradiction, but it is also not permission to approve. Preserve actual defect/hold and original candidate until scoped corrected output passes independent checks. Do not replace every stop with another repair, or impose one universal retry/token cap as a substitute for correct logic. Progress is a smaller verified defect set with protected facts unchanged.
+6. KEEP durable checkpoints as authority. Extraction/lesson/review/repair already pass through stage_once and owned stage identities; repair idempotence is not wholly missing. progress_detail is a UI projection and cannot replace hash/source/actor/delivery-bound committed evidence. New cooperative path is manual safe continuation only; no automatic resume was accepted.
+7. DEFER broad monolith extraction, new question formats/Bloom tiers, ARQ/FastStream migration and a new contract label until current V3 quality and deployment are accepted. These are not prerequisites for fixing the current bounded faults. Moving pure functions later is reasonable; changing broker architecture now adds delivery/rollback risk without measured benefit.
+8. SOURCE/TABLE/UX work: retain full headers/row semantics and owner-confirmed source decisions; expose precise actionable holds and original-source coverage. Never silently choose precedence for conflicting documents or treat a methodologist acknowledgement as a normative fact from the original. Existing source uncertainty/release fencing must stay in force.
+
+## Immediate sequence
+
+- Finish and preserve current preclaim/unknown-dispatch/HTTP+UI recovery regressions; exact DEV image/API/web/worker and normal runtime acceptance.
+- Run the three complete original documents on Luna with reasoning and independent matrix; include already-confirmed Standards innerp2 and Microcredit45MRP interpretation with source authority kept separate. Record time/attempts/input/output/reasoning/unknowns; do not recount cached responses as new calls.
+- Fix measured V3 semantic/cost failures on saved responses, especially repeated review input/defect scope. Do not rerun V2 merely because an external report cites old native files.
+- DeepSeek only after good Luna results; selective accepted engine release atop current productionUX70; live synthetic full journey. Preserve four published customercourses, source history, quotas/cost records, rights/voice/reserve/plans and rollback.
+
+Historical V2 implementation plan follows for traceability, not current release authority.
+
 # Generation quality implementation, 2026-10-30
 
 ## Authority and outcome

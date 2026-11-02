@@ -134,6 +134,7 @@ type GenerationConflictState = {
   scopeKey: string;
   scopeRevision: number;
   status: 'unread' | 'reading' | 'active' | 'terminal' | 'error' | 'invalid';
+  reason?: 'dispatch_unknown';
   job?: AIGenerationJob;
 };
 
@@ -186,6 +187,7 @@ export default function AIGeneratePage() {
   const [manualModules, setManualModules] = useState(false);
   const [language, setLanguage] = useState('ru');
   const [requestedProgramId, setRequestedProgramId] = useState<string | null>(null);
+  const workflowRequestKeyRef = useRef<() => string>(() => 'initial');
   const {
     currentJob,
     programId,
@@ -195,9 +197,10 @@ export default function AIGeneratePage() {
     refreshJob,
     cancelJob,
     resumeJob,
+    resumeReconciliation,
     prepareRetry,
     resetWorkflow,
-  } = useGenerationWorkflow(requestedProgramId);
+  } = useGenerationWorkflow(requestedProgramId, () => workflowRequestKeyRef.current());
   const step = currentJob ? workflowStep : pageStep;
   const savedAssessmentDraftId = (
     currentJob?.status === 'interrupted'
@@ -235,6 +238,7 @@ export default function AIGeneratePage() {
   const [abandonTargetJobId, setAbandonTargetJobId] = useState<string | null>(null);
   const abandonAttemptedRef = useRef<string | null>(null);
   const [generationSubmitting, setGenerationSubmitting] = useState(false);
+  const generationSubmittingRef = useRef<string | null>(null);
   const [reuseDialog, setReuseDialog] = useState<{
     open: boolean;
     courses: ReusedSourceCourse[];
@@ -275,6 +279,9 @@ export default function AIGeneratePage() {
   const actorSignatureRef = useRef(actorSignature);
   actorSignatureRef.current = actorSignature;
   const generationPageMountedRef = useRef(true);
+  workflowRequestKeyRef.current = () => (
+    `${generationPageMountedRef.current ? 'mounted' : 'unmounted'}:${actorSignatureRef.current}:${scopeKeyRef.current}:${scopeRevisionRef.current}`
+  );
 
   useEffect(() => {
     generationPageMountedRef.current = true;
@@ -389,7 +396,8 @@ export default function AIGeneratePage() {
     && selectedNotReadyCount === 0
     && !compatibilityLoading
     && !!compatibility
-    && hasResolvedSourceDecision;
+    && hasResolvedSourceDecision
+    && (!generationConflict || generationConflict.status === 'terminal');
   const uploading = uploadingCount > 0;
 
   const documentStatusLabel = (status: DocumentIndexStatus) => {
@@ -647,10 +655,12 @@ export default function AIGeneratePage() {
   };
 
   const handleGenerate = async (reuseReason?: ReuseReason, languageConfirmed = false) => {
-    if (!canGenerate || generationSubmitting) return;
     const requestScopeKey = scopeKey;
     const requestScopeRevision = scopeRevisionRef.current;
     const requestActorSignature = actorSignature;
+    const submissionToken = `${requestActorSignature}:${requestScopeKey}:${requestScopeRevision}`;
+    if (!canGenerate || generationSubmitting || generationSubmittingRef.current) return;
+    generationSubmittingRef.current = submissionToken;
     generationConflictRef.current = null;
     setAdmissionError(false);
     setAdmissionRetryAfter(null);
@@ -697,6 +707,11 @@ export default function AIGeneratePage() {
         }
         return;
       }
+      if (e?.response?.status === 503 || detail?.code === 'ai_job_dispatch_outcome_unknown') {
+        const jobId = isCanonicalJobId(detail?.job_id) ? detail.job_id : '';
+        setGenerationConflict({ jobId, sourceSignature, actorSignature, scopeKey: requestScopeKey, scopeRevision: requestScopeRevision, status: jobId ? 'unread' : 'invalid', reason: 'dispatch_unknown' });
+        return;
+      }
       if (['mixed_document_topics', 'source_combination_goal_required'].includes(detail?.code) && detail.analysis) {
         setCompatibility(detail.analysis);
         setPageStep('documents');
@@ -718,6 +733,7 @@ export default function AIGeneratePage() {
       console.error('Generation failed', e);
       toast.error(t('aiGeneration.errors.generation'), { description: t('aiGeneration.errors.generationHint') });
     } finally {
+      if (generationSubmittingRef.current === submissionToken) generationSubmittingRef.current = null;
       setGenerationSubmitting(false);
     }
   };
@@ -1155,8 +1171,8 @@ export default function AIGeneratePage() {
             </>
           ) : (
             <>
-              <p className="font-medium">{t('aiGeneration.errors.generationConflict')}</p>
-              <p className="mt-1 text-muted-foreground">{t('aiGeneration.errors.generationConflictHint')}</p>
+              <p className="font-medium">{generationConflict.reason === 'dispatch_unknown' ? (lang === 'ru' ? 'Запрос принят, но подтверждение провайдера неизвестно.' : lang === 'kk' ? 'Сұрау қабылданды, бірақ провайдердің растауы белгісіз.' : 'The request may have been accepted, but provider acknowledgement is unknown.') : t('aiGeneration.errors.generationConflict')}</p>
+              <p className="mt-1 text-muted-foreground">{generationConflict.reason === 'dispatch_unknown' ? (lang === 'ru' ? 'Повторная отправка не выполняется. Откройте точный статус сохранённой задачи.' : lang === 'kk' ? 'Қайта жіберу орындалмайды. Сақталған тапсырманың нақты күйін ашыңыз.' : 'The request will not be sent again. Open the exact saved job status.') : t('aiGeneration.errors.generationConflictHint')}</p>
               {generationConflict.status === 'active' && generationConflict.job ? (
                 <>
                   <p className="mt-2 text-muted-foreground">
@@ -1640,7 +1656,7 @@ export default function AIGeneratePage() {
             stages={stages}
             title={t('ai.progress')}
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
-            retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
+            retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : resumeReconciliation ? (lang === 'ru' ? 'Проверить статус' : lang === 'kk' ? 'Күйін тексеру' : 'Check status') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}
             cancelLabel={savedAssessmentDraftId ? t('ai.newCourse') : t('asyncOperation.cancel')}
             cancelQueuedLabel={t('asyncOperation.cancelQueued')}
@@ -1650,8 +1666,12 @@ export default function AIGeneratePage() {
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
             completedUnitsLabel={t('ai.savedLessonsProgress')}
-            onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
-            onCancel={savedAssessmentDraftId ? createNewCourse : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
+            onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : resumeReconciliation ? () => void resumeJob().catch(() => toast.error(t('common.loadFailed'))) : currentJob.status === 'interrupted' ? () => void resumeJob().catch(() => toast.error(t('common.loadFailed'))) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch(() => toast.error(t('common.loadFailed'))) : retryGeneration}
+            onCancel={savedAssessmentDraftId
+              ? createNewCourse
+              : currentJob.abandon_available || resumeReconciliation
+              ? undefined as unknown as () => void
+              : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
           />}
 
           {currentJob.status === 'completed' && currentJob.course_id && (

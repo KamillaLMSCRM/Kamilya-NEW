@@ -11,6 +11,24 @@ Current as of: 2026-11-02.
 - Verification: actual409 retained; root3 red late-success/unmount cases reproduced storage overwrite, then61 focused generation/reuse/workflow tests PASS, types/focused lint PASS. Root corrected a malformed deferred-GET test envelope and added initial selectionABA/session and inherited-program checks. New live DEV acceptance pending; production frontend70 remains accepted and unchanged.
 - Prevention: distinguish a definitive admission conflict from a failed generation; recover the exact existing job with no hidden mutation, and bind all async workflow adoption to the live principal/page and original program provenance.
 
+## AI-DELIVERY-BUDGET-001 - Long direct generation could enter a hard deadline with a request in flight
+
+- Date:2026-11-02.
+- Symptom: a valid long course can outlast the fixed Celery20min soft deadline; starting another600s provider request near it risks an unknown pending outcome rather than a recoverable pause. Existing Render shutdown5f is a separate confirmed failure, not proof it hit this deadline.
+- Cause: the direct client gave token counting and generation the same600s timeout, swallowed cancellation, and had no task-entry remaining-time check before the next durable generation claim.
+- Fix: direct pending path restores completed owned responses first, bounds count to60s independently, propagates cancellation, checks remaining task-entry budget before count and again before pending claim using actual client generation deadline plus120s safety. Preclaim yield uses the existing owned SQL interruption (running/currentdelivery/no pending) and preserves completed checkpoints, params and reservation. A count timeout cannot dispatch generation. No automatic continuation or generic non-direct coverage is claimed.
+- Verification:96focused offline PASS and baseline1005/2171; actual isolatedPG13PASS schema aicp_dev_1f4b32694c0e, cleanuptrue/public0184unchanged, source f9d5cedb2f4af027b67f2524f16762fa41a80d02dbc18367145bdc36eeeb1fec. Completed response cold-replays after new delivery without another call; old delivery rejected; expired budget yields before fresh claim. Fake clock/transport and manual transaction integration do not prove full Celery/model course timing. CurrentDEVBC does not contain this new local source yet.
+- Prevention: distinguish preclaim known-not-dispatched interruption from postclaim unknown outcome; never clear pending markers, refund or replay a dispatched request to recover time. Reserve actual transport deadlines before fresh invocation; verify complete courses separately.
+
+## AI-BROKER-ACK-001 - Lost publish acknowledgement was treated as known failure
+
+- Date:2026-11-02.
+- Symptom: a committed generation/resume could be compensated or reset to interrupted after broker acceptance when apply_async raised before returning its acknowledgement.
+- Cause: the adapter classified every apply_async exception as unavailable, while Celery default task_publish_retry could also repeat publication internally. The page interpreted the503 as ordinary failure and did not preserve its durable job context.
+- Fix: missing task before publication remains known-unavailable; an attempted publish uses retry=False and raises a separate outcome-unknown exception. Admission/resume keep committed job/delivery/checkpoints/reservation and expose only stable503 code and jobID. No compensation, automatic second publish or false failed status. Web exact-job reconciliation and new lost-ack regressions are in progress, not accepted yet.
+- Verification:36focused admission/router/dispatch tests PASS, including acceptance-then-lost-ack, initial HTTP quota preservation, pending new delivery and late matching claim. Baseline1005/2171. Actual combined PG gate in progress under exclusive custody dispatch-cooperative-20261102-custody.json; no real broker failure was induced. A separate uniquely identified pure DEV accumulate task ca9a8594-283c-4310-af92-1b13cfb3151e completed once and exact container logs prove received1/succeeded1, without model or businessDB work.
+- Prevention: queue acknowledgement is not publication outcome; unknown dispatch must reconcile the exact durable job. Test HTTP and UI behavior as well as adapter call count, explicitly disable transport publish retry and retain original accounting.
+
 ## AI-BUDGET-002 - Cross-month cancellation refunded the current usage period
 
 - Date:2026-11-02; discovered while reconciling stale synthetic Standards V2 job3ef30b99 from29Oct. No cancellation or customer-counter mutation was executed during diagnosis.
@@ -1151,7 +1169,8 @@ Current as of: 2026-11-02.
 
 ## DEV-WORKER-ENV-002 - Runtime list setting was flattened during secure migration
 
-- Date:2026-11-02. Confirmed initial isolated DEV worker exited before Celery startup with SettingsError/JSON decode failure on AI_LESSON_CYCLE_DEV_TENANTS. It restarted10 times before the exact failed container was stopped and retained; this was configuration failure, not model latency.
+- Date:2026-11-02.
+- Symptom: initial isolated DEV worker exited before Celery startup with SettingsError/JSON decode failure on AI_LESSON_CYCLE_DEV_TENANTS. It restarted10 times before the exact failed container was stopped and retained; this was configuration failure, not model latency.
 - Cause: receiver and builder agreed on a plain UUID wire value, while actual Pydantic Settings requires a JSON list. Unit fixtures validated the custom receiver but did not instantiate the application Settings class.
 - Fix: preserve the one-tenant JSON array, version immutable receiver path to vm126_dev_worker_env_receiver-v2.py and staged environment to releases/env-v2/<release>/runtime.env. Do not overwrite old receiver/failed custody. Stage secrets only encrypted SSH stdin; actual Settings parses the same41-key payload before startup. Current exact environment SHA f197c79afc8e76229f591731e2450858f35216dc4d4c4094b965c07ff3bf51d8.
 - Verification: actual Settings regression reproduced failure then passed corrected array; source/root/mode/symlink negatives and runtime/controller tests pass. New container e797c5d8c8e84f14b17e4da87af67dfd224d5c3d4965197f7e561f5c852a8a0d has restarts0 and exact consumer/queues/DEV DB/private Docling readback. Canonical DEV controller RELEASE_OK at source bc6d5d71665fc6ca7c8aadd4a2a4c72335bf537a. Production four containers unchanged. Old5f unknown pending remains untouched.

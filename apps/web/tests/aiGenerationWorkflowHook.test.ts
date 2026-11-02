@@ -15,7 +15,7 @@ const activeJob = {
 
 describe('AI generation workflow recovery', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     localStorage.clear();
   });
 
@@ -76,6 +76,162 @@ describe('AI generation workflow recovery', () => {
     expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/jobs/current-tenant-job/resume');
     expect(result.current.currentJob?.id).toBe('current-tenant-job');
     expect(result.current.currentJob?.status).toBe('pending');
+  });
+
+  it('reconciles unknown resume dispatch by exact GET and never posts twice while pending', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] })
+      .mockResolvedValueOnce({ data: pendingJob })
+      .mockResolvedValueOnce({ data: pendingJob });
+    apiMock.post.mockRejectedValueOnce({ response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: interruptedJob.id } } } });
+    const { result } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(result.current.currentJob?.status).toBe('pending');
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${interruptedJob.id}`).length).toBe(1);
+  });
+
+  it('keeps unknown resume outcome fenced when exact GET fails or returns another id', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] }).mockRejectedValueOnce(new Error('read failed'));
+    apiMock.post.mockRejectedValueOnce(new Error('network lost'));
+    const { result } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    await expect(act(async () => { await result.current.resumeJob(); })).rejects.toThrow('read failed');
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    apiMock.get.mockResolvedValueOnce({ data: [{ ...interruptedJob, id: 'foreign-job' }] });
+    await expect(act(async () => { await result.current.resumeJob(); })).rejects.toThrow('resume_job_identity_mismatch');
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not dispatch a late reconciliation result after the workflow unmounts', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };
+    let resolveRead!: (value: unknown) => void;
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] })
+      .mockReturnValueOnce(new Promise((resolve) => { resolveRead = resolve; }));
+    apiMock.post.mockRejectedValueOnce({ response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: interruptedJob.id } } } });
+    const { result, unmount } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    let reconciliation!: Promise<unknown>;
+    await act(async () => {
+      reconciliation = result.current.resumeJob();
+      await Promise.resolve();
+    });
+    unmount();
+    await act(async () => {
+      resolveRead({ data: pendingJob });
+      await reconciliation;
+    });
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${interruptedJob.id}`).length).toBe(1);
+  });
+
+  it('ignores a late reconciliation result after the actor scope changes', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };
+    let scopeKey = 'actor-a/source-a';
+    let resolveRead!: (value: unknown) => void;
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] })
+      .mockReturnValueOnce(new Promise((resolve) => { resolveRead = resolve; }));
+    apiMock.post.mockRejectedValueOnce({ response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: interruptedJob.id } } } });
+    const { result } = renderHook(() => useGenerationWorkflow(null, () => scopeKey));
+    await act(async () => { await result.current.restoreActiveJob(); });
+    let reconciliation!: Promise<unknown>;
+    await act(async () => {
+      reconciliation = result.current.resumeJob();
+      await Promise.resolve();
+    });
+    scopeKey = 'actor-b/source-b';
+    await act(async () => {
+      resolveRead({ data: pendingJob });
+      await reconciliation;
+    });
+    expect(result.current.currentJob?.status).toBe('interrupted');
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start a GET when an unknown resume POST rejects after unmount', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    let rejectPost!: (error: unknown) => void;
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] });
+    apiMock.post.mockReturnValueOnce(new Promise((_, reject) => { rejectPost = reject; }));
+    const { result, unmount } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    let resume!: Promise<unknown>;
+    await act(async () => {
+      resume = result.current.resumeJob();
+      await Promise.resolve();
+    });
+    unmount();
+    await act(async () => {
+      rejectPost({ response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: interruptedJob.id } } } });
+      await resume;
+    });
+    expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${interruptedJob.id}`).length).toBe(0);
+  });
+
+  it('does not start a GET when an unknown resume POST settles after the actor scope changes', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    let scopeKey = 'actor-a/source-a';
+    let rejectPost!: (error: unknown) => void;
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] });
+    apiMock.post.mockReturnValueOnce(new Promise((_, reject) => { rejectPost = reject; }));
+    const { result } = renderHook(() => useGenerationWorkflow(null, () => scopeKey));
+    await act(async () => { await result.current.restoreActiveJob(); });
+    let resume!: Promise<unknown>;
+    await act(async () => {
+      resume = result.current.resumeJob();
+      await Promise.resolve();
+    });
+    scopeKey = 'actor-b/source-b';
+    await act(async () => {
+      rejectPost({ response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: interruptedJob.id } } } });
+      await resume;
+    });
+    expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${interruptedJob.id}`).length).toBe(0);
+  });
+
+  it('clears the resume fence after confirmed pending state so a later interruption can resume once', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };
+    const interruptedAgain = { ...interruptedJob, progress: 55 };
+    apiMock.get.mockResolvedValueOnce({ data: [interruptedJob] }).mockResolvedValueOnce({ data: interruptedAgain });
+    apiMock.post.mockResolvedValueOnce({ data: pendingJob }).mockResolvedValueOnce({ data: pendingJob });
+    const { result } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    await act(async () => { await result.current.refreshJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(2);
+  });
+
+  it('clears the unknown fence after a read-only running state and permits a later interruption resume', async () => {
+    const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
+    const runningJob = { ...interruptedJob, status: 'running', stage: 'content_generation' };
+    const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };
+    apiMock.get
+      .mockResolvedValueOnce({ data: [interruptedJob] })
+      .mockResolvedValueOnce({ data: interruptedJob })
+      .mockResolvedValueOnce({ data: runningJob })
+      .mockResolvedValueOnce({ data: interruptedJob });
+    apiMock.post
+      .mockRejectedValueOnce({ response: { status: 503, data: { detail: { code: 'ai_job_dispatch_outcome_unknown', job_id: interruptedJob.id } } } })
+      .mockResolvedValueOnce({ data: pendingJob });
+    const { result } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(result.current.currentJob?.status).toBe('running');
+    await act(async () => { await result.current.refreshJob(); });
+    expect(result.current.currentJob?.status).toBe('interrupted');
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(2);
+    expect(apiMock.post).toHaveBeenLastCalledWith('/v1/ai/jobs/current-tenant-job/resume');
   });
 
   it('does not restore a completed workflow from a previous visit', async () => {
