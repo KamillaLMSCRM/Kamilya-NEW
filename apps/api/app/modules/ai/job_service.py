@@ -1,6 +1,8 @@
 """AI Job service — DB-backed job state management."""
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -359,6 +361,74 @@ def _generation_budget_month(job: AIJob, params: dict[str, Any]) -> str:
     if upper < created or upper.strftime("%Y-%m") != period:
         raise ValueError("generation_budget_period_unverified")
     return period
+
+
+def _abandon_marker_digest(job: Any) -> str | None:
+    from app.modules.ai.v3.final_save_contract import INTENT_KEY, RECEIPT_KEY, SOURCE_FIRST_KEYS
+    from app.modules.ai.v3.pending_stage_transactions import checked_entries
+    if not isinstance(getattr(job, "result", None), dict) or any(key in job.result for key in (INTENT_KEY, RECEIPT_KEY, *SOURCE_FIRST_KEYS)):
+        return None
+    try:
+        if not checked_entries(job.result):
+            return None
+        return hashlib.sha256(json.dumps(job.result["v3_pending_stages"], sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    except (ValueError, TypeError):
+        return None
+
+
+def is_abandoned_unknown(job: Any) -> bool:
+    params = job.params if isinstance(getattr(job, "params", None), dict) else {}
+    prior = params.get("generation_abandonment")
+    digest = _abandon_marker_digest(job)
+    return bool(digest and isinstance(prior, dict) and prior.get("policy") == "unknown-provider-abandon-v1"
+        and prior.get("actor_id") == str(getattr(job, "user_id", None)) and prior.get("acknowledged") is True
+        and prior.get("provider_outcome") == "unknown" and prior.get("cost") == "unknown"
+        and prior.get("pending_marker_sha256") == digest and job.status == "failed" and getattr(job, "course_id", None) is None)
+
+
+def can_abandon_unknown(job: Any) -> bool:
+    params = getattr(job, "params", None)
+    if not isinstance(params, dict):
+        return False
+    return (getattr(job, "status", None) in {"running", "interrupted"}
+            and getattr(job, "course_id", None) is None
+            and "generation_abandonment" not in params
+            and _abandon_marker_digest(job) is not None)
+
+
+async def abandon_unknown_generation(
+    db: AsyncSession, *, job_id: str, tenant_id: UUID, user_id: UUID,
+) -> str:
+    """Terminally fence an owned unknown stage without touching its reservation or journal."""
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ai_generation_admission' || :tenant_id))"),
+                     {"tenant_id": str(tenant_id)})
+    await _lock_tenant_row(db, tenant_id)
+    job = await get_ai_job(db, job_id, tenant_id=str(tenant_id), for_update=True)
+    if job is None or job.user_id != user_id:
+        return "not_found"
+    params: dict[str, Any] = dict(job.params) if isinstance(job.params, dict) else {}
+    marker_digest = _abandon_marker_digest(job)
+    if marker_digest is None:
+        return "conflict"
+    if "generation_abandonment" in params:
+        if is_abandoned_unknown(job):
+            return "abandoned"
+        return "conflict"
+    if not can_abandon_unknown(job):
+        return "conflict"
+    now = datetime.now(UTC)
+    params["generation_abandonment"] = {"policy": "unknown-provider-abandon-v1", "actor_id": str(user_id),
+        "acknowledged": True, "provider_outcome": "unknown", "cost": "unknown", "recorded_at": now.isoformat(),
+        "pending_marker_sha256": marker_digest}
+    job.params = params  # type: ignore[assignment]
+    job.status = "failed"  # type: ignore[assignment]
+    job.stage = "abandoned"  # type: ignore[assignment]
+    job.message = "Генерация остановлена; результат и стоимость вызова провайдера неизвестны."  # type: ignore[assignment]
+    job.completed_at = now  # type: ignore[assignment]
+    job.updated_at = now  # type: ignore[assignment]
+    await db.commit()
+    return "abandoned"
 
 
 async def release_generation_reservation_once(

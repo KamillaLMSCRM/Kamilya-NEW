@@ -226,6 +226,150 @@ async def _exercise_revision_policy(owner: Any, runtime: Any, schema: str, tenan
         delivery_ownership.delivery_id.reset(delivery_token)
 
 
+async def _exercise_abandonment(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any) -> None:
+    """Exercise the owned pending-stage fence; this does not test a course-save race."""
+    if not EXECUTION_ENABLED:
+        raise RuntimeError("pending_lifecycle_gate_unreviewed")
+    from uuid import uuid4
+
+    import ai_generation_checkpoint_dev_check as canonical
+    from app.models.ai_job import AIJob
+    from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id
+    from app.modules.ai.job_service import (
+        abandon_unknown_generation, claim_generation_execution, release_generation_reservation_once,
+    )
+    from app.modules.ai.v3.pending_stage_transactions import claim_with_pending, finalize_pending
+    from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
+    from app.modules.ai.v3.stage_checkpoint import _digest
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+    from sqlalchemy import select, text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    canonical.validate_schema(schema)
+    job, course_job, actor = str(uuid4()), str(uuid4()), uuid4()
+    params = {"source_analysis": {"generation_engine": "evidence_v3", "analysis_mode": "direct_source"},
+              "documents": ["synthetic"], "generation_reservation_required": True,
+              "generation_reservation_released": False}
+    async with owner.begin() as conn:
+        for identifier in (job, course_job):
+            await conn.execute(text(f'''INSERT INTO "{schema}".ai_jobs (id,tenant_id,user_id,status,params,result)
+                VALUES(:j,:t,:u,'running',CAST(:p AS json),CAST(:r AS json))'''),
+                {"j": identifier, "t": tenant_a, "u": actor, "p": json.dumps(params),
+                 "r": json.dumps({"resume_count": 0})})
+    sessions = async_sessionmaker(runtime, expire_on_commit=False)
+    journal = WorkerCycleJournal(str(tenant_a), job, sessions)
+    plan = {"tenant_id": str(tenant_a), "job_id": job, "kind": "synthetic-abandon"}
+    digest = _digest(plan)
+    arguments = dict(journal=journal, user_id=actor, plan=plan, result_key="abandon-result",
+                     claim_key="abandon-claim", marker={"identity": digest, "claim_token": "d" * 32},
+                     validate=lambda value: value["response"])
+    token = delivery_id.set(job)
+    try:
+        if await claim_with_pending(**arguments) is not None:
+            raise AssertionError("abandon_claim_invalid")
+        async def snapshot() -> tuple[Any, Any, Any]:
+            async with sessions() as session:
+                await canonical.set_tenant(session, tenant_a)
+                row = (await session.execute(text("SELECT result,params FROM ai_jobs WHERE id=:j"), {"j": job})).one()
+                checkpoints = (await session.execute(text('''SELECT r.generation_key,c.assessment_status,c.assessment_payload
+                    FROM ai_generation_runs r JOIN ai_generation_lesson_checkpoints c ON c.generation_run_id=r.id
+                    WHERE r.source_job_id=:j AND r.tenant_id=:t ORDER BY r.generation_key'''),
+                    {"j": job, "t": tenant_a})).all()
+                return row.result, row.params, checkpoints
+        before_result, before_params, before_checkpoints = await snapshot()
+        first_pid = second_pid = None
+        async with sessions() as locked:
+            await canonical.set_tenant(locked, tenant_a)
+            first_pid = await locked.scalar(text("SELECT pg_backend_pid()"))
+            await locked.scalar(select(AIJob.id).where(AIJob.id == job).with_for_update())
+            started = asyncio.Event()
+            async def abandon() -> str:
+                nonlocal second_pid
+                async with sessions() as session:
+                    await canonical.set_tenant(session, tenant_a)
+                    second_pid = await session.scalar(text("SELECT pg_backend_pid()"))
+                    started.set()
+                    return await abandon_unknown_generation(session, job_id=job, tenant_id=tenant_a, user_id=actor)
+            task = asyncio.create_task(abandon())
+            try:
+                await asyncio.wait_for(started.wait(), timeout=10)
+                async with runtime.connect() as observer:
+                    for _ in range(50):
+                        if task.done():
+                            raise AssertionError("abandon_race_not_blocked")
+                        if await observer.scalar(text("SELECT :first = ANY(pg_blocking_pids(:second))"),
+                                                 {"first": first_pid, "second": second_pid}):
+                            break
+                        await asyncio.sleep(0.1)
+                    else:
+                        raise AssertionError("abandon_race_blocking_unverified")
+                await locked.commit()
+                if await asyncio.wait_for(task, timeout=10) != "abandoned":
+                    raise AssertionError("abandon_race_transition_failed")
+            finally:
+                if not task.done():
+                    task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+        after_result, after_params, after_checkpoints = await snapshot()
+        if (after_result != before_result or after_checkpoints != before_checkpoints
+                or {k: v for k, v in after_params.items() if k != "generation_abandonment"} != before_params):
+            raise AssertionError("abandon_preservation_invalid")
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_a)
+            if await abandon_unknown_generation(session, job_id=job, tenant_id=tenant_a, user_id=actor) != "abandoned":
+                raise AssertionError("abandon_replay_invalid")
+            if await abandon_unknown_generation(session, job_id=job, tenant_id=tenant_a, user_id=uuid4()) != "not_found":
+                raise AssertionError("abandon_foreign_actor_allowed")
+            if await release_generation_reservation_once(session, job_id=job, tenant_id=tenant_a):
+                raise AssertionError("abandon_refunded")
+            await session.rollback()
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_b)
+            if await abandon_unknown_generation(session, job_id=job, tenant_id=tenant_b, user_id=actor) != "not_found":
+                raise AssertionError("abandon_foreign_tenant_allowed")
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_a)
+            if await claim_generation_execution(session, job, str(tenant_a), job):
+                raise AssertionError("abandon_redelivery_allowed")
+        for operation in (lambda: finalize_pending(**arguments, value={"identity": digest, "response": {"synthetic": True}}),
+                          lambda: journal.save_value("abandon-claim", {"synthetic": True})):
+            try:
+                await operation()
+            except (ExtractionOutcomeUnknownError, DeliveryOwnershipLostError):
+                pass
+            else:
+                raise AssertionError("abandon_stale_owned_access_allowed")
+        async with sessions() as session:
+            try:
+                await journal.lock_owned_session(session)
+                await journal.read_owned_value_in_session(session, "abandon-claim", plan)
+            except DeliveryOwnershipLostError:
+                pass
+            else:
+                raise AssertionError("abandon_stale_owned_read_allowed")
+        course_journal = WorkerCycleJournal(str(tenant_a), course_job, sessions)
+        course_plan = {"tenant_id": str(tenant_a), "job_id": course_job, "kind": "synthetic-course-conflict"}
+        course_args = arguments | {"journal": course_journal, "plan": course_plan,
+            "marker": {"identity": _digest(course_plan), "claim_token": "e" * 32}}
+        course_token = delivery_id.set(course_job)
+        try:
+            if await claim_with_pending(**course_args) is not None:
+                raise AssertionError("abandon_course_claim_invalid")
+        finally:
+            delivery_id.reset(course_token)
+        async with runtime.begin() as conn:
+            await canonical.set_tenant(conn, tenant_a)
+            await conn.execute(text("UPDATE ai_jobs SET course_id=:c WHERE id=:j"), {"c": uuid4(), "j": course_job})
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_a)
+            if await abandon_unknown_generation(session, job_id=course_job, tenant_id=tenant_a, user_id=actor) != "conflict":
+                raise AssertionError("abandon_course_job_allowed")
+        if (await snapshot())[0:1] != (before_result,) or (await snapshot())[2] != before_checkpoints:
+            raise AssertionError("abandon_postcheck_changed")
+    finally:
+        delivery_id.reset(token)
+
+
 async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
                    job_a: str, _resume_job: str, checks: list[str]) -> None:
     if not EXECUTION_ENABLED:
@@ -589,6 +733,8 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         checks.append("historical_budget_period_refund_idempotent_rollback_rls")
         await _exercise_revision_policy(owner, runtime, schema, tenant_a, tenant_b)
         checks.append("fresh_revision_policy_source_drift_fenced")
+        await _exercise_abandonment(owner, runtime, schema, tenant_a, tenant_b)
+        checks.append("abandon_owned_pending_race_fenced")
     finally:
         delivery_id.reset(token)
 
@@ -646,7 +792,7 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                 "sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
                 "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown",
                 "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls",
-                "fresh_revision_policy_source_drift_fenced"}
+                "fresh_revision_policy_source_drift_fenced", "abandon_owned_pending_race_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True
             or result.get("passed") is not True or result.get("cleanup") is not True

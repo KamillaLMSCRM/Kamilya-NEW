@@ -42,6 +42,7 @@ from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
     AIJobSubmissionUnavailableError,
     _lock_tenant_row,
+    abandon_unknown_generation,
     build_ai_job_queue_metadata,
     get_ai_job,
     is_resumable_generation_job,
@@ -53,6 +54,7 @@ from app.modules.ai.job_service import (
 )
 from app.modules.ai.llm_client import ResilientLLMClient
 from app.modules.ai.schemas import (
+    AbandonUnknownGenerationRequest,
     AIChatRequest,
     AIChatResponse,
     AIGenerateRequest,
@@ -366,8 +368,11 @@ def _visible_job_errors(job: AIJob) -> list[str] | None:
 
 
 def _visible_job_status_message(job: AIJob) -> tuple[str, str]:
+    from app.modules.ai.job_service import is_abandoned_unknown
     from app.modules.ai.v3.pending_stage_transactions import has_pending
 
+    if is_abandoned_unknown(job):
+        return "abandoned", str(job.message or "")
     if job.status != "running" and has_pending(getattr(job, "result", None)):
         return ("reconciliation_required",
                 "Генерация выполняется или требует проверки. Обновите статус; если он не изменится, обратитесь к администратору. Не запускайте генерацию повторно.")
@@ -381,7 +386,9 @@ async def _job_response(
     message: str | None = None,
     queue_metadata: dict[str, int | None] | None = None,
     mixed_language_warning: dict[str, object] | None = None,
+    viewer_id: UUID | None = None,
 ) -> AIJobResponse:
+    from app.modules.ai.job_service import can_abandon_unknown
     settings = get_settings()
     if queue_metadata is None:
         active_limit = await resolve_tenant_ai_active_limit(
@@ -400,6 +407,7 @@ async def _job_response(
     return AIJobResponse(
         id=job.id,
         status=visible_status,
+        abandon_available=viewer_id is not None and viewer_id == getattr(job, "user_id", None) and can_abandon_unknown(job),
         job_type=_job_type(job),
         course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
@@ -713,10 +721,13 @@ async def list_jobs(
     result = await db.execute(stmt)
     jobs = result.scalars().all()
 
+    from app.modules.ai.job_service import can_abandon_unknown
+
     return [
         AIJobResponse(
             id=j.id,
             status=_visible_job_status_message(j)[0],
+            abandon_available=user.id == getattr(j, "user_id", None) and can_abandon_unknown(j),
             job_type=_job_type(j),
             course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
@@ -743,7 +754,7 @@ async def get_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return await _job_response(db, job)
+    return await _job_response(db, job, viewer_id=cast(UUID, user.id))
 
 
 async def _cleanup_cancelled_generation_reservation(
@@ -769,6 +780,24 @@ async def _cleanup_cancelled_generation_reservation(
     if job.course_id is None and required and params.get("generation_reservation_released") is not True:
         raise ValueError("reservation_cleanup_unverified")
     await db.commit()
+
+
+@router.post("/jobs/{job_id}/abandon-unknown")
+async def abandon_unknown_job(
+    job_id: str, payload: AbandonUnknownGenerationRequest,
+    db: AsyncSession = Depends(get_db), user: User = Depends(require_ai_job_access),  # noqa: B008
+) -> dict[str, str]:
+    """Retain an unknown provider stage and its reservation while ending this job."""
+    if payload.acknowledge_outcome_and_cost_unknown is not True:
+        raise HTTPException(status_code=409, detail={"code": "unknown_outcome_ack_required"})
+    if not isinstance(user.id, UUID) or not isinstance(user.tenant_id, UUID):
+        raise HTTPException(status_code=404, detail="Job not found")
+    result = await abandon_unknown_generation(db, job_id=job_id, tenant_id=user.tenant_id, user_id=user.id)
+    if result == "not_found":
+        raise HTTPException(status_code=404, detail="Job not found")
+    if result != "abandoned":
+        raise HTTPException(status_code=409, detail={"code": "unknown_outcome_abandon_unavailable"})
+    return {"status": "abandoned", "provider_outcome": "unknown", "cost": "unknown"}
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -992,10 +1021,12 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
 
     try:
         while True:
+            from app.modules.ai.job_service import can_abandon_unknown
             visible_status, visible_message = _visible_job_status_message(job)
             await websocket.send_json({
                 "job_id": job.id,
                 "status": visible_status,
+                "abandon_available": user.id == getattr(job, "user_id", None) and can_abandon_unknown(job),
                 "stage": job.stage,
                 "progress": job.progress,
                 "message": visible_message,

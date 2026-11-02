@@ -20,6 +20,8 @@ def test_callable_paths_block_before_access():
         asyncio.run(gate["_exercise_budget_period"](None, None, "public", None, None))
     with pytest.raises(RuntimeError, match="unreviewed"):
         asyncio.run(gate["_exercise_revision_policy"](None, None, "public", None, None))
+    with pytest.raises(RuntimeError, match="unreviewed"):
+        asyncio.run(gate["_exercise_abandonment"](None, None, "public", None, None))
 
 
 @pytest.mark.parametrize("arguments", [["--execute"], ["--execute", "--confirm", "RUN_SYNTHETIC_PENDING_LIFECYCLE_DEV"]])
@@ -58,4 +60,13 @@ def test_direct_gate_installs_fake_transport_and_checks_all_boundaries():
                   "direct_generation_without_claim", "direct_replay_called_transport",
                   "direct_count_failure_claimed", "direct_count_failure_plan_exists", "direct_unknown_retried", "direct_call_count_invalid",
                   "direct_fake_count_claim_replay_unknown"):
+        assert token in source
+
+
+def test_abandon_gate_requires_real_blocking_and_preservation_checks():
+    source = PATH.read_text(encoding="utf-8")
+    for token in ("abandon_race_blocking_unverified", "pg_blocking_pids(:second)",
+                  "abandon_preservation_invalid", "abandon_foreign_actor_allowed",
+                  "abandon_foreign_tenant_allowed", "abandon_stale_owned_read_allowed",
+                  "abandon_course_claim_invalid", "abandon_course_job_allowed"):
         assert token in source

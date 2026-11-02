@@ -10,6 +10,12 @@ MULTI_DOCUMENT_MAX_SOURCES = 5
 CourseFormat = Literal["automatic", "brief", "standard", "detailed"]
 
 
+class AbandonUnknownGenerationRequest(BaseModel):
+    """Explicit acknowledgement; abandoning does not resolve provider outcome or cost."""
+    model_config = ConfigDict(extra="forbid")
+    acknowledge_outcome_and_cost_unknown: bool = Field(strict=True)
+
+
 class SourceReferenceDecisionInput(BaseModel):
     """An explicit human interpretation, verified again against the source by the worker."""
     model_config = ConfigDict(extra="forbid")
@@ -158,6 +164,7 @@ class DocumentCompatibilityResponse(BaseModel):
 class AIJobResponse(BaseModel):
     id: str
     status: str
+    abandon_available: bool = False
     job_type: str = "other"
     course_id: UUID | None
     created_at: datetime
