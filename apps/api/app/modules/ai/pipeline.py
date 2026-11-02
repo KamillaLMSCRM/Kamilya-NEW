@@ -542,6 +542,26 @@ async def _load_owned_reference_decisions(
         return hydrate_reference_decisions(params.get("reference_decisions", []), str(tenant_id), str(user_id), documents)
 
 
+async def _load_owned_revision_policy(
+    job_id: str, tenant_id: UUID, user_id: UUID | None, documents: list[str],
+) -> str | None:
+    """Read only the persisted marker under the current owned delivery lock."""
+    from sqlalchemy import text
+
+    from app.modules.ai.job_service import get_ai_job
+    from app.modules.ai.v3.revision_policy import read_policy
+
+    async with async_session_factory() as session:
+        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+        await lock_owned_delivery(session, job_id, str(tenant_id), require_running=True)
+        job = await get_ai_job(session, job_id, tenant_id=str(tenant_id))
+        if job is None or user_id is None or job.user_id != user_id or job.status != "running":
+            raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        _validate_generation_source_selection(job.params, documents)
+        params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+        return read_policy(params.get("source_analysis"))
+
+
 async def _run_v3_generation(
     state: GenerationState,
     corpus: DirectSourceCorpus,
@@ -571,6 +591,7 @@ async def _run_v3_generation(
     authenticated_qa_policy: str | None = None
     owned_source_context: Any = None
     direct_client: Any = None
+    revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -601,10 +622,13 @@ async def _run_v3_generation(
                 from app.modules.ai.v3.owned_route_binding import POLICY as ROUTE_POLICY
 
                 current = job.params.get("source_analysis") if isinstance(job.params, dict) else None
+                from app.modules.ai.v3.revision_policy import policy_matches
+
                 route_valid = (stored != DIRECT_POLICY or (direct_client is not None
                     and isinstance(job.result, dict) and job.result.get(ROUTE_KEY) == {
                         "policy": ROUTE_POLICY, "fingerprint": direct_client.cache_fingerprint()}))
-                return (isinstance(current, dict) and current.get(QA_PENDING_KEY) == stored
+                return (isinstance(current, dict) and policy_matches(current, revision_policy)
+                        and current.get(QA_PENDING_KEY) == stored
                         and route_valid
                         and await context.verify_locked(session, job, plan) is True)
             journal.verify_source = verify_qa_source
@@ -612,6 +636,20 @@ async def _run_v3_generation(
     reference_decisions = await _load_owned_reference_decisions(
         state.job_id, tenant_id, user_id, list(corpus.document_ids),
     )
+    if revision_policy is not None and not pending_mode:
+        import hashlib
+
+        from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+
+        if not isinstance(user_id, UUID):
+            raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+        source_text = "\n\n".join(item.source_text for item in corpus.documents if item.source_text)
+        journal.expected_revision_policy = revision_policy
+        journal.expected_revision_actor = user_id
+        journal.expected_revision_source = OwnedSourceContext(
+            corpus, journal, tenant_id, user_id, state.job_id, tuple(str(value) for value in corpus.document_ids))
+        journal.expected_revision_plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": str(tenant_id),
+            "job_id": state.job_id, "source_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest()}
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
@@ -696,6 +734,7 @@ async def _run_v3_generation(
             direct_client=direct_client,
             authenticated_qa_policy=authenticated_qa_policy,
             owned_source_context=owned_source_context,
+            revision_policy=revision_policy,
         )
     finally:
         if direct_client is not None:

@@ -29,6 +29,69 @@ def payload(variant_id):
             "distractors": [{"text": text, "category": "procedural_confusion"} for text in ("один", "два", "три")]}
 
 
+@pytest.mark.asyncio
+async def test_reviewed_prompt_repair_targets_variant_and_preserves_source_and_sibling():
+    before = saved_lesson()
+    case = before.cases[0]
+    target = replace(case.variants[0], prompt="Можно ли это сделать?")
+    before = replace(before, cases=(replace(case, variants=(target,)),))
+    answer = payload("v1") | {"prompt": "Как следует поступить?"}
+    async def invoke(messages, response_format):
+        assert '"prompt"' in messages[0]["content"]
+        return {"repairs": [answer]}
+    after = await repair_options(before, ["yes/no prompt"], ["точная цитата"], invoke, repair_prompt=True)
+    variant = after.cases[0].variants[0]
+    assert variant.prompt == "Как следует поступить?"
+    assert (variant.variant_id, variant.scenario_premise, variant.source_quote) == (target.variant_id, target.scenario_premise, target.source_quote)
+    assert after.content == before.content and after.cases[0].rule_id == case.rule_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["missing", "blank", "foreign", "scenario", "source", "nested"])
+async def test_reviewed_prompt_repair_rejects_invalid_or_extra_fields(change):
+    item = payload("v1") | {"prompt": "Как поступить?"}
+    if change == "missing":
+        item.pop("prompt")
+    if change == "blank":
+        item["prompt"] = "  "
+    if change == "foreign":
+        item["variant_id"] = "other"
+    if change == "scenario":
+        item["scenario_premise"] = "changed"
+    if change == "source":
+        item["source_quote"] = "changed"
+    if change == "nested":
+        item["distractors"][0]["source"] = "changed"
+    async def invoke(*_args): return {"repairs": [item]}
+    with pytest.raises(ValueError, match="v3_option_repair_invalid"):
+        await repair_options(saved_lesson(), ["yes/no prompt"], ["source"], invoke, repair_prompt=True)
+
+
+@pytest.mark.asyncio
+async def test_reviewed_prompt_repair_missing_subset_uses_same_strict_mode():
+    before = saved_lesson()
+    calls = []
+    async def invoke(messages, _format):
+        calls.append(messages)
+        return {"repairs": [payload("v1" if len(calls) == 1 else "v2") | {"prompt": "Первый вопрос?" if len(calls) == 1 else "Второй вопрос?"}]}
+    after = await repair_options(before, ["question"], ["source"], invoke, repair_prompt=True)
+    assert len(calls) == 2 and '"prompt"' in calls[1][0]["content"]
+    assert [v.prompt for v in after.cases[0].variants] == ["Первый вопрос?", "Второй вопрос?"]
+    assert [v.source_quote for v in after.cases[0].variants] == [v.source_quote for v in before.cases[0].variants]
+
+
+@pytest.mark.asyncio
+async def test_reviewed_prompt_repair_missing_subset_rejects_missing_prompt():
+    calls = 0
+    async def invoke(_messages, _format):
+        nonlocal calls
+        calls += 1
+        return {"repairs": [payload("v1") | {"prompt": "Первый вопрос?"} if calls == 1 else payload("v2")]}
+    with pytest.raises(ValueError, match="v3_option_repair_invalid"):
+        await repair_options(saved_lesson(), ["question"], ["source"], invoke, repair_prompt=True)
+    assert calls == 2
+
+
 @pytest.mark.parametrize(("shortest", "expected"), [(5, True), (3, False)])
 def test_reverse_length_shortcut_is_detected_without_treating_ties_as_shortest(shortest, expected):
     lesson = saved_lesson()

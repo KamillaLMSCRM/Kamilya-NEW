@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, replace
 from functools import wraps
 from typing import Any, TypeVar, cast
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.modules.ai.assessment_counter_context import full_counter_scope
 from app.modules.ai.assessment_source_context import (
@@ -350,6 +350,10 @@ class WorkerCycleJournal:
     def __init__(self, tenant_id: str, job_id: str, session_factory: Any):
         self.tenant_id, self.job_id, self.sessions = tenant_id, job_id, session_factory
         self.repository = AIGenerationCheckpointRepository()
+        self.expected_revision_policy: str | None = None
+        self.expected_revision_actor: Any = None
+        self.expected_revision_source: Any = None
+        self.expected_revision_plan: dict[str, Any] | None = None
 
     async def _lock_delivery(self, session: Any) -> None:
         from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
@@ -358,6 +362,19 @@ class WorkerCycleJournal:
             raise DeliveryOwnershipLostError("generation_delivery_identity_missing")
         await self.repository._set_tenant(session, self.tenant_id)
         await lock_owned_delivery(session, self.job_id, self.tenant_id, require_running=True)
+        if self.expected_revision_policy is not None:
+            from app.models.ai_job import AIJob
+            from app.modules.ai.v3.revision_policy import policy_matches
+
+            job = await session.scalar(select(AIJob).where(AIJob.id == self.job_id,
+                AIJob.tenant_id == self.tenant_id).with_for_update().execution_options(populate_existing=True))
+            params = job.params if job is not None and isinstance(job.params, dict) else {}
+            if (job is None or job.user_id != self.expected_revision_actor
+                    or not policy_matches(params.get("source_analysis"), self.expected_revision_policy)):
+                raise DeliveryOwnershipLostError("generation_revision_policy_changed")
+            if (self.expected_revision_source is None or self.expected_revision_plan is None
+                    or await self.expected_revision_source.verify_locked(session, job, self.expected_revision_plan) is not True):
+                raise DeliveryOwnershipLostError("generation_revision_source_changed")
 
     async def prepare(self, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
         key = self._owned_key(key)
@@ -383,6 +400,8 @@ class WorkerCycleJournal:
 
     async def inventory_versions(self, base_key: str) -> list[dict[str, Any]]:
         async with self.sessions() as session:
+            if self.expected_revision_policy is not None:
+                await self._lock_delivery(session)
             await self.repository._set_tenant(session, self.tenant_id)
             result = await session.execute(text("""
                 SELECT r.generation_key, r.plan_revision, r.plan_payload,
@@ -413,6 +432,8 @@ class WorkerCycleJournal:
     async def read_value(self, key: str) -> dict[str, Any] | None:
         """Read only the current job's completed checkpoint; never create a plan."""
         async with self.sessions() as session:
+            if self.expected_revision_policy is not None:
+                await self._lock_delivery(session)
             rows = await self.repository.load_checkpoints(
                 session, tenant_id=self.tenant_id, generation_key=self._owned_key(key))
             if len(rows) != 1:
@@ -426,6 +447,8 @@ class WorkerCycleJournal:
     async def read_owned_value(self, key: str, expected_plan: dict[str, Any]) -> dict[str, Any] | None:
         """Read only a checkpoint whose persisted plan belongs to this tenant and job."""
         async with self.sessions() as session:
+            if self.expected_revision_policy is not None:
+                await self._lock_delivery(session)
             return await self.read_owned_value_in_session(session, key, expected_plan)
 
     async def lock_owned_session(self, session: Any) -> None:
@@ -454,6 +477,8 @@ class WorkerCycleJournal:
         """Read one realization atomically and fail closed on drift/incomplete state."""
         generation_key = self._owned_key(key)
         async with self.sessions() as session:
+            if self.expected_revision_policy is not None:
+                await self._lock_delivery(session)
             try:
                 plan = await self.repository.load_plan(session, tenant_id=self.tenant_id, generation_key=generation_key)
             except AIGenerationCheckpointError as exc:

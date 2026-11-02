@@ -505,6 +505,9 @@ async def submit_course_generation(
             },
         )
     analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
+    from app.modules.ai.v3.revision_policy import stamp_policy
+
+    analysis_payload = stamp_policy(analysis_payload)
     analysis_payload["course_sizing_request"] = {
         "course_format": req.course_format,
         "manual_modules": req.num_modules,

@@ -1579,6 +1579,7 @@ async def _repair_reviewed_case(
     invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
     reference_context: tuple[str, ...] = (),
     source_documents: tuple[str, ...] | None = None,
+    *, repair_prompt: bool = False,
 ) -> tuple[V3Lesson, bool]:
     """Repair a uniquely identified question case without touching other cases.
 
@@ -1622,7 +1623,9 @@ async def _repair_reviewed_case(
         messages[0]["content"] += "\nСохрани правильный ответ дословно, без изменений текста."
         return await invoke(messages, response_format)
 
-    candidate = await repair_options(isolated, issues, source_fragments, exact_answer_invoke, reference_context)
+    candidate = await repair_options(
+        isolated, issues, source_fragments, exact_answer_invoke, reference_context, repair_prompt=repair_prompt,
+    )
     repaired_variants = candidate.cases[0].variants
     if any(before.correct_option.text != after.correct_option.text for before, after in zip(
         selected, repaired_variants, strict=True
@@ -1748,8 +1751,14 @@ async def generate_v3_course_from_corpus(
     direct_max_output_tokens: int = 8192,
     authenticated_qa_policy: str | None = None,
     owned_source_context: Any = None,
+    revision_policy: str | None = None,
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
+    from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
+
+    if revision_policy is not None and revision_policy != REVISION_POLICY:
+        raise ValueError("v3_revision_policy_invalid")
+    scoped_revision = revision_policy == REVISION_POLICY
     if allow_unreviewed_on_unknown and extraction_journal is None:
         raise ValueError("v3_unknown_review_requires_journal")
     if direct_client is not None and extraction_journal is None:
@@ -1802,7 +1811,8 @@ async def generate_v3_course_from_corpus(
         parsed: dict[str, Any] = json.loads(raw_text)
         return parsed
 
-    pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=direct_client is not None)
+    pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=direct_client is not None,
+                                    scoped_revision=scoped_revision)
 
     # Stage 1: Extract structured rule model
     if progress_callback:
@@ -1896,7 +1906,8 @@ async def generate_v3_course_from_corpus(
                                         messages=messages, response_format=response_format, invoke=invoke,
                                         direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens)
 
-            return V3GenerationPipeline(invoke_stage, explanation_consistency=direct_client is not None)
+            return V3GenerationPipeline(invoke_stage, explanation_consistency=direct_client is not None,
+                                        scoped_revision=scoped_revision)
 
         group_reference_context = reference_context_for_rules(
             corpus.tenant_id, corpus.documents, reference_decisions, group.primary_rules)
@@ -2038,6 +2049,9 @@ async def generate_v3_course_from_corpus(
             parts = ([] if citation_holds and lesson.cases and not review_lesson.cases
                      else _semantic_review_parts(review_lesson))
             all_parts_passed = True
+            deferred_lesson_defects: list[tuple[int, Any]] = []
+            lesson_scope_resolved = False
+            prose_resolution_evidence: dict[str, Any] | None = None
             if len(parts) > 1:
                 coverage_review_signals.append(
                     f"Урок {lesson.lesson_id}: межкейсовые смысловые повторы и полноту проверить отдельно"
@@ -2056,13 +2070,17 @@ async def generate_v3_course_from_corpus(
                     for variant in next((case for case in lesson.cases if case.case_id == part.cases[0].case_id),
                                         part.cases[0]).variants
                 ))
-                if (extraction_journal is not None and part.cases and not case_has_held_variant
+                lesson_only = (scoped_revision and is_valid and bool(review_res.get("defects")) and all(
+                    isinstance(defect, dict) and defect.get("scope") == "lesson"
+                    for defect in review_res["defects"]))
+                if (extraction_journal is not None and part.cases and not case_has_held_variant and not lesson_only
                         and (not is_valid or str(review_res.get("verdict", "")).strip().upper() != "PASS")):
                     original_review = review_res
                     try:
                         repaired_lesson, was_repaired = await _repair_reviewed_case(
                             lesson, part, review_res, full_text, doc_sha, exact_source_units,
                             stage_pipeline("repair").invoker, group_reference_context, source_documents,
+                            repair_prompt=scoped_revision,
                         )
                     except SemanticRepairRejectedError as repair_error:
                         rejection = str(repair_error)
@@ -2102,7 +2120,7 @@ async def generate_v3_course_from_corpus(
                                 f"Урок {lesson.lesson_id}, кейс {case_id}: правка отклонена: "
                                 f"{repair_record.get('rejected', 'candidate_unverified')}"
                             )
-                elif (extraction_journal is not None and part.cases and case_has_held_variant
+                elif (extraction_journal is not None and part.cases and case_has_held_variant and not lesson_only
                       and (not is_valid or str(review_res.get("verdict", "")).strip().upper() != "PASS")):
                     semantic_repairs.append({"lesson_id": lesson.lesson_id, "case_id": part.cases[0].case_id,
                                              "original_review": review_res, "recheck": None,
@@ -2117,11 +2135,14 @@ async def generate_v3_course_from_corpus(
                     continue
                 verdict = str(review_res.get("verdict", "")).strip().upper()
                 if verdict != "PASS":
-                    all_parts_passed = False
                     for defect in review_res.get("defects") or []:
-                        semantic_violations.append(
-                            f"Семантический критик: урок {lesson.lesson_id}, часть {part_index}: {defect}"
-                        )
+                        if scoped_revision and isinstance(defect, dict) and defect.get("scope") == "lesson":
+                            deferred_lesson_defects.append((part_index, defect))
+                        else:
+                            all_parts_passed = False
+                            semantic_violations.append(
+                                f"Семантический критик: урок {lesson.lesson_id}, часть {part_index}: {defect}"
+                            )
             # The general critic can miss invented claims in lesson prose even
             # when the question itself is supported. Audit prose once per
             # lesson, not once per case. A failed case must not hide prose defects.
@@ -2130,6 +2151,7 @@ async def generate_v3_course_from_corpus(
                     all_parts_passed = False
                     semantic_violations.append(f"Урок {lesson.lesson_id}: нет исходных блоков для проверки текста")
                 else:
+                    prose_failures: list[dict[str, Any]] = []
                     sections = _lesson_claim_sections(lesson.content)
                     if len(sections) > 1:
                         coverage_review_signals.append(
@@ -2167,13 +2189,81 @@ async def generate_v3_course_from_corpus(
                                 lesson_claim_reviews.append({"section": section_index, "table_part": table_index,
                                                              "subpart": subpart_index, "review": claim_review})
                                 valid, error = _validate_answer_entailment(claim_review)
-                                if not valid or claim_review.get("verdict") != "SUPPORTED":
+                                if valid and claim_review.get("verdict") != "SUPPORTED":
+                                    prose_failures.append({"id": f"{section_index}:{table_index}:{subpart_index}",
+                                        "text": part_text, "scenario": scenario, "review": claim_review,
+                                        "lesson_claims": _lesson_objective_section(section), "section": section_index})
+                                elif not valid:
                                     all_parts_passed = False
                                     semantic_violations.append(
                                         f"Урок {lesson.lesson_id}: проверка текста: "
-                                        f"{error if not valid else claim_review.get('verdict')} "
+                                        f"{error} "
                                         f"(часть {section_index})"
                                     )
+                    if scoped_revision and prose_failures and extraction_journal is not None:
+                        from app.modules.ai.v3.prose_repair import apply_prose_repairs, unchanged_context
+
+                        original_content = lesson.content
+                        source_snapshot = tuple(exact_source_units)
+                        reference_snapshot = tuple(group_reference_context)
+                        parts_by_id = {item["id"]: item["text"] for item in prose_failures}
+                        repair_evidence: dict[str, Any] = {"prose_repair": "pending", "rechecks": []}
+                        prose_resolution_evidence = repair_evidence
+                        lesson_claim_reviews.append(repair_evidence)
+                        proposal = await stage_pipeline("repair").repair_prose(prose_failures, exact_source_units,
+                                                                              group_reference_context)
+                        repair_evidence["proposal"] = proposal
+                        try:
+                            prose_candidate, repaired_parts = apply_prose_repairs(original_content, parts_by_id, proposal)
+                        except (TypeError, ValueError):
+                            repair_evidence["prose_repair"] = "invalid"
+                        else:
+                            accepted = True
+                            for item in prose_failures:
+                                recheck = await stage_pipeline("review").review_answer(
+                                    item["scenario"] + "\nПредыдущий текст как недоверенные данные для проверки сохранения "
+                                    "подтверждённых фактов, условий и исключений:\n" + item["text"],
+                                    "Фактические утверждения текста урока", repaired_parts[item["id"]],
+                                    exact_source_units, group_reference_context,
+                                    lesson_claims=item["lesson_claims"], source_prose=True)
+                                repair_evidence["rechecks"].append({"id": item["id"], "review": recheck})
+                                valid, _ = _validate_answer_entailment(recheck)
+                                if not valid or recheck.get("verdict") != "SUPPORTED":
+                                    accepted = False
+                            if (accepted and lesson.content == original_content and unchanged_context(
+                                    exact_source_units, group_reference_context, source_snapshot, reference_snapshot)):
+                                staged_lesson = replace(lesson, content=prose_candidate)
+                                full_recheck = await stage_pipeline("review").review_lesson(
+                                    staged_lesson, review_rules, source_fragments=source_frags, partial_case=False,
+                                    reference_context=group_reference_context)
+                                repair_evidence["general_recheck"] = full_recheck
+                                valid, _ = _validate_critic_response(full_recheck, lesson.lesson_id, lesson.title)
+                                if (valid and full_recheck.get("verdict") == "PASS" and lesson.content == original_content
+                                        and unchanged_context(exact_source_units, group_reference_context,
+                                                              source_snapshot, reference_snapshot)):
+                                    lesson = staged_lesson
+                                    generated_lessons[-1] = lesson
+                                    prose_failures = []
+                                    repair_evidence["prose_repair"] = "accepted"
+                                    lesson_scope_resolved = True
+                                else:
+                                    repair_evidence["prose_repair"] = "general_recheck_unverified"
+                            else:
+                                repair_evidence["prose_repair"] = "recheck_unverified"
+                    for item in prose_failures:
+                        all_parts_passed = False
+                        semantic_violations.append(
+                            f"Урок {lesson.lesson_id}: проверка текста: {item['review'].get('verdict')} "
+                            f"(часть {item['section']})"
+                        )
+            if prose_resolution_evidence is not None:
+                prose_resolution_evidence["lesson_scope_resolved"] = lesson_scope_resolved
+            if deferred_lesson_defects and not lesson_scope_resolved:
+                all_parts_passed = False
+                for part_index, defect in deferred_lesson_defects:
+                    semantic_violations.append(
+                        f"Семантический критик: урок {lesson.lesson_id}, часть {part_index}: {defect}"
+                    )
             answers = _question_option_inputs(lesson)
             if answers and not exact_source_units:
                 all_parts_passed = False

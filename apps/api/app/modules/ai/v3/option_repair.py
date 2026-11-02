@@ -19,6 +19,16 @@ OPTION_REPAIR_SYSTEM = """Исправь только варианты отве�
 Допустимые категории: procedural_confusion, role_confusion, timing_violation, unauthorized_action, threshold_error.
 """
 
+REVIEWED_QUESTION_REPAIR_SYSTEM = """Исправь формулировку вопроса, варианты ответов и объяснения в переданных вопросах.
+Сохраняй условия ситуации, идентификаторы, смысл правильного ответа и точные цитаты.
+Для каждого вопроса дай один правильный и три правдоподобных неверных ответа, без подсказки длиной; не добавляй факты вне источника.
+Не создавай устойчивую подсказку ни самым длинным, ни самым коротким правильным ответом. Не дописывай вымышленные условия ради длины.
+Если есть варианты одного кейса, не повторяй одинаковые ошибки между ними. Объяснение должно обосновывать правильный ответ и ошибки.
+Верни только JSON: {"repairs":[{"variant_id":"...","prompt":"...","correct":"...","distractors":[{"text":"...","category":"procedural_confusion"},{"text":"...","category":"role_confusion"},{"text":"...","category":"unauthorized_action"}],"explanation":"..."}]}.
+Поле prompt обязательно и непусто. Разрешены только показанные поля; в distractors только text и category.
+Допустимые категории: procedural_confusion, role_confusion, timing_violation, unauthorized_action, threshold_error.
+"""
+
 TARGETED_DISTRACTOR_SYSTEM = """Для каждого вопроса замени только три неверных варианта. Правильный ответ приведён для контекста: не переписывай его и не возвращай в результате. Неверные варианты должны явно противоречить исходным правилам с учётом ситуации и быть правдоподобными. Устрани подсказку длиной: хотя бы один неверный вариант не короче правильного, хотя бы один не длиннее; не добавляй бессмысленных слов. Не повторяй ошибки между вариантами одного кейса. Верни JSON {"repairs":[{"variant_id":"...","distractors":[{"text":"...","category":"procedural_confusion"},{"text":"...","category":"role_confusion"},{"text":"...","category":"unauthorized_action"}]}]}. Категории: procedural_confusion, role_confusion, timing_violation, unauthorized_action, threshold_error."""
 
 TARGETED_DISTRACTOR_MEAN_SYSTEM = TARGETED_DISTRACTOR_SYSTEM + (
@@ -171,6 +181,7 @@ async def repair_options(
     invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
     reference_context: tuple[str, ...] = (),
     accept_partial: Callable[[V3Lesson], bool] | None = None,
+    *, repair_prompt: bool = False,
 ) -> V3Lesson:
     """Repair every existing variant, rejecting partial or cross-case replacement.
 
@@ -186,20 +197,26 @@ async def repair_options(
     payload = [{"variant_id": variant.variant_id, "scenario": variant.scenario_premise, "question": variant.prompt,
                 "correct": variant.correct_option.text, "distractors": [option.text for option in variant.distractor_pool],
                 "explanation": variant.explanation} for variant in variants]
-    messages = [{"role": "system", "content": OPTION_REPAIR_SYSTEM}, {"role": "user", "content": (
+    system = REVIEWED_QUESTION_REPAIR_SYSTEM if repair_prompt else OPTION_REPAIR_SYSTEM
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": (
         "ТОЧНЫЕ ИСХОДНЫЕ БЛОКИ:\n" + "\n---\n".join(source_fragments)
         + ("\n\nУТОЧНЕНИЯ ССЫЛОК, НЕ ЦИТАТЫ ИСТОЧНИКА:\n" + "\n".join(reference_context) if reference_context else "")
         + "\n\nЗАМЕЧАНИЯ ПРОВЕРКИ:\n" + json.dumps(violations, ensure_ascii=False)
         + "\n\nИСХОДНЫЕ ВАРИАНТЫ:\n" + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     )}]
-    mapped: dict[str, tuple[V3Option, tuple[V3Option, ...], str]] = {}
+    mapped: dict[str, tuple[V3Option, tuple[V3Option, ...], str, str | None]] = {}
 
     def accept_repairs(raw: Any, allowed: set[str]) -> None:
+        if repair_prompt and (not isinstance(raw, dict) or set(raw) != {"repairs"}):
+            raise ValueError("v3_option_repair_invalid")
         repairs = raw.get("repairs") if isinstance(raw, dict) else None
         if not isinstance(repairs, list) or not repairs:
             raise ValueError("v3_option_repair_incomplete")
         for item in repairs:
             if not isinstance(item, dict):
+                raise ValueError("v3_option_repair_invalid")
+            if repair_prompt and (set(item) != {"variant_id", "prompt", "correct", "distractors", "explanation"}
+                                  or not isinstance(item.get("prompt"), str) or not item["prompt"].strip()):
                 raise ValueError("v3_option_repair_invalid")
             variant_id, correct, distractors, explanation = (item.get("variant_id"), item.get("correct"),
                                                               item.get("distractors"), item.get("explanation"))
@@ -209,7 +226,8 @@ async def repair_options(
                 raise ValueError("v3_option_repair_invalid")
             wrong: list[V3Option] = []
             for value in distractors:
-                if (not isinstance(value, dict) or not isinstance(value.get("text"), str) or not value["text"].strip()
+                if (not isinstance(value, dict) or (repair_prompt and set(value) != {"text", "category"})
+                        or not isinstance(value.get("text"), str) or not value["text"].strip()
                         or value.get("category") not in DistractorCategory._value2member_map_):
                     raise ValueError("v3_option_repair_invalid")
                 wrong.append(V3Option(text=value["text"].strip(), is_correct=False,
@@ -217,14 +235,16 @@ async def repair_options(
             texts = [correct.strip().casefold(), *(option.text.casefold() for option in wrong)]
             if len(set(texts)) != 4:
                 raise ValueError("v3_option_repair_duplicate_option")
-            mapped[variant_id] = (V3Option(text=correct.strip(), is_correct=True), tuple(wrong), explanation.strip())
+            mapped[variant_id] = (V3Option(text=correct.strip(), is_correct=True), tuple(wrong), explanation.strip(),
+                                  item["prompt"].strip() if repair_prompt else None)
 
     def build_candidate() -> V3Lesson:
         def apply(variant: Any) -> Any:
             if variant.variant_id not in mapped:
                 return variant
-            correct, distractors, explanation = mapped[variant.variant_id]
-            return replace(variant, correct_option=correct, distractor_pool=distractors, explanation=explanation)
+            correct, distractors, explanation, prompt = mapped[variant.variant_id]
+            return replace(variant, correct_option=correct, distractor_pool=distractors, explanation=explanation,
+                           prompt=prompt if prompt is not None else variant.prompt)
         cases = tuple(replace(case, variants=tuple(apply(variant) for variant in case.variants))
                       for case in lesson.cases)
         questions = tuple(case.variants[0].assemble_question(seed=42) for case in cases if case.variants)
@@ -240,7 +260,7 @@ async def repair_options(
         # One targeted request; checkpointed caller prevents retry after unknown outcome.
         # Do not pass already-repaired questions or accept edits outside this subset.
         missing_payload = [item for item in payload if item["variant_id"] in missing]
-        targeted = [{"role": "system", "content": OPTION_REPAIR_SYSTEM}, {"role": "user", "content": (
+        targeted = [{"role": "system", "content": system}, {"role": "user", "content": (
             "ТОЧНЫЕ ИСХОДНЫЕ БЛОКИ:\n" + "\n---\n".join(source_fragments)
             + ("\n\nУТОЧНЕНИЯ ССЫЛОК, НЕ ЦИТАТЫ ИСТОЧНИКА:\n" + "\n".join(reference_context) if reference_context else "")
             + "\n\nЗАМЕЧАНИЯ ПРОВЕРКИ:\n" + json.dumps(violations, ensure_ascii=False)

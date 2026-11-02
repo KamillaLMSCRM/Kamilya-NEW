@@ -8,6 +8,38 @@ from app.modules.ai.v3.models import V3Course
 from app.modules.ai.v3.service import _repair_reviewed_case
 
 
+@pytest.mark.asyncio
+async def test_reviewed_prompt_defect_changes_prompt_and_rebuilds_only_its_exported_question():
+    lesson = lesson_fixture()
+    target = lesson.cases[1]
+    original_variant = replace(target.variants[0], prompt="Нужно ли согласование?")
+    target = replace(target, variants=(original_variant,))
+    lesson = replace(lesson, cases=(lesson.cases[0], target))
+    lesson = replace(lesson, questions=tuple(c.variants[0].assemble_question(seed=99) for c in lesson.cases))
+    corrected_prompt = "Какое действие требуется при выполнении условий согласования?"
+
+    async def invoke(messages, response_format):
+        return {"repairs": [{"variant_id": "case-2-v", "prompt": corrected_prompt,
+                "correct": "a" * 12, "explanation": "обоснование",
+                "distractors": [{"text": text, "category": "procedural_confusion"}
+                                for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
+
+    review = {"verdict": "NEEDS_REVISION", "defects": [{"scope": "question", "question_id": "case-2-v",
+              "issue": "Вопрос допускает бинарный ответ; требуется вопрос о рабочем решении"}]}
+    updated, changed = await _repair_reviewed_case(
+        lesson, replace(lesson, cases=(target,), questions=()), review,
+        "точная цитата", "a" * 64, ["точная цитата"], invoke, repair_prompt=True)
+    assert changed
+    new = updated.cases[1].variants[0]
+    assert new.prompt == corrected_prompt
+    assert (new.scenario_premise, new.branch_context, new.source_quote, new.correct_option) == (
+        original_variant.scenario_premise, original_variant.branch_context,
+        original_variant.source_quote, original_variant.correct_option)
+    assert updated.cases[0] == lesson.cases[0]
+    assert updated.questions[0] == lesson.questions[0]
+    assert corrected_prompt in updated.questions[1].prompt
+
+
 def lesson_fixture():
     def case(case_id):
         return {"case_id": case_id, "rule_id": "r", "variants": [{
@@ -36,7 +68,7 @@ async def test_review_defect_repairs_only_identified_case_and_preserves_its_cont
         assert "case-1-v" not in messages[1]["content"]
         assert "уточнить вариант" not in messages[1]["content"]
         assert "правильный ответ дословно" in messages[0]["content"].lower()
-        return {"repairs": [{"variant_id": "case-2-v", "correct": "a" * 12,
+        return {"repairs": [{"variant_id": "case-2-v", "prompt": "вопрос?", "correct": "a" * 12,
                 "explanation": "новое объяснение", "distractors": [
                     {"text": text, "category": "procedural_confusion"} for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
 
@@ -55,7 +87,7 @@ async def test_repair_preserves_other_exported_questions():
     lesson = replace(lesson, questions=tuple(case.variants[0].assemble_question(seed=99) for case in lesson.cases))
 
     async def invoke(messages, response_format):
-        return {"repairs": [{"variant_id": "case-2-v", "correct": "a" * 12, "explanation": "обоснование",
+        return {"repairs": [{"variant_id": "case-2-v", "prompt": "вопрос?", "correct": "a" * 12, "explanation": "обоснование",
                 "distractors": [{"text": text, "category": "procedural_confusion"}
                                 for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
 
@@ -70,7 +102,7 @@ async def test_semantic_repair_cannot_change_correct_answer():
     lesson = lesson_fixture()
 
     async def invoke(messages, response_format):
-        return {"repairs": [{"variant_id": "case-2-v", "correct": "z" * 12, "explanation": "обоснование",
+        return {"repairs": [{"variant_id": "case-2-v", "prompt": "вопрос?", "correct": "z" * 12, "explanation": "обоснование",
                 "distractors": [{"text": text, "category": "procedural_confusion"}
                                 for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
 
@@ -89,7 +121,7 @@ async def test_unchanged_correct_answer_keeps_original_metadata():
     lesson = replace(lesson, cases=(lesson.cases[0], case))
 
     async def invoke(messages, response_format):
-        return {"repairs": [{"variant_id": "case-2-v", "correct": "a" * 12, "explanation": "обоснование",
+        return {"repairs": [{"variant_id": "case-2-v", "prompt": "вопрос?", "correct": "a" * 12, "explanation": "обоснование",
                 "distractors": [{"text": text, "category": "procedural_confusion"}
                                 for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
 
@@ -108,7 +140,7 @@ async def test_variant_scoped_defect_preserves_sibling_variants():
 
     async def invoke(messages, response_format):
         assert "case-2-v2" not in messages[1]["content"]
-        return {"repairs": [{"variant_id": "case-2-v", "correct": "a" * 12, "explanation": "обоснование",
+        return {"repairs": [{"variant_id": "case-2-v", "prompt": "вопрос?", "correct": "a" * 12, "explanation": "обоснование",
                 "distractors": [{"text": text, "category": "procedural_confusion"}
                                 for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
 
@@ -128,7 +160,7 @@ async def test_second_variant_repair_does_not_reassemble_first_exported_question
     lesson = replace(lesson, cases=cases, questions=tuple(c.variants[0].assemble_question(seed=99) for c in cases))
 
     async def invoke(messages, response_format):
-        return {"repairs": [{"variant_id": "case-2-v2", "correct": "a" * 12, "explanation": "обоснование",
+        return {"repairs": [{"variant_id": "case-2-v2", "prompt": "вопрос?", "correct": "a" * 12, "explanation": "обоснование",
                 "distractors": [{"text": text, "category": "procedural_confusion"}
                                 for text in ("e" * 12, "f" * 12, "g" * 12)]}]}
 

@@ -31,6 +31,11 @@ async def test_worker_supplies_job_scoped_journal_and_actual_route_fingerprint(m
         assert job_id == state.job_id and tenant_id == tenant and user_id == tenant
         return ("trusted-decision",)
 
+    async def load_revision(job_id, tenant_id, user_id, documents):
+        assert job_id == state.job_id and tenant_id == tenant and user_id == tenant
+        captured["legacy_revision_loaded"] = True
+        return None
+
     class Journal:
         def __init__(self, tenant_id, job_id, session_factory):
             self.tenant_id = tenant_id
@@ -49,6 +54,8 @@ async def test_worker_supplies_job_scoped_journal_and_actual_route_fingerprint(m
     monkeypatch.setattr(worker_lesson_cycle, "WorkerCycleJournal", Journal)
     monkeypatch.setattr(service, "generate_v3_course_from_corpus", generate)
     monkeypatch.setattr(pipeline, "_load_owned_reference_decisions", load_decisions)
+    monkeypatch.setattr(pipeline, "_load_owned_revision_policy", load_revision)
+    monkeypatch.setattr(pipeline, "async_session_factory", lambda: pytest.fail("Unmocked database in wiring unit"))
 
     await pipeline._run_v3_generation(state, SimpleNamespace(document_ids=(), tenant_id=str(tenant)), tenant_id=tenant, user_id=tenant,
                                       target_audience="", guidance=None, goals=None, max_total_lessons=None)
@@ -56,4 +63,6 @@ async def test_worker_supplies_job_scoped_journal_and_actual_route_fingerprint(m
     assert captured["extraction_journal"].job_id == state.job_id
     assert captured["route_fingerprint"] == "a" * 64
     assert captured["reference_decisions"] == ("trusted-decision",)
+    assert captured["legacy_revision_loaded"]
+    assert captured["revision_policy"] is None
     assert state.server_source_review_required

@@ -26,6 +26,8 @@ from app.modules.ai.v3.prompts import (
     LESSON_PROSE_LOGIC_SUFFIX,
     OPTION_COMPATIBILITY_SYSTEM_PROMPT,
     OPTION_ENTAILMENT_SYSTEM_PROMPT,
+    PARTIAL_SOURCE_REVIEW_SUFFIX,
+    PROSE_REPAIR_SYSTEM_PROMPT,
     QA_REVIEW_SYSTEM_PROMPT,
     RULE_EXTRACTION_SYSTEM_PROMPT,
 )
@@ -37,13 +39,14 @@ class V3GenerationPipeline:
     """End-to-end pipeline implementing the V3 Didactic Co-Generation Architecture."""
 
     def __init__(self, llm_invoker: Callable[[list[dict[str, str]], dict[str, Any] | None], Any],
-                 *, explanation_consistency: bool = False) -> None:
+                 *, explanation_consistency: bool = False, scoped_revision: bool = False) -> None:
         """
         llm_invoker: async or sync callable that accepts messages list and optional response_format,
         returning a parsed JSON dict or string.
         """
         self.invoker = llm_invoker
         self.explanation_consistency = explanation_consistency
+        self.scoped_revision = scoped_revision
 
     async def extract_rule_model(
         self,
@@ -265,7 +268,7 @@ class V3GenerationPipeline:
         if reference_context:
             user_parts.append("УТОЧНЕНИЯ ССЫЛОК, НЕ ЦИТАТЫ ИСТОЧНИКА:\n" + "\n".join(reference_context))
 
-        instruction = QA_REVIEW_SYSTEM_PROMPT
+        instruction = QA_REVIEW_SYSTEM_PROMPT + (PARTIAL_SOURCE_REVIEW_SUFFIX if self.scoped_revision else "")
         if partial_case:
             instruction += ("\n\nПроверяется только один кейс из более широкого теста. "
                             "Проверь его смысл, варианты и соответствие полному уроку; "
@@ -287,7 +290,8 @@ class V3GenerationPipeline:
         messages = [
             {"role": "system", "content": ANSWER_ENTAILMENT_SYSTEM_PROMPT
              + (LESSON_OBJECTIVE_CLAIM_SUFFIX if lesson_claims else "")
-             + (LESSON_PROSE_LOGIC_SUFFIX if source_prose else "")},
+             + (LESSON_PROSE_LOGIC_SUFFIX if source_prose else "")
+             + (PARTIAL_SOURCE_REVIEW_SUFFIX if source_prose and self.scoped_revision else "")},
             {"role": "user", "content": (
                 "ТОЧНЫЕ ИСХОДНЫЕ БЛОКИ:\n" + "\n---\n".join(source_fragments)
                 + ("\n\nУТОЧНЕНИЯ ССЫЛОК, НЕ ЦИТАТЫ ИСТОЧНИКА:\n" + "\n".join(reference_context) if reference_context else "")
@@ -296,6 +300,15 @@ class V3GenerationPipeline:
             )},
         ]
         return await self._call_llm(messages)
+
+    async def repair_prose(self, items: list[dict[str, Any]], source_fragments: list[str],
+                           reference_context: tuple[str, ...] = ()) -> dict[str, Any]:
+        """One journaled candidate; caller validates exact spans and independently reviews."""
+        return await self._call_llm([
+            {"role": "system", "content": PROSE_REPAIR_SYSTEM_PROMPT},
+            {"role": "user", "content": json.dumps({"source_blocks": source_fragments,
+                "reference_context": reference_context, "parts": items}, ensure_ascii=False)},
+        ])
 
     async def review_question_options(
         self, scenario: str, question: str, options: list[str], source_fragments: list[str],

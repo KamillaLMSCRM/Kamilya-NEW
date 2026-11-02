@@ -118,6 +118,114 @@ async def _exercise_budget_period(owner: Any, runtime: Any, schema: str, tenant_
                 raise AssertionError("foreign_budget_rows_visible")
 
 
+async def _exercise_revision_policy(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any) -> None:
+    if not EXECUTION_ENABLED:
+        raise RuntimeError("pending_lifecycle_gate_unreviewed")
+    from uuid import uuid4
+
+    import ai_generation_checkpoint_dev_check as canonical
+    from app.models.document import Document
+    from app.modules.ai import delivery_ownership, pipeline
+    from app.modules.ai.direct_source import DirectSourceCorpus, DirectSourceDocument
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+    from app.modules.ai.v3.revision_policy import KEY, POLICY, stamp_policy
+    from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+    from sqlalchemy import MetaData, text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    canonical.validate_schema(schema)
+    job, actor, document = str(uuid4()), uuid4(), uuid4()
+    content_hash, content = "a" * 64, "Synthetic source for revision-policy custody."
+    analysis = stamp_policy({"generation_engine": "evidence_v3"})
+    params = {"documents": [str(document)], "source_analysis": analysis}
+    shadow = Document.__table__.to_metadata(MetaData(schema=schema))
+    async with owner.begin() as conn:
+        await conn.run_sync(lambda sync: shadow.create(sync, checkfirst=False))
+        await conn.execute(text(f'ALTER TABLE "{schema}".documents ENABLE ROW LEVEL SECURITY'))
+        await conn.execute(text(f'ALTER TABLE "{schema}".documents FORCE ROW LEVEL SECURITY'))
+        await conn.execute(text(f'''CREATE POLICY fixture_tenant ON "{schema}".documents FOR ALL TO lms_app
+            USING(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+            WITH CHECK(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)'''))
+        await conn.execute(text(f'REVOKE ALL ON "{schema}".documents FROM PUBLIC,lms_app'))
+        await conn.execute(text(f'GRANT SELECT,UPDATE ON "{schema}".documents TO lms_app'))
+        await conn.execute(text(f'''INSERT INTO "{schema}".documents
+            (id,tenant_id,uploaded_by,title,filename,content_type,file_size,category,content_sha256,lifecycle_status)
+            VALUES(:d,:t,:u,'synthetic','synthetic.txt','text/plain',:size,'general',:sha,'active')'''),
+            {"d": document, "t": tenant_a, "u": actor, "size": len(content), "sha": content_hash})
+        await conn.execute(text(f'''INSERT INTO "{schema}".ai_jobs (id,tenant_id,user_id,status,params,result)
+            VALUES(:j,:t,:u,'running',CAST(:p AS json),CAST(:r AS json))'''),
+            {"j": job, "t": tenant_a, "u": actor, "p": json.dumps(params), "r": "{}"})
+    sessions = async_sessionmaker(runtime, expire_on_commit=False)
+    source_doc = DirectSourceDocument(str(document), "synthetic", "synthetic.txt", "general",
+                                     "document:" + content_hash, (), source_text=content)
+    corpus = DirectSourceCorpus(str(tenant_a), (source_doc,), len(content), 0)
+    journal = WorkerCycleJournal(str(tenant_a), job, sessions)
+    journal.expected_revision_policy, journal.expected_revision_actor = POLICY, actor
+    journal.expected_revision_source = OwnedSourceContext(corpus, journal, tenant_a, actor, job, (str(document),))
+    journal.expected_revision_plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": str(tenant_a),
+        "job_id": job, "source_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest()}
+    plan = {"fixture": "revision-policy"}
+    delivery_token = delivery_ownership.delivery_id.set(job)
+    previous_factory = pipeline.async_session_factory
+    pipeline.async_session_factory = sessions
+    try:
+        if await pipeline._load_owned_revision_policy(job, tenant_a, actor, [str(document)]) != POLICY:
+            raise AssertionError("revision_owned_loader_invalid")
+        try:
+            await pipeline._load_owned_revision_policy(job, tenant_a, uuid4(), [str(document)])
+        except pipeline.GenerationJobOwnerMismatchError:
+            pass
+        else:
+            raise AssertionError("revision_wrong_actor_allowed")
+        from app.modules.ai.direct_source import DirectSourceError
+        try:
+            await pipeline._load_owned_revision_policy(job, tenant_a, actor, [str(uuid4())])
+        except DirectSourceError:
+            pass
+        else:
+            raise AssertionError("revision_wrong_selection_allowed")
+        if await journal.prepare("revision-fixture", plan) is not None:
+            raise AssertionError("revision_unexpected_checkpoint")
+        await journal.save_value("revision-fixture", {"synthetic": True})
+        if await journal.read_owned_value("revision-fixture", plan) != {"synthetic": True}:
+            raise AssertionError("revision_checkpoint_read_invalid")
+        for drift in ("policy", "selection", "content_hash"):
+            async with owner.begin() as conn:
+                altered = json.loads(json.dumps(params))
+                if drift == "policy":
+                    altered["source_analysis"][KEY] = "invalid"
+                if drift == "selection":
+                    altered["documents"] = [str(uuid4())]
+                await conn.execute(text(f'UPDATE "{schema}".ai_jobs SET params=CAST(:p AS json) WHERE id=:j'),
+                                   {"p": json.dumps(altered), "j": job})
+                await conn.execute(text(f'UPDATE "{schema}".documents SET content_sha256=:sha WHERE id=:d'),
+                                   {"sha": "b" * 64 if drift == "content_hash" else content_hash, "d": document})
+            for operation in (lambda: journal.read_owned_value("revision-fixture", plan),
+                              lambda: journal.save_value("revision-fixture", {"synthetic": False})):
+                try:
+                    await operation()
+                except delivery_ownership.DeliveryOwnershipLostError:
+                    pass
+                else:
+                    raise AssertionError("revision_drift_not_fenced")
+            async with owner.connect() as conn:
+                saved = (await conn.execute(text(f'''SELECT c.assessment_payload FROM "{schema}".ai_generation_lesson_checkpoints c
+                    JOIN "{schema}".ai_generation_runs r ON c.generation_run_id=r.id AND c.tenant_id=r.tenant_id
+                    WHERE r.tenant_id=:t AND r.source_job_id=:j AND r.generation_key=:k'''),
+                    {"t": tenant_a, "j": job, "k": journal._owned_key("revision-fixture")})).scalar_one()
+                if saved != {"synthetic": True}:
+                    raise AssertionError("revision_checkpoint_changed")
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_b)
+            if await session.scalar(text(f'SELECT count(*) FROM "{schema}".documents WHERE id=:d'), {"d": document}) != 0:
+                raise AssertionError("foreign_document_visible")
+            if await session.scalar(text(f'SELECT count(*) FROM "{schema}".ai_jobs WHERE id=:j'), {"j": job}) != 0:
+                raise AssertionError("foreign_revision_job_visible")
+    finally:
+        pipeline.async_session_factory = previous_factory
+        delivery_ownership.delivery_id.reset(delivery_token)
+
+
 async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
                    job_a: str, _resume_job: str, checks: list[str]) -> None:
     if not EXECUTION_ENABLED:
@@ -479,6 +587,8 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
             delivery_id.reset(rejection_token)
         await _exercise_budget_period(owner, runtime, schema, tenant_a, tenant_b)
         checks.append("historical_budget_period_refund_idempotent_rollback_rls")
+        await _exercise_revision_policy(owner, runtime, schema, tenant_a, tenant_b)
+        checks.append("fresh_revision_policy_source_drift_fenced")
     finally:
         delivery_id.reset(token)
 
@@ -535,7 +645,8 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
     expected = {"runtime_role_restricted", "migration_upgrade_downgrade_reupgrade", "rls_force_and_acl",
                 "sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
                 "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown",
-                "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls"}
+                "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls",
+                "fresh_revision_policy_source_drift_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True
             or result.get("passed") is not True or result.get("cleanup") is not True

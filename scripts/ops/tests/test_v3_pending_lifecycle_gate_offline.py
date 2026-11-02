@@ -18,6 +18,8 @@ def test_callable_paths_block_before_access():
         asyncio.run(gate["execute_candidate"](expected_source="x", expected_base_source="x", custody_path=Path("x")))
     with pytest.raises(RuntimeError, match="unreviewed"):
         asyncio.run(gate["_exercise_budget_period"](None, None, "public", None, None))
+    with pytest.raises(RuntimeError, match="unreviewed"):
+        asyncio.run(gate["_exercise_revision_policy"](None, None, "public", None, None))
 
 
 @pytest.mark.parametrize("arguments", [["--execute"], ["--execute", "--confirm", "RUN_SYNTHETIC_PENDING_LIFECYCLE_DEV"]])
