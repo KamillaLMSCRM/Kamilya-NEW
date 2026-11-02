@@ -297,3 +297,49 @@ async def test_context_review_binds_selection_and_rejects_context_drift(monkeypa
     assert seen[0]["context_source_manifest"]["fragments"][0]["rule_id"] == "dependency"
     assert select_candidate(**(args | {"context_rules": ()})) is None
     assert select_candidate(**(args | {"context_rules": (replace(context, statement="changed"),)})) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('policy', [DIRECT_POLICY, DIRECT_POLICY_V2])
+async def test_final_export_cross_lesson_exact_duplicate_is_fresh_policy_only(monkeypatch, policy):
+    from app.modules.ai.v3 import diversity_review, partitioned_extraction, service
+    from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, V3Course
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+
+    _, journal, client, _, _ = setup()
+    corpus, rule = sample()
+    corpus = replace(corpus, tenant_id=journal.tenant_id)
+    context = OwnedSourceContext(corpus, journal, UUID(journal.tenant_id), journal.user_id, journal.job_id, ('d1',))
+    lesson = V3Course.from_dict({'course_id': 'c', 'title': 't', 'lessons': [{'lesson_id': 'l1',
+        'title': 't', 'module_title': 'm', 'content': 'Lesson', 'covered_rule_ids': ['r1'],
+        'cases': [{'case_id': 'c1', 'rule_id': 'r1', 'learning_objective': 'x', 'variants': [{
+            'variant_id': 'v1', 'scenario_premise': 'S', 'prompt': 'Original?',
+            'correct_option': {'text': 'A'}, 'distractor_pool': [{'text': 'B'}, {'text': 'C'}, {'text': 'D'}],
+            'source_quote': rule.source_quote}]}]}]}).lessons[0]
+    repaired_variant = replace(lesson.cases[0].variants[0], prompt='Final duplicate?')
+    first = replace(lesson, cases=(replace(lesson.cases[0], variants=(repaired_variant,)),))
+    second = replace(first, lesson_id='l2', cases=(replace(first.cases[0], case_id='c2',
+        variants=(replace(repaired_variant, variant_id='v2'),)),))
+    groups = [CurriculumGroup('g1', 'topic', 's', (rule,)), CurriculumGroup('g2', 'topic', 's', (rule,))]
+    async def extraction(*_args, **_kwargs):
+        return DocumentRuleModel('t', 's', (rule,)), []
+    monkeypatch.setattr(partitioned_extraction, 'extract_partitioned_rule_model', extraction)
+    monkeypatch.setattr(service, '_build_curriculum_groups', lambda *_a, **_kw: groups)
+    monkeypatch.setattr(service.V3GenerationPipeline, 'generate_lesson_with_scenarios',
+                        AsyncMock(side_effect=[lesson, lesson]))
+    monkeypatch.setattr(service.V3GenerationPipeline, 'review_answer', AsyncMock(return_value={'verdict': 'COMPLETE', 'claims': []}))
+    monkeypatch.setattr(service.V3GenerationPipeline, 'review_lesson', AsyncMock(return_value={'verdict': 'NEEDS_REVISION'}))
+    monkeypatch.setattr(service, '_bind_rendered_quote_candidates', lambda *_a: (first, []))
+    # Generate distinct final lesson identities while preserving the repaired identical stem.
+    calls = iter([first, second])
+    monkeypatch.setattr(service, '_bind_rendered_quote_candidates', lambda *_a: (next(calls), []))
+    monkeypatch.setattr(service, '_nonliteral_case_citation_ids', lambda *_a: ['v1'])
+    monkeypatch.setattr(diversity_review, 'review_final_lesson', AsyncMock(return_value={'status': 'unknown'}))
+    artifacts = await generate_v3_course_from_corpus(corpus, intent=CourseIntent(), generation_client=client,
+        extraction_journal=journal, route_fingerprint='b' * 64, direct_client=client,
+        authenticated_qa_policy=policy, owned_source_context=context)
+    exported = [q.question for assessment in artifacts.assessment.assessments for q in assessment.mcq]
+    assert len(exported) == 2 and exported[0] == exported[1] and 'Final duplicate?' in exported[0]
+    matching = [v for v in artifacts.diagnostics['violations'] if 'В разных уроках совпадают' in v]
+    assert len(matching) == (1 if policy == DIRECT_POLICY else 0)
+    assert all('Final duplicate?' not in item for item in matching)

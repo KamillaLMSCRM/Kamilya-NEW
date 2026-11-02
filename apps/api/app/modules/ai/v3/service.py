@@ -2477,6 +2477,14 @@ async def generate_v3_course_from_corpus(
         allow_repair=not reference_decisions,
     )
 
+    if authenticated_qa_policy == DIRECT_POLICY:
+        from app.modules.ai.v3.exact_duplicate_review import has_cross_lesson_duplicate
+
+        if has_cross_lesson_duplicate(generated_lessons):
+            semantic_violations.append(
+                "В разных уроках совпадают тексты вопросов; требуется проверка методиста"
+            )
+
     unvalidated_course = V3Course(
         course_id=f"course-v3-{doc_sha[:12]}",
         title=first_title,
