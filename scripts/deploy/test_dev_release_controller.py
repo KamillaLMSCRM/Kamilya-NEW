@@ -250,6 +250,13 @@ class MainControllerTests(unittest.TestCase):
 
 
 class DevReleaseControllerTests(unittest.TestCase):
+    def test_tracked_vm_probe_is_a_valid_canonical_read_only_script(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        manifest = controller.kz_remote_exec.load_script(root / controller.VM_PROBE_PATH,
+            target="vm126", mode="read-only", correlation_id="", expected_sha256="")
+        self.assertEqual(manifest.target, "vm126")
+        self.assertIn(b"kamilya-dev-worker", manifest.payload)
+
     def test_live_render_contract_reads_real_suspension_field(self) -> None:
         adapter = object.__new__(controller.LiveProviderAdapter)
         adapter.render_token = "fixture"
