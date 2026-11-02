@@ -908,6 +908,11 @@ export default function CoursePlayerPage() {
                   onClick={() => {
                     if (!assignmentAccessBlocked) {
                       setSelectedLesson(lesson);
+                      if (requestedLessonId !== lesson.id) {
+                        const nextParams = new URLSearchParams(searchParams.toString());
+                        nextParams.set('lessonId', lesson.id);
+                        router.push(`/courses/${courseId}?${nextParams.toString()}`);
+                      }
                       setOutlineOpen(false);
                       lessonHeadingRef.current?.focus();
                     }

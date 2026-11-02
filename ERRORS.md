@@ -2,6 +2,24 @@
 
 Current as of: 2026-11-02.
 
+## APPROVAL-006 - Per-quiz review submissions overwrote whole-course diagnostics
+
+- Date: 2026-11-02; real two-lesson/two-quiz production QA, no customer records.
+- Symptom: each correct lesson answer showed50% because the server grades the full frozen snapshot; a later quiz replaced the earlier result.
+- Cause: the client submitted only the visible quiz and displayed an aggregate response under that quiz. One-quiz fixtures missed the scope mismatch.
+- Fix: submit all selected snapshot answers, exclude unanswered questions, require answers for the current quiz, display one explicitly course-wide result. Save validated same-tab drafts under principal+attempt+snapshot; no capability/token in storage. Other browsers or unavailable storage require reselection, disclosed in UI; local drafts are not server results.
+- Verification: actual failing two-quiz browser example preserved; focused cumulative/remount/isolation regression passes. DEV/production correction readback pending in the live matrix.
+- Prevention: any per-part interaction with an aggregate endpoint needs multi-part, reload and exact payload tests; verify the scope of displayed scores.
+
+## COURSE-PLAYER-NAV-002 - Outline selection was lost after reload
+
+- Date: 2026-11-02; real production QA at390px and desktop.
+- Symptom: selecting lesson2 changed visible content while the URL still named lesson1; reload restored lesson1.
+- Cause: outline buttons changed React state only, whereas the next-lesson action used the canonical lessonId route.
+- Fix: outline selection updates lessonId while preserving other current query parameters; existing authoritative load restores the matching lesson and scope-bound quiz.
+- Verification: browser reproduction and URL/remount/no-progress-write regression. Live correction verification pending.
+- Prevention: sidebar, next/previous and direct links must share canonical navigation identity; test URL, reload and Back/Forward alongside text.
+
 ## APPROVAL-005 - Ordinary reviewer calls were treated as capability-only transport
 
 - Date: 2026-11-02; live frontend68 production UX acceptance, synthetic QA only.

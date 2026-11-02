@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.70] - 2026-11-02
+
+### Fixed
+
+- Preserve learner outline selection in the URL across reload and history.
+- Submit cumulative reviewer answers and label the score for the whole course; recover validated same-tab drafts per principal, attempt and snapshot.
+
+
 ## [0.11.69] - 2026-11-02
 
 ### Fixed

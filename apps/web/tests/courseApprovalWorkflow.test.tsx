@@ -28,6 +28,7 @@ const snapshot = { schema_version: 1, release_version: 3, course: { id: 'course'
 const resumeSnapshot = { ...snapshot, release_version: 4, modules: [{ ...snapshot.modules[0], lessons: [snapshot.modules[0].lessons[0], { id: 'lesson-2', title: 'Второй урок', content_type: 'text', content: '# Второй урок\n\nТекст второго урока', order_index: 1, quizzes: [] }] }] };
 
 describe('course approval workflow UI', () => {
+  beforeEach(() => { sessionStorage.clear(); });
   beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); getPolicyMock.mockReset().mockResolvedValue({ requires_approval: false, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); getRequestMock.mockReset(); getScopedRequestMock.mockReset(); startAttemptMock.mockReset(); });
 
   it('never enters the ordinary reviewer session when a public review capability is absent', async () => {
@@ -184,6 +185,47 @@ describe('course approval workflow UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Отправить ответы' }));
     await waitFor(() => expect(testMock).toHaveBeenCalledWith('attempt', [{ question_id: 'question', selected_choice_ids: ['choice-1'] }], undefined));
     expect(screen.getByRole('status')).toHaveTextContent('100%');
+  });
+
+  it('submits cumulative answers across lesson quizzes with one course-wide result', async () => {
+    const secondQuestion = { ...snapshot.modules[0].lessons[0].quizzes[0].questions[0], id: 'question-2', text: 'Второй вопрос', choices: [{ id: 'choice-2', text: 'Второй ответ', order_index: 0 }] };
+    const multi = { ...resumeSnapshot, modules: [{ ...resumeSnapshot.modules[0], lessons: [snapshot.modules[0].lessons[0], { ...resumeSnapshot.modules[0].lessons[1], quizzes: [{ ...snapshot.modules[0].lessons[0].quizzes[0], id: 'quiz-2', title: 'Второй тест', questions: [secondQuestion] }] }] }] };
+    testMock.mockResolvedValueOnce({ diagnostics: { answered: 1, total: 2, correct: 1, score_percent: 50, complete: false } });
+    testMock.mockResolvedValueOnce({ diagnostics: { answered: 2, total: 2, correct: 2, score_percent: 100, complete: true } });
+    const view = render(<ReviewCoursePlayer snapshot={multi} attemptId="attempt" answerStorageScope="tenant-a:reviewer-a" onComplete={() => undefined} />);
+    expect(screen.getByRole('button', { name: 'Отправить ответы' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Правильный текст'));
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить ответы' }));
+    await waitFor(() => expect(testMock).toHaveBeenCalledWith('attempt', [{ question_id: 'question', selected_choice_ids: ['choice-1'] }], undefined));
+    expect(screen.getByRole('status')).toHaveTextContent('Результат по всему курсу: отвечено 1 из 2, 50%');
+    view.unmount();
+    render(<ReviewCoursePlayer snapshot={multi} attemptId="attempt" answerStorageScope="tenant-a:reviewer-a" onComplete={() => undefined} />);
+    expect(screen.getByLabelText('Правильный текст')).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
+    await screen.findByText('Второй вопрос');
+    expect(screen.getByRole('button', { name: 'Отправить ответы' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Второй ответ'));
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить ответы' }));
+    await waitFor(() => expect(testMock).toHaveBeenLastCalledWith('attempt', [
+      { question_id: 'question', selected_choice_ids: ['choice-1'] },
+      { question_id: 'question-2', selected_choice_ids: ['choice-2'] },
+    ], undefined));
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+    expect(screen.getByRole('status')).toHaveTextContent('отвечено 2 из 2, 100%');
+  });
+
+  it('never restores review draft choices from another principal, attempt or snapshot', () => {
+    const key = JSON.stringify(['kamilya-review-answers-v1', 'tenant-a:reviewer-a', 'attempt-a', 'sha-a']);
+    sessionStorage.setItem(key, JSON.stringify({ question: 'choice-1', foreign: 'choice-evil' }));
+    const view = render(<ReviewCoursePlayer snapshot={snapshot} snapshotIdentity="sha-a" attemptId="attempt-a" answerStorageScope="tenant-a:reviewer-a" onComplete={() => undefined} />);
+    expect(screen.getByLabelText('Правильный текст')).toBeChecked();
+    for (const [principal, attempt, sha] of [['tenant-b:reviewer-b', 'attempt-a', 'sha-a'], ['tenant-a:reviewer-a', 'attempt-b', 'sha-a'], ['tenant-a:reviewer-a', 'attempt-a', 'sha-b']]) {
+      view.rerender(<ReviewCoursePlayer snapshot={snapshot} snapshotIdentity={sha} attemptId={attempt} answerStorageScope={principal} onComplete={() => undefined} />);
+      expect(screen.getByLabelText('Правильный текст')).not.toBeChecked();
+    }
+    sessionStorage.setItem(key, JSON.stringify({ question: 'foreign-choice' }));
+    view.rerender(<ReviewCoursePlayer snapshot={snapshot} snapshotIdentity="sha-a" attemptId="attempt-a" answerStorageScope="tenant-a:reviewer-a" onComplete={() => undefined} />);
+    expect(screen.getByLabelText('Правильный текст')).not.toBeChecked();
   });
 
   it('does not consume a checkpoint sequence for quiz submission', async () => {
