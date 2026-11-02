@@ -21,7 +21,7 @@ CELERY_COMMAND = ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-
 COMMAND = ["python", "/app/dev_private_model_runtime.py", *CELERY_COMMAND]
 ROOT = Path("/opt/kamilya-dev-worker/releases")
 EXPECTED_IDENTITY = None
-RECEIVER_SHA = "03a946f26082ed8f7a7fa90b295a48c5673da8920c05ba97db4ccbf383f4fa74"
+RECEIVER_SHA = "a7470cca32295122245796acf17c9f8d6e3c7b904f417ac78b8ee069354b61ae"
 IMAGE_RE = re.compile(r"ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64}")
 HEALTH_CODE = r"""
 from app.core.celery_app import celery_app
@@ -75,7 +75,7 @@ def inspect():
 
 
 def secure_file(path, mode):
-    for parent in (ROOT.parent,ROOT,path.parent):
+    for parent in (ROOT.parent,ROOT,ROOT/"env-v2",path.parent):
         info=parent.lstat()
         if stat.S_ISLNK(info.st_mode) or info.st_uid!=0 or stat.S_IMODE(info.st_mode)!=0o700: raise ValueError("directory_unsafe")
     info=path.lstat()
@@ -90,12 +90,12 @@ def main():
         first=inspect()
         release=env_values(first.get("Config",{}).get("Env")).get("RELEASE_SHA","")
         if not re.fullmatch(r"[0-9a-f]{40}",release): raise ValueError("release_invalid")
-        receiver_path=ROOT/"vm126_dev_worker_env_receiver.py"
+        receiver_path=ROOT/"vm126_dev_worker_env_receiver-v2.py"
         receiver_source=secure_file(receiver_path,0o600)
         if hashlib.sha256(receiver_source).hexdigest()!=RECEIVER_SHA: raise ValueError("receiver_changed")
         spec=importlib.util.spec_from_file_location("owned_receiver",receiver_path)
         receiver=importlib.util.module_from_spec(spec);spec.loader.exec_module(receiver)
-        payload=secure_file(ROOT/release/"runtime.env",0o600)
+        payload=secure_file(ROOT/"env-v2"/release/"runtime.env",0o600)
         env_sha=hashlib.sha256(payload).hexdigest()
         receiver.validate_payload(payload,release,env_sha)
         staged=env_values(payload.decode("utf-8").splitlines())

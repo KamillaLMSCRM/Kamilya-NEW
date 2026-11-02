@@ -94,7 +94,7 @@ def validate_payload(payload: bytes, release_sha: str, expected_hash: str) -> di
     redis = urlsplit(values["REDIS_URL"])
     if redis.scheme != "rediss" or redis.hostname != REDIS_HOST or redis.port != REDIS_PORT or redis.path != REDIS_DB or redis.query or redis.fragment:
         raise ValueError("redis_scope_invalid")
-    if values.get("CELERY_QUEUES") != "ai,documents,maintenance" or values.get("CELERY_CONCURRENCY") != "1" or values.get("AI_DIRECT_LUNA_QA_DEV_ENABLED") != "true" or values.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true" or values.get("AI_LESSON_CYCLE_DEV_TENANTS") != "a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0":
+    if values.get("CELERY_QUEUES") != "ai,documents,maintenance" or values.get("CELERY_CONCURRENCY") != "1" or values.get("AI_DIRECT_LUNA_QA_DEV_ENABLED") != "true" or values.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true" or json.loads(values.get("AI_LESSON_CYCLE_DEV_TENANTS", "null")) != ["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]:
         raise ValueError("worker_queue_scope_invalid")
     if values.get("DB_POOL_SIZE") != "2" or values.get("DB_MAX_OVERFLOW") != "0" or values.get("REDIS_TLS_VERIFY") != "true":
         raise ValueError("worker_runtime_scope_invalid")
@@ -120,7 +120,7 @@ def build_payload_from_render_values(source: dict[str, str], release_sha: str) -
     values.update({
         "DEPLOYMENT_ENVIRONMENT": "vm-development-worker",
         "RELEASE_SHA": release_sha,
-        "AI_LESSON_CYCLE_DEV_TENANTS": "a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0",
+        "AI_LESSON_CYCLE_DEV_TENANTS": json.dumps(["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"], separators=(",", ":")),
         "CELERY_QUEUES": "ai,documents,maintenance",
         "CELERY_CONCURRENCY": "1",
     })
@@ -216,7 +216,7 @@ def main() -> int:
     args = parser.parse_args()
     payload = sys.stdin.buffer.read(MAX_PAYLOAD_BYTES + 1)
     try:
-        result = install_payload(payload, args.release_sha, args.expected_payload_sha256, Path("/opt/kamilya-dev-worker/releases"))
+        result = install_payload(payload, args.release_sha, args.expected_payload_sha256, Path("/opt/kamilya-dev-worker/releases/env-v2"))
         print("STATUS|status={status}|release_sha={release_sha}|payload_sha256={payload_sha256}|keycount={keycount}".format(**result), flush=True)
         return 0
     except Exception:

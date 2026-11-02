@@ -5407,3 +5407,10 @@ Rules:
   preserving production defaultCMD and runtimeisolation, no ACL/port/newcredential.
 - Pure supervisor/runtime/controller90PASS; web50page+10workflowPASS/type/lint.
   One model-affecting request has not been made since preserving unknownjob5f.
+
+### 2026-11-02 — isolated VM DEV worker actual acceptance
+
+- ApplicationBC bc6d5d71665fc6ca7c8aadd4a2a4c72335bf537a: exactCI41461094835/all7SUCCESS, immutable build41462240687 SUCCESS, productiondeploySKIPPED. Image6d337893cda6435753bc6b34533ef320080b2c416e899ed771363e8bc8478f72.
+- Initial wire-type regression failed actual Settings before consumerstartup; failedcontainer670446abc stopped/retained. CorrectedJSONarray in immutableV2receiver actualSettingsparsePASS; currentpayload41keys/envSHAf197c79a...51d8. No provider invocation occurred during failedstartup.
+- Runtime/controller61PASS+2Linuxskip+8subtests; VM execute/reconcile23PASS+8subtests; realLinuxreceiver selftestsPASS. Strong effectiveconfiguration+sameboot consumerping/queuesPASS. RestrictedactualDEV lms_app noBYPASS, old5f stillrunning/pending/no course, privateDoclingHTTP200.
+- Canonical controller REL-DEV-VM-WORKER-R2-20261102 RELEASE_OK: exactAPI dep-dbka6qetlv9c73faa1g0, Vercel dpl_EvGRnpbZcS5WHxNUpBtBdyKTYyR5, worker e797c5d8c8e84f14b17e4da87af67dfd224d5c3d4965197f7e561f5c852a8a0d/restarts0. Existing Freeworker suspended202/readbackPASS; fixedVMrestart unless-stopped enabled afterverification. Production4 unchanged, no customer mutation/newmodelcall/fullcourseGO.

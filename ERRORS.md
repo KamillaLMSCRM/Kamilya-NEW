@@ -1149,6 +1149,14 @@ Current as of: 2026-11-02.
 - Prevention: use `- Date: YYYY-MM-DD` and run the existing release-contract test
   before pushing journal/header edits. Never bypass the gate or backdate the header.
 
+## DEV-WORKER-ENV-002 - Runtime list setting was flattened during secure migration
+
+- Date:2026-11-02. Confirmed initial isolated DEV worker exited before Celery startup with SettingsError/JSON decode failure on AI_LESSON_CYCLE_DEV_TENANTS. It restarted10 times before the exact failed container was stopped and retained; this was configuration failure, not model latency.
+- Cause: receiver and builder agreed on a plain UUID wire value, while actual Pydantic Settings requires a JSON list. Unit fixtures validated the custom receiver but did not instantiate the application Settings class.
+- Fix: preserve the one-tenant JSON array, version immutable receiver path to vm126_dev_worker_env_receiver-v2.py and staged environment to releases/env-v2/<release>/runtime.env. Do not overwrite old receiver/failed custody. Stage secrets only encrypted SSH stdin; actual Settings parses the same41-key payload before startup. Current exact environment SHA f197c79afc8e76229f591731e2450858f35216dc4d4c4094b965c07ff3bf51d8.
+- Verification: actual Settings regression reproduced failure then passed corrected array; source/root/mode/symlink negatives and runtime/controller tests pass. New container e797c5d8c8e84f14b17e4da87af67dfd224d5c3d4965197f7e561f5c852a8a0d has restarts0 and exact consumer/queues/DEV DB/private Docling readback. Canonical DEV controller RELEASE_OK at source bc6d5d71665fc6ca7c8aadd4a2a4c72335bf537a. Production four containers unchanged. Old5f unknown pending remains untouched.
+- Prevention: security validation must preserve application wire types; validate generated payload with actual Settings before starting a consumer, and prove consumer readiness rather than Docker running alone. Do not silently normalize list settings to scalars.
+
 ## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
 
 - Date:2026-10-12; existing Render DEV Free service, not KZ production.
@@ -1181,6 +1189,8 @@ Current as of: 2026-11-02.
   being prepared under the owner's existing migration instruction. Neither the
   provider plan nor production workers are changed. Source and local tests alone
   are not runtime migration or full-course acceptance.
+
+- Migration accepted,2026-11-02: existing isolated VM126 DEV worker now consumes exact DEV queues, consumer ping/DB lms_app/private converter verified, restarts0. Old Free Render consumer remains suspended without plan change. Canonical REL-DEV-VM-WORKER-R2-20261102 RELEASE_OK at applicationBC/image6d337893. Do not wake old Free worker or run duplicate consumers. Historical5f unknown is preserved; migration does not establish course quality. See DEV-WORKER-ENV-002 for initial failed startup and corrected V2 payload.
 
 ## CERTIFICATE-DOWNLOAD-002 - Storage redirect violated the browser connection policy
 

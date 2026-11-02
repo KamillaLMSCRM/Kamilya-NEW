@@ -32,7 +32,7 @@ def payload(release: str = RELEASE, *, database: str = "postgresql+asyncpg://lms
         "AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION=fixture",
         "AI_DIRECT_LUNA_QA_DEV_ENABLED=true",
         "AI_LESSON_CYCLE_DEV_ENABLED=true",
-        "AI_LESSON_CYCLE_DEV_TENANTS=a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0",
+        'AI_LESSON_CYCLE_DEV_TENANTS=["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]',
         "AI_QA_LUNA_DEV_ENABLED=true",
         "AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED=true",
         "APP_ENV=development",
@@ -41,7 +41,7 @@ def payload(release: str = RELEASE, *, database: str = "postgresql+asyncpg://lms
         "DB_POOL_TIMEOUT=30",
         "DB_POOL_RECYCLE_SECONDS=300",
         "JWT_ALGORITHM=HS256",
-        "JWT_SECRET=secret",
+        "JWT_SECRET=" + "x" * 48,
         "MASTER_ENCRYPTION_KEY=secret",
         "PROVIDER_KEY_ENCRYPTION_KEY=secret",
         "REDIS_TLS_VERIFY=true",
@@ -80,11 +80,11 @@ def test_receiver_rejects_foreign_scope_or_malformed_env(body: bytes, tmp_path: 
 
 
 def test_receiver_requires_runtime_keys_even_when_unrelated_key_is_present() -> None:
-    body = payload().replace(b"JWT_SECRET=secret\n", b"") + b"UNRELATED_RUNTIME=value\n"
+    body = payload().replace(b"JWT_SECRET=" + b"x" * 48 + b"\n", b"") + b"UNRELATED_RUNTIME=value\n"
     with pytest.raises(ValueError, match="dotenv_key_or_value_invalid"):
         receiver.validate_payload(body, RELEASE, hashlib.sha256(body).hexdigest())
 
-    body = payload().replace(b"JWT_SECRET=secret\n", b"")
+    body = payload().replace(b"JWT_SECRET=" + b"x" * 48 + b"\n", b"")
     with pytest.raises(ValueError, match="worker_identity_invalid"):
         receiver.validate_payload(body, RELEASE, hashlib.sha256(body).hexdigest())
 
@@ -105,7 +105,7 @@ def test_build_payload_normalizes_render_tenant_json_without_printing_values() -
     source["AI_LESSON_CYCLE_DEV_TENANTS"] = '["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]'
     body = receiver.build_payload_from_render_values(source, RELEASE)
     assert b"DEPLOYMENT_ENVIRONMENT=vm-development-worker\n" in body
-    assert b"AI_LESSON_CYCLE_DEV_TENANTS=a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0\n" in body
+    assert b'AI_LESSON_CYCLE_DEV_TENANTS=["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]\n'  in body
 
     source["AI_LESSON_CYCLE_DEV_TENANTS"] = '["other-tenant"]'
     with pytest.raises(ValueError, match="source_tenant_scope_invalid"):
@@ -246,3 +246,17 @@ def test_receiver_main_suppresses_payload_and_exception_details(monkeypatch, cap
     assert output.startswith("STATUS|status=blocked|")
     assert "secret" not in output
     assert "postgres" not in output
+
+
+def test_staged_environment_is_parseable_by_real_worker_settings():
+    from unittest.mock import patch
+    from app.core.config import Settings
+    values=dict(line.split("=",1) for line in payload().decode().splitlines())
+    values["DEPLOYMENT_ENVIRONMENT"]="render-development-worker"
+    body=receiver.build_payload_from_render_values(values,RELEASE)
+    runtime_values=dict(line.split("=",1) for line in body.decode().splitlines())
+    with patch.dict(os.environ,runtime_values,clear=True):
+        actual=Settings(_env_file=None)
+    assert actual.AI_LESSON_CYCLE_DEV_TENANTS==["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]
+    assert actual.AI_DIRECT_LUNA_QA_DEV_ENABLED is True
+    assert actual.DEPLOYMENT_ENVIRONMENT=="vm-development-worker"

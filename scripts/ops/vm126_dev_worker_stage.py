@@ -18,7 +18,7 @@ from scripts.ops.kz_remote_exec import (
 from scripts.ops.vm126_dev_worker_env_receiver import validate_payload
 
 RELEASE_RE = re.compile(r"^[0-9a-f]{40}$")
-RECEIVER_PATH = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver.py"
+RECEIVER_PATH = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v2.py"
 STATUS_RE = re.compile(r"^STATUS\|status=(installed|already_present)\|release_sha=([0-9a-f]{40})\|payload_sha256=([0-9a-f]{64})\|keycount=([1-9][0-9]{0,2})$")
 
 

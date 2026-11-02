@@ -383,6 +383,14 @@ class DevReleaseControllerTests(unittest.TestCase):
             result = controller.DevReleaseController(data, providers)._verify_vm_worker()
             self.assertEqual(result["status"], "running")
             self.assertIn(("inspect_vm_worker", "kamilya-dev-worker", image), providers.calls)
+            providers.branch_sha = RELEASE
+            providers.render_services["srv_worker"]["status"] = "suspended"
+            release = controller.DevReleaseController(data, providers)
+            self.assertEqual(release.execute(data["release_id"])["status"], "RELEASE_OK")
+            self.assertEqual(release.reconcile()["status"], "RECONCILED")
+            self.assertFalse(any(call[0] in {"wait_render", "trigger_render", "find_render"}
+                                 and call[1] == "srv_worker" for call in providers.calls))
+            self.assertNotIn(("read_health", "https://worker.example.test/"), providers.calls)
 
             data["vm_worker"]["release_image_receipt_sha256"] = "0" * 64
             with self.assertRaisesRegex(controller.DevReleaseBlocked, "vm_worker_receipt_digest_mismatch"):

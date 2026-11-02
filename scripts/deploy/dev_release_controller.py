@@ -1154,9 +1154,9 @@ class DevReleaseController:
             "api": self._validate_render_deploy(
                 self.providers.wait_render(api_service, "", release_sha)
             ),
-            "worker": self._validate_render_deploy(
-                self.providers.wait_render(worker_service, "", release_sha)
-            ),
+            "worker": ({"hosting": "vm126", "release_sha": release_sha}
+                       if self.packet.get("worker_hosting", "render") == "vm126"
+                       else self._validate_render_deploy(self.providers.wait_render(worker_service, "", release_sha))),
         }
         health = self._health()
         vm_worker = self._verify_vm_worker() if self.packet.get("worker_hosting", "render") == "vm126" else None
