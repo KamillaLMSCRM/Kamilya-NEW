@@ -50,7 +50,7 @@ Current as of: 2026-11-02.
 - Symptom: each correct lesson answer showed50% because the server grades the full frozen snapshot; a later quiz replaced the earlier result.
 - Cause: the client submitted only the visible quiz and displayed an aggregate response under that quiz. One-quiz fixtures missed the scope mismatch.
 - Fix: submit all selected snapshot answers, exclude unanswered questions, require answers for the current quiz, display one explicitly course-wide result. Save validated same-tab drafts under principal+attempt+snapshot; no capability/token in storage. Other browsers or unavailable storage require reselection, disclosed in UI; local drafts are not server results.
-- Verification: actual failing two-quiz browser example preserved; focused cumulative/remount/isolation regression passes. DEV/production correction readback pending in the live matrix.
+- Verification: actual failing two-quiz browser example preserved; focused cumulative/remount/isolation regression passes. DEV245706ad and production96a76b8f actual2quiz with reload,1/2then2/2 100%,Cancel/Confirm PASS.
 - Prevention: any per-part interaction with an aggregate endpoint needs multi-part, reload and exact payload tests; verify the scope of displayed scores.
 
 ## COURSE-PLAYER-NAV-002 - Outline selection was lost after reload
@@ -59,7 +59,7 @@ Current as of: 2026-11-02.
 - Symptom: selecting lesson2 changed visible content while the URL still named lesson1; reload restored lesson1.
 - Cause: outline buttons changed React state only, whereas the next-lesson action used the canonical lessonId route.
 - Fix: outline selection updates lessonId while preserving other current query parameters; existing authoritative load restores the matching lesson and scope-bound quiz.
-- Verification: browser reproduction and URL/remount/no-progress-write regression. Live correction verification pending.
+- Verification: browser reproduction and URL/remount/no-progress-write regression. DEV245706ad and production96a76b8f outlineURL/reload/BackForward PASS.
 - Prevention: sidebar, next/previous and direct links must share canonical navigation identity; test URL, reload and Back/Forward alongside text.
 
 ## APPROVAL-005 - Ordinary reviewer calls were treated as capability-only transport
@@ -68,7 +68,7 @@ Current as of: 2026-11-02.
 - Symptom: assigned request visible in ordinary methodologist inbox, opening it returned401.
 - Cause: Axios deliberately excludes ordinary auth/refresh on capability endpoints, but normal reviewer calls used the same path without an explicit account transport configuration. Intercepted component tests supplied completed attempts and missed the real auth header seam.
 - Fix: explicit account-review config, active-methodologist identity and session-epoch fencing before dispatch/refresh retry/response, screen epoch binding. Capability reads/writes retain explicit token isolation and no account fallback; missing public capability refuses before API load. A dispatched request may still commit before session replacement; never infer cancellation means server rollback.
-- Verification:49 focused transport/workflow/auth tests pass, including ordinary review writes, same-session refresh, stale capability, missing capability, actor/role/relogin races and late response/retry. Independent static review accepted the correction. Deployed candidate and full UX acceptance remain pending in docs/plans/2026-11-02-production-ux68-live.md.
+- Verification:49 focused transport/workflow/auth tests pass, including ordinary review writes, same-session refresh, stale capability, missing capability, actor/role/relogin races and late response/retry. Independent static review accepted the correction. DEV7a4158e2 and production69 ordinary review passed; subsequent70 full live UX closeout is recorded in docs/plans/2026-11-02-production-ux68-live.md.
 - Prevention: real production reviewer route must be exercised under an ordinary role; mocked review attempts alone are not authentication evidence. Every review transport change must cover both ordinary and capability scopes and session replacement during refresh.
 
 ## APPROVAL-004 - Missing production encryption key prevented review request creation

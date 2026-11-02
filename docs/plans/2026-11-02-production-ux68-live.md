@@ -45,3 +45,22 @@ Assignment cancel leaves zero, confirm creates exactly one; reload retains it an
 Journal CSV34rows: all33baseline rows exactly unchanged, one new completed course100%, three quiz attempts (first fail/retry plus second test). No customer writes or model calls. True390px reader/quiz/outline and question Back/Forward checked, root overflow0. The earlier direct-goto browser-history failure was harness setup, superseded by actual menu navigation; initial editor mobile observation after DEV tab opened was on wrong selected tab and must be repeated with per-tab emulation before claiming that cell.
 
 Two additional actual defects require70: aggregate review grading scope (APPROVAL-006) and outline URL/reload (COURSE-PLAYER-NAV-002). Same-tab draft recovery independently reviewed; cross-device persistence deliberately not claimed. New tests63pass. Full final70 regression and DEV/production readback pending.
+
+## Final production70 acceptance
+
+Exact96a76b8f /0.11.70 and API7c35 unchanged. Canonical controller RELEASE_OK, source/master/tag/CI/native provenance exact.1548full tests,95combined DEVfocused, types/lint, independent source audit, DEV245706ad RELEASE_OK and actual browser acceptance.
+
+| Cell | Actual result |
+|---|---|
+| Author | Desktop and true390px2L2Q, Markdown toolbar/preview, dirty guard, dialogCancelDiscard, save/reload PASS |
+| Question | Desktop and true mobile actual menu Back/Forward recovers draft; save and explicitdiscard PASS |
+| Source | Fictional qa-source56 exact original2098bytes/SHA9ec7fb5e... downloaded;2/2 metadata, no fake extraction PASS |
+| Review | Ordinary-account route recovered69;70actual2quiz cumulative1/2then reload then2/2 100%;Cancel/Confirm snapshot72bae2ea...PASS |
+| Assignment | Exact owned published course/student;Cancel0/Confirm1,reload1,duplicate excluded; personal-link/no mail;new catalog link preservescourse PASS |
+| Reader | Actual student2lessons;helpopenClose without model;70outlineURL/reload/BackForward,390pxoutline PASS |
+| Quiz | Empty disabled,first0%/2remaining,retry100%,course50%;second100%;separate FinishCourse PASS |
+| Evidence | Completion persists;2pageconfirmation+1pagecertificate rendered/visually checked;publicvalid KML-2026-3A8E6AE19801 PASS. Documentary signature pending intentionally; no fake confirmation |
+| Journal |34rows,prior33exact unchanged;post70all34exact unchanged;filters/history/CSVcounts matched PASS |
+| Visual/responsive | New actual productioncatalogowncoursesfirst;search/empty/reset/templates/actionedit/assignment/deleteCancel,390pxreviewdialog/controls/overflow0 PASS. DEV360/390 computedtheme/dark temporaryoverride restored; local33intercepted scenarios remain regression evidence, not33live flows |
+
+Separate unassigned review QA draft04e61de2/source72bae2ea...remains unpublished. No additional learner histories, no outbound mail, no model calls, no customer writes. Retain both owned courses and actual completed history. Reports/screenshots/CSV/technical cleanup evidence in .release-evidence/ux68-live. Cleanup67 preserved current69/rollback68/extra359/299 and verified offhost restore;70nowcurrent,69and68retained. Engine is not accepted by these manual courses.
