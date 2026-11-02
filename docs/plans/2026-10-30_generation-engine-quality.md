@@ -1,4 +1,10 @@
-# Current implementation reconciliation — 2026-11-02 managed749 continuation
+# Current implementation reconciliation — 2026-11-03 batched-review continuation
+
+ExactDEV7f0f passed CI/image/API/web/soleVMworker/restrictedDB/privateconverter/readiness gates. Its first real typed course proved extraction/author I/O and exposed review amplification:36completed calls (9extract/2author/20review/5repair),384360input26256output, natural preclaim yield50%, no course. First lesson alone22calls; this is not an accepted three-course result.
+
+Accepted proposal2 below is now LOCAL implementation: two sequential, independently journaled shared-input batches preserve blind option review separately from keyed teaching/prose/explanation; original validators remain and only exact unchanged inputs reuse results. Changed parts recheck through existing reviewers. Fresh server-owned review marker preserves old job request identity, owner/source/delivery checks fence marker drift. New extraction/author instruction suffixes address saved OR/AND/reference/cue/deadline defects without keyword bans or invented thresholds. Offline4948full+47focused and baseline passed; actualPG/newCI/runtime/model/67family-course acceptance remain explicit gates. See current handoff for source/custody/process and do not duplicate an active test.
+
+# Historical implementation reconciliation — 2026-11-02 managed749 continuation
 
 Owner requires a working released engine and full production generation/quality acceptance. Current deployed DEV749 supports the alternate managed Luna; productionUX70/engine7c35/customer courses remain separate. The following is source/test status, not semantic course GO.
 

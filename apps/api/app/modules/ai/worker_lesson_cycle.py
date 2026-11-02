@@ -355,6 +355,8 @@ class WorkerCycleJournal:
         self.expected_revision_source: Any = None
         self.expected_revision_plan: dict[str, Any] | None = None
         self.expected_native_profile: dict[str, str] | None = None
+        self.review_policy_bound = False
+        self.expected_review_policy: str | None = None
 
     async def _lock_delivery(self, session: Any) -> None:
         from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
@@ -363,6 +365,13 @@ class WorkerCycleJournal:
             raise DeliveryOwnershipLostError("generation_delivery_identity_missing")
         await self.repository._set_tenant(session, self.tenant_id)
         await lock_owned_delivery(session, self.job_id, self.tenant_id, require_running=True)
+        if self.review_policy_bound:
+            from app.models.ai_job import AIJob
+            from app.modules.ai.v3.revision_policy import read_review_policy
+            job = await session.scalar(select(AIJob).where(AIJob.id == self.job_id,
+                AIJob.tenant_id == self.tenant_id).with_for_update().execution_options(populate_existing=True))
+            if job is None or read_review_policy((job.params or {}).get("source_analysis")) != self.expected_review_policy:
+                raise DeliveryOwnershipLostError("generation_review_policy_changed")
         if self.expected_revision_policy is not None:
             from app.models.ai_job import AIJob
             from app.modules.ai.v3.revision_policy import policy_matches

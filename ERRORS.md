@@ -8443,6 +8443,8 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   paired human effectiveness remain unmeasured. No universal accuracy or landing
   claim is authorized by these small synthetic repeats.
 
+- Follow-up2026-11-03 (active V3, not the old FAQ algorithm): exactDEV7f0f Standards4ae3 naturally yielded50% with72completed checkpointrows/36accepted calls/no pending/no course. Physical breakdown9extraction/2lesson/20review/5repair,384360input26256output; cg001 alone1author17review4repair=22calls. Repeated exact lesson/source context across separately invoked reviewer axes is an architectural amplification; independent saved audit also identified classification cues, unsupported deadline explanation and logical-projection risks. New LOCAL opt-in batched-decision policy preserves legacy jobs, pools exact shared data in two sequential owned batches (blind options/compatibility without key; separate teaching/prose/key/explanation), retains every original validator, and reuses only exact unchanged method inputs. Changed candidates fall back to scoped independent checks. Held question IDs preserve original seeded option order and are never prefetched. Extraction/author decision suffixes preserve OR/AND and unresolved references, prohibit pre-answering the assessed decision and require source-grounded wrong alternatives. Offline4948full+47focused/baseline1005/2173 accepted; new PostgreSQL/source/actual-model/full-course gates still pending. Do not infer live quality or measured speedup from cache tests.
+
 ## AI-QUALITY-045 - Chunk overlap and post-grounding deduplication silently lost policy facts
 
 - Date:2026-10-12; local synthetic algorithm run, no DB/deployment changes.

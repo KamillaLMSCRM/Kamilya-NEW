@@ -549,10 +549,16 @@ async def _load_owned_revision_policy(
     job_id: str, tenant_id: UUID, user_id: UUID | None, documents: list[str],
 ) -> str | None:
     """Read only the persisted marker under the current owned delivery lock."""
+    from app.modules.ai.v3.revision_policy import read_policy
+    return read_policy(await _load_owned_generation_analysis(job_id, tenant_id, user_id, documents))
+
+
+async def _load_owned_generation_analysis(
+    job_id: str, tenant_id: UUID, user_id: UUID | None, documents: list[str],
+) -> dict[str, Any]:
     from sqlalchemy import text
 
     from app.modules.ai.job_service import get_ai_job
-    from app.modules.ai.v3.revision_policy import read_policy
 
     async with async_session_factory() as session:
         await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
@@ -562,7 +568,10 @@ async def _load_owned_revision_policy(
             raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
         _validate_generation_source_selection(job.params, documents)
         params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
-        return read_policy(params.get("source_analysis"))
+        analysis = params.get("source_analysis")
+        if not isinstance(analysis, dict):
+            raise ValueError("v3_revision_analysis_invalid")
+        return analysis
 
 
 async def _run_v3_generation(
@@ -602,6 +611,10 @@ async def _run_v3_generation(
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
     from app.modules.ai.v3.revision_policy import POLICY as PROFILE_REVISION_POLICY
+    from app.modules.ai.v3.revision_policy import read_review_policy
+    review_policy = (read_review_policy(await _load_owned_generation_analysis(
+        state.job_id, tenant_id, user_id, list(corpus.document_ids)))
+        if revision_policy == PROFILE_REVISION_POLICY else None)
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -640,6 +653,7 @@ async def _run_v3_generation(
                     and isinstance(job.result, dict) and job.result.get(ROUTE_KEY) == {
                         "policy": ROUTE_POLICY, "fingerprint": direct_client.cache_fingerprint()}))
                 return (isinstance(current, dict) and policy_matches(current, revision_policy)
+                        and read_review_policy(current) == review_policy
                         and current.get(QA_PENDING_KEY) == stored
                         and route_valid
                         and read_parent_marker(job.params, stored) == journal.completed_extraction_parent_job_id
@@ -671,8 +685,12 @@ async def _run_v3_generation(
                 from app.modules.ai.v3.revision_policy import policy_matches
                 analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
                 return (policy_matches(analysis, revision_policy)
+                        and read_review_policy(analysis) == review_policy
                         and await journal.expected_revision_source.verify_locked(session, job, plan) is True)
             journal.verify_source = verify_native_source
+    if revision_policy == PROFILE_REVISION_POLICY:
+        journal.review_policy_bound = True
+        journal.expected_review_policy = review_policy
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
@@ -771,6 +789,7 @@ async def _run_v3_generation(
             authenticated_qa_policy=authenticated_qa_policy,
             owned_source_context=owned_source_context,
             revision_policy=revision_policy,
+            review_policy=review_policy,
         )
     finally:
         if direct_client is not None:

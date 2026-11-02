@@ -1783,14 +1783,18 @@ async def generate_v3_course_from_corpus(
     authenticated_qa_policy: str | None = None,
     owned_source_context: Any = None,
     revision_policy: str | None = None,
+    review_policy: str | None = None,
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
     from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
-    from app.modules.ai.v3.revision_policy import is_scoped_policy
+    from app.modules.ai.v3.revision_policy import REVIEW_POLICY, is_scoped_policy
 
     if revision_policy is not None and not is_scoped_policy(revision_policy):
         raise ValueError("v3_revision_policy_invalid")
     scoped_revision = is_scoped_policy(revision_policy)
+    batched_decisions = review_policy == REVIEW_POLICY
+    if review_policy is not None and (not batched_decisions or revision_policy != REVISION_POLICY):
+        raise ValueError("v3_review_policy_invalid")
     if allow_unreviewed_on_unknown and extraction_journal is None:
         raise ValueError("v3_unknown_review_requires_journal")
     if direct_client is not None and extraction_journal is None:
@@ -1844,7 +1848,7 @@ async def generate_v3_course_from_corpus(
         return parsed
 
     neutral_fresh_quality = scoped_revision and authenticated_qa_policy is None
-    quality_explanations = neutral_fresh_quality or direct_client is not None
+    quality_explanations = batched_decisions or neutral_fresh_quality or direct_client is not None
     from app.modules.ai.managed_luna_client import ManagedLunaClient
     structured_author = scoped_revision and (type(direct_client) is ManagedLunaClient
         or revision_policy == REVISION_POLICY and direct_client is None)
@@ -1852,6 +1856,7 @@ async def generate_v3_course_from_corpus(
         type(direct_client) is ManagedLunaClient or direct_client is None)
     pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=quality_explanations,
                                     scoped_revision=scoped_revision,
+                                    **({"decision_contract": True} if batched_decisions else {}),
                                     **({"structured_author_output": True} if structured_author else {}),
                                     **({"structured_extraction_output": True} if structured_extraction else {}))
 
@@ -1873,6 +1878,7 @@ async def generate_v3_course_from_corpus(
             corpus, extraction_journal, route_fingerprint, llm_invoker, cancellation_callback,
             direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens,
             **({"structured_output": True} if structured_extraction else {}),
+            **({"decision_contract": True} if batched_decisions else {}),
         )
     else:
         rule_model = await pipeline.extract_rule_model(
@@ -1946,7 +1952,9 @@ async def generate_v3_course_from_corpus(
             len(group.primary_rules),
             len(group.context_prerequisite_rules),
         )
-        def stage_pipeline(stage: str, group_id: str = group.group_id) -> V3GenerationPipeline:
+        review_cache_box: list[Any] = [None]
+        def stage_pipeline(stage: str, group_id: str = group.group_id,
+                           cache_box: list[Any] = review_cache_box) -> Any:
             if extraction_journal is None:
                 return pipeline
             from app.modules.ai.v3.stage_checkpoint import stage_once
@@ -1960,9 +1968,11 @@ async def generate_v3_course_from_corpus(
                                         messages=messages, response_format=response_format, invoke=invoke,
                                         direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens)
 
-            return V3GenerationPipeline(invoke_stage, explanation_consistency=quality_explanations,
-                                        scoped_revision=scoped_revision,
-                                        **({"structured_author_output": True} if structured_author else {}))
+            selected = V3GenerationPipeline(invoke_stage, explanation_consistency=quality_explanations,
+                scoped_revision=scoped_revision,
+                **({"decision_contract": True} if batched_decisions else {}),
+                **({"structured_author_output": True} if structured_author else {}))
+            return cache_box[0].wrap(selected) if stage == "review" and cache_box[0] is not None else selected
 
         group_reference_context = reference_context_for_rules(
             corpus.tenant_id, corpus.documents, reference_decisions, group.primary_rules)
@@ -2103,6 +2113,14 @@ async def generate_v3_course_from_corpus(
                 )
             parts = ([] if citation_holds and lesson.cases and not review_lesson.cases
                      else _semantic_review_parts(review_lesson))
+            if batched_decisions and extraction_journal is not None:
+                from app.modules.ai.v3.batched_review import BatchedReview
+                from app.modules.ai.v3.review_work_items import lesson_review_items
+                work = lesson_review_items(lesson, parts, review_rules, corpus, source_frags,
+                    exact_source_units, group_reference_context, explanation_consistency=quality_explanations,
+                    held_question_ids=frozenset(citation_holds))
+                review_cache_box[0] = await BatchedReview.prime(
+                    work, stage_pipeline("review", group_id="batched-review:" + group.group_id).invoker)
             all_parts_passed = True
             deferred_lesson_defects: list[tuple[int, Any]] = []
             lesson_scope_resolved = False

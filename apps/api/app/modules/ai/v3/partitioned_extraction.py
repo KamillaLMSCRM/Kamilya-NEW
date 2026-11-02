@@ -57,6 +57,7 @@ async def extract_partitioned_rule_model(
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     *, direct_client: Any = None, direct_max_output_tokens: int = 8192,
     structured_output: bool = False,
+    decision_contract: bool = False,
 ) -> tuple[DocumentRuleModel, list[str]]:
     """Extract exact source units. Context is navigational, never coverage proof."""
     if not corpus.documents or any(doc.source_text is None or not doc.source_revision for doc in corpus.documents):
@@ -88,8 +89,10 @@ async def extract_partitioned_rule_model(
             if index + 1 < len(units):
                 context_parts.append("СЛЕДУЮЩИЙ ФРАГМЕНТ:\n" + units[index + 1].text)
             context = "\n\n".join(part for part in context_parts if part)
+            from app.modules.ai.v3.prompts import RULE_EXTRACTION_DECISION_SUFFIX
             messages = [
-                {"role": "system", "content": RULE_EXTRACTION_SYSTEM_PROMPT},
+                {"role": "system", "content": RULE_EXTRACTION_SYSTEM_PROMPT
+                 + (RULE_EXTRACTION_DECISION_SUFFIX if decision_contract else "")},
                 {"role": "user", "content": (
                     f"ДОКУМЕНТ: {doc.title}\n"
                     "Извлекай правила только из целевого фрагмента. Соседний контекст дан для понимания; "

@@ -23,7 +23,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant: Any, *, enable
     from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
     from app.modules.ai.v3.provider_profile import V3ProfiledClient
     from app.modules.ai.v3.rejected_artifact import ModelArtifactRejectedError
-    from app.modules.ai.v3.revision_policy import POLICY, stamp_policy
+    from app.modules.ai.v3.revision_policy import POLICY, REVIEW_KEY, REVIEW_POLICY, stamp_policy
     from app.modules.ai.v3.stage_checkpoint import _digest
 
     canonical.validate_schema(schema)
@@ -39,6 +39,8 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant: Any, *, enable
     journal = PendingStageJournal(str(tenant), actor, job, sessions, verify_source=source)
     journal.expected_revision_policy = POLICY
     journal.expected_revision_actor = actor
+    journal.review_policy_bound = True
+    journal.expected_review_policy = REVIEW_POLICY
     class SyntheticSource:
         async def verify_locked(self, _session: Any, locked: Any, _plan: Any) -> bool:
             return locked.user_id == actor and str(locked.tenant_id) == str(tenant)
@@ -116,5 +118,19 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant: Any, *, enable
             raise AssertionError('native_profile_drift_allowed')
         if len(calls) != 1:
             raise AssertionError('native_profile_drift_invoked')
+        async with owner.begin() as conn:
+            changed_params = {'source_analysis': {key: value for key, value in params['source_analysis'].items()
+                                                 if key != REVIEW_KEY}}
+            await conn.execute(text(f'UPDATE "{schema}".ai_jobs SET params=CAST(:p AS json),result=CAST(:r AS json) WHERE id=:j'),
+                               {'p': json.dumps(changed_params), 'r': json.dumps(result), 'j': job})
+        try:
+            await journal.run_pending(**args)
+        except delivery_ownership.DeliveryOwnershipLostError as error:
+            if str(error) != 'generation_review_policy_changed':
+                raise
+        else:
+            raise AssertionError('native_review_policy_drift_allowed')
+        if len(calls) != 1:
+            raise AssertionError('native_review_policy_drift_invoked')
     finally:
         delivery_ownership.delivery_id.reset(token)

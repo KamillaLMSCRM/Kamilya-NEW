@@ -21,6 +21,7 @@ from app.modules.ai.v3.prompts import (
     ANSWER_COMPLETENESS_SYSTEM_PROMPT,
     ANSWER_ENTAILMENT_SYSTEM_PROMPT,
     EXPLANATION_COMPLETENESS_SYSTEM_PROMPT,
+    LESSON_COGEN_DECISION_SUFFIX,
     LESSON_COGEN_SYSTEM_PROMPT,
     LESSON_OBJECTIVE_CLAIM_SUFFIX,
     LESSON_PROSE_LOGIC_SUFFIX,
@@ -29,6 +30,7 @@ from app.modules.ai.v3.prompts import (
     PARTIAL_SOURCE_REVIEW_SUFFIX,
     PROSE_REPAIR_SYSTEM_PROMPT,
     QA_REVIEW_SYSTEM_PROMPT,
+    RULE_EXTRACTION_DECISION_SUFFIX,
     RULE_EXTRACTION_SYSTEM_PROMPT,
     SOURCE_QUOTATION_VIEW_SUFFIX,
 )
@@ -41,7 +43,8 @@ class V3GenerationPipeline:
 
     def __init__(self, llm_invoker: Callable[[list[dict[str, str]], dict[str, Any] | None], Any],
                  *, explanation_consistency: bool = False, scoped_revision: bool = False,
-                 structured_author_output: bool = False, structured_extraction_output: bool = False) -> None:
+                 structured_author_output: bool = False, structured_extraction_output: bool = False,
+                 decision_contract: bool = False) -> None:
         """
         llm_invoker: async or sync callable that accepts messages list and optional response_format,
         returning a parsed JSON dict or string.
@@ -51,6 +54,7 @@ class V3GenerationPipeline:
         self.scoped_revision = scoped_revision
         self.structured_author_output = structured_author_output is True
         self.structured_extraction_output = structured_extraction_output is True
+        self.decision_contract = decision_contract is True
 
     async def extract_rule_model(
         self,
@@ -62,7 +66,8 @@ class V3GenerationPipeline:
     ) -> DocumentRuleModel:
         """Step 1: Extract structured Normative Matrix from full document text."""
         messages = [
-            {"role": "system", "content": RULE_EXTRACTION_SYSTEM_PROMPT},
+            {"role": "system", "content": RULE_EXTRACTION_SYSTEM_PROMPT
+             + (RULE_EXTRACTION_DECISION_SUFFIX if self.decision_contract else "")},
             {
                 "role": "user",
                 "content": f"ДОКУМЕНТ: {document_title}\nSHA256: {document_sha256}\n\nПОЛНЫЙ ТЕКСТ:\n{document_text}",
@@ -163,7 +168,8 @@ class V3GenerationPipeline:
             )
 
         messages = [
-            {"role": "system", "content": LESSON_COGEN_SYSTEM_PROMPT + (SOURCE_QUOTATION_VIEW_SUFFIX if self.scoped_revision else "")},
+            {"role": "system", "content": LESSON_COGEN_SYSTEM_PROMPT + (SOURCE_QUOTATION_VIEW_SUFFIX if self.scoped_revision else "")
+             + (LESSON_COGEN_DECISION_SUFFIX if self.decision_contract else "")},
             {"role": "user", "content": user_content},
         ]
         response_format = None

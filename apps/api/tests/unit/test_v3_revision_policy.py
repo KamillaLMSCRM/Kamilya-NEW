@@ -24,8 +24,9 @@ def test_missing_is_legacy_and_exact_marker_is_fresh():
 
 
 def test_admission_stamp_overrides_untrusted_marker_without_mutating_input():
+    from app.modules.ai.v3.revision_policy import REVIEW_KEY, REVIEW_POLICY
     supplied = {KEY: "spoofed", "generation_engine": "evidence_v3"}
-    assert stamp_policy(supplied) == {KEY: POLICY, "generation_engine": "evidence_v3"}
+    assert stamp_policy(supplied) == {KEY: POLICY, REVIEW_KEY: REVIEW_POLICY, "generation_engine": "evidence_v3"}
     assert supplied[KEY] == "spoofed"
 
 
