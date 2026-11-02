@@ -160,7 +160,10 @@ export interface ReviewProgressResponse {
   result?: ReviewDiagnostic;
 }
 
-function reviewConfig(token?: string) {
+function reviewConfig(token?: string, mode: 'account' | 'scoped' = 'account') {
+  // Ordinary reviewer calls deliberately use the normal account transport.
+  // A stale capability in sessionStorage must not take over the account route.
+  if (!token && mode === 'account') return { reviewerAccountSession: true };
   const effectiveToken = token || (typeof window !== 'undefined' ? sessionStorage.getItem('course_review_token') : null);
   return effectiveToken ? { headers: { Authorization: `Bearer ${effectiveToken}` } } : undefined;
 }
@@ -221,7 +224,7 @@ export interface ScopedReviewRequest {
 /** The scoped endpoint is intentionally separate from the tenant requester projection. */
 export async function getScopedReviewRequest(token?: string, requestId?: string): Promise<ScopedReviewRequest> {
   const path = requestId ? `/v1/course-review-requests/${encodeURIComponent(requestId)}` : '/v1/course-review-requests';
-  const response = await api.get<ScopedReviewRequest>(path, reviewConfig(token));
+  const response = await api.get<ScopedReviewRequest>(path, reviewConfig(token, 'scoped'));
   return response.data;
 }
 

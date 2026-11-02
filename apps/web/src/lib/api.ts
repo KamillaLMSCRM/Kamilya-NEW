@@ -1,8 +1,10 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, CanceledError, InternalAxiosRequestConfig } from 'axios';
 import {
   getAccessToken,
   clearStoredAuth,
   forceRefreshAndStoreSession,
+  getAuthSessionEpoch,
+  getCurrentUser,
 } from '@/lib/auth';
 import { getAuthenticationEntry } from '@/lib/rolePolicy';
 
@@ -14,14 +16,45 @@ export const api = axios.create({
   withCredentials: true,  // send httpOnly refresh cookie with every request
 });
 
+/** Explicit ordinary-account review calls may use normal session refresh.
+ * Capability-only review calls never inherit an account session.
+ */
+export interface ReviewerAccountConfig {
+  reviewerAccountSession?: boolean;
+  reviewerAccountEpoch?: number;
+  reviewerAccountIdentity?: string;
+}
+
+function isReviewerAccountRequest(config?: ReviewerAccountConfig): boolean {
+  return config?.reviewerAccountSession === true;
+}
+
+function reviewerAccountIdentity(): string | null {
+  const user = getCurrentUser();
+  return user?.role === 'methodologist'
+    ? JSON.stringify([user.user_id, user.tenant_id, user.role]) : null;
+}
+
+function requireCurrentReviewerSession(config: ReviewerAccountConfig, initialize = false): void {
+  const identity = reviewerAccountIdentity();
+  if (initialize && config.reviewerAccountEpoch === undefined && identity) {
+    config.reviewerAccountEpoch = getAuthSessionEpoch();
+    config.reviewerAccountIdentity = identity;
+  }
+  if (!identity || config.reviewerAccountEpoch !== getAuthSessionEpoch()
+    || config.reviewerAccountIdentity !== identity) throw new CanceledError('Reviewer account session changed');
+}
+
 api.interceptors.request.use((config) => {
+  const reviewerConfig = config as InternalAxiosRequestConfig & ReviewerAccountConfig;
+  if (isReviewerAccountRequest(reviewerConfig)) requireCurrentReviewerSession(reviewerConfig, true);
   const reviewAccess = isReviewAccessRequest(config.url);
   const scopedReview = isScopedReviewRequest(config.url);
   if (reviewAccess) {
     if (config.headers) delete config.headers.Authorization;
     return config;
   }
-  if (scopedReview) {
+  if (scopedReview && !isReviewerAccountRequest(config as InternalAxiosRequestConfig & ReviewerAccountConfig)) {
     // reviewConfig supplies the capability explicitly; never replace it with
     // the signed-in learner/admin token and never inject that token by default.
     const explicitAuthorization = config.headers?.get?.('Authorization') ?? config.headers?.Authorization;
@@ -57,10 +90,16 @@ export function isScopedReviewRequest(url?: string): boolean {
 }
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    const reviewerConfig = res.config as InternalAxiosRequestConfig & ReviewerAccountConfig;
+    if (isReviewerAccountRequest(reviewerConfig)) requireCurrentReviewerSession(reviewerConfig);
+    return res;
+  },
   async (err: AxiosError) => {
     const status = err.response?.status;
     const original = err.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
+    const reviewerConfig = original as (InternalAxiosRequestConfig & ReviewerAccountConfig) | undefined;
+    if (isReviewerAccountRequest(reviewerConfig)) requireCurrentReviewerSession(reviewerConfig!);
 
     // Refresh-on-401: any 401 from a real API call (not the refresh endpoint
     // itself) means the access token expired or was never sent. Try to
@@ -71,12 +110,14 @@ api.interceptors.response.use(
     // dashboard's first /api/v1/courses call returned 401 (no cookie /
     // no token) and the OLD interceptor immediately redirected to /login
     // without ever attempting to refresh the session.
-    const reviewRequest = isReviewAccessRequest(original?.url) || isScopedReviewRequest(original?.url);
+    const reviewRequest = isReviewAccessRequest(original?.url)
+      || (isScopedReviewRequest(original?.url) && !isReviewerAccountRequest(original as (InternalAxiosRequestConfig & ReviewerAccountConfig) | undefined));
     if (status === 401 && original && !original._retried && !reviewRequest) {
       const isPublicAuthEndpoint = isPublicAuthenticationRequest(original.url);
       if (!isPublicAuthEndpoint) {
         original._retried = true;
         const ok = await forceRefreshAndStoreSession();
+        if (isReviewerAccountRequest(reviewerConfig)) requireCurrentReviewerSession(reviewerConfig!);
         if (ok) {
           // Replay the original request with the fresh token.
           const token = getAccessToken();
@@ -86,7 +127,11 @@ api.interceptors.response.use(
           }
           try {
             return await api(original);
-          } catch {
+          } catch (retryError) {
+            // A replacement session must never be logged out by the old
+            // request, nor may its cancellation become an auth-failure redirect.
+            if (isReviewerAccountRequest(reviewerConfig)) requireCurrentReviewerSession(reviewerConfig!);
+            if (axios.isCancel(retryError)) throw retryError;
             // Fall through to the redirect-on-auth-failure branch below.
           }
         }

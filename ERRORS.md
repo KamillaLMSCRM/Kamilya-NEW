@@ -2,6 +2,24 @@
 
 Current as of: 2026-11-02.
 
+## APPROVAL-003 - Ordinary reviewer calls were treated as capability-only transport
+
+- Date: 2026-11-02; live frontend68 production UX acceptance, synthetic QA only.
+- Symptom: assigned request visible in ordinary methodologist inbox, opening it returned401.
+- Cause: Axios deliberately excludes ordinary auth/refresh on capability endpoints, but normal reviewer calls used the same path without an explicit account transport configuration. Intercepted component tests supplied completed attempts and missed the real auth header seam.
+- Fix: explicit account-review config, active-methodologist identity and session-epoch fencing before dispatch/refresh retry/response, screen epoch binding. Capability reads/writes retain explicit token isolation and no account fallback; missing public capability refuses before API load. A dispatched request may still commit before session replacement; never infer cancellation means server rollback.
+- Verification:49 focused transport/workflow/auth tests pass, including ordinary review writes, same-session refresh, stale capability, missing capability, actor/role/relogin races and late response/retry. Independent static review accepted the correction. Deployed candidate and full UX acceptance remain pending in docs/plans/2026-11-02-production-ux68-live.md.
+- Prevention: real production reviewer route must be exercised under an ordinary role; mocked review attempts alone are not authentication evidence. Every review transport change must cover both ordinary and capability scopes and session replacement during refresh.
+
+## APPROVAL-004 - Missing production encryption key prevented review request creation
+
+- Date: 2026-11-02; real synthetic production acceptance.
+- Symptom: snapshot frozen successfully, request creation500, zero requests persisted for that revision.
+- Cause: MASTER_ENCRYPTION_KEY absent in canonical runtime.env and both API slots; creation encrypts the follow-up access URL even in personal-link mode. Trace identifies course_approval/service.py:262 and integrations/crypto.py:41.
+- Fix: verified exact active7c35/rollback00e, no rollout lock and no active/reserved tasks; CT125 BEGIN READ ONLY aggregate inventory confirmed zero ciphertext rows. Generated key remotely, persisted root-only with original configuration and key recovery copy, recreated API+three workers on unchanged image/flags; successful encrypt/decrypt roundtrip. Never remove this additive key after encrypted records exist.
+- Verification: canonical immutable script8147e1cc...e5382caa PASS; actual ordinary production UI subsequently created requesta023f2e1 for retained revision51b35fc7. No passwords, AI-provider keys, customer records, plans or permissions changed. Independent runtime/timer/SMTP readback remains in the live plan.
+- Prevention: production workflow preflight must exercise a synthetic encrypt/decrypt roundtrip and confirm the same key is present in all participating services without printing it. Approval snapshot creation is not proof that request creation/delivery works. Preserve the key in protected recovery material across rollbacks.
+
 ## DEV-BROKER-TLS-001 - Supported IP certificate client was not used by renewal timer
 
 - Date:2026-10-27; staff hotfix DEV admission, production unchanged.

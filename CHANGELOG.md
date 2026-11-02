@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.69] - 2026-11-02
+
+### Fixed
+
+- Restore ordinary methodologist authentication for assigned course reviews, including session refresh. Keep link/PIN review capabilities isolated from ordinary account sessions.
+- Fence review dispatch, refresh retries and responses to their original actor and authentication session; refuse a missing capability on the public review screen while preserving a completed decision receipt.
+- Live production acceptance also identified a missing workflow encryption setting. Provisioned its root-only key after aggregate read-only checks confirmed no existing ciphertext; retained the API/worker image and feature settings.
+
 ## [0.11.68] - 2026-11-02
 
 ### Fixed

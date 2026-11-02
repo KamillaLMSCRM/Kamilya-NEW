@@ -9,11 +9,12 @@ import { useT } from '@/i18n/useT';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { useAuthStore } from '@/store/authStore';
 
-export function ReviewRequestScreen({ requestId, token, onCompleted, onExit }: { requestId: string; token?: string; onCompleted?: () => void; onExit?: () => void }) {
+export function ReviewRequestScreen({ requestId, token, requireCapability = false, onCompleted, onExit }: { requestId: string; token?: string; requireCapability?: boolean; onCompleted?: () => void; onExit?: () => void }) {
   const actor = useAuthStore((state) => state.user);
   const session = useAuthStore((state) => Boolean(state.accessToken));
-  const actorScope = token ? 'limited-review' : JSON.stringify([actor?.user_id, actor?.tenant_id, actor?.role, session]);
-  const identity = JSON.stringify([requestId, token, actorScope]);
+  const sessionEpoch = useAuthStore((state) => state.sessionEpoch);
+  const actorScope = token ? 'limited-review' : JSON.stringify([actor?.user_id, actor?.tenant_id, actor?.role, session, sessionEpoch]);
+  const identity = JSON.stringify([requestId, token, actorScope, requireCapability]);
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
   const generation = useRef(0);
@@ -42,6 +43,7 @@ export function ReviewRequestScreen({ requestId, token, onCompleted, onExit }: {
     setLoading(true);
     setFailure(null);
     try {
+      if (requireCapability && !token) throw new Error(m.decisionScopeChanged);
       const [summary, nextAttempt] = await Promise.all([
         token ? getScopedReviewRequest(token, requestId) : getApprovalRequest(requestId),
         startReviewAttempt(requestId, token),
@@ -59,7 +61,7 @@ export function ReviewRequestScreen({ requestId, token, onCompleted, onExit }: {
       if (status === 401 || status === 403 || status === 404) sessionStorage.removeItem('course_review_token');
       setFailure({ identity, message: cause instanceof Error ? cause.message : m.decisionScopeChanged });
     } finally { if (isCurrent()) setLoading(false); }
-  }, [completed, identity, requestId, token, m.decisionScopeChanged]);
+  }, [completed, identity, requestId, token, requireCapability, m.decisionScopeChanged]);
 
   useEffect(() => {
     void load();

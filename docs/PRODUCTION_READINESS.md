@@ -1,3 +1,7 @@
+## Frontend 0.11.68 — 2026-11-02
+
+Frontend exact076dba752432b4d161e0a419660ff277bc4c3e3d deployed by the canonical native controller, RELEASE_OK. Exact master CI41405315520/native41405369846 passed; full local web1502/lint/types. Live DEV changed-field save/revert/reload and production Sandyk custom-plan Save/toast accepted. Current monthly courses50 and financial flagtrue retained; no customer field changes by browser acceptance. API remains7c35, engine separate. Detailed receipts .release-evidence/tenant-settings68/. Frontend previous1c and rollback7c retained, old65 recoverable offhost; only native65 removed under standing exact cleanup rule. SMTP recovery separately preserved.
+
 # Kamilya LMS: готовность первого production-тенанта
 
 **Проверено:** 2026-10-27: backend/native66 exact7c35c798, API+3workers running/restarts0, schema0183/FORCE7. Staff search/list DEV and live read-only Lombard acceptance PASS; hashes unchanged. Watchdog success/exit0, timers active; VM126 df82%, free5.94GB. Model routing/current reserve unchanged.

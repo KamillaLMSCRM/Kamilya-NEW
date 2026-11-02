@@ -30,6 +30,15 @@ const resumeSnapshot = { ...snapshot, release_version: 4, modules: [{ ...snapsho
 describe('course approval workflow UI', () => {
   beforeEach(() => { configureMock.mockReset().mockResolvedValue({ requires_approval: true, review_enabled: true }); getPolicyMock.mockReset().mockResolvedValue({ requires_approval: false, review_enabled: true }); decisionMock.mockReset().mockResolvedValue({}); progressMock.mockReset().mockResolvedValue({}); testMock.mockReset().mockResolvedValue({ diagnostics: { answered: 1, total: 1, correct: 1, score_percent: 100, complete: true } }); getRequestMock.mockReset(); getScopedRequestMock.mockReset(); startAttemptMock.mockReset(); });
 
+  it('never enters the ordinary reviewer session when a public review capability is absent', async () => {
+    sessionStorage.removeItem('course_review_token');
+    render(<ScopedReviewRequestPage />);
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(getRequestMock).not.toHaveBeenCalled();
+    expect(getScopedRequestMock).not.toHaveBeenCalled();
+    expect(startAttemptMock).not.toHaveBeenCalled();
+  });
+
   it('persists the opt-in policy and gives a clear immutable-snapshot hint', async () => {
     // Starting the request is not the same as rendering its loaded policy.
     getPolicyMock.mockImplementationOnce(() => new Promise((resolve) => {
