@@ -9027,7 +9027,9 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 
 ## UI-009 - Legacy tenant plan blocked unrelated subscription edits (2026-11-02)
 
+- Date: 2026-11-02.
 - Symptom: saving unrelated settings on an existing custom-plan tenant returned 422; the plan selector displayed the first supported plan instead of the stored value.
 - Cause: the form sent every field, including an unchanged legacy `custom` plan rejected by the API whitelist; the select lacked an option for the stored value.
 - Fix: show the existing legacy value and send only fields changed from the loaded tenant, preserving explicit changes and the API plan whitelist.
-- Verification: synthetic React regression exercises the real details page, legacy-plan display and changed-only payload; focused Vitest 4 passed and TypeScript noEmit passed. Full DEV/release acceptance remains pending.
+- Verification: synthetic React regression exercises the real details page, legacy-plan display and changed-only payload; full web 1502 passed, TypeScript and lint passed. Full DEV/release acceptance remains pending.
+- Prevention: render the loaded legacy value and test an unrelated edit against the actual PATCH payload; never resubmit unchanged server-managed fields.
