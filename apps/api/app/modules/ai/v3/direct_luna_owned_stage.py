@@ -20,6 +20,7 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
                                  validate_response: Callable[[Any], dict[str, Any]],
                                  messages: list[dict[str, str]], max_output_tokens: int,
                                  _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
+                                 response_format: dict[str, Any] | None = None,
                                  ) -> dict[str, Any]:
     """Replay before preparation/claim; only the direct API performs a trusted token count."""
     if type(journal) is not PendingStageJournal or type(client) not in (DirectLunaResponsesClient, ManagedLunaClient):
@@ -29,6 +30,12 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
     original_validate = validate_value
     expected_model = "gpt-5.6-luna" if type(client) is ManagedLunaClient else "gpt-6-luna"
     from app.modules.ai.v3.stage_checkpoint import _digest
+    if response_format is not None:
+        from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
+        if (type(client) is not ManagedLunaClient or plan.get("stage") != "lesson"
+                or not is_lesson_author_response_format(response_format)
+                or plan.get("request_sha256") != _digest([messages, response_format])):
+            raise ValueError("managed_structured_plan_invalid")
     def validate_with_metadata(value: dict[str, Any]) -> dict[str, Any]:
         from app.modules.ai.v3.stage_checkpoint import _validate_direct_metadata
         _validate_direct_metadata(value)
@@ -73,7 +80,8 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
     if budget is not None:
         budget.before_count(generation_seconds=client.generation_deadline_seconds)
     try:
-        capability = await client.prepare(messages, max_output_tokens=max_output_tokens, ownership_checkpoint=checkpoint)
+        capability = await client.prepare(messages, max_output_tokens=max_output_tokens, ownership_checkpoint=checkpoint,
+                                         **({"response_format": response_format} if response_format is not None else {}))
     except ResponsesCountTimeoutError as exc:
         # Counting cannot generate a lesson. There is still no pending claim.
         raise PreclaimYieldError("generation_count_deadline_exhausted") from exc

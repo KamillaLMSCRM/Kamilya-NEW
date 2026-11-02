@@ -179,6 +179,79 @@ async def _exercise(owner: Any, runtime: Any, schema: str, *, execution_enabled:
                 raise AssertionError("source_review_did_not_preserve_work")
         if await parent_snapshot() != before:
             raise AssertionError("source_review_changed_parent")
+        # A separate fixture job exercises private rejection custody without
+        # reactivating the source-review-held child or making a provider call.
+        phase["value"] = "managed_rejection"
+        import base64
+        from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
+        from app.modules.ai.v3.managed_rejection_quarantine import KEY as QUARANTINE_KEY
+        from app.modules.ai.v3.managed_rejection_quarantine import POLICY as QUARANTINE_POLICY
+        from app.modules.ai.v3.stage_checkpoint import _digest
+        from app.modules.ai.v3.pending_stage_transactions import has_pending
+        rejected_job = str(uuid4())
+        rejected_client = client(rejected_job)
+        async with owner.begin() as conn:
+            await conn.execute(text(f'''INSERT INTO "{schema}".ai_jobs
+                (id,tenant_id,user_id,status,params,result)
+                VALUES(:j,:t,:a,'running',CAST(:p AS json),CAST(:r AS json))'''),
+                {"j": rejected_job, "t": tenant, "a": actor, "p": json.dumps(params),
+                 "r": json.dumps({ROUTE_KEY: {"policy": ROUTE_POLICY, "fingerprint": rejected_client.cache_fingerprint()}})})
+        raw = b'{"model":"gpt-5.6-luna","choices":[{"message":{"content":"synthetic invalid json"}}]}'
+        attempts = 0
+        async def rejected(_capability: Any, **options: Any) -> Any:
+            nonlocal attempts
+            attempts += 1
+            if await options["ownership_checkpoint"]() is not True:
+                raise AssertionError("quarantine_fixture_unowned")
+            raise ManagedResponseRejectedError(raw=raw, tenant_id=tenant, user_id=actor, job_id=rejected_job,
+                stage=options["stage_id"], route_fingerprint=rejected_client.cache_fingerprint(),
+                wire_request_sha256=hashlib.sha256(b"synthetic request").hexdigest(), phase="content_json",
+                cause=ValueError("source_first_qa_response_invalid"))
+        rejected_client.prepare, rejected_client.invoke = prepare, rejected
+        rejected_token = delivery_id.set(rejected_job)
+        try:
+            for _ in range(2):
+                try:
+                    await stage_once(journal(rejected_job), stage="lesson", group_id="synthetic rejected lesson",
+                        source_sha256=source_sha, route_fingerprint=rejected_client.cache_fingerprint(),
+                        messages=messages, response_format={"type": "json_object"}, invoke=forbidden,
+                        direct_client=rejected_client)
+                except ExtractionOutcomeUnknownError:
+                    pass
+                else:
+                    raise AssertionError("quarantine_fixture_accepted")
+            async with sessions() as session:
+                await canonical.set_tenant(session, tenant)
+                row = await session.scalar(select(AIJob).where(AIJob.id == rejected_job))
+                entries = row.result[QUARANTINE_KEY]["entries"]
+                if attempts != 1 or len(entries) != 1 or not has_pending(row.result) or row.status != "running" or row.params != params:
+                    raise AssertionError("quarantine_fixture_custody_changed")
+                digest, reference = next(iter(entries.items()))
+                if "raw_base64" in reference or "synthetic invalid json" in json.dumps(row.result):
+                    raise AssertionError("quarantine_fixture_raw_in_job")
+                custody = journal(rejected_job)
+                stored_plan = await custody.repository.load_plan(session, tenant_id=str(tenant),
+                    generation_key=custody._owned_key(reference["checkpoint_key"]))
+                if (stored_plan.source_job_id != rejected_job or stored_plan.plan_payload.get("policy") != QUARANTINE_POLICY
+                        or stored_plan.plan_payload.get("accepted") is not False
+                        or _digest(stored_plan.plan_payload.get("stage_plan")) != digest):
+                    raise AssertionError("quarantine_fixture_plan_invalid")
+                receipt = await custody.read_owned_value_in_session(session, reference["checkpoint_key"],
+                    dict(stored_plan.plan_payload))
+                if not isinstance(receipt, dict):
+                    raise AssertionError("quarantine_fixture_receipt_missing")
+                if (base64.b64decode(receipt["raw_base64"], validate=True) != raw
+                        or receipt["body_sha256"] != hashlib.sha256(raw).hexdigest() or receipt["accepted"] is not False):
+                    raise AssertionError("quarantine_fixture_bytes_invalid")
+            async with sessions() as session:
+                await canonical.set_tenant(session, uuid4())
+                if await session.scalar(select(AIJob).where(AIJob.id == rejected_job)) is not None:
+                    raise AssertionError("quarantine_fixture_cross_tenant_visible")
+        finally:
+            delivery_id.reset(rejected_token)
+            rejected_client.close()
+        if await parent_snapshot() != before:
+            raise AssertionError("quarantine_changed_parent")
     finally:
         delivery_id.reset(token)
         parent_client.close()
@@ -196,7 +269,7 @@ async def exercise(owner: Any, runtime: Any, schema: str, *, execution_enabled: 
         nested = getattr(original, "__cause__", None)
         sqlstate = getattr(original, "sqlstate", None) or getattr(nested, "sqlstate", None)
         safe_state = sqlstate if isinstance(sqlstate, str) and re.fullmatch(r"[0-9A-Z]{5}", sqlstate) else "unknown"
-        label = phase["value"] if phase["value"] in {"preflight", "fixture", "parent_extraction", "parent_abandon", "snapshot", "concurrent_cold", "source_drift", "source_review"} else "unknown"
+        label = phase["value"] if phase["value"] in {"preflight", "fixture", "parent_extraction", "parent_abandon", "snapshot", "concurrent_cold", "source_drift", "source_review", "managed_rejection"} else "unknown"
         category = type(exc).__name__ if type(exc).__name__ in {"DBAPIError", "IntegrityError", "AssertionError", "RuntimeError", "ValueError", "ExtractionOutcomeUnknownError", "TimeoutError"} else "other"
         print("EVIDENCE|phase=reuse_" + label + "|error_class=" + category + "|sqlstate=" + safe_state, flush=True)
         raise

@@ -96,7 +96,8 @@ class ManagedLunaClient:
             raise ManagedLunaError("managed_luna_ownership_unverified")
 
     async def prepare(self, messages: list[dict[str, str]], *, max_output_tokens: int,
-                      ownership_checkpoint: Callable[[], Awaitable[bool]]) -> object:
+                      ownership_checkpoint: Callable[[], Awaitable[bool]],
+                      response_format: dict[str, Any] | None = None) -> object:
         if self._closed:
             raise ManagedLunaError("managed_luna_closed")
         if (not isinstance(messages, list) or not 1 <= len(messages) <= 100
@@ -107,6 +108,12 @@ class ManagedLunaClient:
             raise ValueError("managed_luna_request_invalid")
         request = {"model": MODEL, "messages": messages, "temperature": 0.2,
                    "max_tokens": max_output_tokens, "response_format": {"type": "json_object"}}
+        if response_format is not None:
+            from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
+            if not is_lesson_author_response_format(response_format):
+                raise ValueError("managed_luna_structured_format_invalid")
+            request["response_format"] = response_format
+            request["structured_output_policy"] = "typed-json-object-v1"
         encoded = json.dumps(request, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
         # The CLI runner reserializes with json.dumps default separators.
         if len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode("utf-8")) > MAX_INPUT_BYTES:
@@ -195,6 +202,15 @@ class ManagedLunaClient:
             category = "model"
             if body.get("model") != MODEL:
                 raise ValueError
+            category = "structured_mode"
+            requested = json.loads(payload)
+            if "structured_output_policy" in requested:
+                from app.modules.ai.v3.author_response_schema import lesson_author_schema_hash
+                if (body.get("structured_output_policy") != "typed-json-object-v1"
+                        or body.get("response_format_sha256") != lesson_author_schema_hash()):
+                    raise ValueError("managed_luna_structured_mode_unverified")
+            elif "structured_output_policy" in body or "response_format_sha256" in body:
+                raise ValueError("managed_luna_unrequested_structured_mode")
             category = "choices"
             choices = body.get("choices")
             if body.get("model") != MODEL or not isinstance(choices, list) or len(choices) != 1:
@@ -209,6 +225,11 @@ class ManagedLunaClient:
                 raise ValueError
             category = "content_json"
             content = parse_source_first_response(message["content"])
+            if "structured_output_policy" in requested:
+                from app.modules.ai.v3.author_response_schema import is_lesson_author_response
+                category = "structured_shape"
+                if not is_lesson_author_response(content):
+                    raise ValueError("managed_luna_structured_shape_invalid")
             category = "usage"
             usage = body.get("usage")
             if not isinstance(usage, dict):
@@ -218,8 +239,18 @@ class ManagedLunaClient:
             if type(incoming) is not int or incoming < 0 or type(outgoing) is not int or not 0 <= outgoing <= limit:
                 raise ValueError
             result = ResponsesResult(content=content, model=MODEL, usage=LunaUsage(incoming, outgoing, None, None))
-        except Exception:
+        except Exception as rejection:
             _diagnostic("failure", job_id, stage_id, started, status, category)
+            if stage_id is not None and self._token.encode("utf-8") not in raw:
+                from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
+                try:
+                    retained = ManagedResponseRejectedError(raw=bytes(raw), tenant_id=tenant_id, user_id=user_id,
+                        job_id=job_id, stage=stage_id, route_fingerprint=self.cache_fingerprint(),
+                        wire_request_sha256=hashlib.sha256(payload).hexdigest(), phase=category, cause=rejection)
+                except (ValueError, TypeError):
+                    pass
+                else:
+                    raise retained from None
             raise ManagedLunaError("managed_luna_response_invalid") from None
         _diagnostic("response", job_id, stage_id, started, status, "validated", incoming, outgoing)
         return result

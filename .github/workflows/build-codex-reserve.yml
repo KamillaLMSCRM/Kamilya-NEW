@@ -42,7 +42,7 @@ jobs:
           set -euo pipefail
           [[ "${RELEASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
           [[ "${CI_RUN_ID}" =~ ^[0-9]+$ ]]
-          [[ "${DISPATCH_REF}" == "refs/heads/master" ]]
+          [[ "${DISPATCH_REF}" == "refs/heads/master" || "${DISPATCH_REF}" == "refs/heads/dev" ]]
           run_json="$(gh api "repos/${REPOSITORY}/actions/runs/${CI_RUN_ID}")"
           run_name="$(jq -r '.name // empty' <<<"${run_json}")"
           run_status="$(jq -r '.status // empty' <<<"${run_json}")"
@@ -66,7 +66,8 @@ jobs:
           [[ "${run_path}" == "${expected_workflow_path}" ]]
           [[ "${run_repository,,}" == "${REPOSITORY,,}" ]]
           [[ "${run_event}" == "push" ]]
-          [[ "${run_branch}" == "master" ]]
+          [[ "${run_branch}" == "master" || "${run_branch}" == "dev" ]]
+          [[ "${DISPATCH_REF}" == "refs/heads/${run_branch}" ]]
           branch_json="$(gh api "repos/${REPOSITORY}/branches/${run_branch}")"
           branch_sha="$(jq -r '.commit.sha // empty' <<<"${branch_json}")"
           [[ "${branch_sha}" == "${RELEASE_SHA}" ]]

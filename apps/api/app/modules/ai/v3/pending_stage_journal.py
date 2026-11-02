@@ -1,11 +1,13 @@
 """Explicit server-owned V3 pending mode; no route or credential selection."""
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID, uuid4
 
 from app.modules.ai.direct_luna_responses_client import ResponsesRejectedError
+from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.pending_stage_transactions import (
     _locked_job,
@@ -74,6 +76,18 @@ class PendingStageJournal(WorkerCycleJournal):
                                           verify_source=verify_source)
         except ExtractionOutcomeUnknownError:
             raise
+        except ManagedResponseRejectedError as exc:
+            from app.modules.ai.v3.managed_rejection_quarantine import retain_managed_rejection
+
+            try:
+                await retain_managed_rejection(journal=self, plan=plan, result_key=result_key, claim_key=claim_key,
+                                               marker=marker, rejection=exc, verify_source=verify_source)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # A failed or unknown evidence write never permits acceptance or another call.
+                pass
+            raise ExtractionOutcomeUnknownError("v3_pending_provider_outcome_unknown") from None
         except ResponsesRejectedError as exc:
             from app.modules.ai.v3.pending_rejection_receipt import retain_rejection
 

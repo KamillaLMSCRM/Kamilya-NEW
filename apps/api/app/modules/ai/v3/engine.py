@@ -40,7 +40,8 @@ class V3GenerationPipeline:
     """End-to-end pipeline implementing the V3 Didactic Co-Generation Architecture."""
 
     def __init__(self, llm_invoker: Callable[[list[dict[str, str]], dict[str, Any] | None], Any],
-                 *, explanation_consistency: bool = False, scoped_revision: bool = False) -> None:
+                 *, explanation_consistency: bool = False, scoped_revision: bool = False,
+                 structured_author_output: bool = False) -> None:
         """
         llm_invoker: async or sync callable that accepts messages list and optional response_format,
         returning a parsed JSON dict or string.
@@ -48,6 +49,7 @@ class V3GenerationPipeline:
         self.invoker = llm_invoker
         self.explanation_consistency = explanation_consistency
         self.scoped_revision = scoped_revision
+        self.structured_author_output = structured_author_output is True
 
     async def extract_rule_model(
         self,
@@ -161,7 +163,11 @@ class V3GenerationPipeline:
             {"role": "system", "content": LESSON_COGEN_SYSTEM_PROMPT + (SOURCE_QUOTATION_VIEW_SUFFIX if self.scoped_revision else "")},
             {"role": "user", "content": user_content},
         ]
-        raw = await self._call_llm(messages)
+        response_format = None
+        if self.structured_author_output:
+            from app.modules.ai.v3.author_response_schema import lesson_author_response_format
+            response_format = lesson_author_response_format()
+        raw = await self._call_llm(messages, response_format=response_format)
         cases: list[V3ScenarioCase] = []
         assembled_questions: list[V3Question] = []
 
@@ -370,8 +376,8 @@ class V3GenerationPipeline:
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ])
 
-    async def _call_llm(self, messages: list[dict[str, str]]) -> dict[str, Any]:
-        result = await self.invoker(messages, {"type": "json_object"})
+    async def _call_llm(self, messages: list[dict[str, str]], *, response_format: dict[str, Any] | None = None) -> dict[str, Any]:
+        result = await self.invoker(messages, response_format if response_format is not None else {"type": "json_object"})
         if isinstance(result, str):
             parsed: dict[str, Any] = json.loads(result)
             return parsed

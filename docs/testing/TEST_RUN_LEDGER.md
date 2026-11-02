@@ -5493,3 +5493,11 @@ Rules:
 - VM replacement first stopped on idle proof. Three-second and independent10-second pidbox queries returned no reply; exact unused boot readyonce/zeroTaskreceived, brokerPINGtrue/readyqueues0/unacked0. Reviewed fallback sent warmSIGTERM and stopped after60seconds without forcing. Corrected safe caughtUSR1 stack of Celery parentPID9 showed controlreply/SMEMBERS/healthPING/TLSread. First filter matched supervisorPID1; handler guard prevented signal. Later socket-readonly probe observed containerEXITED, so no reset/freeze/force operation occurred. Production unchanged; zero new provider calls/admissions.
 - RED real Kombu options:3FAIL/4PASS (socket_timeoutNone), then23focusedPASS including verified localTLS stalledPING/freshSMEMBERScall. Full4802APIunitPASS/57.38s. Initial baseline flagged test I001/UP017; test import/date cleanup and bounded RESP framing followed by23focusedPASS/1.43s and baseline1005/2173. Source/critic/generation limits unchanged.
 - Source-view pre-broker PG16PASS was at887aede8; new frozen source53d6f1ab4ce5585a9f6a7c95175d6e1c01a7dce75c015e9a5856732bf3f9b503 PG16PASS, schemaaicp_dev_f47096c19eaa/cleanuptrue/public0184unchanged, source-view-broker-r1-20261103-custody.result.json. Full3course semantic acceptance/DeepSeek/production remain separate gates.
+
+
+## 2026-11-03 — typed author and private complete-response custody
+
+- 4851APIunitPASS/61.15s;49focusedPASS/1.84s;91offlineopsPASS/3.77s;baseline1005/2173. Wrong ops filename and omitted PG confirm were preflight rejections with no tests/DB action; corrected canonical invocations retained.
+- New PostgreSQL17check proof pending; earlier16check proof is not substituted.
+- Standards367:9sourceextractions reused/zero newextractioncalls; one firstlesson HTTP200/19208ms content_json rejection, held/no course, usageUNKNOWN. No replay. Synthetic actualCLIprobe:onecall11099ms7543input726output,strictJSONobject/appliedschema verified, extra synthetic_shape=false and fullcourseunaccepted.
+- Accepted704runtime is separate from local typed candidate; production unchanged.

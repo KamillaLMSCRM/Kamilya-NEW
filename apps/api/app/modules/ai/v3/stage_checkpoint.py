@@ -109,14 +109,19 @@ async def stage_once(
                 raise ValueError("v3_stage_checkpoint_invalid")
             return response
         if direct_client is not None:
-            if response_format not in (None, {"type": "json_object"}):
+            from app.modules.ai.managed_luna_client import ManagedLunaClient
+            from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
+            structured = (stage == "lesson" and type(direct_client) is ManagedLunaClient
+                          and is_lesson_author_response_format(response_format))
+            if response_format not in (None, {"type": "json_object"}) and not structured:
                 raise ValueError("direct_owned_format_invalid")
             from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
 
             return await run_direct_owned_stage(journal=journal, client=direct_client, plan=plan,
                 result_key=result_key, claim_key=claim_key, validate_value=validate_value,
                 validate_response=validate, messages=messages, max_output_tokens=direct_max_output_tokens,
-                _owned_claim_guard=_owned_claim_guard)
+                _owned_claim_guard=_owned_claim_guard,
+                **({"response_format": response_format} if structured else {}))
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
                                          validate_value=validate_value, validate_response=validate, invoke=invoke,
                                          _owned_claim_guard=_owned_claim_guard)

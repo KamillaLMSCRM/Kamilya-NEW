@@ -1,0 +1,88 @@
+"""Retain one private rejected HTTP response without accepting or unlocking it.
+
+Inherits owned checkpoint storage/RLS/retention. Only a receipt reference enters
+AIJob.result; raw bytes never enter job DTOs, course content or usage accounting.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from app.modules.ai.generation_checkpoint import PlannedLesson
+from app.modules.ai.lesson_cycle import POLICY_VERSION
+from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
+from app.modules.ai.source_assessment_plan import PLAN_POLICY
+from app.modules.ai.v3.pending_stage_transactions import (
+    _locked_job,
+    _owner,
+    checked_entries,
+    verify_repair_slot,
+    verify_source_safely,
+)
+from app.modules.ai.v3.stage_checkpoint import _digest
+
+KEY = "v3_managed_response_quarantine"
+POLICY = "managed-response-quarantine-v1"
+
+
+def private_key(stage: str) -> str:
+    return "v3-managed-quarantine:" + stage
+
+
+def private_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    return {"policy": POLICY, "accepted": False, "stage_plan": plan}
+
+
+async def retain_managed_rejection(*, journal: Any, plan: dict[str, Any], result_key: str, claim_key: str,
+                                   marker: dict[str, str], rejection: ManagedResponseRejectedError,
+                                   verify_source: Any) -> None:
+    _owner(plan, journal)
+    if type(rejection) is not ManagedResponseRejectedError or not callable(verify_source):
+        raise ValueError("managed_quarantine_unverified")
+    digest = _digest(plan)
+    identity = plan.get("identity")
+    route = plan.get("route_fingerprint") or (identity.get("route_fingerprint") if isinstance(identity, dict) else None)
+    if not isinstance(route, str):
+        raise ValueError("managed_quarantine_route_invalid")
+    receipt = {**rejection.checked_receipt(tenant_id=journal.tenant_id, user_id=journal.user_id,
+        job_id=journal.job_id, stage=digest, route_fingerprint=route),
+        "stage_sha256": digest, "route_fingerprint": route}
+    async with journal.sessions() as session:
+        job = await _locked_job(session, journal, journal.user_id)
+        expected = {"claim_key": claim_key, "result_key": result_key, "token": marker.get("claim_token")}
+        if marker.get("identity") != digest or checked_entries(job.result).get(digest) != expected:
+            raise ValueError("managed_quarantine_marker_unverified")
+        verify_repair_slot(job, plan, required=True)
+        if await journal.read_owned_value_in_session(session, claim_key, plan) != marker:
+            raise ValueError("managed_quarantine_claim_unverified")
+        await verify_source_safely(verify_source, session, job, plan)
+        previous = job.result.get(KEY, {"policy": POLICY, "entries": {}})
+        if (not isinstance(previous, dict) or set(previous) != {"policy", "entries"}
+                or previous.get("policy") != POLICY or not isinstance(previous.get("entries"), dict)
+                or len(previous["entries"]) > 1 or any(key != digest for key in previous["entries"])):
+            raise ValueError("managed_quarantine_existing_invalid")
+        entries = dict(previous["entries"])
+        key = private_key(digest)
+        reference = {name: value for name, value in receipt.items() if name != "raw_base64"}
+        reference["checkpoint_key"] = key
+        if digest in entries and entries[digest] != reference:
+            raise ValueError("managed_quarantine_receipt_conflict")
+        quarantine_plan = private_plan(plan)
+        repo = journal.repository
+        await repo.create_plan(session, tenant_id=journal.tenant_id, generation_key=journal._owned_key(key),
+            plan_revision=f"{PLAN_POLICY}/{POLICY_VERSION}", source_job_id=journal.job_id,
+            plan_payload=quarantine_plan, lessons=(PlannedLesson("cycle", "lesson", 0, 0),))
+        fields = dict(tenant_id=journal.tenant_id, generation_key=journal._owned_key(key),
+                      module_key="cycle", lesson_key="lesson")
+        existing = await journal.read_owned_value_in_session(session, key, quarantine_plan)
+        if existing is not None and existing != receipt:
+            raise ValueError("managed_quarantine_checkpoint_conflict")
+        if existing is None:
+            await repo.checkpoint_content(session, **fields, content_payload={"accepted": False})
+            await repo.checkpoint_review(session, **fields, review_payload={"policy": POLICY, "accepted": False})
+            await repo.checkpoint_assessment(session, **fields, assessment_payload=receipt)
+        if await journal.read_owned_value_in_session(session, key, quarantine_plan) != receipt:
+            raise ValueError("managed_quarantine_checkpoint_unverified")
+        entries[digest] = reference
+        job.result = {**job.result, KEY: {"policy": POLICY, "entries": entries}}
+        # The unresolved pending claim and all completed work are preserved.
+        await session.commit()

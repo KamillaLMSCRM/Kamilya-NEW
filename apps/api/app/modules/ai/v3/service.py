@@ -1841,8 +1841,11 @@ async def generate_v3_course_from_corpus(
 
     neutral_fresh_quality = scoped_revision and authenticated_qa_policy is None
     quality_explanations = neutral_fresh_quality or direct_client is not None
+    from app.modules.ai.managed_luna_client import ManagedLunaClient
+    structured_author = scoped_revision and type(direct_client) is ManagedLunaClient
     pipeline = V3GenerationPipeline(llm_invoker, explanation_consistency=quality_explanations,
-                                    scoped_revision=scoped_revision)
+                                    scoped_revision=scoped_revision,
+                                    **({"structured_author_output": True} if structured_author else {}))
 
     # Stage 1: Extract structured rule model
     if progress_callback:
@@ -1949,7 +1952,8 @@ async def generate_v3_course_from_corpus(
                                         direct_client=direct_client, direct_max_output_tokens=direct_max_output_tokens)
 
             return V3GenerationPipeline(invoke_stage, explanation_consistency=quality_explanations,
-                                        scoped_revision=scoped_revision)
+                                        scoped_revision=scoped_revision,
+                                        **({"structured_author_output": True} if structured_author else {}))
 
         group_reference_context = reference_context_for_rules(
             corpus.tenant_id, corpus.documents, reference_decisions, group.primary_rules)
