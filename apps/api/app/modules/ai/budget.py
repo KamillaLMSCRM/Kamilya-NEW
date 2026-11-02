@@ -26,9 +26,11 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.tenant_settings import TenantSettings
@@ -47,11 +49,27 @@ DEFAULT_BUDGET_USD_CENTS = 5000  # $50/month per tenant default
 ESTIMATED_COST_PER_GENERATION_USD_CENTS = 10  # $0.10 (matches TZ.md target)
 
 
+def checked_budget_month(month_key: str | None = None) -> str:
+    if month_key is None:
+        return datetime.now(UTC).strftime("%Y-%m")
+    if not isinstance(month_key, str):
+        raise ValueError("llm_budget_period_invalid")
+    try:
+        parsed = datetime.strptime(month_key, "%Y-%m")
+    except ValueError:
+        raise ValueError("llm_budget_period_invalid") from None
+    if parsed.strftime("%Y-%m") != month_key:
+        raise ValueError("llm_budget_period_invalid")
+    return month_key
+
+
 async def check_and_charge_llm_budget(
     db: AsyncSession,
     tenant_id: str,
     operation: str = "generate_course",
     estimated_cost_cents: int = ESTIMATED_COST_PER_GENERATION_USD_CENTS,
+    *,
+    month_key: str | None = None,
 ) -> None:
     """Check the tenant's LLM budget and increment usage atomically.
 
@@ -63,6 +81,7 @@ async def check_and_charge_llm_budget(
     race conditions where two concurrent requests both see "under budget"
     and both proceed.
     """
+    month_key = checked_budget_month(month_key)
     # Lazy import to avoid circular import.
     from app.models.tenants import Tenant
 
@@ -71,10 +90,6 @@ async def check_and_charge_llm_budget(
         select(TenantSettings.monthly_llm_budget_usd_cents).where(TenantSettings.tenant_id == tenant_id)
     )
     budget_cents = settings_result.scalar_one_or_none() or DEFAULT_BUDGET_USD_CENTS
-
-    # Get current month key (YYYY-MM).
-    now = datetime.now(UTC)
-    month_key = now.strftime("%Y-%m")
 
     # Atomic check-and-increment: only update if (current + estimated) <= budget.
     # RETURNING tells us whether the row was actually updated.
@@ -164,6 +179,8 @@ async def refund_llm_budget(
     tenant_id: str,
     operation: str,
     estimated_cost_cents: int = ESTIMATED_COST_PER_GENERATION_USD_CENTS,
+    *,
+    month_key: str | None = None,
 ) -> None:
     """Refund an optimistic LLM charge when the call failed.
 
@@ -182,14 +199,19 @@ async def refund_llm_budget(
     """
     from sqlalchemy import text
 
-    month_key = datetime.now(UTC).strftime("%Y-%m")
-    await db.execute(
-        text("""
+    explicit_period = month_key is not None
+    month_key = checked_budget_month(month_key)
+    sufficient_usage = "AND cost_cents >= :cost AND request_count >= 1" if explicit_period else ""
+    result = await db.execute(
+        text(f"""
             UPDATE tenant_llm_usage
             SET cost_cents = GREATEST(0, cost_cents - :cost),
                 request_count = GREATEST(0, request_count - 1),
                 updated_at = NOW()
             WHERE tenant_id = :t AND month_key = :m
+                {sufficient_usage}
         """),
         {"cost": estimated_cost_cents, "t": tenant_id, "m": month_key},
     )
+    if explicit_period and cast(CursorResult[Any], result).rowcount != 1:
+        raise ValueError("llm_budget_refund_unverified")

@@ -86,6 +86,7 @@ async def test_generation_reservation_release_is_durable_and_idempotent(monkeypa
             "documents": ["doc-1"],
             "generation_reservation_required": True,
             "generation_reservation_released": False,
+            "generation_budget_month": "2026-10",
         },
     )
     lookup = AsyncMock(return_value=job)
@@ -104,5 +105,5 @@ async def test_generation_reservation_release_is_durable_and_idempotent(monkeypa
     ) is False
 
     release.assert_awaited_once_with(db, "tenant-contract")
-    refund.assert_awaited_once_with(db, "tenant-contract", "generate_course")
+    refund.assert_awaited_once_with(db, "tenant-contract", "generate_course", month_key="2026-10")
     assert job.params["generation_reservation_released"] is True

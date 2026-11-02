@@ -11,7 +11,7 @@ from app.modules.ai import job_service
 
 
 def _job(course_id=None):
-    return SimpleNamespace(id="job-1", course_id=course_id, status="pending")
+    return SimpleNamespace(id="job-1", course_id=course_id, status="pending", params={})
 
 
 def _router_job(course_id):
@@ -129,10 +129,11 @@ async def test_generation_enqueue_failure_marks_job_failed_and_compensates_charg
         )
 
     reserve.assert_awaited_once_with(db, tenant_id)
-    charge.assert_awaited_once_with(db, str(tenant_id), operation="generate_course")
+    charged_month = charge.await_args.kwargs["month_key"]
+    charge.assert_awaited_once_with(db, str(tenant_id), operation="generate_course", month_key=charged_month)
     update_job.assert_awaited_once()
     release.assert_awaited_once_with(db, tenant_id)
-    refund.assert_awaited_once_with(db, str(tenant_id), "generate_course")
+    refund.assert_awaited_once_with(db, str(tenant_id), "generate_course", month_key=charged_month)
     assert db.commit.await_count == 2
 
 

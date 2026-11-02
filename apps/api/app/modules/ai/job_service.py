@@ -338,6 +338,29 @@ async def update_ai_job(
     return job
 
 
+def _generation_budget_month(job: AIJob, params: dict[str, Any]) -> str:
+    from app.modules.ai.budget import checked_budget_month
+
+    if "generation_budget_month" in params:
+        value = params["generation_budget_month"]
+        if not isinstance(value, str):
+            raise ValueError("generation_budget_period_unverified")
+        return checked_budget_month(value)
+    # Legacy admission charged after creation and before the worker started.
+    # A single UTC month across that interval proves the period; crossing a
+    # boundary without a persisted receipt must not refund an unrelated month.
+    created = getattr(job, "created_at", None)
+    upper = getattr(job, "started_at", None) or datetime.now(UTC)
+    if (not isinstance(created, datetime) or created.tzinfo is None
+            or not isinstance(upper, datetime) or upper.tzinfo is None):
+        raise ValueError("generation_budget_period_unverified")
+    created, upper = created.astimezone(UTC), upper.astimezone(UTC)
+    period = created.strftime("%Y-%m")
+    if upper < created or upper.strftime("%Y-%m") != period:
+        raise ValueError("generation_budget_period_unverified")
+    return period
+
+
 async def release_generation_reservation_once(
     db: AsyncSession,
     *,
@@ -369,8 +392,9 @@ async def release_generation_reservation_once(
     from app.core.trial_limits import release_ai_course_generation
     from app.modules.ai.budget import refund_llm_budget
 
+    month_key = _generation_budget_month(job, params)
     await release_ai_course_generation(db, tenant_id)
-    await refund_llm_budget(db, tenant_value, "generate_course")
+    await refund_llm_budget(db, tenant_value, "generate_course", month_key=month_key)
     params["generation_reservation_released"] = True
     job.params = params
     await db.flush()
@@ -584,6 +608,7 @@ async def submit_ai_job(
     if generation:
         params["generation_reservation_required"] = bool(reserve_course_generation)
         params["generation_reservation_released"] = False
+        params.pop("generation_budget_month", None)
     try:
         job = await create_admitted_ai_job(
             db,
@@ -597,6 +622,7 @@ async def submit_ai_job(
         raise
 
     charged = False
+    charged_month: str | None = None
     reserved = False
     if generation and reserve_course_generation:
         from app.core.trial_limits import reserve_ai_course_generation
@@ -606,7 +632,9 @@ async def submit_ai_job(
     if generation and tenant_id:
         from app.modules.ai.budget import check_and_charge_llm_budget
 
-        await check_and_charge_llm_budget(db, str(tenant_id), operation="generate_course")
+        charged_month = datetime.now(UTC).strftime("%Y-%m")
+        await check_and_charge_llm_budget(db, str(tenant_id), operation="generate_course", month_key=charged_month)
+        cast(Any, job).params = {**dict(job.params or {}), "generation_budget_month": charged_month}
         charged = True
 
     queue_metadata = await build_ai_job_queue_metadata(
@@ -651,7 +679,7 @@ async def submit_ai_job(
         if charged:
             from app.modules.ai.budget import refund_llm_budget
 
-            await refund_llm_budget(db, str(tenant_id), "generate_course")
+            await refund_llm_budget(db, str(tenant_id), "generate_course", month_key=charged_month)
         await db.commit()
         raise
 

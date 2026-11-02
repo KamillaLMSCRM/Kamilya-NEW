@@ -25,22 +25,117 @@ def source_digest() -> str:
     return hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+async def _exercise_budget_period(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any) -> None:
+    if not EXECUTION_ENABLED:
+        raise RuntimeError("pending_lifecycle_gate_unreviewed")
+    from uuid import uuid4
+
+    import ai_generation_checkpoint_dev_check as canonical
+    from app.models.tenants import Tenant
+    from app.modules.ai.job_service import release_generation_reservation_once
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    canonical.validate_schema(schema)
+    job, missing = str(uuid4()), str(uuid4())
+    async with owner.begin() as conn:
+        # Canonical checkpoint fixture has only id/name/slug. Quota locking reads
+        # the full ORM Tenant; add nullable fixture columns in this schema only.
+        quote = owner.dialect.identifier_preparer.quote
+        for column in Tenant.__table__.columns:
+            if column.name not in {"id", "name", "slug"}:
+                sql_type = column.type.compile(dialect=owner.dialect)
+                await conn.execute(text(f'ALTER TABLE "{schema}".tenants ADD COLUMN {quote(column.name)} {sql_type}'))
+        await conn.execute(text(f'''CREATE TABLE "{schema}".tenant_usage (
+            tenant_id uuid PRIMARY KEY, ai_course_generations_used integer NOT NULL DEFAULT 0,
+            jd_course_generations_used integer NOT NULL DEFAULT 0,
+            active_students_count_snapshot integer NOT NULL DEFAULT 0,
+            system_users_count_snapshot integer NOT NULL DEFAULT 0, updated_at timestamptz NOT NULL DEFAULT now())'''))
+        await conn.execute(text(f'''CREATE TABLE "{schema}".tenant_llm_usage (
+            id uuid PRIMARY KEY, tenant_id uuid NOT NULL, month_key varchar(7) NOT NULL,
+            cost_cents integer NOT NULL, request_count integer NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE(tenant_id,month_key))'''))
+        for name in ("tenant_usage", "tenant_llm_usage"):
+            table = f'"{schema}".{name}'
+            await conn.execute(text(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY"))
+            await conn.execute(text(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY"))
+            await conn.execute(text(f'''CREATE POLICY fixture_tenant ON {table} FOR ALL TO lms_app
+                USING(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)
+                WITH CHECK(tenant_id=nullif(current_setting('app.tenant_id',true),'')::uuid)'''))
+            await conn.execute(text(f"REVOKE ALL ON {table} FROM PUBLIC,lms_app"))
+            await conn.execute(text(f"GRANT SELECT,UPDATE ON {table} TO lms_app"))
+        await conn.execute(text(f'INSERT INTO "{schema}".tenant_usage(tenant_id,ai_course_generations_used) VALUES(:t,2)'), {"t": tenant_a})
+        await conn.execute(text(f'''INSERT INTO "{schema}".tenant_llm_usage(id,tenant_id,month_key,cost_cents,request_count)
+            VALUES(:one,:t,'2026-10',20,2),(:two,:t,'2026-11',70,7)'''),
+            {"one": uuid4(), "two": uuid4(), "t": tenant_a})
+        for identifier, period in ((job, None), (missing, "2026-09")):
+            params: dict[str, Any] = {"documents": ["synthetic-budget"], "generation_reservation_required": True,
+                                      "generation_reservation_released": False}
+            if period:
+                params["generation_budget_month"] = period
+            await conn.execute(text(f'''INSERT INTO "{schema}".ai_jobs
+                (id,tenant_id,user_id,status,params,created_at,started_at)
+                VALUES(:j,:t,:u,'cancelled',CAST(:p AS json),'2026-10-29T12:00:00Z','2026-10-29T12:00:01Z')'''),
+                {"j": identifier, "t": tenant_a, "u": uuid4(), "p": json.dumps(params)})
+    sessions = async_sessionmaker(runtime, expire_on_commit=False)
+    async with sessions() as session:
+        await canonical.set_tenant(session, tenant_a)
+        await session.execute(text("SELECT id FROM tenants WHERE id=:t FOR UPDATE"), {"t": tenant_a})
+        if await release_generation_reservation_once(session, job_id=job, tenant_id=tenant_a) is not True:
+            raise AssertionError("legacy_period_release_failed")
+        await session.commit()
+    async with sessions() as session:
+        await canonical.set_tenant(session, tenant_a)
+        await session.execute(text("SELECT id FROM tenants WHERE id=:t FOR UPDATE"), {"t": tenant_a})
+        if await release_generation_reservation_once(session, job_id=job, tenant_id=tenant_a) is not False:
+            raise AssertionError("period_refund_repeated")
+        await session.commit()
+    async with sessions() as session:
+        await canonical.set_tenant(session, tenant_a)
+        await session.execute(text("SELECT id FROM tenants WHERE id=:t FOR UPDATE"), {"t": tenant_a})
+        try:
+            await release_generation_reservation_once(session, job_id=missing, tenant_id=tenant_a)
+        except ValueError as exc:
+            if str(exc) != "llm_budget_refund_unverified":
+                raise
+            await session.rollback()
+        else:
+            raise AssertionError("missing_period_refund_accepted")
+    async with sessions() as session:
+        await canonical.set_tenant(session, tenant_a)
+        rows = (await session.execute(text("SELECT month_key,cost_cents,request_count FROM tenant_llm_usage ORDER BY month_key"))).all()
+        used = await session.scalar(text("SELECT ai_course_generations_used FROM tenant_usage WHERE tenant_id=:t"), {"t": tenant_a})
+        params = await session.scalar(text("SELECT params FROM ai_jobs WHERE id=:j"), {"j": missing})
+        if rows != [("2026-10", 10, 1), ("2026-11", 70, 7)] or used != 1 or params.get("generation_reservation_released") is not False:
+            raise AssertionError("period_refund_or_rollback_invalid")
+    async with sessions() as session:
+        await canonical.set_tenant(session, tenant_b)
+        if await release_generation_reservation_once(session, job_id=missing, tenant_id=tenant_b) is not False:
+            raise AssertionError("foreign_period_refund_allowed")
+        for name in ("tenant_usage", "tenant_llm_usage"):
+            if await session.scalar(text(f"SELECT count(*) FROM {name}")) != 0:
+                raise AssertionError("foreign_budget_rows_visible")
+
+
 async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
                    job_a: str, _resume_job: str, checks: list[str]) -> None:
     if not EXECUTION_ENABLED:
         raise RuntimeError("pending_lifecycle_gate_unreviewed")
     import ai_generation_checkpoint_dev_check as canonical
-    from sqlalchemy import select, text
-    from sqlalchemy.ext.asyncio import async_sessionmaker
     from app.models.ai_job import AIJob
     from app.models.registry import load_all_models
     from app.modules.ai.delivery_ownership import delivery_id
     from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
     from app.modules.ai.v3.pending_stage_transactions import (
-        claim_with_pending, finalize_pending, pending_sql_predicate,
+        claim_with_pending,
+        finalize_pending,
+        pending_sql_predicate,
     )
     from app.modules.ai.v3.stage_checkpoint import _digest
     from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
+    from sqlalchemy import select, text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
 
     canonical.validate_schema(schema)
     load_all_models()
@@ -207,8 +302,14 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         checks.append("concurrent_distinct_digest_claim_fenced")
         checks.extend(("owned_sequential_duplicate_finalize", "foreign_tenant_user_denied"))
 
-        from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient, ResponsesClientError
-        from app.modules.ai.direct_luna_responses_contract import COUNT_ENDPOINT, GENERATION_ENDPOINT
+        from app.modules.ai.direct_luna_responses_client import (
+            DirectLunaResponsesClient,
+            ResponsesClientError,
+        )
+        from app.modules.ai.direct_luna_responses_contract import (
+            COUNT_ENDPOINT,
+            GENERATION_ENDPOINT,
+        )
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
         from app.modules.ai.v3.stage_checkpoint import stage_once, stage_plan
 
@@ -376,6 +477,8 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         finally:
             rejected_client.close()
             delivery_id.reset(rejection_token)
+        await _exercise_budget_period(owner, runtime, schema, tenant_a, tenant_b)
+        checks.append("historical_budget_period_refund_idempotent_rollback_rls")
     finally:
         delivery_id.reset(token)
 
@@ -386,7 +489,11 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
         raise RuntimeError("pending_lifecycle_gate_unreviewed")
     import ai_generation_realization_dev_check as base
     from dotenv import dotenv_values
-    from kb_rag_isolated_dev_gate import normalize_database_url, same_supabase_project, supabase_project_ref
+    from kb_rag_isolated_dev_gate import (
+        normalize_database_url,
+        same_supabase_project,
+        supabase_project_ref,
+    )
     from sqlalchemy.engine import make_url
 
     if source_digest() != expected_source:
@@ -423,10 +530,12 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                                     custody_path=custody_path)
     finally:
         base.exercise = original
+    with custody_path.with_suffix(".result.json").open("x", encoding="utf-8") as handle:
+        json.dump(result, handle, sort_keys=True)
     expected = {"runtime_role_restricted", "migration_upgrade_downgrade_reupgrade", "rls_force_and_acl",
                 "sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
                 "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown",
-                "direct_rejection_receipt_durable_cold_hold"}
+                "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True
             or result.get("passed") is not True or result.get("cleanup") is not True
@@ -451,7 +560,7 @@ def main(argv: list[str] | None = None) -> int:
                           "project_sha256": DEV_REF_SHA256, "required_public_revision": "0184",
                           "custody": "canonical exclusive disposable-schema record and verified cleanup required",
                           "limitations": ["no database execution", "synthetic provider", "fixture RLS only",
-                              "real cancellation and reservation refund are not tested",
+                              "public cancellation endpoint and provider billing refund are not tested",
                               "race proves one synthetic two-session lock wait, not production worker fencing",
                               "legacy-plan migration and completed-job reconstruction untested",
                               "custody parent must be controlled; pathname replacement race remains"]}, sort_keys=True))

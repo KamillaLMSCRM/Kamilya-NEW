@@ -16,6 +16,8 @@ def test_callable_paths_block_before_access():
         asyncio.run(gate["exercise"](None, None, "public", None, None, "job", "job2", []))
     with pytest.raises(RuntimeError, match="unreviewed"):
         asyncio.run(gate["execute_candidate"](expected_source="x", expected_base_source="x", custody_path=Path("x")))
+    with pytest.raises(RuntimeError, match="unreviewed"):
+        asyncio.run(gate["_exercise_budget_period"](None, None, "public", None, None))
 
 
 @pytest.mark.parametrize("arguments", [["--execute"], ["--execute", "--confirm", "RUN_SYNTHETIC_PENDING_LIFECYCLE_DEV"]])
@@ -27,7 +29,7 @@ def test_incomplete_execution_is_blocked(arguments):
 def test_source_contains_real_checks_and_explicit_refund_limitation():
     source = PATH.read_text(encoding="utf-8")
     for token in ("sql_null_absent_json_null_truth", "owned_sequential_duplicate_finalize", "foreign_tenant_user_denied",
-                  "pending_duplicate_claim_accepted", "real cancellation and reservation refund are not tested"):
+                  "pending_duplicate_claim_accepted", "public cancellation endpoint and provider billing refund are not tested"):
         assert token in source
 
 

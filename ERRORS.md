@@ -2,6 +2,16 @@
 
 Current as of: 2026-11-02.
 
+## AI-BUDGET-002 - Cross-month cancellation refunded the current usage period
+
+- Date:2026-11-02; discovered while reconciling stale synthetic Standards V2 job3ef30b99 from29Oct. No cancellation or customer-counter mutation was executed during diagnosis.
+- Cause: release_generation_reservation_once called refund_llm_budget without the original charge month; refund selected datetime.now(UTC). A November cancellation could decrement a November row for an October admission. Aggregate counters are optimistic application reservations, not provider billing.
+- Fix: new admission overwrites any supplied month with one server-chosen charge month, persists it with the job in the admission transaction, and reuses it for dispatch compensation/cancellation. Legacy inference is allowed only when trustworthy creation-to-first-start (or not-yet-started current time) bounds share one UTC month. Unknown/cross-month legacy intervals fail before refund writes. Explicit-period refunds require one sufficient usage row; missing/insufficient rows roll back and cannot claim a released reservation. Implicit-period other operations retain their previous best-effort contract.
+- Verification: original10 red regressions;122 focused checks PASS including midnight dispatch, idempotence, missing-row/invalid-period and held V3 negatives; baseline1005/2171 PASS. Both isolated PostgreSQL gates PASS10 checks; final narrowed implicit-period-compatible source91ebed01303e32e977034941dafc45a726c87c5c293c20bffeea52237e5ed726, custody .release-evidence/dev/budget-period-final-pg-custody-20261102.json and .result.json: October-only refund, November preservation, replay, rollback and fixture RLS, cleanuptrue/public0184unchanged. Independent source review accepted; first schema absence/public revision independently confirmed through restricted lms_app. Deployed cancellation still pending.
+- Limits: legacy timestamps and admission ordering establish a period, not a per-job historical monetary ledger. Cancellation records terminal status before cleanup; uncertain accounting may leave cleanup pending. No provider charge is refunded or declared known by this application-counter repair.
+- Prevention: durable async reservations must retain the charge period; delayed compensation must not derive it from current time or silently mark a zero-row update successful. Keep unknown provider holds fenced and inspect the exact synthetic job before cancelling it.
+
+
 ## DEV-QA-20261102 - Microcredit extraction rejected a returned Responses envelope
 
 - Date: 2026-11-02; fixed synthetic DEV job9deab132, no customer writes.
