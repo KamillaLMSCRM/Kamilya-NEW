@@ -170,6 +170,7 @@ async def test_actual_extraction_entrypoint_retains_nested_plan_rejection(monkey
 @pytest.mark.parametrize("field", ["tenant", "user", "job", "stage", "status"])
 async def test_typed_rejection_for_wrong_scope_cannot_write_receipt(monkeypatch, field):
     from uuid import uuid4
+
     from app.modules.ai.direct_luna_responses_client import ResponsesRejectedError
 
     fake, journal, client, plan, validate = setup()
