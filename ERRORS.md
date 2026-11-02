@@ -2,7 +2,7 @@
 
 Current as of: 2026-11-02.
 
-## APPROVAL-003 - Ordinary reviewer calls were treated as capability-only transport
+## APPROVAL-005 - Ordinary reviewer calls were treated as capability-only transport
 
 - Date: 2026-11-02; live frontend68 production UX acceptance, synthetic QA only.
 - Symptom: assigned request visible in ordinary methodologist inbox, opening it returned401.
