@@ -1,9 +1,11 @@
 """Unwired V3 pending-stage transactions. No endpoint or worker uses this module."""
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Awaitable, Callable
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import Boolean, case, cast, false, func, literal, select, true
 from sqlalchemy.dialects.postgresql import JSONB
@@ -243,6 +245,7 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
 
     _owner(plan, journal)
     digest = _digest(plan)
+    phase = "ownership_check"
     try:
         async with journal.sessions() as session:
             job = await _locked_job(session, journal, user_id)
@@ -255,8 +258,11 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
             if stored_claim != marker:
                 raise ValueError("v3_pending_claim_mismatch")
             if verify_source is not None:
+                phase = "source_check"
                 await verify_source_safely(verify_source, session, job, plan)
+            phase = "result_validation"
             restored = validate(value)
+            phase = "persistence_or_commit"
             fields = dict(tenant_id=journal.tenant_id, generation_key=journal._owned_key(result_key),
                           module_key="cycle", lesson_key="lesson")
             await journal.repository.checkpoint_content(session, **fields, content_payload={"owned": True})
@@ -275,4 +281,13 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
             await session.commit()
             return restored
     except BaseException as exc:
+        try:
+            try:
+                job = str(UUID(journal.job_id))
+            except (ValueError, TypeError, AttributeError):
+                job = "unknown"
+            logging.getLogger(__name__).info("v3_finalize job=%s stage=%s phase=%s outcome=unknown",
+                                             job, digest, phase)
+        except Exception:
+            pass
         raise ExtractionOutcomeUnknownError("v3_pending_finalize_unknown") from exc

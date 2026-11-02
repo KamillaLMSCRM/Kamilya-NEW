@@ -47,7 +47,8 @@ async def test_count_before_claim_and_completed_replay_has_no_external_call(monk
         return cap
     async def invoke(value, *, ownership_checkpoint, **_kwargs):
         assert value is cap and has_pending(fake.job.result) and await ownership_checkpoint() is True
-        return SimpleNamespace(content={'ok': True})
+        return SimpleNamespace(content={'ok': True}, model='gpt-6-luna',
+            usage=SimpleNamespace(input_tokens=12, output_tokens=None, cached_input_tokens=0, reasoning_tokens=None))
     prepare_mock, invoke_mock = AsyncMock(side_effect=prepare), AsyncMock(side_effect=invoke)
     monkeypatch.setattr(client, 'prepare', prepare_mock)
     monkeypatch.setattr(client, 'invoke', invoke_mock)
@@ -55,6 +56,54 @@ async def test_count_before_claim_and_completed_replay_has_no_external_call(monk
     assert await run_direct_owned_stage(**options(journal, client, plan, validate)) == {'ok': True}
     prepare_mock.assert_awaited_once()
     invoke_mock.assert_awaited_once()
+    stored = fake.values['result']
+    assert stored['direct_metadata']['usage'] == {'input_tokens': 12, 'output_tokens': None,
+        'cached_input_tokens': 0, 'reasoning_tokens': None}
+    stored['direct_metadata']['usage']['input_tokens'] = 999
+    with pytest.raises(ExtractionOutcomeUnknownError, match='v3_inspection_unverified'):
+        await run_direct_owned_stage(**options(journal, client, plan, validate))
+    invoke_mock.assert_awaited_once()
+
+
+@pytest.mark.parametrize('value', [True, -1, '12'])
+def test_usage_metadata_rejects_malformed_counts(value):
+    from app.modules.ai.v3.direct_usage_metadata import checked_metadata
+    with pytest.raises(ValueError, match='direct_usage_metadata_invalid'):
+        checked_metadata({'model': 'gpt-6-luna', 'usage': {'input_tokens': value, 'output_tokens': None,
+            'cached_input_tokens': None, 'reasoning_tokens': None}})
+
+
+def test_legacy_result_metadata_absent_remains_valid():
+    from app.modules.ai.v3.stage_checkpoint import _validate_direct_metadata
+    _validate_direct_metadata({'identity': 'legacy', 'response': {'ok': True}})
+
+
+@pytest.mark.parametrize('usage', [
+    {'input_tokens': 1, 'output_tokens': None, 'cached_input_tokens': 2, 'reasoning_tokens': None},
+    {'input_tokens': None, 'output_tokens': 1, 'cached_input_tokens': None, 'reasoning_tokens': 2},
+])
+def test_usage_metadata_normalizes_subcounts_exceeding_totals(usage):
+    from app.modules.ai.v3.direct_usage_metadata import checked_metadata
+    result = checked_metadata({'model': 'gpt-6-luna', 'usage': usage})['usage']
+    assert result['input_tokens'] == usage['input_tokens'] and result['output_tokens'] == usage['output_tokens']
+    assert result['cached_input_tokens'] is None and result['reasoning_tokens'] is None
+
+
+@pytest.mark.asyncio
+async def test_inconsistent_usage_is_unknown_and_response_replays_without_retry(monkeypatch):
+    fake, journal, client, plan, validate = setup()
+    prepare = AsyncMock(return_value=object())
+    invoke = AsyncMock(return_value=SimpleNamespace(content={'ok': True}, model='gpt-6-luna',
+        usage=SimpleNamespace(input_tokens=1, output_tokens=None, cached_input_tokens=2, reasoning_tokens=None)))
+    monkeypatch.setattr(client, 'prepare', prepare)
+    monkeypatch.setattr(client, 'invoke', invoke)
+    assert await run_direct_owned_stage(**options(journal, client, plan, validate)) == {'ok': True}
+    assert not has_pending(fake.job.result)
+    assert fake.values['result']['direct_metadata']['usage']['input_tokens'] == 1
+    assert fake.values['result']['direct_metadata']['usage']['cached_input_tokens'] is None
+    assert await run_direct_owned_stage(**options(journal, client, plan, validate)) == {'ok': True}
+    prepare.assert_awaited_once()
+    invoke.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -96,7 +145,7 @@ async def test_real_checkpoint_direct_path_counts_before_claim_and_cold_replays(
     fake, journal, client, _plan, _validate = setup()
     calls = []
     response = {'ok': True} if kind == 'stage' else {'rules': []}
-    async def post(endpoint, _payload):
+    async def post(endpoint, _payload, **_kwargs):
         calls.append(endpoint)
         if endpoint.endswith('input_tokens'):
             assert not has_pending(fake.job.result)

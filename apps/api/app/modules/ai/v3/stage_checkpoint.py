@@ -17,6 +17,14 @@ def _digest(value: Any) -> str:
                                      allow_nan=False).encode("utf-8")).hexdigest()
 
 
+def _validate_direct_metadata(value: dict[str, Any]) -> None:
+    if "direct_metadata" in value or "direct_metadata_sha256" in value:
+        from app.modules.ai.v3.direct_usage_metadata import checked_metadata
+        metadata = checked_metadata(value.get("direct_metadata"))
+        if value.get("direct_metadata") != metadata or value.get("direct_metadata_sha256") != _digest(metadata):
+            raise ValueError("direct_usage_metadata_invalid")
+
+
 def stage_plan(journal: ExtractionJournal, *, stage: str, group_id: str, source_sha256: str,
                route_fingerprint: str, messages: list[dict[str, str]],
                response_format: dict[str, Any] | None) -> dict[str, Any]:
@@ -37,6 +45,7 @@ async def read_verified_stage_result(journal: ExtractionJournal, plan: dict[str,
     value = await journal.read_owned_value(f"v3-stage-result:{signature}", plan)
     if not isinstance(value, dict) or value.get("identity") != signature:
         raise ValueError("v3_stage_checkpoint_invalid")
+    _validate_direct_metadata(value)
     response = value.get("response")
     if not isinstance(response, dict) or not response or value.get("response_sha256") != _digest(response):
         raise ValueError("v3_stage_checkpoint_invalid")
@@ -92,6 +101,7 @@ async def stage_once(
         raise ValueError("pending_journal_type_invalid")
     if type(journal) is PendingStageJournal:
         def validate_value(value: dict[str, Any]) -> dict[str, Any]:
+            _validate_direct_metadata(value)
             if value.get("identity") != signature:
                 raise ValueError("v3_stage_checkpoint_invalid")
             response = validate(value.get("response"))

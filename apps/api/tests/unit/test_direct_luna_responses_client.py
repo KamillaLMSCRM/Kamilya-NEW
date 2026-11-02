@@ -1,5 +1,7 @@
 import asyncio
 import json
+import logging
+import socket
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -81,6 +83,88 @@ async def test_non200_count_fails_without_generate(fixture):
     with pytest.raises(ResponsesClientError, match="transport_unknown"):
         await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
     assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_transport_diagnostic_is_bounded_and_does_not_log_request(fixture, caplog):
+    client, _, _, state, requests = fixture
+    state["status"] = 401
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        with pytest.raises(ResponsesClientError, match="transport_unknown"):
+            await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
+                                 max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+    assert "phase=count event=failed status=401 classification=http_status" in caplog.text
+    assert "private-synthetic-source" not in caplog.text
+    assert "synthetic-secret" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_transport_diagnostic_received_is_not_a_completion_claim(fixture, caplog):
+    client, _, _, _, requests = fixture
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
+                             max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+    assert "phase=count event=received status=200 classification=body_received" in caplog.text
+    assert "private-synthetic-source" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["timeout", "cancel", "status_429", "malformed", "incomplete"])
+async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, caplog, failure):
+    def deny(*args, **kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    requests = []
+    class Stream(httpx.AsyncByteStream):
+        def __init__(self, data):
+            self.data = data
+        async def __aiter__(self):
+            yield self.data
+    def handler(request):
+        requests.append(request)
+        if request.url.path.endswith("input_tokens"):
+            return httpx.Response(200, stream=Stream(b'{"object":"response.input_tokens","input_tokens":12}'))
+        if failure == "timeout":
+            raise httpx.ReadTimeout("private-response-secret")
+        if failure == "cancel":
+            raise asyncio.CancelledError("private-response-secret")
+        if failure == "status_429":
+            return httpx.Response(429, text="private-response-secret")
+        if failure == "malformed":
+            return httpx.Response(200, stream=Stream(b"{private-response-secret"))
+        return httpx.Response(200, stream=Stream(b'{"model":"gpt-6-luna","status":"incomplete","output":[]}'))
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    tenant, user, job = uuid4(), uuid4(), str(uuid4())
+    client = DirectLunaResponsesClient(api_key="synthetic-secret", tenant_id=tenant, user_id=user, job_id=job)
+    capability = await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
+                                      max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        with pytest.raises(ResponsesClientError) as error:
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id=job,
+                                ownership_checkpoint=AsyncMock(return_value=True), stage_id="a" * 64)
+        with pytest.raises(ResponsesClientError, match="capability_invalid"):
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id=job,
+                                ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 2
+    assert error.value.__context__ is None
+    assert f"job={job} stage={'a' * 64} phase=generation event=attempt" in caplog.text
+    if failure == "status_429":
+        assert "event=failed status=429 classification=http_status" in caplog.text
+    elif failure in ("timeout", "cancel"):
+        assert "event=failed status=None classification=transport_unknown" in caplog.text
+    else:
+        assert "event=received status=200 classification=body_received" in caplog.text
+        assert str(error.value) == "luna_responses_generation_unverified"
+        category = "output_json" if failure == "malformed" else "completion_status"
+        if failure == "malformed":
+            category = "envelope_schema"
+        assert f"luna_generation_validation job={job} stage={'a' * 64} classification={category}" in caplog.text
+    for secret in ("private-response-secret", "private-synthetic-source", "synthetic-secret"):
+        assert secret not in caplog.text and secret not in str(error.value)
 
 
 @pytest.mark.asyncio

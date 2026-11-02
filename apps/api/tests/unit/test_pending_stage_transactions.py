@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from copy import deepcopy
 from types import SimpleNamespace
 
@@ -120,17 +121,20 @@ def test_sql_presence_uses_jsonb_key_operator():
 
 
 @pytest.mark.asyncio
-async def test_finalize_lost_ack_never_falsely_claims_failure():
+async def test_finalize_lost_ack_never_falsely_claims_failure(caplog):
     journal = TxJournal()
     options = args(journal)
     await claim_with_pending(**options)
     journal.fail_ack = True
     value = {"identity": _digest(options["plan"]), "response": {"ok": True}}
-    with pytest.raises(ExtractionOutcomeUnknownError) as error:
-        await finalize_pending(**options, value=value)
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.v3.pending_stage_transactions"):
+        with pytest.raises(ExtractionOutcomeUnknownError) as error:
+            await finalize_pending(**options, value=value)
     assert isinstance(error.value.__cause__, TimeoutError)
     assert journal.values[options["result_key"]] == value
     assert not has_pending(journal.job.result)
+    assert f"v3_finalize job=unknown stage={_digest(options['plan'])} phase=persistence_or_commit outcome=unknown" in caplog.text
+    assert "lost ack" not in caplog.text and "response" not in caplog.text
 
 
 @pytest.mark.asyncio

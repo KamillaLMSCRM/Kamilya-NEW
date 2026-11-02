@@ -32,6 +32,7 @@ class PendingStageJournal(WorkerCycleJournal):
                           validate_response: Callable[[Any], dict[str, Any]],
                           invoke: Callable[[], Awaitable[dict[str, Any]]],
                           _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
+                          _direct_metadata: Callable[[], dict[str, Any]] | None = None,
                           ) -> dict[str, Any]:
         verify_source = self.verify_source
         if _owned_claim_guard is not None:
@@ -61,6 +62,11 @@ class PendingStageJournal(WorkerCycleJournal):
                     raise ValueError("v3_pending_marker_mismatch")
             response = validate_response(await invoke())
             value = {"identity": digest, "response": response, "response_sha256": _digest(response)}
+            if _direct_metadata is not None:
+                from app.modules.ai.v3.direct_usage_metadata import checked_metadata
+                metadata = checked_metadata(_direct_metadata())
+                value["direct_metadata"] = metadata
+                value["direct_metadata_sha256"] = _digest(metadata)
             return await finalize_pending(journal=self, user_id=self.user_id, plan=plan, result_key=result_key,
                                           claim_key=claim_key, marker=marker, value=value, validate=validate_value,
                                           verify_source=verify_source)

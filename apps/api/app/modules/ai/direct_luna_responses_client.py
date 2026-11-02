@@ -8,6 +8,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import logging
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -23,6 +25,8 @@ from app.modules.ai.direct_luna_responses_contract import (
     validate_count,
 )
 from app.modules.ai.source_first_response import parse_source_first_response
+
+logger = logging.getLogger(__name__)
 
 
 class ResponsesClientError(RuntimeError):
@@ -63,9 +67,23 @@ class DirectLunaResponsesClient:
     def __repr__(self) -> str:
         return "DirectLunaResponsesClient(<redacted>)"
 
-    async def _post(self, endpoint: str, payload: dict[str, Any]) -> str:
+    async def _post(self, endpoint: str, payload: dict[str, Any], *, stage_id: str | None = None) -> str:
         failed = False
         raw: bytes = b""
+        phase = "count" if endpoint == COUNT_ENDPOINT else "generation"
+        status: int | None = None
+        classification = "transport_unknown"
+        try:
+            job = str(UUID(self._scope[2]))
+        except ValueError:
+            job = "unknown"
+        def record(event: str) -> None:
+            try:
+                logger.info("luna_transport job=%s stage=%s phase=%s event=%s status=%s classification=%s",
+                            job, stage_id or "unknown", phase, event, status, classification)
+            except Exception:
+                pass
+        record("attempt")
         try:
             async with asyncio.timeout(self._deadline):
                 async with httpx.AsyncClient(timeout=TIMEOUT, trust_env=False, follow_redirects=False) as client:
@@ -73,6 +91,8 @@ class DirectLunaResponsesClient:
                         raise ResponsesClientError("luna_responses_client_closed")
                     async with client.stream("POST", endpoint, headers={"Authorization": f"Bearer {self._key}",
                         "Accept-Encoding": "identity"}, json=payload) as response:
+                        status = response.status_code
+                        classification = "http_status" if status != 200 else "invalid_or_incomplete_response"
                         if response.status_code != 200 or response.headers.get("content-encoding", "identity").strip().lower() != "identity":
                             failed = True
                         else:
@@ -89,13 +109,17 @@ class DirectLunaResponsesClient:
         except (Exception, asyncio.CancelledError):
             failed = True
         if failed:
+            record("failed")
             raise ResponsesClientError("luna_responses_transport_unknown")
         try:
             text = raw.decode("utf-8")
         except UnicodeError:
             text = ""
         if not text:
+            record("failed")
             raise ResponsesClientError("luna_responses_transport_unknown")
+        classification = "body_received"
+        record("received")
         return text
 
     async def _verify_ownership(self, checkpoint: Callable[[], Awaitable[bool]]) -> None:
@@ -144,7 +168,7 @@ class DirectLunaResponsesClient:
         self._closed = True
 
     async def invoke(self, capability: object, *, tenant_id: UUID, user_id: UUID, job_id: str,
-                     ownership_checkpoint: Callable[[], Awaitable[bool]]) -> ResponsesResult:
+                     ownership_checkpoint: Callable[[], Awaitable[bool]], stage_id: str | None = None) -> ResponsesResult:
         # Pop before any await: concurrent callers cannot spend the same count twice.
         prepared = self._prepared.pop(capability, None)
         if prepared is None:
@@ -152,16 +176,27 @@ class DirectLunaResponsesClient:
         request, scope = prepared
         if scope != self._scope or (tenant_id, user_id, job_id) != scope or not callable(ownership_checkpoint):
             raise ResponsesClientError("luna_responses_capability_invalid")
+        if stage_id is not None and (not isinstance(stage_id, str) or not re.fullmatch(r"[0-9a-f]{64}", stage_id)):
+            raise ResponsesClientError("luna_responses_stage_identity_invalid")
         await self._verify_ownership(ownership_checkpoint)
         if self._closed:
             raise ResponsesClientError("luna_responses_client_closed")
-        raw = await self._post(GENERATION_ENDPOINT, request.generation_payload())
+        if stage_id is None:
+            raw = await self._post(GENERATION_ENDPOINT, request.generation_payload())
+        else:
+            raw = await self._post(GENERATION_ENDPOINT, request.generation_payload(), stage_id=stage_id)
         invalid = False
         result: ResponsesResult | None = None
+        validation_stage = "envelope_schema"
         try:
             body = parse_source_first_response(raw)
-            if body.get("model") != "gpt-6-luna" or body.get("status") != "completed":
+            validation_stage = "model"
+            if body.get("model") != "gpt-6-luna":
                 raise ValueError
+            validation_stage = "completion_status"
+            if body.get("status") != "completed":
+                raise ValueError
+            validation_stage = "output_shape"
             outputs = body.get("output")
             if not isinstance(outputs, list) or not outputs:
                 raise ValueError
@@ -178,9 +213,13 @@ class DirectLunaResponsesClient:
             if len(messages) != 1 or len(messages[0]["content"]) != 1:
                 raise ValueError
             item = messages[0]["content"][0]
+            if isinstance(item, dict) and item.get("type") == "refusal":
+                validation_stage = "refusal"
+                raise ValueError
             if not isinstance(item, dict) or item.get("type") != "output_text" or not isinstance(item.get("text"), str):
                 raise ValueError
             texts = [item["text"]]
+            validation_stage = "output_json"
             content = parse_source_first_response(texts[0])
             usage = body.get("usage")
             input_details = usage.get("input_tokens_details") if isinstance(usage, dict) else None
@@ -191,5 +230,14 @@ class DirectLunaResponsesClient:
         except Exception:
             invalid = True
         if invalid or result is None:
+            try:
+                try:
+                    job = str(UUID(job_id))
+                except ValueError:
+                    job = "unknown"
+                logger.info("luna_generation_validation job=%s stage=%s classification=%s", job,
+                            stage_id or "unknown", validation_stage)
+            except Exception:
+                pass
             raise ResponsesClientError("luna_responses_generation_unverified")
         return result
