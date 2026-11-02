@@ -28,6 +28,28 @@ from app.modules.ai.source_first_response import parse_source_first_response
 
 logger = logging.getLogger(__name__)
 
+_REJECTION_STATUSES = frozenset({"incomplete", "failed", "in_progress", "queued", "cancelled"})
+_INCOMPLETE_REASONS = frozenset({"max_output_tokens", "content_filter"})
+
+
+def _safe_rejection_details(body: dict[str, Any]) -> tuple[str, str, int | None, int | None, int | None, int | None]:
+    """Allowlist provider enums and nullable validated counters; never return provider text."""
+    raw_status = body.get("status")
+    status = raw_status if isinstance(raw_status, str) and raw_status in _REJECTION_STATUSES else "unknown"
+    detail = body.get("incomplete_details")
+    raw_reason = detail.get("reason") if isinstance(detail, dict) and status == "incomplete" else None
+    reason = raw_reason if isinstance(raw_reason, str) and raw_reason in _INCOMPLETE_REASONS else "unknown"
+    usage = body.get("usage")
+    input_details = usage.get("input_tokens_details") if isinstance(usage, dict) else None
+    output_details = usage.get("output_tokens_details") if isinstance(usage, dict) else None
+    input_count, output_count = _count(usage, "input_tokens"), _count(usage, "output_tokens")
+    cached, reasoning = _count(input_details, "cached_tokens"), _count(output_details, "reasoning_tokens")
+    if cached is not None and input_count is not None and cached > input_count:
+        cached = None
+    if reasoning is not None and output_count is not None and reasoning > output_count:
+        reasoning = None
+    return status, reason, input_count, output_count, cached, reasoning
+
 
 class ResponsesClientError(RuntimeError):
     """Sanitized error; generation errors indicate an unknown outcome."""
@@ -195,6 +217,16 @@ class DirectLunaResponsesClient:
                 raise ValueError
             validation_stage = "completion_status"
             if body.get("status") != "completed":
+                try:
+                    try:
+                        job = str(UUID(job_id))
+                    except ValueError:
+                        job = "unknown"
+                    status, reason, input_count, output_count, cached, reasoning = _safe_rejection_details(body)
+                    logger.info("luna_generation_rejected job=%s stage=%s status=%s reason=%s input_tokens=%s output_tokens=%s cached_input_tokens=%s reasoning_tokens=%s",
+                                job, stage_id or "unknown", status, reason, input_count, output_count, cached, reasoning)
+                except Exception:
+                    pass
                 raise ValueError
             validation_stage = "output_shape"
             outputs = body.get("output")

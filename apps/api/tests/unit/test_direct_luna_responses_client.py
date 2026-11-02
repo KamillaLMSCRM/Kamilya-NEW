@@ -168,6 +168,42 @@ async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("status", "reason", "expected_status", "expected_reason"), [
+    ("incomplete", "max_output_tokens", "incomplete", "max_output_tokens"),
+    ("incomplete", "content_filter", "incomplete", "content_filter"),
+    ("failed", "private-reason", "failed", "unknown"),
+    ("private-status", "private-reason", "unknown", "unknown"),
+])
+async def test_rejection_logs_bounded_envelope_without_retry(fixture, monkeypatch, caplog,
+                                                            status, reason, expected_status, expected_reason):
+    client, tenant, user, _, requests = fixture
+    capability = await client.prepare([{"role": "user", "content": "private-prompt"}], max_output_tokens=1,
+                                      ownership_checkpoint=AsyncMock(return_value=True))
+    envelope = {"model": "gpt-6-luna", "status": status, "incomplete_details": {"reason": reason},
+                "usage": {"input_tokens": 12, "output_tokens": 4, "input_tokens_details": {"cached_tokens": 13},
+                          "output_tokens_details": {"reasoning_tokens": 3}}, "private": "secret-body"}
+    post = AsyncMock(return_value=json.dumps(envelope))
+    monkeypatch.setattr(client, "_post", post)
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        with pytest.raises(ResponsesClientError, match="generation_unverified"):
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id="job",
+                                ownership_checkpoint=AsyncMock(return_value=True), stage_id="b" * 64)
+        with pytest.raises(ResponsesClientError, match="capability_invalid"):
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id="job",
+                                ownership_checkpoint=AsyncMock(return_value=True), stage_id="b" * 64)
+    assert f"status={expected_status} reason={expected_reason}" in caplog.text
+    assert "input_tokens=12 output_tokens=4 cached_input_tokens=None reasoning_tokens=3" in caplog.text
+    assert all(secret not in caplog.text for secret in ("private-prompt", "secret-body", "private-status", "private-reason", "synthetic-secret"))
+    assert len(requests) == 1 and post.await_count == 1
+
+
+def test_rejection_malformed_usage_is_unknown_not_zero():
+    from app.modules.ai.direct_luna_responses_client import _safe_rejection_details
+    assert _safe_rejection_details({"status": "incomplete", "usage": {"input_tokens": True,
+        "output_tokens": "private", "input_tokens_details": None}}) == ("incomplete", "unknown", None, None, None, None)
+
+
+@pytest.mark.asyncio
 async def test_forged_capability_and_other_client_rejected(fixture):
     client, tenant, user, _, requests = fixture
     cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))

@@ -2,6 +2,15 @@
 
 Current as of: 2026-11-02.
 
+## DEV-QA-20261102 - Microcredit extraction rejected a returned Responses envelope
+
+- Date: 2026-11-02; fixed synthetic DEV job9deab132, no customer writes.
+- Symptom: interrupted34%, no course; one extraction claim retained without an accepted result. Initial aggregate diagnostic misclassified its nested extraction plan as unknown stage and omitted its saved metadata family.
+- Cause evidence: bounded official Render log read (2pages109matched,hasMore=false) identifies stage10040dd2 generationattempt06:15:55.018Z, HTTP200/body_received06:16:49.084Z and completion_status rejection06:16:49.085Z. The actual envelope status/reason was not retained; do not infer network timeout or max-output cause.
+- Fix: read-only diagnostic now distinguishes exact stage/extraction keys and nested identity, verifies owned pending custody and reports self-consistent metadata separately from source/provider authenticity. Responses client now logs finite rejection status/reason and nullable validated counters without provider text, source, key or retries; response acceptance remains strict.
+- Verification:12 socket-denied diagnostic tests; root48 client/contract mocked tests PASS and independent bounded source review accepted. Canonical baseline1005/2171 PASS. Read-only current job52rows,25saved metadata records (input53608/output61755/reasoning10048), one pending extraction. Counts are partial/untrusted for billing; total cost and missing outcome remain unknown. No model/replay/refund.
+- Prevention: distinguish transport, envelope completion and JSON validation before changing limits. Preserve safe failure diagnostics. Never use a pending result or aggregate empty list as proof that no provider work occurred; completed manual UX courses do not accept this engine.
+
 ## TEST-ISOLATION-001 - Synthetic V3 test entered external transport
 
 - Date: 2026-11-02.
