@@ -915,7 +915,7 @@ export default function AIGeneratePage() {
             className="flex min-w-0 flex-col items-center gap-1 text-center sm:flex-row sm:gap-2 sm:text-left"
           >
             <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-              step === s.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+              step === s.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
             }`}>
               {s.num}
             </div>
@@ -1349,7 +1349,7 @@ export default function AIGeneratePage() {
           <button
             onClick={() => void handleGenerate()}
             disabled={!canGenerate || generationSubmitting}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('aiGeneration.generation.starting')}</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
           </button>
@@ -1387,7 +1387,7 @@ export default function AIGeneratePage() {
           {currentJob.status === 'completed' && currentJob.course_id && (
             <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
-              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
               {t('aiGeneration.generation.openCourse')} <ChevronRight className="w-4 h-4 ml-1 inline" />
             </button>

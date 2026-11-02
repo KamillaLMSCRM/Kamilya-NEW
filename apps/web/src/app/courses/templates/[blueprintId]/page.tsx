@@ -318,7 +318,7 @@ function BlueprintPageContent() {
               aria-current={active ? 'step' : undefined}
             >
               <span className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${complete ? 'bg-success text-white' : active ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+                <span className={`flex h-6 w-6 items-center justify-center rounded-full ${complete ? 'bg-success text-success-foreground' : active ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                   {complete ? <Check className="h-4 w-4" aria-hidden="true" /> : index + 1}
                 </span>
                  {t('courses.blueprint.stepProgress', { current: index + 1, total: adaptationSteps.length })}

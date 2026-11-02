@@ -559,7 +559,7 @@ function ScopedQuizPlayer() {
                   disabled={attemptBlocked}
                   className={`w-9 h-9 rounded-full text-sm font-medium border transition-colors ${
                     i === currentIdx
-                      ? 'bg-primary text-white border-primary'
+                      ? 'bg-primary text-primary-foreground border-primary'
                       : selected
                       ? 'bg-primary/15 text-primary border-primary/40'
                       : 'bg-card text-foreground border-border hover:border-primary/70'

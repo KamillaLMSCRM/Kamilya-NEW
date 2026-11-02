@@ -2,6 +2,48 @@
 
 Current as of: 2026-11-02.
 
+## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
+
+- Date:2026-11-02; local visual follow-up, no deployment.
+- Symptom: the delivered learning UX branch improved workflows while `/courses`,
+  general theme and shared visual primitives still looked unchanged. The owner
+  correctly challenged the claimed completion.
+- Cause: root narrowed the implementation packet to behaviour and explicitly
+  excluded the general styling/catalogue work; functional test totals did not
+  measure visual correspondence to the approved prototypes.
+- Fix: a separate bounded visual contract now owns authenticated theme/shell,
+  real course catalogue hierarchy/cards/actions and public/portal negative space.
+  Courses precede retained blueprint disclosure; counts remain current-list data.
+- Verification: settled real-page before captures on identical synthetic data;
+  failing visual/theme contracts before implementation; actual computed palette,
+  five-width screenshots, action text-fit/pointer hits and retained business flows.
+  Independent source review corrected tablet overlaps and semantic dark text.
+  Final candidate results belong to TEST_RUN_LEDGER, not a production claim.
+- Prevention: include the disputed canonical screen in before/after acceptance;
+  inspect rendered pixels and computed styles, not only new controls or green
+  workflow tests. Never silently exclude the requested visual layer.
+
+## CSS-THEME-001 - Tailwind removed a runtime-only dark base selector from production CSS
+
+- Date:2026-11-02; local authenticated visual candidate.
+- Symptom: a built "dark" screenshot remained light even though the DOM had a
+  dark class and contrast checks passed. Parsing generated CSS found only the
+  light workspace rule.
+- Cause: the scoped `.dark` selector in Tailwind's base layer was omitted because
+  application content had no literal dark class. Source declarations and DOM
+  class checks did not establish that its tokens reached the generated stylesheet.
+- Fix: equivalent scoped root `[class~="dark"]` matching retains the rule without
+  changing public/default dark-utility policy. Browser mode checks require the
+  computed dark background before contrast and screenshot assertions.
+- Verification: actual repository PostCSS/Tailwind generation regression RED
+  (zero dark rules), then9 style tests PASS, including retained dark output.
+  Rebuilt browser checks verify the actual computed mode and matching dark
+  contrast. Earlier light-mode screenshots are not accepted as dark evidence;
+  contrast is measured after real colour transitions settle, not mid-interpolation.
+- Prevention: exercise generated CSS for a runtime-only theme selector and verify
+  computed tokens in the intended mode. A source rule or plausible contrast ratio
+  measured in another mode is insufficient.
+
 ## APPROVAL-006 - Per-quiz review submissions overwrote whole-course diagnostics
 
 - Date: 2026-11-02; real two-lesson/two-quiz production QA, no customer records.

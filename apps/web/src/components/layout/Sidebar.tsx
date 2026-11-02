@@ -11,6 +11,8 @@ import {
   Building2,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardCheck,
   FileText,
   GraduationCap,
@@ -19,7 +21,6 @@ import {
   Map,
   MessageSquare,
   Monitor,
-  MoreHorizontal,
   Route,
   Settings,
   Sparkles,
@@ -93,21 +94,22 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
 
   return (
     <aside
+      data-workspace-rail="true"
       className={cn(
-        'fixed left-0 top-0 z-30 flex h-screen flex-col border-r border-border bg-card transition-all duration-300',
+        'fixed left-0 top-0 z-30 flex h-dvh flex-col border-r border-border bg-card transition-all duration-200',
         collapsed ? 'w-[68px]' : 'w-[240px]',
         'max-md:w-[240px] max-md:shadow-card-lg',
-        mobileOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full',
+        mobileOpen ? 'max-md:translate-x-0 max-md:visible' : 'max-md:-translate-x-full max-md:invisible',
       )}
     >
-      <div className={cn('flex h-16 items-center border-b border-border px-4', collapsed && 'justify-center px-0')}>
+      <div className={cn('flex h-[72px] shrink-0 items-center border-b border-border px-5', collapsed && 'justify-center px-0')}>
         <div className={cn('min-w-0', collapsed && 'flex justify-center')}>
-          <Logo variant={collapsed ? 'mark' : 'full'} size={32} withSubtitle={!collapsed} />
+          <Logo variant={collapsed ? 'mark' : 'full'} size={32} withSubtitle={false} />
         </div>
       </div>
 
       {user?.role === 'methodologist' && (
-        <div className="border-b border-border px-3 py-3">
+        <div className="px-3 pb-1 pt-4">
           <a
             href="/guides/methodologist.html"
             target="_blank"
@@ -116,17 +118,17 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
             title={t('sidebar.methodologistGuide')}
             aria-label={t('sidebar.methodologistGuide')}
             className={cn(
-              'flex min-h-11 items-center gap-3 rounded-xl bg-primary/10 px-3 py-2 text-primary transition-colors hover:bg-primary/15',
+              'flex min-h-11 items-center gap-3 rounded-xl border border-border bg-muted/50 px-3 py-3 text-foreground transition-colors hover:bg-muted',
               collapsed && 'justify-center px-0',
             )}
           >
-            <Video className="h-5 w-5 shrink-0" aria-hidden />
+            <Video className="h-[18px] w-[18px] shrink-0 text-primary" aria-hidden />
             {!collapsed && (
               <span className="min-w-0">
-                <span className="block whitespace-normal break-words text-sm font-semibold leading-5">
+                <span className="block whitespace-normal break-words text-xs font-semibold leading-5">
                   {t('sidebar.methodologistGuide')}
                 </span>
-                <span className="block whitespace-normal break-words text-xs leading-4 text-muted-foreground">
+                <span className="mt-0.5 block whitespace-normal break-words text-[11px] leading-4 text-muted-foreground">
                   {t('sidebar.methodologistGuideDescription')}
                 </span>
               </span>
@@ -139,27 +141,26 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
         type="button"
         onClick={onToggle}
         className={cn(
-          'absolute -right-3 z-40 hidden h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:text-foreground md:flex',
-          user?.role === 'methodologist' ? 'top-12' : 'top-20',
+          'absolute -right-4 top-6 z-40 hidden h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary/30 hover:text-primary md:flex',
         )}
         title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
         aria-expanded={!collapsed}
         aria-controls="sidebar-nav"
       >
-        <MoreHorizontal className="h-4 w-4" aria-hidden />
+        {collapsed ? <ChevronRight className="h-4 w-4" aria-hidden /> : <ChevronLeft className="h-4 w-4" aria-hidden />}
       </button>
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-3 top-5 z-40 flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+        className="absolute right-3 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
         aria-label={t('sidebar.close')}
         title={t('sidebar.close')}
       >
         <span aria-hidden>×</span>
       </button>
 
-      <nav id="sidebar-nav" className="flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label={t('a11y.mainNavigation')}>
+      <nav id="sidebar-nav" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-5" aria-label={t('a11y.mainNavigation')}>
         {sections.map((section) => {
           const sectionRoutes = routes.filter((route) => route.section === section);
           const topLevelRoutes = sectionRoutes.filter(
@@ -171,10 +172,10 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
               key={section}
               data-sidebar-section={section}
               aria-labelledby={!collapsed ? `sidebar-section-${section}` : undefined}
-              className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0"
+                className="border-t border-border/70 pt-4 first:border-t-0 first:pt-0"
             >
               {!collapsed && (
-                <h2 id={`sidebar-section-${section}`} className="mb-2 px-3 text-sm font-bold leading-5 tracking-wide text-primary/80">
+                <h2 id={`sidebar-section-${section}`} className="mb-2 px-3 text-xs font-semibold leading-5 tracking-wide text-muted-foreground">
                   {t(SECTION_LABELS[section])}
                 </h2>
               )}
@@ -202,17 +203,17 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                           title={label}
                           aria-current={active ? 'page' : undefined}
                           className={cn(
-                            'group relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                            'group relative flex min-h-11 min-w-0 flex-1 items-center rounded-xl px-3 py-2 text-sm font-medium transition-colors',
                             collapsed && 'justify-center px-0',
                             childRoutes.length > 0 && !collapsed && 'pr-10',
                             active
-                              ? 'bg-primary/10 text-primary shadow-sm'
+                              ? 'bg-primary/10 text-primary'
                               : childActive
                                 ? 'text-foreground'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                           )}
                         >
-                          <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                          <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
                           {!collapsed && <span className="ml-3 min-w-0 whitespace-normal break-words leading-5">{label}</span>}
                           {active && <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-primary" aria-hidden />}
                         </Link>
@@ -278,7 +279,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
         })}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="shrink-0 border-t border-border bg-card p-3">
         <Link
           href="/profile"
           prefetch={false}
@@ -291,7 +292,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
           title={collapsed ? t('nav.myProfile') : undefined}
           aria-label={t('nav.myProfile')}
         >
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary" aria-hidden>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-xs font-semibold text-primary" aria-hidden>
             {user?.full_name?.[0] || '?'}
           </div>
           {!collapsed && (

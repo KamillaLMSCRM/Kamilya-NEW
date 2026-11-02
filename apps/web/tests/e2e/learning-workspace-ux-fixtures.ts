@@ -1,6 +1,9 @@
 import { expect, test as base, type BrowserContext } from '@playwright/test';
 
-export const appOrigin = 'http://127.0.0.1:3024';
+export const appOrigin = process.env.KAMILYA_WORKSPACE_TEST_ORIGIN || 'http://127.0.0.1:3024';
+if (!['http://127.0.0.1:3024', 'http://127.0.0.1:3026'].includes(appOrigin)) {
+  throw new Error('Synthetic workspace tests require an explicitly allowed loopback origin.');
+}
 const uuid = (suffix: number) => `71000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
 export const ids = {
   tenant: uuid(1), learner: uuid(2), author: uuid(3), course: uuid(4), module: uuid(5),
@@ -127,6 +130,7 @@ type Handler = (call: ApiCall) => Reply | Promise<Reply>;
 /** Every API call is local synthetic data. Unknown reads/writes receive 501, never passthrough. */
 export class SyntheticWorkspace {
   role: 'student' | 'methodologist' = 'student';
+  presentation: { tenantName?: string; fullName?: string; impersonatedBy?: string } = {};
   readonly calls: ApiCall[] = [];
   readonly unexpectedApi: string[] = [];
   readonly unexpectedMutations: string[] = [];
@@ -135,7 +139,7 @@ export class SyntheticWorkspace {
   private readonly reads = new Map<string, Handler>();
   private readonly commands = new Map<string, Handler>();
 
-  constructor(private readonly context: BrowserContext) {}
+  constructor(private readonly context: BrowserContext, private readonly language: 'ru' | 'kk' | 'en' = 'en') {}
 
   get(path: string, body: unknown) { this.onGet(path, () => ({ json: body })); }
   onGet(path: string, handler: Handler) { this.reads.set(path, handler); }
@@ -148,9 +152,10 @@ export class SyntheticWorkspace {
   }
 
   async install() {
-    await this.context.addInitScript(() => {
-      localStorage.setItem('kamilya-language', JSON.stringify({ state: { lang: 'en' }, version: 0 }));
-    });
+    await this.context.addInitScript(({ lang, origin }) => {
+      if (window.location.origin !== origin) return;
+      localStorage.setItem('kamilya-language', JSON.stringify({ state: { lang }, version: 0 }));
+    }, { lang: this.language, origin: appOrigin });
     this.context.on('page', (page) => page.on('pageerror', (error) => this.pageErrors.push(error.message)));
     for (const page of this.context.pages()) {
       page.on('pageerror', (error) => this.pageErrors.push(error.message));
@@ -178,10 +183,11 @@ export class SyntheticWorkspace {
         this.calls.push(call);
         const actor = {
           user_id: this.role === 'student' ? ids.learner : ids.author, tenant_id: ids.tenant,
-          tenant: { id: ids.tenant, name: 'Synthetic workspace QA', slug: 'synthetic-workspace', is_demo: false },
+          tenant: { id: ids.tenant, name: this.presentation.tenantName ?? 'Synthetic workspace QA', slug: 'synthetic-workspace', is_demo: false },
           telegram_id: '0', role: this.role, roles: [this.role],
           first_name: 'Synthetic', last_name: this.role === 'student' ? 'Learner' : 'Author',
-          full_name: this.role === 'student' ? 'Synthetic Learner' : 'Synthetic Author',
+          full_name: this.presentation.fullName ?? (this.role === 'student' ? 'Synthetic Learner' : 'Synthetic Author'),
+          impersonated_by: this.presentation.impersonatedBy,
           email: this.role === 'student' ? 'learner@example.invalid' : 'author@example.invalid',
         };
         let reply: Reply;

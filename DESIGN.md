@@ -1,6 +1,6 @@
 # Kamilya LMS — Brand Design System
 
-> **Status:** v1.0 · Living document  
+> **Status:** v1.1 · Authenticated workspace visual addendum,2026-11-02
 > **Stack:** Next.js 14 · Tailwind CSS v3 · shadcn/ui tokens  
 > **Font stack:** Syne (display) · Manrope (body) · DM Mono (code)  
 > **Seed palette:** Blue #2563EB · Gold #B8860B · Cream #FAF8F5
@@ -89,6 +89,60 @@ The config also ships legacy `warm-{50..800}` and `gold-{50..700}` scales. These
 ### 1.4 Dark mode
 
 The `.dark` block in `globals.css` inverts the same tokens. Use the same semantic utilities — dark mode is automatic via `<html class="dark">` or the `@media (prefers-color-scheme: dark)` override.
+
+---
+
+### 1.5 Production workspace (2026-11-02)
+
+The reviewed learning prototypes are implemented as a real authenticated theme,
+not only as workflow changes. `Layout` mounts `data-app-workspace="v1"`;
+`globals.css` scopes its root tokens with `:root:has([data-app-workspace])` and
+`:root[class~="dark"]:has([data-app-workspace])`. Defining conditional tokens on the
+root also themes body-portal dialogs. Public/login/verification/landing defaults
+above remain unchanged, and leaving the shell removes the theme automatically.
+
+| Token | Workspace light | Workspace dark |
+|---|---|---|
+| background | `228 33% 97%` | `222 40% 10%` |
+| foreground | `218 43% 16%` | `220 33% 94%` |
+| primary | `224 74% 51%` | `223 90% 74%` |
+| primary-foreground | `0 0% 100%` | `222 40% 10%` |
+| muted-foreground | `219 16% 46%` | `220 17% 72%` |
+| border | `218 26% 91%` | `220 22% 26%` |
+| radius | `0.875rem` | `0.875rem` |
+
+- White/card paper, fine cool borders and navy text replace the operational grain
+  texture and oversized decorative gradient covers. No new images/fonts/packages.
+- Workspace headings use existing Manrope, including Cyrillic; Syne remains the
+  public/brand display face. Main type hierarchy is approximately30px page titles,
+  18px card titles,14px body/actions and readable12px navigation section labels.
+- Existing240px/68px rail geometry and canonical navigation remain. Brand/header
+  baseline is72px; controls and content wrap at narrow widths. The desktop collapse
+  control sits at top24px, outside the guide's content; closed mobile navigation is
+  invisible as well as translated, so it cannot capture keyboard focus off-screen.
+- `control-hover` uses the existing accent on public controls and muted paper in
+  the workspace. `dialog-surface` uses the existing public canvas and workspace
+  card paper. Semantic fill/foreground pairs are required in both themes; legacy
+  primary/success `text-white` consumers were migrated to their foreground token.
+- Product motion is reduced to a single near-instant iteration when requested,
+  rather than disabling a legacy opacity animation in its invisible initial state.
+  Course catalogue cards have no opacity-zero/stagger dependency.
+
+The canonical `/courses` design starts with owned courses, search/status controls,
+real state labels and clear next actions. Industry blueprints remain available in
+a closed secondary disclosure below that list. Catalogue grids use an intrinsic
+300px minimum (bounded by100% on phones); action groups wrap independently. Never
+assert responsive success only from document width: check text fit and actual
+pointer hit targets with the rail expanded, including768px.
+
+Visual acceptance uses settled real-page before/after screenshots on identical
+synthetic data, computed theme/contrast and pointer geometry at1440/1270/768/390/
+360, RU/KK/EN, dark/reduced motion, magnification and public/portal negative space.
+Functional test totals alone do not establish that the requested design changed.
+The attribute-form dark selector is intentional: a class selector inside
+Tailwind's base layer can be removed if no content includes the literal class.
+An executable PostCSS/Tailwind regression checks the generated dark rule, and
+browser checks require the actual dark computed palette, not just `.dark` in DOM.
 
 ---
 

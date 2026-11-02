@@ -772,7 +772,7 @@ export default function CoursePlayerPage() {
         <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
           <h2 className="text-xl font-bold mb-2">{course.title}</h2>
           <p className="text-muted-foreground mb-6">{occurrenceUnavailable ? studentDailyLearningCopy[lang].assignmentAccessRequired : t('courses.enrollRequired')}</p>
-          {!occurrenceUnavailable && <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
+          {!occurrenceUnavailable && <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-primary-foreground px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
             {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
           </button>}
           <Link href={courseListHref} className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
@@ -804,7 +804,7 @@ export default function CoursePlayerPage() {
             />
           ) : (
             <div className="text-center">
-              <Link href={courseListHref} className="bg-primary text-white px-6 py-2 rounded hover:bg-primary inline-block">
+              <Link href={courseListHref} className="bg-primary text-primary-foreground px-6 py-2 rounded hover:bg-primary inline-block">
                 {t('courses.backToCourses')}
               </Link>
             </div>
@@ -918,7 +918,7 @@ export default function CoursePlayerPage() {
                     }
                   }}
                 >
-                  <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-success text-white border-success' : 'border-border'}`}>
+                  <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-success text-success-foreground border-success' : 'border-border'}`}>
                     {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
                   </span>
                   {lesson.title}

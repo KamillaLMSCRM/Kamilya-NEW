@@ -5353,3 +5353,77 @@ Engine LOCAL129 remains separate and unreleased; no new model calls.
 2026-11-02 UX69 live repair: synthetic83552/course8d2ef28b; real editor dirty/save/reload/Markdown and question Back/Forward PASS. Approval creation500 root cause missing MASTER_ENCRYPTION_KEY; readonly global ciphertext counts0, canonical immutable provision8147e1cc PASS, unchanged7c35/image/4flags, same-image4services/restarts0 and SMTP persistence PASS. Actual UI requesta023f2e1 now saved. Opening ordinary reviewer request401 exposed account-vs-capability auth seam; candidate fixes it with epoch/actor fencing. Focused49/type/lint PASS. First full unconstrained run1512pass/1fail (known journal-button asynchronous lookup); isolated7 and correctly bounded full1513/180 PASS without changed tests/timeouts. Full-report .release-evidence/ux68-live/full-web-final.json. Static independent reviewer accepted; actual DEV/prod candidate acceptance remains pending, no generator acceptance claimed.
 
 2026-11-02 UX70 corrections: actual synthetic full production2L2Q/assignment/CSV33old+1new/certificate/PDF pages passed on69. Two actual defects corrected: reviewer cumulative scope+same-tab scoped draft, outline URL/reload. Independent source review accepted bounded persistence (not cross-device). Final local1516/180full PASS,63focused PASS, types/lint PASS after loop-variable lint correction. Error journal335unique/release version70 PASS. DEV a242d428 pushed exact; CI41419762374 active. Owner added visual de811b67; source-independent audit confirms frontend-only compatible baseline0f31. Combine reviewed visual delta with70 before protected production; do not issue another completed learner history.
+
+
+## RUN-20261102-PRODUCTION-VISUAL-01
+
+- Recorded:2026-11-02T09:12:20Z; root/executor OpenCode. Disposition:
+  `LOCAL_VISUAL_REVIEW_READY`, not release/production GO.
+- Checkout/branch: `.worktrees/learning-visual-prod-20261102` /
+  `feat/learning-visual-prod-20261102`. Initial refetched076dba75 appearance base;
+  synchronized to0f31ffd5812f1751fc0f1c98f716e65580b1b2ae before final acceptance,
+  retaining upstream reviewer/session fixes and VERSION0.11.69. Catalogue/theme/
+  shell sources did not differ between those bases; source076 captures remain comparable.
+- Runtime implementation10d944dbbfd081d8cbf1d511ecf20fa8dc58c9a7. Test-only27e83edf
+  aligns two old exact-class assertions with the intentional new design and adds
+  actual preview-header geometry. E2E-only7065dfc879a1dacbfafc185fb99c85a87262c362
+  waits for real colour animations to settle before measuring contrast; no
+  threshold/timeouts/application change. Subsequent closeout is documentation-only.
+- Full frozen web at27e83edf0b6f7b440e0c3e7efcb2364ede585826:
+  **182 files /1545 PASS**,219.92s, started09:02:44UTC. Before/after complete
+  web source/test/config snapshot SHA256 identical:
+  `4a9ef626221fb1b01110bfefde9f6ea0df66e76ea0115c297ceff0b651faa192`.
+  Clean web diff against the pinned SHA checked before/after. Later E2E-only file
+  is excluded by Vitest; runtime/Vitest inputs remain identical. Existing
+  act/jsdom-navigation/unawaited-notification-assertion warnings are retained.
+- Final source typecheck/lint PASS; production Next15.5.28 build **67/67 PASS**.
+  VERSION consistency PASS0.11.69; no dependency/API/schema/version delta against
+  the synchronized base. No reuse of local mock-API build for release.
+- Built real-page browser **33/33 PASS**,49.9s, existing Chromium1223,
+  `playwright.visual.config.ts`, strictly intercepted loopback3026 APIs. Covers:
+  five widths1440/1270/768/390/360; course hierarchy/list-before-templates;
+  filter-empty/reset/error/retry; every visible card action text fit and actual
+  pointer hit; rail collapse/drawer; dark computed tokens/AA4.5 controls including
+  legacy quiz navigation; themed portal archive/delete Cancel/no-write; public
+  verification palette; reduced motion;2x CSS magnification (not native zoom);
+  readable RU/KK/EN navigation and long preview/tenant headers1024/768/390.
+  Existing16 author/learner/assignment/approval/evidence/log/CSV journeys passed
+  within that matrix. No unlisted mutations, external passthrough or page errors.
+- Settled before2 captures use the same four synthetic course records and blueprint
+  as after. Root visually reviewed final light/tablet/mobile/dark screenshots.
+  Comparison shown in Review:
+  `.release-evidence/visual-design-20261102/courses-before-after.png`.
+  Final outputs: `apps/web/test-results/visual-final-7065`; no customer data.
+- Focused evidence (overlapping, never summed): catalogue35PASS; root affected
+  UI141PASS; modal/style/public40PASS; synchronized transport/style45PASS;
+  architecture17PASS. Corporate deterministic required selectors10PASS via the
+  canonical `run_api_pytest.ps1`,3.33s on final implementation source; no DB or
+  provider calls. Graph preflight/search NOT_READY: checkout-local runtime/index
+  missing, bounded source fallback; token/startup counters unavailable, no savings
+  claim or test waiver. Node24.18.0/pnpm10.26.1; offline frozen510reused/0downloads.
+- Independent reviews found and closed tablet action overlap and eight legacy
+  semantic-fill/white-text dark incompatibilities. Actual768 screenshot proved
+  overlap despite no document overflow. Root found production CSS had pruned
+  runtime-only `.dark`; real PostCSS/Tailwind RED1→9stylePASS and built-CSS check
+  now retain exactly one scoped dark-background rule. Computed dark tokens are
+  required before screenshots/contrast; an earlier light screenshot labelled dark
+  was rejected, not accepted as dark evidence.
+- Retained failures: visual browser RED1/theme-layout RED5 before implementation;
+  foreground AST RED4; initial browser search/landmark/toast selectors and a lazy
+  fixture produced harness failures, corrected with exact controls and auto fixture.
+  About:blank storage errors were fixed by origin-scoped test initialization, not
+  ignored. First full1543PASS/2FAIL was stale topbar class oracles; objectives were
+  retained and strengthened by real preview geometry, then17focused/full1545PASS.
+  Browser32PASS/1fail sampled4.277 mid-transition during theme switch; animation-
+  state waiting kept the4.5 threshold, dark2PASS then final33PASS. No product code
+  was changed to hide these test measurements.
+- Cleanup: root-owned DEV/production loopback3026 servers stopped; headless
+  contexts closed. Screenshot/CSV/comparison evidence retained ignored for review;
+  temporary owned plan removed. Original UX/prototype checkout and unrelated
+  primary/untracked work preserved. Upstream live UX69 plan/controllers untouched.
+- NOT_RUN/NOT_AUTHORIZED: remote push/CI, live visual/real-device acceptance,
+  feature merge to master, version/tag/release or deployment. No paid inference,
+  live tenant/history write, provider/tier/resource change or image-model call;
+  no new font family/package. External gates remain in PRODUCTION_READINESS.
+
+2026-11-02 root combined UX70+visual acceptance: de811b67 reviewed visual delta applied cleanly after8403b01f. Full1548/182PASS (.release-evidence/ux68-live/full-web70-visual.json), types/lint PASS, version70 and337unique error contracts PASS. Production69 real2L2Q assignment-through-certificate+unchanged33oldrows evidence retained. True390px editor toolbar/preview/dirty dialog cancel/discard now passed with per-tab viewport; no server lesson mutation. No local intercepted build reused as deployment artifact. Combined DEV and production acceptance pending.
