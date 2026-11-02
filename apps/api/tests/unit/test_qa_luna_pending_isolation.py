@@ -51,6 +51,7 @@ async def test_worker_selects_pending_journal_only_from_locked_job(monkeypatch):
     user = uuid4()
     monkeypatch.setattr(config, "get_settings", lambda: settings("render-development-worker"))
     monkeypatch.setattr(pipeline, "_load_owned_reference_decisions", AsyncMock(return_value=()))
+    monkeypatch.setattr(pipeline, "_load_owned_revision_policy", AsyncMock(return_value=None))
     locked = SimpleNamespace(params={"source_analysis": {"qa_luna_pending_journal_policy": POLICY}}, course_id=None)
     monkeypatch.setattr(pending_stage_transactions, "_locked_job", AsyncMock(return_value=locked))
     class Session:
@@ -137,6 +138,7 @@ async def test_pending_v3_provider_unavailable_never_falls_back(monkeypatch):
     user = uuid4()
     monkeypatch.setattr(config, "get_settings", lambda: settings("render-development-worker"))
     monkeypatch.setattr(pipeline, "_load_owned_reference_decisions", AsyncMock(return_value=()))
+    monkeypatch.setattr(pipeline, "_load_owned_revision_policy", AsyncMock(return_value=None))
     locked = SimpleNamespace(params={"source_analysis": {"qa_luna_pending_journal_policy": POLICY}}, course_id=None)
     monkeypatch.setattr(pending_stage_transactions, "_locked_job", AsyncMock(return_value=locked))
     class Session:
@@ -219,6 +221,7 @@ async def test_worker_direct_marker_uses_direct_client_without_legacy_fallback(m
     user = uuid4()
     monkeypatch.setattr(config, "get_settings", lambda: cfg)
     monkeypatch.setattr(pipeline, "_load_owned_reference_decisions", AsyncMock(return_value=()))
+    monkeypatch.setattr(pipeline, "_load_owned_revision_policy", AsyncMock(return_value=None))
     locked = SimpleNamespace(params={"source_analysis": {"qa_luna_pending_journal_policy": marker}}, course_id=None)
     monkeypatch.setattr(pending_stage_transactions, "_locked_job", AsyncMock(return_value=locked))
     class Session:
