@@ -37,8 +37,8 @@ describe('methodologist sidebar information hierarchy', () => {
     expect(screen.queryByRole('link', { name: 'Панель управления' })).not.toBeInTheDocument();
 
     const contentHeading = screen.getByRole('heading', { name: 'Курсы и материалы' });
-    expect(contentHeading).toHaveClass('text-sm', 'font-bold', 'text-primary/80');
-    expect(contentHeading).not.toHaveClass('text-xs');
+    expect(contentHeading).toHaveClass('text-xs', 'font-semibold', 'text-muted-foreground');
+    expect(contentHeading).not.toHaveClass('text-[10px]');
     expect(contentHeading).not.toHaveClass('uppercase');
     expect(contentHeading.closest('[data-sidebar-section]')).toHaveClass('border-t');
 
@@ -99,7 +99,7 @@ describe('methodologist sidebar information hierarchy', () => {
   it.each([false, true])('keeps the desktop toggle above the guide content when collapsed=%s', (collapsed) => {
     render(<Sidebar collapsed={collapsed} onToggle={() => {}} />);
     const toggle = screen.getByRole('button', { name: collapsed ? 'Развернуть сайдбар (Ctrl+B)' : 'Свернуть сайдбар (Ctrl+B)' });
-    expect(toggle).toHaveClass('top-12');
+    expect(toggle).toHaveClass('top-6');
     expect(toggle).not.toHaveClass('top-20');
   });
 

@@ -9,8 +9,9 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { coursePublicationError } from '@/lib/coursePublicationError';
-import { Archive, GraduationCap, MoreVertical, ShieldCheck, Trash2 } from 'lucide-react';
+import { Archive, ArrowRight, BookOpen, ChevronDown, GraduationCap, MoreVertical, Search, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
+import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
 
 type BlueprintLocale = 'ru' | 'kk';
 type ComplianceMode = 'lms_only' | 'blended' | 'external_certified';
@@ -30,18 +31,44 @@ interface CourseWithBlueprintSource {
   source_analysis?: { blueprint?: { id?: string } };
 }
 
+interface CatalogCourse extends CourseWithBlueprintSource {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  ai_generated?: boolean;
+  review_status?: string;
+  delivery_type?: string;
+  current_release_id?: string | null;
+}
+
+type CourseResult = {
+  query: string;
+  phase: 'loading' | 'ready' | 'error';
+  courses: CatalogCourse[];
+  error?: string;
+};
+
 const getSourceBlueprintId = (course: CourseWithBlueprintSource) =>
   course.source_analysis?.blueprint?.id;
 
 export default function CoursesPage() {
-  const { user } = useAuthStore();
+  const { user, sessionEpoch } = useAuthStore();
+  if (!user) return null;
+
+  // Remount presentation on actor/session changes: no previous actor's cards,
+  // open forms, confirmations or asynchronous continuations survive the switch.
+  const actorKey = JSON.stringify([user.user_id, user.tenant_id, user.role, sessionEpoch]);
+  return <CourseCatalog key={actorKey} canManage={user.role === 'methodologist'} />;
+}
+
+function CourseCatalog({ canManage }: { canManage: boolean }) {
   const { t, lang } = useT();
+  const copy = getCourseCatalogCopy(lang);
   const tRef = useRef(t);
   tRef.current = t;
   const { confirm, dialog } = useConfirm();
-  const [courses, setCourses] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [courseResult, setCourseResult] = useState<CourseResult>({ query: '', phase: 'loading', courses: [] });
   const [showCreate, setShowCreate] = useState(false);
   const [showScormImport, setShowScormImport] = useState(false);
   const [title, setTitle] = useState('');
@@ -56,9 +83,30 @@ export default function CoursesPage() {
   const [blueprints, setBlueprints] = useState<CourseBlueprintCatalogItem[]>([]);
   const [blueprintsLoading, setBlueprintsLoading] = useState(true);
   const [blueprintsError, setBlueprintsError] = useState<string | null>(null);
+  const [loadedBlueprintLocale, setLoadedBlueprintLocale] = useState('');
+  const mounted = useRef(false);
+  const courseRequest = useRef(0);
+  const blueprintRequest = useRef(0);
 
-  const canManage = user?.role === 'methodologist';
   const blueprintLocale: BlueprintLocale = lang === 'kk' ? 'kk' : 'ru';
+  const query = JSON.stringify([search, statusFilter]);
+  const currentQuery = useRef(query);
+  currentQuery.current = query;
+  const currentBlueprintLocale = useRef(blueprintLocale);
+  currentBlueprintLocale.current = blueprintLocale;
+  const loading = courseResult.query !== query || courseResult.phase === 'loading';
+  const loadError = !loading && courseResult.phase === 'error' ? courseResult.error : null;
+  const courses = !loading && courseResult.phase === 'ready' ? courseResult.courses : [];
+  const hasFilters = Boolean(search || statusFilter);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      courseRequest.current += 1;
+      blueprintRequest.current += 1;
+    };
+  }, []);
 
   const apiErrorMessage = (error: any, fallback: string) =>
     error?.response?.data?.message
@@ -68,38 +116,50 @@ export default function CoursesPage() {
     || fallback;
 
   const fetchCourses = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+    if (!mounted.current || currentQuery.current !== query) return;
+    const request = ++courseRequest.current;
+    const isCurrent = () => mounted.current && request === courseRequest.current && currentQuery.current === query;
+    setCourseResult({ query, phase: 'loading', courses: [] });
     try {
       const params = new URLSearchParams();
       if (search) params.set('q', search);
       if (statusFilter) params.set('status', statusFilter);
       const res = await api.get(`/v1/courses?${params}`);
-      setCourses(Array.isArray(res.data) ? res.data : []);
+      if (!isCurrent()) return;
+      setCourseResult({ query, phase: 'ready', courses: Array.isArray(res.data) ? res.data : [] });
     } catch (err: any) {
-      setLoadError(apiErrorMessage(err, tRef.current('common.loadFailed')));
+      if (!isCurrent()) return;
+      setCourseResult({ query, phase: 'error', courses: [], error: apiErrorMessage(err, tRef.current('common.loadFailed')) });
       toast.error(tRef.current('common.loadFailed'), {
         description: apiErrorMessage(err, tRef.current('common.loadFailed')),
       });
-    } finally {
-      setLoading(false);
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, query]);
+
+  const refreshCourses = useRef(fetchCourses);
+  refreshCourses.current = fetchCourses;
 
   useEffect(() => {
     fetchCourses();
   }, [fetchCourses]);
 
   const fetchBlueprints = useCallback(async () => {
+    if (!mounted.current || currentBlueprintLocale.current !== blueprintLocale) return;
+    const request = ++blueprintRequest.current;
+    const isCurrent = () => mounted.current && request === blueprintRequest.current && currentBlueprintLocale.current === blueprintLocale;
     setBlueprintsLoading(true);
     setBlueprintsError(null);
     try {
       const response = await api.get<CourseBlueprintCatalogItem[]>(`/v1/course-blueprints?locale=${blueprintLocale}`);
+      if (!isCurrent()) return;
       setBlueprints(Array.isArray(response.data) ? response.data : []);
+      setLoadedBlueprintLocale(blueprintLocale);
     } catch (error: any) {
+      if (!isCurrent()) return;
       setBlueprintsError(apiErrorMessage(error, tRef.current('courses.blueprint.catalogLoadFailed')));
+      setLoadedBlueprintLocale(blueprintLocale);
     } finally {
-      setBlueprintsLoading(false);
+      if (isCurrent()) setBlueprintsLoading(false);
     }
   }, [blueprintLocale]);
 
@@ -120,12 +180,14 @@ export default function CoursesPage() {
     }
     try {
       await api.post('/v1/courses', { title, description: description || '' });
+      if (!mounted.current) return;
       setShowCreate(false);
       setTitle('');
       setDescription('');
       toast.success(t('toast.courseCreated'));
-      fetchCourses();
+      void refreshCourses.current();
     } catch (err: any) {
+      if (!mounted.current) return;
       toast.error(t('common.saveFailed'), {
         description: apiErrorMessage(err, t('common.saveFailed')),
       });
@@ -146,18 +208,20 @@ export default function CoursesPage() {
       await api.post('/v1/scorm/packages/import', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      if (!mounted.current) return;
       toast.success(t('authenticatedUi.scorm.imported'));
       setShowScormImport(false);
       setScormTitle('');
       setScormStatus('draft');
       setScormFile(null);
-      fetchCourses();
+      void refreshCourses.current();
     } catch (err: any) {
+      if (!mounted.current) return;
       toast.error(t('authenticatedUi.scorm.importFailed'), {
         description: err?.response?.data?.detail || err?.message,
       });
     } finally {
-      setScormImporting(false);
+      if (mounted.current) setScormImporting(false);
     }
   };
 
@@ -165,8 +229,10 @@ export default function CoursesPage() {
     const endpoint = currentStatus === 'published' ? 'unpublish' : 'publish';
     try {
       await api.post(`/v1/courses/${courseId}/${endpoint}`);
-      fetchCourses();
+      if (!mounted.current) return;
+      void refreshCourses.current();
     } catch (err: any) {
+      if (!mounted.current) return;
       toast.error(t('common.saveFailed'), {
         description: coursePublicationError(err?.response?.data, t) || apiErrorMessage(err, t('common.saveFailed')),
       });
@@ -179,18 +245,20 @@ export default function CoursesPage() {
       variant: 'danger',
       confirmLabel: t('dialogs.delete'),
     });
-    if (!ok) return;
+    if (!ok || !mounted.current) return;
     setDeletingId(courseId);
     try {
       await api.delete(`/v1/courses/${courseId}`);
+      if (!mounted.current) return;
       toast.success(t('toast.courseDeleted'));
-      fetchCourses();
+      void refreshCourses.current();
     } catch (err: any) {
+      if (!mounted.current) return;
       toast.error(t('common.saveFailed'), {
         description: err?.response?.data?.detail || err?.message,
       });
     } finally {
-      setDeletingId(null);
+      if (mounted.current) setDeletingId(null);
     }
   };
 
@@ -200,123 +268,50 @@ export default function CoursesPage() {
       variant: 'danger',
       confirmLabel: t('courses.archive'),
     });
-    if (!ok) return;
+    if (!ok || !mounted.current) return;
     setDeletingId(courseId);
     try {
       await api.post(`/v1/courses/${courseId}/archive`);
+      if (!mounted.current) return;
       toast.success(t('toast.courseArchived'), {
         description: t('courses.archiveHint'),
       });
-      fetchCourses();
+      void refreshCourses.current();
     } catch (err: any) {
+      if (!mounted.current) return;
       toast.error(t('common.saveFailed'), {
         description: apiErrorMessage(err, t('common.saveFailed')),
       });
     } finally {
-      setDeletingId(null);
+      if (mounted.current) setDeletingId(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground font-display">{t('courses.title')}</h1>
+    <div data-catalog-layout="workspace-v1" className="min-w-0 space-y-6">
+      <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground font-display">{t('courses.title')}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{copy.subtitle}</p>
+        </div>
         {canManage && (
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => { setShowScormImport(!showScormImport); setShowCreate(false); }}>
+          <div className="flex flex-wrap items-center gap-2 xl:max-w-xl xl:justify-end">
+            <Link href="/ai/generate" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              {t('dashboard.aiGeneration')}
+            </Link>
+            <Button variant="outline" className="min-h-11" aria-expanded={showScormImport} aria-controls="course-scorm-import" onClick={() => { setShowScormImport(!showScormImport); setShowCreate(false); }}>
               {showScormImport ? t('common.cancel') : t('courses.importScorm')}
             </Button>
-            <Button onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
+            <Button className="min-h-11" aria-expanded={showCreate} aria-controls="course-create" onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
               {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}
             </Button>
           </div>
         )}
-      </div>
+      </header>
 
-      {canManage && (
-        <section className="space-y-4" aria-labelledby="blueprint-catalog-title">
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-primary">{t('courses.blueprint.badge')}</div>
-            <h2 id="blueprint-catalog-title" className="mt-1 text-xl font-bold text-foreground">{t('courses.blueprint.catalogTitle')}</h2>
-            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t('courses.blueprint.catalogDescription')}</p>
-          </div>
-          {blueprintsLoading ? (
-            <div className="rounded-2xl border border-border bg-card py-10 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
-          ) : blueprintsError ? (
-            <LoadError title={t('courses.blueprint.catalogLoadFailed')} message={blueprintsError} retryLabel={t('common.retry')} onRetry={() => void fetchBlueprints()} />
-          ) : blueprints.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">{t('courses.blueprint.catalogEmpty')}</div>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {blueprints.map((blueprint) => (
-                <article key={blueprint.id} className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-card transition hover:-translate-y-1 hover:shadow-card-hover">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="font-bold text-foreground">{blueprint.title}</h3>
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">{complianceLabel(blueprint.compliance_mode)}</span>
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">{blueprint.description}</p>
-                  <dl className="mt-4 space-y-2 text-sm">
-                    <div><dt className="inline font-semibold text-foreground">{t('courses.blueprint.audience')}: </dt><dd className="inline text-muted-foreground">{blueprint.audience}</dd></div>
-                    {blueprint.applicability && <div><dt className="inline font-semibold text-foreground">{t('courses.blueprint.applicability')}: </dt><dd className="inline text-muted-foreground">{blueprint.applicability}</dd></div>}
-                  </dl>
-                  <div className="mt-4 flex items-center justify-between text-sm"><span className="text-muted-foreground">{t('courses.blueprint.readiness')}</span><strong className="text-primary">{blueprint.estimated_ready_percent}%</strong></div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, blueprint.estimated_ready_percent))}%` }} /></div>
-                  {!!blueprint.tags?.length && <div className="mt-4 flex flex-wrap gap-2">{blueprint.tags.map((tag) => <span key={tag} className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{tag}</span>)}</div>}
-                  <p className="mt-4 text-xs text-muted-foreground">{t('courses.blueprint.catalogNotMandatory')}</p>
-                   <Link href={blueprint.id === 'kz-finance-information-security' ? '/courses/templates/kz-finance-information-security' : `/courses/templates/${encodeURIComponent(blueprint.id)}`} className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">{t('courses.blueprint.open')}</Link>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Filters */}
-      <div className="flex gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <label htmlFor="courses-search" className="sr-only">
-            {t('common.search')}
-          </label>
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <Input
-            id="courses-search"
-            placeholder={t('common.search')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <label htmlFor="courses-status" className="sr-only">
-          {t('courses.status')}
-        </label>
-        <select
-          id="courses-status"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors"
-        >
-          <option value="">{t('common.all')}</option>
-          <option value="draft">{t('courses.draft')}</option>
-          <option value="published">{t('courses.published')}</option>
-        </select>
-      </div>
-
-      {showCreate && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
+      {canManage && showCreate && (
+        <div id="course-create" className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sm:p-6">
           <h3 className="font-bold text-foreground font-display">{t('courses.createCourse')}</h3>
           <label htmlFor="new-course-title" className="block text-sm font-medium text-foreground">
             {t('courses.courseTitle')}
@@ -346,15 +341,17 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {showScormImport && (
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-card space-y-4">
+      {canManage && showScormImport && (
+        <div id="course-scorm-import" className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sm:p-6">
           <div>
             <h3 className="font-bold text-foreground font-display">{t('authenticatedUi.scorm.title')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               {t('authenticatedUi.scorm.description')}
             </p>
           </div>
+          <label htmlFor="scorm-course-title" className="block text-sm font-medium text-foreground">{t('authenticatedUi.scorm.titlePlaceholder')}</label>
           <Input
+            id="scorm-course-title"
             placeholder={t('authenticatedUi.scorm.titlePlaceholder')}
             value={scormTitle}
             onChange={(e) => setScormTitle(e.target.value)}
@@ -383,7 +380,7 @@ export default function CoursesPage() {
           </div>
           {scormFile && (
             <p className="text-xs text-muted-foreground">
-              Выбран файл: {scormFile.name} ({Math.round(scormFile.size / 1024)} KB)
+              {copy.selectedFile}: {scormFile.name} ({Math.round(scormFile.size / 1024)} KB)
             </p>
           )}
           <div className="flex gap-2">
@@ -397,203 +394,162 @@ export default function CoursesPage() {
         </div>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div
-            className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
-            aria-label={t('common.loading')}
-          />
+      <section className="min-w-0 space-y-4" aria-labelledby="own-courses-title">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="own-courses-title" className="text-lg font-semibold text-foreground">{copy.ownCourses}</h2>
+          {!loading && !loadError && <p className="text-sm text-muted-foreground" role="status">{copy.loadedList}: <span className="font-semibold text-foreground">{courses.length}</span></p>}
         </div>
-      ) : loadError ? (
-        <LoadError
-          title={t('common.loadFailed')}
-          message={loadError}
-          retryLabel={t('common.retry')}
-          onRetry={fetchCourses}
-        />
-      ) : courses.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border py-12 text-center">
-          <div className="text-muted-foreground mb-3">
-            <svg
-              className="mx-auto"
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-            </svg>
+
+        <div role="search" aria-label={copy.filters} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="min-w-0 flex-1 sm:min-w-48">
+            <label htmlFor="courses-search" className="mb-1.5 block text-xs font-medium text-muted-foreground">{copy.searchLabel}</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input id="courses-search" type="search" placeholder={copy.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} className="min-h-11 pl-9" />
+            </div>
           </div>
-          <p className="text-muted-foreground text-sm">{t('courses.noCourses')}</p>
-          {canManage && (
-            <Link
-              href="/ai/generate"
-              className="inline-block mt-4 text-sm text-primary hover:underline"
-            >
-              {t('dashboard.aiGeneration')}
-            </Link>
+          <div className="min-w-0 sm:w-48">
+            <label htmlFor="courses-status" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('courses.status')}</label>
+            <select id="courses-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="">{t('common.all')}</option>
+              <option value="draft">{t('courses.draft')}</option>
+              <option value="published">{t('courses.published')}</option>
+            </select>
+          </div>
+          {hasFilters && <Button variant="ghost" className="min-h-11" onClick={() => { setSearch(''); setStatusFilter(''); }}>{copy.resetFilters}</Button>}
+        </div>
+
+        <div data-course-catalog-results aria-busy={loading}>
+          {loading ? (
+            <div role="status" className="flex min-h-48 items-center justify-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
+              <span className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent motion-safe:animate-spin" aria-hidden="true" />
+              {t('common.loading')}
+            </div>
+          ) : loadError ? (
+            <LoadError title={t('common.loadFailed')} message={loadError} retryLabel={t('common.retry')} onRetry={() => void fetchCourses()} />
+          ) : courses.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-12 text-center">
+              <BookOpen className="mx-auto mb-4 h-8 w-8 text-muted-foreground" aria-hidden="true" />
+              <h3 className="font-semibold text-foreground">{hasFilters ? copy.filteredEmpty : t('courses.noCourses')}</h3>
+              <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">{hasFilters ? copy.filteredEmptyHint : canManage ? copy.emptyHint : null}</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+              {courses.map((course) => (
+                <article key={course.id} data-course-card className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/40">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                      <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" />
+                      {course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
+                    </span>
+                    <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${course.status === 'published' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      {course.status === 'published' ? t('courses.published') : course.status === 'draft' ? t('courses.draft') : course.status}
+                    </span>
+                  </div>
+                  <h3 className="mt-4 text-lg font-semibold leading-6 text-foreground [overflow-wrap:anywhere]">
+                    <Link href={`/courses/${course.id}`} className="rounded-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{course.title}</Link>
+                  </h3>
+                  {course.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{course.description}</p>}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {course.ai_generated && <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">AI</span>}
+                    {getSourceBlueprintId(course) && <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{t('courses.blueprint.badge')}</span>}
+                    {(course.ai_generated || getSourceBlueprintId(course)) && course.status !== 'published' && course.review_status !== 'approved' && <span className="rounded-md bg-warning/10 px-2 py-1 text-xs font-medium text-warning">{t('courses.reviewRequired')}</span>}
+                  </div>
+
+                  {canManage ? (
+                    <div className="mt-auto pt-5">
+                      {course.status !== 'published' && getSourceBlueprintId(course) && (
+                        <Link href={`/courses/templates/${getSourceBlueprintId(course)}?course_id=${course.id}`} className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          {t('courses.blueprint.open')}
+                        </Link>
+                      )}
+                      {course.status === 'published' && (
+                        <Link href={`/assignments?course_id=${course.id}`} className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                          <GraduationCap className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          {t('authenticatedUi.course.assignEmployees')}
+                        </Link>
+                      )}
+                      <div className="flex flex-wrap items-stretch gap-2">
+                        <Link href={`/courses/${course.id}/edit`} className="flex min-h-11 min-w-0 [flex:1_1_7rem] items-center justify-center rounded-xl border border-border px-2 py-2 text-center text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          {t('common.edit')}
+                        </Link>
+                        <div className="grid min-w-0 [flex:1_1_10rem] grid-cols-[minmax(0,1fr)_44px] items-center gap-2">
+                          {course.ai_generated && course.status !== 'published' && course.review_status !== 'approved' ? (
+                            <Link href={`/courses/${course.id}/edit`} className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-primary/10 px-2 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t('courses.reviewCourse')}</Link>
+                          ) : (
+                            <button type="button" onClick={() => handlePublish(course.id, course.status)} className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${course.status === 'published' ? 'bg-muted text-foreground hover:bg-muted/80' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
+                              {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
+                            </button>
+                          )}
+                          <details className="group/actions relative">
+                            <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden" aria-label={t('common.actionsFor', { title: course.title })} title={t('common.actionsFor', { title: course.title })}>
+                              <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                            </summary>
+                            <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
+                              {course.current_release_id ? (
+                                <button type="button" onClick={() => handleArchive(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-warning transition-colors hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                                  <Archive className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                  {deletingId === course.id ? '…' : t('courses.archive')}
+                                </button>
+                              ) : (
+                                <button type="button" onClick={() => handleDelete(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                                  <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                                  {deletingId === course.id ? '…' : t('dialogs.delete')}
+                                </button>
+                              )}
+                            </div>
+                          </details>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <Link href={`/courses/${course.id}`} className="mt-auto flex min-h-11 items-center gap-2 pt-5 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{copy.openCourse}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+                  )}
+                </article>
+              ))}
+            </div>
           )}
         </div>
-      ) : (
-        <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
-          {courses.map((course, i) => (
-            <article
-              key={course.id}
-              className="group relative rounded-2xl border border-border bg-card overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-1 animate-fade-up"
-              style={{ opacity: 0, animationFillMode: 'forwards', animationDelay: `${i * 0.05}s` }}
-            >
-              {/* Gradient header */}
-              <div
-                className={`h-28 p-4 flex items-end relative overflow-hidden ${
-                  course.status === 'published'
-                    ? 'bg-gradient-to-br from-primary/20 via-primary/10 to-gold-500/10'
-                    : 'bg-gradient-to-br from-muted via-muted to-muted'
-                }`}
-              >
-                {/* Decorative circles */}
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-primary/5" aria-hidden="true" />
-                <div className="absolute -right-2 -bottom-4 h-16 w-16 rounded-full bg-accent/5" aria-hidden="true" />
+      </section>
 
-                <div className="relative flex items-center gap-2">
-                  <span
-                    className={`text-[11px] font-semibold rounded-full px-2.5 py-1 backdrop-blur-sm ${
-                      course.status === 'published'
-                        ? 'text-primary bg-card/80'
-                        : 'text-muted-foreground bg-card/80'
-                    }`}
-                  >
-                    {course.status === 'published' ? t('courses.published') : t('courses.draft')}
-                  </span>
-                  {course.ai_generated && (
-                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-accent bg-accent/10 backdrop-blur-sm">
-                      AI
-                    </span>
-                  )}
-                  {course.ai_generated
-                    && course.status !== 'published'
-                    && course.review_status !== 'approved' && (
-                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-warning bg-warning/10 backdrop-blur-sm">
-                      {t('courses.reviewRequired')}
-                    </span>
-                  )}
-                  {course.delivery_type === 'scorm' && (
-                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-foreground bg-card/80 backdrop-blur-sm">
-                      SCORM
-                    </span>
-                  )}
-                   {getSourceBlueprintId(course) && (
-                    <span className="text-[11px] font-semibold rounded-full px-2.5 py-1 text-primary bg-card/80 backdrop-blur-sm">
-                      {t('courses.blueprint.badge')}
-                    </span>
-                  )}
-                </div>
+      {canManage && (
+        <details data-blueprint-catalog className="group/blueprints rounded-2xl border border-border bg-card">
+          <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 rounded-2xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <span className="min-w-0">
+              <span className="block text-base font-semibold text-foreground">{t('courses.blueprint.catalogTitle')}</span>
+              <span className="mt-1 block text-sm leading-6 text-muted-foreground">{copy.blueprintHint}</span>
+            </span>
+            <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open/blueprints:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
+          </summary>
+          <div className="space-y-4 border-t border-border p-5">
+            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">{t('courses.blueprint.catalogDescription')}</p>
+            {blueprintsLoading || loadedBlueprintLocale !== blueprintLocale ? (
+              <div role="status" className="py-6 text-center text-sm text-muted-foreground">{t('common.loading')}</div>
+            ) : blueprintsError ? (
+              <LoadError title={t('courses.blueprint.catalogLoadFailed')} message={blueprintsError} retryLabel={t('common.retry')} onRetry={() => void fetchBlueprints()} />
+            ) : blueprints.length === 0 ? (
+              <p className="py-6 text-sm text-muted-foreground">{t('courses.blueprint.catalogEmpty')}</p>
+            ) : (
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
+                {blueprints.map((blueprint) => (
+                  <article key={blueprint.id} className="flex min-w-0 flex-col rounded-xl border border-border bg-background p-4">
+                    <h3 className="font-semibold leading-6 text-foreground [overflow-wrap:anywhere]">{blueprint.title}</h3>
+                    <span className="mt-2 text-xs font-medium text-primary">{complianceLabel(blueprint.compliance_mode)}</span>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{blueprint.description}</p>
+                    <dl className="mt-3 space-y-2 text-sm leading-6">
+                      <div><dt className="inline font-medium text-foreground">{t('courses.blueprint.audience')}: </dt><dd className="inline text-muted-foreground">{blueprint.audience}</dd></div>
+                      {blueprint.applicability && <div><dt className="inline font-medium text-foreground">{t('courses.blueprint.applicability')}: </dt><dd className="inline text-muted-foreground">{blueprint.applicability}</dd></div>}
+                    </dl>
+                    {!!blueprint.tags?.length && <div className="mt-3 flex flex-wrap gap-2">{blueprint.tags.map((tag) => <span key={tag} className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground">{tag}</span>)}</div>}
+                    <p className="mb-4 mt-3 text-xs leading-5 text-muted-foreground">{t('courses.blueprint.catalogNotMandatory')}</p>
+                    <Link href={blueprint.id === 'kz-finance-information-security' ? '/courses/templates/kz-finance-information-security' : `/courses/templates/${encodeURIComponent(blueprint.id)}`} className="mt-auto inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-3 py-2 text-center text-sm font-medium text-primary transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t('courses.blueprint.open')}</Link>
+                  </article>
+                ))}
               </div>
-
-              <div className="p-4">
-                {/* Title is a link (uses Link, not nested anchor) */}
-                <Link
-                  href={`/courses/${course.id}`}
-                  className="block text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate"
-                >
-                  <h3>{course.title}</h3>
-                </Link>
-                {course.description && (
-                  <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">{course.description}</p>
-                )}
-
-                {canManage && (
-                  <>
-                     {course.status !== 'published' && getSourceBlueprintId(course) && (
-                       <Link
-                         href={`/courses/templates/${getSourceBlueprintId(course)}?course_id=${course.id}`}
-                        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
-                      >
-                        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                        {t('courses.blueprint.open')}
-                      </Link>
-                    )}
-                    {course.status === 'published' && (
-                      <Link
-                        href={`/assignments?course_id=${course.id}`}
-                        className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                      >
-                        <GraduationCap className="h-4 w-4" aria-hidden="true" />
-                        {t('authenticatedUi.course.assignEmployees')}
-                      </Link>
-                    )}
-                    <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_44px] items-center gap-2">
-                    <Link
-                      href={`/courses/${course.id}/edit`}
-                      className="flex min-h-11 items-center justify-center rounded-xl border border-border px-3 py-2 text-center text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-                    >
-                      {t('common.edit')}
-                    </Link>
-                    {course.ai_generated
-                      && course.status !== 'published'
-                      && course.review_status !== 'approved' ? (
-                      <Link
-                        href={`/courses/${course.id}/edit`}
-                        className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-warning/10 px-2 py-2 text-center text-xs font-medium text-warning transition-colors hover:bg-warning/20"
-                      >
-                        {t('courses.reviewCourse')}
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handlePublish(course.id, course.status)}
-                        className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors ${
-                          course.status === 'published'
-                            ? 'bg-muted text-foreground hover:bg-muted'
-                            : 'bg-primary/10 text-primary hover:bg-primary/20'
-                        }`}
-                      >
-                        {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
-                      </button>
-                    )}
-                    <details className="group/actions relative">
-                      <summary
-                        className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden"
-                        aria-label={t('common.actionsFor', { title: course.title })}
-                        title={t('common.actionsFor', { title: course.title })}
-                      >
-                        <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                      </summary>
-                      <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
-                        {course.current_release_id ? (
-                          <button
-                            type="button"
-                            onClick={() => handleArchive(course.id)}
-                            disabled={deletingId === course.id}
-                            className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-warning transition-colors hover:bg-warning/10 disabled:opacity-50"
-                          >
-                            <Archive className="h-4 w-4" aria-hidden="true" />
-                            {deletingId === course.id ? '…' : t('courses.archive')}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(course.id)}
-                            disabled={deletingId === course.id}
-                            className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            {deletingId === course.id ? '…' : t('dialogs.delete')}
-                          </button>
-                        )}
-                      </div>
-                    </details>
-                  </div>
-                  </>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
+            )}
+          </div>
+        </details>
       )}
 
       {dialog}

@@ -164,7 +164,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-20 flex flex-col bg-card/80 backdrop-blur-md border-b border-border">
+    <header data-workspace-topbar="true" className="sticky top-0 z-20 flex flex-col border-b border-border bg-card">
       {/* Impersonation banner — visible whenever this session was minted
           by POST /admin/super/tenants/{id}/impersonate. Shows the operator
           what they look like to the backend and gives a single-click exit. */}
@@ -202,13 +202,13 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         </div>
       )}
 
-      <div className="flex min-h-16 flex-wrap items-center justify-between gap-2 px-3 py-2 sm:px-6 xl:flex-nowrap">
+      <div className="flex min-h-[72px] flex-wrap items-center justify-between gap-x-5 gap-y-3 px-4 py-3 md:px-8 lg:flex-nowrap xl:px-10">
       {/* Left: Page title and tenant context */}
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border text-muted-foreground hover:text-foreground md:hidden"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
           aria-label={t('sidebar.open')}
           title={t('sidebar.open')}
         >
@@ -216,30 +216,21 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
-        {title && (
-          <h1 className="text-lg font-bold text-foreground font-display">{title}</h1>
-        )}
-        {tenantName && (
-          <div
-            className="mt-0.5 hidden max-w-[360px] items-center gap-1.5 truncate text-xs font-medium text-muted-foreground md:flex"
-            title={t('topbar.tenantTitle', { tenant: tenantName })}
-          >
-            <span className="shrink-0 text-muted-foreground/70">{t('topbar.tenantLabel')}</span>
-            <span className="truncate text-foreground/80">{tenantName}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex min-w-0 w-full flex-wrap items-center justify-end gap-1.5 sm:gap-3 xl:w-auto xl:flex-nowrap">
+        <div className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/50 text-primary md:flex" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 7h2m4 0h2M8 11h2m4 0h2M8 15h2m4 0h2M10 21v-3h4v3" /></svg>
+        </div>
+        <div className="min-w-0 max-w-[300px]" title={tenantName ? t('topbar.tenantTitle', { tenant: tenantName }) : undefined}>
+          <p className="text-[11px] font-medium leading-4 text-muted-foreground">{t('topbar.tenantLabel')}</p>
+          {title ? <h1 className="truncate text-sm font-semibold leading-5 text-foreground">{title}</h1> : <p className="truncate text-sm font-semibold leading-5 text-foreground">{tenantName || t(`sidebar.userRole.${user?.role}` as any)}</p>}
+        </div>
         {assignedRoles.length > 1 && !isImpersonating && (
-          <label className="flex items-center gap-2">
+          <label className="ml-auto flex shrink-0 items-center gap-2 lg:ml-1">
             <span className="sr-only">{t('topbar.activeRole')}</span>
             <select
               value={user?.role || ''}
               disabled={isSwitchingRole}
               onChange={(event) => void handleRoleSwitch(event.target.value)}
-              className="h-10 w-28 rounded-lg border border-border bg-card px-2 text-sm font-medium text-foreground disabled:opacity-60 sm:w-44 sm:px-3"
+              className="h-10 w-28 rounded-xl border border-border bg-card px-2 text-xs font-medium text-foreground disabled:opacity-60 sm:w-36 sm:px-3"
               title={t('topbar.activeRole')}
             >
               {assignedRoles.map((role) => (
@@ -250,6 +241,10 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             </select>
           </label>
         )}
+      </div>
+
+      {/* Right: Actions */}
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 lg:w-auto lg:flex-nowrap">
         <ContextualHelpButton />
         {user?.tenant && <SupportRequestDialog />}
 
@@ -261,7 +256,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           onClick={() => {
             window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
           }}
-          className="hidden xl:flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground hover:border-border hover:text-foreground transition-colors"
+          className="hidden xl:flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-primary/30 hover:bg-muted hover:text-foreground"
           aria-label={t('topbar.openCommandPalette')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -279,7 +274,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
           <button
             type="button"
             onClick={toggleNotifications}
-            className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:border-border hover:text-foreground transition-colors"
+          className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={t('topbar.notifications')}
             aria-expanded={showNotifications}
             aria-haspopup="true"
@@ -290,7 +285,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
               <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
             </svg>
             {unreadCount > 0 && (
-              <span className="absolute -right-2 -top-2 min-w-5 rounded-full border-2 border-card bg-gold-500 px-1 text-center text-[10px] font-bold leading-4 text-black" aria-label={t('topbar.unreadCount', { count: unreadCount })}>
+              <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full border-2 border-card bg-primary px-1 text-center text-[10px] font-bold leading-4 text-primary-foreground" aria-label={t('topbar.unreadCount', { count: unreadCount })}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
@@ -333,7 +328,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
         <Link
           href="/profile"
           prefetch={false}
-          className="hidden h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 sm:flex"
+          className="hidden h-10 w-10 items-center justify-center rounded-xl border border-primary/10 bg-primary/10 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 sm:flex"
           aria-label={t('nav.myProfile')}
           title={t('nav.myProfile')}
         >

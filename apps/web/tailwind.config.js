@@ -17,10 +17,15 @@ module.exports = {
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
         background: 'hsl(var(--background))',
+        'dialog-surface': 'hsl(var(--dialog-surface))',
         foreground: 'hsl(var(--foreground))',
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+        },
+        'control-hover': {
+          DEFAULT: 'hsl(var(--control-hover))',
+          foreground: 'hsl(var(--control-hover-foreground))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',

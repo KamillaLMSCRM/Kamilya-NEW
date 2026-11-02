@@ -149,7 +149,7 @@ export function Modal({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-lg bg-background p-6 shadow-lg outline-none',
+          'relative z-10 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-lg bg-dialog-surface p-6 shadow-lg outline-none',
           className
         )}
       >

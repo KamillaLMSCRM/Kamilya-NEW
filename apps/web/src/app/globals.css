@@ -23,6 +23,9 @@
     --border: 36 13% 89%;
     --input: 36 13% 89%;
     --ring: 221 83% 53%;
+    --control-hover: var(--accent);
+    --control-hover-foreground: var(--accent-foreground);
+    --dialog-surface: var(--background);
 
     /* Status colors — added per DESIGN.md §9.3 for role cards */
     --success: 142 71% 45%;
@@ -55,6 +58,69 @@
     --border: 24 10% 20%;
     --input: 24 10% 20%;
     --ring: 217 91% 60%;
+  }
+
+  /* The product workspace follows the reviewed prototypes. Keeping these on the
+     root only while the authenticated shell is present also themes body portals,
+     without recolouring public pages or leaving a JS-managed theme behind. */
+  :root:has([data-app-workspace]) {
+    --background: 228 33% 97%;
+    --foreground: 218 43% 16%;
+    --card: 0 0% 100%;
+    --card-foreground: 218 43% 16%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 43% 16%;
+    --primary: 224 74% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 43% 96%;
+    --secondary-foreground: 218 43% 16%;
+    --muted: 222 33% 95%;
+    --muted-foreground: 219 16% 46%;
+    --border: 218 26% 91%;
+    --input: 218 24% 84%;
+    --ring: 224 74% 51%;
+    --accent: 37 67% 36%;
+    --accent-foreground: 0 0% 100%;
+    --success: 160 55% 30%;
+    --warning: 36 80% 33%;
+    --info: 204 75% 35%;
+    --destructive: 356 44% 48%;
+    --control-hover: var(--muted);
+    --control-hover-foreground: var(--foreground);
+    --dialog-surface: var(--card);
+    --radius: 0.875rem;
+    color-scheme: light;
+  }
+
+  /* Attribute matching keeps this base rule in generated CSS even when no
+     application source contains the literal `dark` class (only runtime use). */
+  :root[class~="dark"]:has([data-app-workspace]) {
+    --background: 222 40% 10%;
+    --foreground: 220 33% 94%;
+    --card: 220 29% 14%;
+    --card-foreground: 220 33% 94%;
+    --popover: 220 29% 14%;
+    --popover-foreground: 220 33% 94%;
+    --primary: 223 90% 74%;
+    --primary-foreground: 222 40% 10%;
+    --secondary: 220 26% 19%;
+    --secondary-foreground: 220 33% 94%;
+    --muted: 220 25% 19%;
+    --muted-foreground: 220 17% 72%;
+    --border: 220 22% 26%;
+    --input: 220 20% 37%;
+    --ring: 223 90% 74%;
+    --accent: 37 75% 67%;
+    --accent-foreground: 222 40% 10%;
+    --success: 160 45% 65%;
+    --success-foreground: 222 40% 10%;
+    --warning: 38 85% 68%;
+    --warning-foreground: 222 40% 10%;
+    --info: 200 85% 69%;
+    --info-foreground: 222 40% 10%;
+    --destructive: 356 75% 72%;
+    --destructive-foreground: 222 40% 10%;
+    color-scheme: dark;
   }
 }
 
@@ -204,6 +270,28 @@
 /* Keep the fixed sidebar from shifting application content on small screens. */
 .app-shell-main {
   margin-left: 0;
+  min-width: 0;
+}
+
+.app-workspace {
+  min-width: 0;
+  isolation: isolate;
+}
+
+.app-workspace main .font-display {
+  font-family: var(--font-manrope), 'Manrope', system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-workspace *,
+  .app-workspace *::before,
+  .app-workspace *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @media (min-width: 768px) {

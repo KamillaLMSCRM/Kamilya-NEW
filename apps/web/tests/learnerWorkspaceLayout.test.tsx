@@ -33,6 +33,7 @@ describe('focused learner layout retains session guards', () => {
     render(<Layout><p>Lesson content</p></Layout>);
     expect(screen.queryByTestId('app-sidebar')).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveAttribute('data-learning-focused', 'true');
+    expect(screen.getByRole('main').closest('[data-app-workspace]')).toHaveAttribute('data-app-workspace', 'v1');
     expect(screen.getByRole('main')).not.toHaveClass('app-shell-main');
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(screen.getByTestId('app-sidebar')).toBeInTheDocument();

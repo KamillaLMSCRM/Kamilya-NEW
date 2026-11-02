@@ -162,7 +162,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <DemoLimitProvider>
       <SidebarContext.Provider value={{ collapsed }}>
-        <div className="min-h-screen bg-background grain">
+        <div data-app-workspace="v1" className="app-workspace min-h-screen bg-background text-foreground">
           {(!focusedLearning || mobileSidebarOpen) && <Sidebar
             collapsed={collapsed}
             mobileOpen={mobileSidebarOpen}
@@ -192,7 +192,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               </nav>
             )}
-            <div className={focusedLearning ? '' : 'px-4 py-6 md:px-6'}>{children}</div>
+             <div className={focusedLearning ? '' : 'workspace-content mx-auto w-full max-w-[1600px] px-4 py-7 md:px-8 md:py-8 xl:px-10'}>{children}</div>
           </main>
         </div>
       </SidebarContext.Provider>
