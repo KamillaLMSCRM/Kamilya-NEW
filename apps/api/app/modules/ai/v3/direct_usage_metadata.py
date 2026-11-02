@@ -5,7 +5,7 @@ FIELDS = ("input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tok
 
 
 def checked_metadata(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != {"model", "usage"} or value["model"] != "gpt-6-luna":
+    if not isinstance(value, dict) or set(value) != {"model", "usage"} or value["model"] not in ("gpt-6-luna", "gpt-5.6-luna"):
         raise ValueError("direct_usage_metadata_invalid")
     usage = value["usage"]
     if not isinstance(usage, dict) or set(usage) != set(FIELDS):
@@ -16,4 +16,4 @@ def checked_metadata(value: Any) -> dict[str, Any]:
     for part, total in (("cached_input_tokens", "input_tokens"), ("reasoning_tokens", "output_tokens")):
         if normalized[part] is not None and normalized[total] is not None and normalized[part] > normalized[total]:
             normalized[part] = None
-    return {"model": "gpt-6-luna", "usage": normalized}
+    return {"model": value["model"], "usage": normalized}

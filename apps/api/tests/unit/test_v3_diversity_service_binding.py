@@ -9,7 +9,7 @@ import pytest
 
 from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
-from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V2
+from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V2, MANAGED_POLICY
 from app.modules.ai.v3.service import _review_final_diversity, generate_v3_course_from_corpus
 from tests.unit.test_direct_luna_owned_stage import setup
 from tests.unit.test_v3_primary_source_manifest import sample
@@ -97,7 +97,7 @@ async def test_final_two_lessons_and_v2_no_review(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("policy", [DIRECT_POLICY, DIRECT_POLICY_V2])
+@pytest.mark.parametrize("policy", [DIRECT_POLICY, DIRECT_POLICY_V2, MANAGED_POLICY])
 async def test_full_generation_dispatches_final_repaired_lesson(monkeypatch, policy):
     from app.modules.ai.v3 import diversity_review, partitioned_extraction, service
     from app.modules.ai.v3.assessment_projection import project_lesson_questions
@@ -179,7 +179,7 @@ async def test_final_diversity_repair_preserves_prior_review_and_hold(monkeypatc
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("policy", [DIRECT_POLICY, DIRECT_POLICY_V2])
+@pytest.mark.parametrize("policy", [DIRECT_POLICY, DIRECT_POLICY_V2, MANAGED_POLICY])
 async def test_opt_in_unknown_aborts_before_later_model_or_count(monkeypatch, policy):
     from app.modules.ai.v3 import diversity_review, partitioned_extraction, service
     from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel
@@ -209,7 +209,7 @@ async def test_opt_in_unknown_aborts_before_later_model_or_count(monkeypatch, po
         return await generate_v3_course_from_corpus(corpus, intent=CourseIntent(), generation_client=client,
             extraction_journal=journal, route_fingerprint="b" * 64, direct_client=client,
             authenticated_qa_policy=policy, owned_source_context=context, allow_unreviewed_on_unknown=True)
-    if policy == DIRECT_POLICY:
+    if policy in (DIRECT_POLICY, MANAGED_POLICY):
         with pytest.raises(ExtractionOutcomeUnknownError):
             await generate()
     else:
@@ -300,7 +300,7 @@ async def test_context_review_binds_selection_and_rejects_context_drift(monkeypa
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('policy', [DIRECT_POLICY, DIRECT_POLICY_V2])
+@pytest.mark.parametrize('policy', [DIRECT_POLICY, DIRECT_POLICY_V2, MANAGED_POLICY])
 async def test_final_export_cross_lesson_exact_duplicate_is_fresh_policy_only(monkeypatch, policy):
     from app.modules.ai.v3 import diversity_review, partitioned_extraction, service
     from app.modules.ai.v3.models import CurriculumGroup, DocumentRuleModel, V3Course
@@ -341,5 +341,5 @@ async def test_final_export_cross_lesson_exact_duplicate_is_fresh_policy_only(mo
     exported = [q.question for assessment in artifacts.assessment.assessments for q in assessment.mcq]
     assert len(exported) == 2 and exported[0] == exported[1] and 'Final duplicate?' in exported[0]
     matching = [v for v in artifacts.diagnostics['violations'] if 'В разных уроках совпадают' in v]
-    assert len(matching) == (1 if policy == DIRECT_POLICY else 0)
+    assert len(matching) == (1 if policy in (DIRECT_POLICY, MANAGED_POLICY) else 0)
     assert all('Final duplicate?' not in item for item in matching)

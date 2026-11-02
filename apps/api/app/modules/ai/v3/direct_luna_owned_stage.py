@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient, ResponsesCountTimeoutError
+from app.modules.ai.managed_luna_client import ManagedLunaClient
 from app.modules.ai.v3.cooperative_budget import PreclaimYieldError, active_budget
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.owned_stage_inspection import inspect_owned_stage
@@ -13,23 +14,28 @@ from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
 from app.modules.ai.v3.pending_stage_transactions import _locked_job, verify_repair_slot, verify_source_safely
 
 
-async def run_direct_owned_stage(*, journal: PendingStageJournal, client: DirectLunaResponsesClient,
+async def run_direct_owned_stage(*, journal: PendingStageJournal, client: DirectLunaResponsesClient | ManagedLunaClient,
                                  plan: dict[str, Any], result_key: str, claim_key: str,
                                  validate_value: Callable[[dict[str, Any]], dict[str, Any]],
                                  validate_response: Callable[[Any], dict[str, Any]],
                                  messages: list[dict[str, str]], max_output_tokens: int,
                                  _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
                                  ) -> dict[str, Any]:
-    """Inspect and count before claim; trusted caller owns route and source construction."""
-    if type(journal) is not PendingStageJournal or type(client) is not DirectLunaResponsesClient:
+    """Replay before preparation/claim; only the direct API performs a trusted token count."""
+    if type(journal) is not PendingStageJournal or type(client) not in (DirectLunaResponsesClient, ManagedLunaClient):
         raise ValueError('direct_owned_stage_type_invalid')
     if not callable(journal.verify_source):
         raise ValueError('direct_owned_source_verifier_required')
     original_validate = validate_value
+    expected_model = "gpt-5.6-luna" if type(client) is ManagedLunaClient else "gpt-6-luna"
     from app.modules.ai.v3.stage_checkpoint import _digest
     def validate_with_metadata(value: dict[str, Any]) -> dict[str, Any]:
         from app.modules.ai.v3.stage_checkpoint import _validate_direct_metadata
         _validate_direct_metadata(value)
+        metadata = value.get("direct_metadata")
+        if (isinstance(metadata, dict) and metadata.get("model") != expected_model
+                or type(client) is ManagedLunaClient and metadata is None):
+            raise ValueError("owned_luna_metadata_route_mismatch")
         return original_validate(value)
     verify_source = journal.verify_source
     if _owned_claim_guard is not None:
@@ -75,6 +81,8 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
             result = await client.invoke(capability, tenant_id=UUID(journal.tenant_id), user_id=journal.user_id,
                                          job_id=journal.job_id, ownership_checkpoint=checkpoint,
                                          stage_id=_digest(plan))
+            if result.model != expected_model:
+                raise ValueError("owned_luna_metadata_route_mismatch")
             metadata.update({"model": result.model, "usage": {
                 "input_tokens": result.usage.input_tokens, "output_tokens": result.usage.output_tokens,
                 "cached_input_tokens": result.usage.cached_input_tokens, "reasoning_tokens": result.usage.reasoning_tokens}})

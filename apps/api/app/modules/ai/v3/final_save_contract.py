@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
+from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
 
 INTENT_KEY = "v3_final_save_intent"
 RECEIPT_KEY = "v3_final_save_receipt"
@@ -80,7 +81,7 @@ def make_intent(*, tenant_id: str, user_id: str, job_id: str, delivery_id: str,
     """Construct a content-free identity from independently authenticated inputs."""
     if (not all(_canonical_uuid(value) for value in (tenant_id, user_id, job_id))
             or not isinstance(delivery_id, str) or not delivery_id.strip()
-            or route_policy != "qa-direct-luna-diversity-v3" or not _sha(route_fingerprint)
+            or route_policy not in OWNED_POLICIES or not _sha(route_fingerprint)
             or not _sha(output_digest) or not isinstance(documents, list) or not documents):
         raise FinalSaveContractError("v3_final_identity_invalid")
     ids: list[str] = []
@@ -110,7 +111,7 @@ def _validated_intent(intent: Any) -> dict[str, Any]:
             or not re.fullmatch(r"[0-9a-f]{32}", body["attempt_id"])
             or not all(_canonical_uuid(body[name]) for name in ("tenant_id", "user_id", "job_id"))
             or not isinstance(body["delivery_id"], str) or not body["delivery_id"].strip()
-            or body["route_policy"] != "qa-direct-luna-diversity-v3"
+            or body["route_policy"] not in OWNED_POLICIES
             or not _sha(body["route_fingerprint"]) or not _sha(body["output_digest"])
             or not isinstance(body["documents"], list) or not body["documents"]
             or not _sha(intent["intent_digest"]) or _digest(body) != intent["intent_digest"]):

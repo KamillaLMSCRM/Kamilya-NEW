@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     AI_QA_LUNA_DEV_ENABLED: bool = False
     AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED: bool = False
     AI_DIRECT_LUNA_QA_DEV_ENABLED: bool = False
+    AI_MANAGED_LUNA_QA_DEV_ENABLED: bool = False
+    AI_MANAGED_LUNA_QA_CREDENTIAL_REVISION: str = ""
     AI_DIRECT_LUNA_QA_API_KEY: SecretStr = SecretStr("")
     AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION: str = ""
 

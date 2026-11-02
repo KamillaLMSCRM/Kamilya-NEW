@@ -19,6 +19,9 @@ from scripts.ops.vm126_dev_worker_env_receiver import validate_payload
 
 RELEASE_RE = re.compile(r"^[0-9a-f]{40}$")
 RECEIVER_PATH = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v2.py"
+RECEIVER_SHA = "a7470cca32295122245796acf17c9f8d6e3c7b904f417ac78b8ee069354b61ae"
+RECEIVER_PATH_V3 = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v3.py"
+RECEIVER_SHA_V3 = "5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a"
 STATUS_RE = re.compile(r"^STATUS\|status=(installed|already_present)\|release_sha=([0-9a-f]{40})\|payload_sha256=([0-9a-f]{64})\|keycount=([1-9][0-9]{0,2})$")
 
 
@@ -36,13 +39,17 @@ def stage_payload(payload: bytes, release_sha: str, receiver_sha: str, runner: C
         raise ValueError("identity_format_invalid")
     payload_hash = hashlib.sha256(payload).hexdigest()
     validated = validate_payload(payload, release_sha, payload_hash)
+    managed = b"AI_MANAGED_LUNA_QA_DEV_ENABLED=true\n" in payload.splitlines(keepends=True)
+    receiver_path = RECEIVER_PATH_V3 if managed else RECEIVER_PATH
+    if receiver_sha != (RECEIVER_SHA_V3 if managed else RECEIVER_SHA):
+        raise ValueError("receiver_identity_invalid")
     identity = runner(VM126.command(timeout, "hostname"), b"")
     if identity.exit_code != 0 or identity.stdout.decode("ascii", "ignore").strip().casefold() != VM126.expected_hostname.casefold():
         raise RuntimeError("target_identity_mismatch")
-    receiver_check = runner(VM126.command(timeout, "sudo", "-n", "sha256sum", RECEIVER_PATH), b"")
+    receiver_check = runner(VM126.command(timeout, "sudo", "-n", "sha256sum", receiver_path), b"")
     if receiver_check.exit_code != 0 or receiver_check.stdout.decode("ascii", "ignore").split()[:1] != [receiver_sha]:
         raise RuntimeError("receiver_hash_mismatch")
-    command = VM126.command(timeout, "sudo", "-n", "python3", RECEIVER_PATH,
+    command = VM126.command(timeout, "sudo", "-n", "python3", receiver_path,
                             "--release-sha", release_sha,
                             "--expected-payload-sha256", payload_hash)
     result = runner(command, payload)

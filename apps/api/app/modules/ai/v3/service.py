@@ -1658,9 +1658,9 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
                                   repair_contexts: list[Any] | None = None,
                                   review_records: dict[str, Any] | None = None,
                                   allow_repair: bool = False) -> None:
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+    from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
 
-    if policy != DIRECT_POLICY:
+    if policy not in OWNED_POLICIES:
         return
     from app.modules.ai.v3.diversity_review import review_final_lesson
     from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -1765,9 +1765,9 @@ async def generate_v3_course_from_corpus(
         raise ValueError("direct_owned_journal_required")
     if direct_client is not None and direct_max_output_tokens != 8192:
         raise ValueError("direct_owned_output_policy_invalid")
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
+    from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
 
-    if authenticated_qa_policy == DIRECT_POLICY:
+    if authenticated_qa_policy in OWNED_POLICIES:
         from app.modules.ai.v3.owned_source_context import OwnedSourceContext
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
 
@@ -2527,7 +2527,7 @@ async def generate_v3_course_from_corpus(
             }
         except Exception as review_err:
             unknown_review = isinstance(review_err, ExtractionOutcomeUnknownError)
-            if unknown_review and authenticated_qa_policy == DIRECT_POLICY:
+            if unknown_review and authenticated_qa_policy in OWNED_POLICIES:
                 raise
             if extraction_journal is not None and not (allow_unreviewed_on_unknown and unknown_review):
                 raise
@@ -2567,7 +2567,7 @@ async def generate_v3_course_from_corpus(
         allow_repair=not reference_decisions,
     )
 
-    if authenticated_qa_policy == DIRECT_POLICY:
+    if authenticated_qa_policy in OWNED_POLICIES:
         from app.modules.ai.v3.exact_duplicate_review import has_cross_lesson_duplicate
 
         if has_cross_lesson_duplicate(generated_lessons):
@@ -2620,7 +2620,7 @@ async def generate_v3_course_from_corpus(
         await progress_callback("quality", total_lessons + 1, total_lessons + 1, None, None)
 
     adapter_options: dict[str, Any] = {}
-    if authenticated_qa_policy == DIRECT_POLICY:
+    if authenticated_qa_policy in OWNED_POLICIES:
         adapter_options = {"source_corpus": corpus, "source_rules": tuple(
             rule for _group_id, rules in generated_primary_groups for rule in rules), "exact_narrative_facts": True}
     artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),

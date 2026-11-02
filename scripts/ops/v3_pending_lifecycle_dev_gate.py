@@ -21,6 +21,23 @@ DEV_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee006
 def source_digest() -> str:
     files = {p for root in (ROOT / "apps/api/app", ROOT / "apps/api/alembic", ROOT / "scripts/ops")
              for p in root.rglob("*.py") if "__pycache__" not in p.parts}
+    required = {ROOT / name for name in (
+        "apps/api/app/modules/ai/managed_luna_client.py",
+        "apps/api/app/modules/ai/direct_luna_responses_factory.py",
+        "apps/api/app/modules/admin/model_routing/chatgpt_reserve.py",
+        "apps/api/app/modules/ai/v3/qa_luna_pending_policy.py",
+        "apps/api/app/modules/ai/v3/direct_usage_metadata.py",
+        "apps/api/app/modules/ai/v3/direct_luna_owned_stage.py",
+        "apps/api/app/modules/ai/v3/owned_route_binding.py",
+        "apps/api/app/modules/ai/v3/owned_source_context.py",
+        "apps/api/app/modules/ai/v3/owned_source_verifier.py",
+        "apps/api/app/modules/ai/v3/pending_stage_journal.py",
+        "apps/api/app/modules/ai/v3/pending_stage_transactions.py",
+        "apps/api/app/modules/ai/v3/final_save_contract.py",
+        "apps/api/app/modules/ai/v3/final_save_owned_checkpoint.py",
+    )}
+    if not required <= files:
+        raise ValueError("pending_lifecycle_required_source_missing")
     manifest = {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
     return hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
@@ -494,6 +511,165 @@ async def _exercise_cooperative_resume(owner: Any, runtime: Any, schema: str, te
         delivery_id.reset(token)
 
 
+def _managed_drift_hash(job: str) -> str:
+    return hashlib.sha256(("synthetic-managed-drift:" + job).encode()).hexdigest()
+
+
+async def _exercise_managed_stage(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any) -> None:
+    """Synthetic managed client with real owned source/journal transactions; no HTTP."""
+    if not EXECUTION_ENABLED:
+        raise RuntimeError("pending_lifecycle_gate_unreviewed")
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    import ai_generation_checkpoint_dev_check as canonical
+    from app.models.ai_job import AIJob
+    from app.modules.ai.delivery_ownership import delivery_id
+    from app.modules.ai.direct_source import DirectSourceCorpus, DirectSourceDocument
+    from app.modules.ai.managed_luna_client import ManagedLunaClient
+    from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+    from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+    from app.modules.ai.v3.pending_stage_transactions import pending_sql_predicate
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY, MANAGED_POLICY
+    from app.modules.ai.v3.stage_checkpoint import _digest, stage_once, stage_plan
+    from sqlalchemy import select, text
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    canonical.validate_schema(schema)
+    job, actor, document = str(uuid4()), uuid4(), uuid4()
+    content = "Synthetic managed source."
+    file_hash = hashlib.sha256(content.encode()).hexdigest()
+    drift_hash = _managed_drift_hash(job)
+    params = {"documents": [str(document)], "source_analysis": {"generation_engine": "evidence_v3", KEY: MANAGED_POLICY}}
+    # The preceding revision-policy phase created this disposable RLS table.
+    async with owner.begin() as conn:
+        await conn.execute(text(f'''INSERT INTO "{schema}".documents
+            (id,tenant_id,uploaded_by,title,filename,content_type,file_size,category,content_sha256,lifecycle_status)
+            VALUES(:d,:t,:u,'synthetic','synthetic.txt','text/plain',:size,'general',:sha,'active')'''),
+            {"d": document, "t": tenant_a, "u": actor, "size": len(content), "sha": file_hash})
+        await conn.execute(text(f'''INSERT INTO "{schema}".ai_jobs (id,tenant_id,user_id,status,params,result)
+            VALUES(:j,:t,:u,'running',CAST(:p AS json),CAST(:r AS json))'''),
+            {"j": job, "t": tenant_a, "u": actor, "p": json.dumps(params), "r": "{}"})
+    sessions = async_sessionmaker(runtime, expire_on_commit=False)
+    doc = DirectSourceDocument(str(document), "synthetic", "synthetic.txt", "general",
+                               "document:" + file_hash, (), source_text=content)
+    corpus = DirectSourceCorpus(str(tenant_a), (doc,), len(content), 0)
+    journal = PendingStageJournal(str(tenant_a), actor, job, sessions)
+    source = OwnedSourceContext(corpus, journal, tenant_a, actor, job, (str(document),))
+    async def verify(session: Any, active: Any, plan: dict[str, Any]) -> bool:
+        analysis = active.params.get("source_analysis") if isinstance(active.params, dict) else None
+        return (isinstance(analysis, dict) and analysis.get(KEY) == MANAGED_POLICY
+                and await source.verify_locked(session, active, plan) is True)
+    journal.verify_source = verify
+    client = ManagedLunaClient(base_url="http://10.77.77.2:18999/v1", api_key="synthetic-only",
+                               tenant_id=tenant_a, user_id=actor, job_id=job, credential_revision="synthetic")
+    calls: list[str] = []
+    mode = "success"
+    async def fake_prepare(_messages: Any, *, max_output_tokens: int, ownership_checkpoint: Any) -> object:
+        calls.append("prepare")
+        if max_output_tokens != 8192 or await ownership_checkpoint() is not True:
+            raise AssertionError("managed_preclaim_ownership_invalid")
+        return object()
+    async def fake_invoke(_capability: Any, *, tenant_id: Any, user_id: Any, job_id: Any,
+                          ownership_checkpoint: Any, stage_id: Any) -> Any:
+        calls.append("invoke")
+        if (tenant_id, user_id, job_id) != (tenant_a, actor, job) or not isinstance(stage_id, str):
+            raise AssertionError("managed_invoke_scope_invalid")
+        if await ownership_checkpoint() is not True:
+            raise AssertionError("managed_invoke_ownership_invalid")
+        async with sessions() as check:
+            await canonical.set_tenant(check, tenant_a)
+            if await check.scalar(select(pending_sql_predicate()).where(AIJob.id == job)) is not True:
+                raise AssertionError("managed_invoke_without_claim")
+        if mode == "unknown":
+            raise RuntimeError("synthetic_unknown")
+        return SimpleNamespace(content={"synthetic": True}, model="gpt-5.6-luna",
+            usage=SimpleNamespace(input_tokens=7, output_tokens=2, cached_input_tokens=None, reasoning_tokens=None))
+    client.prepare, client.invoke = fake_prepare, fake_invoke
+    messages = [{"role": "user", "content": "synthetic"}]
+    async def forbidden() -> dict[str, Any]:
+        raise AssertionError("managed_fallback_called")
+    arguments = dict(journal=journal, stage="lesson", group_id="managed-success", source_sha256=file_hash,
+        route_fingerprint=client.cache_fingerprint(), messages=messages, response_format={"type": "json_object"},
+        invoke=forbidden, direct_client=client, direct_max_output_tokens=8192)
+    token = delivery_id.set(job)
+    cold = None
+    try:
+        if await stage_once(**arguments) != {"synthetic": True}:
+            raise AssertionError("managed_initial_result_invalid")
+        plan = stage_plan(journal, stage="lesson", group_id="managed-success", source_sha256=file_hash,
+            route_fingerprint=client.cache_fingerprint(), messages=messages, response_format={"type": "json_object"})
+        async with sessions() as session:
+            await journal.lock_owned_session(session)
+            saved = await journal.read_owned_value_in_session(session, "v3-stage-result:" + _digest(plan), plan)
+            if not isinstance(saved, dict) or saved.get("direct_metadata", {}).get("model") != "gpt-5.6-luna":
+                raise AssertionError("managed_saved_model_invalid")
+        cold = ManagedLunaClient(base_url="http://10.77.77.2:18999/v1", api_key="synthetic-only",
+                                 tenant_id=tenant_a, user_id=actor, job_id=job, credential_revision="synthetic")
+        async def forbidden_transport(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("managed_replay_called_transport")
+        cold.prepare = cold.invoke = forbidden_transport
+        if await stage_once(**(arguments | {"direct_client": cold})) != {"synthetic": True} or calls != ["prepare", "invoke"]:
+            raise AssertionError("managed_cold_replay_invalid")
+        async with owner.begin() as conn:
+            existing = await conn.scalar(text(f'''SELECT count(*) FROM "{schema}".documents
+                WHERE tenant_id=:t AND lifecycle_status='active' AND content_sha256=:sha'''),
+                {"t": tenant_a, "sha": drift_hash})
+            if existing:
+                raise AssertionError("managed_drift_hash_collision")
+            await conn.execute(text(f'UPDATE "{schema}".documents SET content_sha256=:sha WHERE id=:d'),
+                               {"sha": drift_hash, "d": document})
+        try:
+            try:
+                await stage_once(**(arguments | {"group_id": "managed-drift"}))
+            except ExtractionOutcomeUnknownError:
+                pass
+            else:
+                raise AssertionError("managed_source_drift_allowed")
+        finally:
+            async with owner.begin() as conn:
+                await conn.execute(text(f'UPDATE "{schema}".documents SET content_sha256=:sha WHERE id=:d'),
+                                   {"sha": file_hash, "d": document})
+        foreign_delivery = delivery_id.set(str(uuid4()))
+        try:
+            try:
+                await stage_once(**(arguments | {"group_id": "managed-foreign-delivery"}))
+            except ExtractionOutcomeUnknownError:
+                pass
+            else:
+                raise AssertionError("managed_foreign_delivery_allowed")
+        finally:
+            delivery_id.reset(foreign_delivery)
+        if calls != ["prepare", "invoke"]:
+            raise AssertionError("managed_drift_called_transport")
+        mode = "unknown"
+        unknown = arguments | {"group_id": "managed-unknown"}
+        try:
+            await stage_once(**unknown)
+        except ExtractionOutcomeUnknownError:
+            pass
+        else:
+            raise AssertionError("managed_unknown_not_held")
+        try:
+            await stage_once(**(unknown | {"direct_client": cold}))
+        except ExtractionOutcomeUnknownError:
+            pass
+        else:
+            raise AssertionError("managed_unknown_replayed")
+        if calls != ["prepare", "invoke", "prepare", "invoke"]:
+            raise AssertionError("managed_unknown_retried")
+        async with sessions() as session:
+            await canonical.set_tenant(session, tenant_b)
+            if await session.scalar(select(AIJob.id).where(AIJob.id == job)) is not None:
+                raise AssertionError("managed_foreign_job_visible")
+    finally:
+        if cold is not None:
+            cold.close()
+        client.close()
+        delivery_id.reset(token)
+
+
 async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
                    job_a: str, _resume_job: str, checks: list[str]) -> None:
     if not EXECUTION_ENABLED:
@@ -861,6 +1037,22 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
         checks.append("abandon_owned_pending_race_fenced")
         await _exercise_cooperative_resume(owner, runtime, schema, tenant_a)
         checks.append("cooperative_interrupt_resume_cold_replay_fenced")
+        try:
+            await _exercise_managed_stage(owner, runtime, schema, tenant_a, tenant_b)
+        except Exception as exc:
+            from sqlalchemy.exc import IntegrityError
+
+            if isinstance(exc, IntegrityError):
+                original = getattr(exc, "orig", None)
+                nested = getattr(original, "__cause__", None)
+                state = getattr(original, "sqlstate", None) or getattr(nested, "sqlstate", None)
+                constraint = getattr(original, "constraint_name", None) or getattr(nested, "constraint_name", None)
+                safe_state = state if isinstance(state, str) and re.fullmatch(r"[0-9A-Z]{5}", state) else "unknown"
+                safe_constraint = constraint if constraint in {"uq_documents_active_tenant_content_sha256",
+                    "uq_documents_tenant_family_version"} else "other_or_unknown"
+                print(f"EVIDENCE|phase=managed_stage|sqlstate={safe_state}|constraint={safe_constraint}", flush=True)
+            raise
+        checks.append("managed_owned_stage_replay_unknown_fenced")
     finally:
         delivery_id.reset(token)
 
@@ -919,6 +1111,7 @@ async def execute_candidate(*, expected_source: str, expected_base_source: str, 
                 "concurrent_distinct_digest_claim_fenced", "direct_fake_count_claim_replay_unknown",
                 "direct_rejection_receipt_durable_cold_hold", "historical_budget_period_refund_idempotent_rollback_rls",
                 "fresh_revision_policy_source_drift_fenced", "abandon_owned_pending_race_fenced",
+                "managed_owned_stage_replay_unknown_fenced",
                 "cooperative_interrupt_resume_cold_replay_fenced"}
     checks = result.get("checks")
     if (source_digest() != expected_source or result.get("source_unchanged") is not True

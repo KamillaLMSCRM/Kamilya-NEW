@@ -181,13 +181,14 @@ async def _persist_pending_stage_hold(job_id: str, tenant_id: UUID | None, user_
                     DIRECT_POLICY,
                     DIRECT_POLICY_V1,
                     DIRECT_POLICY_V2,
+                    MANAGED_POLICY,
                     POLICY,
                 )
                 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 
                 params = job.params if isinstance(job.params, dict) else {}
                 analysis = params.get("source_analysis")
-                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2) or job.course_id is not None
+                if (tenant_id != QA_TENANT or expected_qa_marker not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2, MANAGED_POLICY) or job.course_id is not None
                         or not isinstance(analysis, dict) or analysis.get(QA_KEY) != expected_qa_marker
                         or analysis.get("generation_engine") != "evidence_v3"):
                     return False
@@ -584,7 +585,13 @@ async def _run_v3_generation(
     if str(corpus.tenant_id) != str(tenant_id):
         raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V2, check_worker_marker
+    from app.modules.ai.v3.qa_luna_pending_policy import (
+        DIRECT_POLICY,
+        DIRECT_POLICY_V2,
+        MANAGED_POLICY,
+        OWNED_POLICIES,
+        check_worker_marker,
+    )
     from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
 
     journal: Any = WorkerCycleJournal(str(tenant_id), state.job_id, async_session_factory)
@@ -616,7 +623,7 @@ async def _run_v3_generation(
             context = await load_owned_source_context(journal=journal, tenant_id=tenant_id,
                                                       user_id=user_id, job_id=state.job_id)
             owned_source_context = context
-            if stored == DIRECT_POLICY:
+            if stored in OWNED_POLICIES:
                 state.owned_v3_source_context = context
             async def verify_qa_source(session: Any, job: Any, plan: dict[str, Any]) -> bool:
                 from app.modules.ai.v3.owned_route_binding import KEY as ROUTE_KEY
@@ -625,7 +632,7 @@ async def _run_v3_generation(
                 current = job.params.get("source_analysis") if isinstance(job.params, dict) else None
                 from app.modules.ai.v3.revision_policy import policy_matches
 
-                route_valid = (stored != DIRECT_POLICY or (direct_client is not None
+                route_valid = (stored not in OWNED_POLICIES or (direct_client is not None
                     and isinstance(job.result, dict) and job.result.get(ROUTE_KEY) == {
                         "policy": ROUTE_POLICY, "fingerprint": direct_client.cache_fingerprint()}))
                 return (isinstance(current, dict) and policy_matches(current, revision_policy)
@@ -654,16 +661,23 @@ async def _run_v3_generation(
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
-        if pending_mode and state.source_analysis.get(QA_PENDING_KEY) in (DIRECT_POLICY, DIRECT_POLICY_V2):
-            from app.modules.ai.direct_luna_responses_factory import create_direct_qa_responses_client
+        if pending_mode and state.source_analysis.get(QA_PENDING_KEY) in (DIRECT_POLICY, DIRECT_POLICY_V2, MANAGED_POLICY):
+            from app.modules.ai.direct_luna_responses_factory import (
+                create_direct_qa_responses_client,
+                create_managed_qa_client,
+            )
 
             try:
-                direct_client = create_direct_qa_responses_client(settings=get_settings(), tenant_id=tenant_id,
-                    user_id=user_id, job_id=state.job_id)
+                if authenticated_qa_policy == MANAGED_POLICY:
+                    direct_client = await create_managed_qa_client(settings=get_settings(), tenant_id=tenant_id,
+                        user_id=user_id, job_id=state.job_id)
+                else:
+                    direct_client = create_direct_qa_responses_client(settings=get_settings(), tenant_id=tenant_id,
+                        user_id=user_id, job_id=state.job_id)
             except ValueError as exc:
                 raise ExtractionOutcomeUnknownError("direct_qa_responses_unavailable") from exc
             generation_client = direct_client
-            if authenticated_qa_policy == DIRECT_POLICY:
+            if authenticated_qa_policy in OWNED_POLICIES:
                 from app.modules.ai.v3.owned_route_binding import bind_owned_route
 
                 try:
@@ -794,13 +808,13 @@ async def _verify_fresh_v3_final_source(
     from app.modules.ai.v3.owned_source_context import OwnedSourceContext
     from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
     from app.modules.ai.v3.pending_stage_transactions import has_pending
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY, OWNED_POLICIES
 
     params = job.params if isinstance(job.params, dict) else {}
     analysis = params.get("source_analysis")
     stored = analysis.get(KEY) if isinstance(analysis, dict) else None
     dispatched = state.source_analysis.get(KEY)
-    if stored != DIRECT_POLICY and dispatched != DIRECT_POLICY and state.owned_v3_source_context is None:
+    if stored not in OWNED_POLICIES and dispatched not in OWNED_POLICIES and state.owned_v3_source_context is None:
         return
     if delivery_id.get() is None:
         raise DeliveryOwnershipLostError("generation_delivery_ownership_lost")
@@ -809,7 +823,7 @@ async def _verify_fresh_v3_final_source(
         and job.result.get(INTENT_KEY) == final_intent
         and job.result.get(PENDING_KEY) == {"policy": FENCE_POLICY,
             "intent_digest": final_intent.get("intent_digest"), "attempt_id": final_intent.get("attempt_id")})
-    if (stored != DIRECT_POLICY or dispatched != DIRECT_POLICY or tenant_id != QA_TENANT
+    if (stored not in OWNED_POLICIES or dispatched != stored or tenant_id != QA_TENANT
             or not isinstance(analysis, dict) or analysis.get("generation_engine") != "evidence_v3"
             or analysis.get("analysis_mode") != "direct_source" or (has_pending(job.result) and not matching_final_fence)
             or not isinstance(state.owned_v3_route_fingerprint, str)
@@ -858,12 +872,12 @@ async def _prepare_fresh_v3_final_intent(state: GenerationState, tenant_id: UUID
     from app.modules.ai.v3.final_save_contract import make_intent, output_digest
     from app.modules.ai.v3.final_save_owned_checkpoint import checkpoint_final_output
     from app.modules.ai.v3.owned_source_context import OwnedSourceContext
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY, OWNED_POLICIES
 
     try:
         context = state.owned_v3_source_context
         current_delivery = delivery_id.get()
-        if (tenant_id != QA_TENANT or state.source_analysis.get(KEY) != DIRECT_POLICY
+        if (tenant_id != QA_TENANT or state.source_analysis.get(KEY) not in OWNED_POLICIES
                 or type(context) is not OwnedSourceContext or context.tenant_id != tenant_id
                 or context.user_id != user_id or context.job_id != state.job_id
                 or state.course_id is not None or not isinstance(current_delivery, str) or not current_delivery
@@ -881,7 +895,7 @@ async def _prepare_fresh_v3_final_intent(state: GenerationState, tenant_id: UUID
             source_combination_goal=state.source_combination_goal, source_analysis=state.source_analysis,
             source_review_required=state.server_source_review_required, reuse_reason=state.reuse_reason)
         intent = make_intent(tenant_id=str(tenant_id), user_id=str(user_id), job_id=state.job_id,
-            delivery_id=current_delivery, route_policy=DIRECT_POLICY, route_fingerprint=state.owned_v3_route_fingerprint,
+            delivery_id=current_delivery, route_policy=state.source_analysis[KEY], route_fingerprint=state.owned_v3_route_fingerprint,
             documents=documents, output_digest=digest)
         await checkpoint_final_output(journal=context.journal, context=context, state=state, intent=intent)
         return intent
@@ -1313,9 +1327,10 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
                     DIRECT_POLICY_V1,
                     DIRECT_POLICY_V2,
                     KEY,
+                    MANAGED_POLICY,
                     POLICY,
                 )
-                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2):
+                if isinstance(analysis, dict) and KEY in analysis and analysis[KEY] not in (POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2, MANAGED_POLICY):
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
                 if (analysis.get(KEY) if isinstance(analysis, dict) else None) != expected_qa_marker:
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
@@ -1358,11 +1373,16 @@ async def _run_generation_pipeline_inner(
         # Before identity and selection are checked, this caller has no authority
         # to change a job or its reservation. A successful read is not a lease.
         try:
-            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2
+            from app.modules.ai.v3.qa_luna_pending_policy import (
+                DIRECT_POLICY,
+                DIRECT_POLICY_V1,
+                DIRECT_POLICY_V2,
+                MANAGED_POLICY,
+            )
             from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
             from app.modules.ai.v3.qa_luna_pending_policy import POLICY as QA_PENDING_POLICY
 
-            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2):
+            if QA_PENDING_KEY in state.source_analysis and state.source_analysis[QA_PENDING_KEY] not in (QA_PENDING_POLICY, DIRECT_POLICY, DIRECT_POLICY_V1, DIRECT_POLICY_V2, MANAGED_POLICY):
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if not uses_current_generation_engine(state.source_analysis):
                 raise DirectSourceError(RETIRED_GENERATION_ENGINE_CODE)
@@ -1457,10 +1477,10 @@ async def _run_generation_pipeline_inner(
         _require_supported_question_export_ready(state.assessment)
         if user_id:
             timeout_boundary = "save_generation_db"
-            from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
             from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
+            from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
 
-            if state.source_analysis.get(QA_PENDING_KEY) == DIRECT_POLICY:
+            if state.source_analysis.get(QA_PENDING_KEY) in OWNED_POLICIES:
                 final_intent = await _prepare_fresh_v3_final_intent(state, tenant_id, user_id)
                 await _save_generation_to_db(state, tenant_id, user_id, final_intent=final_intent)
             else:
@@ -1508,13 +1528,13 @@ async def _run_generation_pipeline_inner(
     except ExtractionOutcomeUnknownError as error:
         from app.modules.ai.qa_luna_dev_route import QA_TENANT
         from app.modules.ai.v3.owned_source_context import OwnedSourceContext
-        from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
         from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
+        from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
 
         context = state.owned_v3_source_context
         if (str(error) == "v3_final_save_outcome_unknown" and not isinstance(error.__cause__, asyncio.CancelledError)
                 and tenant_id == QA_TENANT and isinstance(user_id, UUID)
-                and state.source_analysis.get(QA_PENDING_KEY) == DIRECT_POLICY
+                and state.source_analysis.get(QA_PENDING_KEY) in OWNED_POLICIES
                 and type(context) is OwnedSourceContext and context.tenant_id == tenant_id
                 and context.user_id == user_id and context.job_id == job_id):
             from app.modules.ai.v3.final_save_recovery import recover_completed_course_id

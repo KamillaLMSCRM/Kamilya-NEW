@@ -23,6 +23,8 @@ VALUE_RE = re.compile(r"^[^\x00\r\n]+$")
 RELEASE_RE = re.compile(r"^[0-9a-f]{40}$")
 ALLOWED_KEYS = frozenset({
     "AI_DIRECT_LUNA_QA_API_KEY", "AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION", "AI_DIRECT_LUNA_QA_DEV_ENABLED",
+    "AI_MANAGED_LUNA_QA_DEV_ENABLED", "AI_MANAGED_LUNA_QA_CREDENTIAL_REVISION",
+    "CHATGPT_RESERVE_URL", "CHATGPT_RESERVE_TOKEN", "CHATGPT_RESERVE_MODEL", "CHATGPT_RESERVE_AUTH_MODE",
     "AI_LESSON_CYCLE_DEV_ENABLED", "AI_LESSON_CYCLE_DEV_TENANTS", "AI_QA_LUNA_DEV_ENABLED",
     "AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED", "APP_ENV", "DATABASE_URL", "DB_MAX_OVERFLOW",
     "DB_POOL_SIZE", "DB_POOL_TIMEOUT", "DB_POOL_RECYCLE_SECONDS", "DEPLOYMENT_ENVIRONMENT",
@@ -34,7 +36,7 @@ ALLOWED_KEYS = frozenset({
     "SUPABASE_BUCKET", "SUPABASE_KEY", "SUPABASE_URL", "CELERY_QUEUES", "CELERY_CONCURRENCY",
 })
 REQUIRED_KEYS = frozenset({
-    "AI_DIRECT_LUNA_QA_API_KEY", "AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION", "AI_DIRECT_LUNA_QA_DEV_ENABLED",
+    "AI_DIRECT_LUNA_QA_DEV_ENABLED",
     "AI_LESSON_CYCLE_DEV_ENABLED", "AI_LESSON_CYCLE_DEV_TENANTS", "AI_QA_LUNA_DEV_ENABLED",
     "AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED", "APP_ENV", "DATABASE_URL", "DB_MAX_OVERFLOW", "DB_POOL_SIZE",
     "DB_POOL_TIMEOUT", "DB_POOL_RECYCLE_SECONDS", "DEPLOYMENT_ENVIRONMENT", "JWT_ALGORITHM", "JWT_SECRET",
@@ -67,6 +69,25 @@ def _database_project_ref(value: str) -> str:
     raise ValueError("database_scope_invalid")
 
 
+def _validate_luna_mode(values: dict[str, str]) -> None:
+    direct = values.get("AI_DIRECT_LUNA_QA_DEV_ENABLED")
+    managed = values.get("AI_MANAGED_LUNA_QA_DEV_ENABLED", "false")
+    if direct == "true" and managed == "false":
+        if not values.get("AI_DIRECT_LUNA_QA_API_KEY") or not values.get("AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION"):
+            raise ValueError("luna_mode_invalid")
+    elif direct == "false" and managed == "true":
+        if any(key in values for key in ("AI_DIRECT_LUNA_QA_API_KEY", "AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION")):
+            raise ValueError("luna_mode_invalid")
+        if (not values.get("AI_MANAGED_LUNA_QA_CREDENTIAL_REVISION")
+            or not values.get("CHATGPT_RESERVE_TOKEN")
+            or values.get("CHATGPT_RESERVE_URL") != "http://127.0.0.1:18999/v1"
+            or values.get("CHATGPT_RESERVE_MODEL") != "gpt-5.6-luna"
+            or values.get("CHATGPT_RESERVE_AUTH_MODE") != "codex_cli"):
+            raise ValueError("luna_mode_invalid")
+    else:
+        raise ValueError("luna_mode_invalid")
+
+
 def validate_payload(payload: bytes, release_sha: str, expected_hash: str) -> dict[str, str]:
     if not RELEASE_RE.fullmatch(release_sha) or len(payload) > MAX_PAYLOAD_BYTES:
         raise ValueError("payload_scope_invalid")
@@ -94,7 +115,8 @@ def validate_payload(payload: bytes, release_sha: str, expected_hash: str) -> di
     redis = urlsplit(values["REDIS_URL"])
     if redis.scheme != "rediss" or redis.hostname != REDIS_HOST or redis.port != REDIS_PORT or redis.path != REDIS_DB or redis.query or redis.fragment:
         raise ValueError("redis_scope_invalid")
-    if values.get("CELERY_QUEUES") != "ai,documents,maintenance" or values.get("CELERY_CONCURRENCY") != "1" or values.get("AI_DIRECT_LUNA_QA_DEV_ENABLED") != "true" or values.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true" or json.loads(values.get("AI_LESSON_CYCLE_DEV_TENANTS", "null")) != ["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]:
+    _validate_luna_mode(values)
+    if values.get("CELERY_QUEUES") != "ai,documents,maintenance" or values.get("CELERY_CONCURRENCY") != "1" or values.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_DEV_ENABLED") != "true" or values.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true" or json.loads(values.get("AI_LESSON_CYCLE_DEV_TENANTS", "null")) != ["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]:
         raise ValueError("worker_queue_scope_invalid")
     if values.get("DB_POOL_SIZE") != "2" or values.get("DB_MAX_OVERFLOW") != "0" or values.get("REDIS_TLS_VERIFY") != "true":
         raise ValueError("worker_runtime_scope_invalid")
@@ -105,7 +127,8 @@ def build_payload_from_render_values(source: dict[str, str], release_sha: str) -
     """Normalize an authenticated Render worker snapshot without logging values."""
     if source.get("DEPLOYMENT_ENVIRONMENT") != "render-development-worker":
         raise ValueError("source_environment_invalid")
-    if source.get("AI_DIRECT_LUNA_QA_DEV_ENABLED") != "true" or source.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or source.get("AI_QA_LUNA_DEV_ENABLED") != "true" or source.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true":
+    _validate_luna_mode(source)
+    if source.get("AI_LESSON_CYCLE_DEV_ENABLED") != "true" or source.get("AI_QA_LUNA_DEV_ENABLED") != "true" or source.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") != "true":
         raise ValueError("source_flags_invalid")
     tenants = source.get("AI_LESSON_CYCLE_DEV_TENANTS", "")
     try:

@@ -5426,3 +5426,19 @@ Rules:
 ### 2026-11-02 — exact candidate CI fixture correction
 
 - Candidate1e139895 CI41476426074 failed only fullcoverage after546PASS/2skips: old regeneration-dispatch mock expected implicit publish retry. Unit/allother6CIjobs passed. Updated contract explicitlyrequires retryFalse and lostackunknown, including message-redaction assertion;44focused PASS/2.73s, baseline1005/2171. No application/provider/model change, source8f228a...2798 PGproof unchanged. FailedCI not rewritten; new exactSHA CI required.
+
+
+## 2026-11-02 AAC DEV full Standards and alternate Luna readiness
+
+- ExactCI41477553956 SUCCESS/all7; build41478954534/image db5f913bac00cfb200abf952a18e03889db68f3d1e8ca88ee6499f45d2081c5e; canonical REL-DEV-COOP-AAC09AEA-20261102 RELEASE_OK. RuntimeAPI/web/VM459 exactAAC, lms_app restricted/converter200, production unchanged.
+- One ordinary API admission3e917b5c with originalStandards and ownerp2 count1. Outcome interrupted34%: two completed extractions then realHTTP429; pending retained, no course. Partialtokens input2123/output2083/reasoning866, missing rejected-call total unknown. No retry/refund/clear.
+- Owner requests other Luna. Existing private managed readiness PASS16:45:58UTC/modelgpt-5.6-luna/CLI0.146.1/lowreasoning, no inference. DEV settings unconfigured. First diagnostic rejected malformed sanitized output; corrected only outputformat and fresh readonly check PASS. Managed QA integration nowlocaldraft; no course-quality GO.
+
+
+## 2026-11-02 Managed Luna fresh policy local qualification
+
+- One real private CLI control PASS, gpt-5.6-luna/LOWreasoning,9137ms,6701input19output; no repeatedrequest and no newbilling/resource. Readiness alone was not used as inferenceproof. Connector/globalreserve untouched.
+- Full4720unitPASS/57.29s; baseline1005/2172; ops58PASS2Linuxskip; independent source reviews aftersettingsbinding/legacySHA pin corrections. Former focused run4failed due root's implicit Windows text decoding corrupting its own edited test literals; exact originalUTF8 test plus intended parameterization restored and95focusedPASS, then fullsuite above. No validatorweakened.
+- FirstmanagedPG attempt FAILED/IntegrityError after13legacychecks; cleanuptrue/public0184unchanged. Source shows fixture source-drift hash reused an earlier active same-tenantdocument hash. Newmanageddrift uses job-derived SHA checkedunused; uniqueconstraint unchanged. Failedreceipt retained.
+- FinalmanagedPG14PASS source66f566b5c2a4eb3c7e0e410908abf5038fd0392b7dc8211cf659172601c74309/base dc3638968181af3d6b8d203eb218515b9ad278ed1fca07579b648616b8b546b9, schemaaicp_dev_9bd3fe9313f7/cleanuptrue/public0184unchanged. Actualownedsource/journal/RLS/source/deliverydrift/coldreplay/unknownhold, syntheticprovider. This doesnot prove fullmanagedfinalsave or coursequality.
+- ImmutableVMreceiver-v3 installed5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a, v2untouched. No managedworker/envflag deployment or newcourse yet; exactCI/image/reconcile next.

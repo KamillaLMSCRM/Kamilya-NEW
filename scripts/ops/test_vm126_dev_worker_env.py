@@ -172,7 +172,7 @@ def test_receiver_rejects_symlink_target_and_newline_injection(tmp_path: Path) -
 
 def test_stage_verifies_hostname_receiver_hash_and_does_not_put_payload_in_command() -> None:
     body = payload()
-    receiver_sha = "c" * 64
+    receiver_sha = stage.RECEIVER_SHA
     commands: list[tuple[str, bytes]] = []
 
     def runner(command: str, sent: bytes) -> StageResult:
@@ -203,7 +203,7 @@ def test_stage_rejects_foreign_receiver_hash_or_target_identity() -> None:
         return StageResult(0, b"", b"")
 
     with pytest.raises(RuntimeError, match="target_identity_mismatch"):
-        stage.stage_payload(body, RELEASE, "c" * 64, bad_runner)
+        stage.stage_payload(body, RELEASE, stage.RECEIVER_SHA, bad_runner)
 
 
 @pytest.mark.parametrize("timeout", (0, 121, True, False))
@@ -214,7 +214,7 @@ def test_stage_rejects_unbounded_timeout(timeout) -> None:
 
 def test_stage_rejects_output_noise_or_stderr() -> None:
     body = payload()
-    receiver_sha = "c" * 64
+    receiver_sha = stage.RECEIVER_SHA
     keycount = str(len(body.decode().splitlines()))
     digest = hashlib.sha256(body).hexdigest()
 
@@ -260,3 +260,72 @@ def test_staged_environment_is_parseable_by_real_worker_settings():
     assert actual.AI_LESSON_CYCLE_DEV_TENANTS==["a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0"]
     assert actual.AI_DIRECT_LUNA_QA_DEV_ENABLED is True
     assert actual.DEPLOYMENT_ENVIRONMENT=="vm-development-worker"
+
+
+def managed_payload() -> bytes:
+    return (payload().replace(b"AI_DIRECT_LUNA_QA_API_KEY=secret\n", b"")
+            .replace(b"AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION=fixture\n", b"")
+            .replace(b"AI_DIRECT_LUNA_QA_DEV_ENABLED=true\n", b"AI_DIRECT_LUNA_QA_DEV_ENABLED=false\n")
+            + b"AI_MANAGED_LUNA_QA_DEV_ENABLED=true\n"
+            + b"AI_MANAGED_LUNA_QA_CREDENTIAL_REVISION=managed-v1\n"
+            + b"CHATGPT_RESERVE_URL=http://127.0.0.1:18999/v1\n"
+            + b"CHATGPT_RESERVE_TOKEN=synthetic\n"
+            + b"CHATGPT_RESERVE_MODEL=gpt-5.6-luna\n"
+            + b"CHATGPT_RESERVE_AUTH_MODE=codex_cli\n")
+
+
+def test_managed_payload_and_render_source_are_scoped_and_omit_direct_secrets() -> None:
+    body = managed_payload()
+    receiver.validate_payload(body, RELEASE, hashlib.sha256(body).hexdigest())
+    source = dict(line.split("=", 1) for line in body.decode().splitlines())
+    source["DEPLOYMENT_ENVIRONMENT"] = "render-development-worker"
+    result = receiver.build_payload_from_render_values(source, RELEASE)
+    assert b"AI_DIRECT_LUNA_QA_API_KEY=" not in result
+    assert b"AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION=" not in result
+    assert b"CHATGPT_RESERVE_MODEL=gpt-5.6-luna\n" in result
+
+
+@pytest.mark.parametrize("body", [
+    managed_payload().replace(b"AI_DIRECT_LUNA_QA_DEV_ENABLED=false", b"AI_DIRECT_LUNA_QA_DEV_ENABLED=true"),
+    managed_payload().replace(b"AI_MANAGED_LUNA_QA_DEV_ENABLED=true", b"AI_MANAGED_LUNA_QA_DEV_ENABLED=false"),
+    managed_payload().replace(b"AI_MANAGED_LUNA_QA_CREDENTIAL_REVISION=managed-v1\n", b""),
+    managed_payload().replace(b"http://127.0.0.1:18999/v1", b"http://127.0.0.2:18999/v1"),
+    managed_payload() + b"AI_DIRECT_LUNA_QA_API_KEY=secret\n",
+    managed_payload().replace(b"CHATGPT_RESERVE_TOKEN=synthetic\n", b""),
+    managed_payload().replace(b"CHATGPT_RESERVE_AUTH_MODE=codex_cli", b"CHATGPT_RESERVE_AUTH_MODE=unconfigured"),
+])
+def test_managed_mode_rejects_invalid_scope(body: bytes) -> None:
+    with pytest.raises(ValueError, match="luna_mode_invalid"):
+        receiver.validate_payload(body, RELEASE, hashlib.sha256(body).hexdigest())
+    source = dict(line.split("=", 1) for line in body.decode().splitlines())
+    source["DEPLOYMENT_ENVIRONMENT"] = "render-development-worker"
+    with pytest.raises(ValueError, match="luna_mode_invalid"):
+        receiver.build_payload_from_render_values(source, RELEASE)
+
+
+def test_managed_stage_selects_v3_and_rejects_wrong_hash_before_remote() -> None:
+    body = managed_payload()
+    calls = []
+    def runner(command, data):
+        calls.append((command, data))
+        if "hostname" in command:
+            return StageResult(0, stage.VM126.expected_hostname.encode(), b"")
+        if "sha256sum" in command:
+            return StageResult(0, f"{stage.RECEIVER_SHA_V3}  {stage.RECEIVER_PATH_V3}\n".encode(), b"")
+        return StageResult(0, f"STATUS|status=installed|release_sha={RELEASE}|payload_sha256={hashlib.sha256(body).hexdigest()}|keycount={len(body.splitlines())}\n".encode(), b"")
+    stage.stage_payload(body, RELEASE, stage.RECEIVER_SHA_V3, runner)
+    assert stage.RECEIVER_PATH_V3 in calls[1][0] and stage.RECEIVER_PATH_V3 in calls[2][0]
+    calls.clear()
+    with pytest.raises(ValueError, match="receiver_identity_invalid"):
+        stage.stage_payload(body, RELEASE, "0" * 64, runner)
+    assert not calls
+
+
+def test_direct_stage_rejects_wrong_receiver_hash_before_remote() -> None:
+    calls = []
+    def runner(command, data):
+        calls.append((command, data))
+        return StageResult(0, b"", b"")
+    with pytest.raises(ValueError, match="receiver_identity_invalid"):
+        stage.stage_payload(payload(), RELEASE, "0" * 64, runner)
+    assert calls == []

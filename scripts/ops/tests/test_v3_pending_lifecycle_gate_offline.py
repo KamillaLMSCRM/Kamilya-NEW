@@ -21,6 +21,8 @@ def test_callable_paths_block_before_access():
     with pytest.raises(RuntimeError, match="unreviewed"):
         asyncio.run(gate["_exercise_revision_policy"](None, None, "public", None, None))
     with pytest.raises(RuntimeError, match="unreviewed"):
+        asyncio.run(gate["_exercise_managed_stage"](None, None, "public", None, None))
+    with pytest.raises(RuntimeError, match="unreviewed"):
         asyncio.run(gate["_exercise_abandonment"](None, None, "public", None, None))
 
 
@@ -70,3 +72,21 @@ def test_abandon_gate_requires_real_blocking_and_preservation_checks():
                   "abandon_foreign_tenant_allowed", "abandon_stale_owned_read_allowed",
                   "abandon_course_claim_invalid", "abandon_course_job_allowed"):
         assert token in source
+
+
+def test_managed_gate_is_owned_replayed_and_has_no_transport_fallback():
+    source = PATH.read_text(encoding="utf-8")
+    for token in ("managed_owned_stage_replay_unknown_fenced", "ManagedLunaClient", "OwnedSourceContext",
+                  "managed_invoke_without_claim", "managed_saved_model_invalid", "managed_replay_called_transport",
+                  "managed_unknown_not_held", "managed_unknown_retried", "managed_foreign_job_visible",
+                  "managed_drift_hash_collision", "synthetic-managed-drift:", "phase=managed_stage|sqlstate="):
+        assert token in source
+
+
+def test_managed_drift_hash_does_not_reuse_prior_fixture_value():
+    import hashlib
+    gate = runpy.run_path(str(PATH))
+    value = gate["_managed_drift_hash"]("00000000-0000-0000-0000-000000000001")
+    assert value != "b" * 64
+    assert value != hashlib.sha256(b"Synthetic managed source.").hexdigest()
+    assert len(value) == 64

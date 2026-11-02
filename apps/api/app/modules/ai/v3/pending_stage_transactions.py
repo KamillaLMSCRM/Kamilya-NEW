@@ -29,14 +29,14 @@ def verify_repair_slot(job: Any, plan: dict[str, Any], *, required: bool = False
     if slot is None:
         return False
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
-    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY
     from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
+    from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
 
     params = job.params if isinstance(job.params, dict) else {}
     analysis = params.get("source_analysis")
     if (not isinstance(slot, str) or not re.fullmatch(r"[0-9a-f]{64}", slot)
             or plan.get("stage") != "repair" or str(plan.get("tenant_id")) != str(QA_TENANT)
-            or not isinstance(analysis, dict) or analysis.get(QA_KEY) != DIRECT_POLICY):
+            or not isinstance(analysis, dict) or analysis.get(QA_KEY) not in OWNED_POLICIES):
         raise ExtractionOutcomeUnknownError("v3_repair_slot_scope_unverified")
     result = job.result if isinstance(job.result, dict) else {}
     value = result.get(REPAIR_SLOTS_KEY)

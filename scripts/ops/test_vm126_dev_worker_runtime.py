@@ -97,3 +97,15 @@ def test_vm_worker_image_preserves_existing_private_converter_supervision():
     assert runtime.COMMAND[:2]==["python","/app/dev_private_model_runtime.py"]
     assert runtime.COMMAND[2:]==runtime.CELERY_COMMAND
     assert 'CMD ["sh", "-c", "alembic upgrade head && uvicorn' in dockerfile
+
+
+def test_managed_receiver_hash_and_legacy_receiver_identity(monkeypatch):
+    import hashlib
+    managed_source = b"managed receiver"
+    legacy_source = b"legacy receiver"
+    monkeypatch.setattr(runtime, "RECEIVER_SHA_V3", hashlib.sha256(managed_source).hexdigest())
+    monkeypatch.setattr(runtime, "RECEIVER_SHA", hashlib.sha256(legacy_source).hexdigest())
+    assert runtime.receiver_identity({"AI_MANAGED_LUNA_QA_DEV_ENABLED": "true"}, managed_source)
+    assert not runtime.receiver_identity({}, legacy_source)
+    with pytest.raises(ValueError, match="receiver_changed"):
+        runtime.receiver_identity({"AI_MANAGED_LUNA_QA_DEV_ENABLED": "true"}, managed_source + b"changed")

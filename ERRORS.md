@@ -1,3 +1,12 @@
+## AI-PROVIDER-007 - HTTP429 lost its rejection classification
+
+- Date:2026-11-02.
+- Symptom: exact AAC DEV Standards job3e917b5c interrupted34% on its third extraction; two completed responses retained, no course and worker restart0.
+- Cause: actual transport logs prove generation HTTP429, but the client maps every non200 to transport_unknown and discards safe subtype/retry metadata. Quota versus request rate is NOT proven; owner suspects quota and requests the alternate Luna. No payload receipt can be reconstructed from a discarded body.
+- Fix: alternate managed-auth QA integration is implemented locally and independently reviewed with a distinct server policy and route fingerprint; do not replay or clear the old pending claim. Future typed429 diagnostic retention remains open. Existing private connector readiness succeeds, actual model5.6 and reasoninglow; old QA adapter sends an unsupported reasoning_effort field and must not be reused unchanged.
+- Verification: current exact container459f3c38 logs HTTP429; two completed usage records input2123/output2083/reasoning866. Non-generative managed readiness16:45:58UTC PASS, zero inference/businesswrites. This is not semantic/course acceptance or evidence that quota is exhausted. Follow-up: one managed tiny control passed9137ms/6701input19output,4720unitPASS, actual disposablePG14PASS/cleanup/public0184unchanged. No managed completecourse or deployedroute accepted yet. Safe real-PG fixture hash collision was corrected without changing uniqueconstraints; old failedreceipt retained.
+- Prevention: preserve provider protocol, model and reasoning identity; distinguish readiness from inference, known rejection from transport uncertainty. A provider switch starts a fresh route identity and cannot authorize replay/refund of an uncertain prior claim.
+
 # Error and Recurrence Prevention Log
 
 Current as of: 2026-11-02.

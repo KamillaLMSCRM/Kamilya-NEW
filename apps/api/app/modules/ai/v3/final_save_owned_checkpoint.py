@@ -14,7 +14,7 @@ from app.modules.ai.v3.owned_route_binding import POLICY as ROUTE_POLICY
 from app.modules.ai.v3.owned_source_context import OwnedSourceContext
 from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.pending_stage_transactions import _locked_job
-from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+from app.modules.ai.v3.qa_luna_pending_policy import KEY, OWNED_POLICIES
 from app.modules.ai.worker_lesson_cycle import WorkerCycleJournal
 
 
@@ -53,7 +53,7 @@ async def checkpoint_final_output(*, journal: WorkerCycleJournal, context: Owned
             params = job.params if isinstance(job.params, dict) else {}
             analysis = params.get("source_analysis")
             if (job.course_id is not None or not isinstance(analysis, dict)
-                    or analysis.get(KEY) != DIRECT_POLICY or analysis.get("generation_engine") != "evidence_v3"
+                    or analysis.get(KEY) not in OWNED_POLICIES or analysis.get(KEY) != intent["route_policy"] or analysis.get("generation_engine") != "evidence_v3"
                     or job.result is None or not isinstance(job.result, dict)
                     or job.result.get("delivery_task_id") != intent["delivery_id"]
                     or job.result.get(ROUTE_KEY) != {"policy": ROUTE_POLICY, "fingerprint": intent["route_fingerprint"]}

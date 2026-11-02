@@ -15,6 +15,7 @@ COMMAND = ["python", "/app/dev_private_model_runtime.py", *CELERY_COMMAND]
 ROOT = Path("/opt/kamilya-dev-worker/releases")
 EXPECTED_IDENTITY = None
 RECEIVER_SHA = "a7470cca32295122245796acf17c9f8d6e3c7b904f417ac78b8ee069354b61ae"
+RECEIVER_SHA_V3 = "5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a"
 IMAGE_RE = re.compile(r"ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64}")
 HEALTH_CODE = r"""
 from app.core.celery_app import celery_app
@@ -76,6 +77,13 @@ def secure_file(path, mode):
     return path.read_bytes()
 
 
+def receiver_identity(staged, receiver_source):
+    managed = staged.get("AI_MANAGED_LUNA_QA_DEV_ENABLED", "false") == "true"
+    expected = RECEIVER_SHA_V3 if managed else RECEIVER_SHA
+    if hashlib.sha256(receiver_source).hexdigest() != expected: raise ValueError("receiver_changed")
+    return managed
+
+
 def main():
     try:
         expected=EXPECTED_IDENTITY
@@ -83,15 +91,17 @@ def main():
         first=inspect()
         release=env_values(first.get("Config",{}).get("Env")).get("RELEASE_SHA","")
         if not re.fullmatch(r"[0-9a-f]{40}",release): raise ValueError("release_invalid")
-        receiver_path=ROOT/"vm126_dev_worker_env_receiver-v2.py"
-        receiver_source=secure_file(receiver_path,0o600)
-        if hashlib.sha256(receiver_source).hexdigest()!=RECEIVER_SHA: raise ValueError("receiver_changed")
-        spec=importlib.util.spec_from_file_location("owned_receiver",receiver_path)
-        receiver=importlib.util.module_from_spec(spec);spec.loader.exec_module(receiver)
         payload=secure_file(ROOT/"env-v2"/release/"runtime.env",0o600)
         env_sha=hashlib.sha256(payload).hexdigest()
-        receiver.validate_payload(payload,release,env_sha)
+        if env_sha != expected["environment_sha256"]: raise ValueError("expected_identity_mismatch")
         staged=env_values(payload.decode("utf-8").splitlines())
+        managed=staged.get("AI_MANAGED_LUNA_QA_DEV_ENABLED", "false") == "true"
+        receiver_path=ROOT/("vm126_dev_worker_env_receiver-v3.py" if managed else "vm126_dev_worker_env_receiver-v2.py")
+        receiver_source=secure_file(receiver_path,0o600)
+        receiver_identity(staged,receiver_source)
+        spec=importlib.util.spec_from_file_location("owned_receiver",receiver_path)
+        receiver=importlib.util.module_from_spec(spec);spec.loader.exec_module(receiver)
+        receiver.validate_payload(payload,release,env_sha)
         if (staged.get("DEV_MODEL_SSH_ENABLED")!="true" or staged.get("DEV_OCR_SSH_ENABLED")!="true"
                 or staged.get("DEV_MODEL_SSH_ROLE")!="worker" or not staged.get("DEV_MODEL_SSH_KEY_B64")
                 or not staged.get("DEV_MODEL_SSH_KNOWN_HOST")): raise ValueError("private_supervisor_scope_invalid")
