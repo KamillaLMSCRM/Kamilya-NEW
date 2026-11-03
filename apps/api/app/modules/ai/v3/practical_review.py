@@ -263,8 +263,7 @@ def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, A
     if model_view is not None:
         candidate = model_view.encode(candidate)
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view is not None else None)
-        + '\n\nГОТОВЫЙ КУРС. COURSE_JSON\n' + json.dumps(candidate, ensure_ascii=False, indent=2)
+        + '\n\nГОТОВЫЙ КУРС. COURSE_JSON\n' + json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2)
         + '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps(
-            model_view.encode(previous) if model_view is not None else previous, ensure_ascii=False, indent=2))
+            model_view.encode(previous) if model_view is not None else previous, ensure_ascii=False, sort_keys=True, indent=2))
     return [{'role': 'system', 'content': REVIEW_SYSTEM}, {'role': 'user', 'content': content}]
-

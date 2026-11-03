@@ -133,10 +133,10 @@ def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, An
     editable = practical_patch_course_view(course, decision)
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view is not None else None)
         + '\nCURRENT_COURSE_JSON\n'
-        + json.dumps(model_view.encode(editable) if model_view is not None else editable, ensure_ascii=False, indent=2)
+        + json.dumps(model_view.encode(editable) if model_view is not None else editable, ensure_ascii=False, sort_keys=True, indent=2)
         + '\nCHECKED_FINDINGS_JSON\n'
         + json.dumps(model_view.encode(decision.feedback) if model_view is not None else decision.feedback,
-                     ensure_ascii=False, indent=2))
+            ensure_ascii=False, sort_keys=True, indent=2))
     return [{'role': 'system', 'content': PATCH_SYSTEM}, {'role': 'user', 'content': content}]
 
 
@@ -161,8 +161,8 @@ async def run_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, A
 
     messages = [{'role': 'system', 'content': AUTHOR_SYSTEM}, {'role': 'user', 'content':
         source_model_text(packet, aliases=view.canonical_to_alias)
-        + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False)
-        + '\nCOURSE_INTENT_JSON\n' + json.dumps(intent, ensure_ascii=False, indent=2)}]
+        + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False, sort_keys=True)
+        + '\nCOURSE_INTENT_JSON\n' + json.dumps(intent, ensure_ascii=False, sort_keys=True, indent=2)}]
     def validate_author(value: dict[str, Any]) -> None:
         view.assert_course_ids_disjoint(value)
         validate_practical_course(value, packet)

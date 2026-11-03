@@ -198,6 +198,6 @@ def source_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
     if model_view is not None:
         unit_rows = model_view.encode(unit_rows)
     content = (source_model_text(packet, aliases=aliases) + '\n\nSOURCE_AUDIT_UNITS_JSON\n'
-               + json.dumps(unit_rows, ensure_ascii=False, indent=2) + '\n\nLESSON_PROSE_JSON\n'
-               + json.dumps(lessons, ensure_ascii=False, indent=2))
+               + json.dumps(unit_rows, ensure_ascii=False, sort_keys=True, indent=2) + '\n\nLESSON_PROSE_JSON\n'
+               + json.dumps(lessons, ensure_ascii=False, sort_keys=True, indent=2))
     return [{'role': 'system', 'content': AUDIT_SYSTEM}, {'role': 'user', 'content': content}]

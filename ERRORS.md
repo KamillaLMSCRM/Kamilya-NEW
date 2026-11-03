@@ -25,6 +25,11 @@
   preserves issue IDs/closure, and permits additions only for unowned targets.
  79focused tests PASS. The model critic still missed Q05.03 object substitution;
   do not claim this coverage-scope fix solved every semantic blind spot.
+- Recovery recurrence: embedding JSON objects in prompt strings without canonical
+  key order changed next-stage request hashes between fresh model output and
+  persisted JSON readback despite identical facts. P9 uses sort_keys for all
+  structured prompt objects; reversed-key cold/warm stage-plan regression PASS.
+  Lists/raw source unchanged, historical P8 requests remain historical.
 - Prevention: replay exact saved failures, independently read every complete
   course, verify both all alternatives and source actor/action/object/condition,
   and count completed rejected-response usage. Technical tests do not establish
