@@ -398,6 +398,21 @@ def test_read_only_docker_evidence_format_allows_only_fixed_vm_worker(monkeypatc
         remote.load_script(foreign, target="vm126", mode="read-only", correlation_id="", expected_sha256="")
 
 
+@pytest.mark.parametrize('project', ['kamilya-dev-codex', 'kamilya-codex-reserve'])
+@pytest.mark.parametrize('role', ['connector', 'egress'])
+def test_connector_metadata_probe_allows_only_fixed_names_and_safe_fields(monkeypatch, tmp_path, project, role):
+    _inside_repo(monkeypatch, tmp_path)
+    name = f'{project}-{role}-1'
+    body = "sudo -n docker inspect --format '" + remote.DOCKER_EVIDENCE_FORMAT + "' " + name
+    manifest = remote.load_script(_script(tmp_path, body), target='vm126', mode='read-only',
+                                correlation_id='', expected_sha256='')
+    assert manifest.mode == 'read-only'
+    for invalid in (body.replace(name, name+'-other'), body.replace(remote.DOCKER_EVIDENCE_FORMAT, '{{json .Config}}')):
+        with pytest.raises(remote.GateBlocked, match='read_only'):
+            remote.load_script(_script(tmp_path, invalid), target='vm126', mode='read-only',
+                               correlation_id='', expected_sha256='')
+
+
 @pytest.mark.parametrize("slot", ("blue", "green"))
 @pytest.mark.parametrize(
     "service",

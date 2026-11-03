@@ -51,6 +51,29 @@
   reproduced3RED/3PASS and now all6PASS, including cold replay without another
   call, wrong fresh model hold and wrong cached model rejection. Final unit
   suite5279PASS/58.03s, baseline1006/2174PASS. No deployed success inferred.
+- P11 assessment recurrence: a missing assessment was represented as prose
+  coverage, whose owner-scoped repair correctly prohibited question additions.
+  A separate assessment finding now permits additions only to named existing
+  lessons, retaining all good prose/questions and identity/source checks. Full
+  synthetic audit-to-patch-to-recheck and foreign/source/alias collision tests
+  pass; no unbounded rewrite permission is granted.
+- P11 negative-custody recurrence: Micro's received audit had valid42groups/
+  276unique refs but two MISSING reasons lacked duplicate top-level findings.
+  The old cross-field validator rejected the whole response. Every typed
+  negative now compiles into a retained actionable finding; no overlap-based
+  semantic deduplication is used. Named partial-coverage lesson ownership is
+  preserved, UNCERTAIN remains a source hold, and the raw audit is immutable.
+  Actual-cycle tests prove a negative cannot become PASS when the duplicate is
+  absent. Failed historical report remains failed; the received completion
+  adds105534input/9112output to its actual accounting, not another model call.
+- P11 editorial recurrence: derived source-reading interpretations were also
+  shown to both critics. Critics now read original evidence independently;
+  exact technical/numeric/negative-term fidelity and commissioning-editor
+  obligations are explicit. A generic same-model Fire saved-course control,
+  with no human finding input, detected the silent technical-term substitution.
+  This is evidence for the combined role/input change, not isolated causal
+  proof. Source ambiguities, optional editorial improvements and material
+  generated errors remain separate; do not chase model PASS as product truth.
 
 ## AI-REUSE-001 - Complete extraction work was stranded behind a later unknown stage
 

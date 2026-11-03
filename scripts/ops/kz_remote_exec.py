@@ -76,7 +76,8 @@ DOCKER_EVIDENCE_FORMAT = (
     "status={{.State.Status}}|restarts={{.RestartCount}}"
 )
 DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
-    r"(?:kamilya-dev-worker|(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1)"
+    r"(?:kamilya-dev-worker|(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1"
+    r"|(?:kamilya-dev-codex|kamilya-codex-reserve)-(?:connector|egress)-1)"
 )
 DOCKER_AI_WORKER_LOG_CONTAINER_RE = re.compile(
     r"(?:kamilya-runtime|kamilya-(?:blue|green))-worker-ai-1"

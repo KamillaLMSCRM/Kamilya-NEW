@@ -11,7 +11,7 @@ from app.modules.ai.v3.batch_review_response_schema import _matches
 from app.modules.ai.v3.practical_contract import PracticalSourcePacket, _course_format, validate_practical_course
 from app.modules.ai.v3.practical_review import PracticalReviewDecision
 
-NAME = 'v3_practical_patch_v3'
+NAME = 'v3_practical_patch_v4'
 
 
 def _object(props: dict[str, Any]) -> dict[str, Any]:
@@ -49,13 +49,15 @@ def practical_patch_course_view(course: dict[str, Any], decision: PracticalRevie
 
 
 def _format(sources: list[str], lessons: list[str], edit_lessons: dict[str, list[str]], edit_questions: list[str],
-            additions: bool, fingerprint: str) -> dict[str, Any]:
+            additions: bool, fingerprint: str, assessment_lessons: list[str]) -> dict[str, Any]:
     if (type(additions) is not bool or not lessons or len(set(lessons)) != len(lessons)
             or type(edit_lessons) is not dict or not re.fullmatch('[0-9a-f]{64}', fingerprint)
             or any(type(x) is not str or not x.strip() for x in lessons + list(edit_lessons) + edit_questions)
             or any(not ids or len(set(ids)) != len(ids) or any(not re.fullmatch(r'F[1-9]\d*', i) for i in ids)
                    for ids in edit_lessons.values()) or len(set(edit_questions)) != len(edit_questions)
-            or not set(edit_lessons) <= set(lessons) or not (edit_lessons or edit_questions or additions)):
+            or len(set(assessment_lessons)) != len(assessment_lessons)
+            or not set(assessment_lessons) <= set(lessons)
+            or not set(edit_lessons) <= set(lessons) or not (edit_lessons or edit_questions or additions or assessment_lessons)):
         raise ValueError('practical_patch_scope_invalid')
     base = _course_format(sources)['json_schema']['schema']['properties']['lessons']['items']
     question = base['properties']['questions']['items']
@@ -66,6 +68,9 @@ def _format(sources: list[str], lessons: list[str], edit_lessons: dict[str, list
         new_lessons['maxItems'] = new_questions['maxItems'] = 0
     props = {'course_fingerprint': {'type': 'string', 'enum': [fingerprint]},
              'new_lessons': new_lessons, 'new_questions': new_questions}
+    if assessment_lessons:
+        props['assessment_additions'] = _object({key: {'type': 'array', 'items': copy.deepcopy(question)}
+                                                for key in assessment_lessons})
     if edit_lessons:
         props['lesson_updates'] = _object({key: _object({'title': {'type': 'string'},
             'replacements': {'type': 'array', 'items': _object({
@@ -84,7 +89,7 @@ def _format(sources: list[str], lessons: list[str], edit_lessons: dict[str, list
 def practical_patch_format(packet: PracticalSourcePacket, course: dict[str, Any],
                            decision: PracticalReviewDecision) -> dict[str, Any]:
     validate_practical_course(course, packet)
-    if decision.accepted or decision.source_uncertain and not (decision.lesson_ids or decision.question_ids):
+    if decision.accepted or decision.source_uncertain and not (decision.lesson_ids or decision.question_ids or decision.assessment_lesson_ids):
         raise ValueError('practical_patch_scope_invalid')
     if (len(set(decision.lesson_ids)) != len(decision.lesson_ids)
             or not set(decision.lesson_ids) <= {lesson['id'] for lesson in course['lessons']}):
@@ -92,11 +97,15 @@ def practical_patch_format(packet: PracticalSourcePacket, course: dict[str, Any]
     questions = {q['id'] for lesson in course['lessons'] for q in lesson['questions']}
     if not set(decision.question_ids) <= questions:
         raise ValueError('practical_patch_scope_invalid')
+    if (len(set(decision.assessment_lesson_ids)) != len(decision.assessment_lesson_ids)
+            or not set(decision.assessment_lesson_ids) <= {lesson['id'] for lesson in course['lessons']}):
+        raise ValueError('practical_patch_scope_invalid')
     editable = {lesson['id']: [key for key, _start, _end in _fragments(lesson['content'])]
                 for lesson in course['lessons'] if lesson['id'] in decision.lesson_ids}
     return _format([b.block_id for b in packet.blocks if b.text.strip()], [lesson['id'] for lesson in course['lessons']],
                    editable, list(decision.question_ids),
-                   decision.allow_new_lessons and not decision.source_uncertain, _fingerprint(course))
+                   decision.allow_new_lessons and not decision.source_uncertain, _fingerprint(course),
+                   list(decision.assessment_lesson_ids))
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
@@ -107,7 +116,8 @@ def _reconstruct(value: Any) -> dict[str, Any]:
         editable = {key: row['properties']['replacements']['items']['properties']['fragment_id']['enum']
                     for key, row in props.get('lesson_updates', {}).get('properties', {}).items()}
         result = _format(sources, lessons, editable, list(props.get('question_updates', {}).get('properties', {})),
-                         'maxItems' not in props['new_lessons'], props['course_fingerprint']['enum'][0])
+                         'maxItems' not in props['new_lessons'], props['course_fingerprint']['enum'][0],
+                         list(props.get('assessment_additions', {}).get('properties', {})))
         if result != value:
             raise ValueError
         return result
@@ -131,7 +141,8 @@ def matches_practical_patch(value: Any, response_format: Any) -> bool:
         sources = fmt['json_schema']['schema']['properties']['new_lessons']['items']['properties']['questions']['items']['properties']['source_refs']['items']['enum']
         from app.modules.ai.v3.practical_contract import matches_practical_course_response
         candidate_lessons = copy.deepcopy(value['new_lessons'])
-        updates = list(value.get('question_updates', {}).values()) + [x['question'] for x in value['new_questions']]
+        updates = (list(value.get('question_updates', {}).values()) + [x['question'] for x in value['new_questions']]
+                   + [question for rows in value.get('assessment_additions', {}).values() for question in rows])
         if updates:
             internal_id = '__patch_questions__'
             while internal_id in {row['id'] for row in candidate_lessons}:
@@ -177,6 +188,12 @@ def merge_practical_patch(course: dict[str, Any], packet: PracticalSourcePacket,
             raise ValueError('practical_patch_identity_collision')
         question_ids.add(row['question']['id'])
         lessons[row['lesson_id']]['questions'].append(copy.deepcopy(row['question']))
+    for lid, rows in patch.get('assessment_additions', {}).items():
+        for question in rows:
+            if question['id'] in question_ids:
+                raise ValueError('practical_patch_identity_collision')
+            question_ids.add(question['id'])
+            lessons[lid]['questions'].append(copy.deepcopy(question))
     for lesson in patch['new_lessons']:
         if lesson['id'] in lessons or any(q['id'] in question_ids for q in lesson['questions']):
             raise ValueError('practical_patch_identity_collision')

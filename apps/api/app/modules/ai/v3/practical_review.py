@@ -10,11 +10,11 @@ from typing import Any
 
 from app.modules.ai.v3.batch_review_response_schema import _matches
 from app.modules.ai.v3.practical_contract import PracticalSourcePacket, source_model_text, validate_practical_course
+from app.modules.ai.v3.practical_fidelity import SOURCE_FIDELITY_GUIDE
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
-from app.modules.ai.v3.practical_source_reader import source_reading_context
 
-NAME = 'v3_practical_question_review_v6'
+NAME = 'v3_practical_question_review_v7'
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
@@ -32,7 +32,7 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
         raise ValueError('practical_review_format_invalid')
     text = {'type': 'string'}
     refs = {'type': 'array', 'items': text, 'minItems': 1}
-    finding = _object({'scope': {'type': 'string', 'enum': ['lesson', 'question', 'coverage', 'source']},
+    finding = _object({'scope': {'type': 'string', 'enum': ['lesson', 'question', 'coverage', 'source', 'assessment']},
         'target_id': {'type': 'string', 'enum': list(dict.fromkeys([*lessons, *questions, *sources]))},
         'problem': text, 'source_refs': {**refs, 'items': {'type': 'string', 'enum': sources}},
         'expected_rule': text, 'correction': text})
@@ -133,7 +133,7 @@ def matches_practical_review(value: Any, response_format: Any) -> bool:
                 if (not case['explanation'].strip() or len(set(refs)) != len(refs) or not set(refs) <= allowed
                         or case['exists'] == 'FOUND' and not refs):
                     return False
-        targets = {'lesson': set(value['narrative_sources']), 'question': set(value['answer_keys']),
+        targets = {'lesson': set(value['narrative_sources']), 'assessment': set(value['narrative_sources']), 'question': set(value['answer_keys']),
                    'source': allowed, 'coverage': allowed | set(value['narrative_sources'])}
         for finding in value['findings']:
             if (finding['target_id'] not in targets[finding['scope']] or not valid_refs(finding['source_refs'])
@@ -154,6 +154,7 @@ class PracticalReviewDecision:
     question_ids: tuple[str, ...]
     allow_new_lessons: bool
     feedback: tuple[dict[str, Any], ...]
+    assessment_lesson_ids: tuple[str, ...] = ()
 
 
 def _issue(scope: str, target: str, evidence: dict[str, Any]) -> dict[str, Any]:
@@ -211,8 +212,9 @@ def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePac
                 allow_new = True
     lesson_ids = tuple(dict.fromkeys(editable_lessons))
     question_ids = tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'question'))
+    assessment_lesson_ids = tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'assessment'))
     return PracticalReviewDecision(not feedback, any(item['scope'] == 'source' for item in feedback),
-        lesson_ids, question_ids, allow_new, tuple(feedback))
+        lesson_ids, question_ids, allow_new, tuple(feedback), assessment_lesson_ids)
 
 
 REVIEW_SYSTEM = (
@@ -243,13 +245,15 @@ REVIEW_SYSTEM = (
     'DEPENDS зависит от неуказанных условий, UNKNOWN данных недостаточно. answer_keys — '
     'индекс с нуля, -1 если нет одного однозначного ответа. findings содержит материальные '
     'ошибки вопросов, объяснений и недостающие для ответа знания; предложи адресное исправление. '
+    'Если существенное уже изложенное знание требует нового вопроса, используй scope=assessment '
+    'и target_id существующего урока; это разрешает только добавление вопросов в этот урок. '
     'Не требуй одинаковой длины, четырёх вариантов или отдельного вопроса на каждый факт. '
     'Существенные сомнения самого источника отмечай source, прочие особенности — source_notes. '
     'narrative_sources перечисляет использованные основания по урокам. Проверку прозы целиком '
     'делает отдельный редактор. При повторной проверке закрой каждое прежнее замечание в '
     'issue_checks: RESOLVED после исправления, OPEN если осталось, RETRACTED если оно ошибочно. '
     'Предыдущая критика не является нормой: сверяй её с исходником.'
-)
+) + SOURCE_FIDELITY_GUIDE
 
 
 def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, Any],
@@ -265,7 +269,6 @@ def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, A
     if model_view is not None:
         candidate = model_view.encode(candidate)
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view is not None else None)
-        + source_reading_context(source_readings, model_view)
         + '\n\nГОТОВЫЙ КУРС. COURSE_JSON\n' + json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2)
         + '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps(
             model_view.encode(previous) if model_view is not None else previous, ensure_ascii=False, sort_keys=True, indent=2))

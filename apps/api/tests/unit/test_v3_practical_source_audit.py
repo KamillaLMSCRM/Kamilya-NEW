@@ -9,6 +9,7 @@ from app.modules.ai.v3.practical_audit_units import audit_units
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
 from app.modules.ai.v3.practical_source_audit import (
+    compiled_source_audit_findings,
     is_source_audit_format,
     matches_source_audit,
     source_audit_format,
@@ -121,7 +122,16 @@ def test_source_check_inventory_and_findings(audit, defect):
         value['source_units_fingerprint'] = '0' * 64
     else:
         row['status'] = 'MISSING' if defect == 'missing_finding' else 'UNCERTAIN'
-    assert not matches_source_audit(value, source_audit_format(packet, course))
+    if defect in {'missing_finding', 'uncertain_finding'}:
+        original_findings = copy.deepcopy(value['findings'])
+        assert matches_source_audit(value, source_audit_format(packet, course))
+        compiled = compiled_source_audit_findings(value, packet, course)
+        assert compiled[:-1] == original_findings
+        assert compiled[-1]['scope'] == ('coverage' if defect == 'missing_finding' else 'source')
+        assert compiled[-1]['problem'] == row['reason']
+        assert value['findings'] == original_findings
+    else:
+        assert not matches_source_audit(value, source_audit_format(packet, course))
 
 
 @pytest.mark.parametrize(('status', 'scope'), [('MISSING', 'coverage'), ('UNCERTAIN', 'source')])

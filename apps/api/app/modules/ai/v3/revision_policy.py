@@ -10,7 +10,7 @@ PREVIOUS_REVIEW_POLICY = "v3-batched-decision-review-v2"
 BUCKET_REVIEW_POLICY = "v3-batched-decision-review-v3"
 AUXILIARY_REVIEW_POLICY = "v3-batched-decision-review-v4"
 REVIEW_POLICY = "v3-batched-decision-review-v5"
-PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v10"
+PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v11"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 

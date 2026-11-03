@@ -7,11 +7,13 @@ document-to-confirmation acceptance. Existing customer courses remain unchanged.
    blind question review, source-first coverage audit, scoped paragraph/question
    corrections. All raw source spans and completed responses remain immutable.
    Review all three full Lombard courses against the independent 67-family /
-   16-ambiguity matrix. Standards P8: 5 lessons / 17 questions independently
-   accepted locally; presentation replay uses zero model calls. Fire: saved
-   correction control active. Microcredit: 276 source blocks grouped into 42
-   structural audit units, retaining every substantive source block.
-2. **Exact DEV candidate — pending.** Commit selected practical integration only;
+   16-ambiguity matrix. P11 now separates assessment repair permissions and
+   compiles every negative audit reason into retained feedback. Standards6L19Q
+   independently acceptable for human review; automatic hold is not relabeled.
+   Fire/Micro saved corrections active with no repeated authoring. Microcredit:
+   276 source blocks grouped into42 structural audit units, retaining all text.
+2. **Exact DEV candidate — in progress, not deployed.** Feature8a6d4660 CI all7
+   passed; final P11 child source/CI still required. Commit selected integration;
    project-account push and remote readback, full CI, immutable API/connector
    images. Upgrade only the existing isolated DEV connector and VM worker.
    Luna 6 / high uses official stable CLI 0.166.0 and explicit profile on both
