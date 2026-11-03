@@ -130,10 +130,13 @@ def _checked_structured_format(value: object) -> dict[str, Any]:
             for child in props.values():
                 check(child, depth + 1)
         elif kind == "array":
-            if set(node) not in ({"type", "items"}, {"type", "items", "minItems"}):
+            if not {"type", "items"} <= set(node) <= {"type", "items", "minItems", "maxItems"}:
                 raise RunnerError("invalid_input")
             minimum = node.get("minItems", 0)
             if type(minimum) is not int or not 0 <= minimum <= 10000:
+                raise RunnerError("invalid_input")
+            maximum = node.get("maxItems", 10000)
+            if type(maximum) is not int or not minimum <= maximum <= 10000:
                 raise RunnerError("invalid_input")
             check(node["items"], depth + 1)
         elif kind == "string":

@@ -8,6 +8,7 @@ from typing import Any
 from app.modules.ai.v3.author_response_schema import is_lesson_author_response, is_lesson_author_response_format
 from app.modules.ai.v3.batch_review_response_schema import is_batch_review_response, is_batch_review_response_format
 from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_response, is_rule_extraction_response_format
+from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_typed_review_response
 
 
 def response_contract(value: object) -> str | None:
@@ -17,6 +18,8 @@ def response_contract(value: object) -> str | None:
         return "extraction"
     if is_batch_review_response_format(value):
         return "batch_review"
+    if is_typed_review_format(value):
+        return "batch_review_buckets"
     return None
 
 
@@ -35,4 +38,6 @@ def matches_response_contract(value: object, response_format: dict[str, Any]) ->
         return is_rule_extraction_response(value)
     if kind == "batch_review":
         return is_batch_review_response(value)
+    if kind == "batch_review_buckets":
+        return is_typed_review_response(value, response_format)
     return False

@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 import logging
 import re
 from collections.abc import Awaitable, Callable
@@ -321,4 +322,20 @@ class DirectLunaResponsesClient:
             if rejection is not None:
                 raise rejection
             raise ResponsesClientError("luna_responses_generation_unverified")
+        if stage_id is not None and self._key.encode('utf-8') not in raw.encode('utf-8'):
+            try:
+                from app.modules.ai.managed_response_rejection import (
+                    ManagedResponseRejectedError,
+                    ManagedResponsesResult,
+                )
+
+                wire = json.dumps(request.generation_payload(), ensure_ascii=False, separators=(',', ':'),
+                                  allow_nan=False).encode('utf-8')
+                capture = ManagedResponseRejectedError(raw=raw.encode('utf-8'), tenant_id=tenant_id, user_id=user_id,
+                    job_id=job_id, stage=stage_id, route_fingerprint=self.cache_fingerprint(),
+                    wire_request_sha256=hashlib.sha256(wire).hexdigest(), phase='stage_validation',
+                    cause=ValueError('completed_response'), configured_model='gpt-6-luna')
+                return ManagedResponsesResult(content=result.content, model=result.model, usage=result.usage, _capture=capture)
+            except (ValueError, TypeError, UnicodeError):
+                pass
         return result

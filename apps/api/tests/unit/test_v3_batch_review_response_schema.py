@@ -5,6 +5,7 @@ import pytest
 from app.modules.ai.v3.batch_review_response_schema import (
     batch_review_response_format,
     batch_review_schema_hash,
+    is_batch_review_for_method,
     is_batch_review_response,
     is_batch_review_response_format,
 )
@@ -31,6 +32,20 @@ def test_five_existing_review_shapes_and_unfavorable_verdicts():
     fmt['json_schema']['strict'] = False
     assert not is_batch_review_response_format(fmt)
     assert is_batch_review_response_format(batch_review_response_format())
+    assert batch_review_schema_hash() == '308bf4507b05b24255db6690f14a92204ba757ba8bb85fea4c9b33f971449ea8'
+
+
+def test_method_shapes_are_exact_and_options_share_contract():
+    methods = ['review_lesson', 'review_answer', 'review_question_options',
+               'review_question_compatibility', 'review_answer_completeness']
+    for i, method in enumerate(methods):
+        for j, review in enumerate(reviews()):
+            assert is_batch_review_for_method(review, method) is (i == j or (i in (2, 3) and j in (2, 3)))
+    assert not is_batch_review_for_method({'verdict': 'PASS', 'claims': [], 'summary': 'x'}, 'review_lesson')
+    assert not is_batch_review_for_method(reviews()[0], 'unknown')
+    malformed = deepcopy(reviews()[0])
+    malformed['factual_score'] = float('nan')
+    assert not is_batch_review_for_method(malformed, 'review_lesson')
 
 
 @pytest.mark.parametrize('change', ['missing', 'extra', 'bool', 'nonfinite', 'badindex', 'wrongroot'])

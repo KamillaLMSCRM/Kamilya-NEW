@@ -79,6 +79,10 @@ async def stage_once(
     def validate(value: Any) -> dict[str, Any]:
         if not isinstance(value, dict) or not value:
             raise ValueError("v3_stage_response_invalid")
+        from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
+        if response_format is not None and response_contract(response_format) == "batch_review_buckets":
+            if not matches_response_contract(value, response_format):
+                raise ValueError("v3_stage_response_shape_invalid")
         try:
             return cast(dict[str, Any], json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False)))
         except (TypeError, ValueError) as exc:
@@ -109,14 +113,18 @@ async def stage_once(
                 raise ValueError("v3_stage_checkpoint_invalid")
             return response
         if direct_client is not None:
+            from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
             from app.modules.ai.managed_luna_client import ManagedLunaClient
             from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
             from app.modules.ai.v3.batch_review_response_schema import is_batch_review_response_format
+            from app.modules.ai.v3.typed_review_buckets import is_typed_review_format
             structured = (type(direct_client) is ManagedLunaClient and (
                 (stage == "lesson" and is_lesson_author_response_format(response_format))
                 or (stage == "review" and group_id.startswith("batched-review:")
-                    and is_batch_review_response_format(response_format))))
-            if response_format not in (None, {"type": "json_object"}) and not structured:
+                    and (is_batch_review_response_format(response_format) or is_typed_review_format(response_format)))))
+            direct_buckets = (type(direct_client) is DirectLunaResponsesClient and stage == "review"
+                              and group_id.startswith("batched-review:") and is_typed_review_format(response_format))
+            if response_format not in (None, {"type": "json_object"}) and not (structured or direct_buckets):
                 raise ValueError("direct_owned_format_invalid")
             from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
 
@@ -124,7 +132,7 @@ async def stage_once(
                 result_key=result_key, claim_key=claim_key, validate_value=validate_value,
                 validate_response=validate, messages=messages, max_output_tokens=direct_max_output_tokens,
                 _owned_claim_guard=_owned_claim_guard,
-                **({"response_format": response_format} if structured else {}))
+                **({"response_format": response_format} if structured or direct_buckets else {}))
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
                                          validate_value=validate_value, validate_response=validate, invoke=invoke,
                                          _owned_claim_guard=_owned_claim_guard)

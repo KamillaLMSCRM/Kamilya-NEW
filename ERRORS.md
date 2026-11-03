@@ -9371,6 +9371,24 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 - Follow-up2026-11-03: DEV1330 Standards ad5c3466 returned five HTTP200 responses40535input5530output, but fifth JSON-valid extraction failed downstream and its response was lost before finalizer. Exact offending field is UNKNOWN. LOCAL V2 now types extraction fields at producer, binds schema/request identity, and retains bounded complete managed response through application validation/metadata/finalization failures. Native V2 uses the same atomic pending substrate and truthful content-only rejection custody, request-local DeepSeek reasoningLOW/profile binding. Saved synthetic array-valued timing and interrupted/finalizer/source/owner/route regressions cover the failure class; they do not identify the actual lost fifth field. No blind replay or quota refund. Final integrated/PG/runtime/full-course gates remain separate.
 
+## OPS-DOCKER-MOUNTS-001 - Unordered Docker mount inventory compared as ordered state
+
+- Date: 2026-11-03.
+- Symptom: Isolated DEV connector upgrade failed runtime comparison and then reported rollback boundary unverified although retained old image, semantic environment/mounts and all six production container identities remained unchanged.
+- Cause: Docker inspect Mounts arrays are not order-stable. Actual consecutive read-only inspections returned different array order on unchanged production worker-ops and shared connector, while all complete records matched after sorting by Destination. Both replacement comparison and full production snapshot included incidental ordering.
+- Fix: Sort full mount records by Destination in both snapshots; retain exact paths, RW/mode/type/propagation fields, Env key/value set, command/user, hardening, resource limits, IDs, StartedAt and network checks. Never suppress mount comparisons or assume a changed ID is safe. Reinspect each retained state before a bounded continuation; preserve failed records and rollback files.
+- Verification: Actual ordering diagnostic SHA0c377febb67776ac19b2d74d6d4b7e3e25e98d09e5a684f1b8d3e43e303ea875 confirmed Mounts-only variation/normalizedequalTRUE. Seven offline tests execute the exact remote snapshot function: permutations stable, changed source/RW/environment/identity/start/network detected. R3 upgrade SHA12fb8aee888cd1029d1252301f4f3d88a2652b7f90082473182431668028bdc4 PASS; isolated imagece55ff5f/readiness verified, production six containers unchanged. No forced inference termination or provider-setting change.
+- Prevention: Canonicalize only fields whose ordering is unspecified; compare consequential values fully. Read back actual rollback state after any guard failure and prohibit blind repetition of a script whose exact old IDs no longer exist.
+
+## AI-REVIEW-TYPE-001 - A typed union did not bind each review to its method
+
+- Date: 2026-11-03.
+- Symptom: ExactDEV4e7 Standards5e4 reused9extractions and received3validtypedHTTP200 responses(46662input6716output), then failed40% without course/pending after keyed output used lesson-shaped scores for answer/prose review IDs. Downstream per-method axis validation rejected it; its failed status and saved responses remain unchanged.
+- Cause: The global anyOf schema allowed any structurally valid reviewer shape for every id. Method instructions were present, but no producer-side discriminator linked each id to its expected review type. Valid JSON/union membership did not imply an appropriate reviewer result.
+- Fix: Fresh reviewv3 uses five method-specific named arrays, each with exact request-bound ID enum/count and method-specific review schema. Independent consumer checks reject wrong bucket/id/type before stage finalization; legacyv1/v2 wire remains versioned. Direct Responses retains supported wire but validates the logical request contract before finalization and privately retains complete valid HTTP bodies rejected later. No coercion of lesson ratings into source entailment, no blind retries or relaxed semantic validators.
+- Verification:4994fullAPIunitPASS/68.16s,49focused plus9PendingJournal/directbucket cases,34producer/baseline1005/2173PASS. Saved-equivalent wrong-method shapes, foreign/duplicate/missing IDs, exact count/enum bindings, raw/body/request hashes, pending retention and cold no-call replay covered. Real isolatedCLI synthetic method-bucket probe5489ms8756input165output/typedhash/exactshapeTRUE/onecall; not a course acceptance. Final exactPG19/runtime/three-course quality gates remain open.
+- Prevention: Encode discriminating relationships in the output contract, not only in prose. Apply validation before durable completion and bind it to the actual request. Keep provider response receipt, accepted stage, semantic quality and full-course completion as separate facts.
+
 ## DEV-MODEL-ISOLATION-001 - DEV shared a connector whose production route had become active
 
 - Date: 2026-11-03.

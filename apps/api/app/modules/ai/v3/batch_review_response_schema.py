@@ -50,21 +50,34 @@ def is_batch_review_response_format(value: object) -> bool:
         return False
 
 
+def _matches(item: Any, schema: dict[str, Any]) -> bool:
+    if 'anyOf' in schema:
+        return any(_matches(item, branch) for branch in schema['anyOf'])
+    kind = schema['type']
+    if kind == 'string':
+        return type(item) is str
+    if kind == 'integer':
+        return type(item) is int
+    if kind == 'number':
+        return type(item) is int or (type(item) is float and math.isfinite(item))
+    if kind == 'array':
+        return type(item) is list and all(_matches(x, schema['items']) for x in item)
+    if kind == 'object':
+        props = schema['properties']
+        return type(item) is dict and set(item) == set(props) and all(_matches(item[k], v) for k, v in props.items())
+    return False
+
+
 def is_batch_review_response(value: object) -> bool:
-    def matches(item: Any, schema: dict[str, Any]) -> bool:
-        if 'anyOf' in schema:
-            return any(matches(item, branch) for branch in schema['anyOf'])
-        kind = schema['type']
-        if kind == 'string':
-            return type(item) is str
-        if kind == 'integer':
-            return type(item) is int
-        if kind == 'number':
-            return type(item) is int or (type(item) is float and math.isfinite(item))
-        if kind == 'array':
-            return type(item) is list and all(matches(x, schema['items']) for x in item)
-        if kind == 'object':
-            props = schema['properties']
-            return type(item) is dict and set(item) == set(props) and all(matches(item[k], v) for k, v in props.items())
+    return _matches(value, batch_review_response_format()['json_schema']['schema'])
+
+
+def is_batch_review_for_method(value: object, method: str) -> bool:
+    """Check the method's exact transport shape; this does not assess correctness."""
+    branches = {'review_lesson': 0, 'review_answer': 1, 'review_question_options': 2,
+                'review_question_compatibility': 2, 'review_answer_completeness': 3}
+    if not isinstance(method, str) or method not in branches:
         return False
-    return matches(value, batch_review_response_format()['json_schema']['schema'])
+    schema = batch_review_response_format()['json_schema']['schema']
+    options = schema['properties']['items']['items']['properties']['review']['anyOf']
+    return _matches(value, options[branches[method]])

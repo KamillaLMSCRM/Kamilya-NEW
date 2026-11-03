@@ -1786,14 +1786,19 @@ async def generate_v3_course_from_corpus(
     review_policy: str | None = None,
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
-    from app.modules.ai.v3.revision_policy import LEGACY_REVIEW_POLICY, REVIEW_POLICY, is_scoped_policy
+    from app.modules.ai.v3.revision_policy import (
+        LEGACY_REVIEW_POLICY,
+        PREVIOUS_REVIEW_POLICY,
+        REVIEW_POLICY,
+        is_scoped_policy,
+    )
     from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
 
     if revision_policy is not None and not is_scoped_policy(revision_policy):
         raise ValueError("v3_revision_policy_invalid")
     scoped_revision = is_scoped_policy(revision_policy)
-    batched_decisions = review_policy in {LEGACY_REVIEW_POLICY, REVIEW_POLICY}
-    strict_batch_contract = review_policy == REVIEW_POLICY
+    batched_decisions = review_policy in {LEGACY_REVIEW_POLICY, PREVIOUS_REVIEW_POLICY, REVIEW_POLICY}
+    strict_batch_contract = review_policy in {PREVIOUS_REVIEW_POLICY, REVIEW_POLICY}
     if review_policy is not None and (not batched_decisions or revision_policy != REVISION_POLICY):
         raise ValueError("v3_review_policy_invalid")
     if allow_unreviewed_on_unknown and extraction_journal is None:
@@ -2127,7 +2132,7 @@ async def generate_v3_course_from_corpus(
                 review_cache_box[0] = await BatchedReview.prime(
                     work, stage_pipeline("review", group_id="batched-review:" + group.group_id).invoker,
                     typed_transport=strict_batch_contract and type(direct_client) is not DirectLunaResponsesClient,
-                    strict_contract=strict_batch_contract)
+                    strict_contract=strict_batch_contract, typed_buckets=review_policy == REVIEW_POLICY)
             all_parts_passed = True
             deferred_lesson_defects: list[tuple[int, Any]] = []
             lesson_scope_resolved = False

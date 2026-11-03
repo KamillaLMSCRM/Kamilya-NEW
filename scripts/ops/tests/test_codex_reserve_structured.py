@@ -158,3 +158,22 @@ def test_new_schema_subset_keeps_closed_bounds(runner, node):
     form["json_schema"]["schema"]["properties"]["content"] = node
     with pytest.raises(mod.RunnerError, match="invalid_input"):
         mod._checked_structured_format(form)
+
+
+def test_method_bucket_schema_is_closed_and_request_bound(runner):
+    mod, _ = runner
+    schema_module = load("typed_buckets", "apps/api/app/modules/ai/v3/typed_review_buckets.py")
+    methods = {method: [] for method in schema_module.BUCKETS}
+    methods['review_lesson'] = ['a' * 64]
+    schema = schema_module.build_typed_review_format(methods)
+    assert mod._checked_structured_format(schema) == schema['json_schema']['schema']
+
+
+@pytest.mark.parametrize('minimum,maximum', [(0, True), (0, -1), (2, 1), (0, 10001)])
+def test_schema_array_upper_bound_rejects_invalid_before_cli(runner, minimum, maximum):
+    mod, _ = runner
+    form = fmt()
+    array = form['json_schema']['schema']['properties']['cases']
+    array.update(minItems=minimum, maxItems=maximum)
+    with pytest.raises(mod.RunnerError, match='invalid_input'):
+        mod._checked_structured_format(form)

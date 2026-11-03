@@ -1,7 +1,7 @@
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
-> Обновлено: 2026-10-19.
+> Обновлено: 2026-11-03. Runtime snapshots below older dated headings are historical.
 
 ## Источники правды
 
@@ -25,13 +25,22 @@
 Старые планы, аудиты, отчёты веток и ТЗ не являются источниками текущего
 поведения.
 
-## Live override — 2026-11-03 isolated connector preparation
+## Current DEV and access — 2026-11-03 02:13UTC
+
+- Exact DEV4e7b896239e9db00adfc27f2247d50fe477981c5, REL-DEV-BATCHED4E7B8962-20261103 RELEASE_OK; CI41559665061/all7; image434045758eee806b98453eaee49e3425ad51ca285b3c9d9c6b90db911f847705. RenderAPIdep-dbkjp2qjnfac7394nsfg/Free, Verceldpl_AsMnLVJVJEXkBaKBYLWKecrQoXZx/Hobby; suspended oldRenderworker stays suspended/autoDeployno/Free. No paid resources or provider configuration changes.
+- Sole VM126 DEVworker a6ca8eade3403585176438375b9e59bb7d543f5db359cfd9580c9ff52de757b5/restarts0/unless-stopped,42sourcehashes/env45keysSHA91799163ff899ea1303480e79e2de5a7513113bd3b3ebf6ac9aba452ecd20815. Restricted DEV lms_app/noBYPASS, privateconverter200, broker TLS/socket deadlines10/visibility3600 verified. Fixed V4 receiver /opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v4.py SHA4310ca718a53b48988a28501fa76517aa560e0e2246f0ec7b69821f4113ebc81. Old20f warm-exited0 retained rollback-20fa1df8; earlier rollbacks retained.
+- Separate installed kamilya-dev-codex uses imagece55ff5f4142a008ca2db4002e29c90188de1a377f789d3618f7a21a61b698cb at bridge-only http://172.17.0.1:19000/v1, existing mounted managed profile, gpt-5.6-luna/CLI0.146.1/reasoningLOW. It is not the shared production connector. Shared production connector957be32f/egress75829b1c oldimageed5b65da remains ACTIVE and unchanged; global reserve/order/settings were not changed.
+- Standards5e4fb2df-a2fc-45cc-a391-f36a623cc5d0 reused all9source results without new extraction calls, then3valid responses46662input6716output; FAILED40%/no course/no pending/reservationreleased because keyed anyOf response used wrong reviewer shapes. Do not replay or abandon it. Its parentcc4853 was ordinarily abandoned01:48:18UTC with all25checkpointrows/privatebody preserved. LOCAL nextcandidate uses method-specific typed buckets and pre-finalization validation; not deployed or accepted as a course. Current active processes are in CODEX_HANDOFF; no fullthree-course/DeepSeek/prod engine acceptance yet.
+- Canonical access: scripts/ops/kz_remote_exec.py with workspace C:\Kamilya New\.env/fixedknown_hosts and ToolPython C:\Users\user\.codex\tool-envs\kamilya-agent-tools\Scripts\python.exe. App tests use primary Kamilya-NEW/.venv through wrappers. Git uses primary Kamilya-NEW/.env GITHUB_TOKEN via with_project_github_token.py and exact remote receipts. Never print secrets. DEV_DOCUMENT58 actor is also in a7 QA tenant, so it does not supply a separate ordinary-native contour; do not infer bypass from its name.
+- Production backend7c35/image6af and frontendUX70/master96a plus four customer courses remain unchanged. Validate fresh production DB revision/backup/drain before finalrelease; older0183/OFF/quota/certificate claims below are historical, not current proof.
+
+## Historical override — 2026-11-03 isolated connector preparation
 
 - Shared production routing actually includes chatgpt_reserve (readonly runtime preflight); do not treat historical OFF as current. Its connector957be32f/egress75829b1c imageed5b65da and all production containers remain unchanged. No shared connector replacement was executed.
 - DEV704 worker3dee25e3f708aca26e625c32e1c4c3bdaa7b315905e7895624e3f9fa14e70363 is cleanly EXITED/restartNO after verified idle warm drain, under original name. No current DEV consumer until isolated route/new worker acceptance. Historical delivery704 below is historical, not current liveness.
 - Planned separate DEV project uses exact typed connector image0cb9133ce7f2551a717d504b0f0707e6e96f20518e2f9909322c8e26e82e5452 on already-paid VM capacity, private bridge172.17.0.1:19000 only. Immutable V4 receiver and exact staged45key hash required. No sourceRender/global provider order/production network/SSH permission changes; new route not yet deployed.
 
-## Current isolated DEV worker — 2026-11-02
+## Historical isolated DEV worker — 2026-11-02
 
 - Current canonical delivery REL-DEV-SOURCE704AEBCF-20261103 RELEASE_OK:704aebcfe45a9f6776c5fda6660adea57f5a4383,image70419a9dfc70af20ef41eff421a662b61772a33f29c7e49da00f012159d3495d; CI41518946174/all7,build41519799083/prodSKIPPED,artifact13175854695/attestationexit0. Sole kamilya-dev-worker3dee25e3f708aca26e625c32e1c4c3bdaa7b315905e7895624e3f9fa14e70363 restart0/unless-stopped,26runtimehashes/ping/queues/restrictedDB/privateconverterPASS. RenderAPIdep-dbkf7s1srm7s7389mlc0,Verceldpl_9ePX9bwGFDh4XcXiR61ibjVMY3og. Old0b7 exited0 after warm termination, retained rollback-0b7ad8cf. Current new typed-author/private-custody candidate is not deployed yet.
 - Other Luna now uses the existing private official CLI managed-auth route, actual `gpt-5.6-luna`, CLI0.146.1, reasoningLOW. Server policy `qa-managed-luna-diversity-v1`; direct QA flag OFF, managed QA flag ON, credential revision managed-cli-20261102-r1. This does not activate global production reserve or change production provider order. Account metadata read (zero inference/account/billing writes) reported the main weekly quota58% used/42% remaining and only gpt-5.6-luna in the complete Luna catalog. Metadata does not identify the earlier failure cause.

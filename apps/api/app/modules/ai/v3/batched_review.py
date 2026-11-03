@@ -7,7 +7,11 @@ import inspect
 import json
 from typing import Any
 
-from app.modules.ai.v3.batch_review_response_schema import batch_review_response_format, is_batch_review_response
+from app.modules.ai.v3.batch_review_response_schema import (
+    batch_review_response_format,
+    is_batch_review_for_method,
+    is_batch_review_response,
+)
 from app.modules.ai.v3.engine import V3GenerationPipeline
 
 BLIND = frozenset({'review_question_options', 'review_question_compatibility'})
@@ -54,9 +58,11 @@ class BatchedReview:
 
     @classmethod
     async def prime(cls, items: list[tuple[str, tuple[Any, ...], dict[str, Any]]], invoke: Any,
-                    *, typed_transport: bool = True, strict_contract: bool = True) -> BatchedReview:
+                    *, typed_transport: bool = True, strict_contract: bool = True,
+                    typed_buckets: bool = False) -> BatchedReview:
         if (not isinstance(items, list) or not callable(invoke) or type(typed_transport) is not bool
-                or type(strict_contract) is not bool or (typed_transport and not strict_contract)):
+                or type(strict_contract) is not bool or type(typed_buckets) is not bool
+                or ((typed_transport or typed_buckets) and not strict_contract)):
             raise ValueError('batch_input_invalid')
         groups: dict[str, list[dict[str, Any]]] = {'blind': [], 'keyed': []}
         sources: dict[str, dict[str, Any]] = {'blind': {}, 'keyed': {}}
@@ -121,11 +127,27 @@ class BatchedReview:
                       'the candidate wording verbatim. Absence of a deadline or permission in a source '
                       'is not evidence of a direct contradiction: use UNCERTAIN unless an explicit '
                       'incompatible obligation, prohibition or closed boundary establishes CONTRADICTED. ')
-            prompt += ('Return JSON {"items":[{"id":"...","review":{...}}]}; '
-                      'include each id exactly once, no others. Preserve each method response schema.')
+            output_format = batch_review_response_format()
+            if typed_buckets:
+                from app.modules.ai.v3.typed_review_buckets import (
+                    BUCKETS,
+                    build_typed_review_format,
+                    normalize_typed_reviews,
+                )
+                ids = {method: [item['id'] for item in group if item['method'] == method] for method in BUCKETS}
+                output_format = build_typed_review_format(ids)
+                payload['output_buckets'] = {BUCKETS[method]: values for method, values in ids.items()}
+                prompt += ('Return exactly the five named arrays in output_buckets. Each entry has id and review. '
+                           'Put each requested id only into its designated method bucket. Empty buckets must be []. '
+                           'Each bucket review must follow that method schema; lesson scores cannot replace answer claims. ')
+            else:
+                prompt += ('Return JSON {"items":[{"id":"...","review":{...}}]}; '
+                           'include each id exactly once, no others. Preserve each method response schema.')
             result = await invoke([{'role': 'system', 'content': prompt},
                                    {'role': 'user', 'content': _encoded(payload)}],
-                                  batch_review_response_format() if typed_transport else {'type': 'json_object'})
+                                  output_format if typed_transport or typed_buckets else {'type': 'json_object'})
+            if typed_buckets:
+                result = normalize_typed_reviews(result, output_format)
             if strict_contract and not is_batch_review_response(result):
                 raise ValueError('batch_output_invalid')
             if not isinstance(result, dict) or set(result) != {'items'} or not isinstance(result['items'], list):
@@ -139,6 +161,8 @@ class BatchedReview:
                 if not isinstance(key, str) or key not in expected or key in found or not isinstance(review, dict):
                     raise ValueError('batch_output_invalid')
                 if any(axis not in review for axis in AXES[expected[key]]):
+                    raise ValueError('batch_output_invalid')
+                if strict_contract and not is_batch_review_for_method(review, expected[key]):
                     raise ValueError('batch_output_invalid')
                 found[key] = json.loads(_encoded(review))
             if set(found) != set(expected):

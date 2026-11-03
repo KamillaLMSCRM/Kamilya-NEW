@@ -38,10 +38,12 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
                   and plan.get("request_sha256") == _digest([messages, response_format]))
         extraction = (kind == "extraction" and plan.get("schema") == "v3-rule-extraction-checkpoint-v1"
                       and isinstance(identity, dict) and identity.get("prompt_sha256") == _digest([messages, response_format]))
-        batch_review = (kind == "batch_review" and plan.get("stage") == "review"
+        batch_review = (kind in {"batch_review", "batch_review_buckets"} and plan.get("stage") == "review"
                         and str(plan.get("group_id", "")).startswith("batched-review:")
                         and plan.get("request_sha256") == _digest([messages, response_format]))
-        if type(client) is not ManagedLunaClient or not (lesson or extraction or batch_review):
+        supported_client = type(client) is ManagedLunaClient or (
+            type(client) is DirectLunaResponsesClient and kind == "batch_review_buckets" and batch_review)
+        if not supported_client or not (lesson or extraction or batch_review):
             raise ValueError("managed_structured_plan_invalid")
     def validate_with_metadata(value: dict[str, Any]) -> dict[str, Any]:
         from app.modules.ai.v3.stage_checkpoint import _validate_direct_metadata
@@ -88,7 +90,8 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
         budget.before_count(generation_seconds=client.generation_deadline_seconds)
     try:
         capability = await client.prepare(messages, max_output_tokens=max_output_tokens, ownership_checkpoint=checkpoint,
-                                         **({"response_format": response_format} if response_format is not None else {}))
+                                         **({"response_format": response_format}
+                                            if response_format is not None and type(client) is ManagedLunaClient else {}))
     except ResponsesCountTimeoutError as exc:
         # Counting cannot generate a lesson. There is still no pending claim.
         raise PreclaimYieldError("generation_count_deadline_exhausted") from exc
@@ -116,6 +119,6 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
         return await journal.run_pending(plan=plan, result_key=result_key, claim_key=claim_key,
             validate_value=validate_with_metadata, validate_response=validate_response, invoke=invoke,
             _owned_claim_guard=_owned_claim_guard, _direct_metadata=lambda: metadata,
-            **({"_completed_response": completed_rejection} if type(client) is ManagedLunaClient else {}))
+            _completed_response=completed_rejection)
     finally:
         client.discard(capability)

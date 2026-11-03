@@ -34,24 +34,27 @@ def _canonical_uuid(value: object) -> bool:
 class ManagedResponseRejectedError(ManagedLunaError):
     """Raw bytes are accessible only through exact scope and route verification."""
 
-    __slots__ = ("_scope", "_stage", "_route", "_wire_hash", "_phase", "_raw", "_subtype", "_position", "_sealed")
+    __slots__ = ("_scope", "_stage", "_route", "_wire_hash", "_phase", "_raw", "_subtype", "_position", "_model", "_sealed")
 
     def for_completed_stage(self, phase: str, cause: Exception) -> ManagedResponseRejectedError:
         if phase not in {"stage_validation", "stage_metadata", "stage_finalize"}:
             raise ValueError("managed_completed_phase_invalid")
         return ManagedResponseRejectedError(raw=self._raw, tenant_id=self._scope[0], user_id=self._scope[1],
             job_id=self._scope[2], stage=self._stage, route_fingerprint=self._route,
-            wire_request_sha256=self._wire_hash, phase=phase, cause=cause)
+            wire_request_sha256=self._wire_hash, phase=phase, cause=cause, configured_model=self._model)
 
     def __init__(self, *, raw: bytes, tenant_id: UUID, user_id: UUID, job_id: str, stage: str,
-                 route_fingerprint: str, wire_request_sha256: str, phase: str, cause: Exception):
+                 route_fingerprint: str, wire_request_sha256: str, phase: str, cause: Exception,
+                 configured_model: str = MODEL):
         if (type(raw) is not bytes or len(raw) > MAX_RESPONSE_BYTES or type(tenant_id) is not UUID
                 or type(user_id) is not UUID or not _canonical_uuid(job_id) or not _hex(stage)
                 or not _hex(route_fingerprint) or not _hex(wire_request_sha256)
-                or not isinstance(phase, str) or phase not in _PHASES or not isinstance(cause, Exception)):
+                or not isinstance(phase, str) or phase not in _PHASES or not isinstance(cause, Exception)
+                or type(configured_model) is not str or configured_model not in {MODEL, "gpt-6-luna"}):
             raise ValueError("managed_rejection_invalid")
         super().__init__(_CODE)
         self._scope = (tenant_id, user_id, job_id)
+        self._model = configured_model
         self._stage, self._route, self._wire_hash, self._phase, self._raw = (
             stage, route_fingerprint, wire_request_sha256, phase, raw,
         )
@@ -83,7 +86,7 @@ class ManagedResponseRejectedError(ManagedLunaError):
             raise ValueError("managed_rejection_scope_invalid")
         pos, line, col = self._position if self._position is not None else (None, None, None)
         return {"policy": "managed-response-quarantine-v1", "accepted": False,
-                "complete_http_response": True, "status": 200, "configured_model": MODEL,
+                "complete_http_response": True, "status": 200, "configured_model": self._model,
                 "raw_base64": base64.b64encode(self._raw).decode("ascii"),
                 "body_sha256": hashlib.sha256(self._raw).hexdigest(), "byte_count": len(self._raw),
                 "wire_request_sha256": self._wire_hash, "phase": self._phase, "subtype": self._subtype,
