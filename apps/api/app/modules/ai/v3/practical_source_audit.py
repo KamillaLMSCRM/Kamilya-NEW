@@ -15,6 +15,7 @@ from app.modules.ai.v3.practical_contract import (
 from app.modules.ai.v3.practical_logic import SOURCE_LOGIC_GUIDE
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.practical_source_reader import source_reading_context
 
 NAME = 'v3_practical_source_audit_v4'
 
@@ -179,7 +180,8 @@ AUDIT_SYSTEM = (
 
 
 def source_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
-                          model_view: PracticalModelView | None = None) -> list[dict[str, str]]:
+                          model_view: PracticalModelView | None = None,
+                          source_readings: tuple[dict[str, Any], ...] = ()) -> list[dict[str, str]]:
     checked = validate_practical_course(course, packet)
     aliases = None
     if model_view is not None:
@@ -197,7 +199,8 @@ def source_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
     unit_rows = [{'unit_id': unit_id, 'source_refs': list(refs)} for unit_id, refs in grouping.groups]
     if model_view is not None:
         unit_rows = model_view.encode(unit_rows)
-    content = (source_model_text(packet, aliases=aliases) + '\n\nSOURCE_AUDIT_UNITS_JSON\n'
+    content = (source_model_text(packet, aliases=aliases) + source_reading_context(source_readings, model_view)
+               + '\n\nSOURCE_AUDIT_UNITS_JSON\n'
                + json.dumps(unit_rows, ensure_ascii=False, sort_keys=True, indent=2) + '\n\nLESSON_PROSE_JSON\n'
                + json.dumps(lessons, ensure_ascii=False, sort_keys=True, indent=2))
     return [{'role': 'system', 'content': AUDIT_SYSTEM}, {'role': 'user', 'content': content}]

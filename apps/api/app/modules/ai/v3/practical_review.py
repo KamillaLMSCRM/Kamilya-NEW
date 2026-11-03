@@ -12,6 +12,7 @@ from app.modules.ai.v3.batch_review_response_schema import _matches
 from app.modules.ai.v3.practical_contract import PracticalSourcePacket, source_model_text, validate_practical_course
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.practical_source_reader import source_reading_context
 
 NAME = 'v3_practical_question_review_v6'
 
@@ -253,7 +254,8 @@ REVIEW_SYSTEM = (
 
 def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                               previous: tuple[dict[str, Any], ...] = (), *,
-                              model_view: PracticalModelView | None = None) -> list[dict[str, str]]:
+                              model_view: PracticalModelView | None = None,
+                              source_readings: tuple[dict[str, Any], ...] = ()) -> list[dict[str, str]]:
     candidate = scoped_course_view(packet, course)
     for lesson in candidate['lessons']:
         for question in lesson['questions']:
@@ -263,6 +265,7 @@ def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, A
     if model_view is not None:
         candidate = model_view.encode(candidate)
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view is not None else None)
+        + source_reading_context(source_readings, model_view)
         + '\n\nГОТОВЫЙ КУРС. COURSE_JSON\n' + json.dumps(candidate, ensure_ascii=False, sort_keys=True, indent=2)
         + '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps(
             model_view.encode(previous) if model_view is not None else previous, ensure_ascii=False, sort_keys=True, indent=2))

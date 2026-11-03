@@ -34,6 +34,23 @@
   course, verify both all alternatives and source actor/action/object/condition,
   and count completed rejected-response usage. Technical tests do not establish
   semantic accuracy. Keep known model-critic blind spots explicit.
+- Source-reading recurrence: course-aware reviews repeated a false disjunction;
+  a source-only grammatical control preserved the coupled condition. P10 reads
+  raw source before seeing generated prose or answer keys. This supports the
+  combined source-first role/input workflow, not proof that anchoring alone caused
+  every error. Nested rules avoid model-copied global rule indices. Unary ALL/ANY
+  over one opaque predicate is valid Boolean logic and must not trigger another
+  provider call; exact saved response revalidation preserves the source/operator
+  and original failed report. Current full5273unit tests and baseline1006/2174
+  PASS; complete current courses and deployed acceptance remain open.
+- Managed-route recurrence: local plain invoke controls did not exercise the
+  owned worker's old hard-coded5.6 metadata check. A configured Luna6 client
+  would reject its matching result while accepting wrong5.6 metadata. Expected
+  model now comes from the constructor-validated managed client, whose route
+  fingerprint already binds it. Six actual-client/owned-journal regressions
+  reproduced3RED/3PASS and now all6PASS, including cold replay without another
+  call, wrong fresh model hold and wrong cached model rejection. Final unit
+  suite5279PASS/58.03s, baseline1006/2174PASS. No deployed success inferred.
 
 ## AI-REUSE-001 - Complete extraction work was stranded behind a later unknown stage
 

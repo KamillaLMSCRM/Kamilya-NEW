@@ -35,7 +35,7 @@ async def run_direct_owned_stage(
     if not callable(journal.verify_source):
         raise ValueError("direct_owned_source_verifier_required")
     original_validate = validate_value
-    expected_model = "gpt-5.6-luna" if type(client) is ManagedLunaClient else "gpt-6-luna"
+    expected_model = client.model if type(client) is ManagedLunaClient else "gpt-6-luna"
     from app.modules.ai.v3.stage_checkpoint import _digest
 
     if response_format is not None:
@@ -64,6 +64,9 @@ async def run_direct_owned_stage(
             and plan.get("request_sha256") == _digest([messages, response_format])
         )
         practical = (
+            (kind == "practical_source_read" and plan.get("stage") == "review"
+             and str(plan.get("group_id", "")).startswith("practical:source-read:"))
+            or
             (kind == "practical_source_audit" and plan.get("stage") == "review"
              and str(plan.get("group_id", "")).startswith("practical:source-audit:"))
             or             (kind == "practical_course" and plan.get("stage") == "lesson"

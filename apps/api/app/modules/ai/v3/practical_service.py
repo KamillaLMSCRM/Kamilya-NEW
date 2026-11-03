@@ -14,7 +14,14 @@ from app.modules.ai.v3.extraction_checkpoint import ExtractionJournal
 from app.modules.ai.v3.models import RuleEntity, V3Course, V3Lesson, V3Option, V3Question
 from app.modules.ai.v3.practical_contract import PracticalSourcePacket, build_practical_source_packet
 from app.modules.ai.v3.practical_cycle import PracticalCycleResult, run_practical_cycle
+from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.practical_source_reader import (
+    source_read_format,
+    source_read_messages,
+    source_reader_parts,
+    validate_source_read,
+)
 from app.modules.ai.v3.revision_policy import PRACTICAL_MAX_OUTPUT_TOKENS, PRACTICAL_REVIEW_POLICY
 from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
 
@@ -87,6 +94,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
             q['id']: q['source_refs'] for lesson in result.course['lessons'] for q in lesson['questions']},
         'practical_cross_document_question_ids': provenance_holds,
         'practical_display_course': displayed,
+        'practical_source_readings': list(result.source_readings),
         'practical_question_mode': 'source_rule_comprehension_v1',
     })
     return artifacts
@@ -105,6 +113,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     if any(doc.review_only_source_unresolved for doc in corpus.documents):
         raise ValueError('practical_source_review_required')
     packet = build_practical_source_packet(corpus, reference_decisions)
+    parts = source_reader_parts(packet)
+    view = PracticalModelView(packet)
     completed = 0
 
     async def stage(stage: str, group: str, messages: list[dict[str, str]], fmt: dict[str, Any],
@@ -125,10 +135,18 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         completed += 1
         if progress_callback:
             # Author + two checks per candidate + at most four scoped repairs.
-            await progress_callback('realization', completed, 15, None, 1)
+            await progress_callback('realization', completed, len(parts) + 15, None, 1)
         return value
 
-    result = await run_practical_cycle(packet, asdict(intent), stage)
+    readings = []
+    for part in parts:
+        def validate_reading(value: dict[str, Any], checked_part: Any = part) -> None:
+            validate_source_read(view.decode(value), packet, checked_part)
+        value = await stage('review', 'practical:source-read:' + part.fingerprint,
+            source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
+            validate_reading)
+        readings.append(validate_source_read(view.decode(value), packet, part))
+    result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings))
     if cancellation_callback:
         await cancellation_callback()
     return practical_artifacts(result, corpus, packet, source_sha256)

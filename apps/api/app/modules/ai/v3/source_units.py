@@ -154,7 +154,8 @@ def coalesce_leading_context(units: tuple[SourceUnit, ...], source: str) -> tupl
     return (SourceUnit(first.start, second.end, source[first.start:second.end], "prose"), *units[2:])
 
 
-def coalesce_structural_prose(units: tuple[SourceUnit, ...], source: str) -> tuple[SourceUnit, ...]:
+def coalesce_structural_prose(units: tuple[SourceUnit, ...], source: str, *,
+                              allow_single_section: bool = False) -> tuple[SourceUnit, ...]:
     """Group explicit sections and their nested lists without arbitrary size cuts.
 
     This is enabled only when the source has multiple numbered Markdown section
@@ -164,7 +165,9 @@ def coalesce_structural_prose(units: tuple[SourceUnit, ...], source: str) -> tup
         return units
     major = [i for i, unit in enumerate(units)
              if unit.kind == "prose" and _MARKDOWN_NUMBERED_SECTION.match(unit.text)]
-    if len(major) < 2:
+    # A caller that already bounded an original major-section window may opt in
+    # without fabricating another heading outside that contiguous source window.
+    if len(major) < (1 if allow_single_section else 2):
         return units
     first = major[0]
     work = list(units)

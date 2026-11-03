@@ -86,6 +86,11 @@ class ManagedLunaClient:
         return "ManagedLunaClient(<redacted>)"
 
     @property
+    def model(self) -> str:
+        """Return the constructor-validated model bound to this client's route."""
+        return self._model
+
+    @property
     def generation_deadline_seconds(self) -> float:
         return self._deadline
 

@@ -16,6 +16,7 @@ from app.modules.ai.v3.practical_contract import build_practical_source_packet
 from app.modules.ai.v3.practical_cycle import run_practical_cycle
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.practical_source_reader import source_reader_parts, validate_source_read
 from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 from app.modules.ai.v3.revision_policy import POLICY, PRACTICAL_REVIEW_POLICY, REVIEW_POLICY, stamp_policy
 from app.modules.ai.v3.service import generate_v3_course_from_corpus
@@ -70,10 +71,23 @@ def case():
     return corpus, packet, course
 
 
-def model_wire(packet, model, audit_calls=None):
+def model_wire(packet, model, audit_calls=None, reading_calls=None):
     view = PracticalModelView(packet)
     async def invoke(*args):
         fmt = args[1] if len(args) == 2 else args[3]
+        if response_contract(fmt) == 'practical_source_read':
+            if reading_calls is not None:
+                reading_calls.append(args)
+            fingerprint = fmt['json_schema']['schema']['properties']['part_fingerprint']['enum'][0]
+            parts = source_reader_parts(packet)
+            part = next((part for part in parts if part.fingerprint == fingerprint), parts[0])
+            value = {'source_fingerprint': packet.fingerprint, 'part_fingerprint': part.fingerprint,
+                'source_checks': [{'unit_id': key, 'status': 'NORM',
+                    'rules': [{'actor': 'Approver', 'action': 'Sign ticket and record approval',
+                               'object': 'approval', 'conditions': [], 'condition_relation': 'SINGLE',
+                               'alternatives': [], 'source_refs': list(refs)}]}
+                    for key, refs in part.groups], 'source_notes': [], 'unresolved_refs': []}
+            return view.encode(validate_source_read(value, packet, part))
         if response_contract(fmt) == 'practical_source_audit':
             if audit_calls is not None:
                 audit_calls.append(args)
@@ -125,6 +139,7 @@ async def test_coherent_course_and_source_audit_through_real_entry_adapter_and_r
     corpus, packet, course = case
     calls = []
     audit_calls = []
+    reading_calls = []
 
     async def model(messages, fmt):
         kind = response_contract(fmt)
@@ -136,7 +151,7 @@ async def test_coherent_course_and_source_audit_through_real_entry_adapter_and_r
     journal = Journal()
     args = dict(
         intent=CourseIntent(audience="Staff"),
-        generation_client=model_wire(packet, model, audit_calls),
+        generation_client=model_wire(packet, model, audit_calls, reading_calls),
         revision_policy=POLICY,
         review_policy=PRACTICAL_REVIEW_POLICY,
         extraction_journal=journal,
@@ -146,6 +161,8 @@ async def test_coherent_course_and_source_audit_through_real_entry_adapter_and_r
     second = await generate_v3_course_from_corpus(corpus, **args)
     assert calls == ["practical_course", "practical_review"]
     assert len(audit_calls) == 1  # A distinct prose check, replayed without another provider request.
+    assert len(reading_calls) == 1  # Source-only interpretation is also recovered without another model call.
+    assert first.diagnostics['practical_source_readings']
     assert first == second and first.diagnostics["automated_review_passed"] is True
     assert first.diagnostics["quality_verdict"] == "verified"
     assert first.diagnostics['requires_source_review'] is False
@@ -286,6 +303,7 @@ async def test_unknown_review_is_not_reissued_on_service_resume(case):
 async def test_changed_source_cannot_reuse_previous_author_or_review(case):
     corpus, packet, course = case
     calls = []
+    readings = []
 
     async def model(messages, fmt):
         calls.append(response_contract(fmt))
@@ -293,7 +311,7 @@ async def test_changed_source_cannot_reuse_previous_author_or_review(case):
 
     args = dict(
         intent=CourseIntent(),
-        generation_client=model_wire(packet, model),
+        generation_client=model_wire(packet, model, reading_calls=readings),
         revision_policy=POLICY,
         review_policy=PRACTICAL_REVIEW_POLICY,
         extraction_journal=Journal(),
@@ -314,7 +332,9 @@ async def test_changed_source_cannot_reuse_previous_author_or_review(case):
         await generate_v3_course_from_corpus(
             DirectSourceCorpus("tenant-1", (changed,), len(changed.source_text), 0), **args
         )
-    assert calls == ["practical_course", "practical_review", "practical_course", "practical_review"]
+    assert calls == ["practical_course", "practical_review"]
+    assert len(readings) == 2
+    assert readings[0][1] != readings[1][1]  # Changed source cannot reuse its previous reading or reach authoring.
 
 
 @pytest.mark.asyncio
@@ -513,6 +533,8 @@ async def test_unknown_source_audit_is_held_on_service_resume(case):
     async def model(messages, fmt):
         kind = response_contract(fmt)
         calls.append(kind)
+        if kind == 'practical_source_read':
+            return await model_wire(packet, model)(messages, fmt)
         if kind == 'practical_source_audit':
             raise TimeoutError('Unknown source audit outcome')
         return view.encode(course if kind == 'practical_course' else checked(packet, course))
@@ -522,4 +544,4 @@ async def test_unknown_source_audit_is_held_on_service_resume(case):
         await generate_v3_course_from_corpus(corpus, **args)
     with pytest.raises(ExtractionOutcomeUnknownError):
         await generate_v3_course_from_corpus(corpus, **args)
-    assert calls == ['practical_course', 'practical_review', 'practical_source_audit']
+    assert calls == ['practical_source_read', 'practical_course', 'practical_review', 'practical_source_audit']

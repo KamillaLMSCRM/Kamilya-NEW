@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from app.modules.ai.v3.practical_contract import PracticalSourcePacket, _validate_packet
 from app.modules.ai.v3.source_units import (
+    SourceUnit,
     coalesce_leading_context,
     coalesce_structural_prose,
     coalesce_table_headers,
@@ -35,8 +36,19 @@ def audit_units(packet: PracticalSourcePacket) -> PracticalAuditUnits:
                                   or re.search(r'(?m)^[ \t]*#{1,6}[ \t]+', source) is not None)
         units = planned
         if has_markdown_structure:
-            units = coalesce_table_headers(planned, source)
-            units = coalesce_leading_context(coalesce_structural_prose(units, source), source)
+            # Coalescing a cover with its first section must not absorb the next
+            # numbered major section. Keep coalescers inside exact source windows.
+            majors = list(re.finditer(r'(?m)^[ \t]*#{1,6}[ \t]+\d+\.[ \t]+[^\r\n]+', source))
+            boundaries = [0, *(m.start() for m in majors[1:]), len(source)]
+            windows: list[SourceUnit] = []
+            for start, end in zip(boundaries, boundaries[1:], strict=False):
+                window = tuple(unit for unit in planned if start <= unit.start and unit.end <= end)
+                if not window or window[0].start != start or window[-1].end != end:
+                    raise ValueError('practical_audit_units_source_boundary_invalid')
+                window = coalesce_table_headers(window, source)
+                window = coalesce_structural_prose(window, source, allow_single_section=True)
+                windows.extend(coalesce_leading_context(window, source))
+            units = tuple(windows)
         cursor = 0
         for unit in units:
             start = cursor
@@ -54,6 +66,6 @@ def audit_units(packet: PracticalSourcePacket) -> PracticalAuditUnits:
     if [ref for _, members in groups for ref in members] != [b.block_id for b in packet.blocks if b.text.strip()]:
         raise ValueError('practical_audit_units_source_boundary_invalid')
     mapping = tuple(groups)
-    encoded = json.dumps(['practical-audit-units-v1', packet.fingerprint, mapping],
+    encoded = json.dumps(['practical-audit-units-v2', packet.fingerprint, mapping],
                          ensure_ascii=False, separators=(',', ':')).encode('utf-8')
     return PracticalAuditUnits(mapping, hashlib.sha256(encoded).hexdigest())

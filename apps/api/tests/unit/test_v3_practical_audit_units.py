@@ -1,4 +1,5 @@
 import hashlib
+import json
 from dataclasses import replace
 
 import pytest
@@ -47,6 +48,28 @@ def test_blank_blocks_keep_raw_custody_without_teaching_refs():
     assert [ref for _, refs in audit_units(packet).groups for ref in refs] == [
         b.block_id for b in packet.blocks if b.text.strip()]
     assert ''.join(b.text for b in packet.blocks).startswith('\n\n')
+
+
+def test_cover_and_continuation_do_not_merge_distinct_major_sections():
+    text = ('Cover\n\n# 1. Definitions\nFirst.\n\n## Extra\nContinuation.\n\n'
+            '# 2. Work\nSecond.\n\n## 2.1. Detail\nThird.\n\n# 3. End\nLast.\n')
+    packet = packet_for(text)
+    grouping = audit_units(packet)
+    by_id = {block.block_id: block for block in packet.blocks}
+    boundaries = [text.index('# 2. Work'), text.index('# 3. End')]
+    for _, refs in grouping.groups:
+        start = by_id[refs[0]].start
+        end = by_id[refs[-1]].end
+        assert not any(start < boundary < end for boundary in boundaries)
+    assert [ref for _, refs in grouping.groups for ref in refs] == [
+        block.block_id for block in packet.blocks if block.text.strip()]
+    assert ''.join(block.text for block in packet.blocks) == text
+    assert all(by_id[ref].end <= boundaries[0] for _, refs in grouping.groups
+               for ref in refs if 'Continuation.' in by_id[ref].text)
+    expected = hashlib.sha256(json.dumps(
+        ['practical-audit-units-v2', packet.fingerprint, grouping.groups],
+        ensure_ascii=False, separators=(',', ':')).encode('utf-8')).hexdigest()
+    assert grouping.fingerprint == expected
 
 
 def test_packet_reordering_rejected():

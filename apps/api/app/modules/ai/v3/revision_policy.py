@@ -10,7 +10,7 @@ PREVIOUS_REVIEW_POLICY = "v3-batched-decision-review-v2"
 BUCKET_REVIEW_POLICY = "v3-batched-decision-review-v3"
 AUXILIARY_REVIEW_POLICY = "v3-batched-decision-review-v4"
 REVIEW_POLICY = "v3-batched-decision-review-v5"
-PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v9"
+PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v10"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
@@ -20,6 +20,20 @@ def is_scoped_policy(value: object) -> bool:
 
 def stamp_policy(analysis: dict[str, Any], *, practical: bool = False) -> dict[str, Any]:
     return {**analysis, KEY: POLICY, REVIEW_KEY: PRACTICAL_REVIEW_POLICY if practical else REVIEW_POLICY}
+
+
+def practical_qa_admission(*, settings: Any, marker: str | None, tenant_id: Any, course_id: Any) -> bool:
+    """Select practical only from the server-authenticated managed or strict native DEV QA route."""
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
+
+    if marker == MANAGED_POLICY:
+        return True
+    return (marker is None and tenant_id == QA_TENANT and course_id is None
+            and getattr(settings, 'DEPLOYMENT_ENVIRONMENT', None) == 'render-development'
+            and all(getattr(settings, name, None) is False for name in (
+                'AI_QA_LUNA_DEV_ENABLED', 'AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED',
+                'AI_DIRECT_LUNA_QA_DEV_ENABLED', 'AI_MANAGED_LUNA_QA_DEV_ENABLED')))
 
 
 def read_review_policy(analysis: Any) -> str | None:
