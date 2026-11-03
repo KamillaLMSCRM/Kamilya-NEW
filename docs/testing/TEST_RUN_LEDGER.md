@@ -5437,3 +5437,5 @@ Engine LOCAL129 remains separate and unreleased; no new model calls.
 - FrozenactualdisposablePG20 currentlyactive atsource815deccbcf1523d4d6a06e728529fd53a98b12e5892e9b2f22f00ccca209fd9d, custodyv4-final-r1-20261103-custody.json; do not substitute pending state for PASS or cleanup. Production not modified.
 
 - Final frozenPG20 PASS at815deccbcf1523d4d6a06e728529fd53a98b12e5892e9b2f22f00ccca209fd9d/schemaaicp_dev_049de005674f/cleanuptrue/public0184unchanged. Valid partial option stage durable+coldreplay proved; no provider calls. Fullweb bounded2workers1589PASS/182files/327.92s. LocalAPI5030PASS/85.17s, baseline1005/2173, types/lint PASS. No full course or deployment claim.
+
+- Integrated21ec1334 pushed feature/dev with project-account exact remote receipts03:39UTC. CI41573467607 release-security shell step failed on2imported script modes100644; restored100755, local repository-wide20shellPASS. API/sourcehash815 unchanged; failed CI preserved, exact successor CI required. Frontend production build PASS.

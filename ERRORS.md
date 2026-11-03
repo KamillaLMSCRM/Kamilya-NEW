@@ -3122,6 +3122,8 @@ production runtime and cross-container readback remain pending release approval.
   packet, and the correction was issued as immutable patch release `0.7.4`
   rather than moving the published `v0.7.3` tag.
 
+- Recurrence2026-11-03: integrated21ec1334 CI41573467607 stopped shell gate because Windows worktree-only source import lost executable Git metadata on scripts/ops/vm126_dev_worker_readonly.sh and vm126_dev_worker_verify.sh. Both source blobs were unchanged; restored index mode100755, complete repository shell gate20PASS. Preserve reviewed blob bytes AND source tree modes when transferring tracked paths; add the mode inventory before initial push. No model rerun or production action.
+
 ## TOOL-003 - Skill validator dependency was absent from available Python runtimes
 
 - Date: 2026-08-23.
