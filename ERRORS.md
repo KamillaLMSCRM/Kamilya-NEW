@@ -9389,6 +9389,15 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 - Verification:4994fullAPIunitPASS/68.16s,49focused plus9PendingJournal/directbucket cases,34producer/baseline1005/2173PASS. Saved-equivalent wrong-method shapes, foreign/duplicate/missing IDs, exact count/enum bindings, raw/body/request hashes, pending retention and cold no-call replay covered. Real isolatedCLI synthetic method-bucket probe5489ms8756input165output/typedhash/exactshapeTRUE/onecall; not a course acceptance. Final exactPG19/runtime/three-course quality gates remain open.
 - Prevention: Encode discriminating relationships in the output contract, not only in prose. Apply validation before durable completion and bind it to the actual request. Keep provider response receipt, accepted stage, semantic quality and full-course completion as separate facts.
 
+## AI-DIRECT-WIRE-001 - Reconstructed JSON hash differed from installed HTTPX serialization
+
+- Date: 2026-11-03.
+- Symptom: bf72 CI41565419914 failed test_success_capture_exact_wire_and_scope[owned] although local direct capture tests passed; private receipt request hash differed from actual MockTransport request.content.
+- Cause: Handwritten compact json.dumps reconstructed a body sent by HTTPX json=payload. Supported HTTPX versions use different JSON whitespace, so semantically identical JSON was not byte-identical to the actual wire request.
+- Fix: Compute the receipt digest from httpx.Request(...,json=payload).content using the same installed encoder as the actual send. Do not hash a guessed representation, change provider plans, or fabricate the old receipt.
+- Verification: Five direct capture/real PendingJournal bucket tests PASS/1.69s after correction, baseline1005/2173PASS. The failing CI log is preserved bf72e293-unit-ci-failure-view.log; exact successor CI remains required. No provider inference was repeated for this correction.
+- Prevention: Bind wire evidence to actual serialized bytes using the transport's encoder; keep logical request identity separate from byte identity and exercise the canonical CI dependency set before runtime activation.
+
 ## DEV-MODEL-ISOLATION-001 - DEV shared a connector whose production route had become active
 
 - Date: 2026-11-03.
