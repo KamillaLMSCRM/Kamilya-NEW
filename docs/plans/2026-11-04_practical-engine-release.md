@@ -14,7 +14,14 @@ document-to-confirmation acceptance. Existing customer courses remain unchanged.
    independently acceptable for human review; automatic hold is not relabeled.
    Fire/Micro saved corrections active with no repeated authoring. Microcredit:
    276 source blocks grouped into42 structural audit units, retaining all text.
-2. **Exact DEV candidate — in progress, not deployed.** P11 HEAD57d2e1f7 feature
+2. **Exact DEV candidate — P12 deployed, P13 successor in progress.** Exact P12
+   5c5bbb0a passed all7CI, attested backend/connector builds, isolated connector
+   Luna6 profile and91-file worker source verification; canonical controller
+   RELEASE_OK proves API/frontend/sole VM consumer identity. Customer/production
+   state unchanged, stopped predecessor retained. P13 compact editor with mandatory
+   possible-answer guards passes5336unit/baseline and exact stored11/12 replay;
+   its complete quality and successor source/CI/images remain pending.
+   P11 HEAD57d2e1f7 feature
    and DEV-push CI all7 passed; its backend/connector images built with production
    skipped. P12 supersedes that unactivated candidate and needs its own CI/images.
    Commit selected integration;

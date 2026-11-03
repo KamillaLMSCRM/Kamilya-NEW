@@ -1,5 +1,27 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- P13 recurrence: a full43-question critic still missed the unmarried alternative
+  that the same critic found on one question/one coherent lesson. A concise
+  whole-course editor found five material issues in one control while emitting
+  4972 rather than11591 output tokens. Removing all counterexample fields was
+  independently rejected before release: a matching key must not override a
+  disclosed alternative. Current P13 instead requires a compact answerability
+  record for every question, all possible options and conditionality, exact owned
+  refs and reason; any non-UNIQUE or non-single-author option set blocks even with
+  matching key/empty findings. Source audit and prior OPEN feedback remain.
+  Stored11/12 keep exact original schemas/prompts/validators. Current5336unit PASS,
+  baseline1005/2174 PASS; actual old8+5stage replay PASS/zero calls. Final course
+  quality remains an independent gate; positive model prose is not a proof.
+- P13 transport recurrence: repeating the276-source enum inside each of50
+  answerability records inflated the schema to151851bytes. The real connector
+  rejected it locally before CLI launch; no provider inference occurred. Shared
+  record-array schema plus exact consumer question/ref/bounds checks reduces the
+  same actual schema to13664bytes without raising the65536 protocol guard or
+  dropping sources. Actual shipped-runner tests50Q/276blocks and100Q/300blocks
+  pass. Exercise generated producer schemas with the real connector validator,
+  not only mocked completion clients, before live calls. These are schema-scale
+  checks, not a claim that a100-page course passed semantic acceptance.
+
 - Recurrence P12, 2026-11-04: the display adapter prefixed every question with
   the author's selected source clauses. That silently changed a general workplace
   question into private-clause comprehension. Actual Micro L01Q03 then passed

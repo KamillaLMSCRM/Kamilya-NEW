@@ -11,7 +11,8 @@ BUCKET_REVIEW_POLICY = "v3-batched-decision-review-v3"
 AUXILIARY_REVIEW_POLICY = "v3-batched-decision-review-v4"
 REVIEW_POLICY = "v3-batched-decision-review-v5"
 PREVIOUS_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v11"
-PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v12"
+SCOPED_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v12"
+PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v13"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
@@ -20,7 +21,7 @@ def is_scoped_policy(value: object) -> bool:
 
 
 def is_practical_policy(value: object) -> bool:
-    return type(value) is str and value in {PREVIOUS_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY}
+    return type(value) is str and value in {PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY}
 
 
 def stamp_policy(analysis: dict[str, Any], *, practical: bool = False) -> dict[str, Any]:
@@ -48,7 +49,7 @@ def read_review_policy(analysis: Any) -> str | None:
         return None
     if type(analysis[REVIEW_KEY]) is not str or analysis[REVIEW_KEY] not in {
         LEGACY_REVIEW_POLICY, PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY,
-        PREVIOUS_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY,
+        PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY,
     }:
         raise ValueError("v3_review_policy_invalid")
     return str(analysis[REVIEW_KEY])

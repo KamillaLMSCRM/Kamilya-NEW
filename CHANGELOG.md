@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Preserve authored question conditions across source links and check applicable
+  exceptions through a concise whole-course editor with explicit answerability.
 - Generate a coherent source-bound course, review questions independently, and
   repair only confirmed paragraphs or questions while retaining completed work.
 - Show readable source locations in questions and group related source passages

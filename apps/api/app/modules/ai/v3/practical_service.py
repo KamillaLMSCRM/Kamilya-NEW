@@ -11,8 +11,17 @@ from app.modules.ai.evidence_engine.application import GenerationArtifacts
 from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
 from app.modules.ai.v3.extraction_checkpoint import ExtractionJournal
-from app.modules.ai.v3.models import RuleEntity, V3Course, V3Lesson, V3Option, V3Question
-from app.modules.ai.v3.practical_contract import PracticalSourcePacket, build_practical_source_packet
+from app.modules.ai.v3.models import (
+    RuleEntity,
+    V3Course,
+    V3Lesson,
+    V3Option,
+    V3Question,
+)
+from app.modules.ai.v3.practical_contract import (
+    PracticalSourcePacket,
+    build_practical_source_packet,
+)
 from app.modules.ai.v3.practical_cycle import PracticalCycleResult, run_practical_cycle
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
@@ -26,6 +35,7 @@ from app.modules.ai.v3.revision_policy import (
     PRACTICAL_MAX_OUTPUT_TOKENS,
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
+    SCOPED_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
 )
 from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
@@ -41,7 +51,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else PRACTICAL_REVIEW_POLICY
+    review_policy = (PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else
+                     PRACTICAL_REVIEW_POLICY if result.concise_review else SCOPED_PRACTICAL_REVIEW_POLICY)
     lessons = []
     provenance_holds = []
     for lesson in displayed['lessons']:
@@ -157,7 +168,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
     result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings),
-                                       legacy_source_rule_scope=review_policy == PREVIOUS_PRACTICAL_REVIEW_POLICY)
+                                       legacy_source_rule_scope=review_policy == PREVIOUS_PRACTICAL_REVIEW_POLICY,
+                                       concise_review=review_policy == PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
     return practical_artifacts(result, corpus, packet, source_sha256)

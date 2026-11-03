@@ -16,9 +16,18 @@ from app.modules.ai.v3.practical_contract import build_practical_source_packet
 from app.modules.ai.v3.practical_cycle import run_practical_cycle
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
-from app.modules.ai.v3.practical_source_reader import source_reader_parts, validate_source_read
-from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
-from app.modules.ai.v3.revision_policy import POLICY, PRACTICAL_REVIEW_POLICY, REVIEW_POLICY, stamp_policy
+from app.modules.ai.v3.practical_source_reader import (
+    source_reader_parts,
+    validate_source_read,
+)
+from app.modules.ai.v3.response_contracts import (
+    matches_response_contract,
+    response_contract,
+)
+from app.modules.ai.v3.revision_policy import POLICY, REVIEW_POLICY, stamp_policy
+from app.modules.ai.v3.revision_policy import (
+    SCOPED_PRACTICAL_REVIEW_POLICY as PRACTICAL_REVIEW_POLICY,
+)
 from app.modules.ai.v3.service import generate_v3_course_from_corpus
 from tests.unit.test_v3_partitioned_extraction import Journal
 

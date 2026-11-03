@@ -6,15 +6,25 @@ import pytest
 from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.practical_applicability import SOURCE_APPLICABILITY_GUIDE
 from app.modules.ai.v3.practical_contract import source_model_text
-from app.modules.ai.v3.practical_cycle import AUTHOR_SYSTEM, FRESH_AUTHOR_SYSTEM, PATCH_SYSTEM, practical_patch_messages
+from app.modules.ai.v3.practical_cycle import (
+    AUTHOR_SYSTEM,
+    FRESH_AUTHOR_SYSTEM,
+    PATCH_SYSTEM,
+    practical_patch_messages,
+)
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
-from app.modules.ai.v3.practical_review import REVIEW_SYSTEM, PracticalReviewDecision, practical_review_messages
+from app.modules.ai.v3.practical_review import (
+    REVIEW_SYSTEM,
+    PracticalReviewDecision,
+    practical_review_messages,
+)
 from app.modules.ai.v3.practical_source_audit import AUDIT_SYSTEM, source_audit_messages
 from app.modules.ai.v3.response_contracts import response_contract
 from app.modules.ai.v3.revision_policy import (
     POLICY,
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
+    SCOPED_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
     read_review_policy,
     stamp_policy,
@@ -26,14 +36,14 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 
 def test_closed_practical_versions_and_fresh_stamp():
-    assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v12'
+    assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v13'
     assert stamp_policy({}, practical=True)['v3_review_policy'] == PRACTICAL_REVIEW_POLICY
-    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY):
+    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(version)
         assert read_review_policy({'v3_review_policy': version}) == version
-    assert not is_practical_policy('v3-practical-source-review-v13')
+    assert not is_practical_policy('v3-practical-source-review-v14')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v13'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v14'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):
@@ -66,13 +76,23 @@ def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(ca
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('version,legacy', [(PREVIOUS_PRACTICAL_REVIEW_POLICY, True),
+                                             (SCOPED_PRACTICAL_REVIEW_POLICY, False),
                                              (PRACTICAL_REVIEW_POLICY, False)])
 async def test_real_dispatch_author_and_artifacts_remain_bound_to_saved_policy(case, version, legacy):
     corpus, packet, course = case
     calls, audits = [], []
     async def model(messages, fmt):
         calls.append((response_contract(fmt), messages))
-        return copy.deepcopy(course if response_contract(fmt) == 'practical_course' else checked(packet, course))
+        value = copy.deepcopy(course if response_contract(fmt) == 'practical_course' else checked(packet, course))
+        if response_contract(fmt) == 'practical_review' and version == PRACTICAL_REVIEW_POLICY:
+            del value['question_rules']
+            del value['option_checks']
+            value['answerability'] = [
+                {'question_id': q['id'], 'possible_options': [q['correct_index']], 'status': 'UNIQUE',
+                          'source_refs': q['source_refs'], 'reason': 'Only this answer applies.'}
+                for lesson in course['lessons'] for q in lesson['questions']
+            ]
+        return value
     result = await generate_v3_course_from_corpus(corpus, intent=CourseIntent(audience='Staff'),
         generation_client=model_wire(packet, model, audits), revision_policy=POLICY, review_policy=version)
     author = next(messages for kind, messages in calls if kind == 'practical_course')

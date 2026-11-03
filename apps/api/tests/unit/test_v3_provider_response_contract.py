@@ -17,6 +17,25 @@ from app.modules.ai.v3.stage_checkpoint import _digest
 from tests.unit.test_v3_provider_profile import policy
 
 
+def test_practical_concise_array_contract_registered_with_consumer_validation():
+    from app.modules.ai.v3.practical_review import _format
+    from app.modules.ai.v3.response_contracts import (
+        matches_response_contract,
+        response_contract,
+    )
+
+    fmt = _format(['src-a'], 'a' * 64, ['l'], {'q': 3}, [], concise=True)
+    value = {'source_fingerprint': 'a' * 64, 'source_review': 'Reviewed.', 'source_notes': [],
+             'findings': [], 'answer_keys': {'q': 0}, 'narrative_sources': {'l': ['src-a']},
+             'answerability': [{'question_id': 'q', 'possible_options': [0], 'status': 'UNIQUE',
+                                'source_refs': ['src-a'], 'reason': 'Only this answer applies.'}]}
+    assert response_contract(fmt) == 'practical_review'
+    assert response_contract_hash(fmt)
+    assert matches_response_contract(value, fmt)
+    value['answerability'][0]['source_refs'] = ['foreign']
+    assert not matches_response_contract(value, fmt)
+
+
 def config(name):
     return LLMProviderConfig(name=name, base_url="http://" + name + "/v1", api_key="test", model="test-model",
                              max_retries=0, trust_env=False)
