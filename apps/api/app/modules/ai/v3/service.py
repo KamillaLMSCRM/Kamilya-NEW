@@ -1546,6 +1546,14 @@ def _bind_rendered_quote_candidates(
     return replace(lesson, cases=cases, questions=questions), warnings
 
 
+class OptionShortcutRepairUnresolvedError(ValueError):
+    """A known complete repair failed; retain this lesson's original defects."""
+
+    def __init__(self, violations: tuple[str, ...]):
+        self.violations = violations
+        super().__init__("v3_option_repair_requires_review")
+
+
 async def _repair_option_shortcuts(
     lesson: V3Lesson, source: str, source_sha: str, source_fragments: list[str],
     invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
@@ -1617,7 +1625,7 @@ async def _repair_option_shortcuts(
             # independent semantic review. Failed candidates stay in the owned
             # journal; they are never promoted, padded or declared approved.
             logger.warning("v3.option_repair.held structural_candidate_not_accepted")
-            return lesson, False
+            raise OptionShortcutRepairUnresolvedError(tuple(report.violations))
     return candidate, True
 
 
@@ -2082,12 +2090,18 @@ async def generate_v3_course_from_corpus(
                     f"Урок {lesson.lesson_id}: объяснения исправлены без привязки к порядку; "
                     "требуется смысловая проверка"
                 )
-            lesson, repaired = await _repair_option_shortcuts(
-                lesson, full_text, doc_sha, repair_sources, stage_pipeline("repair").invoker, group_reference_context,
-                source_documents,
-                **({"typed_output": True} if typed_auxiliary else {}),
-                **({"convergent_repair": True} if review_policy == REVIEW_POLICY else {}),
-            )
+            try:
+                lesson, repaired = await _repair_option_shortcuts(
+                    lesson, full_text, doc_sha, repair_sources, stage_pipeline("repair").invoker, group_reference_context,
+                    source_documents,
+                    **({"typed_output": True} if typed_auxiliary else {}),
+                    **({"convergent_repair": True} if review_policy == REVIEW_POLICY else {}),
+                )
+            except OptionShortcutRepairUnresolvedError as unresolved:
+                repaired = False
+                # A whole-course mean can dilute a failed lesson's signal.
+                # Keep every original lesson defect as a separate final hold.
+                semantic_violations.extend(f"Урок {lesson.lesson_id}: {issue}" for issue in unresolved.violations)
             if repaired:
                 coverage_review_signals.append(
                     f"Урок {lesson.lesson_id}: варианты ответов отредактированы; требуется смысловая проверка"

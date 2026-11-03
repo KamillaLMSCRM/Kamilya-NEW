@@ -7,7 +7,7 @@ import pytest
 from app.modules.ai.v3 import option_repair
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.models import V3Course, V3Option
-from app.modules.ai.v3.service import _repair_option_shortcuts
+from app.modules.ai.v3.service import OptionShortcutRepairUnresolvedError, _repair_option_shortcuts
 from app.modules.ai.v3.validator import validate_v3_course
 from tests.unit.test_v3_option_repair import saved_lesson
 
@@ -57,10 +57,11 @@ async def test_remaining_defect_is_held_without_a_third_request(monkeypatch):
     intermediate = lesson_with_lengths([(14, 14, 15)] * 4 + [(15, 17, 18)] * 2)
     repair = AsyncMock(side_effect=[intermediate, intermediate])
     monkeypatch.setattr(option_repair, "repair_length_shortcuts", repair)
-    after, changed = await _repair_option_shortcuts(original, SOURCE, "a" * 64, [SOURCE], AsyncMock(), convergent_repair=True)
-    assert after is original and not changed and repair.await_count == 2
-    assert report(after).structural_verdict == "FAIL"
-    assert report(after).metrics.longest_correct_percent == 100
+    with pytest.raises(OptionShortcutRepairUnresolvedError) as held:
+        await _repair_option_shortcuts(original, SOURCE, "a" * 64, [SOURCE], AsyncMock(), convergent_repair=True)
+    assert held.value.violations == tuple(report(original).violations) and repair.await_count == 2
+    assert report(original).structural_verdict == "FAIL"
+    assert report(original).metrics.longest_correct_percent == 100
 
 
 @pytest.mark.asyncio
@@ -68,8 +69,9 @@ async def test_no_measurable_progress_does_not_repeat_repair(monkeypatch):
     original = lesson_with_lengths([(3, 4, 5)] * 6)
     repair = AsyncMock(return_value=original)
     monkeypatch.setattr(option_repair, "repair_length_shortcuts", repair)
-    after, changed = await _repair_option_shortcuts(original, SOURCE, "a" * 64, [SOURCE], AsyncMock(), convergent_repair=True)
-    assert after is original and not changed and repair.await_count == 1
+    with pytest.raises(OptionShortcutRepairUnresolvedError) as held:
+        await _repair_option_shortcuts(original, SOURCE, "a" * 64, [SOURCE], AsyncMock(), convergent_repair=True)
+    assert held.value.violations == tuple(report(original).violations) and repair.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -95,7 +97,11 @@ async def test_historical_protocol_keeps_request_arguments_and_failure_without_f
 
 def test_v4_is_still_readable_and_fresh_jobs_choose_v5():
     from app.modules.ai.v3.revision_policy import (
-        AUXILIARY_REVIEW_POLICY, REVIEW_KEY, REVIEW_POLICY, read_review_policy, stamp_policy,
+        AUXILIARY_REVIEW_POLICY,
+        REVIEW_KEY,
+        REVIEW_POLICY,
+        read_review_policy,
+        stamp_policy,
     )
     assert AUXILIARY_REVIEW_POLICY == "v3-batched-decision-review-v4"
     assert read_review_policy({REVIEW_KEY: AUXILIARY_REVIEW_POLICY}) == AUXILIARY_REVIEW_POLICY
