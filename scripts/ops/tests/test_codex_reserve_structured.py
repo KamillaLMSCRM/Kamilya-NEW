@@ -127,3 +127,34 @@ def test_usage_limit_does_not_reinvoke(runner, monkeypatch, usage, count):
     with pytest.raises(mod.RunnerError, match="output_limit"):
         asyncio.run(worker.complete(payload(response_format=fmt(), structured_output_policy=mod.STRUCTURED_POLICY)))
     assert run.await_count == 1
+
+
+def test_batch_schema_reaches_cli_without_string_encoding(runner, monkeypatch):
+    mod, worker = runner
+    form = load("batch_schema", "apps/api/app/modules/ai/v3/batch_review_response_schema.py").batch_review_response_format()
+    item = {"items": [{"id": "a" * 64, "review": {
+        "verdict": "UNCERTAIN", "claims": [], "summary": 'quote "value"\nnext'}}]}
+    seen = []
+    async def run(args, stdin, *, cwd, timeout):
+        seen.append(args)
+        assert json.loads((cwd / "response-schema.json").read_text(encoding="utf-8")) == form["json_schema"]["schema"]
+        return 0, output(json.dumps(item, ensure_ascii=False)), b""
+    monkeypatch.setattr(worker, "_run", run)
+    result = asyncio.run(worker.complete(payload(response_format=form, structured_output_policy=mod.STRUCTURED_POLICY)))
+    assert len(seen) == 1
+    assert json.loads(result["choices"][0]["message"]["content"]) == item
+
+
+@pytest.mark.parametrize("node", [
+    {"anyOf": []}, {"anyOf": [{"type": "string"}]},
+    {"anyOf": [{"type": "string"}, {"$ref": "remote"}]},
+    {"anyOf": [{"type": "string"}, {"type": "number"}], "type": "object"},
+    {"type": "integer", "minimum": 0}, {"type": "number", "enum": [1]},
+    {"type": []}, {"type": {}},
+])
+def test_new_schema_subset_keeps_closed_bounds(runner, node):
+    mod, _ = runner
+    form = fmt()
+    form["json_schema"]["schema"]["properties"]["content"] = node
+    with pytest.raises(mod.RunnerError, match="invalid_input"):
+        mod._checked_structured_format(form)

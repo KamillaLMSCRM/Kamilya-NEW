@@ -5,7 +5,8 @@ KEY = "v3_revision_policy"
 LEGACY_POLICY = "v3-scoped-revision-v1"
 POLICY = "v3-scoped-revision-v2"
 REVIEW_KEY = "v3_review_policy"
-REVIEW_POLICY = "v3-batched-decision-review-v1"
+LEGACY_REVIEW_POLICY = "v3-batched-decision-review-v1"
+REVIEW_POLICY = "v3-batched-decision-review-v2"
 
 
 def is_scoped_policy(value: object) -> bool:
@@ -21,9 +22,9 @@ def read_review_policy(analysis: Any) -> str | None:
         raise ValueError("v3_review_analysis_invalid")
     if REVIEW_KEY not in analysis:
         return None
-    if type(analysis[REVIEW_KEY]) is not str or analysis[REVIEW_KEY] != REVIEW_POLICY:
+    if type(analysis[REVIEW_KEY]) is not str or analysis[REVIEW_KEY] not in {LEGACY_REVIEW_POLICY, REVIEW_POLICY}:
         raise ValueError("v3_review_policy_invalid")
-    return REVIEW_POLICY
+    return str(analysis[REVIEW_KEY])
 
 
 def read_policy(analysis: Any) -> str | None:

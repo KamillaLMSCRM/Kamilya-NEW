@@ -165,3 +165,26 @@ async def test_owned_stage_rejects_changed_plan_hash_before_inspection(monkeypat
             messages=[{"role": "user", "content": "example"}], max_output_tokens=20,
             response_format=lesson_author_response_format())
     inspect.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_typed_batch_stage_is_bound_and_other_scopes_fail_before_claim(monkeypatch, managed):
+    from app.modules.ai.v3.batch_review_response_schema import batch_review_response_format
+    client, tenant, user, job, _, _ = managed
+    journal = PendingStageJournal(str(tenant), user, job, None, verify_source=AsyncMock(return_value=True))
+    messages = [{"role": "user", "content": "review exact input"}]
+    fmt = batch_review_response_format()
+    run = AsyncMock(return_value={"items": []})
+    monkeypatch.setattr("app.modules.ai.v3.direct_luna_owned_stage.run_direct_owned_stage", run)
+    options = dict(journal=journal, stage="review", group_id="batched-review:g", source_sha256="a" * 64,
+                   route_fingerprint="b" * 64, messages=messages, response_format=fmt,
+                   invoke=AsyncMock(), direct_client=client)
+    assert await stage_once(**options) == {"items": []}
+    sent = run.await_args.kwargs
+    assert sent["response_format"] == fmt and sent["plan"]["request_sha256"] == _digest([messages, fmt])
+    run.reset_mock()
+    for change in ({"stage": "lesson"}, {"stage": "repair"}, {"group_id": "ordinary-review"},
+                   {"direct_client": object.__new__(DirectLunaResponsesClient)}):
+        with pytest.raises(ValueError, match="direct_owned_format_invalid"):
+            await stage_once(**(options | change))
+    run.assert_not_awaited()

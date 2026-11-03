@@ -1786,13 +1786,14 @@ async def generate_v3_course_from_corpus(
     review_policy: str | None = None,
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
+    from app.modules.ai.v3.revision_policy import LEGACY_REVIEW_POLICY, REVIEW_POLICY, is_scoped_policy
     from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
-    from app.modules.ai.v3.revision_policy import REVIEW_POLICY, is_scoped_policy
 
     if revision_policy is not None and not is_scoped_policy(revision_policy):
         raise ValueError("v3_revision_policy_invalid")
     scoped_revision = is_scoped_policy(revision_policy)
-    batched_decisions = review_policy == REVIEW_POLICY
+    batched_decisions = review_policy in {LEGACY_REVIEW_POLICY, REVIEW_POLICY}
+    strict_batch_contract = review_policy == REVIEW_POLICY
     if review_policy is not None and (not batched_decisions or revision_policy != REVISION_POLICY):
         raise ValueError("v3_review_policy_invalid")
     if allow_unreviewed_on_unknown and extraction_journal is None:
@@ -1844,6 +1845,9 @@ async def generate_v3_course_from_corpus(
 
         if isinstance(raw_text, dict):
             return raw_text
+        if strict_batch_contract:
+            from app.modules.ai.source_first_response import parse_source_first_response
+            return parse_source_first_response(raw_text)
         parsed: dict[str, Any] = json.loads(raw_text)
         return parsed
 
@@ -2114,13 +2118,16 @@ async def generate_v3_course_from_corpus(
             parts = ([] if citation_holds and lesson.cases and not review_lesson.cases
                      else _semantic_review_parts(review_lesson))
             if batched_decisions and extraction_journal is not None:
+                from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
                 from app.modules.ai.v3.batched_review import BatchedReview
                 from app.modules.ai.v3.review_work_items import lesson_review_items
                 work = lesson_review_items(lesson, parts, review_rules, corpus, source_frags,
                     exact_source_units, group_reference_context, explanation_consistency=quality_explanations,
                     held_question_ids=frozenset(citation_holds))
                 review_cache_box[0] = await BatchedReview.prime(
-                    work, stage_pipeline("review", group_id="batched-review:" + group.group_id).invoker)
+                    work, stage_pipeline("review", group_id="batched-review:" + group.group_id).invoker,
+                    typed_transport=strict_batch_contract and type(direct_client) is not DirectLunaResponsesClient,
+                    strict_contract=strict_batch_contract)
             all_parts_passed = True
             deferred_lesson_defects: list[tuple[int, Any]] = []
             lesson_scope_resolved = False

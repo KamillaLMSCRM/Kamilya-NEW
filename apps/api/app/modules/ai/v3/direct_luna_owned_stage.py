@@ -38,7 +38,10 @@ async def run_direct_owned_stage(*, journal: PendingStageJournal, client: Direct
                   and plan.get("request_sha256") == _digest([messages, response_format]))
         extraction = (kind == "extraction" and plan.get("schema") == "v3-rule-extraction-checkpoint-v1"
                       and isinstance(identity, dict) and identity.get("prompt_sha256") == _digest([messages, response_format]))
-        if type(client) is not ManagedLunaClient or not (lesson or extraction):
+        batch_review = (kind == "batch_review" and plan.get("stage") == "review"
+                        and str(plan.get("group_id", "")).startswith("batched-review:")
+                        and plan.get("request_sha256") == _digest([messages, response_format]))
+        if type(client) is not ManagedLunaClient or not (lesson or extraction or batch_review):
             raise ValueError("managed_structured_plan_invalid")
     def validate_with_metadata(value: dict[str, Any]) -> dict[str, Any]:
         from app.modules.ai.v3.stage_checkpoint import _validate_direct_metadata

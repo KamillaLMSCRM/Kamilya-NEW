@@ -111,6 +111,13 @@ def _checked_structured_format(value: object) -> dict[str, Any]:
         count += 1
         if depth > MAX_SCHEMA_DEPTH or count > MAX_SCHEMA_NODES or not isinstance(node, dict):
             raise RunnerError("invalid_input")
+        if "anyOf" in node:
+            branches = node["anyOf"]
+            if set(node) != {"anyOf"} or not isinstance(branches, list) or not 2 <= len(branches) <= 8:
+                raise RunnerError("invalid_input")
+            for branch in branches:
+                check(branch, depth + 1)
+            return
         kind = node.get("type")
         if kind == "object":
             if set(node) != {"type", "properties", "required", "additionalProperties"} or node["additionalProperties"] is not False:
@@ -135,6 +142,9 @@ def _checked_structured_format(value: object) -> dict[str, Any]:
             if "enum" in node and (not isinstance(node["enum"], list) or not node["enum"]
                     or any(not isinstance(v, str) for v in node["enum"])
                     or len(set(node["enum"])) != len(node["enum"])):
+                raise RunnerError("invalid_input")
+        elif kind in ("integer", "number"):
+            if set(node) != {"type"}:
                 raise RunnerError("invalid_input")
         else:
             raise RunnerError("invalid_input")

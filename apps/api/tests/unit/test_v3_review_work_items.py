@@ -41,7 +41,8 @@ async def test_actual_work_items_batch_and_independent_validators():
                       'review_question_compatibility': 1, 'review_answer_completeness': 1}
     answer = {'verdict': 'SUPPORTED', 'claims': [{'claim': 'check', 'status': 'SUPPORTED', 'reason': 'source'}],
               'summary': 'supported'}
-    result_by_method = {'review_lesson': {'verdict': 'PASS'}, 'review_answer': answer,
+    result_by_method = {'review_lesson': {'verdict': 'PASS', 'factual_score': 5,
+        'alignment_score': 5, 'didactic_score': 5, 'summary': 'reviewed', 'defects': []}, 'review_answer': answer,
         'review_question_options': {'options': []}, 'review_question_compatibility': {'options': []},
         'review_answer_completeness': {'answers': [{'index': 0, 'omissions': []}], 'explanation_review': answer}}
     calls = []
@@ -121,9 +122,10 @@ async def test_held_variants_keep_original_question_order_and_cache_scope(held):
         payload = json.loads(messages[1]['content'])
         calls.append(payload)
         return {'items': [{'id': item['id'], 'review': ({'options': []} if item['method'].startswith('review_question')
-            else {'answers': [], 'explanation_review': {}} if item['method'] == 'review_answer_completeness'
+            else {'answers': [], 'explanation_review': {'verdict': 'SUPPORTED', 'claims': [], 'summary': 'x'}} if item['method'] == 'review_answer_completeness'
             else {'verdict': 'SUPPORTED', 'claims': [], 'summary': 'x'} if item['method'] == 'review_answer'
-            else {'verdict': 'PASS'})} for item in payload['items']]}
+            else {'verdict': 'PASS', 'factual_score': 5, 'alignment_score': 5,
+                  'didactic_score': 5, 'summary': 'reviewed', 'defects': []})} for item in payload['items']]}
     cache = await BatchedReview.prime(items, batch)
     serialized = json.dumps(calls)
     assert all(prompts[qid] not in serialized for qid in held)

@@ -111,8 +111,11 @@ async def stage_once(
         if direct_client is not None:
             from app.modules.ai.managed_luna_client import ManagedLunaClient
             from app.modules.ai.v3.author_response_schema import is_lesson_author_response_format
-            structured = (stage == "lesson" and type(direct_client) is ManagedLunaClient
-                          and is_lesson_author_response_format(response_format))
+            from app.modules.ai.v3.batch_review_response_schema import is_batch_review_response_format
+            structured = (type(direct_client) is ManagedLunaClient and (
+                (stage == "lesson" and is_lesson_author_response_format(response_format))
+                or (stage == "review" and group_id.startswith("batched-review:")
+                    and is_batch_review_response_format(response_format))))
             if response_format not in (None, {"type": "json_object"}) and not structured:
                 raise ValueError("direct_owned_format_invalid")
             from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage

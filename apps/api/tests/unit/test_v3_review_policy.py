@@ -8,6 +8,7 @@ import pytest
 
 from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id
 from app.modules.ai.v3.revision_policy import (
+    LEGACY_REVIEW_POLICY,
     POLICY,
     REVIEW_KEY,
     REVIEW_POLICY,
@@ -24,6 +25,8 @@ def test_fresh_admission_overwrites_untrusted_review_selection():
     assert result[REVIEW_KEY] == REVIEW_POLICY and value == original
     assert read_review_policy(result) == REVIEW_POLICY
     assert read_review_policy({'v3_revision_policy': POLICY}) is None
+    assert read_review_policy({REVIEW_KEY: LEGACY_REVIEW_POLICY}) == LEGACY_REVIEW_POLICY
+    assert REVIEW_POLICY != LEGACY_REVIEW_POLICY
 
 
 @pytest.mark.parametrize('value',[None,True,{},'foreign'])
@@ -33,7 +36,8 @@ def test_present_invalid_review_marker_is_never_legacy(value):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('expected,observed',[(None,REVIEW_POLICY),(REVIEW_POLICY,None)])
+@pytest.mark.parametrize('expected,observed',[(None,REVIEW_POLICY),(REVIEW_POLICY,None),
+    (LEGACY_REVIEW_POLICY,REVIEW_POLICY),(REVIEW_POLICY,LEGACY_REVIEW_POLICY)])
 async def test_review_policy_changed_before_checkpoint_fails_without_write(monkeypatch,expected,observed):
     tenant,job=str(uuid4()),str(uuid4())
     analysis={} if observed is None else {REVIEW_KEY:observed}
