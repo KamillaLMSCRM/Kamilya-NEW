@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preserve partial repairs and review them against their exact source and question identities; do not repeat requests with unknown outcomes.
 - Keep generation recovery within the original account and learning program; retain the current workspace design and session protections.
+- Keep known quality defects reviewable instead of aborting the whole course; use measured feedback for focused answer repairs and pause before native requests that cannot finish within the worker delivery window.
 
 ## [0.11.70] - 2026-11-02
 

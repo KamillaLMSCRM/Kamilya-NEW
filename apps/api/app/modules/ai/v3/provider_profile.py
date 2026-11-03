@@ -7,9 +7,11 @@ request profile part of the checkpoint identity.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import math
 from collections.abc import Mapping
 from typing import Any
 from uuid import UUID
@@ -44,25 +46,42 @@ def _policy_digest(policy: RuntimeSnapshot, values: Mapping[str, object]) -> str
 class V3ProfiledClient:
     """Apply the fresh V3 course-generation profile to one resolved client."""
 
-    def __init__(self, client: ResilientLLMClient, policy: RuntimeSnapshot, *, job_id: str):
+    def __init__(self, client: ResilientLLMClient, policy: RuntimeSnapshot, *, job_id: str,
+                 cooperative_deadline: bool = False):
         if type(client) is not ResilientLLMClient:
             raise TypeError("v3_provider_profile_client_invalid")
         if not isinstance(policy, RuntimeSnapshot):
             raise TypeError("v3_provider_profile_policy_invalid")
+        if type(cooperative_deadline) is not bool:
+            raise ValueError("v3_provider_cooperative_deadline_invalid")
+        if cooperative_deadline and type(policy.values.get("provider.deepseek.timeout_seconds")) not in (int, float):
+            raise ValueError("v3_provider_cooperative_deadline_invalid")
         self._client = client
         self._policy = policy
         self._job_id = job_id
         self._base_fingerprint = client.cache_fingerprint()
         self._values = _profile_values(policy)
+        seconds = self._values["deepseek_seconds"]
+        self._generation_deadline_seconds: float | None = None
+        if cooperative_deadline:
+            if (isinstance(seconds, bool) or not isinstance(seconds, int | float)
+                    or not math.isfinite(seconds) or seconds <= 0 or seconds > 3600):
+                raise ValueError("v3_provider_cooperative_deadline_invalid")
+            self._generation_deadline_seconds = float(seconds)
         self._policy_identity = _policy_digest(policy, self._values)
         self._fingerprint = hashlib.sha256(json.dumps({
             "base": self._base_fingerprint,
-            "profile": PROFILE_VERSION,
+            "profile": "v3-course-generation-profile-v2" if cooperative_deadline else PROFILE_VERSION,
             "policy": self._values,
+            **({"whole_invocation_seconds": self.generation_deadline_seconds} if cooperative_deadline else {}),
         }, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
     def cache_fingerprint(self) -> str:
         return self._fingerprint
+
+    @property
+    def generation_deadline_seconds(self) -> float | None:
+        return self._generation_deadline_seconds
 
     @property
     def provider_names(self) -> list[str]:
@@ -83,12 +102,13 @@ class V3ProfiledClient:
         self._assert_identity()
         try:
             with runtime_settings_scope(self._policy):
-                response = await self._client.ainvoke(
-                    messages,
-                    config=config,
-                    response_format=response_format,
-                    request_profile="course_generation",
-                )
+                if self.generation_deadline_seconds is None:
+                    response = await self._client.ainvoke(messages, config=config, response_format=response_format,
+                                                          request_profile="course_generation")
+                else:
+                    async with asyncio.timeout(self.generation_deadline_seconds):
+                        response = await self._client.ainvoke(messages, config=config, response_format=response_format,
+                                                              request_profile="course_generation")
             try:
                 if (getattr(response, "finish_reason", None) in {"length", "content_filter"}
                         or getattr(response, "content_is_reasoning", False)):

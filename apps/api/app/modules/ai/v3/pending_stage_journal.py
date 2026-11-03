@@ -31,6 +31,7 @@ class PendingStageJournal(WorkerCycleJournal):
         self.user_id = user_id
         self.verify_source = verify_source
         self.completed_extraction_parent_job_id: str | None = None
+        self.native_generation_seconds: float | None = None
 
     async def run_pending(self, *, plan: dict[str, Any], result_key: str, claim_key: str,
                           validate_value: Callable[[dict[str, Any]], dict[str, Any]],

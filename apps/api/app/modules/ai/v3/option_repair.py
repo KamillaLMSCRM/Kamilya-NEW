@@ -155,6 +155,7 @@ async def repair_length_shortcuts(
     reference_context: tuple[str, ...] = (),
     *,
     typed_output: bool = False,
+    measured_feedback: bool = False,
 ) -> V3Lesson:
     """Repair only length-biased distractors; never rewrite the correct answer."""
     fix_long = any("correct answer is longest" in item for item in violations)
@@ -183,6 +184,10 @@ async def repair_length_shortcuts(
                     "old_wrong": wrong,
                     "correct_length": len(correct),
                 }
+                if measured_feedback:
+                    row.update(observed_wrong_lengths=[len(text) for text in wrong],
+                               required_at_least_one_wrong_length_gte=len(correct),
+                               required_at_least_one_wrong_length_lte=len(correct))
                 if fix_mean:
                     row.update(
                         target_average_wrong_min=math.ceil(len(correct) / 1.25),
@@ -194,6 +199,8 @@ async def repair_length_shortcuts(
     if not source_fragments or not ids or any(not value for value in all_ids) or len(all_ids) != len(set(all_ids)):
         raise ValueError("v3_targeted_repair_evidence_invalid")
     request: dict[str, Any] = {"source_fragments": source_fragments, "questions": payload}
+    if measured_feedback:
+        request["violations"] = violations
     if reference_context:
         request["reference_context_not_source_quote"] = list(reference_context)
     from app.modules.ai.v3.auxiliary_response_contracts import length_repair_format

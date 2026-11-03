@@ -1551,9 +1551,9 @@ async def _repair_option_shortcuts(
     invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
     reference_context: tuple[str, ...] = (),
     source_documents: tuple[str, ...] | None = None,
-    *, typed_output: bool = False,
+    *, typed_output: bool = False, convergent_repair: bool = False,
 ) -> tuple[V3Lesson, bool]:
-    """Attempt one scoped repair only for structural option defects.
+    """Repair structural option defects without aborting the rest of the course.
 
     A passed structural recheck is not semantic approval. Other defects are
     retained for the normal fail-closed validation path, without a repair call.
@@ -1575,14 +1575,49 @@ async def _repair_option_shortcuts(
             and any("correct answer is longest" in issue or "correct answer is shortest" in issue
                     for issue in report.violations)):
         candidate = await repair_length_shortcuts(lesson, list(report.violations), source_fragments, invoke,
-                                                  reference_context, **({"typed_output": True} if typed_output else {}))
+                                                  reference_context, **({"typed_output": True} if typed_output else {}),
+                                                  **({"measured_feedback": True} if convergent_repair else {}))
     else:
         candidate = await repair_options(lesson, list(report.violations), source_fragments, invoke, reference_context,
                                          accept_partial=complete_lesson_passes,
                                          **({"typed_output": True} if typed_output else {}))
     updated = replace(current, lessons=(candidate,))
-    if validate_v3_course(updated, source_document_text=source, source_documents=source_documents).structural_verdict != "PASS":
-        raise ValueError("v3_option_repair_failed_validation")
+    candidate_report = validate_v3_course(updated, source_document_text=source, source_documents=source_documents)
+    if candidate_report.structural_verdict != "PASS":
+        if not convergent_repair:
+            raise ValueError("v3_option_repair_failed_validation")
+        # A complete model response can improve mean length while leaving a
+        # longest/shortest-answer clue. One new request is justified only by
+        # measurable progress and a narrower, still-failing length obligation.
+        # Neither replay nor a transport-unknown result authorizes another call.
+        def length_distance(value: Any) -> float:
+            ratio = value.metrics.length_bias_ratio_mean
+            return float(max(0.80 - ratio, 0.0, ratio - 1.25))
+
+        progressed = (
+            len(candidate_report.violations) < len(report.violations)
+            or candidate_report.metrics.longest_correct_count < report.metrics.longest_correct_count
+            or candidate_report.metrics.shortest_correct_count < report.metrics.shortest_correct_count
+            or length_distance(candidate_report) < length_distance(report)
+        )
+        length_only = candidate_report.violations and all(
+            issue.startswith("Invariant 4") for issue in candidate_report.violations
+        )
+        if progressed and length_only:
+            candidate = await repair_length_shortcuts(
+                candidate, list(candidate_report.violations), source_fragments, invoke, reference_context,
+                **({"typed_output": True} if typed_output else {}),
+                measured_feedback=True,
+            )
+            candidate_report = validate_v3_course(
+                replace(current, lessons=(candidate,)), source_document_text=source, source_documents=source_documents,
+            )
+        if candidate_report.structural_verdict != "PASS":
+            # Preserve the original for the normal full-course validator and
+            # independent semantic review. Failed candidates stay in the owned
+            # journal; they are never promoted, padded or declared approved.
+            logger.warning("v3.option_repair.held structural_candidate_not_accepted")
+            return lesson, False
     return candidate, True
 
 
@@ -1797,6 +1832,7 @@ async def generate_v3_course_from_corpus(
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
     from app.modules.ai.v3.revision_policy import (
+        AUXILIARY_REVIEW_POLICY,
         BUCKET_REVIEW_POLICY,
         LEGACY_REVIEW_POLICY,
         PREVIOUS_REVIEW_POLICY,
@@ -1808,9 +1844,9 @@ async def generate_v3_course_from_corpus(
     if revision_policy is not None and not is_scoped_policy(revision_policy):
         raise ValueError("v3_revision_policy_invalid")
     scoped_revision = is_scoped_policy(revision_policy)
-    batched_decisions = review_policy in {LEGACY_REVIEW_POLICY, PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, REVIEW_POLICY}
-    typed_auxiliary = review_policy == REVIEW_POLICY
-    strict_batch_contract = review_policy in {PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, REVIEW_POLICY}
+    batched_decisions = review_policy in {LEGACY_REVIEW_POLICY, PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY}
+    typed_auxiliary = review_policy in {AUXILIARY_REVIEW_POLICY, REVIEW_POLICY}
+    strict_batch_contract = review_policy in {PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY}
     if review_policy is not None and (not batched_decisions or revision_policy != REVISION_POLICY):
         raise ValueError("v3_review_policy_invalid")
     if allow_unreviewed_on_unknown and extraction_journal is None:
@@ -2050,6 +2086,7 @@ async def generate_v3_course_from_corpus(
                 lesson, full_text, doc_sha, repair_sources, stage_pipeline("repair").invoker, group_reference_context,
                 source_documents,
                 **({"typed_output": True} if typed_auxiliary else {}),
+                **({"convergent_repair": True} if review_policy == REVIEW_POLICY else {}),
             )
             if repaired:
                 coverage_review_signals.append(
@@ -2147,8 +2184,8 @@ async def generate_v3_course_from_corpus(
                 review_cache_box[0] = await BatchedReview.prime(
                     work, stage_pipeline("review", group_id="batched-review:" + group.group_id).invoker,
                     typed_transport=strict_batch_contract and type(direct_client) is not DirectLunaResponsesClient,
-                    strict_contract=strict_batch_contract, typed_buckets=review_policy in {BUCKET_REVIEW_POLICY, REVIEW_POLICY},
-                    typed_fallback=review_policy == REVIEW_POLICY)
+                    strict_contract=strict_batch_contract, typed_buckets=review_policy in {BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY},
+                    typed_fallback=typed_auxiliary)
             all_parts_passed = True
             deferred_lesson_defects: list[tuple[int, Any]] = []
             lesson_scope_resolved = False

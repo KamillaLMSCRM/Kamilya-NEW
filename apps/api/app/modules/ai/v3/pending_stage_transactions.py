@@ -214,6 +214,18 @@ async def claim_with_pending(*, journal: Any, user_id: Any, plan: dict[str, Any]
                     return restored
             if claim_exists:
                 raise ExtractionOutcomeUnknownError("v3_pending_legacy_claim")
+            native_seconds = getattr(journal, "native_generation_seconds", None)
+            if native_seconds is not None:
+                import math
+
+                from app.modules.ai.v3.cooperative_budget import PreclaimYieldError, active_budget
+
+                if (isinstance(native_seconds, bool) or not isinstance(native_seconds, int | float)
+                        or not math.isfinite(native_seconds) or not 0 < native_seconds <= 3600):
+                    raise PreclaimYieldError("generation_deadline_unverified")
+                budget = active_budget.get()
+                if budget is not None:
+                    budget.before_claim(generation_seconds=native_seconds)
             install_repair_slot(job, plan)
             for key in (result_key, claim_key):
                 await repo.create_plan(session, tenant_id=journal.tenant_id, generation_key=journal._owned_key(key),

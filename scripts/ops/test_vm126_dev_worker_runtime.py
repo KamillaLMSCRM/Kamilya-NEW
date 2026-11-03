@@ -97,6 +97,12 @@ def test_literal_verify_shell_embeds_runtime_contract() -> None:
     )
     assert "kamilya-dev-worker" in source
     assert "VM_DEV_CONSUMER_READY" in source
+    shell = (ROOT / "scripts/ops/vm126_dev_worker_verify.sh").read_text(encoding="utf-8")
+    assert shell.count("python3 - <<'PY'\n") == 1 and shell.endswith("\nPY\n")
+    embedded = shell.split("python3 - <<'PY'\n", 1)[1].removesuffix("PY\n")
+    assert embedded == source.rstrip("\n") + "\n"
+    assert embedded.count("EXPECTED_IDENTITY = None") == 1
+    compile(embedded, "canonical_vm_worker_probe", "exec")
 
 
 @pytest.mark.parametrize("reply", ["missing", "wrong_queue", "correct"])

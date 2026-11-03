@@ -7725,6 +7725,9 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## AI-QUALITY-040 - Source-owned answers leaked quiz keys through length
 
+- Recurrence 2026-11-03: full DEV Standards9614 on exact440385e4 failed at60% without a course after14 completed model responses (218916input/32368output;9source extractions reused). An offline network-denied replay matched all9 donor identities and14 exact request/response hashes, reproducing service._repair_option_shortcuts → v3_option_repair_failed_validation. Its repair fixed mean length but left4/6 correct answers uniquely longest (66.7%, existing V3 maximum25%); the completed, known-invalid candidate was treated as a fatal pipeline error. Fresh reviewV5 now supplies measured per-target obligations, permits one narrower follow-up only on measured progress with length-only residuals, and retains the original with its final structural failure if unresolved. It never pads text, changes thresholds, accepts the failed candidate, or repeats an unknown provider outcome. Historical V4 request hashes and failure behavior remain reproducible; saved14-response parity and focused40tests PASS. Full new V5 runtime/course acceptance is still required.
+- Source-review correction 2026-11-03: a stale oracle treated converted Markdown `7**00 100` as an uncertain numeric source. Direct original WordprocessingML proves `700 100` in both affected cells (originalSHA8411104b...). The review finding was retracted; formatting-run serialization must not become a fabricated source ambiguity. Preserve genuine threshold gaps, conjunctions and reference decisions separately.
+
 - Date: 2026-10-05; owned synthetic DEV document draft on release38/59dd0bc6.
 - Symptom: completed generated draft preserved the source but one lesson quiz
   scored100 percent by choosing the longest answer. A partial-receipt rule was

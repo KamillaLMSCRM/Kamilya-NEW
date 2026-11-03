@@ -734,7 +734,14 @@ async def _run_v3_generation(
                 and direct_client is None and type(generation_client) is ResilientLLMClient):
             from app.modules.ai.v3.native_profile_binding import bind_native_profile
             from app.modules.ai.v3.provider_profile import V3ProfiledClient
-            generation_client = V3ProfiledClient(generation_client, policy, job_id=state.job_id)
+            from app.modules.ai.v3.revision_policy import REVIEW_POLICY
+            cooperative_native = review_policy == REVIEW_POLICY
+            generation_client = V3ProfiledClient(
+                generation_client, policy, job_id=state.job_id,
+                **({"cooperative_deadline": True} if cooperative_native else {}),
+            )
+            if cooperative_native:
+                journal.native_generation_seconds = generation_client.generation_deadline_seconds
             await bind_native_profile(journal=journal, user_id=user_id, client=generation_client)
 
     realization_started = time.monotonic()
