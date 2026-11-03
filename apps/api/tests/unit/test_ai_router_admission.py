@@ -24,7 +24,9 @@ def _lenient_db(rows=None, scalar=None):
 
 
 @pytest.mark.asyncio
-async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
+@pytest.mark.parametrize('qa_marker', [None, 'qa-managed-luna-diversity-v1',
+    'qa-direct-luna-diversity-v3', 'qa-luna-pending-journal-v1'])
+async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch, qa_marker):
     tenant_id = uuid4()
     user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id)
     document_id = uuid4()
@@ -52,6 +54,7 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     )
 
     monkeypatch.setattr("app.modules.ai.source_analysis.analyze_document_set", analyze)
+    monkeypatch.setattr('app.modules.ai.v3.qa_luna_pending_policy.admission_marker', lambda **_kwargs: qa_marker)
     monkeypatch.setattr("app.core.demo_limits.check_ai_generation_quota", check_quota)
     monkeypatch.setattr("app.core.demo_limits.release_ai_generation_quota", release_quota)
     monkeypatch.setattr(router, "submit_ai_job", submit)
@@ -87,6 +90,32 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch):
     saved_decision = submit.await_args.kwargs["params"]["reference_decisions"][0]
     assert saved_decision["approved_by"] == str(user.id) and saved_decision["tenant_id"] == str(tenant_id)
     assert saved_decision["authority"] == "methodologist_confirmed"
+    from app.modules.ai.v3.revision_policy import PRACTICAL_REVIEW_POLICY, REVIEW_POLICY
+
+    expected = PRACTICAL_REVIEW_POLICY if qa_marker == 'qa-managed-luna-diversity-v1' else REVIEW_POLICY
+    assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
+
+
+@pytest.mark.asyncio
+async def test_practical_admission_rejects_unused_extraction_parent_before_quota_or_dispatch(monkeypatch):
+    user = SimpleNamespace(id=uuid4(), tenant_id=uuid4())
+    request = AIGenerateRequest(documents=[uuid4()], completed_extraction_parent_job_id=uuid4())
+    analysis = SimpleNamespace(status='compatible', score=1.0, requires_decision=False, clusters=[])
+    monkeypatch.setattr('app.modules.ai.source_analysis.analyze_document_set', AsyncMock(return_value=analysis))
+    monkeypatch.setattr('app.modules.ai.source_analysis.document_chunk_totals', AsyncMock(return_value={}))
+    monkeypatch.setattr('app.modules.ai.v3.qa_luna_pending_policy.admission_marker',
+                        lambda **_kwargs: 'qa-managed-luna-diversity-v1')
+    quota, submit, reuse = AsyncMock(), AsyncMock(), AsyncMock()
+    monkeypatch.setattr('app.core.demo_limits.check_ai_generation_quota', quota)
+    monkeypatch.setattr(router, 'submit_ai_job', submit)
+    monkeypatch.setattr('app.modules.ai.v3.completed_extraction_reuse.validate_parent_admission', reuse)
+    with pytest.raises(HTTPException) as error:
+        await router.generate_course(request, db=_lenient_db(), user=user)
+    assert error.value.status_code == 422
+    assert error.value.detail == 'completed_extraction_reuse_not_supported_for_practical_policy'
+    quota.assert_not_awaited()
+    submit.assert_not_awaited()
+    reuse.assert_not_awaited()
 
 
 @pytest.mark.asyncio

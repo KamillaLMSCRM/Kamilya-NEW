@@ -36,6 +36,69 @@ def test_fresh_admission_and_worker_must_match_marker_and_flag():
         with pytest.raises(ValueError):
             check_worker_marker(settings=cfg, tenant_id=QA_TENANT, user_id=user,
                                 stored=stored, dispatched=dispatched, course_id=None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('practical', [False, True])
+async def test_managed_factory_configuration_is_bound_before_generation(monkeypatch, practical):
+    from contextlib import nullcontext
+
+    from app.core import config
+    from app.modules.admin.runtime_configuration import runtime
+    from app.modules.ai import direct_luna_responses_factory, pipeline
+    from app.modules.ai.managed_luna_client import ManagedLunaClient
+    from app.modules.ai.v3 import owned_route_binding, owned_source_context, pending_stage_transactions, service
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY, MANAGED_POLICY
+    from app.modules.ai.v3.revision_policy import POLICY as REVISION
+    from app.modules.ai.v3.revision_policy import PRACTICAL_REVIEW_POLICY, REVIEW_POLICY
+
+    cfg = settings('render-development-worker')
+    cfg.AI_MANAGED_LUNA_QA_DEV_ENABLED, cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True, False
+    monkeypatch.setattr(config, 'get_settings', lambda: cfg)
+    user = uuid4()
+    review = PRACTICAL_REVIEW_POLICY if practical else REVIEW_POLICY
+    analysis = {KEY: MANAGED_POLICY, 'v3_revision_policy': REVISION, 'v3_review_policy': review}
+    locked = SimpleNamespace(params={'source_analysis': analysis}, course_id=None, result={})
+    monkeypatch.setattr(pending_stage_transactions, '_locked_job', AsyncMock(return_value=locked))
+    monkeypatch.setattr(pipeline, '_load_owned_revision_policy', AsyncMock(return_value=REVISION))
+    monkeypatch.setattr(pipeline, '_load_owned_generation_analysis', AsyncMock(return_value=analysis))
+    monkeypatch.setattr(pipeline, '_load_owned_reference_decisions', AsyncMock(return_value=()))
+    class Session:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): pass
+    monkeypatch.setattr(pipeline, 'async_session_factory', Session)
+    corpus = SimpleNamespace(tenant_id=str(QA_TENANT), document_ids=['doc'])
+    context = SimpleNamespace(corpus=corpus, verify_locked=AsyncMock(return_value=True))
+    monkeypatch.setattr(owned_source_context, 'load_owned_source_context', AsyncMock(return_value=context))
+    async def create(**kwargs):
+        profile = kwargs.get('profile') == 'luna6'
+        return ManagedLunaClient(base_url='http://127.0.0.1:18999/v1', api_key='synthetic',
+            tenant_id=kwargs['tenant_id'], user_id=kwargs['user_id'], job_id=kwargs['job_id'],
+            credential_revision='r1', model='gpt-6-luna' if profile else 'gpt-5.6-luna',
+            reasoning_effort='high' if profile else kwargs.get('reasoning_effort', 'low'),
+            deadline_seconds=300 if profile else kwargs.get('deadline_seconds', 60))
+    factory = AsyncMock(side_effect=create)
+    monkeypatch.setattr(direct_luna_responses_factory, 'create_managed_qa_client', factory)
+    bound = {}
+    async def bind(*, journal, user_id, client):
+        bound['client'], bound['fingerprint'] = client, client.cache_fingerprint()
+        bound['deadline'] = client.generation_deadline_seconds
+        return bound['fingerprint']
+    monkeypatch.setattr(owned_route_binding, 'bind_owned_route', AsyncMock(side_effect=bind))
+    monkeypatch.setattr(runtime, 'resolve_runtime_settings', AsyncMock(return_value=SimpleNamespace(number=lambda _n: 0.2)))
+    monkeypatch.setattr(runtime, 'runtime_settings_scope', lambda _value: nullcontext())
+    async def stop(*_args, **kwargs):
+        assert kwargs['direct_client'] is bound['client']
+        assert kwargs['route_fingerprint'] == bound['fingerprint'] == bound['client'].cache_fingerprint()
+        raise RuntimeError('stopped_before_generation')
+    monkeypatch.setattr(service, 'generate_v3_course_from_corpus', AsyncMock(side_effect=stop))
+    state = SimpleNamespace(job_id='job', source_analysis=analysis)
+    with pytest.raises(RuntimeError, match='stopped_before_generation'):
+        await pipeline._run_v3_generation(state, corpus, tenant_id=QA_TENANT, user_id=user,
+            target_audience='', guidance=None, goals=None, max_total_lessons=None)
+    kwargs = factory.await_args.kwargs
+    assert kwargs.get('profile') == ('luna6' if practical else None)
+    assert bound['deadline'] == (300.0 if practical else 60.0)
     assert not check_worker_marker(settings=SimpleNamespace(), tenant_id=QA_TENANT, user_id=user,
                                    stored=None, dispatched=None, course_id=None)
 

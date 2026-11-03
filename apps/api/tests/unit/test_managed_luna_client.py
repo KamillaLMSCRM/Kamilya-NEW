@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import hmac
 import json
 import socket
 from unittest.mock import AsyncMock
@@ -56,6 +58,27 @@ async def test_preparation_is_local_one_use_and_freezes_payload(setup):
     with pytest.raises(ManagedLunaError):
         await client.invoke(token, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
     assert len(requests) == 1 and "private-secret" not in repr(client)
+
+
+@pytest.mark.asyncio
+async def test_medium_effort_is_bound_in_fingerprint_and_wire(setup):
+    low, tenant, user, _, requests = setup
+    medium = ManagedLunaClient(base_url="http://10.77.77.2:18999/v1", api_key="private-secret",
+        tenant_id=tenant, user_id=user, job_id="job", credential_revision="r1", reasoning_effort="medium")
+    assert low.cache_fingerprint() != medium.cache_fingerprint()
+    token = await medium.prepare([{"role": "user", "content": "synthetic"}], max_output_tokens=8,
+                                 ownership_checkpoint=AsyncMock(return_value=True))
+    await medium.invoke(token, tenant_id=tenant, user_id=user, job_id="job",
+                        ownership_checkpoint=AsyncMock(return_value=True))
+    assert json.loads(requests[0].content)["reasoning_effort"] == "medium"
+    assert medium.generation_deadline_seconds == 60
+
+
+@pytest.mark.parametrize('effort', ['high', '', None, True])
+def test_invalid_reasoning_effort_rejected(effort):
+    with pytest.raises(ValueError, match='managed_luna_config_invalid'):
+        ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='private-secret',
+            tenant_id=uuid4(), user_id=uuid4(), job_id='job', credential_revision='r1', reasoning_effort=effort)
 
 
 @pytest.mark.asyncio
@@ -188,3 +211,49 @@ def test_diagnostic_bounds_untrusted_numeric_fields(caplog):
     assert "status=None" in caplog.text
     assert "input_tokens=None" in caplog.text and "output_tokens=None" in caplog.text
     assert str(giant) not in caplog.text and "not-a-uuid-secret" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_legacy_wire_and_fingerprint_parity(setup):
+    client, _, _, _, _ = setup
+    messages = [{'role': 'user', 'content': 'synthetic'}]
+    capability = await client.prepare(messages, max_output_tokens=8, ownership_checkpoint=AsyncMock(return_value=True))
+    expected = {'model': 'gpt-5.6-luna', 'messages': messages, 'temperature': 0.2, 'max_tokens': 8,
+                'response_format': {'type': 'json_object'}}
+    assert client._prepared[capability] == json.dumps(expected, ensure_ascii=False, allow_nan=False,
+                                                       separators=(',', ':')).encode()
+    policy = ['managed-cli-v1', 'http://10.77.77.2:18999/v1/chat/completions', 'gpt-5.6-luna',
+              'low', 'json-object', 60.0, 'r1']
+    assert client.cache_fingerprint() == hmac.new(b'private-secret',
+        json.dumps(policy, separators=(',', ':')).encode(), hashlib.sha256).hexdigest()
+
+
+@pytest.mark.asyncio
+async def test_luna6_wire_deadline_fingerprint_and_response_model(setup):
+    old, tenant, user, state, requests = setup
+    client = ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='private-secret',
+        tenant_id=tenant, user_id=user, job_id='job', credential_revision='r1', model='gpt-6-luna',
+        reasoning_effort='high', deadline_seconds=300)
+    assert client.generation_deadline_seconds == 300 and client.cache_fingerprint() != old.cache_fingerprint()
+    async def call():
+        token = await client.prepare([{'role': 'user', 'content': 'synthetic'}], max_output_tokens=8,
+                                     ownership_checkpoint=AsyncMock(return_value=True))
+        return await client.invoke(token, tenant_id=tenant, user_id=user, job_id='job',
+                                   ownership_checkpoint=AsyncMock(return_value=True))
+    with pytest.raises(ManagedLunaError, match='managed_luna_response_invalid'):
+        await call()
+    state['body']['model'] = 'gpt-6-luna'
+    result = await call()
+    assert result.model == 'gpt-6-luna'
+    wire = json.loads(requests[-1].content)
+    assert wire['model'] == 'gpt-6-luna' and wire['reasoning_effort'] == 'high'
+
+
+@pytest.mark.parametrize(('model', 'effort', 'deadline'), [
+    ('unknown', 'low', 60), ('gpt-5.6-luna', 'high', 60), ('gpt-5.6-luna', 'low', 300),
+    ('gpt-6-luna', 'high', 301)])
+def test_invalid_model_policy_rejected(model, effort, deadline):
+    with pytest.raises(ValueError, match='managed_luna_config_invalid'):
+        ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='private-secret',
+            tenant_id=uuid4(), user_id=uuid4(), job_id='job', credential_revision='r1', model=model,
+            reasoning_effort=effort, deadline_seconds=deadline)

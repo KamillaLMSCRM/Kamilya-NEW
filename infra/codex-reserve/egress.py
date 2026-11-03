@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import os
 import socket
 
 ALLOWED_HOSTS = frozenset({"chatgpt.com", "auth.openai.com"})
@@ -17,6 +18,14 @@ MAX_TUNNEL_BYTES = 20 * 1024 * 1024
 # header/body and response delivery. Do not race its classified failure reply.
 INGRESS_IDLE_SECONDS = 135
 INGRESS_TOTAL_SECONDS = 150
+PROFILES = {'legacy-luna56': (120, INGRESS_IDLE_SECONDS, INGRESS_TOTAL_SECONDS),
+            'luna6': (300, 305, 310)}
+
+
+def profile_limits(profile: str) -> tuple[int, int, int]:
+    if type(profile) is not str or profile not in PROFILES:
+        raise ValueError('connector_profile_invalid')
+    return PROFILES[profile]
 
 
 def destination(line: str) -> str:
@@ -41,7 +50,8 @@ async def resolve_public(host: str) -> str:
 
 
 class Egress:
-    def __init__(self) -> None:
+    def __init__(self, profile: str = 'legacy-luna56') -> None:
+        self.total_seconds = profile_limits(profile)[0]
         self.active = 0
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -67,7 +77,7 @@ class Egress:
             async def pump(source: asyncio.StreamReader, target: asyncio.StreamWriter) -> None:
                 nonlocal transferred
                 while True:
-                    block = await asyncio.wait_for(source.read(65536), timeout=30)
+                    block = await source.read(65536)
                     if not block:
                         return
                     transferred += len(block)
@@ -76,7 +86,7 @@ class Egress:
                     target.write(block)
                     await asyncio.wait_for(target.drain(), timeout=5)
 
-            async with asyncio.timeout(120):
+            async with asyncio.timeout(self.total_seconds):
                 pumps = [asyncio.create_task(pump(reader, upstream)), asyncio.create_task(pump(upstream_reader, writer))]
                 done, _ = await asyncio.wait(pumps, return_when=asyncio.FIRST_COMPLETED)
                 for task in done:
@@ -111,7 +121,8 @@ class Ingress:
     This listener is not a CONNECT/HTTP proxy and accepts no upstream argument.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, profile: str = 'legacy-luna56') -> None:
+        _, self.idle_seconds, self.total_seconds = profile_limits(profile)
         self.active = 0
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -128,14 +139,14 @@ class Ingress:
 
             async def pump(source: asyncio.StreamReader, target: asyncio.StreamWriter) -> None:
                 nonlocal transferred
-                while block := await asyncio.wait_for(source.read(65536), timeout=INGRESS_IDLE_SECONDS):
+                while block := await asyncio.wait_for(source.read(65536), timeout=self.idle_seconds):
                     transferred += len(block)
                     if transferred > MAX_TUNNEL_BYTES:
                         raise ValueError("transfer_limit")
                     target.write(block)
                     await asyncio.wait_for(target.drain(), timeout=5)
 
-            async with asyncio.timeout(INGRESS_TOTAL_SECONDS):
+            async with asyncio.timeout(self.total_seconds):
                 tasks = [asyncio.create_task(pump(reader, upstream)), asyncio.create_task(pump(upstream_reader, writer))]
                 done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
                 for task in done:
@@ -158,8 +169,10 @@ class Ingress:
 
 
 async def main() -> None:
-    proxy = Egress()
-    ingress = Ingress()
+    profile = os.environ.get('CODEX_CONNECTOR_PROFILE', 'legacy-luna56')
+    profile_limits(profile)
+    proxy = Egress(profile)
+    ingress = Ingress(profile)
     server = await asyncio.start_server(proxy.handle, "0.0.0.0", 18888, limit=8192)
     entry = await asyncio.start_server(ingress.handle, "0.0.0.0", 18999, limit=8192)
     async with server, entry:

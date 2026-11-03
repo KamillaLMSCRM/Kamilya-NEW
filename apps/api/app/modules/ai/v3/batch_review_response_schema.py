@@ -55,13 +55,15 @@ def _matches(item: Any, schema: dict[str, Any]) -> bool:
         return any(_matches(item, branch) for branch in schema['anyOf'])
     kind = schema['type']
     if kind == 'string':
-        return type(item) is str
+        return type(item) is str and ('enum' not in schema or item in schema['enum'])
     if kind == 'integer':
-        return type(item) is int
+        return type(item) is int and ('enum' not in schema or item in schema['enum'])
     if kind == 'number':
         return type(item) is int or (type(item) is float and math.isfinite(item))
     if kind == 'array':
-        return type(item) is list and all(_matches(x, schema['items']) for x in item)
+        return (type(item) is list and len(item) >= schema.get('minItems', 0)
+                and ('maxItems' not in schema or len(item) <= schema['maxItems'])
+                and all(_matches(x, schema['items']) for x in item))
     if kind == 'object':
         props = schema['properties']
         return type(item) is dict and set(item) == set(props) and all(_matches(item[k], v) for k, v in props.items())

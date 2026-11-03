@@ -80,6 +80,7 @@ async def stage_once(
     invoke: Callable[[], Awaitable[dict[str, Any]]],
     direct_client: Any = None,
     direct_max_output_tokens: int = 8192,
+    response_validator: Callable[[dict[str, Any]], None] | None = None,
     _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
 ) -> dict[str, Any]:
     plan = stage_plan(
@@ -123,14 +124,17 @@ async def stage_once(
         from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 
         kind = response_contract(response_format) if response_format is not None else None
-        if (response_format is not None and (kind in {"batch_review_buckets", "diversity_author"}
+        if (response_format is not None and (kind in {"batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit"}
                 or kind is not None and kind.startswith("aux:"))):
             if not matches_response_contract(value, response_format):
                 raise ValueError("v3_stage_response_shape_invalid")
         try:
-            return cast(dict[str, Any], json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False)))
+            checked = cast(dict[str, Any], json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False)))
         except (TypeError, ValueError) as exc:
             raise ValueError("v3_stage_response_invalid") from exc
+        if response_validator is not None:
+            response_validator(checked)
+        return checked
 
     async def load_result() -> dict[str, Any] | None:
         value = await journal.read_owned_value(result_key, plan)
@@ -183,8 +187,18 @@ async def stage_once(
             auxiliary = is_auxiliary_format(response_format)
             from app.modules.ai.v3.diversity_response_schema import is_diversity_author_format
             auxiliary = auxiliary or is_diversity_author_format(response_format)
+            from app.modules.ai.v3.practical_contract import is_practical_course_format
+            from app.modules.ai.v3.practical_patch import is_practical_patch_format
+            from app.modules.ai.v3.practical_review import is_practical_review_format
+            from app.modules.ai.v3.practical_source_audit import is_source_audit_format
+            practical = (
+                stage == "lesson" and group_id.startswith("practical:author:") and is_practical_course_format(response_format)
+                or stage == "review" and group_id.startswith("practical:review:") and is_practical_review_format(response_format)
+                or stage == "review" and group_id.startswith("practical:source-audit:") and is_source_audit_format(response_format)
+                or stage == "repair" and group_id.startswith("practical:repair:") and is_practical_patch_format(response_format)
+            )
             if response_format not in (None, {"type": "json_object"}) and not (
-                structured or direct_buckets or auxiliary
+                structured or direct_buckets or auxiliary or practical
             ):
                 raise ValueError("direct_owned_format_invalid")
             from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
@@ -200,7 +214,7 @@ async def stage_once(
                 messages=messages,
                 max_output_tokens=direct_max_output_tokens,
                 _owned_claim_guard=_owned_claim_guard,
-                **({"response_format": response_format} if structured or direct_buckets or auxiliary else {}),
+                **({"response_format": response_format} if structured or direct_buckets or auxiliary or practical else {}),
             )
         return await journal.run_pending(
             plan=plan,

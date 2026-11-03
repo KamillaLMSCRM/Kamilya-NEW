@@ -50,6 +50,24 @@ def output(content="synthetic", **changes):
     return b"\n".join(json.dumps(event).encode() for event in events)
 
 
+def capacity_output(message=None, *, completed=False, partial=False, error_extra=None,
+                    failure_extra=None, thread_extra=None):
+    text = message or "Selected model is at capacity. Please try a different model."
+    thread = {"type": "thread.started", "thread_id": "synthetic"}
+    thread.update(thread_extra or {})
+    events = [thread, {"type": "turn.started"}]
+    if partial:
+        events.append({"type": "item.completed", "item": {"type": "agent_message", "text": json.dumps({"content": "partial"})}})
+    error = {"type": "error", "message": text}
+    error.update(error_extra or {})
+    failure = {"type": "turn.failed", "error": {"message": text}}
+    failure.update(failure_extra or {})
+    events.extend([error, failure])
+    if completed:
+        events.append({"type": "turn.completed", "usage": {"input_tokens": 1, "output_tokens": 1}})
+    return b"\n".join(json.dumps(event).encode() for event in events)
+
+
 def payload(**changes):
     return {"model": "gpt-5.6-luna", "messages": [{"role": "user", "content": "synthetic"}], "max_tokens": 100, **changes}
 
@@ -79,6 +97,38 @@ def test_command_is_fixed_ephemeral_stdin_restricted_without_tool_bypass(worker,
     assert not any("bypass" in value for value in args)
 
 
+@pytest.mark.asyncio
+async def test_medium_effort_reaches_command_and_invalid_never_runs(worker, modules, monkeypatch):
+    run = AsyncMock(return_value=(0, output(), b""))
+    monkeypatch.setattr(worker, "_run", run)
+    await worker.complete(payload(reasoning_effort="medium"))
+    args, encoded = run.call_args.args[:2]
+    assert 'model_reasoning_effort="medium"' in args
+    assert json.loads(encoded)["reasoning_effort"] == "medium"
+    assert 109 < run.call_args.kwargs['timeout'] <= 110
+    assert 'model_reasoning_effort="low"' in worker.command(Path('schema.json'))
+    run.reset_mock()
+    await worker.complete(payload())
+    assert 0 < run.call_args.kwargs['timeout'] <= worker.timeout
+    run.reset_mock()
+    for invalid in ("high", None, [], {}, True):
+        with pytest.raises(modules[0].RunnerError, match="invalid_input"):
+            await worker.complete(payload(reasoning_effort=invalid))
+    run.assert_not_awaited()
+
+
+def test_medium_capacity_retry_shares_one_deadline(worker, monkeypatch):
+    async def exercise():
+        run = AsyncMock(side_effect=[(0, capacity_output(), b''), (0, output(), b'')])
+        monkeypatch.setattr(worker, '_run', run)
+        await worker.complete(payload(reasoning_effort='medium'))
+        first, second = run.await_args_list
+        assert first.args[:2] == second.args[:2]
+        assert 109 < first.kwargs['timeout'] <= 110
+        assert 0 < second.kwargs['timeout'] <= first.kwargs['timeout']
+    asyncio.run(exercise())
+
+
 @pytest.mark.parametrize("changes", [
     {"model": "other"}, {"command": "synthetic"}, {"max_tokens": True}, {"max_tokens": -1},
     {"messages": [{"role": "tool", "content": "synthetic"}]},
@@ -101,6 +151,110 @@ async def test_one_execution_returns_compatible_reply_and_usage(worker, monkeypa
     assert result["usage"]["completion_tokens"] == 10
     assert run.await_count == 1
     assert not Path(run.call_args.kwargs["cwd"]).exists()
+
+
+def test_exact_capacity_retries_once_with_identical_wire_and_returns_final_usage(worker, modules, monkeypatch):
+    async def exercise():
+        requests = []
+        responses = [capacity_output(), output()]
+        async def run(args, stdin, *, cwd, timeout):
+            requests.append((args, stdin, timeout))
+            return 0, responses.pop(0), b""
+        monkeypatch.setattr(worker, "_run", run)
+        result = await worker.complete(payload())
+        assert result["usage"]["completion_tokens"] == 10
+        assert len(requests) == 2 and requests[0][0] == requests[1][0] and requests[0][1] == requests[1][1]
+        assert requests[1][2] <= requests[0][2]
+    asyncio.run(exercise())
+
+
+def test_nonzero_capacity_exit_is_retried_but_generic_exit_is_not(worker, modules, monkeypatch):
+    async def exercise():
+        calls = []
+        responses = [capacity_output(), output()]
+        async def capacity_then_success(*_args, **_kwargs):
+            calls.append(1)
+            if len(calls) == 1:
+                return 1, responses.pop(0), b"cli failure"
+            return 0, responses.pop(0), b""
+        monkeypatch.setattr(worker, "_run", capacity_then_success)
+        assert (await worker.complete(payload()))["usage"]["completion_tokens"] == 10
+        assert len(calls) == 2
+
+        calls.clear()
+        async def generic_exit(*_args, **_kwargs):
+            calls.append(1)
+            return 1, b"not a capacity response", b"cli failure"
+        monkeypatch.setattr(worker, "_run", generic_exit)
+        with pytest.raises(modules[0].RunnerError, match="unavailable"):
+            await worker.complete(payload())
+        assert len(calls) == 1
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_capacity_exhaustion_is_closed_after_two_attempts_without_usage(worker, modules, monkeypatch, exit_code):
+    async def exercise():
+        run = AsyncMock(return_value=(exit_code, capacity_output(), b""))
+        monkeypatch.setattr(worker, "_run", run)
+        with pytest.raises(modules[0].RunnerError, match="capacity"):
+            await worker.complete(payload())
+        assert run.await_count == 2
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("data", [
+    capacity_output("Selected model is at capacity. Please try a different model. "),
+    capacity_output("Selected model is at capacity. Please try another model."),
+    capacity_output(completed=True),
+    capacity_output(partial=True),
+    capacity_output(failure_extra={"usage": {"input_tokens": 1, "output_tokens": 1}}),
+    capacity_output(failure_extra={"item": {"type": "agent_message"}}),
+    capacity_output(error_extra={"detail": "extra"}),
+    capacity_output(thread_extra={"usage": {"input_tokens": 1}}),
+])
+def test_capacity_retry_signature_is_strict(modules, data):
+    expected = "capacity" if data == capacity_output() else "unavailable"
+    with pytest.raises(modules[0].RunnerError, match=expected):
+        modules[0].CodexRunner.parse_result(data)
+
+
+def test_capacity_retry_keeps_one_total_deadline(worker, modules, monkeypatch):
+    async def exercise():
+        worker.timeout = 0.05
+        calls = []
+        async def run(args, stdin, *, cwd, timeout):
+            calls.append(timeout)
+            if timeout < 0.03:
+                raise modules[0].RunnerError("timeout")
+            await asyncio.sleep(0.03)
+            return 0, capacity_output() if len(calls) == 1 else output(), b""
+        monkeypatch.setattr(worker, "_run", run)
+        with pytest.raises(modules[0].RunnerError, match="timeout"):
+            await worker.complete(payload())
+        assert len(calls) == 2 and calls[1] < calls[0]
+    asyncio.run(exercise())
+
+
+def test_noncapacity_failures_never_retry(worker, modules, monkeypatch):
+    async def exercise():
+        calls = []
+        async def run(*_args, **_kwargs):
+            calls.append(1)
+            return 1, b"", b"generic failure"
+        monkeypatch.setattr(worker, "_run", run)
+        with pytest.raises(modules[0].RunnerError, match="unavailable"):
+            await worker.complete(payload())
+        assert len(calls) == 1
+        calls.clear()
+        async def timeout(*_args, **_kwargs):
+            calls.append(1)
+            raise modules[0].RunnerError("timeout")
+        monkeypatch.setattr(worker, "_run", timeout)
+        with pytest.raises(modules[0].RunnerError, match="timeout"):
+            await worker.complete(payload())
+        assert len(calls) == 1
+    asyncio.run(exercise())
 
 
 async def test_observed_token_limit_violation_rejects_without_rerun(worker, modules, monkeypatch):
@@ -241,6 +395,56 @@ def test_egress_only_permits_fixed_tls_destinations(modules, host):
     assert modules[2].destination(f"CONNECT {host}:443 HTTP/1.1") == host
 
 
+@pytest.mark.asyncio
+async def test_egress_idle_client_does_not_cut_off_active_upstream(modules, monkeypatch):
+    egress = modules[2]
+    real_wait_for = asyncio.wait_for
+    idle_reads = []
+
+    async def virtual_wait(awaitable, timeout):
+        if timeout == 30:
+            idle_reads.append(True)
+            awaitable.close()
+            raise TimeoutError
+        return await real_wait_for(awaitable, timeout)
+
+    class Reader:
+        def __init__(self, upstream=False):
+            self.upstream = upstream
+            self.sent = False
+
+        async def readuntil(self, _separator):
+            return b'CONNECT chatgpt.com:443 HTTP/1.1\r\n\r\n'
+
+        async def read(self, _size):
+            if not self.upstream:
+                await asyncio.Event().wait()
+            if not self.sent:
+                self.sent = True
+                await asyncio.sleep(0)
+                return b'provider-response'
+            return b''
+
+    class Writer:
+        def __init__(self):
+            self.data = []
+            self.closed = False
+
+        def write(self, data): self.data.append(data)
+        async def drain(self): pass
+        def close(self): self.closed = True
+        async def wait_closed(self): pass
+
+    upstream_writer, client_writer = Writer(), Writer()
+    monkeypatch.setattr(egress.asyncio, 'wait_for', virtual_wait)
+    monkeypatch.setattr(egress, 'resolve_public', AsyncMock(return_value='8.8.8.8'))
+    monkeypatch.setattr(egress.asyncio, 'open_connection', AsyncMock(return_value=(Reader(True), upstream_writer)))
+    gateway = egress.Egress()
+    await gateway.handle(Reader(), client_writer)
+    assert b'provider-response' in client_writer.data
+    assert not idle_reads and gateway.active == 0 and client_writer.closed and upstream_writer.closed
+
+
 @pytest.mark.parametrize("addresses", [["127.0.0.1"], ["1.1.1.1", "10.0.0.1"], ["169.254.169.254"], ["224.0.0.1"], []])
 async def test_egress_dns_private_mixed_or_multicast_fails_closed(modules, monkeypatch, addresses):
     resolver = AsyncMock(return_value=[(None, None, None, None, (address, 443)) for address in addresses])
@@ -289,7 +493,8 @@ def test_compose_has_internal_network_no_app_mounts_no_public_egress_port():
         assert component["pids_limit"] <= 64
         assert "env_file" not in component
     assert egress["ports"] == ["${CODEX_BIND_IP:-127.0.0.1}:18999:18999"]
-    assert not egress.get("volumes") and not egress.get("environment")
+    assert not egress.get("volumes")
+    assert egress.get("environment") == {"CODEX_CONNECTOR_PROFILE": "${CODEX_CONNECTOR_PROFILE:-legacy-luna56}"}
     assert egress["entrypoint"] == ["python", "/opt/codex-reserve/egress.py"]
 
 

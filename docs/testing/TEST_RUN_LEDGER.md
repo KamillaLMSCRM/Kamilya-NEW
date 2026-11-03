@@ -5449,3 +5449,14 @@ Engine LOCAL129 remains separate and unreleased; no new model calls.
 - Native profileV2 is request-local for freshreviewV5: same frozenDeepSeekseconds now bounds the WHOLE invocation includingfallback/retry. Its fingerprint changes; oldprofile/oldreviewwire retained. Preclaim checks after completedreplay/beforewrites; postdispatchtimeout staysunknown/pending/no resend. Providerorder/globalreserve/settings unchanged. This intentionally stops a fallback chain that exceeds the total bound; transport inactivity timeouts alone were not used as a claimed wall bound.
 
 - V5 final integration: root caught aggregate dilution (a bad lesson could be hidden by balanced later questions). Typed known-quality hold now carries all original per-lesson violations into final global diagnostics; synthetic real-validator/adapter two-lesson regression2PASS, unknown-outcome branch stops later authoring. FullAPI5056PASS/67.83s, final41deltaPASS/2.04s, merged91opsPASS/2Windowsplatformskips, baseline1005/2173PASS. PG21 actual PASS at9fc023ce andb5908d23 with cleanup/public0184unchanged; final naming-only sourceb1f0fa18 runactive/no duplicate. Intermediate5baCI41580121901 failed testI001, fixed without baselineincrease; allother6gatesPASS. No new model calls, runtimeDEV440/produnchanged.
+
+
+## RUN-20261104-PRACTICAL-P8-LOCAL
+
+- Timestamp: `2026-11-03T19:17:30Z` (November4 local).
+- Checkout/base: `v3-practical-dev-20261103`, `65bd0f6bda7a3c95a433ad2759c250165a728e9a` plus selected uncommitted practical P8 delta.
+- Canonical API wrapper: **5253 passed**,7warnings/58.64s; `.release-evidence/practical-full-unit-final-p8.log`. Baseline **Ruff1006/Mypy2174 PASS**; `.release-evidence/practical-baseline-final-p8-display.log`.
+- Connector/profile/egress canonical absolute-path suites: **84 PASS** including optional same-profile compose wiring. No deployed runtime claim.
+- Fresh Standards P8:5L17Q/6calls/247.187s/140872input+27928output; independent16families/4ambiguities GO after zero-provider presentation-only ordinary artifact replay. RawSHA38d2e672a7a2590e04c7ce03e5ddf6d315afc7e6502a079f6e1ad962a0b5d827; displaySHAe8f6c5f2fa1f1089d8d1251546388202f9c026749a5676e102df7079bf2abea6. Evidence `practical-standards-display-replay-p8-r1/independent-review.md` under `.release-evidence/v3-production`.
+- Fire saved groupedP8 control still active; Micro grouping coverage proven structurally, course quality not yet accepted. No DB/customer/provider-plan/deployment write. Three-course, DEV and production acceptance remain OPEN.
+- R&D received-usage snapshot143CLIattempts/142completed:3345889input+415366output, one failed attempt unknown usage. Includes Micro output-limit completion50647input+16607output omitted by its original report. Not normal per-course cost or billing evidence.

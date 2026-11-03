@@ -1,0 +1,134 @@
+"""Short practical cycle through the ordinary journal and persistence contracts."""
+from __future__ import annotations
+
+import hashlib
+from collections.abc import Awaitable, Callable
+from dataclasses import asdict
+from typing import Any
+
+from app.modules.ai.direct_source import DirectSourceCorpus
+from app.modules.ai.evidence_engine.application import GenerationArtifacts
+from app.modules.ai.evidence_engine.models import CourseIntent
+from app.modules.ai.v3.adapter import v3_course_to_generation_artifacts
+from app.modules.ai.v3.extraction_checkpoint import ExtractionJournal
+from app.modules.ai.v3.models import RuleEntity, V3Course, V3Lesson, V3Option, V3Question
+from app.modules.ai.v3.practical_contract import PracticalSourcePacket, build_practical_source_packet
+from app.modules.ai.v3.practical_cycle import PracticalCycleResult, run_practical_cycle
+from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.revision_policy import PRACTICAL_MAX_OUTPUT_TOKENS, PRACTICAL_REVIEW_POLICY
+from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
+
+
+def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus,
+                        packet: PracticalSourcePacket, source_sha256: str) -> GenerationArtifacts:
+    """Quotes are exact contiguous spans; source IDs are never retold or guessed by the model."""
+    blocks = {block.block_id: block for block in packet.blocks}
+    documents = {doc.doc_id: doc for doc in corpus.documents}
+    rules = [RuleEntity(rule_id=b.block_id, section='', title='', statement='', source_quote=b.text,
+                       doc_id=b.doc_id, source_revision=b.source_revision, source_start=b.start, source_end=b.end)
+             for b in packet.blocks]
+    narrative = result.review['narrative_sources']
+    displayed = scoped_course_view(packet, result.course)
+    lessons = []
+    provenance_holds = []
+    for lesson in displayed['lessons']:
+        covered = list(narrative[lesson['id']])
+        questions = []
+        for q in lesson['questions']:
+            refs = [blocks[ref] for ref in q['source_refs']]
+            covered.extend(q['source_refs'])
+            quote = ''
+            rule_id = ''
+            if len({ref.doc_id for ref in refs}) == 1:
+                doc = documents[refs[0].doc_id]
+                start, end = min(ref.start for ref in refs), max(ref.end for ref in refs)
+                quote = (doc.source_text or '')[start:end]
+                rule_id = 'practical-question:' + q['id']
+                rules.append(RuleEntity(rule_id=rule_id, section='', title='', statement='', source_quote=quote,
+                    doc_id=doc.doc_id, source_revision=doc.source_revision, source_start=start, source_end=end))
+            else:
+                # A single quote field cannot truthfully encode a cross-document proof.
+                provenance_holds.append(q['id'])
+            ordered = sorted(enumerate(q['choices']), key=lambda pair: hashlib.sha256(
+                (packet.fingerprint + '\0' + q['id'] + '\0' + str(pair[0])).encode()).digest())
+            questions.append(V3Question(question_id=q['id'], scenario_premise='', prompt=q['prompt'],
+                options=tuple(V3Option(text=text, is_correct=index == q['correct_index'])
+                              for index, text in ordered), explanation=q['explanation'],
+                rule_id=rule_id, source_quote=quote))
+        lessons.append(V3Lesson(lesson_id=lesson['id'], title=lesson['title'], module_title=result.course['title'],
+            content=lesson['content'], covered_rule_ids=tuple(dict.fromkeys(covered)), questions=tuple(questions)))
+    issues = [f"{row['scope']}:{row['id']}" for row in result.decision.feedback]
+    if provenance_holds:
+        issues.append('practical_cross_document_question_quote_requires_review')
+    source_verified = all(not doc.conversion_fidelity.needs_review
+                          and not doc.review_only_source_unresolved
+                          and not doc.review_only_source_context for doc in corpus.documents)
+    accepted = result.decision.accepted and not provenance_holds
+    report = {'review_policy': PRACTICAL_REVIEW_POLICY,
+              'automated_review_passed': accepted,
+              'stop_reason': result.stop_reason, 'violations': issues,
+              'coverage_review_signals': [row['note'] for row in result.review['source_notes']],
+              'source_notes': result.review['source_notes'], 'practical_review_history': list(result.history)}
+    course = V3Course(course_id='practical:' + packet.fingerprint, title=result.course['title'],
+                      document_sha256=source_sha256, lessons=tuple(lessons),
+                      # Source verification is independent of publication. The
+                      # ordinary persistence layer still creates a draft course.
+                      quality_verdict='verified' if accepted and source_verified else 'needs_review',
+                      validation_report=report)
+    artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),
+        source_corpus=corpus, source_rules=tuple(rules), canonical_source=True)
+    for assessment, lesson in zip(artifacts.assessment.assessments, displayed['lessons'], strict=True):
+        for question, raw in zip(assessment.mcq, lesson['questions'], strict=True):
+            question.question = raw['prompt']
+    artifacts.diagnostics.update({
+        'v3_review_policy': PRACTICAL_REVIEW_POLICY, 'source_packet_fingerprint': packet.fingerprint,
+        'automated_review_passed': accepted,
+        'practical_course': result.course, 'practical_question_source_refs': {
+            q['id']: q['source_refs'] for lesson in result.course['lessons'] for q in lesson['questions']},
+        'practical_cross_document_question_ids': provenance_holds,
+        'practical_display_course': displayed,
+        'practical_question_mode': 'source_rule_comprehension_v1',
+    })
+    return artifacts
+
+
+async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: CourseIntent,
+    invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
+    source_sha256: str, journal: ExtractionJournal | None, route_fingerprint: str,
+    reference_decisions: tuple[SourceReferenceDecision, ...] = (), direct_client: Any = None,
+    direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
+    cancellation_callback: Callable[[], Awaitable[None]] | None = None,
+    progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
+) -> GenerationArtifacts:
+    if journal is not None and journal.tenant_id != corpus.tenant_id:
+        raise ValueError('practical_journal_owner_mismatch')
+    if any(doc.review_only_source_unresolved for doc in corpus.documents):
+        raise ValueError('practical_source_review_required')
+    packet = build_practical_source_packet(corpus, reference_decisions)
+    completed = 0
+
+    async def stage(stage: str, group: str, messages: list[dict[str, str]], fmt: dict[str, Any],
+                    validate: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+        nonlocal completed
+        if cancellation_callback:
+            await cancellation_callback()
+        if journal is not None:
+            from app.modules.ai.v3.stage_checkpoint import stage_once
+            value = await stage_once(journal, stage=stage,
+                group_id=group + ':output=' + str(direct_max_output_tokens), source_sha256=source_sha256,
+                route_fingerprint=route_fingerprint, messages=messages, response_format=fmt,
+                invoke=lambda: invoke(messages, fmt), direct_client=direct_client,
+                direct_max_output_tokens=direct_max_output_tokens, response_validator=validate)
+        else:
+            value = await invoke(messages, fmt)
+            validate(value)
+        completed += 1
+        if progress_callback:
+            # Author + two checks per candidate + at most four scoped repairs.
+            await progress_callback('realization', completed, 15, None, 1)
+        return value
+
+    result = await run_practical_cycle(packet, asdict(intent), stage)
+    if cancellation_callback:
+        await cancellation_callback()
+    return practical_artifacts(result, corpus, packet, source_sha256)

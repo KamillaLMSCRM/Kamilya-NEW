@@ -63,14 +63,24 @@ async def run_direct_owned_stage(
             and str(plan.get("group_id", "")).startswith("batched-review:")
             and plan.get("request_sha256") == _digest([messages, response_format])
         )
+        practical = (
+            (kind == "practical_source_audit" and plan.get("stage") == "review"
+             and str(plan.get("group_id", "")).startswith("practical:source-audit:"))
+            or             (kind == "practical_course" and plan.get("stage") == "lesson"
+             and str(plan.get("group_id", "")).startswith("practical:author:"))
+            or (kind == "practical_review" and plan.get("stage") == "review"
+                and str(plan.get("group_id", "")).startswith("practical:review:"))
+            or (kind == "practical_patch" and plan.get("stage") == "repair"
+                and str(plan.get("group_id", "")).startswith("practical:repair:"))
+        ) and plan.get("request_sha256") == _digest([messages, response_format])
         supported_client = type(client) is ManagedLunaClient or (
             type(client) is DirectLunaResponsesClient and (
-                kind == "batch_review_buckets" and batch_review or auxiliary or diversity_author)
+                kind == "batch_review_buckets" and batch_review or auxiliary or diversity_author or practical)
         )
         auxiliary_stage = "review" if kind in {"aux:citation_review", "aux:diversity_review"} else "repair"
         auxiliary_plan = ((auxiliary and plan.get("stage") == auxiliary_stage or diversity_author)
                           and plan.get("request_sha256") == _digest([messages, response_format]))
-        if not supported_client or not (lesson or extraction or batch_review or auxiliary_plan):
+        if not supported_client or not (lesson or extraction or batch_review or auxiliary_plan or practical):
             raise ValueError("managed_structured_plan_invalid")
 
     def validate_with_metadata(value: dict[str, Any]) -> dict[str, Any]:

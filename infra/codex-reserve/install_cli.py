@@ -15,11 +15,11 @@ from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
-URL = "https://registry.npmjs.org/@openai/codex/-/codex-0.146.1-linux-x64.tgz"
-EXPECTED_SHA512_B64 = "XPWpWzJgGK1ygsUBMXgskEkr+uTVj/XOnnCP2UE9tQUXTWYRYElz7QW1YS3bxkN6Kev4CJQKbdJopVwh+0E/TQ=="
+URL = "https://registry.npmjs.org/@openai/codex/-/codex-0.166.0-linux-x64.tgz"
+EXPECTED_SHA512_B64 = "CxDm3+D1cpbGJeHrdzINoG+3wn9BVncP4qpZaaNYkxe8iPtRJOYyCJnnPoVjWRIBvI9vPKbRoifsMSA5xDaUpw=="
 MEMBER = "package/vendor/x86_64-unknown-linux-musl/bin/codex"
-# Registry metadata for this exact integrity-pinned release: unpacked366619458
-# bytes/8 files. The archive is larger than128MiB; retain a finite384MiB ceiling.
+# Registry metadata for this exact integrity-pinned release: unpacked456152362
+# bytes/45 files. Retain a finite384MiB compressed download ceiling.
 MAX_DOWNLOAD_BYTES = 384 * 1024 * 1024
 TIMEOUT_SECONDS = 30
 TARGET = Path("/usr/local/bin/codex")
@@ -54,7 +54,7 @@ def extract_binary(archive: bytes) -> bytes:
     try:
         with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
             matches = [member for member in tar.getmembers() if member.name == MEMBER]
-            if len(matches) != 1 or not matches[0].isreg() or not 0 < matches[0].size <= 366619458:
+            if len(matches) != 1 or not matches[0].isreg() or not 0 < matches[0].size <= 456152362:
                 raise RuntimeError("Codex CLI archive has no unique regular pinned binary")
             extracted = tar.extractfile(matches[0])
             if extracted is None:

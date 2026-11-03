@@ -542,6 +542,15 @@ async def submit_course_generation(
         raise HTTPException(status_code=503, detail="qa_luna_pending_admission_unavailable") from exc
     if qa_pending_marker is not None:
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
+        from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
+
+        if qa_pending_marker == MANAGED_POLICY:
+            # Selected only by the authenticated server-side DEV admission.
+            # Existing jobs retain their stored policy and exact checkpoints.
+            analysis_payload = stamp_policy(analysis_payload, practical=True)
+            if req.completed_extraction_parent_job_id is not None:
+                raise HTTPException(status_code=422,
+                    detail="completed_extraction_reuse_not_supported_for_practical_policy")
     if req.completed_extraction_parent_job_id is not None:
         from app.modules.ai.v3.completed_extraction_reuse import validate_parent_admission
         try:

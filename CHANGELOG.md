@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Generate a coherent source-bound course, review questions independently, and
+  repair only confirmed paragraphs or questions while retaining completed work.
+- Show readable source locations in questions and group related source passages
+  for full coverage review without duplicating every source block in responses.
+
 ### Added
 
 - Source-grounded V3 course generation with logical source groups, explicit reference decisions, independent question review, and retained question quotations.

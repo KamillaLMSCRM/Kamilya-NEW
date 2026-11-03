@@ -170,8 +170,12 @@ async def test_factory_readiness_uses_exact_validated_settings(monkeypatch):
         user_id=uuid4(), job_id=str(uuid4()))
     assert type(value) is ManagedLunaClient
     readiness.assert_awaited_once_with(config)
+    medium = await create_managed_qa_client(settings=config, tenant_id=QA_TENANT,
+        user_id=value._scope[1], job_id=value._scope[2], reasoning_effort='medium', deadline_seconds=120)
+    assert medium.generation_deadline_seconds == 120 and medium.cache_fingerprint() != value.cache_fingerprint()
+    assert readiness.await_count == 2
     config.AI_DIRECT_LUNA_QA_DEV_ENABLED = True
     with pytest.raises(ValueError):
         await create_managed_qa_client(settings=config, tenant_id=QA_TENANT,
             user_id=uuid4(), job_id=str(uuid4()))
-    readiness.assert_awaited_once()
+    assert readiness.await_count == 2

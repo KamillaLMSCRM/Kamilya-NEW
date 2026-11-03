@@ -105,10 +105,14 @@ class Connector:
 
 
 async def main() -> None:
+    profile = os.environ.get('CODEX_CONNECTOR_PROFILE', 'legacy-luna56')
+    if profile not in {'legacy-luna56', 'luna6'}:
+        raise RunnerError('not_configured')
     runner = CodexRunner(
         Path(os.environ["CODEX_CLI_BINARY"]), Path(os.environ["CODEX_CLI_HOME"]),
         os.environ.get("CODEX_CLI_SHA256") or Path(os.environ.get("CODEX_CLI_SHA256_FILE", "/opt/codex-reserve/cli.sha256")).read_text(encoding="utf-8").strip(),
-        float(os.environ.get("CODEX_CLI_TIMEOUT", "60")),
+        float(os.environ.get("CODEX_CLI_TIMEOUT", '285' if profile == 'luna6' else '60')),
+        **({'model': 'gpt-6-luna', 'cli_version': 'codex-cli 0.166.0'} if profile == 'luna6' else {}),
     )
     token = Path(os.environ["CODEX_CONNECTOR_TOKEN_FILE"]).read_text(encoding="utf-8").strip()
     connector = Connector(runner, token)

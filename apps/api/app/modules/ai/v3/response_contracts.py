@@ -15,10 +15,22 @@ from app.modules.ai.v3.auxiliary_response_contracts import (
 from app.modules.ai.v3.batch_review_response_schema import is_batch_review_response, is_batch_review_response_format
 from app.modules.ai.v3.diversity_response_schema import is_diversity_author_format, is_diversity_author_response
 from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_response, is_rule_extraction_response_format
+from app.modules.ai.v3.practical_contract import is_practical_course_format, matches_practical_course_response
+from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
+from app.modules.ai.v3.practical_review import is_practical_review_format, matches_practical_review
+from app.modules.ai.v3.practical_source_audit import is_source_audit_format, matches_source_audit
 from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_typed_review_response
 
 
 def response_contract(value: object) -> str | None:
+    if is_source_audit_format(value):
+        return "practical_source_audit"
+    if is_practical_course_format(value):
+        return "practical_course"
+    if is_practical_review_format(value):
+        return "practical_review"
+    if is_practical_patch_format(value):
+        return "practical_patch"
     if is_diversity_author_format(value):
         return "diversity_author"
     auxiliary = auxiliary_contract(value)
@@ -45,6 +57,14 @@ def response_contract_hash(value: dict[str, Any]) -> str:
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "practical_source_audit":
+        return matches_source_audit(value, response_format)
+    if kind == "practical_course":
+        return matches_practical_course_response(value, response_format)
+    if kind == "practical_review":
+        return matches_practical_review(value, response_format)
+    if kind == "practical_patch":
+        return matches_practical_patch(value, response_format)
     if kind == "diversity_author":
         return is_diversity_author_response(value, response_format)
     if kind is not None and kind.startswith("aux:"):

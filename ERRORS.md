@@ -1,3 +1,35 @@
+## AI-QUALITY-053 - Practical course acceptance and source scope diverged
+
+- Date: 2026-11-04.
+- Symptom: the earlier engine repeatedly rewrote otherwise useful courses for
+  form metrics, while model PASS still missed material source/answer errors.
+- Cause: question format heuristics were treated as source truth; a matching
+  cited private rule was mistaken for complete applicability. Raw paragraph
+  audits also forced hundreds of repetitive output rows. Generated source IDs
+  and truncated table text leaked into displayed questions.
+- Fix: opt-in practical P8 keeps coherent authoring, independent blind question
+  review, a source-first structural-group audit, and exact scoped paragraph/Q
+  patches. Question scope navigates actual source clauses/table rows separately
+  from immutable source custody. Exact paragraph IDs and course fingerprints
+  replace copied-text patch anchors. Source verification remains separate from
+  draft publication; uncertain provenance still holds. No form quota overrides
+  content quality, and a model PASS is never independent semantic acceptance.
+- Verification: full5253 API unit tests PASS, baseline1006/2174 PASS. The fresh
+  Standards P8 course5L17Q independently passed all16families/4ambiguities after
+  zero-provider display replay. Micro276nonblank blocks form42 source audit
+  groups with exact complete membership. Fire/Micro/DEV/production acceptance
+  remain open; prior false passes and rejected responses retain their status.
+- Recurrence: grouped saved Fire control revealed source-targeted coverage was
+  authorizing additions even when narrative_sources already owned that content.
+  Exact target ownership now grants paragraph repair on existing owner lesson(s),
+  preserves issue IDs/closure, and permits additions only for unowned targets.
+ 79focused tests PASS. The model critic still missed Q05.03 object substitution;
+  do not claim this coverage-scope fix solved every semantic blind spot.
+- Prevention: replay exact saved failures, independently read every complete
+  course, verify both all alternatives and source actor/action/object/condition,
+  and count completed rejected-response usage. Technical tests do not establish
+  semantic accuracy. Keep known model-critic blind spots explicit.
+
 ## AI-REUSE-001 - Complete extraction work was stranded behind a later unknown stage
 
 - Date: 2026-11-02.
@@ -28,7 +60,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-03.
+Current as of: 2026-11-04.
 
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
@@ -1009,6 +1041,8 @@ Current as of: 2026-11-03.
   to work around deterministic resource-name equality.
 
 ## AI-PROVIDER-005 - Direct API denial is not a Codex CLI capability test
+
+- Recurrence 2026-11-04: Luna6 denial through old CLI0.146.1 was overgeneralized. Official isolated stableCLI0.166.0 actually completed Luna6/HIGH inference; actual output includes reasoning-token usage. Its benign pre-turn code_mode_host warning is now narrowly admitted; unknown warnings/tool calls still reject. Distinct optional luna6 connector/egress profile preserves legacy default wire and does not change shared production reserve. Local inference is not DEV or hosted production acceptance.
 
 - Date:2026-10-15; local diagnostic only, no production mutation.
 - Symptom: subscription token public/models403 risked being generalized to all

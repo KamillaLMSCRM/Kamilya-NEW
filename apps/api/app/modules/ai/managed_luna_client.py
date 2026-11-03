@@ -21,6 +21,7 @@ from app.modules.ai.direct_luna_responses_client import ResponsesResult
 from app.modules.ai.source_first_response import parse_source_first_response
 
 MODEL = "gpt-5.6-luna"
+LUNA6_MODEL = "gpt-6-luna"
 MAX_INPUT_BYTES = 524288
 MAX_RESPONSE_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
@@ -55,22 +56,29 @@ class ManagedLunaError(RuntimeError):
 
 class ManagedLunaClient:
     def __init__(self, *, base_url: str, api_key: str, tenant_id: UUID, user_id: UUID, job_id: str,
-                 credential_revision: str, deadline_seconds: float = 60.0):
+                 credential_revision: str, deadline_seconds: float = 60.0, reasoning_effort: str = "low",
+                 model: str = MODEL):
         config = SimpleNamespace(CHATGPT_RESERVE_URL=base_url, CHATGPT_RESERVE_TOKEN=api_key,
-                                 CHATGPT_RESERVE_MODEL=MODEL, CHATGPT_RESERVE_AUTH_MODE="codex_cli")
+                                 CHATGPT_RESERVE_MODEL=model, CHATGPT_RESERVE_AUTH_MODE="codex_cli")
         if (not isinstance(base_url, str) or not isinstance(api_key, str) or not api_key.strip()
                 or not isinstance(tenant_id, UUID) or not isinstance(user_id, UUID)
                 or not isinstance(job_id, str) or not job_id.strip()
                 or not isinstance(credential_revision, str) or not credential_revision.strip()
                 or isinstance(deadline_seconds, bool) or not isinstance(deadline_seconds, int | float)
-                or not 0 < deadline_seconds <= 120 or configuration_blocker(cast(Any, config)) is not None):
+                or type(model) is not str or model not in (MODEL, LUNA6_MODEL)
+                or not 0 < deadline_seconds <= (300 if model == LUNA6_MODEL else 120)
+                or type(reasoning_effort) is not str
+                or reasoning_effort not in (("low", "medium", "high") if model == LUNA6_MODEL else ("low", "medium"))
+                or configuration_blocker(cast(Any, config)) is not None):
             raise ValueError("managed_luna_config_invalid")
         base = base_url.rstrip("/")
         self._url = (base if base.endswith("/v1") else base + "/v1") + "/chat/completions"
         self._token = api_key
+        self._model = model
         self._revision = credential_revision
         self._scope = (tenant_id, user_id, job_id)
         self._deadline = float(deadline_seconds)
+        self._reasoning_effort = reasoning_effort
         self._prepared: dict[object, bytes] = {}
         self._closed = False
 
@@ -82,7 +90,7 @@ class ManagedLunaClient:
         return self._deadline
 
     def cache_fingerprint(self) -> str:
-        policy = json.dumps(["managed-cli-v1", self._url, MODEL, "low", "json-object",
+        policy = json.dumps(["managed-cli-v1", self._url, self._model, self._reasoning_effort, "json-object",
                              self._deadline, self._revision], separators=(",", ":")).encode()
         return hmac.new(self._token.encode(), policy, hashlib.sha256).hexdigest()
 
@@ -106,8 +114,10 @@ class ManagedLunaClient:
                        or not isinstance(m.get("content"), str) for m in messages)
                 or type(max_output_tokens) is not int or not 1 <= max_output_tokens <= 32768):
             raise ValueError("managed_luna_request_invalid")
-        request = {"model": MODEL, "messages": messages, "temperature": 0.2,
+        request = {"model": self._model, "messages": messages, "temperature": 0.2,
                    "max_tokens": max_output_tokens, "response_format": {"type": "json_object"}}
+        if self._reasoning_effort != "low":
+            request["reasoning_effort"] = self._reasoning_effort
         if response_format is not None:
             from app.modules.ai.v3.response_contracts import response_contract
             if response_contract(response_format) is None:
@@ -200,7 +210,7 @@ class ManagedLunaClient:
         try:
             body = parse_source_first_response(raw.decode("utf-8"))
             category = "model"
-            if body.get("model") != MODEL:
+            if body.get("model") != self._model:
                 raise ValueError
             category = "structured_mode"
             requested = json.loads(payload)
@@ -213,7 +223,7 @@ class ManagedLunaClient:
                 raise ValueError("managed_luna_unrequested_structured_mode")
             category = "choices"
             choices = body.get("choices")
-            if body.get("model") != MODEL or not isinstance(choices, list) or len(choices) != 1:
+            if body.get("model") != self._model or not isinstance(choices, list) or len(choices) != 1:
                 raise ValueError
             category = "message"
             message = choices[0].get("message") if isinstance(choices[0], dict) else None
@@ -248,7 +258,7 @@ class ManagedLunaClient:
                         cause=ValueError("managed_stage_validation_unverified"))
                 except (ValueError, TypeError):
                     pass
-            result = ManagedResponsesResult(content=content, model=MODEL,
+            result = ManagedResponsesResult(content=content, model=self._model,
                 usage=LunaUsage(incoming, outgoing, None, None), _capture=capture)
         except Exception as rejection:
             _diagnostic("failure", job_id, stage_id, started, status, category)

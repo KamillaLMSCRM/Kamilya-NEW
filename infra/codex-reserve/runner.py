@@ -13,10 +13,11 @@ from pathlib import Path
 from typing import Any
 
 MODEL = "gpt-5.6-luna"
-CLI_VERSION = "codex-cli 0.146.1"
+CLI_VERSION = "codex-cli 0.166.0"
 MAX_INPUT_BYTES = 524288
 MAX_OUTPUT_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
+CAPACITY_MESSAGE = "Selected model is at capacity. Please try a different model."
 
 
 class WindowsProcessJob:
@@ -198,7 +199,7 @@ DISABLED_FEATURES = (
 class RunnerError(Exception):
     """Only closed codes may cross the connector boundary."""
 
-    CODES = {"not_configured", "authorization_required", "unavailable", "protocol_mismatch", "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected"}
+    CODES = {"not_configured", "authorization_required", "unavailable", "capacity", "protocol_mismatch", "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected"}
 
     def __init__(self, code: str):
         self.code = code if code in self.CODES else "unavailable"
@@ -206,12 +207,16 @@ class RunnerError(Exception):
 
 
 class CodexRunner:
-    def __init__(self, binary: Path, cli_home: Path, binary_sha256: str, timeout: float = 60):
+    def __init__(self, binary: Path, cli_home: Path, binary_sha256: str, timeout: float = 60,
+                 *, model: str = MODEL, cli_version: str = CLI_VERSION):
         if (
             not binary.is_absolute() or not cli_home.is_absolute()
             or not binary.is_file() or not cli_home.is_dir()
             or len(binary_sha256) != 64
-            or not 5 <= timeout <= 120
+            or type(model) is not str or type(cli_version) is not str
+            or (model, cli_version) not in {(MODEL, CLI_VERSION), (MODEL, 'codex-cli 0.146.1'), ("gpt-6-luna", "codex-cli 0.166.0")}
+            or isinstance(timeout, bool) or not isinstance(timeout, int | float)
+            or not 5 <= timeout <= (300 if model == "gpt-6-luna" else 120)
         ):
             raise RunnerError("not_configured")
         with binary.open("rb") as stream:
@@ -221,6 +226,8 @@ class CodexRunner:
         self.binary = binary.resolve()
         self.cli_home = cli_home.resolve()
         self.timeout = timeout
+        self.model = model
+        self.cli_version = cli_version
         self._operation = asyncio.Lock()
 
     def environment(self) -> dict[str, str]:
@@ -329,7 +336,7 @@ class CodexRunner:
             with tempfile.TemporaryDirectory(prefix="kamilya-codex-readiness-") as directory:
                 cwd = Path(directory)
                 code, version, _ = await self._run(["--version"], b"", cwd=cwd, timeout=3)
-                if code or version.decode("utf-8", errors="replace").strip() != CLI_VERSION:
+                if code or version.decode("utf-8", errors="replace").strip() != self.cli_version:
                     raise RunnerError("protocol_mismatch")
                 code, status, errors = await self._run(
                     ["-c", 'forced_login_method="chatgpt"', "login", "status"],
@@ -338,16 +345,18 @@ class CodexRunner:
                 # Some CLI versions emit login status on stderr. Never return it.
                 if code or b"logged in using chatgpt" not in (status + errors).lower():
                     raise RunnerError("authorization_required")
-                return {"protocol": "kamilya-chatgpt-reserve-v1", "authorization": "codex_cli", "ready": True, "model": MODEL, "cli_version": CLI_VERSION}
+                return {"protocol": "kamilya-chatgpt-reserve-v1", "authorization": "codex_cli", "ready": True, "model": self.model, "cli_version": self.cli_version}
 
-    def command(self, schema: Path, structured: bool = False) -> list[str]:
+    def command(self, schema: Path, structured: bool = False, reasoning_effort: str = "low") -> list[str]:
+        if type(reasoning_effort) is not str or reasoning_effort not in ({"low", "medium", "high"} if self.model == "gpt-6-luna" else {"low", "medium"}):
+            raise RunnerError("invalid_input")
         args = [
             "exec", "--ignore-user-config", "--ephemeral", "--skip-git-repo-check",
-            "--model", MODEL, "--color", "never", "--json",
+            "--model", self.model, "--color", "never", "--json",
             "--output-schema", str(schema),
         ]
         overrides = {
-            "forced_login_method": '"chatgpt"', "model_reasoning_effort": '"low"',
+            "forced_login_method": '"chatgpt"', "model_reasoning_effort": json.dumps(reasoning_effort),
             "approval_policy": '"never"', "project_doc_max_bytes": "0",
             "default_permissions": '"kamilya_text_only"',
             "permissions.kamilya_text_only.extends": '":read-only"',
@@ -374,10 +383,12 @@ class CodexRunner:
         return [*args, "-"]
 
     async def complete(self, payload: dict[str, Any]) -> dict[str, Any]:
-        allowed = {"model", "messages", "temperature", "max_tokens", "response_format", "structured_output_policy"}
+        allowed = {"model", "messages", "temperature", "max_tokens", "response_format", "structured_output_policy", "reasoning_effort"}
         messages = payload.get("messages")
         if (
-            set(payload) - allowed or payload.get("model") != MODEL
+            set(payload) - allowed or payload.get("model") != self.model
+            or type(payload.get("reasoning_effort", "low")) is not str
+            or payload.get("reasoning_effort", "low") not in ({"low", "medium", "high"} if self.model == "gpt-6-luna" else {"low", "medium"})
             or not isinstance(messages, list) or not 1 <= len(messages) <= 100
             or any(not isinstance(message, dict) or set(message) != {"role", "content"}
                    or message.get("role") not in {"system", "developer", "user", "assistant"}
@@ -411,10 +422,39 @@ class CodexRunner:
                 cwd = Path(directory)
                 schema = cwd / "response-schema.json"
                 schema.write_text(json.dumps(output_schema, ensure_ascii=False), encoding="utf-8")
-                code, stdout, _ = await self._run(self.command(schema, structured=True) if structured else self.command(schema), encoded, cwd=cwd, timeout=self.timeout)
-                if code:
-                    raise RunnerError("unavailable")
-                result = self.parse_result(stdout, structured=True) if structured else self.parse_result(stdout)
+                deadline = asyncio.get_running_loop().time() + (110.0 if payload.get("reasoning_effort") == "medium" else self.timeout)
+                attempt = 0
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        raise RunnerError("timeout")
+                    effort = payload.get("reasoning_effort", "low")
+                    command = (self.command(schema, structured=structured, reasoning_effort=effort)
+                               if effort in {"medium", "high"} else
+                               self.command(schema, structured=True) if structured else self.command(schema))
+                    code, stdout, _ = await self._run(
+                        command,
+                        encoded, cwd=cwd, timeout=remaining,
+                    )
+                    if code:
+                        try:
+                            self._profile_result(stdout, structured=structured)
+                        except RunnerError as exc:
+                            if exc.code == "capacity" and attempt == 0:
+                                attempt = 1
+                                continue
+                            if exc.code == "capacity":
+                                raise
+                        raise RunnerError("unavailable")
+                    try:
+                        result = self._profile_result(stdout, structured=structured)
+                    except RunnerError as exc:
+                        if exc.code == "capacity" and attempt == 0:
+                            attempt = 1
+                            continue
+                        raise
+                    result["model"] = self.model
+                    break
                 # CLI does not expose the API's hard max_tokens knob. Reject a
                 # measured over-limit response; never claim a pre-inference quota
                 # cap from this postcondition or silently rerun the model.
@@ -425,6 +465,36 @@ class CodexRunner:
                     result["response_format_sha256"] = response_format_sha256
                 return result
 
+    def _profile_result(self, stdout: bytes, structured: bool = False) -> dict[str, Any]:
+        if self.cli_version != 'codex-cli 0.166.0':
+            return self.parse_result(stdout, structured=structured)
+        known = ('Code Mode is unavailable because code-mode host is disabled. '
+                 'Code mode will fail closed; enable `features.code_mode_host` and install `codex-code-mode-host`.')
+        lines = []
+        started = False
+        skipped = False
+        for line in stdout.splitlines():
+            try:
+                event = json.loads(line)
+            except (ValueError, UnicodeError):
+                raise RunnerError('protocol_mismatch') from None
+            if not isinstance(event, dict):
+                raise RunnerError('protocol_mismatch')
+            item = event.get('item')
+            # CLI startup diagnostic, not model/tool activity. Only this exact
+            # pre-turn warning is tolerated; all other error/tool items fail.
+            if (not started and not skipped and set(event) == {'type', 'item'}
+                    and event['type'] == 'item.completed' and isinstance(item, dict)
+                    and set(item) == {'id', 'type', 'message'} and item['type'] == 'error'
+                    and isinstance(item['id'], str) and item['id'].startswith('item_')
+                    and item['message'] == known):
+                skipped = True
+                continue
+            started |= (event.get('type') in {'turn.started', 'turn.completed', 'turn.failed', 'error'}
+                        or isinstance(item, dict) and item.get('type') in {'agent_message', 'reasoning'})
+            lines.append(line)
+        return self.parse_result(b'\n'.join(lines), structured=structured)
+
     @staticmethod
     def parse_result(stdout: bytes, structured: bool = False) -> dict[str, Any]:
         try:
@@ -432,12 +502,31 @@ class CodexRunner:
             content = None
             completed = False
             usage = None
+            capacity_error = False
+            capacity_turn_failed = False
+            capacity_shape_valid = True
             for event in events:
                 if not isinstance(event, dict):
                     raise RunnerError("protocol_mismatch")
                 kind = event.get("type")
+                if "item" in event or "usage" in event:
+                    capacity_shape_valid = False
                 if kind in {"turn.failed", "error"}:
+                    if (kind == "error" and set(event) == {"type", "message"}
+                            and event.get("message") == CAPACITY_MESSAGE):
+                        capacity_error = True
+                        continue
+                    if (kind == "turn.failed" and set(event) == {"type", "error"}
+                            and isinstance(event.get("error"), dict)
+                            and set(event["error"]) == {"message"}
+                            and event["error"].get("message") == CAPACITY_MESSAGE):
+                        capacity_turn_failed = True
+                        continue
                     raise RunnerError("unavailable")
+                if kind == "thread.started" and not set(event) <= {"type", "thread_id"}:
+                    capacity_shape_valid = False
+                elif kind == "turn.started" and set(event) != {"type"}:
+                    capacity_shape_valid = False
                 item = event.get("item")
                 if isinstance(item, dict) and item.get("type") not in {"agent_message", "reasoning"}:
                     raise RunnerError("tool_use_rejected")
@@ -454,6 +543,15 @@ class CodexRunner:
                     raw = event["usage"]
                     if all(isinstance(raw.get(key), int) and not isinstance(raw.get(key), bool) and raw[key] >= 0 for key in ("input_tokens", "output_tokens")):
                         usage = {"prompt_tokens": raw["input_tokens"], "completion_tokens": raw["output_tokens"], "total_tokens": raw["input_tokens"] + raw["output_tokens"]}
+            if capacity_error or capacity_turn_failed:
+                exact_capacity = (
+                    capacity_error and capacity_turn_failed and not completed and content is None
+                    and usage is None
+                    and capacity_shape_valid
+                    and all(event.get("type") in {"thread.started", "turn.started", "error", "turn.failed"}
+                            for event in events)
+                )
+                raise RunnerError("capacity" if exact_capacity else "unavailable")
             if not completed or not content or len(content.encode("utf-8")) > MAX_CONTENT_BYTES:
                 raise RunnerError("protocol_mismatch")
             result = {"model": MODEL, "choices": [{"message": {"role": "assistant", "content": content}}]}
