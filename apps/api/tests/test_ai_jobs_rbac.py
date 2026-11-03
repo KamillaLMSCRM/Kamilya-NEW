@@ -137,7 +137,7 @@ async def test_cross_tenant_job_id_is_not_found(handler_name: str):
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
     lookup = AsyncMock(return_value=None)
 
@@ -157,10 +157,15 @@ async def test_cancel_generation_persists_terminal_state_and_revokes_worker_task
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
-    job = SimpleNamespace(id="job-1", status="running")
-    update_job = AsyncMock(return_value=job)
+    job = SimpleNamespace(id="job-1", status="running", course_id=None, params={})
+
+    async def cancel_job(*args, **kwargs):
+        job.status = "cancelled"
+        return job
+
+    update_job = AsyncMock(side_effect=cancel_job)
     release = AsyncMock(return_value=True)
 
     with (
@@ -185,9 +190,9 @@ async def test_cancel_generation_is_idempotent_for_cancelled_job():
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
-    job = SimpleNamespace(id="job-1", status="cancelled")
+    job = SimpleNamespace(id="job-1", status="cancelled", course_id=None, params={})
     update_job = AsyncMock()
     release = AsyncMock(return_value=False)
 
@@ -211,9 +216,9 @@ async def test_cancelled_job_retries_failed_reservation_cleanup():
     from app.modules.ai import router as ai_router
 
     tenant_id = uuid4()
-    user = SimpleNamespace(tenant_id=tenant_id, role="methodologist")
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
     db = AsyncMock()
-    job = SimpleNamespace(id="job-retry", status="cancelled")
+    job = SimpleNamespace(id="job-retry", status="cancelled", course_id=None, params={})
     release = AsyncMock(side_effect=[RuntimeError("temporary"), True])
 
     with (
@@ -251,6 +256,7 @@ def _terminal_job(job_id: str = "job-1"):
         stage="completed",
         progress=100,
         message="Done",
+        errors=None,
         created_at=datetime.now(UTC),
         course_id=None,
     )
@@ -263,6 +269,7 @@ def _running_job(job_id: str = "job-1"):
         stage="outline",
         progress=25,
         message="Working",
+        errors=None,
         created_at=datetime.now(UTC),
         course_id=None,
     )
@@ -395,7 +402,7 @@ async def test_websocket_reestablishes_security_context_for_each_poll(
         expected_context,
     ]
     assert not any(getattr(session, "is_open", False) for session in sessions)
-    assert websocket.send_json.await_args_list[-1].args[0]["status"] == "completed"
+    assert [call.args[0]["status"] for call in websocket.send_json.await_args_list] == ["running", "completed"]
 
 
 @pytest.mark.parametrize(

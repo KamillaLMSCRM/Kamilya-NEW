@@ -1,5 +1,6 @@
 """Lessons module — service layer"""
 
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -7,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.courses import Course
+from app.modules.courses.release_service import (
+    touch_course as _touch_course,
+)
+from app.modules.courses.release_service import (
+    touch_course_by_lesson as _touch_course_by_lesson,
+)
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.lessons.schemas import LessonCreate, LessonUpdate, ModuleCreate, ModuleUpdate
 
@@ -46,6 +53,7 @@ async def create_module(db: AsyncSession, course_id: UUID, tenant_id: UUID, data
         order_index=next_order,
     )
     db.add(module)
+    await _touch_course(db, course_id, tenant_id)
     await db.flush()
     return module
 
@@ -57,6 +65,7 @@ async def update_module(db: AsyncSession, module_id: UUID, tenant_id: UUID, data
         raise ValueError("Module not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(module, field, value)
+    await _touch_course(db, module.course_id, tenant_id)
     await db.flush()
     await db.refresh(module)
     return module
@@ -67,7 +76,9 @@ async def delete_module(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> N
     module = result.scalar_one_or_none()
     if not module:
         raise ValueError("Module not found")
+    course_id = module.course_id
     await db.delete(module)
+    await _touch_course(db, course_id, tenant_id)
 
 
 async def list_lessons(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> list[Lesson]:
@@ -83,6 +94,7 @@ async def list_lessons(db: AsyncSession, module_id: UUID, tenant_id: UUID) -> li
 
 
 async def create_lesson(db: AsyncSession, module_id: UUID, tenant_id: UUID, data: LessonCreate) -> Lesson:
+    parent_module = await db.scalar(select(Module).where(Module.id == module_id, Module.tenant_id == tenant_id))
     max_order = await db.execute(
         select(Lesson.order_index).where(Lesson.module_id == module_id).order_by(Lesson.order_index.desc()).limit(1)
     )
@@ -97,6 +109,8 @@ async def create_lesson(db: AsyncSession, module_id: UUID, tenant_id: UUID, data
         order_index=next_order,
     )
     db.add(lesson)
+    if parent_module is not None:
+        await _touch_course(db, parent_module.course_id, tenant_id)
     await db.flush()
     return lesson
 
@@ -106,6 +120,7 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
     lesson = result.scalar_one_or_none()
     if not lesson:
         raise ValueError("Lesson not found")
+    parent_module = await db.scalar(select(Module).where(Module.id == lesson.module_id, Module.tenant_id == tenant_id))
     changes = data.model_dump(exclude_unset=True)
     source_affecting_change = any(
         field in changes and changes[field] != getattr(lesson, field) for field in ("title", "content")
@@ -116,6 +131,8 @@ async def update_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID, data
         lesson.source_validation_status = "needs_review"
     if source_affecting_change:
         await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
+    if parent_module is not None:
+        await _touch_course(db, parent_module.course_id, tenant_id)
     await db.flush()
     await db.refresh(lesson)
     return lesson
@@ -126,20 +143,54 @@ async def delete_lesson(db: AsyncSession, lesson_id: UUID, tenant_id: UUID) -> N
     lesson = result.scalar_one_or_none()
     if not lesson:
         raise ValueError("Lesson not found")
+    parent_module = await db.scalar(select(Module).where(Module.id == lesson.module_id, Module.tenant_id == tenant_id))
     await db.delete(lesson)
+    if parent_module is not None:
+        await _touch_course(db, parent_module.course_id, tenant_id)
 
 
 async def reorder_items(db: AsyncSession, item_type: str, ids_order: list[UUID], tenant_id: UUID) -> None:
-    """Reorder modules or lessons by array of IDs in order. Validates tenant ownership."""
-    model = Module if item_type == "module" else Lesson
-    for index, item_id in enumerate(ids_order):
-        result = await db.execute(select(model).where(model.id == item_id, model.tenant_id == tenant_id))
-        item = result.scalar_one_or_none()
-        if not item:
-            raise ValueError(f"{item_type.title()} not found or access denied")
-        await db.execute(
-            update(model).where(model.id == item_id, model.tenant_id == tenant_id).values(order_index=index)
-        )
+    """Reorder modules or lessons by array of IDs in order. Validates tenant ownership and strictly prevents cross-course reordering."""
+    if not ids_order:
+        return
+    if item_type not in ("module", "lesson"):
+        raise ValueError(f"Unknown item_type '{item_type}'")
+
+    if item_type == "module":
+        res = await db.execute(select(Module).where(Module.id.in_(ids_order), Module.tenant_id == tenant_id))
+        modules = {m.id: m for m in res.scalars().all()}
+        for item_id in ids_order:
+            if item_id not in modules:
+                raise ValueError("Module not found or access denied")
+        course_ids = {m.course_id for m in modules.values()}
+        if len(course_ids) > 1:
+            raise ValueError("Запрещено переупорядочивать модули между разными курсами")
+        for index, item_id in enumerate(ids_order):
+            await db.execute(
+                update(Module).where(Module.id == item_id, Module.tenant_id == tenant_id).values(order_index=index)
+            )
+        target_course_id = next(iter(course_ids))
+        await _touch_course(db, target_course_id, tenant_id)
+
+    elif item_type == "lesson":
+        res = await db.execute(select(Lesson).where(Lesson.id.in_(ids_order), Lesson.tenant_id == tenant_id))
+        lessons: dict[UUID, Lesson] = {cast(UUID, les.id): cast(Lesson, les) for les in res.scalars().all()}
+        for item_id in ids_order:
+            if item_id not in lessons:
+                raise ValueError("Lesson not found or access denied")
+        mod_ids = list({les.module_id for les in lessons.values()})
+        mod_res = await db.execute(select(Module).where(Module.id.in_(mod_ids), Module.tenant_id == tenant_id))
+        modules_map: dict[UUID, Module] = {cast(UUID, m.id): m for m in mod_res.scalars().all()}
+        course_ids = {m.course_id for m in modules_map.values()}
+        if len(course_ids) > 1:
+            raise ValueError("Запрещено переупорядочивать уроки между разными курсами")
+        for index, item_id in enumerate(ids_order):
+            await db.execute(
+                update(Lesson).where(Lesson.id == item_id, Lesson.tenant_id == tenant_id).values(order_index=index)
+            )
+        if course_ids:
+            target_course_id = next(iter(course_ids))
+            await _touch_course(db, target_course_id, tenant_id)
 
 
 async def reorder_lessons_in_module(
@@ -153,7 +204,7 @@ async def reorder_lessons_in_module(
     if len(ids_order) != len(set(ids_order)):
         raise ValueError("Lesson order contains duplicate IDs")
     module = await db.scalar(
-        select(Module.id).where(Module.id == module_id, Module.tenant_id == tenant_id).with_for_update()
+        select(Module).where(Module.id == module_id, Module.tenant_id == tenant_id).with_for_update()
     )
     if module is None:
         raise LookupError("Module not found")
@@ -169,6 +220,7 @@ async def reorder_lessons_in_module(
         raise ValueError("Lesson order must contain every lesson from the selected module exactly once")
     for index, lesson_id in enumerate(ids_order):
         by_id[lesson_id].order_index = index
+    await _touch_course(db, module.course_id, tenant_id)
     await db.flush()
 
 
@@ -228,6 +280,7 @@ async def create_content_block(
     )
     db.add(block)
     await _mark_lesson_quizzes_needs_review(db, lesson_id, tenant_id)
+    await _touch_course_by_lesson(db, lesson_id, tenant_id)
     await db.flush()
     return block
 
@@ -260,6 +313,7 @@ async def update_content_block(
         block.metadata_ = metadata_
     if learner_visible_change:
         await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
+        await _touch_course_by_lesson(db, lesson.id, tenant_id)
     await db.flush()
     return block
 
@@ -275,6 +329,7 @@ async def delete_content_block(db: AsyncSession, block_id: UUID, tenant_id: UUID
     if not lesson or lesson.tenant_id != tenant_id:
         return False
     await _mark_lesson_quizzes_needs_review(db, lesson.id, tenant_id)
+    await _touch_course_by_lesson(db, lesson.id, tenant_id)
     await db.delete(block)
     return True
 
@@ -296,3 +351,4 @@ async def reorder_content_blocks(db: AsyncSession, lesson_id: UUID, ids_order: l
             await db.execute(sa_update(ContentBlock).where(ContentBlock.id == block_id).values(order_index=index))
     if changed:
         await _mark_lesson_quizzes_needs_review(db, lesson_id, tenant_id)
+        await _touch_course_by_lesson(db, lesson_id, tenant_id)

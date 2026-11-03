@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useReducer } from 'react';
+import { useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import {
   selectOldestActiveCourseJob,
@@ -15,7 +16,7 @@ import {
 
 const activeJobStorageKey = 'ai_active_job_id';
 const workflowContextStorageKey = 'ai_generation_workflow_context';
-const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running';
+const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running' || job.status === 'reconciliation_required';
 const isRestorable = (job: AIGenerationJob) => isActive(job) || job.status === 'interrupted';
 
 function readWorkflowContext(): AIGenerationWorkflowContext | null {
@@ -43,12 +44,24 @@ function clearWorkflowContext() {
 
 function actionForPolledJob(job: AIGenerationJob): GenerationWorkflowAction {
   if (job.status === 'completed') return { type: 'job_completed', job };
-  if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted') return { type: 'job_terminal', job };
+  if (job.status === 'failed' || job.status === 'cancelled' || job.status === 'interrupted' || job.status === 'abandoned') return { type: 'job_terminal', job };
   return { type: 'job_active', job };
 }
 
-export function useGenerationWorkflow(requestedProgramId: string | null = null) {
+export function useGenerationWorkflow(
+  requestedProgramId: string | null = null,
+  getRequestKey?: () => string,
+) {
   const [state, dispatch] = useReducer(generationWorkflowReducer, initialGenerationWorkflowState);
+  const resumeAttemptRef = useRef<string | null>(null);
+  const resumePostingRef = useRef<string | null>(null);
+  const resumeRequestKeyRef = useRef<string | undefined>(undefined);
+  const mountedRef = useRef(true);
+  const [resumeReconciliation, setResumeReconciliation] = useState(false);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
 
   const restoreFromJobList = useCallback(async () => {
     const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
@@ -103,8 +116,10 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     }
   }, [restoreFromJobList]);
 
-  const startJob = useCallback((job: AIGenerationJob) => {
-    const programId = requestedProgramId || state.programId;
+  const startJob = useCallback((job: AIGenerationJob, options?: { programId: string | null }) => {
+    const programId = options && Object.prototype.hasOwnProperty.call(options, 'programId')
+      ? options.programId
+      : requestedProgramId || state.programId;
     localStorage.setItem(activeJobStorageKey, job.id);
     persistWorkflowContext(job.id, programId);
     dispatch({ type: 'job_started', job, programId });
@@ -131,11 +146,70 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
 
   const resumeJob = useCallback(async () => {
     if (!state.currentJob || state.currentJob.status !== 'interrupted') return;
-    const response = await api.post<AIGenerationJob>(`/v1/ai/jobs/${state.currentJob.id}/resume`);
-    localStorage.setItem(activeJobStorageKey, response.data.id);
-    persistWorkflowContext(response.data.id, state.programId);
-    dispatch({ type: 'job_started', job: response.data, programId: state.programId });
-  }, [state.currentJob, state.programId]);
+    const jobId = state.currentJob.id;
+    const requestKey = getRequestKey?.();
+    const isCurrentRequest = () => requestKey === undefined || getRequestKey?.() === requestKey;
+    if (resumeRequestKeyRef.current !== undefined && resumeRequestKeyRef.current !== requestKey) {
+      resumeAttemptRef.current = null;
+      resumePostingRef.current = null;
+      resumeRequestKeyRef.current = undefined;
+    }
+    if (resumePostingRef.current === jobId) return;
+    if (resumeAttemptRef.current === jobId) {
+      const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${jobId}`);
+      if (response.data.id !== jobId) throw new Error('resume_job_identity_mismatch');
+      if (!mountedRef.current || !isCurrentRequest()) return response.data;
+      dispatch(actionForPolledJob(response.data));
+      if (response.data.status !== 'interrupted') {
+        resumeAttemptRef.current = null;
+        resumePostingRef.current = null;
+        resumeRequestKeyRef.current = undefined;
+        setResumeReconciliation(false);
+      }
+      return response.data;
+    }
+    resumeAttemptRef.current = jobId;
+    resumePostingRef.current = jobId;
+    resumeRequestKeyRef.current = requestKey;
+    try {
+      const response = await api.post<AIGenerationJob>(`/v1/ai/jobs/${jobId}/resume`);
+      if (response.data.id !== jobId) throw new Error('resume_job_identity_mismatch');
+      if (!mountedRef.current || !isCurrentRequest()) return response.data;
+      localStorage.setItem(activeJobStorageKey, response.data.id);
+      persistWorkflowContext(response.data.id, state.programId);
+      dispatch({ type: 'job_started', job: response.data, programId: state.programId });
+      setResumeReconciliation(false);
+      resumeAttemptRef.current = null;
+      resumePostingRef.current = null;
+      resumeRequestKeyRef.current = undefined;
+      return response.data;
+    } catch (error: any) {
+      if (!mountedRef.current || !isCurrentRequest()) return;
+      const status = error?.response?.status;
+      const code = error?.response?.data?.detail?.code ?? error?.response?.data?.details?.code;
+      if (status === undefined || status === 503 || (status >= 500 && status <= 599) || code === 'ai_job_dispatch_outcome_unknown') {
+        setResumeReconciliation(true);
+        // The POST attempt has settled. Keep the attempt fence, but allow a
+        // subsequent explicit status check to perform the read-only GET.
+        resumePostingRef.current = null;
+        const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${jobId}`);
+        if (response.data.id !== jobId) throw new Error('resume_job_identity_mismatch');
+        if (!mountedRef.current || !isCurrentRequest()) return response.data;
+        dispatch(actionForPolledJob(response.data));
+        if (response.data.status !== 'interrupted') {
+          resumeAttemptRef.current = null;
+          resumePostingRef.current = null;
+          resumeRequestKeyRef.current = undefined;
+          setResumeReconciliation(false);
+        }
+        return response.data;
+      }
+      resumeAttemptRef.current = null;
+      resumePostingRef.current = null;
+      resumeRequestKeyRef.current = undefined;
+      throw error;
+    }
+  }, [getRequestKey, state.currentJob, state.programId]);
 
   const prepareRetry = useCallback(() => {
     localStorage.removeItem(activeJobStorageKey);
@@ -167,6 +241,7 @@ export function useGenerationWorkflow(requestedProgramId: string | null = null) 
     refreshJob,
     cancelJob,
     resumeJob,
+    resumeReconciliation,
     prepareRetry,
     resetWorkflow,
   };

@@ -32,6 +32,17 @@ def _redis_ssl_options() -> dict[str, object] | None:
     return {"ssl_cert_reqs": ssl.CERT_REQUIRED if verify else ssl.CERT_NONE}
 
 
+def _broker_transport_options() -> dict[str, object]:
+    options: dict[str, object] = {"visibility_timeout": 3600}
+    if (settings.DEPLOYMENT_ENVIRONMENT in {
+            "vm-development-worker", "render-development-worker", "render-development",
+        } and str(settings.REDIS_URL).startswith("rediss://")):
+        # An idle TLS socket can stall pidbox replies in Redis health-check PING.
+        # These bound broker I/O, not model execution or task acknowledgement.
+        options.update(socket_timeout=10, socket_connect_timeout=10, socket_keepalive=True)
+    return options
+
+
 _redis_ssl_options = _redis_ssl_options()
 
 celery_app = Celery(
@@ -136,7 +147,7 @@ celery_app.conf.update(
     task_soft_time_limit=300,
     task_time_limit=600,
     broker_connection_retry_on_startup=True,
-    broker_transport_options={"visibility_timeout": 3600},
+    broker_transport_options=_broker_transport_options(),
     result_expires=86400,
     # Upstash uses rediss:// — Celery 5.6+ requires explicit ssl options
     # for the redis broker/backend when REDIS_URL starts with rediss://.

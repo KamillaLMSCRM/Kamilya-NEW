@@ -9,7 +9,7 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-DOCLING_URL = os.getenv("DOCLING_URL", "http://173.249.51.164:8600")
+DOCLING_URL = os.getenv("DOCLING_URL", "")
 DOCLING_API_KEY = os.getenv("DOCLING_API_KEY", "")
 DOCLING_TIMEOUT_SECONDS = float(os.getenv("DOCLING_TIMEOUT_SECONDS", "900"))
 
@@ -18,10 +18,12 @@ class DocumentConverter:
     """Convert documents to markdown via remote Docling service on VPS."""
 
     def __init__(self, base_url: str | None = None):
-        self.base_url = (base_url or DOCLING_URL).rstrip("/")
+        self.base_url = (DOCLING_URL if base_url is None else base_url).strip().rstrip("/")
 
     async def convert(self, file_path: str) -> dict:
         """Send file to VPS Docling for conversion."""
+        if not self.base_url:
+            return await _fallback_convert(file_path)
         filename = os.path.basename(file_path)
 
         with open(file_path, "rb") as f:
@@ -50,7 +52,7 @@ class DocumentConverter:
                         },
                     }
             except httpx.ConnectError:
-                logger.warning(f"Docling service unreachable at {self.base_url}, using fallback")
+                logger.warning("Docling service unreachable; using fallback")
                 return await _fallback_convert(file_path)
             except Exception as e:
                 logger.warning("Docling conversion failed error_type=%s; using fallback", type(e).__name__)

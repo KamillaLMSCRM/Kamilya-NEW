@@ -95,7 +95,7 @@ def test_docling_navigation_prefix_and_wrapped_heading_do_not_become_lessons() -
     ]
     assert [fact.value for fact in bundle.all_facts] == [
         "Staff verify the seal before unloading.",
-        "Before storage, staff complete: 1. record the receipt 2. place the goods in the secured area",
+        "Before storage, staff complete:\n1. record the receipt\n2. place the goods in the secured area",
         "The service fee is 2.5 percent if storage lasts more than 30 days.",
     ]
     assert all(

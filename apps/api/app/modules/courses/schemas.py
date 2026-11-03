@@ -1,7 +1,9 @@
-from pydantic import AliasChoices, BaseModel, Field, ConfigDict
-from typing import Literal
-from uuid import UUID
 from datetime import datetime
+from typing import Any, Literal
+from uuid import UUID
+
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+
 
 class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
@@ -64,6 +66,47 @@ class CourseReviewRequest(BaseModel):
     """Body for POST /courses/{id}/review."""
     review_status: Literal["approved", "needs_changes"]
     comment: str | None = Field(default=None, max_length=2000)
+
+
+class DefectResolution(BaseModel):
+    """Explicit methodologist resolution for a specific defect."""
+    defect_id: str = Field(..., min_length=4, max_length=64, description="Stable defect ID (e.g. defect-a1b2c3d4)")
+    action: Literal["acknowledged_risk", "documented_exception", "manual_verification_passed"] = Field(
+        ..., description="Explicit methodological action taken regarding the defect"
+    )
+    rationale: str = Field(..., min_length=10, max_length=1000, description="Detailed justification for why this defect is resolved or permitted")
+
+
+class CourseResolveSourceUncertaintyRequest(BaseModel):
+    """Body for POST /courses/{id}/resolve-source-uncertainty."""
+    reason: str = Field(..., min_length=10, max_length=2000, description="Audit justification for resolving the source hold")
+    expected_content_hash: str = Field(..., min_length=32, max_length=128, description="Mandatory SHA-256 of the course content snapshot verified by the methodologist")
+    verified_revision: str = Field(..., min_length=1, max_length=255, description="Mandatory authoritative source revision verified by the methodologist")
+    verified_revisions: dict[str, str] = Field(default_factory=dict, description="Per-document verified revisions for multi-document courses")
+    defect_resolutions: list[DefectResolution] = Field(default_factory=list, description="Explicit structured resolutions for each active defect")
+
+
+class SourceDocumentRevisionInfo(BaseModel):
+    document_id: str
+    title: str
+    filename: str
+    authoritative_revision: str
+
+
+class CourseSourceUncertaintyDefectInfo(BaseModel):
+    defect_id: str
+    description: str
+
+
+class CourseSourceUncertaintyDetailsResponse(BaseModel):
+    """Response body for GET /courses/{id}/source-uncertainty."""
+    course_id: UUID
+    has_active_hold: bool
+    content_snapshot_hash: str
+    available_revisions: list[str]
+    source_documents: list[SourceDocumentRevisionInfo]
+    active_defects: list[CourseSourceUncertaintyDefectInfo]
+    resolutions_history: list[dict[str, Any]]
 
 
 class CoursePreviewSourceDocument(BaseModel):

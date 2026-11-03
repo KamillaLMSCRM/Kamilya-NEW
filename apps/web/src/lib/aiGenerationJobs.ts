@@ -18,6 +18,7 @@ export interface AIGenerationJob {
   estimated_wait_seconds: number | null;
   tenant_active_jobs: number | null;
   tenant_active_limit: number | null;
+  abandon_available?: boolean;
 }
 
 export interface AIGenerationWorkflowContext {
@@ -34,7 +35,7 @@ export function selectOldestActiveCourseJob(
         job.job_type === 'course_generation'
         || (job.job_type === undefined && job.course_id !== null)
       )
-      && (job.status === 'pending' || job.status === 'running' || job.status === 'interrupted')
+      && (job.status === 'pending' || job.status === 'running' || job.status === 'interrupted' || job.status === 'reconciliation_required')
     ))
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
   return activeJobs[0] ?? null;

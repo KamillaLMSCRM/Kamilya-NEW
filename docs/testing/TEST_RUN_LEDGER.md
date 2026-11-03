@@ -5427,3 +5427,13 @@ Engine LOCAL129 remains separate and unreleased; no new model calls.
   no new font family/package. External gates remain in PRODUCTION_READINESS.
 
 2026-11-02 root combined UX70+visual acceptance: de811b67 reviewed visual delta applied cleanly after8403b01f. Full1548/182PASS (.release-evidence/ux68-live/full-web70-visual.json), types/lint PASS, version70 and337unique error contracts PASS. Production69 real2L2Q assignment-through-certificate+unchanged33oldrows evidence retained. True390px editor toolbar/preview/dirty dialog cancel/discard now passed with per-tab viewport; no server lesson mutation. No local intercepted build reused as deployment artifact. Combined DEV and production acceptance pending.
+
+
+## 2026-11-03 — integrated V4 typed recovery candidate
+
+- API unit5030PASS/85.17s; prior prepartial5009PASS/191.84s under concurrent fullweb resource pressure. Baseline1005/2173PASS. Final33typed grammar/shape/actualPendingStageJournal(fake repository)/partial replay/private hold PASS;89opsPASS/2Windows platformskips. No new model calls for these checks.
+- Web focused130tests initially112PASS/18FAIL because nine conflict translation keys were not imported; added only those keys (all3locales), then53generation PASS. Fullweb1588PASS/1existingjournal timing failure under18workers; isolatedjournal7PASS. BoundedmaxWorkers2full rerun in progress. Types/lint PASS. These are local UI checks, not browser/course acceptance.
+- Exact deployedDEVbbFeb fullStd5857 heldafter sixthHTTP200manualJSONsyntax failure, fiveaccepted67191input8683output plusrejected15897input548output;9parent extractionparts trulyreused/no source inference. Held privatebody1830BSHA3874389bd39b8bb156bc009b25206f9cf2dfdcee846c0f4fbcfd97f2fbe2aaa5; no repeat/refund/disposition. NewV4fixesalltypedcachemiss+auxiliary paths before another live run.
+- FrozenactualdisposablePG20 currentlyactive atsource815deccbcf1523d4d6a06e728529fd53a98b12e5892e9b2f22f00ccca209fd9d, custodyv4-final-r1-20261103-custody.json; do not substitute pending state for PASS or cleanup. Production not modified.
+
+- Final frozenPG20 PASS at815deccbcf1523d4d6a06e728529fd53a98b12e5892e9b2f22f00ccca209fd9d/schemaaicp_dev_049de005674f/cleanuptrue/public0184unchanged. Valid partial option stage durable+coldreplay proved; no provider calls. Fullweb bounded2workers1589PASS/182files/327.92s. LocalAPI5030PASS/85.17s, baseline1005/2173, types/lint PASS. No full course or deployment claim.

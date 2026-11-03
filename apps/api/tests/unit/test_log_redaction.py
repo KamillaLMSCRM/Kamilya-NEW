@@ -146,3 +146,13 @@ def test_source_logs_do_not_emit_document_names_or_provider_response_fragments()
         '"detail": detail',
     ):
         assert forbidden not in sources
+
+
+def test_digit_heavy_uuid_is_not_a_phone_but_adjacent_contacts_and_secrets_are_redacted() -> None:
+    job = "ab776539-3692-4bcc-ad78-90508ccd0843"
+    raw = f"job={job} phone={SYNTHETIC_PHONE} password={job} token={job}"
+    result = redact_sensitive_text(raw)
+    assert f"job={job}" in result
+    assert SYNTHETIC_PHONE not in result and "<redacted-phone>" in result
+    assert f"password={job}" not in result and f"token={job}" not in result
+    assert result.count(job) == 1

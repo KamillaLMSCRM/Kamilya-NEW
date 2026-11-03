@@ -17,6 +17,7 @@ const translateMock = vi.hoisted(() => (key: string, params?: Record<string, str
     'quiz.correctAnswer': 'Правильный ответ',
     'quiz.answerCorrect': 'Верно',
     'quiz.answerIncorrect': 'Неверно',
+    'quiz.sourceQuoteForReview': 'Цитата источника — требуется проверка',
     'quiz.previewRetry': 'Ответить заново',
     'quiz.previewAccessDeniedTitle': 'Предпросмотр недоступен',
     'quiz.previewAccessDenied': 'Только методисту.',
@@ -100,6 +101,16 @@ describe('methodologist quiz preview', () => {
       return jsonResponse({ detail: `Unexpected request: ${url}` }, 404);
     });
     vi.stubGlobal('fetch', fetchMock);
+  });
+
+  it('shows the saved source quotation to the methodologist for review', async () => {
+    fetchMock.mockImplementationOnce(async () => jsonResponse({
+      ...quiz, questions: [{ ...quiz.questions[0], source_quote: 'Исходное положение документа' }],
+    }));
+    render(<QuizMethodologistPreviewPage />);
+    await screen.findByText('Как следует поступить?');
+    expect(screen.getByText('Цитата источника — требуется проверка')).toBeInTheDocument();
+    expect(screen.getByText('Исходное положение документа')).toBeInTheDocument();
   });
 
   it('shows selected and correct answers without creating learner state', async () => {

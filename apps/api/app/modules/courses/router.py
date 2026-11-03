@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
@@ -28,10 +28,14 @@ from app.modules.courses.schemas import (
     CoursePreviewModule,
     CoursePreviewResponse,
     CoursePreviewSourceDocument,
+    CourseResolveSourceUncertaintyRequest,
     CourseResponse,
     CourseReviewer,
     CourseReviewRequest,
+    CourseSourceUncertaintyDefectInfo,
+    CourseSourceUncertaintyDetailsResponse,
     CourseUpdate,
+    SourceDocumentRevisionInfo,
 )
 from app.modules.enrollments.schemas import AssignmentAccessWindowResponse
 
@@ -40,6 +44,34 @@ router = APIRouter(
     tags=["courses"],
     dependencies=[Depends(require_tenant_user())],
 )
+
+
+def _preview_source_references(references: list[Any], lesson_source_ids: list[Any],
+                               owned_documents: dict[UUID, Any], source_analysis: Any) -> list[Any]:
+    """Add response-only names to fresh-v3 spans from the tenant-scoped document map."""
+    from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, KEY
+
+    if (not isinstance(source_analysis, dict) or source_analysis.get(KEY) != DIRECT_POLICY
+            or source_analysis.get("generation_engine") != "evidence_v3"):
+        return references
+    allowed = {str(value) for value in lesson_source_ids}
+    projected = []
+    for reference in references:
+        if not isinstance(reference, dict) or reference.get("kind") != "working_text_span_v1":
+            projected.append(reference)
+            continue
+        item = dict(reference)
+        item.pop("doc_name", None)
+        item.pop("document", None)
+        doc_id = item.get("doc_id")
+        try:
+            document = owned_documents.get(UUID(doc_id)) if isinstance(doc_id, str) and doc_id in allowed else None
+        except ValueError:
+            document = None
+        if document is not None:
+            item["doc_name"] = document.filename or document.title
+        projected.append(item)
+    return projected
 
 
 async def _hydrate_reviewer(db: AsyncSession, course: Course) -> CourseReviewer | None:
@@ -211,6 +243,7 @@ async def get_course_preview(
             quiz_q_counts[qid] = int(cnt)
 
     source_documents: list[CoursePreviewSourceDocument] = []
+    source_by_id: dict[UUID, Any] = {}
     source_ids: list[UUID] = []
     for value in cast(list[object] | None, course.source_document_ids) or []:
         try:
@@ -230,7 +263,7 @@ async def get_course_preview(
             .scalars()
             .all()
         )
-        source_by_id = {document.id: document for document in source_rows}
+        source_by_id = {cast(UUID, document.id): document for document in source_rows}
         source_documents = [
             CoursePreviewSourceDocument(
                 id=document_id,
@@ -265,7 +298,9 @@ async def get_course_preview(
                     quiz_title=quiz.title if quiz else None,
                     quiz_question_count=quiz_q_counts.get(quiz.id, 0) if quiz else 0,
                     source_document_ids=list(l.source_document_ids or []),
-                    source_references=list(l.source_references or []),
+                    source_references=_preview_source_references(
+                        list(l.source_references or []), list(l.source_document_ids or []),
+                        source_by_id, course.source_analysis),
                     source_validation_status=l.source_validation_status,
                 )
             )
@@ -312,12 +347,27 @@ async def review_course(
     and review_comment. Designed for the AI-generation review step where
     the methodologist validates the AI's output before it goes to staff.
     """
-    result = await db.execute(select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id))
+    from app.modules.courses.source_uncertainty import is_qa_source_tenant, qa_source_holds_enabled
+
+    qa_source_guard = req.review_status == "approved" and qa_source_holds_enabled(user.tenant_id)
+    query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    if req.review_status == "approved" and is_qa_source_tenant(user.tenant_id):
+        query = query.with_for_update().execution_options(populate_existing=True)
+    result = await db.execute(query)
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
     if req.review_status == "approved":
+        from app.modules.courses.source_uncertainty import (
+            require_persisted_source_hold_clear,
+            require_source_uncertainty_clear,
+        )
+
+        if is_qa_source_tenant(user.tenant_id):
+            require_persisted_source_hold_clear(course.source_analysis)
+        if qa_source_guard:
+            require_source_uncertainty_clear(course.source_analysis)
         from app.modules.courses.blueprint_service import (
             BlueprintContentConflictError,
             assert_blueprint_ready_for_approval,
@@ -377,6 +427,365 @@ async def review_course(
     )
     await db.commit()
     course.reviewer = await _hydrate_reviewer(db, course)
+    return course
+
+
+async def _extract_course_source_revisions(
+    db: AsyncSession, course: Course, *, for_update: bool = False
+) -> tuple[list[str], dict[str, str], list[SourceDocumentRevisionInfo]]:
+    """Gathers authoritative source revisions from DB Document records and enforces strict consistency.
+
+    Invariants enforced:
+    1. DB Document records of the current tenant are the sole authoritative source of truth for document revisions.
+    2. All declared document IDs across:
+       - course.source_instruction_id
+       - course.source_document_ids
+       - lesson source_document_ids (for all lessons in the course)
+       - course.source_analysis (source_documents list and any other source document keys)
+       MUST exist in the DB for course.tenant_id.
+       Any missing document, foreign tenant document, unparseable ID, or missing DB revision
+       immediately raises ValueError (fail-closed).
+    3. Metadata in course.source_analysis is strictly validated against DB Document records.
+       Any conflict between analysis metadata and DB records raises ValueError (fail-closed).
+       Analysis metadata NEVER creates, overrides, or acts as a fallback for DB records.
+    4. Authoritative revisions are never forged (no fake revisions like 'vNone' or 'v0').
+    5. Both GET and POST endpoints construct and verify the identical authoritative mapping.
+    """
+    from app.models.document import Document
+    from app.modules.lessons.models import Lesson, Module
+
+    available_revisions: list[str] = []
+    authoritative_doc_revisions: dict[str, str] = {}
+    docs_info: list[SourceDocumentRevisionInfo] = []
+
+    # Map of UUID -> source description for clear domain error reporting
+    declared_docs: dict[UUID, str] = {}
+
+    # 1. Source instruction ID
+    if course.source_instruction_id is not None:
+        try:
+            inst_uuid = course.source_instruction_id if isinstance(course.source_instruction_id, UUID) else UUID(str(course.source_instruction_id).strip())
+            declared_docs[inst_uuid] = "инструкция курса"
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ValueError(f"Идентификатор инструкции курса '{course.source_instruction_id}' имеет неверный формат (ожидался UUID).") from exc
+
+    # 2. Course-level source document IDs
+    if getattr(course, "source_document_ids", None):
+        raw_course_docs = course.source_document_ids
+        if not isinstance(raw_course_docs, list):
+            raise ValueError("Поле 'source_document_ids' курса имеет неверный формат (ожидался список).")
+        for raw_id in raw_course_docs:
+            try:
+                doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id).strip())
+                if doc_uuid not in declared_docs:
+                    declared_docs[doc_uuid] = "документ источника курса"
+            except (ValueError, TypeError, AttributeError) as exc:
+                raise ValueError(f"Идентификатор документа курса '{raw_id}' имеет неверный формат (ожидался UUID).") from exc
+
+    # 3. Lesson-level declared source document IDs
+    lessons_stmt = (
+        select(Lesson)
+        .join(Module, Module.id == Lesson.module_id)
+        .where(Module.course_id == course.id, Lesson.tenant_id == course.tenant_id)
+    )
+    lessons_res = await db.execute(lessons_stmt)
+    for lesson in lessons_res.scalars().all():
+        lesson_source_ids = getattr(lesson, "source_document_ids", None)
+        if lesson_source_ids and isinstance(lesson_source_ids, list):
+            for raw_id in lesson_source_ids:
+                try:
+                    doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id).strip())
+                    if doc_uuid not in declared_docs:
+                        declared_docs[doc_uuid] = f"документ источника урока '{getattr(lesson, 'title', '')}'"
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise ValueError(f"Идентификатор документа источника урока '{raw_id}' имеет неверный формат (ожидался UUID).") from exc
+
+    # 4. Source analysis metadata source documents (MUST also be validated against DB!)
+    sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
+    sa_source_docs = sa.get("source_documents")
+    if sa_source_docs and isinstance(sa_source_docs, list):
+        for item in sa_source_docs:
+            if isinstance(item, dict) and item.get("id"):
+                raw_id = item["id"]
+                try:
+                    doc_uuid = raw_id if isinstance(raw_id, UUID) else UUID(str(raw_id).strip())
+                    if doc_uuid not in declared_docs:
+                        declared_docs[doc_uuid] = "документ из метаданных анализа"
+                except (ValueError, TypeError, AttributeError) as exc:
+                    raise ValueError(f"Идентификатор документа из анализа курса '{raw_id}' имеет неверный формат (ожидался UUID).") from exc
+
+    # 5. Authoritative verification against Database Document records of the CURRENT TENANT
+    if declared_docs:
+        docs_stmt = (
+            select(Document)
+            .where(
+                Document.id.in_(list(declared_docs.keys())),
+                Document.tenant_id == course.tenant_id,
+            )
+            .order_by(Document.id)
+        )
+        if for_update:
+            docs_stmt = docs_stmt.with_for_update()
+        docs_res = await db.execute(docs_stmt)
+        found_docs: dict[UUID, Document] = {cast(UUID, doc.id): doc for doc in docs_res.scalars().all()}
+
+        # Verify EVERY declared document exists in DB and belongs to the current tenant
+        for req_id, doc_label in declared_docs.items():
+            if req_id not in found_docs:
+                raise ValueError(
+                    f"Задекларированный {doc_label} с идентификатором '{req_id}' не найден в базе данных текущего тенанта."
+                )
+
+        # Build authoritative revisions solely from confirmed DB Document rows
+        for doc_uuid, doc in sorted(found_docs.items(), key=lambda kv: str(kv[0])):
+            doc_id_str = str(doc_uuid)
+            doc_sha = str(getattr(doc, "content_sha256", None) or "").strip()
+            doc_ver = getattr(doc, "version", None)
+            doc_idx_rev = getattr(doc, "index_revision", None)
+
+            # Determine canonical revision without inventing fake strings (no 'vNone')
+            doc_rev = ""
+            if doc_sha:
+                doc_rev = doc_sha
+            elif doc_ver is not None and str(doc_ver).strip() and str(doc_ver).strip().lower() != "none":
+                doc_rev = f"v{doc_ver}"
+            elif doc_idx_rev is not None and str(doc_idx_rev).strip() and str(doc_idx_rev).strip().lower() != "none":
+                doc_rev = f"rev{doc_idx_rev}"
+            elif course.source_instruction_id == doc_uuid and course.source_instruction_version_at:
+                doc_rev = course.source_instruction_version_at.isoformat()
+
+            if not doc_rev:
+                raise ValueError(
+                    f"Для документа источника '{getattr(doc, 'title', '') or doc_uuid}' не определена актуальная ревизия в базе данных."
+                )
+
+            authoritative_doc_revisions[doc_id_str] = doc_rev
+            available_revisions.append(doc_rev)
+            if doc_ver is not None:
+                available_revisions.append(f"v{doc_ver}")
+            if doc_sha:
+                available_revisions.append(doc_sha)
+
+            docs_info.append(
+                SourceDocumentRevisionInfo(
+                    document_id=doc_id_str,
+                    title=str(getattr(doc, "title", "") or "Документ источника"),
+                    filename=str(getattr(doc, "filename", "") or "source.pdf"),
+                    authoritative_revision=doc_rev,
+                )
+            )
+
+        # 6. Validate analysis metadata against authoritative DB records (Never overwrite DB revision!)
+        if sa_source_docs and isinstance(sa_source_docs, list):
+            for item in sa_source_docs:
+                if isinstance(item, dict) and item.get("id"):
+                    d_id_str = str(item["id"])
+                    analysis_rev = str(item.get("revision") or "").strip()
+                    if d_id_str not in authoritative_doc_revisions:
+                        raise ValueError(
+                            f"Документ источника '{d_id_str}' из анализа отсутствует среди задекларированных документов курса в базе данных."
+                        )
+                    db_rev = authoritative_doc_revisions[d_id_str]
+                    doc_obj = found_docs.get(UUID(d_id_str))
+                    valid_revs = {db_rev}
+                    if doc_obj:
+                        if getattr(doc_obj, "content_sha256", None):
+                            valid_revs.add(str(doc_obj.content_sha256).strip())
+                        if getattr(doc_obj, "version", None) is not None:
+                            valid_revs.add(f"v{doc_obj.version}")
+                    if analysis_rev and analysis_rev not in valid_revs:
+                        raise ValueError(
+                            f"Конфликт ревизий для документа '{d_id_str}': ревизия в анализе '{analysis_rev}' "
+                            f"не совпадает с актуальной ревизией документа в базе данных '{db_rev}'."
+                        )
+
+        # Single document check for general analysis revisions
+        sa_rev = str(sa.get("source_revision") or "").strip()
+        if sa_rev and len(found_docs) == 1:
+            single_doc = next(iter(found_docs.values()))
+            single_rev = authoritative_doc_revisions[str(single_doc.id)]
+            valid_revs = {single_rev}
+            if getattr(single_doc, "content_sha256", None):
+                valid_revs.add(str(single_doc.content_sha256).strip())
+            if getattr(single_doc, "version", None) is not None:
+                valid_revs.add(f"v{single_doc.version}")
+            if sa_rev not in valid_revs:
+                raise ValueError(
+                    f"Конфликт ревизий: ревизия в анализе курса '{sa_rev}' "
+                    f"не совпадает с актуальной ревизией документа в базе данных '{single_rev}'."
+                )
+
+        if course.source_instruction_version_at:
+            available_revisions.append(course.source_instruction_version_at.isoformat())
+
+    elif course.source_instruction_version_at:
+        # Verified DB timestamp column on Course (instruction version)
+        available_revisions.append(course.source_instruction_version_at.isoformat())
+
+    # When no authoritative documents exist in DB and no verified DB instruction version exists,
+    # available_revisions remains empty. Unbacked metadata strings in source_analysis (e.g. source_revision,
+    # document_revision, revision) are NEVER accepted as authoritative without matching tenant DB records.
+    unique_revisions = list(dict.fromkeys(r for r in available_revisions if r))
+    return unique_revisions, authoritative_doc_revisions, docs_info
+
+
+@router.get("/{course_id}/source-uncertainty", response_model=CourseSourceUncertaintyDetailsResponse)
+async def get_course_source_uncertainty_details(
+    course_id: UUID,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
+) -> CourseSourceUncertaintyDetailsResponse:
+    """Official methodologist inspection endpoint: delivers current content snapshot hash,
+    authoritative source document revisions, and active defect IDs required for resolution."""
+    from app.modules.courses.source_uncertainty import (
+        SOURCE_UNCERTAINTY_KEY,
+        compute_course_content_snapshot_hash,
+        get_active_source_defects,
+    )
+
+    query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
+    result = await db.execute(query)
+    course = result.scalar_one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    try:
+        content_hash = await compute_course_content_snapshot_hash(db, course)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_snapshot_build_failed",
+                "message": "Не удалось сформировать полный снимок курса для проверки целостности. Пожалуйста, проверьте доступность структуры курса.",
+            },
+        ) from exc
+
+    try:
+        avail_revs, _, docs_info = await _extract_course_source_revisions(db, course)
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
+
+    sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
+    has_hold = SOURCE_UNCERTAINTY_KEY in sa
+
+    raw_defects = get_active_source_defects(sa)
+    active_defects = [
+        CourseSourceUncertaintyDefectInfo(defect_id=d["defect_id"], description=d["description"])
+        for d in raw_defects
+    ]
+    history: list[dict[str, Any]] = list(sa.get("resolutions_history") or [])
+
+    return CourseSourceUncertaintyDetailsResponse(
+        course_id=cast(UUID, course.id),
+        has_active_hold=has_hold,
+        content_snapshot_hash=content_hash,
+        available_revisions=avail_revs,
+        source_documents=docs_info,
+        active_defects=active_defects,
+        resolutions_history=history,
+    )
+
+
+@router.post("/{course_id}/resolve-source-uncertainty", response_model=CourseResponse)
+async def resolve_course_source_uncertainty(
+    course_id: UUID,
+    req: CourseResolveSourceUncertaintyRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+    user: User = Depends(require_role("superadmin", "methodologist")),  # noqa: B008
+) -> Course:
+    """Authorized methodologist endpoint: clears server-owned source uncertainty hold.
+
+    Validates tenant isolation, records immutable resolution entry with user ID,
+    timestamp, and reason into Course.source_analysis, and writes an audit log.
+    """
+    from app.modules.courses.source_uncertainty import (
+        compute_course_content_snapshot_hash,
+        resolve_source_uncertainty,
+    )
+
+    query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id).with_for_update()
+    result = await db.execute(query)
+    course = result.scalar_one_or_none()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    try:
+        available_revisions, authoritative_document_revisions, _ = await _extract_course_source_revisions(
+            db, course, for_update=True
+        )
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_snapshot_build_failed",
+                "message": "Не удалось сформировать полный снимок курса для проверки целостности. Пожалуйста, проверьте доступность структуры курса.",
+            },
+        ) from exc
+
+    try:
+        actual_hash = await compute_course_content_snapshot_hash(db, course)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "course_snapshot_build_failed",
+                "message": "Не удалось сформировать полный снимок курса для проверки целостности. Пожалуйста, проверьте доступность структуры курса.",
+            },
+        ) from exc
+
+    defect_payload = [d.model_dump() for d in req.defect_resolutions]
+
+    try:
+        updated_analysis = resolve_source_uncertainty(
+            course.source_analysis,  # type: ignore[arg-type]
+            reason=req.reason,
+            methodologist_user_id=user.id,
+            expected_content_hash=req.expected_content_hash,
+            actual_content_hash=actual_hash,
+            verified_revision=req.verified_revision,
+            available_revisions=available_revisions or None,
+            authoritative_document_revisions=authoritative_document_revisions or None,
+            verified_revisions=req.verified_revisions or None,
+            defect_resolutions=defect_payload,
+        )
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "source_uncertainty_resolution_rejected", "message": str(val_err)},
+        ) from val_err
+
+    course.source_analysis = updated_analysis  # type: ignore[assignment]
+    await db.flush()
+    await db.refresh(course)
+    resolution_data = updated_analysis.get("source_uncertainty_resolution", {})
+    await log_action(
+        db,
+        user.tenant_id,  # type: ignore[arg-type]
+        "resolve_source_uncertainty",
+        "course",
+        resource_id=str(course.id),
+        user_id=user.id,  # type: ignore[arg-type]
+        details={
+            "reason": req.reason,
+            "resolved_at": resolution_data.get("resolved_at"),
+            "content_hash": resolution_data.get("content_hash"),
+            "verified_revision": resolution_data.get("verified_revision"),
+            "defect_resolutions": resolution_data.get("defect_resolutions"),
+        },
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
+    await db.commit()
+    course.reviewer = await _hydrate_reviewer(db, course)  # type: ignore[attr-defined]
     return course
 
 
@@ -453,6 +862,18 @@ async def publish_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    from app.modules.courses.source_uncertainty import (
+        is_qa_source_tenant,
+        qa_source_holds_enabled,
+        require_persisted_source_hold_clear,
+        require_source_uncertainty_clear,
+    )
+
+    if is_qa_source_tenant(user.tenant_id):
+        require_persisted_source_hold_clear(course.source_analysis)
+    qa_source_guard = qa_source_holds_enabled(user.tenant_id)
+    if qa_source_guard:
+        require_source_uncertainty_clear(course.source_analysis)
     if course.status == "published":
         if idempotency_key:
             # Another request may have committed while this request waited for

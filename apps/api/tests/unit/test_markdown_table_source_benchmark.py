@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -125,6 +126,51 @@ def test_overlapping_duplicate_table_rows_are_emitted_once() -> None:
         if fact.value == "до 20" and "column=" in fact.source_locator
     ]
     assert len(matching) == 1
+
+
+def test_table_overlap_tail_at_new_heading_is_not_a_narrative_rule() -> None:
+    value = "From 100 to 500 for the regional offices " + ", ".join(f"Office-{i:02d}" for i in range(18))
+    table = "| Category | Limit |\n|---|---|\n| A | " + value + " |"
+    procedure = "The clerk must total all requests from the same customer on the same day."
+    corpus = _corpus("# Limits\n\n" + table + "\n\n# Procedure\n\n" + procedure)
+    document = corpus.documents[0]
+    first = replace(document.chunks[0], chunk_id="table", text=table, headings=("Limits",), chunk_index=0)
+    second = replace(first, chunk_id="procedure", text=table[-120:] + "\n\n" + procedure,
+                     headings=("Procedure",), chunk_index=1)
+    corpus = replace(corpus, documents=(replace(document, chunks=(first, second)),), total_chunks=2)
+    source = build_evidence_source(corpus).document
+    facts = [fact for section in source.sections for fact in section.facts]
+    assert any(fact.value == value and "table=" in fact.source_locator for fact in facts)
+    prose = [fact.value for fact in facts if "table=" not in fact.source_locator]
+    assert any(procedure in text for text in prose)
+    assert not any("Office-" in text for text in prose), "Already-owned table tail leaked into narrative evidence"
+
+
+@pytest.mark.parametrize("boundary", ["owned", "unknown", "gap", "revision", "document"])
+def test_table_overlap_projection_preserves_unowned_bytes_and_refuses_foreign_boundaries(boundary) -> None:
+    from app.modules.ai.evidence_engine.application import _propagate_ordinary_table_spans, _without_source_spans
+
+    tail = "Exact tabular interval " + "x" * 40
+    corpus = _corpus("# Data\n\nA source paragraph.")
+    document = corpus.documents[0]
+    first = replace(document.chunks[0], text="prefix " + tail, chunk_id="first", chunk_index=0)
+    second = replace(first, text=" \n" + tail + "\n\nA new operative rule.", chunk_id="second", chunk_index=1,
+                     headings=("Another heading",))
+    if boundary == "gap":
+        second = replace(second, chunk_index=2)
+    elif boundary == "revision":
+        second = replace(second, source_revision="foreign-revision")
+    elif boundary == "document":
+        second = replace(second, doc_id="foreign-document")
+    corpus = replace(corpus, documents=(replace(document, chunks=(first, second)),), total_chunks=2)
+    owned = {} if boundary == "unknown" else {(document.doc_id, "first"): [(len("prefix "), len(first.text))]}
+    projected = _propagate_ordinary_table_spans(corpus, owned)
+    remaining = _without_source_spans(second.text, projected.get((document.doc_id, "second"), []))
+    if boundary == "owned":
+        assert remaining == " \n\n\nA new operative rule."
+    else:
+        assert remaining == second.text
+    assert owned.get((document.doc_id, "second")) is None
 
 
 def test_multiple_tables_under_one_heading_keep_distinct_identity_and_values() -> None:

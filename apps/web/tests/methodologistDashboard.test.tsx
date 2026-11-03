@@ -5,6 +5,7 @@ import { MethodologistDashboard } from '@/features/dashboard/MethodologistDashbo
 import { buildMethodologistDashboard } from '@/features/dashboard/model';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useLanguageStore } from '@/store/languageStore';
 
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn() } }));
 
@@ -55,6 +56,7 @@ const actionCenter = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  useLanguageStore.setState({ lang: 'ru' });
   useAuthStore.setState({
     accessToken: 'synthetic-token',
     initialized: true,
@@ -93,6 +95,22 @@ beforeEach(() => {
 });
 
 describe('methodologist operations dashboard', () => {
+  it.each([
+    ['ru', 'Сохранение или проверка результата', 'Не удалось создать курс'],
+    ['en', 'Saving or result verification required', 'Course generation failed'],
+    ['kk', 'Сақтау немесе нәтижені тексеру қажет', 'Курсты жасау мүмкін болмады'],
+  ] as const)('shows reconciliation without claiming failure in %s', async (lang, label, failedLabel) => {
+    useLanguageStore.setState({ lang });
+    apiMock.get.mockImplementation((path: string) => {
+      if (path === '/v1/ai/jobs') return Promise.resolve({ data: [
+        { id: 'job-reconcile', job_type: 'course_generation', status: 'reconciliation_required', stage: 'saving', created_at: '2026-09-24T10:00:00Z' },
+      ] });
+      return Promise.resolve({ data: path === '/v1/courses' ? [] : null });
+    });
+    render(<MethodologistDashboard />);
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText(failedLabel)).not.toBeInTheDocument();
+  });
   it('counts every relevant generation while limiting only the visible job list', () => {
     const jobs = [
       ...Array.from({ length: 6 }, (_, index) => ({

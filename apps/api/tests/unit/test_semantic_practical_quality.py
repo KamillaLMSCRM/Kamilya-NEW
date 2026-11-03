@@ -94,7 +94,7 @@ def test_missing_new_quality_judgment_does_not_silently_pass(field):
         _parse_reviews(json.dumps(raw), [q])
 
 
-def test_review_context_contains_only_each_questions_own_cited_evidence():
+def test_review_keeps_key_support_local_but_exposes_whole_governing_block():
     from app.modules.ai.evidence_engine.semantic_assessment import _review_request
     q = candidate()
     facts = [SourceFact("f1", "Storage", "scope", "The range contains cabinets, not beds.", "doc_id=d;section=s"),
@@ -102,7 +102,8 @@ def test_review_context_contains_only_each_questions_own_cited_evidence():
     request = _review_request("b", [q], facts)
     assert "facts" not in request
     assert [f["fact_id"] for f in request["questions"][0]["cited_facts"]] == ["f1"]
-    assert "Uncited supplementary" not in json.dumps(request)
+    assert [f["fact_id"] for f in request["governing_facts"]] == ["f1", "f2"]
+    assert "Uncited supplementary" not in json.dumps(request["questions"][0]["cited_facts"])
     assert "correct_answer" not in request["questions"][0]
 
 

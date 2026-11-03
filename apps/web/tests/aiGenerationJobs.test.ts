@@ -27,6 +27,10 @@ const job = (
 });
 
 describe('AI generation job recovery', () => {
+  it('restores a held reconciliation job instead of dropping it', () => {
+    const held = { ...job('held', '2026-08-06T08:00:00Z', null, 'saving', 'course_generation'), status: 'reconciliation_required' };
+    expect(selectOldestActiveCourseJob([held])?.id).toBe('held');
+  });
   it('restores a course-generation job before the course record exists', () => {
     const selected = selectOldestActiveCourseJob([
       job('document-index', '2026-08-06T08:00:00Z', null, 'index', 'document_reindex'),

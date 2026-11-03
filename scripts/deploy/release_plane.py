@@ -77,7 +77,10 @@ def _unique_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def feature_manifest_fields(candidate: str, previous: str, version: str) -> dict[str, Any]:
     """Workflow producer crosses the same strict flag seam as the host consumer."""
     candidate, previous = candidate.strip(), previous.strip()
+    modern = bool(re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version)) and tuple(int(p) for p in version.split(".")) >= (0, 11, 71)
     if not candidate and not previous:
+        if modern:
+            raise ReleasePlaneError("v3_feature_flags_required")
         return {"schema_version": 1}
     if not candidate or not previous:
         raise ReleasePlaneError("feature_flags_require_both_objects")
@@ -85,6 +88,8 @@ def feature_manifest_fields(candidate: str, previous: str, version: str) -> dict
         current_flags = json.loads(candidate, object_pairs_hook=_unique_json_pairs)
         old_flags = json.loads(previous, object_pairs_hook=_unique_json_pairs)
         staff = any(isinstance(item, dict) and "staff_structure" in item for item in (current_flags, old_flags))
+        if modern and not staff:
+            raise ReleasePlaneError("v3_feature_flags_required")
         return {"schema_version": 3 if staff else 2, "product_version": version,
                 "feature_flags": _feature_flags(current_flags, "feature_flags", include_staff=staff),
                 "previous_feature_flags": _feature_flags(old_flags, "previous_feature_flags", include_staff=staff)}
@@ -215,8 +220,14 @@ class ReleaseManifest:
             if not isinstance(manifest.product_version, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", manifest.product_version):
                 raise ReleasePlaneError("product_version_invalid")
             version = tuple(int(part) for part in manifest.product_version.split("."))
+            if version >= (0, 11, 71) and schema != 3:
+                raise ReleasePlaneError("v3_requires_schema3")
             if schema == 3 and version < (0, 11, 63):
                 raise ReleasePlaneError("staff_protocol_requires_version63")
+            if version >= (0, 11, 71) and manifest.migration.mode == "exact" and (
+                manifest.migration.from_revision != "0183" or manifest.migration.to_revision != "0184"
+            ):
+                raise ReleasePlaneError("v3_migration_revision_invalid")
             if manifest.feature_flags and manifest.feature_flags["lesson_correction"]:
                 if version < (0, 11, 39):
                     raise ReleasePlaneError("correction_requires_version39")
@@ -227,7 +238,7 @@ class ReleaseManifest:
                     raise ReleasePlaneError("correction_migration_revision_invalid")
             if manifest.feature_flags and manifest.feature_flags.get("staff_structure"):
                 if manifest.migration.mode == "exact" and (
-                    manifest.migration.from_revision != "0181" or manifest.migration.to_revision != "0183"
+                    (manifest.migration.from_revision, manifest.migration.to_revision) != manifest.correction_revisions
                 ):
                     raise ReleasePlaneError("staff_migration_revision_invalid")
         if not isinstance(manifest.release_id, str) or not RELEASE_ID_RE.fullmatch(
@@ -257,6 +268,8 @@ class ReleaseManifest:
         if self.product_version is None:
             raise ReleasePlaneError("correction_requires_product_version")
         version = tuple(int(part) for part in self.product_version.split("."))
+        if version >= (0, 11, 71):
+            return "0183", "0184"
         if version >= (0, 11, 63):
             return "0181", "0183"
         if version >= (0, 11, 55):
@@ -661,6 +674,13 @@ class ReleasePlane:
                 if self.manifest.schema_version >= 2:
                     self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.feature_flags)
                     self._wait_health(self.config.public_health_url, state.release_sha, self.manifest.product_version)
+                    if (self.manifest.product_version is not None
+                            and tuple(int(part) for part in self.manifest.product_version.split(".")) >= (0, 11, 71)):
+                        candidate_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.feature_flags)
+                        current = self.runner.run(self._compose(state.active_slot, "run", "--rm", "--no-deps",
+                            "--entrypoint", "/app/.venv/bin/alembic", "api", "current"), env=candidate_env)
+                        if not self._revision_matches(current, self.manifest.correction_revisions[1]):
+                            raise ReleasePlaneError("correction_schema_revision_mismatch")
                 result = {
                     **self._feature_evidence(),
                     "run_id": run_id,
@@ -745,6 +765,8 @@ class ReleasePlane:
                     raise ReleasePlaneError("migration_revision_before_mismatch")
             elif self.manifest.feature_flags and (
                 self.manifest.feature_flags["lesson_correction"] or self.manifest.feature_flags.get("staff_structure")
+                or (self.manifest.product_version is not None
+                    and tuple(int(part) for part in self.manifest.product_version.split(".")) >= (0, 11, 71))
             ):
                 current = self.runner.run(self._compose(inactive, "run", "--rm", "--no-deps",
                     "--entrypoint", "/app/.venv/bin/alembic", "api", "current"), env=candidate_env)

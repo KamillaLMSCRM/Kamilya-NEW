@@ -127,6 +127,27 @@ type CourseFormat = 'automatic' | 'brief' | 'standard' | 'detailed';
 
 type Step = 'documents' | 'generate' | 'review';
 
+type GenerationConflictState = {
+  jobId: string;
+  sourceSignature: string;
+  actorSignature: string;
+  scopeKey: string;
+  scopeRevision: number;
+  status: 'unread' | 'reading' | 'active' | 'terminal' | 'error' | 'invalid';
+  reason?: 'dispatch_unknown';
+  job?: AIGenerationJob;
+};
+
+const canonicalJobId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isCanonicalJobId(value: unknown): value is string {
+  return typeof value === 'string' && canonicalJobId.test(value);
+}
+
+function isTerminalJob(job: AIGenerationJob): boolean {
+  return ['completed', 'failed', 'cancelled', 'abandoned'].includes(job.status);
+}
+
 interface DocumentIndexProgress {
   jobId: string;
   current: number | null;
@@ -136,6 +157,11 @@ interface DocumentIndexProgress {
 }
 export default function AIGeneratePage() {
   const { t, tp, lang } = useT();
+  const unknownAbandonCopy = lang === 'ru'
+    ? { action: 'Оставить как прерванную (результат неизвестен)', refresh: 'Обновить статус', title: 'Оставить эту генерацию прерванной?', description: 'Результат у провайдера и стоимость неизвестны. Текущий запрос никогда не будет повторён; история, источники и учёт сохранятся. Следующая генерация будет отдельной затратой.', acknowledge: 'Я понимаю, что результат и стоимость неизвестны.', cancel: 'Продолжить наблюдение', confirm: 'Оставить прерванной', submitting: 'Сохраняем…', abandoned: 'Генерация оставлена прерванной; результат и стоимость провайдера неизвестны.', failed: 'Не удалось оставить генерацию прерванной.' }
+    : lang === 'kk'
+      ? { action: 'Аяқталмаған деп белгілеу (нәтиже белгісіз)', refresh: 'Күйін жаңарту', title: 'Бұл генерацияны аяқталмаған деп белгілейсіз бе?', description: 'Провайдердің нәтижесі мен құны белгісіз. Ағымдағы сұрау ешқашан қайталанбайды; тарих, бастапқы материалдар және есеп жазбасы сақталады. Кейінгі генерация бөлек шығын болады.', acknowledge: 'Нәтиже мен құнның белгісіз екенін түсінемін.', cancel: 'Бақылауды жалғастыру', confirm: 'Аяқталмаған деп белгілеу', submitting: 'Сақталуда…', abandoned: 'Генерация аяқталмаған деп белгіленді; провайдер нәтижесі мен құны белгісіз.', failed: 'Генерацияны аяқталмаған деп белгілеу мүмкін болмады.' }
+    : { action: 'Mark abandoned (outcome unknown)', refresh: 'Refresh outcome', title: 'Abandon this generation?', description: 'The provider outcome and cost are unknown. The current request will never be retried; its history, sources and accounting record stay retained. A later generation is a separate cost.', acknowledge: 'I understand the outcome and cost are unknown.', cancel: 'Keep monitoring', confirm: 'Abandon generation', submitting: 'Abandoning…', abandoned: 'Generation abandoned; provider outcome and cost remain unknown.', failed: 'Could not reconcile the generation.' };
   const stages = [
     { key: 'ingestion', label: t('aiGeneration.stages.ingestion'), icon: FileText, color: 'text-primary' },
     { key: 'architect', label: t('aiGeneration.stages.architect'), icon: Building2, color: 'text-accent' },
@@ -146,6 +172,10 @@ export default function AIGeneratePage() {
   ];
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
+  const sessionEpoch = useAuthStore((s) => s.sessionEpoch);
+  const userId = useAuthStore((s) => s.user?.user_id ?? null);
+  const tenantId = useAuthStore((s) => s.user?.tenant_id ?? null);
+  const role = useAuthStore((s) => s.user?.role ?? null);
 
   const [pageStep, setPageStep] = useState<Step>('documents');
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -157,6 +187,7 @@ export default function AIGeneratePage() {
   const [manualModules, setManualModules] = useState(false);
   const [language, setLanguage] = useState('ru');
   const [requestedProgramId, setRequestedProgramId] = useState<string | null>(null);
+  const workflowRequestKeyRef = useRef<() => string>(() => 'initial');
   const {
     currentJob,
     programId,
@@ -166,9 +197,10 @@ export default function AIGeneratePage() {
     refreshJob,
     cancelJob,
     resumeJob,
+    resumeReconciliation,
     prepareRetry,
     resetWorkflow,
-  } = useGenerationWorkflow(requestedProgramId);
+  } = useGenerationWorkflow(requestedProgramId, () => workflowRequestKeyRef.current());
   const step = currentJob ? workflowStep : pageStep;
   const savedAssessmentDraftId = (
     currentJob?.status === 'interrupted'
@@ -198,7 +230,15 @@ export default function AIGeneratePage() {
   const [combinationGoal, setCombinationGoal] = useState('');
   const [admissionError, setAdmissionError] = useState(false);
   const [admissionRetryAfter, setAdmissionRetryAfter] = useState<number | null>(null);
+  const [generationConflict, setGenerationConflict] = useState<GenerationConflictState | null>(null);
+  const [abandonDialog, setAbandonDialog] = useState(false);
+  const [abandonAcknowledged, setAbandonAcknowledged] = useState(false);
+  const [abandonSubmitting, setAbandonSubmitting] = useState(false);
+  const [abandonReconcileOnly, setAbandonReconcileOnly] = useState(false);
+  const [abandonTargetJobId, setAbandonTargetJobId] = useState<string | null>(null);
+  const abandonAttemptedRef = useRef<string | null>(null);
   const [generationSubmitting, setGenerationSubmitting] = useState(false);
+  const generationSubmittingRef = useRef<string | null>(null);
   const [reuseDialog, setReuseDialog] = useState<{
     open: boolean;
     courses: ReusedSourceCourse[];
@@ -216,6 +256,64 @@ export default function AIGeneratePage() {
     reuseReason: ReuseReason | null;
   }>({ languageConfirmed: false, reuseReason: null });
   const fileRef = useRef<HTMLInputElement>(null);
+  const actorSignature = `${sessionEpoch}:${tenantId ?? ''}:${userId ?? ''}:${role ?? ''}`;
+  const sourceSignature = JSON.stringify({
+    documents: [...selectedDocIds].sort(),
+    language,
+    sourceStrategy,
+    combinationGoal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
+    targetAudience: targetAudience.trim(),
+    courseIntent: courseIntent.trim(),
+    courseFormat,
+    manualModules,
+    numModules: manualModules ? numModules : null,
+  });
+  const scopeKey = `${actorSignature}:${sourceSignature}:${requestedProgramId ?? ''}`;
+  const scopeRevisionRef = useRef(0);
+  const scopeKeyRef = useRef(scopeKey);
+  if (scopeKeyRef.current !== scopeKey) {
+    scopeRevisionRef.current += 1;
+    scopeKeyRef.current = scopeKey;
+  }
+  const generationConflictRef = useRef<GenerationConflictState | null>(null);
+  const actorSignatureRef = useRef(actorSignature);
+  actorSignatureRef.current = actorSignature;
+  const generationPageMountedRef = useRef(true);
+  workflowRequestKeyRef.current = () => (
+    `${generationPageMountedRef.current ? 'mounted' : 'unmounted'}:${actorSignatureRef.current}:${scopeKeyRef.current}:${scopeRevisionRef.current}`
+  );
+
+  useEffect(() => {
+    generationPageMountedRef.current = true;
+    return () => {
+      generationPageMountedRef.current = false;
+      scopeRevisionRef.current += 1;
+      generationConflictRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    generationConflictRef.current = generationConflict;
+  }, [generationConflict]);
+
+  useEffect(() => {
+    setGenerationConflict((current) => {
+      if (!current) return current;
+      if (current.scopeKey === scopeKey && current.scopeRevision === scopeRevisionRef.current) return current;
+      generationConflictRef.current = null;
+      return null;
+    });
+  }, [scopeKey]);
+
+  useEffect(() => {
+    const conflict = generationConflictRef.current;
+    if (!conflict || conflict.status !== 'active' || !conflict.job) return;
+    if (currentJob && currentJob.id !== conflict.jobId) return;
+    if (!currentJob || isTerminalJob(currentJob)) {
+      generationConflictRef.current = null;
+      setGenerationConflict(null);
+    }
+  }, [currentJob]);
 
   // Result-step state: preview of the generated course + approval.
   const [preview, setPreview] = useState<any | null>(null);
@@ -298,7 +396,8 @@ export default function AIGeneratePage() {
     && selectedNotReadyCount === 0
     && !compatibilityLoading
     && !!compatibility
-    && hasResolvedSourceDecision;
+    && hasResolvedSourceDecision
+    && (!generationConflict || generationConflict.status === 'terminal');
   const uploading = uploadingCount > 0;
 
   const documentStatusLabel = (status: DocumentIndexStatus) => {
@@ -556,9 +655,16 @@ export default function AIGeneratePage() {
   };
 
   const handleGenerate = async (reuseReason?: ReuseReason, languageConfirmed = false) => {
-    if (!canGenerate || generationSubmitting) return;
+    const requestScopeKey = scopeKey;
+    const requestScopeRevision = scopeRevisionRef.current;
+    const requestActorSignature = actorSignature;
+    const submissionToken = `${requestActorSignature}:${requestScopeKey}:${requestScopeRevision}`;
+    if (!canGenerate || generationSubmitting || generationSubmittingRef.current) return;
+    generationSubmittingRef.current = submissionToken;
+    generationConflictRef.current = null;
     setAdmissionError(false);
     setAdmissionRetryAfter(null);
+    setGenerationConflict(null);
     setGenerationSubmitting(true);
     const confirmedLanguage = languageConfirmed || acknowledgements.languageConfirmed;
     const confirmedReuseReason = reuseReason ?? acknowledgements.reuseReason;
@@ -575,15 +681,35 @@ export default function AIGeneratePage() {
         language_confirmed: confirmedLanguage,
         ...(confirmedReuseReason ? { reuse_reason: confirmedReuseReason } : {}),
       });
+      // An admitted job remains in its server-owned history. Do not persist it
+      // into a later account/page; same-actor access-token refresh is valid.
+      if (!generationPageMountedRef.current || actorSignatureRef.current !== requestActorSignature) return;
       setReuseDialog({ open: false, courses: [], reason: null });
       setLanguageConfirmation({ open: false, detectedLanguages: [] });
       setAcknowledgements({ languageConfirmed: false, reuseReason: null });
       startJob(res.data);
     } catch (e: any) {
+      if (!generationPageMountedRef.current || scopeKeyRef.current !== requestScopeKey || scopeRevisionRef.current !== requestScopeRevision) return;
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
       if (e?.response?.status === 429 && detail?.code === 'tenant_ai_job_limit_reached') {
         setAdmissionError(true);
         setAdmissionRetryAfter(parseRetryAfterSeconds(e));
+        return;
+      }
+      if (e?.response?.status === 409 && detail?.code === 'generation_already_in_progress') {
+        const jobId = detail?.job_id;
+        if (isCanonicalJobId(jobId)) {
+          setGenerationConflict({ jobId, sourceSignature, actorSignature, scopeKey: requestScopeKey, scopeRevision: requestScopeRevision, status: 'unread' });
+        } else {
+          setGenerationConflict({
+            jobId: '', sourceSignature, actorSignature, scopeKey: requestScopeKey, scopeRevision: requestScopeRevision, status: 'invalid',
+          });
+        }
+        return;
+      }
+      if (e?.response?.status === 503 || detail?.code === 'ai_job_dispatch_outcome_unknown') {
+        const jobId = isCanonicalJobId(detail?.job_id) ? detail.job_id : '';
+        setGenerationConflict({ jobId, sourceSignature, actorSignature, scopeKey: requestScopeKey, scopeRevision: requestScopeRevision, status: jobId ? 'unread' : 'invalid', reason: 'dispatch_unknown' });
         return;
       }
       if (['mixed_document_topics', 'source_combination_goal_required'].includes(detail?.code) && detail.analysis) {
@@ -607,7 +733,85 @@ export default function AIGeneratePage() {
       console.error('Generation failed', e);
       toast.error(t('aiGeneration.errors.generation'), { description: t('aiGeneration.errors.generationHint') });
     } finally {
+      if (generationSubmittingRef.current === submissionToken) generationSubmittingRef.current = null;
       setGenerationSubmitting(false);
+    }
+  };
+
+  const readGenerationConflict = async () => {
+    const admitted = generationConflictRef.current;
+    if (!generationPageMountedRef.current || !admitted || admitted.status === 'reading' || admitted.status === 'invalid') return;
+    if (admitted.scopeKey !== scopeKey || admitted.scopeRevision !== scopeRevisionRef.current) return;
+    setGenerationConflict({ ...admitted, status: 'reading' });
+    try {
+      const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${admitted.jobId}`);
+      const job = response.data;
+      const current = generationConflictRef.current;
+      if (
+        !current
+        || current.jobId !== admitted.jobId
+        || current.scopeKey !== scopeKey
+        || current.scopeRevision !== scopeRevisionRef.current
+      ) return;
+      if (!isCanonicalJobId(job?.id) || job.id !== admitted.jobId) {
+        setGenerationConflict({ ...current, status: 'invalid' });
+        return;
+      }
+      if (isTerminalJob(job)) {
+        setGenerationConflict({ ...current, status: 'terminal', job });
+        return;
+      }
+      // Explicitly clear both requested and inherited program context. The
+      // existing job must never be attached to the current learning program.
+      startJob(job, { programId: null });
+      setGenerationConflict({ ...current, status: 'active', job });
+    } catch {
+      const current = generationConflictRef.current;
+      if (!current || current.jobId !== admitted.jobId || current.scopeKey !== scopeKey || current.scopeRevision !== scopeRevisionRef.current) return;
+      setGenerationConflict({ ...current, status: 'error' });
+    }
+  };
+
+  const abandonUnknownGeneration = async () => {
+    const admitted = generationConflictRef.current;
+    const target = abandonTargetJobId === currentJob?.id ? currentJob
+      : abandonTargetJobId === admitted?.job?.id ? admitted.job : null;
+    if (!abandonAcknowledged || abandonSubmitting || !target || !target.abandon_available) return;
+    const reconcileOnly = abandonAttemptedRef.current === target.id;
+    abandonAttemptedRef.current = target.id;
+    setAbandonSubmitting(true);
+    try {
+      if (!reconcileOnly) {
+        try {
+          await api.post(`/v1/ai/jobs/${target.id}/abandon-unknown`, {
+            acknowledge_outcome_and_cost_unknown: true,
+          });
+        } catch {
+          // The acknowledgement may have committed; reconcile before showing failure.
+        }
+      }
+      const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${target.id}`);
+      const job = response.data;
+      if (!isCanonicalJobId(job?.id) || job.id !== target.id) throw new Error('abandon_job_identity_mismatch');
+      if (job.status !== 'abandoned') {
+        setAbandonReconcileOnly(true);
+        toast.error(unknownAbandonCopy.failed, { description: t('aiGeneration.errors.generationConflictReadFailed') });
+        return;
+      }
+      resetWorkflow();
+      if (admitted) setGenerationConflict({ ...admitted, status: 'terminal', job });
+      setAbandonDialog(false);
+      setAbandonAcknowledged(false);
+      setAbandonReconcileOnly(false);
+      setAbandonTargetJobId(null);
+      abandonAttemptedRef.current = null;
+    } catch (error: any) {
+      setAbandonReconcileOnly(true);
+      toast.error(unknownAbandonCopy.failed, {
+        description: t('aiGeneration.errors.generationConflictReadFailed'),
+      });
+    } finally {
+      setAbandonSubmitting(false);
     }
   };
 
@@ -942,6 +1146,76 @@ export default function AIGeneratePage() {
               })}
             </p>
           )}
+        </div>
+      )}
+      {generationConflict && (
+        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm text-foreground" role="alert">
+          {generationConflict.status === 'invalid' ? (
+            <>
+              <p className="font-medium">{t('aiGeneration.errors.generationConflictInvalid')}</p>
+              <p className="mt-1 text-muted-foreground">{t('aiGeneration.errors.generationConflictHint')}</p>
+            </>
+          ) : generationConflict.status === 'terminal' ? (
+            <>
+              <p className="font-medium">{generationConflict.job?.status === 'abandoned' ? unknownAbandonCopy.abandoned : t('aiGeneration.errors.generationConflictTerminal')}</p>
+              <button type="button" className="mt-3 underline" onClick={() => { generationConflictRef.current = null; setGenerationConflict(null); }}>
+                {t('aiGeneration.errors.generationConflictPrepareNew')}
+              </button>
+            </>
+          ) : generationConflict.status === 'error' ? (
+            <>
+              <p className="font-medium">{t('aiGeneration.errors.generationConflictReadFailed')}</p>
+              <button type="button" className="mt-3 underline" onClick={() => void readGenerationConflict()}>
+                {t('asyncOperation.checkAgain')}
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">{generationConflict.reason === 'dispatch_unknown' ? (lang === 'ru' ? 'Запрос принят, но подтверждение провайдера неизвестно.' : lang === 'kk' ? 'Сұрау қабылданды, бірақ провайдердің растауы белгісіз.' : 'The request may have been accepted, but provider acknowledgement is unknown.') : t('aiGeneration.errors.generationConflict')}</p>
+              <p className="mt-1 text-muted-foreground">{generationConflict.reason === 'dispatch_unknown' ? (lang === 'ru' ? 'Повторная отправка не выполняется. Откройте точный статус сохранённой задачи.' : lang === 'kk' ? 'Қайта жіберу орындалмайды. Сақталған тапсырманың нақты күйін ашыңыз.' : 'The request will not be sent again. Open the exact saved job status.') : t('aiGeneration.errors.generationConflictHint')}</p>
+              {generationConflict.status === 'active' && generationConflict.job ? (
+                <>
+                  <p className="mt-2 text-muted-foreground">
+                    {t('aiGeneration.errors.generationConflictProgress', {
+                      progress: generationConflict.job.progress ?? 0,
+                    })}
+                  </p>
+                  {generationConflict.job.abandon_available && (
+                    <button type="button" className="mt-3 rounded-lg border border-destructive/40 px-3 py-2 font-medium hover:bg-destructive/10" onClick={() => { setAbandonTargetJobId(generationConflict.job!.id); setAbandonDialog(true); }}>
+                      {abandonReconcileOnly ? unknownAbandonCopy.refresh : unknownAbandonCopy.action}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="mt-3 rounded-lg border border-warning/50 px-3 py-2 font-medium hover:bg-warning/10 disabled:opacity-60"
+                  disabled={generationConflict.status === 'reading'}
+                  onClick={() => void readGenerationConflict()}
+                >
+                  {generationConflict.status === 'reading'
+                    ? t('aiGeneration.errors.generationConflictReading')
+                    : t('aiGeneration.errors.generationConflictOpen')}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {abandonDialog && (generationConflict?.job ?? currentJob)?.abandon_available && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="unknown-abandon-title">
+          <div className="w-full max-w-lg rounded-2xl border bg-card p-6 shadow-card-lg">
+            <h2 id="unknown-abandon-title" className="text-lg font-semibold">{unknownAbandonCopy.title}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{unknownAbandonCopy.description}</p>
+            <label className="mt-4 flex items-start gap-2 text-sm">
+              <input type="checkbox" checked={abandonAcknowledged} onChange={(event) => setAbandonAcknowledged(event.target.checked)} />
+              <span>{unknownAbandonCopy.acknowledge}</span>
+            </label>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="rounded-lg border px-3 py-2" disabled={abandonSubmitting} onClick={() => { setAbandonDialog(false); setAbandonAcknowledged(false); setAbandonTargetJobId(null); }}>{unknownAbandonCopy.cancel}</button>
+              <button type="button" className="rounded-lg bg-destructive px-3 py-2 text-destructive-foreground disabled:opacity-50" disabled={!abandonAcknowledged || abandonSubmitting} onClick={() => void abandonUnknownGeneration()}>{abandonSubmitting ? unknownAbandonCopy.submitting : abandonReconcileOnly ? unknownAbandonCopy.refresh : unknownAbandonCopy.confirm}</button>
+            </div>
+          </div>
         </div>
       )}
       {step === 'documents' && (
@@ -1364,13 +1638,25 @@ export default function AIGeneratePage() {
       {/* STEP 2: Generation progress */}
       {step === 'generate' && currentJob && (
         <div className="space-y-6">
-          <GenerationProgressPanel
+          {currentJob.abandon_available && (
+            <button type="button" className="rounded-lg border border-destructive/40 px-3 py-2 font-medium hover:bg-destructive/10" onClick={() => { setAbandonTargetJobId(currentJob.id); setAbandonDialog(true); }}>
+              {abandonReconcileOnly ? unknownAbandonCopy.refresh : unknownAbandonCopy.action}
+            </button>
+          )}
+          {currentJob.status === 'reconciliation_required' ? (
+            <div role="alert" className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-foreground">
+              <p>{currentJob.message}</p>
+              <button type="button" className="mt-3 underline" onClick={() => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message }))}>
+                {t('asyncOperation.checkAgain')}
+              </button>
+            </div>
+          ) : <GenerationProgressPanel
             lang={lang}
             job={currentJob}
             stages={stages}
             title={t('ai.progress')}
             labels={{ queued: t('asyncOperation.queued'), running: t('asyncOperation.running'), completed: t('asyncOperation.completed'), failed: t('asyncOperation.failed'), cancelled: t('asyncOperation.cancelled'), interrupted: savedAssessmentDraftId ? t('ai.assessmentNeedsReview') : t('asyncOperation.interrupted'), stalled: t('asyncOperation.stalled') }}
-            retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
+            retryLabel={savedAssessmentDraftId ? t('ai.openSavedDraft') : resumeReconciliation ? (lang === 'ru' ? 'Проверить статус' : lang === 'kk' ? 'Күйін тексеру' : 'Check status') : currentJob.status === 'interrupted' ? t('asyncOperation.continue') : resolveAsyncOperationState(currentJob) === 'failed' ? t('ai.newCourse') : t('asyncOperation.retry')}
             checkAgainLabel={t('asyncOperation.checkAgain')}
             cancelLabel={savedAssessmentDraftId ? t('ai.newCourse') : t('asyncOperation.cancel')}
             cancelQueuedLabel={t('asyncOperation.cancelQueued')}
@@ -1380,9 +1666,13 @@ export default function AIGeneratePage() {
             estimatedWait={t('ai.estimatedWait', { minutes: Math.max(1, Math.ceil((currentJob.estimated_wait_seconds ?? 0) / 60)) })}
             queueEstimateHint={t('ai.queueEstimateHint')}
             completedUnitsLabel={t('ai.savedLessonsProgress')}
-            onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : currentJob.status === 'interrupted' ? () => void resumeJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message })) : retryGeneration}
-            onCancel={savedAssessmentDraftId ? createNewCourse : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
-          />
+            onRetry={savedAssessmentDraftId ? () => router.push(`/courses/${savedAssessmentDraftId}/edit`) : resumeReconciliation ? () => void resumeJob().catch(() => toast.error(t('common.loadFailed'))) : currentJob.status === 'interrupted' ? () => void resumeJob().catch(() => toast.error(t('common.loadFailed'))) : resolveAsyncOperationState(currentJob) === 'stalled' ? () => void refreshJob().catch(() => toast.error(t('common.loadFailed'))) : retryGeneration}
+            onCancel={savedAssessmentDraftId
+              ? createNewCourse
+              : currentJob.abandon_available || resumeReconciliation
+              ? undefined as unknown as () => void
+              : () => void cancelJob().catch((error) => console.error('Cancel failed', error))}
+          />}
 
           {currentJob.status === 'completed' && currentJob.course_id && (
             <button

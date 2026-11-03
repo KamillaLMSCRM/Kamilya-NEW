@@ -1182,7 +1182,7 @@ def test_provider_v2_returns_publishable_grounded_blocks_for_clean_result() -> N
     }
 
 
-def test_provider_v2_repairs_ocr_noise_without_methodologist_preflight() -> None:
+def test_provider_v2_repairs_visible_ocr_noise_but_retains_source_review_requirement() -> None:
     source = _narrative_source(
         "Микрокредит не предоставляется выше ()()() месячного расчётного показателя.",
         "Заявление рассматривается сотрудником ломбарда.",
@@ -1197,7 +1197,8 @@ def test_provider_v2_repairs_ocr_noise_without_methodologist_preflight() -> None
 
     assert chat.attempts == 2
     assert result.provider_fallback_count == 0
-    assert result.publishability.publishable is True
+    assert result.publishability.publishable is False
+    assert "incomplete_source_admission" in result.publishability.reasons
     assert result.publishability.ocr_artifact_count == 0
     assert "()()()" not in result.realized_course.lessons[0].content
     assert result.realized_course.lessons[0].title == "Условия рассмотрения заявления"

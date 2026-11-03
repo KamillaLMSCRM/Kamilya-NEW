@@ -386,6 +386,18 @@ def test_read_only_sudo_docker_evidence_format_is_narrowly_allowed(monkeypatch, 
     assert manifest.mode == "read-only"
 
 
+def test_read_only_docker_evidence_format_allows_only_fixed_vm_worker(monkeypatch, tmp_path) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    body = "sudo -n docker inspect --format '" + remote.DOCKER_EVIDENCE_FORMAT + "' kamilya-dev-worker"
+    path = _script(tmp_path, body)
+    manifest = remote.load_script(path, target="vm126", mode="read-only", correlation_id="", expected_sha256="")
+    assert manifest.mode == "read-only"
+
+    foreign = _script(tmp_path, "sudo -n docker inspect --format '" + remote.DOCKER_EVIDENCE_FORMAT + "' kamilya-dev-worker-2")
+    with pytest.raises(remote.GateBlocked, match="read_only"):
+        remote.load_script(foreign, target="vm126", mode="read-only", correlation_id="", expected_sha256="")
+
+
 @pytest.mark.parametrize("slot", ("blue", "green"))
 @pytest.mark.parametrize(
     "service",
@@ -527,6 +539,57 @@ def test_api_log_sanitizer_does_not_emit_existing_uuid_evidence_format() -> None
     )
     assert evidence == ["EVIDENCE|api_exception=ValueError"]
     assert "0228597d" not in " ".join(evidence)
+
+
+def test_capacity_sanitizer_keeps_only_validated_root_disk_and_memory_numbers() -> None:
+    raw = (
+        "Filesystem 1B-blocks Used Available Use% Mounted on\n"
+        "54065438720 25000000000 27000000000 49% /\n"
+        "Mem: 8000000000 2000000000 1000000000 1000000 5000000000 6000000000\n"
+        "private https://example.invalid/token\n"
+    ).encode()
+    evidence = remote.capacity_evidence_lines(raw)
+    assert evidence == [
+        "EVIDENCE|root_disk_total_bytes=54065438720",
+        "EVIDENCE|root_disk_used_bytes=25000000000",
+        "EVIDENCE|root_disk_available_bytes=27000000000",
+        "EVIDENCE|root_disk_percent=49",
+        "EVIDENCE|memory_total_bytes=8000000000",
+        "EVIDENCE|memory_used_bytes=2000000000",
+        "EVIDENCE|memory_available_bytes=6000000000",
+        "EVIDENCE|memory_cache_bytes=5000000000",
+    ]
+    assert "example.invalid" not in " ".join(evidence)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    (
+        b"1 1 0 100% /\n2 1 1 50% /\nMem: 8 2 1 0 4 6\n",
+        b"1 1 0 100% /\n",
+        b"1 2 0 100% /\nMem: 8 2 1 0 4 6\n",
+        b"1 1 0 101% /\nMem: 8 2 1 0 4 6\n",
+        b"1 1 0 100% /\nMem: 8 9 1 0 4 6\n",
+        b"1 1 1 100% /\nMem: 8 2 1 0 4 6\n",
+        b"9223372036854775808 1 1 1% /\nMem: 8 2 1 0 4 6\n",
+    ),
+)
+def test_capacity_sanitizer_rejects_missing_duplicate_or_impossible_records(raw: bytes) -> None:
+    with pytest.raises(remote.GateBlocked, match="remote_capacity_contract_invalid"):
+        remote.capacity_evidence_lines(raw)
+
+
+def test_capacity_sanitizer_requires_the_exact_reviewed_probe_commands() -> None:
+    exact = b"sudo -n df -B1 --output=size,used,avail,pcent,target /\nsudo -n free -b\n"
+    altered = b"sudo -n df -B1 --output=size,used,avail,pcent,target /home\nsudo -n free -b\n"
+    assert remote._uses_capacity_sanitizer(exact)
+    assert not remote._uses_capacity_sanitizer(altered)
+    assert not remote._uses_capacity_sanitizer(
+        exact + b"df -B1 --output=size,used,avail,pcent,target /home\n"
+    )
+    assert not remote._uses_capacity_sanitizer(
+        exact + b"df\t-h /\n"
+    )
 
 
 def test_evidence_lines_extracts_only_sanitized_generation_error_metadata() -> None:

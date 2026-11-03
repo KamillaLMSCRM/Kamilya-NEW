@@ -1,0 +1,407 @@
+import asyncio
+import json
+import logging
+import socket
+from unittest.mock import AsyncMock
+from uuid import uuid4
+
+import httpx
+import pytest
+
+from app.modules.ai.direct_luna_responses_client import (
+    DirectLunaResponsesClient,
+    ResponsesClientError,
+)
+
+
+@pytest.fixture
+def fixture(monkeypatch):
+    requests = []
+    state = {"count": {"object": "response.input_tokens", "input_tokens": 12}, "status": 200,
+             "output": [{"type": "message", "role": "assistant", "status": "completed",
+                         "content": [{"type": "output_text", "text": '{"ok":true}'}]}]}
+    class Stream(httpx.AsyncByteStream):
+        def __init__(self, value):
+            self.value = value
+        async def __aiter__(self):
+            yield json.dumps(self.value).encode()
+    def handler(request):
+        requests.append(request)
+        if request.url.path.endswith("input_tokens"):
+            return httpx.Response(state["status"], stream=Stream(state["count"]))
+        return httpx.Response(200, stream=Stream({"model": "gpt-6-luna", "status": "completed",
+                                                "output": state["output"], "usage": {"input_tokens": 0}}))
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    tenant, user = uuid4(), uuid4()
+    client = DirectLunaResponsesClient(api_key="synthetic-secret", tenant_id=tenant, user_id=user, job_id="job")
+    return client, tenant, user, state, requests
+
+
+@pytest.mark.asyncio
+async def test_count_capability_generation_once_and_exact_input(fixture):
+    client, tenant, user, _, requests = fixture
+    messages = [{"role": "user", "content": "synthetic"}]
+    cap = await client.prepare(messages, max_output_tokens=100, ownership_checkpoint=AsyncMock(return_value=True))
+    messages[0]["content"] = "mutated"
+    result = await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    count, generation = [json.loads(request.content) for request in requests]
+    assert count == {key: value for key, value in generation.items() if key not in {"store", "max_output_tokens"}}
+    assert generation["input"][1]["content"] == "synthetic" and generation["store"] is False
+    assert result.content == {"ok": True} and result.usage.input_tokens == 0 and result.usage.output_tokens is None
+    assert "synthetic-secret" not in repr(client) and "ok" not in repr(result)
+    with pytest.raises(ResponsesClientError, match="capability_invalid"):
+        await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [{}, {"object": "response.input_tokens", "input_tokens": True},
+                                   {"object": "response.input_tokens", "input_tokens": 1050000}])
+async def test_invalid_count_never_enables_generation(fixture, body):
+    client, _, _, state, requests = fixture
+    state["count"] = body
+    with pytest.raises(ResponsesClientError, match="count_unverified") as error:
+        await client.prepare([{"role": "user", "content": "synthetic"}], max_output_tokens=100, ownership_checkpoint=AsyncMock(return_value=True))
+    assert error.value.__context__ is None and len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_foreign_scope_and_cancel_do_not_generate(fixture):
+    client, tenant, user, _, requests = fixture
+    cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    with pytest.raises(ResponsesClientError, match="capability_invalid"):
+        await client.invoke(cap, tenant_id=tenant, user_id=uuid4(), job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    with pytest.raises(asyncio.CancelledError):
+        await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(side_effect=asyncio.CancelledError()))
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+async def test_non200_count_fails_without_generate(fixture):
+    client, _, _, state, requests = fixture
+    state["status"] = 401
+    with pytest.raises(ResponsesClientError, match="transport_unknown"):
+        await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_transport_diagnostic_is_bounded_and_does_not_log_request(fixture, caplog):
+    client, _, _, state, requests = fixture
+    state["status"] = 401
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        with pytest.raises(ResponsesClientError, match="transport_unknown"):
+            await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
+                                 max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+    assert "phase=count event=failed status=401 classification=http_status" in caplog.text
+    assert "private-synthetic-source" not in caplog.text
+    assert "synthetic-secret" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_transport_diagnostic_received_is_not_a_completion_claim(fixture, caplog):
+    client, _, _, _, requests = fixture
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
+                             max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+    assert "phase=count event=received status=200 classification=body_received" in caplog.text
+    assert "private-synthetic-source" not in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["timeout", "connect_timeout", "cancel", "status_429", "malformed", "incomplete"])
+async def test_generation_failure_diagnostics_do_not_retry_or_leak(monkeypatch, caplog, failure):
+    def deny(*args, **kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    requests = []
+    class Stream(httpx.AsyncByteStream):
+        def __init__(self, data):
+            self.data = data
+        async def __aiter__(self):
+            yield self.data
+    def handler(request):
+        requests.append(request)
+        if request.url.path.endswith("input_tokens"):
+            return httpx.Response(200, stream=Stream(b'{"object":"response.input_tokens","input_tokens":12}'))
+        if failure == "timeout":
+            raise httpx.ReadTimeout("private-response-secret")
+        if failure == "connect_timeout":
+            raise httpx.ConnectTimeout("private-response-secret")
+        if failure == "cancel":
+            raise asyncio.CancelledError("private-response-secret")
+        if failure == "status_429":
+            return httpx.Response(429, text="private-response-secret")
+        if failure == "malformed":
+            return httpx.Response(200, stream=Stream(b"{private-response-secret"))
+        return httpx.Response(200, stream=Stream(b'{"model":"gpt-6-luna","status":"incomplete","output":[]}'))
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    tenant, user, job = uuid4(), uuid4(), str(uuid4())
+    client = DirectLunaResponsesClient(api_key="synthetic-secret", tenant_id=tenant, user_id=user, job_id=job)
+    capability = await client.prepare([{"role": "user", "content": "private-synthetic-source"}],
+                                      max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        with pytest.raises(asyncio.CancelledError if failure == "cancel" else ResponsesClientError) as error:
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id=job,
+                                ownership_checkpoint=AsyncMock(return_value=True), stage_id="a" * 64)
+        with pytest.raises(ResponsesClientError, match="capability_invalid"):
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id=job,
+                                ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 2
+    assert error.value.__context__ is None
+    assert f"job={job} stage={'a' * 64} phase=generation event=attempt" in caplog.text
+    if failure == "status_429":
+        assert "event=failed status=429 classification=http_status" in caplog.text
+    elif failure in ("timeout", "connect_timeout"):
+        assert "event=failed status=None classification=transport_unknown" in caplog.text
+    elif failure == "cancel":
+        assert "event=cancelled status=None classification=transport_unknown" in caplog.text
+    else:
+        assert "event=received status=200 classification=body_received" in caplog.text
+        assert str(error.value) == "luna_responses_generation_unverified"
+        category = "output_json" if failure == "malformed" else "completion_status"
+        if failure == "malformed":
+            category = "envelope_schema"
+        assert f"luna_generation_validation job={job} stage={'a' * 64} classification={category}" in caplog.text
+    for secret in ("private-response-secret", "private-synthetic-source", "synthetic-secret"):
+        assert secret not in caplog.text
+        if failure != "cancel":
+            assert secret not in str(error.value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("status", "reason", "expected_status", "expected_reason"), [
+    ("incomplete", "max_output_tokens", "incomplete", "max_output_tokens"),
+    ("incomplete", "content_filter", "incomplete", "content_filter"),
+    ("failed", "private-reason", "failed", "unknown"),
+    ("private-status", "private-reason", "unknown", "unknown"),
+])
+async def test_rejection_logs_bounded_envelope_without_retry(fixture, monkeypatch, caplog,
+                                                            status, reason, expected_status, expected_reason):
+    client, tenant, user, _, requests = fixture
+    capability = await client.prepare([{"role": "user", "content": "private-prompt"}], max_output_tokens=1,
+                                      ownership_checkpoint=AsyncMock(return_value=True))
+    envelope = {"model": "gpt-6-luna", "status": status, "incomplete_details": {"reason": reason},
+                "usage": {"input_tokens": 12, "output_tokens": 4, "input_tokens_details": {"cached_tokens": 13},
+                          "output_tokens_details": {"reasoning_tokens": 3}}, "private": "secret-body"}
+    post = AsyncMock(return_value=json.dumps(envelope))
+    monkeypatch.setattr(client, "_post", post)
+    with caplog.at_level(logging.INFO, logger="app.modules.ai.direct_luna_responses_client"):
+        with pytest.raises(ResponsesClientError, match="generation_unverified"):
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id="job",
+                                ownership_checkpoint=AsyncMock(return_value=True), stage_id="b" * 64)
+        with pytest.raises(ResponsesClientError, match="capability_invalid"):
+            await client.invoke(capability, tenant_id=tenant, user_id=user, job_id="job",
+                                ownership_checkpoint=AsyncMock(return_value=True), stage_id="b" * 64)
+    assert f"status={expected_status} reason={expected_reason}" in caplog.text
+    assert "input_tokens=12 output_tokens=4 cached_input_tokens=None reasoning_tokens=3" in caplog.text
+    assert all(secret not in caplog.text for secret in ("private-prompt", "secret-body", "private-status", "private-reason", "synthetic-secret"))
+    assert len(requests) == 1 and post.await_count == 1
+
+
+def test_rejection_malformed_usage_is_unknown_not_zero():
+    from app.modules.ai.direct_luna_responses_client import _safe_rejection_details
+    assert _safe_rejection_details({"status": "incomplete", "usage": {"input_tokens": True,
+        "output_tokens": "private", "input_tokens_details": None}}) == ("incomplete", "unknown", None, None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_forged_capability_and_other_client_rejected(fixture):
+    client, tenant, user, _, requests = fixture
+    cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    other = DirectLunaResponsesClient(api_key="other", tenant_id=tenant, user_id=user, job_id="job")
+    for candidate in (object(), cap):
+        with pytest.raises(ResponsesClientError, match="capability_invalid"):
+            await other.invoke(candidate, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_oversized_count_fails_before_generation(fixture, monkeypatch):
+    client, _, _, _, requests = fixture
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.MAX_RESPONSE_BYTES", 5)
+    with pytest.raises(ResponsesClientError, match="transport_unknown"):
+        await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_count_timeout_sanitized_no_generation(monkeypatch):
+    requests = []
+    def handler(request):
+        requests.append(request)
+        raise httpx.ReadTimeout("synthetic-secret")
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    client = DirectLunaResponsesClient(api_key="synthetic-secret", tenant_id=uuid4(), user_id=uuid4(), job_id="job")
+    with pytest.raises(ResponsesClientError) as error:
+        await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    assert error.value.__context__ is None and "synthetic-secret" not in str(error.value) and len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_count_has_60_second_deadline_generation_keeps_600(fixture, monkeypatch):
+    from app.modules.ai import direct_luna_responses_client as module
+    client, tenant, user, _, _ = fixture
+    assert client.generation_deadline_seconds == 600.0
+    actual_timeout = asyncio.timeout
+    deadlines = []
+    def record(seconds):
+        deadlines.append(seconds)
+        return actual_timeout(seconds)
+    monkeypatch.setattr(module.asyncio, "timeout", record)
+    capability = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                      ownership_checkpoint=AsyncMock(return_value=True))
+    await client.invoke(capability, tenant_id=tenant, user_id=user, job_id="job",
+                        ownership_checkpoint=AsyncMock(return_value=True))
+    assert deadlines == [60.0, 600.0]
+
+
+@pytest.mark.asyncio
+async def test_external_cancel_during_count_propagates_without_generation(monkeypatch):
+    def deny(*_args, **_kwargs):
+        raise AssertionError("network denied")
+    monkeypatch.setattr(socket.socket, "connect", deny)
+    entered = asyncio.Event()
+    requests = []
+    async def handler(request):
+        requests.append(request.url.path)
+        entered.set()
+        await asyncio.Event().wait()
+    real = httpx.AsyncClient
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    client = DirectLunaResponsesClient(api_key="synthetic", tenant_id=uuid4(), user_id=uuid4(), job_id="job")
+    task = asyncio.create_task(client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                              ownership_checkpoint=AsyncMock(return_value=True)))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert requests == ["/v1/responses/input_tokens"] and not client._prepared
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", [False, None, asyncio.CancelledError("synthetic")])
+async def test_denied_or_cancelled_ownership_prevents_count(fixture, result):
+    client, _, _, _, requests = fixture
+    checkpoint = AsyncMock(side_effect=result) if isinstance(result, BaseException) else AsyncMock(return_value=result)
+    with pytest.raises(asyncio.CancelledError if isinstance(result, asyncio.CancelledError) else ResponsesClientError):
+        await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=checkpoint)
+    assert not requests
+
+
+@pytest.mark.asyncio
+async def test_concurrent_capability_invoked_once(fixture):
+    client, tenant, user, _, requests = fixture
+    cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    checkpoint = AsyncMock(return_value=True)
+    async def run():
+        return await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=checkpoint)
+    outcomes = await asyncio.gather(run(), run(), return_exceptions=True)
+    assert sum(isinstance(item, ResponsesClientError) for item in outcomes) == 1
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("output", [
+    [{"type": "message", "role": "assistant", "status": "completed", "content": [{"type": "refusal", "refusal": "no"}]}],
+    [{"type": "function_call", "name": "x"}],
+    [{"type": "message", "role": "user", "status": "completed", "content": [{"type": "output_text", "text": "{}"}]}],
+    [{"type": "message", "role": "assistant", "status": "in_progress", "content": [{"type": "output_text", "text": "{}"}]}],
+    [{"type": "message", "role": "assistant", "status": "completed", "content": [{"type": "output_text", "text": "{}"}, {"type": "refusal"}]}],
+])
+async def test_refusal_tool_mixed_wrong_role_and_status_rejected(fixture, output):
+    client, tenant, user, state, requests = fixture
+    state["output"] = output
+    cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    with pytest.raises(ResponsesClientError, match="generation_unverified"):
+        await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+async def test_reasoning_item_followed_by_completed_assistant_accepted(fixture):
+    client, tenant, user, state, _ = fixture
+    state["output"].insert(0, {"type": "reasoning", "summary": []})
+    cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1, ownership_checkpoint=AsyncMock(return_value=True))
+    result = await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    assert result.content == {"ok": True}
+
+
+@pytest.mark.asyncio
+async def test_discard_and_close_forget_capabilities_without_generation(fixture):
+    client, tenant, user, _, requests = fixture
+    cap = await client.prepare([{"role": "user", "content": "private"}], max_output_tokens=1,
+                               ownership_checkpoint=AsyncMock(return_value=True))
+    client.discard(cap)
+    with pytest.raises(ResponsesClientError, match="capability_invalid"):
+        await client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    another = await client.prepare([{"role": "user", "content": "private"}], max_output_tokens=1,
+                                   ownership_checkpoint=AsyncMock(return_value=True))
+    client.close()
+    with pytest.raises(ResponsesClientError, match="capability_invalid"):
+        await client.invoke(another, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 2 and client._key == "" and not client._prepared
+    with pytest.raises(ResponsesClientError, match="client_closed"):
+        await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                             ownership_checkpoint=AsyncMock(return_value=True))
+    assert len(requests) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("phase", ["count", "generation"])
+async def test_close_while_ownership_callback_paused_prevents_next_post(fixture, phase):
+    client, tenant, user, _, requests = fixture
+    ready, release = asyncio.Event(), asyncio.Event()
+    async def paused():
+        ready.set()
+        await release.wait()
+        return True
+    if phase == "generation":
+        cap = await client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                   ownership_checkpoint=AsyncMock(return_value=True))
+        work = asyncio.create_task(client.invoke(cap, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=paused))
+    else:
+        work = asyncio.create_task(client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                                  ownership_checkpoint=paused))
+    await ready.wait()
+    client.close()
+    release.set()
+    with pytest.raises(ResponsesClientError, match="client_closed"):
+        await work
+    assert len(requests) == (1 if phase == "generation" else 0)
+
+
+@pytest.mark.asyncio
+async def test_close_while_http_client_entering_stops_stream(monkeypatch):
+    ready, release = asyncio.Event(), asyncio.Event()
+    streams = []
+    class Client:
+        def __init__(self, **kwargs): pass
+        async def __aenter__(self):
+            ready.set()
+            await release.wait()
+            return self
+        async def __aexit__(self, *args): pass
+        def stream(self, *args, **kwargs):
+            streams.append(1)
+            raise AssertionError("stream must not start")
+    monkeypatch.setattr("app.modules.ai.direct_luna_responses_client.httpx.AsyncClient", Client)
+    client = DirectLunaResponsesClient(api_key="key", tenant_id=uuid4(), user_id=uuid4(), job_id="job")
+    task = asyncio.create_task(client.prepare([{"role": "user", "content": "x"}], max_output_tokens=1,
+                                              ownership_checkpoint=AsyncMock(return_value=True)))
+    await ready.wait()
+    client.close()
+    release.set()
+    with pytest.raises(ResponsesClientError, match="transport_unknown"):
+        await task
+    assert not streams

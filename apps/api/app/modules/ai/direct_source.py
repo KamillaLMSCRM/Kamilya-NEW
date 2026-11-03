@@ -6,18 +6,20 @@ import asyncio
 import hashlib
 import inspect
 import json
+import logging
 import math
 import os
 import re
 import tempfile
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Protocol, TypeVar, cast
 from uuid import UUID
 
 import httpx
 
+from app.modules.ai import timeout_context
 from app.modules.ai.architect_schema import (
     CourseStructure,
     LearningObjective,
@@ -41,6 +43,9 @@ from app.modules.ai.lesson_quality import (
     remove_unsupported_relationship_fragments,
 )
 from app.modules.ai.llm_client import AllProvidersFailedError, ProviderFailedError
+from app.modules.ai.source_editorial_document import SourceEditorialDocument, bind_source_editorial_document
+from app.modules.ai.source_editorial_model import SourceEditorialResult
+from app.modules.ai.source_fidelity import ConversionFidelity
 from app.modules.ai.source_tables import markdown_tables
 from app.modules.ai.source_topic_map import (
     SMALL_SOURCE_CONTEXT_CHARS,
@@ -51,6 +56,17 @@ from app.modules.ai.source_topic_map import (
 )
 from app.modules.ai.structure_quality import course_structure_quality_issues
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
+
+_timeout_log = logging.getLogger(__name__)
+_TimeoutResult = TypeVar("_TimeoutResult")
+
+async def _observe_timeout(awaitable: Awaitable[_TimeoutResult], stage: str) -> _TimeoutResult:
+    try:
+        return await awaitable
+    except TimeoutError:
+        timeout_context.emit(_timeout_log, stage)
+        raise
+
 
 MAX_DIRECT_SOURCE_BYTES = 50 * 1024 * 1024
 MAX_DIRECT_SOURCE_DOCUMENT_CHARS = 1_000_000
@@ -712,7 +728,7 @@ class _Storage(Protocol):
 
 
 class _Converter(Protocol):
-    async def convert(self, file_path: str) -> dict[str, Any]: ...
+    async def convert(self, file_path: str, *, source_review_enabled: bool = False) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -736,6 +752,13 @@ class DirectSourceDocument:
     category: str
     source_revision: str
     chunks: tuple[DirectSourceChunk, ...]
+    conversion_fidelity: ConversionFidelity = field(default_factory=ConversionFidelity.unverified)
+    editorial_document: SourceEditorialDocument | None = None
+    review_only_source_context: tuple[dict[str, str], ...] = ()
+    review_only_source_unresolved: bool = False
+    # Exact converted working text before chunk overlap. None denotes an older
+    # capture whose full text was not retained; do not reconstruct by guessing.
+    source_text: str | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -772,12 +795,30 @@ def _headings(value: object) -> tuple[str, ...]:
     return tuple(str(item)[:240] for item in parsed if str(item).strip())
 
 
+def direct_source_chunks(
+    text: str, *, document_id: str, filename: str, title: str, source_revision: str,
+) -> tuple[DirectSourceChunk, ...]:
+    """Deterministically chunk one source view; no truth or fidelity is granted."""
+    raw_chunks = DocumentChunker().chunk_markdown(text, document_id, filename)
+    return tuple(
+        DirectSourceChunk(
+            chunk_id=f"direct:{document_id}:{index}", doc_id=document_id, doc_name=filename,
+            title=title, headings=_headings(chunk.get("metadata", {}).get("headings")),
+            text=str(chunk.get("text") or ""), source_revision=source_revision, chunk_index=index,
+            table_fragment=(chunk.get("metadata", {}).get("worksheet_table_fragment")
+                if isinstance(chunk.get("metadata", {}).get("worksheet_table_fragment"), dict) else None),
+        )
+        for index, chunk in enumerate(raw_chunks) if str(chunk.get("text") or "").strip()
+    )
+
+
 async def build_direct_source_corpus(
     documents: Sequence[Any],
     *,
     tenant_id: UUID | str,
     storage: _Storage | None = None,
     converter: _Converter | None = None,
+    editorial_results: Mapping[str, SourceEditorialResult] | None = None,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     max_source_bytes: int = MAX_DIRECT_SOURCE_BYTES,
     max_document_chars: int = MAX_DIRECT_SOURCE_DOCUMENT_CHARS,
@@ -791,12 +832,18 @@ async def build_direct_source_corpus(
     or semantic-score data.
     """
 
+    if editorial_results is not None and (
+            not isinstance(editorial_results, Mapping)
+            or not set(editorial_results) <= {str(document.id) for document in documents}):
+        raise DirectSourceError("direct_source_editorial_selection_invalid")
     if storage is None:
         from app.core.storage import get_storage
 
         storage = get_storage()
     source_converter = converter or DocumentConverter()
     tenant_value = str(tenant_id)
+    from app.modules.courses.source_uncertainty import qa_source_holds_enabled
+    review_experiment_enabled = qa_source_holds_enabled(tenant_id)
     converted_documents: list[DirectSourceDocument] = []
     total_chars = 0
     total_chunks = 0
@@ -815,7 +862,7 @@ async def build_direct_source_corpus(
         if int(document.size or 0) > max_source_bytes:
             raise DirectSourceError("direct_source_too_large", (document_id,))
 
-        blob = await asyncio.to_thread(storage.get_bytes, storage_key)
+        blob = await _observe_timeout(asyncio.to_thread(storage.get_bytes, storage_key), "storage_read")
         if blob is None:
             raise DirectSourceError("direct_source_blob_missing", (document_id,))
         if len(blob) > max_source_bytes:
@@ -824,6 +871,7 @@ async def build_direct_source_corpus(
             raise DirectSourceError("direct_source_hash_mismatch", (document_id,))
 
         suffix = Path(str(document.filename or "")).suffix.lower()
+        review_document = review_experiment_enabled and suffix == ".pdf"
         temp_path: str | None = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -833,7 +881,10 @@ async def build_direct_source_corpus(
             ) as source_file:
                 source_file.write(blob)
                 temp_path = source_file.name
-            converted = await source_converter.convert(temp_path)
+            if review_document:
+                converted = await _observe_timeout(source_converter.convert(temp_path, source_review_enabled=True), "source_converter")
+            else:
+                converted = await _observe_timeout(source_converter.convert(temp_path), "source_converter")
         except DirectSourceError:
             raise
         except Exception as exc:
@@ -846,41 +897,42 @@ async def build_direct_source_corpus(
                     pass
 
         markdown = converted.get("markdown") if isinstance(converted, dict) else None
+        metadata = converted.get("metadata") if isinstance(converted, dict) else None
+        fidelity = ConversionFidelity.from_metadata(metadata)
+        from app.modules.ai.source_review_context import extract_review_only_candidates, has_review_only_unresolved
+        try:
+            review_only_context = (extract_review_only_candidates(metadata, expected_sha)
+                                   if review_document else ())
+            review_only_unresolved = (has_review_only_unresolved(metadata, expected_sha)
+                                      if review_document else False)
+        except ValueError as exc:
+            raise DirectSourceError("direct_source_review_context_invalid", (document_id,)) from exc
+        if fidelity.admission_blocked:
+            raise DirectSourceError("direct_source_fidelity_degraded", (document_id,))
         if not isinstance(markdown, str) or not markdown.strip():
-            metadata = converted.get("metadata") if isinstance(converted, dict) else {}
-            engine = str((metadata or {}).get("engine") or "")
+            engine = fidelity.engine or ""
             code = "direct_source_ocr_required" if suffix == ".pdf" and engine == "pypdf" else "direct_source_empty"
             raise DirectSourceError(code, (document_id,))
         if len(markdown) > max_document_chars:
             raise DirectSourceError("direct_source_budget_exceeded", (document_id,))
 
-        raw_chunks = DocumentChunker().chunk_markdown(
-            markdown,
-            document_id,
-            str(document.filename),
-        )
-        if not raw_chunks:
-            raise DirectSourceError("direct_source_empty", (document_id,))
         source_revision = f"document:{expected_sha}"
-        chunks = tuple(
-            DirectSourceChunk(
-                chunk_id=f"direct:{document_id}:{index}",
-                doc_id=document_id,
-                doc_name=str(document.filename),
-                title=str(document.title),
-                headings=_headings(chunk.get("metadata", {}).get("headings")),
-                text=str(chunk.get("text") or ""),
-                source_revision=source_revision,
-                chunk_index=index,
-                table_fragment=(
-                    chunk.get("metadata", {}).get("worksheet_table_fragment")
-                    if isinstance(chunk.get("metadata", {}).get("worksheet_table_fragment"), dict)
-                    else None
-                ),
-            )
-            for index, chunk in enumerate(raw_chunks)
-            if str(chunk.get("text") or "").strip()
-        )
+        editorial_document = None
+        if editorial_results is not None and document_id in editorial_results:
+            try:
+                # Canonical recognition trims only outer whitespace, as the
+                # existing chunk reconstruction does. The original blob is
+                # unchanged; the map never claims PDF/DOCX-byte coordinates.
+                editorial_document = bind_source_editorial_document(document_id=document_id,
+                    source_revision=source_revision, recognized_text=markdown.strip(),
+                    result=editorial_results[document_id])
+            except (TypeError, ValueError) as exc:
+                raise DirectSourceError("direct_source_editorial_unproved", (document_id,)) from exc
+            markdown = editorial_document.working_text
+            if len(markdown) > max_document_chars:
+                raise DirectSourceError("direct_source_budget_exceeded", (document_id,))
+        chunks = direct_source_chunks(markdown, document_id=document_id,
+            filename=str(document.filename), title=str(document.title), source_revision=source_revision)
         if not chunks:
             raise DirectSourceError("direct_source_empty", (document_id,))
 
@@ -896,6 +948,11 @@ async def build_direct_source_corpus(
                 category=str(document.category or "general"),
                 source_revision=source_revision,
                 chunks=chunks,
+                source_text=markdown,
+                conversion_fidelity=fidelity,
+                review_only_source_context=review_only_context,
+                review_only_source_unresolved=review_only_unresolved,
+                editorial_document=editorial_document,
             )
         )
 
@@ -914,6 +971,7 @@ async def load_direct_source_corpus(
     *,
     tenant_id: UUID | str,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
+    editorial_results: Mapping[str, SourceEditorialResult] | None = None,
 ) -> DirectSourceCorpus:
     """Load active documents through tenant context, then verify originals."""
 
@@ -932,19 +990,19 @@ async def load_direct_source_corpus(
         raise DirectSourceError("documents_required")
     await _checkpoint(check_cancelled)
     async with async_session_factory() as session:
-        await session.execute(
+        await _observe_timeout(session.execute(
             text("SELECT set_current_tenant(:tenant_id)"),
             {"tenant_id": tenant_value},
-        )
+        ), "source_db_tenant")
         documents = (
             (
-                await session.execute(
+                await _observe_timeout(session.execute(
                     select(Document).where(
                         Document.tenant_id == parsed_tenant,
                         Document.id.in_(parsed_ids),
                         Document.lifecycle_status == "active",
                     )
-                )
+                ), "source_db_document_select")
             )
             .scalars()
             .all()
@@ -957,6 +1015,7 @@ async def load_direct_source_corpus(
         [by_id[document_id] for document_id in parsed_ids],
         tenant_id=parsed_tenant,
         check_cancelled=check_cancelled,
+        editorial_results=editorial_results,
     )
 
 

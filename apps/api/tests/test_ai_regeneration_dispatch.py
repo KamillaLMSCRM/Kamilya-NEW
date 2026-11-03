@@ -11,7 +11,7 @@ from app.modules.ai import job_service
 
 
 def _job(course_id=None):
-    return SimpleNamespace(id="job-1", course_id=course_id, status="pending")
+    return SimpleNamespace(id="job-1", course_id=course_id, status="pending", params={})
 
 
 def _router_job(course_id):
@@ -42,14 +42,15 @@ def test_celery_dispatcher_maps_task_and_preserves_job_id():
     task.apply_async.assert_called_once_with(
         task_id="job-1",
         kwargs={"module_id": "module-1"},
+        retry=False,
     )
 
 
-def test_celery_dispatcher_wraps_enqueue_failure():
+def test_celery_dispatcher_preserves_unknown_enqueue_outcome():
     task = SimpleNamespace(apply_async=Mock(side_effect=RuntimeError("broker down")))
     with (
         patch("app.modules.ai.tasks.generate_course_task", task),
-        pytest.raises(job_service.AIJobSubmissionUnavailableError) as error,
+        pytest.raises(job_service.AIJobDispatchOutcomeUnknownError) as error,
     ):
         job_service.CeleryAIJobDispatcher().dispatch(
             "generate_course",
@@ -57,7 +58,9 @@ def test_celery_dispatcher_wraps_enqueue_failure():
             kwargs={},
         )
 
-    assert error.value.detail == "AI job could not be queued"
+    assert str(error.value) == "ai_job_dispatch_outcome_unknown"
+    assert "broker down" not in str(error.value)
+    task.apply_async.assert_called_once_with(task_id="job-1", kwargs={}, retry=False)
 
 
 @pytest.mark.asyncio
@@ -129,10 +132,11 @@ async def test_generation_enqueue_failure_marks_job_failed_and_compensates_charg
         )
 
     reserve.assert_awaited_once_with(db, tenant_id)
-    charge.assert_awaited_once_with(db, str(tenant_id), operation="generate_course")
+    charged_month = charge.await_args.kwargs["month_key"]
+    charge.assert_awaited_once_with(db, str(tenant_id), operation="generate_course", month_key=charged_month)
     update_job.assert_awaited_once()
     release.assert_awaited_once_with(db, tenant_id)
-    refund.assert_awaited_once_with(db, str(tenant_id), "generate_course")
+    refund.assert_awaited_once_with(db, str(tenant_id), "generate_course", month_key=charged_month)
     assert db.commit.await_count == 2
 
 

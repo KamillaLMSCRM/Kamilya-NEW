@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from dataclasses import asdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -19,6 +20,90 @@ OLD_SHA = "1" * 40
 NEW_SHA = "2" * 40
 OLD_IMAGE = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64
 NEW_IMAGE = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "b" * 64
+
+
+def epoch_manifest(version: str, *, migration: bool, flags: bool = True) -> dict:
+    data = asdict(manifest())
+    enabled = {'workbench': flags, 'document_draft': flags, 'lesson_correction': flags, 'staff_structure': flags}
+    data.update(schema_version=3, product_version=version, feature_flags=enabled,
+                previous_feature_flags=enabled.copy(), migration={'mode': 'exact' if migration else 'no-migration',
+                'from_revision': '0183' if migration else None, 'to_revision': '0184' if migration else None,
+                'rollback_compatible': migration})
+    return data
+
+
+@pytest.mark.parametrize('flags', [True, False])
+def test_version71_epoch_is_exact_even_with_features_disabled(flags):
+    data = epoch_manifest('0.11.71', migration=True, flags=flags)
+    assert release_plane.ReleaseManifest.parse(data).correction_revisions == ('0183', '0184')
+    for source, target in [('0181', '0183'), ('0182', '0184'), ('0184', '0183'), ('0183', '0185')]:
+        data['migration'].update(from_revision=source, to_revision=target)
+        with pytest.raises(release_plane.ReleasePlaneError, match='v3_migration_revision_invalid'):
+            release_plane.ReleaseManifest.parse(data)
+
+
+def test_version70_retains_previous_staff_and_correction_epoch():
+    data = epoch_manifest('0.11.70', migration=True)
+    data['migration'].update(from_revision='0181', to_revision='0183')
+    assert release_plane.ReleaseManifest.parse(data).correction_revisions == ('0181', '0183')
+
+
+def test_version71_requires_versioned_four_flag_manifest():
+    assert release_plane.feature_manifest_fields('', '', '0.11.70') == {'schema_version': 1}
+    with pytest.raises(release_plane.ReleasePlaneError, match='v3_feature_flags_required'):
+        release_plane.feature_manifest_fields('', '', '0.11.71')
+    flags = {'workbench': True, 'document_draft': True, 'lesson_correction': True}
+    with pytest.raises(release_plane.ReleasePlaneError, match='v3_feature_flags_required'):
+        release_plane.feature_manifest_fields(json.dumps(flags), json.dumps(flags), '0.11.71')
+    flags['staff_structure'] = True
+    assert release_plane.feature_manifest_fields(json.dumps(flags), json.dumps(flags), '0.11.71')['schema_version'] == 3
+    data = epoch_manifest('0.11.71', migration=False)
+    data['schema_version'] = 2
+    data['feature_flags'].pop('staff_structure')
+    data['previous_feature_flags'].pop('staff_structure')
+    with pytest.raises(release_plane.ReleasePlaneError, match='v3_requires_schema3'):
+        release_plane.ReleaseManifest.parse(data)
+
+
+@pytest.mark.parametrize('revision,accepted', [('0184 (head)', True), ('0183', False), ('0185', False)])
+def test_version71_already_deployed_rechecks_head(tmp_path, monkeypatch, revision, accepted):
+    parsed = release_plane.ReleaseManifest.parse(epoch_manifest('0.11.71', migration=False, flags=False))
+    cfg = config(tmp_path)
+    Path(cfg.state_file).write_text(json.dumps({'schema_version': 1, 'active_slot': 'green',
+        'release_sha': NEW_SHA, 'image': NEW_IMAGE}), encoding='utf-8')
+    runner = FakeRunner(initial_revision=revision)
+    controller = release_plane.ReleasePlane(parsed, cfg, runner, FakeHealth())
+    monkeypatch.setattr(controller, '_verify_services', lambda *args, **kwargs: None)
+    monkeypatch.setattr(controller, '_wait_health', lambda *args, **kwargs: None)
+    if accepted:
+        assert controller.execute(parsed.release_id)['status'] == 'ALREADY_DEPLOYED'
+    else:
+        with pytest.raises(release_plane.ReleasePlaneError, match='correction_schema_revision_mismatch'):
+            controller.execute(parsed.release_id)
+    assert any('current' in call for call, _ in runner.calls)
+    assert not any('upgrade' in call or 'up' in call or 'stop' in call for call, _ in runner.calls)
+
+
+@pytest.mark.parametrize('revision', ['0183', '0185', '01840'])
+def test_version71_no_migration_rejects_wrong_head_even_when_flags_off(tmp_path, monkeypatch, revision):
+    parsed = release_plane.ReleaseManifest.parse(epoch_manifest('0.11.71', migration=False, flags=False))
+    runner = FakeRunner(initial_revision=revision)
+    controller = release_plane.ReleasePlane(parsed, config(tmp_path), runner, FakeHealth())
+    monkeypatch.setattr(controller, '_verify_services', lambda *args, **kwargs: None)
+    with pytest.raises(release_plane.ReleasePlaneError, match='correction_schema_revision_mismatch'):
+        controller.execute(parsed.release_id)
+    assert not any('up' in call or 'stop' in call for call, _ in runner.calls)
+
+
+def test_version71_no_migration_accepts_exact_head_before_candidate_start(tmp_path, monkeypatch):
+    parsed = release_plane.ReleaseManifest.parse(epoch_manifest('0.11.71', migration=False, flags=False))
+    runner = FakeRunner(initial_revision='0184 (head)', fail_token='down --remove-orphans')
+    controller = release_plane.ReleasePlane(parsed, config(tmp_path), runner, FakeHealth())
+    monkeypatch.setattr(controller, '_verify_services', lambda *args, **kwargs: None)
+    with pytest.raises(release_plane.ReleasePlaneError, match='synthetic_command_failure'):
+        controller.execute(parsed.release_id)
+    assert any('current' in call for call, _ in runner.calls)
+    assert not any('upgrade' in call for call, _ in runner.calls)
 
 
 def test_controller_source_remains_compatible_with_vm126_python_310() -> None:

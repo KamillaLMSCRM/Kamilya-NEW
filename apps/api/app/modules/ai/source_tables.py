@@ -11,7 +11,18 @@ def markdown_table_cells(line: str) -> list[str]:
     stripped = line.strip()
     if not (stripped.startswith("|") and stripped.endswith("|")):
         return []
-    return [cell.strip() for cell in stripped.strip("|").split("|")]
+    # Only unescaped pipes delimit cells. Keep source escapes untouched for
+    # downstream citation custody, and remove exactly one outer delimiter per
+    # side so empty first/last cells retain their columns.
+    delimiters: list[int] = []
+    backslashes = 0
+    for index, char in enumerate(stripped):
+        if char == "|" and backslashes % 2 == 0:
+            delimiters.append(index)
+        backslashes = backslashes + 1 if char == "\\" else 0
+    if not delimiters or delimiters[-1] != len(stripped) - 1:
+        return []
+    return [stripped[start + 1:end].strip() for start, end in zip(delimiters, delimiters[1:], strict=False)]
 
 
 def markdown_tables(text: str) -> list[tuple[list[str], list[tuple[list[str], str]]]]:

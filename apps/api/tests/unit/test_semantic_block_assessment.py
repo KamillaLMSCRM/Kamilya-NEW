@@ -23,6 +23,17 @@ OPTIONS = [GOOD, "Передать персональные данные чер�
 BAD = [GOOD, "Первый ответ подтверждает приём обращения и сообщает следующий шаг.",
        "Эскалация не снимает обязанности следить за результатом."]
 
+LENGTH_SIGNAL_DISTRACTORS = [
+    (
+        "Зарегистрировать приемку полностью, сохранив сведения о возвращенной "
+        "единице исключительно во внутриоперационном комментарии."
+    ),
+    (
+        "Передать следующей смене устное уведомление, исключив документирование "
+        "результата приемки и возвращенных единиц."
+    ),
+]
+
 
 @pytest.mark.parametrize(("value", "expected"), [
     (
@@ -465,7 +476,7 @@ async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_
             repairing = request["task"] == "assessment_repair"
             rows = []
             for index, axis in enumerate(request["axes"]):
-                distractors = ["Принять всё сразу.", "Передать устно."]
+                distractors = LENGTH_SIGNAL_DISTRACTORS
                 if repairing and repair_succeeds:
                     distractors = [
                         "Отметить всю накладную как принятую и передать непринятую единицу следующей смене без отдельного отражения возврата.",
@@ -505,24 +516,32 @@ async def test_lesson_length_signal_gets_only_existing_single_repair_and_cannot_
 
 
 @pytest.mark.asyncio
-async def test_semantic_repair_receives_length_feedback_before_its_only_retry():
+async def test_shape_recovery_precedes_the_separate_singleton_semantic_repair():
     class CombinedFeedbackClient(Client):
         async def ainvoke_validated(self, messages, parser, **kwargs):
             request = json.loads(messages[-1]["content"])
             if request["task"] in {"assessment_generate", "assessment_repair"}:
                 self.requests.append(request)
                 repairing = request["task"] == "assessment_repair"
-                if repairing:
+                recovering = bool(request.get("rejected"))
+                if recovering:
                     reasons = request["rejected"][0]["rejection_reasons"]
-                    assert "assessment_answer_length_signal" in reasons
-                    assert any(reason != "assessment_answer_length_signal" for reason in reasons)
+                    if not repairing:
+                        assert "assessment_answer_length_signal" in reasons
+                        assert request["rejected"][0]["answer_shape"]["source_claim_chars"] >= 80
+                    else:
+                        assert "assessment_answer_length_signal" not in reasons
+                        assert reasons  # independent semantic rejection, not another shape retry
                 rows = [{"axis_id": axis["axis_id"],
-                         "prompt": (request["rejected"][0]["prompt"] if repairing else
+                         "prompt": (request["rejected"][0]["prompt"] if recovering else
                                     f"Как выполнить обязательное действие {index + 1} при приемке?"),
                          "distractors": ([
+                             "При передаче смены сотрудник оставляет сведения о непринятых единицах только у себя и не делает записи в журнале.",
+                             "При частичном возврате всю накладную отмечают принятой, а информацию о возвращённом товаре не передают следующей смене.",
+                         ] if repairing else [
                              "При передаче смены сотрудник сообщает о результате приемки только устно, оставляя журнал без записи и не передавая сведения о непринятых единицах товара.",
                              "Отметить всю накладную как принятую и передать непринятую единицу следующей смене без отдельного отражения возврата.",
-                         ] if repairing else ["Принять всё сразу.", "Передать устно."])}
+                         ] if recovering else ["Принять всё сразу.", "Передать устно."])}
                         for index, axis in enumerate(request["axes"])]
                 return SimpleNamespace(value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
                                        attempt_count=1)
@@ -549,6 +568,8 @@ async def test_semantic_repair_receives_length_feedback_before_its_only_retry():
     assert result.audit["unresolved_quality_signals"] == []
     repairs = [request for request in client.requests if request["task"] == "assessment_repair"]
     assert len(repairs) == 2  # exactly one repair per rejected question, never a second round
+    assert result.audit["attempt_counts"]["replacement"] == 2
+    assert result.audit["attempt_counts"]["model_repair"] == 2
     assert all(question.correct_answer in claims for question in result.questions)
 
 
@@ -577,7 +598,7 @@ async def test_final_deduplication_cannot_expose_an_unreported_length_signal(mon
             self.requests.append(request)
             rows = [{"axis_id": axis["axis_id"],
                      "prompt": f"Как выполнить действие {index + 1} при приемке?",
-                     "distractors": (["Принять всё сразу.", "Передать устно."] if index < 2 else
+                     "distractors": (LENGTH_SIGNAL_DISTRACTORS if index < 2 else
                                      ["Ответственный сотрудник отмечает всю накладную как принятую и передает непринятую единицу следующей смене без записи в журнал.",
                                       "Сообщить о непринятом товаре только устно."])}
                     for index, axis in enumerate(request["axes"])]
@@ -718,12 +739,18 @@ async def test_unchanged_rejected_repair_is_not_reviewed_and_audited_again(reord
     lesson, facts = fixture()
     client = NoProgressClient()
     result = await generate_block_assessment([lesson], facts, client)
-    assert result.questions == ()
+    # An exhausted no-progress repair cannot trigger new provider calls. Its
+    # existing two positive audits may now retain one exact wrong alternative.
+    assert len(result.questions) == 1
+    question = result.questions[0]
+    assert question.kind == "single_choice" and len(question.options) == 2
+    assert question.correct_answer == ATOMIC_RULE
+    assert set(question.options) <= {ATOMIC_RULE, *OPTIONS[1:]}
     assert [request["task"] for request in client.requests] == [
         "assessment_generate", "assessment_review", "assessment_constraints", "assessment_repair",
     ]
-    assert any("assessment_repair_no_progress" in row["reason"]
-               for row in result.audit["axis_outcomes"])
+    assert any("assessment_repair_no_progress" in row["reasons"]
+               for row in result.audit["post_review_pruned"])
 
 @pytest.mark.asyncio
 async def test_failed_repair_drops_question_without_quota_padding():
@@ -804,7 +831,11 @@ async def test_failed_multi_question_review_falls_back_to_isolated_reviews():
                 rows = [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Как применяется {axis['attribute']}?",
-                    "distractors": OPTIONS[1:],
+                    "distractors": (
+                        ["Заявление рассматривается в течение 30 дней.",
+                         "Заявление рассматривается в течение 45 дней."]
+                        if "15 дней" in axis["source_claim"] else OPTIONS[1:]
+                    ),
                 } for axis in request["axes"]]
                 return SimpleNamespace(
                     value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
@@ -903,7 +934,11 @@ async def test_failed_multi_question_constraints_keep_isolated_successes():
                 rows = [{
                     "axis_id": axis["axis_id"],
                     "prompt": f"Как применяется {axis['attribute']}?",
-                    "distractors": OPTIONS[1:],
+                    "distractors": (
+                        ["Заявление рассматривается в течение 30 дней.",
+                         "Заявление рассматривается в течение 45 дней."]
+                        if "15 дней" in axis["source_claim"] else OPTIONS[1:]
+                    ),
                 } for axis in request["axes"]]
                 return SimpleNamespace(
                     value=parser(json.dumps({"questions": rows}, ensure_ascii=False)),
@@ -1171,7 +1206,7 @@ async def test_oversized_block_is_reported_not_silently_truncated():
 
 
 @pytest.mark.asyncio
-async def test_narrative_paragraph_assessment_is_bounded_to_three_atomic_facts():
+async def test_narrative_assessment_budget_follows_independent_source_targets():
     lesson, facts = fixture()
     facts["f1"] = replace(facts["f1"], source_locator="doc_id=d1;section=rules;part=1")
     for index in range(2, 6):
@@ -1185,13 +1220,12 @@ async def test_narrative_paragraph_assessment_is_bounded_to_three_atomic_facts()
     client = Client(empty=True)
     result = await generate_block_assessment([lesson], facts, client)
     assert result.audit["blocks"] == 1
-    assert len(client.requests) == 1
-    assert len(client.requests[0]["facts"]) == 3
-    assert len(client.requests[0]["axes"]) == 3
+    assert len(client.requests) == 2
+    assert sum(len(r["axes"]) for r in client.requests) == 5
+    assert all(len(r["axes"]) <= 4 for r in client.requests)
     omitted = [row for row in result.audit["block_outcomes"]
                if row["outcome"] == "density_omitted"]
-    assert len(omitted) == 1
-    assert len(omitted[0]["fact_ids"]) == 2
+    assert omitted == []
     assert result.audit["coverage"]["audit_incomplete"] is False
 
 
@@ -1232,7 +1266,7 @@ async def test_review_envelope_is_bounded_even_when_source_fits():
     result = await generate_block_assessment([lesson], facts, client)
     assert result.questions == ()
     assert len(client.requests) == 1
-    assert any(x.get("stage") == "assessment_review" and x["reason"] == "assessment_context_too_large"
+    assert any(x.get("stage") == "assessment_generate" and x["reason"] == "assessment_context_too_large"
                for x in result.audit["failures"])
     assert len(result.audit["failures"]) == 1
 

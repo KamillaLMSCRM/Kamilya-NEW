@@ -582,3 +582,202 @@ def test_local_dev_worker_uses_the_same_evidence_engine_as_new_api_jobs() -> Non
         "generation_engine": "evidence_v2",
     }
     assert original == {"documents": ["synthetic-document"]}
+
+@pytest.mark.parametrize("changes", [
+    {"tenant_id": "foreign"}, {"user_id": "foreign"}, {"role": "student"},
+])
+def test_exact_synthetic_identity_rejected_before_upload(changes):
+    identity = {"tenant_id": MODULE.QA_TENANT_ID, "user_id": MODULE.QA_METHODOLOGIST_ID, "role": "methodologist"}
+    MODULE.verify_synthetic_identity(identity)
+    identity.update(changes)
+    with pytest.raises(MODULE.AcceptanceError, match="synthetic_user_identity_mismatch"):
+        MODULE.verify_synthetic_identity(identity)
+
+
+@pytest.mark.parametrize("status", ["running", "pending", "interrupted", "reconciliation_required", "unknown"])
+def test_cleanup_retains_sources_for_unresolved_job(status):
+    client = SimpleNamespace(request=Mock(return_value=SimpleNamespace(status_code=200, json=lambda: {"id": "job", "status": status})))
+    safe, reason = MODULE.cleanup_is_safe(client, "job", True)
+    assert not safe and reason == "generation_not_terminal"
+    client.request.assert_called_once_with("GET", "v1/ai/jobs/job")
+
+
+@pytest.mark.parametrize("status", ["completed", "failed", "cancelled"])
+def test_cleanup_allows_only_confirmed_terminal_status(status):
+    client = SimpleNamespace(request=Mock(return_value=SimpleNamespace(status_code=200, json=lambda: {"id": "job", "status": status, "course_id": "course"})))
+    assert MODULE.cleanup_is_safe(client, "job", True) == (True, "course")
+
+
+def test_cleanup_retains_source_on_lost_submit_ack_or_unreadable_status():
+    client = SimpleNamespace(request=Mock(side_effect=RuntimeError("unavailable")))
+    assert MODULE.cleanup_is_safe(client, "", True) == (False, "generation_submission_unknown")
+    client.request.assert_not_called()
+    assert MODULE.cleanup_is_safe(client, "job", True) == (False, "generation_status_unknown")
+    assert MODULE.cleanup_is_safe(client, "", False) == (True, "")
+
+@pytest.mark.parametrize("document_id", ["", "not-a-uuid", "00000000000000000000000000000001"])
+def test_lost_or_malformed_upload_ack_is_not_clean(document_id):
+    assert not MODULE.upload_acknowledged(document_id, True)
+    assert MODULE.upload_acknowledged(document_id, False)
+
+
+def test_only_canonical_upload_id_is_acknowledged():
+    assert MODULE.upload_acknowledged("00000000-0000-0000-0000-000000000001", True)
+
+
+def test_exclusive_custody_receipt_keeps_owned_ids_and_intents(tmp_path, monkeypatch):
+    root = tmp_path / ".release-evidence"
+    root.mkdir()
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    path = root / "receipt.jsonl"
+    receipt = MODULE.CustodyReceipt(path)
+    receipt.record("upload_intent")
+    receipt.record("upload_acknowledged", document_id="00000000-0000-0000-0000-000000000001")
+    receipt.record("generation_intent", document_id="00000000-0000-0000-0000-000000000001")
+    receipt.record("retained", document_id="00000000-0000-0000-0000-000000000001")
+    receipt.close()
+    events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert [event["state"] for event in events] == ["upload_intent", "upload_acknowledged", "generation_intent", "retained"]
+    assert events[-1]["document_id"] == "00000000-0000-0000-0000-000000000001"
+    assert all(set(event) == {"state", "tenant_id", "user_id", "document_id", "job_id", "course_id"} for event in events)
+    with pytest.raises(FileExistsError):
+        MODULE.CustodyReceipt(path)
+
+
+def test_cleanup_refuses_foreign_job_readback():
+    client = SimpleNamespace(request=Mock(return_value=SimpleNamespace(status_code=200, json=lambda: {"id": "foreign", "status": "completed"})))
+    assert MODULE.cleanup_is_safe(client, "job", True) == (False, "generation_status_unknown")
+
+
+def test_runner_retains_unknown_upload_and_persists_intent(tmp_path, monkeypatch):
+    evidence = tmp_path / ".release-evidence"
+    evidence.mkdir()
+    xlsx = tmp_path / "synthetic.xlsx"
+    xlsx.write_bytes(b"synthetic")
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    monkeypatch.setattr(MODULE, "dotenv_values", lambda _path: {"DEV_QA_METHODOLOGIST_EMAIL": "test", "DEV_QA_METHODOLOGIST_PASSWORD": "test"})
+    monkeypatch.setattr(MODULE, "approved_fixture_bytes", lambda _path: b"synthetic")
+    monkeypatch.setattr(MODULE, "fixture_focus_terms", lambda _content: set())
+    monkeypatch.setattr(MODULE, "health_url", lambda _base: "https://synthetic.invalid/health")
+    calls = []
+    class Client:
+        def __init__(self, *args):
+            self.http = SimpleNamespace(get=lambda _url: SimpleNamespace(status_code=200, json=lambda: {"release_sha": "sha"}))
+        def _expect(self, response, statuses, _label):
+            assert response.status_code in statuses
+        def login(self):
+            return {"user": {"role": "methodologist", "tenant_id": MODULE.QA_TENANT_ID, "user_id": MODULE.QA_METHODOLOGIST_ID}}
+        def request(self, method, path, **kwargs):
+            calls.append((method, path))
+            raise TimeoutError("lost upload ack")
+        def close(self): pass
+    monkeypatch.setattr(MODULE, "DevClient", Client)
+    args = SimpleNamespace(env_file=tmp_path / "env", xlsx=xlsx, custody=evidence / "receipt.jsonl",
+        api_base="synthetic", browser_origin="synthetic", expected_release_sha="sha", worker_health_url=None)
+    report = MODULE.run(args)
+    events = [json.loads(line) for line in args.custody.read_text(encoding="utf-8").splitlines()]
+    assert calls == [("POST", "v1/documents/upload")]
+    assert [item["state"] for item in events] == ["upload_intent", "retained", "retained"]
+    assert report["cleanup"] == {"course": False, "document": False}
+    assert "document_upload_outcome_unknown" in report["cleanup_failures"]
+
+
+@pytest.mark.parametrize("delete_failure", ["error", "lost_ack"])
+def test_runner_retains_source_when_course_delete_unconfirmed(tmp_path, monkeypatch, delete_failure):
+    evidence = tmp_path / ".release-evidence"
+    evidence.mkdir()
+    xlsx = tmp_path / "synthetic.xlsx"
+    xlsx.write_bytes(b"synthetic")
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    monkeypatch.setattr(MODULE, "dotenv_values", lambda _path: {"DEV_QA_METHODOLOGIST_EMAIL": "test", "DEV_QA_METHODOLOGIST_PASSWORD": "test"})
+    monkeypatch.setattr(MODULE, "approved_fixture_bytes", lambda _path: b"synthetic")
+    monkeypatch.setattr(MODULE, "fixture_focus_terms", lambda _content: set())
+    monkeypatch.setattr(MODULE, "health_url", lambda _base: "https://synthetic.invalid/health")
+    monkeypatch.setattr(MODULE, "poll_document", lambda *_a, **_kw: {"index": {"chunks_total": 1, "chunks_indexed": 1, "status": "ready"}})
+    doc, job, course = ("00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002", "00000000-0000-0000-0000-000000000003")
+    monkeypatch.setattr(MODULE, "poll_job", lambda *_a, **_kw: {"status": "completed", "course_id": course})
+    calls = []
+    def response(code, value): return SimpleNamespace(status_code=code, json=lambda: value)
+    class Client:
+        def __init__(self, *args):
+            self.http = SimpleNamespace(get=lambda _url: response(200, {"release_sha": "sha"}))
+        def _expect(self, value, statuses, _label):
+            if value.status_code not in statuses:
+                raise MODULE.AcceptanceError("synthetic_http_error")
+        def login(self): return {"user": {"role": "methodologist", "tenant_id": MODULE.QA_TENANT_ID, "user_id": MODULE.QA_METHODOLOGIST_ID}}
+        def request(self, method, path, **kwargs):
+            calls.append((method, path))
+            if path == "v1/documents/upload":
+                return response(201, {"id": doc})
+            if path == "v1/ai/document-compatibility":
+                return response(200, {})
+            if path == "v1/ai/generate-course":
+                return response(202, {"id": job})
+            if path == f"v1/ai/jobs/{job}":
+                return response(200, {"id": job, "status": "completed", "course_id": course})
+            if method == "DELETE" and path == f"v1/courses/{course}":
+                if delete_failure == "lost_ack":
+                    raise TimeoutError("lost delete ack")
+                return response(503, {})
+            return response(503, {})
+        def close(self): pass
+    monkeypatch.setattr(MODULE, "DevClient", Client)
+    args = SimpleNamespace(env_file=tmp_path / "env", xlsx=xlsx, custody=evidence / "receipt.jsonl",
+        api_base="synthetic", browser_origin="synthetic", expected_release_sha="sha", worker_health_url=None,
+        index_timeout=1, execute_local_worker=False, generation_timeout=1, review_output=None)
+    report = MODULE.run(args)
+    assert ("DELETE", f"v1/courses/{course}") in calls
+    assert ("DELETE", f"v1/documents/{doc}") not in calls
+    assert not report["cleanup"]["course"] and not report["cleanup"]["document"]
+    assert "document_retained_course_cleanup_unconfirmed" in report["cleanup_failures"]
+
+
+
+@pytest.mark.parametrize("status", ["interrupted", "reconciliation_required"])
+def test_runner_held_job_stops_polling_and_retains_receipt_and_sources(tmp_path, monkeypatch, status):
+    evidence = tmp_path / ".release-evidence"
+    evidence.mkdir()
+    xlsx = tmp_path / "synthetic.xlsx"
+    xlsx.write_bytes(b"synthetic")
+    monkeypatch.setattr(MODULE, "ROOT", tmp_path)
+    monkeypatch.setattr(MODULE, "dotenv_values", lambda _path: {"DEV_QA_METHODOLOGIST_EMAIL": "test", "DEV_QA_METHODOLOGIST_PASSWORD": "test"})
+    monkeypatch.setattr(MODULE, "approved_fixture_bytes", lambda _path: b"synthetic")
+    monkeypatch.setattr(MODULE, "fixture_focus_terms", lambda _content: set())
+    monkeypatch.setattr(MODULE, "health_url", lambda _base: "https://synthetic.invalid/health")
+    monkeypatch.setattr(MODULE, "poll_document", lambda *_a, **_kw: {"index": {"chunks_total": 1, "chunks_indexed": 1, "status": "ready"}})
+    sleep = Mock(side_effect=AssertionError("held job must not poll again"))
+    monkeypatch.setattr(MODULE.time, "sleep", sleep)
+    doc, job = "00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"
+    calls = []
+    def response(code, value): return SimpleNamespace(status_code=code, json=lambda: value)
+    class Client:
+        def __init__(self, *args):
+            self.http = SimpleNamespace(get=lambda _url: response(200, {"release_sha": "sha"}))
+        def _expect(self, value, statuses, _label):
+            if value.status_code not in statuses:
+                raise MODULE.AcceptanceError("synthetic_http_error")
+        def login(self): return {"user": {"role": "methodologist", "tenant_id": MODULE.QA_TENANT_ID, "user_id": MODULE.QA_METHODOLOGIST_ID}}
+        def request(self, method, path, **kwargs):
+            calls.append((method, path))
+            if path == "v1/documents/upload":
+                return response(201, {"id": doc})
+            if path == "v1/ai/document-compatibility":
+                return response(200, {})
+            if path == "v1/ai/generate-course":
+                return response(202, {"id": job})
+            if path == f"v1/ai/jobs/{job}":
+                return response(200, {"id": job, "status": status, "stage": "interrupted", "progress": 34})
+            raise AssertionError("unexpected request")
+        def close(self): pass
+    monkeypatch.setattr(MODULE, "DevClient", Client)
+    args = SimpleNamespace(env_file=tmp_path / "env", xlsx=xlsx, custody=evidence / "receipt.jsonl",
+        api_base="synthetic", browser_origin="synthetic", expected_release_sha="sha", worker_health_url=None,
+        index_timeout=1, execute_local_worker=False, generation_timeout=60, review_output=None)
+    report = MODULE.run(args)
+    events = [json.loads(line) for line in args.custody.read_text(encoding="utf-8").splitlines()]
+    assert report["generation"]["status"] == status
+    assert report["cleanup"] == {"course": False, "document": False}
+    assert events[-1]["state"] == "retained" and events[-1]["document_id"] == doc and events[-1]["job_id"] == job
+    assert not any(method == "DELETE" or path.endswith("/cancel") for method, path in calls)
+    assert sum(path == f"v1/ai/jobs/{job}" for _, path in calls) == 2
+    sleep.assert_not_called()

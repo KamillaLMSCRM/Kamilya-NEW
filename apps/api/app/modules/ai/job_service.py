@@ -1,6 +1,8 @@
 """AI Job service — DB-backed job state management."""
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -9,15 +11,16 @@ from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, cast
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, text, update
+from sqlalchemy import and_, false, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ai_job import AIJob
 from app.models.tenants import Tenant
 from app.modules.ai.generation_engine import (
-    CURRENT_GENERATION_ENGINE,
+    CURRENT_SOURCE_ANALYSIS_MODE,
     RETIRED_GENERATION_ENGINE_CODE,
     RETIRED_GENERATION_ENGINE_MESSAGE,
+    SUPPORTED_GENERATION_ENGINES,
     job_uses_current_generation_engine,
 )
 
@@ -49,11 +52,19 @@ class AIJobAdmissionLimitReachedError(Exception):
 
 
 class AIJobSubmissionUnavailableError(Exception):
-    """The worker is absent or rejected a job after it was admitted."""
+    """The worker is known unavailable before a publish attempt."""
 
     def __init__(self, detail: str):
         self.detail = detail
         super().__init__(detail)
+
+
+class AIJobDispatchOutcomeUnknownError(Exception):
+    """A publish was attempted and its acceptance cannot be established."""
+
+    def __init__(self, job_id: str):
+        self.job_id = job_id
+        super().__init__("ai_job_dispatch_outcome_unknown")
 
 
 class AIJobDispatcher(Protocol):
@@ -79,10 +90,10 @@ class CeleryAIJobDispatcher:
         if task is None:
             raise AIJobSubmissionUnavailableError("AI worker is unavailable")
         try:
-            task.apply_async(task_id=task_id, kwargs=kwargs)
-        except Exception as exc:
-            logger.exception("Could not enqueue AI %s job %s", task_name, task_id)
-            raise AIJobSubmissionUnavailableError("AI job could not be queued") from exc
+            task.apply_async(task_id=task_id, kwargs=kwargs, retry=False)
+        except Exception:
+            logger.warning("AI %s publish outcome unknown for delivery %s", task_name, task_id)
+            raise AIJobDispatchOutcomeUnknownError("") from None
 
 
 @dataclass
@@ -337,6 +348,97 @@ async def update_ai_job(
     return job
 
 
+def _generation_budget_month(job: AIJob, params: dict[str, Any]) -> str:
+    from app.modules.ai.budget import checked_budget_month
+
+    if "generation_budget_month" in params:
+        value = params["generation_budget_month"]
+        if not isinstance(value, str):
+            raise ValueError("generation_budget_period_unverified")
+        return checked_budget_month(value)
+    # Legacy admission charged after creation and before the worker started.
+    # A single UTC month across that interval proves the period; crossing a
+    # boundary without a persisted receipt must not refund an unrelated month.
+    created = getattr(job, "created_at", None)
+    upper = getattr(job, "started_at", None) or datetime.now(UTC)
+    if (not isinstance(created, datetime) or created.tzinfo is None
+            or not isinstance(upper, datetime) or upper.tzinfo is None):
+        raise ValueError("generation_budget_period_unverified")
+    created, upper = created.astimezone(UTC), upper.astimezone(UTC)
+    period = created.strftime("%Y-%m")
+    if upper < created or upper.strftime("%Y-%m") != period:
+        raise ValueError("generation_budget_period_unverified")
+    return period
+
+
+def _abandon_marker_digest(job: Any) -> str | None:
+    from app.modules.ai.v3.final_save_contract import INTENT_KEY, RECEIPT_KEY, SOURCE_FIRST_KEYS
+    from app.modules.ai.v3.pending_stage_transactions import checked_entries
+    if not isinstance(getattr(job, "result", None), dict) or any(key in job.result for key in (INTENT_KEY, RECEIPT_KEY, *SOURCE_FIRST_KEYS)):
+        return None
+    try:
+        if not checked_entries(job.result):
+            return None
+        return hashlib.sha256(json.dumps(job.result["v3_pending_stages"], sort_keys=True,
+            separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+    except (ValueError, TypeError):
+        return None
+
+
+def is_abandoned_unknown(job: Any) -> bool:
+    params = job.params if isinstance(getattr(job, "params", None), dict) else {}
+    prior = params.get("generation_abandonment")
+    digest = _abandon_marker_digest(job)
+    return bool(digest and isinstance(prior, dict) and prior.get("policy") == "unknown-provider-abandon-v1"
+        and prior.get("actor_id") == str(getattr(job, "user_id", None)) and prior.get("acknowledged") is True
+        and prior.get("provider_outcome") == "unknown" and prior.get("cost") == "unknown"
+        and prior.get("pending_marker_sha256") == digest and job.status == "failed" and getattr(job, "course_id", None) is None)
+
+
+def can_abandon_unknown(job: Any) -> bool:
+    params = getattr(job, "params", None)
+    if not isinstance(params, dict):
+        return False
+    return (getattr(job, "status", None) in {"running", "interrupted"}
+            and getattr(job, "course_id", None) is None
+            and "generation_abandonment" not in params
+            and _abandon_marker_digest(job) is not None)
+
+
+async def abandon_unknown_generation(
+    db: AsyncSession, *, job_id: str, tenant_id: UUID, user_id: UUID,
+) -> str:
+    """Terminally fence an owned unknown stage without touching its reservation or journal."""
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ai_generation_admission' || :tenant_id))"),
+                     {"tenant_id": str(tenant_id)})
+    await _lock_tenant_row(db, tenant_id)
+    job = await get_ai_job(db, job_id, tenant_id=str(tenant_id), for_update=True)
+    if job is None or job.user_id != user_id:
+        return "not_found"
+    params: dict[str, Any] = dict(job.params) if isinstance(job.params, dict) else {}
+    marker_digest = _abandon_marker_digest(job)
+    if marker_digest is None:
+        return "conflict"
+    if "generation_abandonment" in params:
+        if is_abandoned_unknown(job):
+            return "abandoned"
+        return "conflict"
+    if not can_abandon_unknown(job):
+        return "conflict"
+    now = datetime.now(UTC)
+    params["generation_abandonment"] = {"policy": "unknown-provider-abandon-v1", "actor_id": str(user_id),
+        "acknowledged": True, "provider_outcome": "unknown", "cost": "unknown", "recorded_at": now.isoformat(),
+        "pending_marker_sha256": marker_digest}
+    job.params = params  # type: ignore[assignment]
+    job.status = "failed"  # type: ignore[assignment]
+    job.stage = "abandoned"  # type: ignore[assignment]
+    job.message = "Генерация остановлена; результат и стоимость вызова провайдера неизвестны."  # type: ignore[assignment]
+    job.completed_at = now  # type: ignore[assignment]
+    job.updated_at = now  # type: ignore[assignment]
+    await db.commit()
+    return "abandoned"
+
+
 async def release_generation_reservation_once(
     db: AsyncSession,
     *,
@@ -353,7 +455,9 @@ async def release_generation_reservation_once(
         return False
     tenant_value = str(tenant_id)
     job = await get_ai_job(db, job_id, tenant_id=tenant_value, for_update=True)
-    if job is None or job.course_id is not None:
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if job is None or job.course_id is not None or has_pending(getattr(job, "result", None)):
         return False
     params = dict(job.params or {})
     legacy_new_course = "documents" in params and not params.get("action")
@@ -366,31 +470,49 @@ async def release_generation_reservation_once(
     from app.core.trial_limits import release_ai_course_generation
     from app.modules.ai.budget import refund_llm_budget
 
+    month_key = _generation_budget_month(job, params)
     await release_ai_course_generation(db, tenant_id)
-    await refund_llm_budget(db, tenant_value, "generate_course")
+    await refund_llm_budget(db, tenant_value, "generate_course", month_key=month_key)
     params["generation_reservation_released"] = True
     job.params = params
     await db.flush()
     return True
 
 
+def _generation_delivery_predicate(job_id: str, delivery_id: str) -> Any:
+    """Match the active delivery; old initial jobs used the job ID as task ID."""
+    stored = AIJob.result["delivery_task_id"].as_string()
+    resume_count = AIJob.result["resume_count"].as_integer()
+    legacy_initial = and_(stored.is_(None), or_(resume_count.is_(None), resume_count == 0)) if delivery_id == job_id else false()
+    return or_(stored == delivery_id, legacy_initial)
+
+
+def _no_pending_stage() -> Any:
+    from app.modules.ai.v3.pending_stage_transactions import pending_sql_predicate
+
+    return ~pending_sql_predicate()
+
+
 async def claim_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Atomically claim one pending generation delivery.
 
     Celery is at-least-once. The durable job row is the execution seam: only
     the delivery that changes ``pending`` to ``running`` may call providers.
     """
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
     predicates = [
         AIJob.id == job_id,
         AIJob.status == "pending",
         AIJob.tenant_id == tenant_id,
-        AIJob.params["source_analysis"]["generation_engine"].as_string()
-        == CURRENT_GENERATION_ENGINE,
+        _generation_delivery_predicate(job_id, delivery_id),
+        AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
+        AIJob.params["source_analysis"]["analysis_mode"].as_string()
+        == CURRENT_SOURCE_ANALYSIS_MODE,
+        _no_pending_stage(),
     ]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
@@ -404,13 +526,39 @@ async def claim_generation_execution(
     return bool(result.rowcount)
 
 
+async def interrupt_pending_generation_execution(
+    db: AsyncSession, job_id: str, tenant_id: str | None, delivery_id: str | None
+) -> bool:
+    """Hold only an unclaimed, current delivery for explicit manual resume."""
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
+    await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    result = await db.execute(
+        update(AIJob).where(
+            AIJob.id == job_id,
+            AIJob.tenant_id == tenant_id,
+            AIJob.status == "pending",
+            _generation_delivery_predicate(job_id, delivery_id),
+            AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
+            AIJob.params["source_analysis"]["analysis_mode"].as_string() == CURRENT_SOURCE_ANALYSIS_MODE,
+            _no_pending_stage(),
+        ).values(
+            status="interrupted", stage="interrupted", message=GENERATION_INTERRUPTED_MESSAGE,
+            errors=["generation_interrupted"], completed_at=None, updated_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+    return bool(getattr(result, "rowcount", 0))
+
+
 async def retire_legacy_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Fail an old queued job before providers run and refund its reservation once."""
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    await _lock_tenant_row(db, tenant_id)
     now = datetime.now(UTC)
     result = await db.execute(
         update(AIJob)
@@ -418,6 +566,14 @@ async def retire_legacy_generation_execution(
             AIJob.id == job_id,
             AIJob.status == "pending",
             AIJob.tenant_id == tenant_id,
+            _generation_delivery_predicate(job_id, delivery_id),
+            _no_pending_stage(),
+            or_(
+                AIJob.params["source_analysis"]["generation_engine"].as_string().is_(None),
+                AIJob.params["source_analysis"]["generation_engine"].as_string().notin_(SUPPORTED_GENERATION_ENGINES),
+                AIJob.params["source_analysis"]["analysis_mode"].as_string().is_(None),
+                AIJob.params["source_analysis"]["analysis_mode"].as_string() != CURRENT_SOURCE_ANALYSIS_MODE,
+            ),
         )
         .values(
             status="failed",
@@ -440,13 +596,14 @@ async def retire_legacy_generation_execution(
 
 
 async def fail_claimed_generation_execution(
-    db: AsyncSession, job_id: str, message: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, message: str, tenant_id: str | None = None, delivery_id: str | None = None
 ) -> bool:
     """Terminally fail only the execution this worker previously claimed."""
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id]
+    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
+                  _generation_delivery_predicate(job_id, delivery_id), _no_pending_stage()]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="failed", stage="failed", message=message,
@@ -458,19 +615,25 @@ async def fail_claimed_generation_execution(
 
 
 async def interrupt_claimed_generation_execution(
-    db: AsyncSession, job_id: str, tenant_id: str | None = None
+    db: AsyncSession, job_id: str, tenant_id: str | None = None, delivery_id: str | None = None,
+    *, reason: str = "generation_interrupted",
 ) -> bool:
-    """Make a claimed generation resumable after a worker soft time limit."""
-    if tenant_id is None:
-        raise ValueError("tenant_id is required for worker generation execution")
+    """Pause before new work; preserve completed checkpoints and the reservation."""
+    if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
+        raise ValueError("tenant_id and delivery_id are required for worker generation execution")
+    if reason not in {"generation_interrupted", "source_reference_review_required"}:
+        raise ValueError("generation_interruption_reason_invalid")
+    message = ("Проверьте подтвержденные отсылки источника. Готовые части генерации сохранены."
+               if reason == "source_reference_review_required" else GENERATION_INTERRUPTED_MESSAGE)
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
-    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id]
+    predicates = [AIJob.id == job_id, AIJob.status == "running", AIJob.tenant_id == tenant_id,
+                  _generation_delivery_predicate(job_id, delivery_id), _no_pending_stage()]
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="interrupted",
             stage="interrupted",
-            message=GENERATION_INTERRUPTED_MESSAGE,
-            errors=["generation_interrupted"],
+            message=message,
+            errors=[reason],
             updated_at=datetime.now(UTC),
             completed_at=None,
         )
@@ -481,7 +644,11 @@ async def interrupt_claimed_generation_execution(
 
 def is_resumable_generation_job(job: AIJob) -> bool:
     """Only explicit evidence_v2 interruptions can be resumed."""
-    return bool(job.status == "interrupted" and job_uses_current_generation_engine(job))
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    return bool(job.status == "interrupted" and job_uses_current_generation_engine(job)
+                and not (isinstance(getattr(job, "errors", None), list) and "source_reference_review_required" in job.errors)
+                and not has_pending(getattr(job, "result", None)))
 
 
 async def get_user_jobs(
@@ -525,6 +692,7 @@ async def submit_ai_job(
     if generation:
         params["generation_reservation_required"] = bool(reserve_course_generation)
         params["generation_reservation_released"] = False
+        params.pop("generation_budget_month", None)
     try:
         job = await create_admitted_ai_job(
             db,
@@ -538,6 +706,7 @@ async def submit_ai_job(
         raise
 
     charged = False
+    charged_month: str | None = None
     reserved = False
     if generation and reserve_course_generation:
         from app.core.trial_limits import reserve_ai_course_generation
@@ -547,7 +716,9 @@ async def submit_ai_job(
     if generation and tenant_id:
         from app.modules.ai.budget import check_and_charge_llm_budget
 
-        await check_and_charge_llm_budget(db, str(tenant_id), operation="generate_course")
+        charged_month = datetime.now(UTC).strftime("%Y-%m")
+        await check_and_charge_llm_budget(db, str(tenant_id), operation="generate_course", month_key=charged_month)
+        cast(Any, job).params = {**dict(job.params or {}), "generation_budget_month": charged_month}
         charged = True
 
     queue_metadata = await build_ai_job_queue_metadata(
@@ -569,6 +740,8 @@ async def submit_ai_job(
             task_id=str(job.id),
             kwargs=task_kwargs(job),
         )
+    except AIJobDispatchOutcomeUnknownError:
+        raise AIJobDispatchOutcomeUnknownError(str(job.id)) from None
     except AIJobSubmissionUnavailableError as exc:
         # Admission committed: transaction-local RLS identity has expired.
         # Bind the original caller before failure state/refund writes.
@@ -592,7 +765,7 @@ async def submit_ai_job(
         if charged:
             from app.modules.ai.budget import refund_llm_budget
 
-            await refund_llm_budget(db, str(tenant_id), "generate_course")
+            await refund_llm_budget(db, str(tenant_id), "generate_course", month_key=charged_month)
         await db.commit()
         raise
 
@@ -665,6 +838,8 @@ async def resume_interrupted_ai_job(
             task_id=delivery_task_id,
             kwargs=task_kwargs,
         )
+    except AIJobDispatchOutcomeUnknownError:
+        raise AIJobDispatchOutcomeUnknownError(str(locked.id)) from None
     except AIJobSubmissionUnavailableError:
         await update_ai_job(
             db,

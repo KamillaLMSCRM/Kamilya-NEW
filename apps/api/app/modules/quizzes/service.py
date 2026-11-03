@@ -136,6 +136,7 @@ async def get_quizzes_with_questions(
                         "type": q.type,
                         "points": q.points,
                         "explanation": q.explanation if include_explanations else None,
+                        "source_quote": q.source_quote if include_explanations else None,
                         "order_index": q.order_index,
                         "choices": [
                             {

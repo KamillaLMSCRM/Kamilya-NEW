@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from dataclasses import dataclass
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -80,8 +80,22 @@ async def resolve_lesson_correction(
             raise ValueError
         if not isinstance(references, list) or not 1 <= len(references) <= 64:
             raise ValueError
-        fact_keys = [item["fact_id"] for item in references]
-        if any(not isinstance(key, str) or not key for key in fact_keys) or len(set(fact_keys)) != len(fact_keys):
+        if any(not isinstance(item, dict) for item in references):
+            raise ValueError
+        identities: list[tuple[Any, ...]] = []
+        for item in references:
+            if item.get("kind") == "working_text_span_v1":
+                if set(item) != {"kind", "doc_id", "source_revision", "source_text_sha256", "start", "end", "span_sha256"}:
+                    raise ValueError
+                identities.append(("span", item["doc_id"], item["start"], item["end"]))
+            elif "kind" not in item:
+                key = item.get("fact_id")
+                if not isinstance(key, str) or not key:
+                    raise ValueError
+                identities.append(("fact", key))
+            else:
+                raise ValueError
+        if len(set(identities)) != len(identities):
             raise ValueError
     except (ValueError, TypeError, KeyError):
         raise CorrectionError("lesson_source_provenance_unavailable") from None
@@ -105,7 +119,7 @@ async def resolve_lesson_correction(
     try:
         async with asyncio.timeout(90):
             corpus = await build_direct_source_corpus(documents, tenant_id=actor.tenant_id)
-        facts = build_evidence_source(corpus).generation_facts
+        facts = build_evidence_source(corpus).generation_facts if any("kind" not in ref for ref in references) else ()
     except Exception:
         raise CorrectionError("lesson_source_unavailable") from None
     by_id = {fact.fact_id: fact for fact in facts}
@@ -113,19 +127,38 @@ async def resolve_lesson_correction(
         raise CorrectionError("lesson_source_provenance_unavailable")
     excerpts: list[CorrectionExcerpt] = []
     for reference in references:
-        fact = by_id.get(reference["fact_id"])
         try:
             doc_id = UUID(str(reference["doc_id"]))
         except (ValueError, TypeError, KeyError):
             raise CorrectionError("lesson_source_provenance_unavailable") from None
+        source = next((source for source in sources if source.document_id == doc_id), None)
+        if source is None or doc_id not in ids:
+            raise CorrectionError("lesson_source_provenance_unavailable")
+        if reference.get("kind") == "working_text_span_v1":
+            matching = [doc for doc in corpus.documents if doc.doc_id == str(doc_id)]
+            if len(matching) != 1:
+                raise CorrectionError("lesson_source_provenance_unavailable")
+            doc = matching[0]
+            text, start, end = doc.source_text, reference["start"], reference["end"]
+            if (not isinstance(text, str) or type(start) is not int or type(end) is not int
+                    or not 0 <= start < end <= len(text)
+                    or reference["source_revision"] != f"document:{source.content_sha256}"
+                    or doc.source_revision != reference["source_revision"]
+                    or reference["source_text_sha256"] != hashlib.sha256(text.encode("utf-8")).hexdigest()
+                    or reference["span_sha256"] != hashlib.sha256(text[start:end].encode("utf-8")).hexdigest()):
+                raise CorrectionError("lesson_source_provenance_unavailable")
+            evidence_text = text[start:end]
+            citation = CorrectionCitation(document_id=doc_id,
+                locator=f"span-v1:{start}:{end}:{reference['span_sha256']}", evidence_hash=reference["span_sha256"])
+            excerpts.append(CorrectionExcerpt(citation, evidence_text))
+            continue
+        fact = by_id.get(reference["fact_id"])
         if (
             fact is None
-            or doc_id not in ids
             or reference.get("source_locator") != fact.source_locator
             or not fact.source_locator.startswith(f"doc_id={doc_id};")
         ):
             raise CorrectionError("lesson_source_provenance_unavailable")
-        source = next(source for source in sources if source.document_id == doc_id)
         if f";source_revision=document:{source.content_sha256};" not in fact.source_locator:
             raise CorrectionError("lesson_source_provenance_unavailable")
         evidence_text = f"{fact.subject}\n{fact.attribute}: {fact.value}"

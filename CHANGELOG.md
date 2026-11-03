@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Source-grounded V3 course generation with logical source groups, explicit reference decisions, independent question review, and retained question quotations.
+- Typed review and repair contracts, durable stage recovery, exact completed-source reuse, and explicit handling of unknown dispatch outcomes.
+
+### Fixed
+
+- Preserve partial repairs and review them against their exact source and question identities; do not repeat requests with unknown outcomes.
+- Keep generation recovery within the original account and learning program; retain the current workspace design and session protections.
+
 ## [0.11.70] - 2026-11-02
 
 ### Fixed

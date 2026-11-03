@@ -35,6 +35,7 @@ class Question(Base):
     type = Column(String, nullable=False)
     points = Column(Integer, nullable=False, default=1)
     explanation = Column(Text, nullable=True)
+    source_quote = Column(Text, nullable=True)
     order_index = Column(Integer, nullable=False, default=0)
     pool_group = Column(String, nullable=True)
 

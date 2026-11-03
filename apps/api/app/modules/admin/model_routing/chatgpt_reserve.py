@@ -65,9 +65,9 @@ def configuration_blocker(settings: Settings | None = None) -> ReserveReason | N
     return None
 
 
-async def check_readiness() -> ChatGPTReserveReadiness:
+async def check_readiness(settings: Settings | None = None) -> ChatGPTReserveReadiness:
     """Explicit bounded non-generative readiness; do not reflect upstream data."""
-    s = get_settings()
+    s = settings if settings is not None else get_settings()
     reason = configuration_blocker(s)
     if reason is None:
         reason = "unavailable"

@@ -12,6 +12,7 @@ from pathlib import Path
 from time import perf_counter
 
 from .adapters import XlsxEvidenceAdapter
+from .assessment_axes import derive_assessment_axes
 from .models import (
     AssessmentDraft,
     CourseDraft,
@@ -27,7 +28,11 @@ from .models import (
     SourceSection,
     StageTiming,
 )
-from .quality import contains_ocr_artifact, is_acceptable_title
+from .quality import (
+    MAX_ASSESSMENT_TARGETS_PER_LESSON,
+    is_acceptable_title,
+    ocr_artifact_reason,
+)
 
 _BUCKETS: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
@@ -153,7 +158,7 @@ def admit_document_facts(document: SourceDocument) -> tuple[list[SourceFact], li
                 if section.role == role
                 for fact in section.facts
                 if fact.confidence >= 0.8 and fact.uncertainty in {"", "local_ocr"}
-                and not contains_ocr_artifact(fact.value)
+                and not ocr_artifact_reason(fact.value)
             ]
         )
         groups.append(facts)
@@ -187,26 +192,38 @@ def _partition_subject_facts(facts: list[SourceFact]) -> list[tuple[str, list[So
     return sorted(substantial, key=lambda item: order.get(item[0], len(order) + 1))
 
 
+def _fact_assessment_target_count(fact: SourceFact) -> int:
+    lesson = LessonDraft("planning", "", "", "", "", (fact.fact_id,), (), 1)
+    return len(derive_assessment_axes(lesson, [fact], block_id="planning"))
+
+
 def _partition_narrative_facts(facts: list[SourceFact]) -> list[tuple[str, list[SourceFact]]]:
     if not facts:
         return []
     partitions: list[list[SourceFact]] = []
     current: list[SourceFact] = []
     current_words = 0
+    current_targets = 0
     for fact in facts:
         fact_words = len(fact.value.split())
+        fact_targets = _fact_assessment_target_count(fact)
         if current and (
             current_words + fact_words > _NARRATIVE_UNIT_WORDS
             or len(current) >= _NARRATIVE_UNIT_FACTS
+            or current_targets + fact_targets > MAX_ASSESSMENT_TARGETS_PER_LESSON
         ):
             partitions.append(current)
             current = []
             current_words = 0
+            current_targets = 0
         current.append(fact)
         current_words += fact_words
+        current_targets += fact_targets
     if current:
         partitions.append(current)
-    if len(partitions) > 1 and len(partitions[-1]) <= 2:
+    if (len(partitions) > 1 and len(partitions[-1]) <= 2
+            and sum(_fact_assessment_target_count(fact) for fact in partitions[-2] + partitions[-1])
+            <= MAX_ASSESSMENT_TARGETS_PER_LESSON):
         partitions[-2].extend(partitions.pop())
     return [("", partition) for partition in partitions]
 
@@ -667,6 +684,19 @@ class EvidenceCourseEngine:
             assessment,
             duplicate_fact_count=duplicate_count,
         )
+        uncertain_source = {
+            _fact_key(fact)
+            for section in primary_sections for fact in section.facts
+            if fact.uncertainty not in {
+                "source_authoring_metadata", "source_navigation_metadata", "source_cover_signature", "source_cover_imprint",
+                "table_header_fragment",
+            }
+            and (fact.confidence < 0.8 or fact.uncertainty not in {"", "local_ocr"}
+                 or ocr_artifact_reason(fact.value))
+        }
+        if uncertain_source:
+            evaluation = replace(evaluation, uncertain_fact_count=len(uncertain_source),
+                warnings=tuple(dict.fromkeys((*evaluation.warnings, "uncertain_source_facts_require_review"))))
         lesson_count = len(evidence)
         evaluation = replace(
             evaluation,
@@ -807,21 +837,26 @@ class EvidenceCourseEngine:
             group: list[tuple[str, list[SourceFact], int]] = []
             group_words = 0
             group_facts = 0
+            group_targets = 0
             for partition_index, partition in enumerate(partitions, start=1):
                 unit_words = sum(len(fact.value.split()) for fact in partition)
                 unit_facts = len(partition)
+                unit_targets = sum(_fact_assessment_target_count(fact) for fact in partition)
                 if group and (
                     group_words + unit_words > _NARRATIVE_WORDS_PER_LESSON
                     or group_facts + unit_facts > _NARRATIVE_MAX_FACTS_PER_LESSON
+                    or group_targets + unit_targets > MAX_ASSESSMENT_TARGETS_PER_LESSON
                 ):
                     groups.append(group)
                     group_is_major.append(is_major)
                     group = []
                     group_words = 0
                     group_facts = 0
+                    group_targets = 0
                 group.append((section_title, partition, partition_index))
                 group_words += unit_words
                 group_facts += unit_facts
+                group_targets += unit_targets
             if group:
                 groups.append(group)
                 group_is_major.append(is_major)
@@ -852,6 +887,23 @@ class EvidenceCourseEngine:
         for group in groups:
             section_titles = list(dict.fromkeys(title for title, _, _ in group))
             cleaned_titles = [_concise_narrative_title(title) for title in section_titles]
+            selected = [fact for _, facts, _ in group for fact in facts]
+            if selected and all(
+                re.search(r"(?:^|;)table=\d+(?:;|$)", fact.source_locator) for fact in selected
+            ):
+                # An ordinary decision table can have no heading other than
+                # the filename. Its explicit labels and row subjects provide
+                # a useful source-owned topic; worksheets use a separate path.
+                labels = list(dict.fromkeys(" ".join(f.attribute.split()) for f in selected))
+                subjects = list(dict.fromkeys(" ".join(f.subject.split()) for f in selected))
+                candidate = f"{', '.join(labels)}: {', '.join(subjects)}"
+                if not is_acceptable_title(candidate):
+                    # Large tables need a compact label, not a regression to
+                    # filename/part. Row details stay complete in the body.
+                    candidate = _trim_narrative_title(", ".join(labels), max_words=8)
+                    while len(candidate) > 96 and " " in candidate:
+                        candidate = candidate.rsplit(" ", 1)[0].rstrip(" ,:;—–")
+                cleaned_titles = [candidate if is_acceptable_title(candidate) else "Сведения из таблицы"]
             cleaned_group_titles.append(cleaned_titles)
             if len(cleaned_titles) == 1:
                 base_title = cleaned_titles[0]
@@ -976,10 +1028,7 @@ class EvidenceCourseEngine:
                     _norm(fact.attribute),
                 )
             )
-            target_questions = min(3, max(1, math.ceil(len(candidates) / 3)))
             for fact in candidates:
-                if len([q for q in questions if q.lesson_id == lesson.lesson_id]) >= target_questions:
-                    break
                 key = _fact_key(fact)
                 if key in tested:
                     continue
@@ -1038,8 +1087,6 @@ class EvidenceCourseEngine:
         tested_answer_keys: set[tuple[str, str]] = set()
         for lesson in evidence:
             for fact_id in lesson.fact_ids:
-                if len([q for q in questions if q.lesson_id == lesson.lesson_id]) >= 3:
-                    break
                 fact = by_id[fact_id]
                 answer = answer_by_fact.get(fact_id)
                 if not answer:

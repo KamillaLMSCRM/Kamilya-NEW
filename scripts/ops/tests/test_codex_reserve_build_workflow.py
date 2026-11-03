@@ -48,7 +48,7 @@ def test_workflow_validates_exact_ci_run_before_checkout() -> None:
     assert "^[0-9a-f]{40}$" in script
     assert "actions/runs/${CI_RUN_ID}" in script
     for expression in (
-        '[[ "${DISPATCH_REF}" == "refs/heads/master" ]]',
+        '[[ "${DISPATCH_REF}" == "refs/heads/master" || "${DISPATCH_REF}" == "refs/heads/dev" ]]',
         '[[ "${run_name}" == "CI" ]]', '[[ "${run_status}" == "completed" ]]',
         '[[ "${run_conclusion}" == "success" ]]', '[[ "${run_sha}" == "${RELEASE_SHA}" ]]',
         '[[ "${expected_workflow_path}" == ".github/workflows/ci.yml" ]]',
@@ -57,7 +57,8 @@ def test_workflow_validates_exact_ci_run_before_checkout() -> None:
         '[[ "${run_path}" == "${expected_workflow_path}" ]]',
         '[[ "${run_repository,,}" == "${REPOSITORY,,}" ]]',
         '[[ "${run_event}" == "push" ]]',
-        '[[ "${run_branch}" == "master" ]]',
+        '[[ "${run_branch}" == "master" || "${run_branch}" == "dev" ]]',
+        '[[ "${DISPATCH_REF}" == "refs/heads/${run_branch}" ]]',
         '[[ "${branch_sha}" == "${RELEASE_SHA}" ]]',
     ):
         assert expression in script

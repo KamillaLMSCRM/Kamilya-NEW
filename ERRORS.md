@@ -1,6 +1,34 @@
+## AI-REUSE-001 - Complete extraction work was stranded behind a later unknown stage
+
+- Date: 2026-11-02.
+- Symptom: managed Standards job retained nine complete source extractions but a later unknown lesson blocked progress; a fresh job could only repeat the extraction work.
+- Cause: checkpoints are correctly job-bound, but no explicit same-source/same-route parent reuse contract existed. Reusing a response without binding actor, revision, source decisions and accounting would lose custody or count old usage again. The generic owned reader checks assessment completion only, so reuse must separately verify content and review completion.
+- Fix: explicit parent UUID admission is limited to fresh managed QA, same actor/tenant, original source decisions and an older normally abandoned unknown job. The worker revalidates source/route/complete checkpoints under its child lock, records hash-only origin provenance and returns the parent response without a provider call or fake child provider checkpoint. Historical usage remains solely on the parent. Null/changed parent intent, existing child stages, pending state and JSON type drift are fenced.
+- Verification: explicit child-replay bypass reproduced RED then corrected;82 focused owned/pipeline/reuse tests PASS. Independent integration and disposable-PG harness reviews accepted. Actual disposable PG15PASS at source6694fa4cdc3b12085e44873deea0eb9b102d49e37a16b02e5675b424576e74fd: cold/concurrent reuse, source drift, no new provider checkpoint/usage and immutable parent verified; cleanuptrue/public0184unchanged. Deployed worker/course acceptance remains open. First attempt passed14thenDBAPIError; timestamp fixture input changed to typed datetime and finite failure phase added before successful new custody run. Old failure not rewritten.
+- Prevention: cache reuse is an explicit source-bound operation, never an implicit cache miss fallback. Preserve parent state and original usage, verify all checkpoint phases, and revalidate parent intent at every locked stage.
+
+## AI-QUALITY-009 - Semantic validation strength depended on the model transport
+
+- Date: 2026-11-02.
+- Symptom: fresh ordinary DeepSeek V3 jobs skipped explanation consistency, final diversity, exact duplicate and detailed provenance checks exercised on owned Luna QA.
+- Cause: semantic capabilities were selected by direct-client presence or QA custody policy instead of the authenticated fresh revision contract.
+- Fix: fresh ordinary revision jobs receive the same semantic checks with the actual WorkerCycleJournal and verified revision source context. Owned source/claim custody and automatic diversity repair remain separately gated; legacy routes keep their prior contract.
+- Verification:65 focused parity/adjacent tests PASS and independent source review accepted. First full suite4766PASS/8FAIL exposed prose-repair fixtures missing the newly required ordinary source context; fixtures were updated without weakening the production check; final4774unitPASS/56.25s and84focusedparity/prosePASS. Real ordinary-worker and full-course semantic acceptance remain open.
+- Prevention: separate provider-independent quality rules from transport and persistence capabilities. Prove the ordinary worker source binding and compare full courses before accepting a model switch for release.
+
+## AI-PROVIDER-007 - Provider failures lost rejection and validation classification
+
+- Date:2026-11-02.
+- Symptom: exact AAC DEV Standards job3e917b5c interrupted34% on its third extraction; two completed responses retained, no course and worker restart0.
+- Cause: actual transport logs prove generation HTTP429, but the client maps every non200 to transport_unknown and discards safe subtype/retry metadata. Quota versus request rate is NOT proven; owner suspects quota and requests the alternate Luna. No payload receipt can be reconstructed from a discarded body.
+- Fix: alternate managed-auth QA integration is implemented locally and independently reviewed with a distinct server policy and route fingerprint; do not replay or clear the old pending claim. Future typed429 diagnostic retention remains open. Existing private connector readiness succeeds, actual model5.6 and reasoninglow; old QA adapter sends an unsupported reasoning_effort field and must not be reused unchanged.
+- Verification: current exact container459f3c38 logs HTTP429; two completed usage records input2123/output2083/reasoning866. Non-generative managed readiness16:45:58UTC PASS, zero inference/businesswrites. This is not semantic/course acceptance or evidence that quota is exhausted. Follow-up: one managed tiny control passed9137ms/6701input19output,4720unitPASS, actual disposablePG14PASS/cleanup/public0184unchanged. No managed completecourse or deployedroute accepted yet. Safe real-PG fixture hash collision was corrected without changing uniqueconstraints; old failedreceipt retained.
+- Recurrence: actual managedDEV749eaa saved9extractions thenheldfirstlesson after33.187s, not a proven60stimeout. NewManagedclient again collapsedHTTP/validation outcomes andloggednone. Local futurediagnostics nowallowlisted/bounded/status+elapsed+validatedusage only,23mocktestsPASS; no rawsource/body/key/URL/error text, no retry/acceptancechange. Oldpending28c... and all9responses retained. Exactoldcause remainsunknown; ninecachedresponses exported for OFFLINE request reconstruction, no modelrepeat. This is not three-courseacceptance.
+- Prevention: preserve provider protocol, model and reasoning identity; distinguish readiness from inference, known rejection from transport uncertainty. A provider switch starts a fresh route identity and cannot authorize replay/refund of an uncertain prior claim.
+
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-02.
+Current as of: 2026-11-03.
 
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
@@ -79,6 +107,212 @@ Current as of: 2026-11-02.
 - Fix: verified exact active7c35/rollback00e, no rollout lock and no active/reserved tasks; CT125 BEGIN READ ONLY aggregate inventory confirmed zero ciphertext rows. Generated key remotely, persisted root-only with original configuration and key recovery copy, recreated API+three workers on unchanged image/flags; successful encrypt/decrypt roundtrip. Never remove this additive key after encrypted records exist.
 - Verification: canonical immutable script8147e1cc...e5382caa PASS; actual ordinary production UI subsequently created requesta023f2e1 for retained revision51b35fc7. No passwords, AI-provider keys, customer records, plans or permissions changed. Independent runtime/timer/SMTP readback remains in the live plan.
 - Prevention: production workflow preflight must exercise a synthetic encrypt/decrypt roundtrip and confirm the same key is present in all participating services without printing it. Approval snapshot creation is not proof that request creation/delivery works. Preserve the key in protected recovery material across rollbacks.
+
+## AI-ADMISSION-003 - Existing generation conflict had no persistent recovery action
+
+- Date:2026-11-02.
+- Symptom: actual ordinary DEV Standards submission returned409 while old V2 job3ef30b99 remained running76. No new course/model call was admitted by this rejected request.
+- Cause: the page handled source-reuse/language acknowledgements but reduced generation_already_in_progress to a transient generic toast. Reusing startJob for an existing task could also inherit an unrelated requested/stored learning-program context. Late admitted/read responses could write workflow storage after actor change or page unmount.
+- Fix: persistent conflict with UUID validation and explicit exact read, never automatic generation/resume/cancel; synchronous actor/source/program scope revision rejects stale/ABA replies. Existing-task view explicitly clears program context through a narrow hook override; ordinary one-argument admission behaviour remains. A mounted/live-actor fence protects successful admissions and read responses; same-actor token refresh still adopts an acknowledged job. Guide and RU/KK/EN copy updated.
+- Verification: actual409 retained; root3 red late-success/unmount cases reproduced storage overwrite, then61 focused generation/reuse/workflow tests PASS, types/focused lint PASS. Root corrected a malformed deferred-GET test envelope and added initial selectionABA/session and inherited-program checks. New live DEV acceptance pending; production frontend70 remains accepted and unchanged.
+- Prevention: distinguish a definitive admission conflict from a failed generation; recover the exact existing job with no hidden mutation, and bind all async workflow adoption to the live principal/page and original program provenance.
+
+## AI-DELIVERY-BUDGET-001 - Long direct generation could enter a hard deadline with a request in flight
+
+- Date:2026-11-02.
+- Symptom: a valid long course can outlast the fixed Celery20min soft deadline; starting another600s provider request near it risks an unknown pending outcome rather than a recoverable pause. Existing Render shutdown5f is a separate confirmed failure, not proof it hit this deadline.
+- Cause: the direct client gave token counting and generation the same600s timeout, swallowed cancellation, and had no task-entry remaining-time check before the next durable generation claim.
+- Fix: direct pending path restores completed owned responses first, bounds count to60s independently, propagates cancellation, checks remaining task-entry budget before count and again before pending claim using actual client generation deadline plus120s safety. Preclaim yield uses the existing owned SQL interruption (running/currentdelivery/no pending) and preserves completed checkpoints, params and reservation. A count timeout cannot dispatch generation. No automatic continuation or generic non-direct coverage is claimed.
+- Verification:96focused offline PASS and baseline1005/2171; actual isolatedPG13PASS schema aicp_dev_1f4b32694c0e, cleanuptrue/public0184unchanged, source f9d5cedb2f4af027b67f2524f16762fa41a80d02dbc18367145bdc36eeeb1fec. Completed response cold-replays after new delivery without another call; old delivery rejected; expired budget yields before fresh claim. Fake clock/transport and manual transaction integration do not prove full Celery/model course timing. CurrentDEVBC does not contain this new local source yet.
+- Prevention: distinguish preclaim known-not-dispatched interruption from postclaim unknown outcome; never clear pending markers, refund or replay a dispatched request to recover time. Reserve actual transport deadlines before fresh invocation; verify complete courses separately.
+
+## AI-BROKER-ACK-001 - Lost publish acknowledgement was treated as known failure
+
+- Date:2026-11-02.
+- Symptom: a committed generation/resume could be compensated or reset to interrupted after broker acceptance when apply_async raised before returning its acknowledgement.
+- Cause: the adapter classified every apply_async exception as unavailable, while Celery default task_publish_retry could also repeat publication internally. The page interpreted the503 as ordinary failure and did not preserve its durable job context.
+- Fix: missing task before publication remains known-unavailable; an attempted publish uses retry=False and raises a separate outcome-unknown exception. Admission/resume keep committed job/delivery/checkpoints/reservation and expose only stable503 code and jobID. No compensation, automatic second publish or false failed status. Web exact-job reconciliation and new lost-ack regressions are in progress, not accepted yet.
+- Verification:36focused admission/router/dispatch tests PASS, including acceptance-then-lost-ack, initial HTTP quota preservation, pending new delivery and late matching claim. Baseline1005/2171. Actual combined PG gate in progress under exclusive custody dispatch-cooperative-20261102-custody.json; no real broker failure was induced. A separate uniquely identified pure DEV accumulate task ca9a8594-283c-4310-af92-1b13cfb3151e completed once and exact container logs prove received1/succeeded1, without model or businessDB work.
+- CI recurrence: candidate1e139895 CI41476426074 passed six jobs/unit suite but fullcoverage stopped on legacy regeneration mock expecting apply_async without retry=False. Updated that explicit contract and its old unknown-as-unavailable expectation;44focused API/dispatch PASS, baseline1005/2171. The failed run remains failed; replacement exact-source CI required.
+- Prevention: queue acknowledgement is not publication outcome; unknown dispatch must reconcile the exact durable job. Test HTTP and UI behavior as well as adapter call count, explicitly disable transport publish retry and retain original accounting.
+
+## AI-BUDGET-002 - Cross-month cancellation refunded the current usage period
+
+- Date:2026-11-02; discovered while reconciling stale synthetic Standards V2 job3ef30b99 from29Oct. No cancellation or customer-counter mutation was executed during diagnosis.
+- Cause: release_generation_reservation_once called refund_llm_budget without the original charge month; refund selected datetime.now(UTC). A November cancellation could decrement a November row for an October admission. Aggregate counters are optimistic application reservations, not provider billing.
+- Fix: new admission overwrites any supplied month with one server-chosen charge month, persists it with the job in the admission transaction, and reuses it for dispatch compensation/cancellation. Legacy inference is allowed only when trustworthy creation-to-first-start (or not-yet-started current time) bounds share one UTC month. Unknown/cross-month legacy intervals fail before refund writes. Explicit-period refunds require one sufficient usage row; missing/insufficient rows roll back and cannot claim a released reservation. Implicit-period other operations retain their previous best-effort contract.
+- Verification: original10 red regressions;122 focused checks PASS including midnight dispatch, idempotence, missing-row/invalid-period and held V3 negatives; baseline1005/2171 PASS. Both isolated PostgreSQL gates PASS10 checks; final narrowed implicit-period-compatible source91ebed01303e32e977034941dafc45a726c87c5c293c20bffeea52237e5ed726, custody .release-evidence/dev/budget-period-final-pg-custody-20261102.json and .result.json: October-only refund, November preservation, replay, rollback and fixture RLS, cleanuptrue/public0184unchanged. Independent source review accepted; first schema absence/public revision independently confirmed through restricted lms_app. Deployed cancellation still pending.
+- Limits: legacy timestamps and admission ordering establish a period, not a per-job historical monetary ledger. Cancellation records terminal status before cleanup; uncertain accounting may leave cleanup pending. No provider charge is refunded or declared known by this application-counter repair.
+- Prevention: durable async reservations must retain the charge period; delayed compensation must not derive it from current time or silently mark a zero-row update successful. Keep unknown provider holds fenced and inspect the exact synthetic job before cancelling it.
+
+
+## DEV-QA-20261102 - Microcredit extraction rejected a returned Responses envelope
+
+- Date: 2026-11-02; fixed synthetic DEV job9deab132, no customer writes.
+- Symptom: interrupted34%, no course; one extraction claim retained without an accepted result. Initial aggregate diagnostic misclassified its nested extraction plan as unknown stage and omitted its saved metadata family.
+- Cause evidence: bounded official Render log read (2pages109matched,hasMore=false) identifies stage10040dd2 generationattempt06:15:55.018Z, HTTP200/body_received06:16:49.084Z and completion_status rejection06:16:49.085Z. The actual envelope status/reason was not retained; do not infer network timeout or max-output cause.
+- Fix: read-only diagnostic now distinguishes exact stage/extraction keys and nested identity, verifies owned pending custody and reports self-consistent metadata separately from source/provider authenticity. Responses client now logs finite rejection status/reason and nullable validated counters without provider text, source, key or retries; response acceptance remains strict.
+- Verification:12 socket-denied diagnostic tests; root48 client/contract mocked tests PASS and independent bounded source review accepted. Canonical baseline1005/2171 PASS. Read-only current job52rows,25saved metadata records (input53608/output61755/reasoning10048), one pending extraction. Counts are partial/untrusted for billing; total cost and missing outcome remain unknown. No model/replay/refund.
+- Prevention: distinguish transport, envelope completion and JSON validation before changing limits. Preserve safe failure diagnostics. Never use a pending result or aggregate empty list as proof that no provider work occurred; completed manual UX courses do not accept this engine.
+- Follow-up cause/fix: the client discarded its finite rejected-envelope classification when raising a generic error; the owned journal then retained only an unknown pending marker. Future recognized terminal envelopes now carry a scope-bound internal rejection and persist allowlisted status/reason/nullable usage under the same job/actor/claim/source lock, retaining the pending marker and rejecting partial output. No retry, refund, or retrospective resolution of old9deab132. Receipt is internal consistency evidence, not authenticated billing or source completeness.
+- Follow-up verification: actual client-to-journal mocked regression first failed3 cases, then130 focused tests PASS, including nested extraction, cold replay without count/invoke, malformed usage/status, wrong scope, source/claim drift, rollback and lost commit acknowledgment. Baseline1005/2171 PASS; independent source/isolated-gate reviews accepted. Disposable PostgreSQL DEV gate PASS9 checks, exact source1b0df8f678c6382c381107b5c05f415294e2151d5a6293cf18acf524124c75f7; durable receipt/fresh session/cold hold, runtime lms_app/RLS, concurrent claim fence, cleanuptrue/public0184unchanged. Custody .release-evidence/dev/rejection-receipt-pg-custody-20261102.json. Synthetic source verifier/provider means no real source-fidelity, provider delivery, commit-loss integration, three-course or deployed-runtime acceptance claim.
+
+## TEST-ISOLATION-001 - Synthetic V3 test entered external transport
+
+- Date: 2026-11-02.
+- Symptom: two invocations of a new fake full-service test reached the direct
+  Luna input-token transport and ended with transport-unknown errors. The test
+  used a synthetic key; no successful model response is evidenced and remote
+  receipt cannot be determined from the local error.
+- Cause: the fixture constructed a real direct client without replacing its
+  transport, and an earlier claim-review path reached the token-count endpoint.
+- Fix: the test file installs autouse socket and HTTP-client connection denials
+  before creating clients; earlier unrelated review is stubbed. The safeguard
+  is local to that file, not a network boundary for the whole test suite.
+- Verification: local denial probes and six guarded tests passed. Independent
+  static review confirmed that the observed HTTP path is blocked by the final
+  file-wide guard; it is not a process-wide firewall.
+- Prevention: offline service tests must deny network at the transport boundary
+  before constructing clients, and must not assume a fake key prevents sends.
+
+
+## AI-V3-QUALITY-001 - Explanation contradicted a marked-correct answer
+
+- Date: 2026-11-02.
+- Symptom: a completed synthetic direct-Luna DEV course contained a fourth
+  question whose explanation called the last answer incorrect although that
+  answer was marked correct. The answer itself matched the retained source.
+- Cause: the generated explanation contained an option-position reference;
+  the existing positional guard did not recognize the last answer, while the
+  existing option critic did not receive the explanation. General lesson
+  review did not catch this case. The cause of the model's wording is unknown.
+- Fix: the local fresh direct-QA v2 candidate holds this position reference and
+  extends the existing keyed completeness critic to check explanation, options,
+  answer and source. Missing or uncertain judgments remain held; legacy review
+  requests retain their previous contract. No release or runtime claim follows.
+- Verification: offline synthetic tests cover the retained sentence, request
+  identity, malformed and uncertain verdicts, and v1/v2 policy fencing. The
+  V3-focused suite passed 405 tests before the final legacy identity regression;
+  that regression and its focused suite passed 30 tests. Model semantic accuracy
+  and full-course quality remain unverified.
+- Prevention: the reported roughly 30-call synthetic course is a cost and latency
+  concern requiring measured per-stage accounting; aggregate evidence alone does
+  not prove unnecessary calls. Distinct displayed option order can reduce request
+  deduplication. Preserve old uncertain claims and drain old workers before any
+  policy rollout; do not automatically replay an uncertain provider call.
+
+
+## AI-PROVIDER-006 - DEV QA Luna bridge returned HTTP 400 during a held stage
+
+- Date: 2026-11-02.
+- Symptom: synthetic DEV job `b97da84c-3aad-401d-b3f4-252c5ac69ff5` reached
+  a held reconciliation state at 34% after the existing Luna bridge returned
+  HTTP 400. The original job and source remain held for reconciliation.
+- Cause: not established. The checked-in connector allowlist is a plausible
+  incompatibility with the requested reasoning field, but the deployed
+  connector binary and precise provider error were not independently verified.
+- Fix: preserve the held job and inspect exact connector identity and sanitized
+  classification before attributing cause; do not replay an uncertain stage.
+- Verification: a separate bounded direct Responses synthetic smoke returned
+  `gpt-6-luna`, with input 22, output 34 and reasoning 20 tokens. This proves
+  only that independent small request, not the failed bridge or course flow.
+- Prevention: preserve source and pending ownership evidence on unknown
+  provider outcomes; do not infer connector behavior from a different binary.
+
+## DEV-GATE-004 - Held generation status did not stop acceptance polling
+
+- Date: 2026-11-02.
+- Symptom: the DEV acceptance runner kept polling after a synthetic generation
+  reported `reconciliation_required`, despite the job being held at 34%.
+- Cause: polling recognized only completed, failed and cancelled as stop
+  statuses; held states were intentionally excluded from cleanup eligibility.
+- Fix: stop polling for interrupted or reconciliation-required states while
+  keeping those states ineligible for cancellation or source/course deletion.
+- Verification: synthetic fake-run tests for both held states passed, proving
+  no further polling sleep, no cancellation or deletion, and a retained receipt
+  with owned job and document identifiers. Live successor behavior is unverified.
+- Prevention: distinguish poll-stop statuses from cleanup-safe terminal states,
+  and test uncertain outcomes through the complete runner cleanup path.
+
+## AI-REALIZATION-001 - Whole-lesson recovery missed native persistence and validation contracts
+
+- Date: 2026-10-30.
+- Symptom: the unaccepted realization candidate passed its in-memory tests but
+  native cold lookup raised generation_plan_not_found; JSONB roundtrip and a
+  restored teaching catalog were not exercised through the actual validators.
+- Cause: the fake journal returned None where the repository raises; tuple fields
+  were not hydrated after JSON storage, catalog hashes used different serializers,
+  and application restore skipped native source/question readback. The prompt
+  inventory baseline also remained pending after successful assessment.
+- Fix: only the exact missing-plan error is a cache miss; incomplete/mismatched
+  state is explicit. Versioned v2 snapshots bind source/job/tenant/ordered course,
+  ordinal/prefix and policies. Surface receipts are hydrated by their owner and
+  catalogs rederived; canonical source/cycle journals are revalidated through a
+  read-only assessor with a forbidden-provider spy. Persist the inventory baseline
+  and separate original assessment attempts from current-run chat accounting.
+- Verification: RED native cold start before fix; final focused restore module
+  25 cases, complete unit suite 3636 PASS, eight selected neighboring/gate checks
+  PASS, canonical Python baseline PASS. Actual isolated Supabase DEV gate PASS:
+  cold/JSONB restore, incomplete/identity rejection, tenant/job isolation and stale
+  delivery denial, restricted lms_app/FORCE RLS, cleanup and unchanged public0183.
+  Exact source binding is in the realization result-r3 receipt and test ledger.
+- Prevention: test the native empty repository and JSON wire, not only in-memory
+  dictionaries; replay existing semantic validators instead of trusting snapshot
+  assertions. Model-requiring experimental modes remain held at readback. No
+  full-course/model/worker deployment or production quality acceptance follows.
+
+## AI-SOURCE-PLAN-IDENTITY-001 - Learner title changes selected a second source plan
+
+- Date: 2026-10-30.
+- Symptom: native application/assessor regression lost its accepted questions when
+  the lesson writer changed only title/objective; unchanged-title control passed.
+- Cause: prepare_source_plan keyed the source-only base lesson while assessment
+  used the writer's title/objective, changing the key and repeating source planning.
+- Fix: ordinary prepared assessment retains its source-owned base lesson for the
+  same exact fact/support IDs; the question packet still uses final learner prose.
+  Changed ownership fails before additional inference. Unprepared direct callers
+  retain their existing behavior; semantic support keeps its separate custody.
+- Verification: native rewrite RED before fix; title/objective rewrite, JSON
+  restore and changed fact/support negative cases PASS, with exact scripted-call
+  counts; included in final3636 unit PASS and Python baseline. This is synthetic
+  contract evidence, not a measured production-token saving or course-quality GO.
+- Prevention: keep source identity separate from presentation outputs and test the
+  complete source-plan -> writer -> assessor -> durable restore seam.
+
+## UX-SESSION-001 - Credential rotation and obsolete continuations used the wrong UI lifetime
+
+- Recurrence, 2026-11-01 independent review: the assignment form still keyed its component by the raw access token. A real token-only refresh reset a manually selected recipient. A regression reproduced the loss on branch 5ec30252. The isolated fix uses the existing actor/session generation scope, preserving token-only refresh while resetting on actor or tenant change. Assignment and author-workspace regressions: 41 passed; lint/type passed. This fix and its broader concurrent-read implications require final review and deployed acceptance; not yet released.
+
+- Date: 2026-11-01; local learning-workspace candidate, not deployed acceptance.
+- Symptom: token-only refresh erased entered quiz answers; delayed PDF/CSV or
+  assignment responses could continue after navigation/context change; hidden
+  OTP also hid an otherwise valid PDF error. Technical loading states could
+  incorrectly claim empty/fully assigned enrollment data.
+  Visual inspection also found an email-code subtitle below `not_required` and
+  Russian-only retained PDF actions in the English result screen.
+- Cause: access token used as component identity rather than transport; async
+  continuations lacked the event/actor/mount or confirmed-selection boundary;
+  rendering coupled independent download errors to confirmation requirements.
+- Fix: preserve same-actor quiz/OTP state on credential refresh, reset real scope
+  changes, suppress stale export/download/readback and feedback, render unknown
+  enrollment data honestly and keep PDF errors visible without OTP. Source
+  inspection derives the current catalog row; review receipts bind capability.
+  Evidence subtitles respect the confirmed/not-required state; PDF/signed-copy
+  presentation and fallback errors use canonical RU/KK/EN translations.
+- Verification: deferred actor/event PDF, CSV unmount resolve/reject, assignment
+  selection/readback, review capability replacement and source-refresh negatives;
+  final root6file82PASS. Initial root negative run had7 genuine failures and2
+  assignment-selector test errors, separately corrected. Learner corrected
+  player/navigation/layout77PASS and independent source re-review accepted.
+  Final visual-copy delta: panel/player/locale5files94PASS, lint/type PASS.
+  Document boundary follow-up: an executable actor-switch/source-download
+  regression reproduced retained old catalog content. The document workspace
+  now remounts on actor/tenant/role/session changes (not token refresh), and
+  rejects obsolete catalog/usage/download continuations. Focused3files23PASS.
+- Prevention: test token-only continuity separately from actor/tenant/event
+  replacement; resolve old response bodies after the new scope is visible, and
+  cover unmount as well as mounted identity changes. UI metadata/selection is
+  never new authorization or server-owned saved-content truth.
 
 ## DEV-BROKER-TLS-001 - Supported IP certificate client was not used by renewal timer
 
@@ -1039,6 +1273,16 @@ Current as of: 2026-11-02.
   `tests/unit/test_release_reliability_contracts.py`: two tests passed.
 - Prevention: use `- Date: YYYY-MM-DD` and run the existing release-contract test
   before pushing journal/header edits. Never bypass the gate or backdate the header.
+- Recurrence 2026-11-03: source-view candidate37ddf596 CI41513459436 failed because the new November3 entry left the header at November2. Header correction7ec09c61 passed the local contract and CI41513720375/all7. Run the local release-contract gate before any journal push; old CI failure was retained.
+
+## DEV-WORKER-ENV-002 - Runtime list setting was flattened during secure migration
+
+- Date:2026-11-02.
+- Symptom: initial isolated DEV worker exited before Celery startup with SettingsError/JSON decode failure on AI_LESSON_CYCLE_DEV_TENANTS. It restarted10 times before the exact failed container was stopped and retained; this was configuration failure, not model latency.
+- Cause: receiver and builder agreed on a plain UUID wire value, while actual Pydantic Settings requires a JSON list. Unit fixtures validated the custom receiver but did not instantiate the application Settings class.
+- Fix: preserve the one-tenant JSON array, version immutable receiver path to vm126_dev_worker_env_receiver-v2.py and staged environment to releases/env-v2/<release>/runtime.env. Do not overwrite old receiver/failed custody. Stage secrets only encrypted SSH stdin; actual Settings parses the same41-key payload before startup. Current exact environment SHA f197c79afc8e76229f591731e2450858f35216dc4d4c4094b965c07ff3bf51d8.
+- Verification: actual Settings regression reproduced failure then passed corrected array; source/root/mode/symlink negatives and runtime/controller tests pass. New container e797c5d8c8e84f14b17e4da87af67dfd224d5c3d4965197f7e561f5c852a8a0d has restarts0 and exact consumer/queues/DEV DB/private Docling readback. Canonical DEV controller RELEASE_OK at source bc6d5d71665fc6ca7c8aadd4a2a4c72335bf537a. Production four containers unchanged. Old5f unknown pending remains untouched.
+- Prevention: security validation must preserve application wire types; validate generated payload with actual Settings before starting a consumer, and prove consumer readiness rather than Docker running alone. Do not silently normalize list settings to scalars.
 
 ## DEV-WORKER-SLEEP-001 - Free web-hosted worker stopped while QA reviewed content
 
@@ -1061,6 +1305,19 @@ Current as of: 2026-11-02.
   clock, including queue delay, rather than silently counting only active work.
 - Prevention: distinguish provider deployment status, HTTP readiness, consumer
   liveness and business completion. Human review time can exceed Free idle time.
+
+
+- Recurrence, 2026-11-02: ordinary QA Standards job `5f396873-a2ff-4b19-8099-0a4f97c58b9f`
+  stopped advancing at 50 percent. Bounded exact worker logs show process shutdown
+  during the next Luna request at 12:21:16 UTC, about 15 minutes after readiness.
+  The last provider outcome is unknown; one original broker message remains
+  unacknowledged. No replay, cancellation, refund or manual acknowledgement.
+  Capacity on the already-paid VM126 is verified; an isolated DEV-only worker is
+  being prepared under the owner's existing migration instruction. Neither the
+  provider plan nor production workers are changed. Source and local tests alone
+  are not runtime migration or full-course acceptance.
+
+- Migration accepted,2026-11-02: existing isolated VM126 DEV worker now consumes exact DEV queues, consumer ping/DB lms_app/private converter verified, restarts0. Old Free Render consumer remains suspended without plan change. Canonical REL-DEV-VM-WORKER-R2-20261102 RELEASE_OK at applicationBC/image6d337893. Do not wake old Free worker or run duplicate consumers. Historical5f unknown is preserved; migration does not establish course quality. See DEV-WORKER-ENV-002 for initial failed startup and corrected V2 payload.
 
 ## CERTIFICATE-DOWNLOAD-002 - Storage redirect violated the browser connection policy
 
@@ -1464,6 +1721,21 @@ cause is retroactively promoted to fact.
 - Prevention: retain isolated subprocess regression proving one Alembic head and
   exact169/172 predecessor metadata without importing app. Do not weaken schema
   assertions or rely on caller-specific PYTHONPATH for revision discovery.
+
+## SECURITY-020 - dnspython 2.8.0 failed a refreshed dependency audit
+
+- Date: 2026-10-29; DEV candidate CI 40853187446, no production mutation.
+- Symptom: the blocking production-graph audit reported CVE-2026-114605 for
+  dnspython 2.8.0, with 2.9.0 as its fixed release.
+- Cause: the transitive dependency remained at the previously resolved version;
+  an earlier clean audit did not cover the newly disclosed advisory.
+- Fix: pin dnspython 2.9.0 in the API project and Render requirements and
+  regenerate the Poetry lock without upgrading unrelated package versions.
+- Verification: three-representation pin test and Poetry lock validation pass;
+  isolated Python 3.12 imports and parses a DNS name with 2.9.0. Fresh complete
+  dependency audit and exact-SHA CI remain required.
+- Prevention: re-audit the exact exported production graph for each release;
+  retain blocking advisories and keep all three dependency surfaces aligned.
 
 ## SECURITY-019 - multidict6.7.1 failed refreshed image dependency audit
 
@@ -2709,6 +2981,13 @@ production runtime and cross-container readback remain pending release approval.
   backend unit `312 passed`.
 - Prevention: content/provider boundaries log only opaque IDs, metrics, and error
   type. Production aggregator/Sentry canary remains a gate and uses no real PII.
+
+
+- Recurrence, 2026-11-02: CI41454279854 failed after2806passing tests because
+  a random digit-heavy job UUID was partly masked as a phone. Complete canonical
+  UUID tokens are now recognized before phone matching; adjacent phone values
+  and credential-key UUID values remain redacted. Deterministic regression and
+  Luna transport/redaction43tests pass. Related earlier class: TEST-012.
 
 ## SECURITY-013 - Backup did not authenticate ciphertext and KZ restore lacked a fail-closed command
 
@@ -8242,6 +8521,8 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
   paired human effectiveness remain unmeasured. No universal accuracy or landing
   claim is authorized by these small synthetic repeats.
 
+- Follow-up2026-11-03 (active V3, not the old FAQ algorithm): exactDEV7f0f Standards4ae3 naturally yielded50% with72completed checkpointrows/36accepted calls/no pending/no course. Physical breakdown9extraction/2lesson/20review/5repair,384360input26256output; cg001 alone1author17review4repair=22calls. Repeated exact lesson/source context across separately invoked reviewer axes is an architectural amplification; independent saved audit also identified classification cues, unsupported deadline explanation and logical-projection risks. New LOCAL opt-in batched-decision policy preserves legacy jobs, pools exact shared data in two sequential owned batches (blind options/compatibility without key; separate teaching/prose/key/explanation), retains every original validator, and reuses only exact unchanged method inputs. Changed candidates fall back to scoped independent checks. Held question IDs preserve original seeded option order and are never prefetched. Extraction/author decision suffixes preserve OR/AND and unresolved references, prohibit pre-answering the assessed decision and require source-grounded wrong alternatives. Offline4948full+47focused/baseline1005/2173 accepted; new PostgreSQL/source/actual-model/full-course gates still pending. Do not infer live quality or measured speedup from cache tests.
+
 ## AI-QUALITY-045 - Chunk overlap and post-grounding deduplication silently lost policy facts
 
 - Date:2026-10-12; local synthetic algorithm run, no DB/deployment changes.
@@ -9111,3 +9392,120 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 - Fix: show the existing legacy value and send only fields changed from the loaded tenant, preserving explicit changes and the API plan whitelist.
 - Verification: synthetic React regression exercises the real details page, legacy-plan display and changed-only payload; full web 1502 passed, TypeScript and lint passed. Full DEV/release acceptance remains pending.
 - Prevention: render the loaded legacy value and test an unrelated edit against the actual PATCH payload; never resubmit unchanged server-managed fields.
+
+
+## AI-SCOPED-REVISION-001 - Repair could not change the question it was asked to repair
+
+- Date: 2026-11-02.
+- Symptom: the saved Standards answer retained a binary question prompt after
+  review identified that prompt; its options-only repair could not edit that field.
+  A generated lesson also inferred a document-wide absence from one source subset.
+- Cause: repair scope excluded the defective prompt, and prose criticisms had no
+  atomic, source-checked repair path. Changing prompt behavior without a persisted
+  policy would also alter checkpoint identities for existing jobs.
+- Fix: new admitted jobs receive a server-owned revision policy. Explicit scoped
+  question repair can update the targeted prompt while preserving the correct
+  answer, scenario, citation and sibling cases. One exact-span prose proposal must
+  pass independent part rechecks and a complete lesson review before promotion.
+  The journal rechecks persisted policy, owner, source selection and document
+  revision in the transaction; legacy jobs keep their prior behavior.
+- Verification: frozen engine V3 suite 754 passed; Python baseline ruff1005 and
+  mypy2171 passed without changing debt baselines. Independent source review found
+  no concrete blocker. Actual isolated PostgreSQL gate passed11 checks, cleanup true and public0184 unchanged; full-course
+  semantics, VM worker and deployed DEV acceptance remain unverified.
+- Prevention: repair tools must cover the precise defect, preserve untouched
+  evidence and require fresh independent validation. Unknown provider outcomes
+  remain held. Never change existing-job policy or turn partial proof into GO.
+
+
+## AI-UNKNOWN-DISPOSITION-001 - Unknown provider stage permanently blocked same-source admission
+
+- Date: 2026-11-02.
+- Symptom: after a worker process stopped during an outbound request, the owned
+  job remained pending/running and blocked a separate generation; cancel and
+  resume correctly refused its unresolved provider claim.
+- Cause: preserving unknown-stage custody had no explicit terminal disposition.
+- Fix: owner-only acknowledged abandonment takes the same admission advisory
+  lock, tenant and job locks. It preserves the unknown claim, checkpoints,
+  source and accounting, records actor/time/digest, and fences late save,
+  redelivery and refund. A new generation follows ordinary source/limit checks.
+  The UI reconciles the exact job after a lost response and never repeats POST.
+- Verification: independent source review passed; frozen canonical Supabase DEV
+  schema aicp_dev_d264e505d14b passed12checks including observed row-lock wait,
+  preservation and foreign/late/refund negatives. Cleanup true/public0184
+  unchanged, source158136434ad1b66c30097b98c15f96881aeee69270544384ab80fe1849b78e2b.
+  This tests owned status/journal fencing, not a complete course-save race.
+  Follow-up CI42675e2e/41458143705 exposed an older WebSocket fixture without an
+  actor ID. Shared projection now offers the action only for a real UUID actor;
+  unavailable identity returns false while normal security-context polling
+  continues. Exact WebSocket/owner regression13PASS, no permission broadened.
+- Prevention: unknown does not mean failed or free. Never erase or replay a claim
+  to unblock a source, never silently refund it, never claim provider cost is known.
+## AI-REFERENCE-004 - Confirmed source references depended on model paraphrase equality
+
+- Date: 2026-11-03.
+- Symptom: saved Standards extraction contained all 26 rules, but the owner-confirmed point 2 remained unresolved because its target quotation also included valid surrounding context and the referring rule repeated a paraphrase in timing.
+- Cause: grouping treated modeled projection equality and exact target quote boundaries as dependency truth. The original quotation and authenticated target span were available but had no separate planning representation.
+- Fix: fresh scoped revisions construct an immutable source-quotation planning view for uniquely grounded referring/target owners. Literal source replaces only their planning statement/quote, reference-bearing hints are quarantined, and original model/checkpoints remain unchanged. Contained targets are allowed only with this validated view. Writers and independent critics still receive actual source and separate owner interpretation; the view never grants semantic approval. Unresolved decisions pause before authoring through an owned/no-pending interruption, retaining completed work/reservation and disabling blind resume. Legacy request bytes and exact-target behavior remain unchanged.
+- Verification: exact saved nine-extraction offline replay, 26 rules/six groups, two literal source nodes and unchanged original model; final 4794 API unit tests PASS/66.32s, baseline1005/2173, independent source/substrate/lifecycle reviews accepted. Actual disposable PostgreSQL16PASS, cleanuptrue/public0184unchanged; source887aede86533efb610bfa9b99a38200a63b4d3a90769ff7d8183a90d3018c5b9, custody source-view-r1-20261103-custody.result.json. No new model call or full-course acceptance inferred.
+- Prevention: bind references to unique immutable source spans and owner receipts, not generated prose. Test ambiguous ownership, contained targets, legacy request identity, pre-author pause and checkpoint/accounting preservation together.
+
+## DEV-BROKER-IO-001 - Idle TLS broker health check blocked the DEV consumer
+
+- Date: 2026-11-03.
+- Symptom: sole DEV worker0b7 remained running/restart0 but did not answer three-second or ten-second pidbox inspection. Its unused boot had received zero tasks; broker ready queues and unacknowledged structures were empty. Warm termination did not finish within60seconds.
+- Cause: caught Celery-parent stack proved synchronous control reply blocked in pidbox publication, Redis SMEMBERS, health-check PING and TLS read. Installed transport defaults socket_timeout=None; Docker running and earlier readiness did not establish current consumer liveness. The underlying network reason for the stale connection is not proven.
+- Fix: only known DEV rediss environments receive broker socket/read and connect deadlines10seconds plus TCP keepalive. Production/local/non-TLS options and visibility3600 remain unchanged; no model deadline, inference retry or acknowledgement policy changed. The old consumer eventually exited after the original warm signal; no socket reset, force kill, queue mutation or task replay was executed. Preserve its container/image/environment for rollback.
+- Verification: three actual Kombu parameter-mapping regressions reproduced socket_timeout=None RED, then23deadline/queue/verified-TLS tests PASS. Real local TLS peer stalls health PING, finite read fails, a fresh verified connection completes SMEMBERS; test-copy deadline0.2s, actual configuration10s. Final4802APIunitPASS/57.38s; test-only import/date/parser cleanup followed by23focusedPASS/1.43s and baseline1005/2173. Live new-consumer recovery remains a separate pending gate.
+- Prevention: verify current pidbox and queue operation before generation, not Docker state alone. Bound broker I/O separately from model work. Missing control replies never prove idle; preserve uncertain deliveries, use warm shutdown, and never force-stop a sampled idle worker because BRPOP precedes durable unacknowledged bookkeeping.
+
+## AI-MANAGED-JSON-001 - Lesson JSON constrained as a manually encoded string
+
+- Recurrence2026-11-03: exactDEVbbfeb83c Standards5857fec8 reused9source extractions and accepted author+two method-specific review buckets; after a scoped repair, cache-miss review_lesson still used legacy manual JSON. SixthHTTP200 failed syntax atposition961 (extra bracket); complete1830B private receiptSHA3874389bd39b8bb156bc009b25206f9cf2dfdcee846c0f4fbcfd97f2fbe2aaa5 retained/pendingtrue/no course/no blindretry. Fiveacceptedresponses67191input8683output plus rejected15897input548output=92319reportedtokens; no extracted source inference. LOCAL V4 now types every cache-miss reviewer through same journal; full auxiliary-producer inventory revealed additional untyped repair/citation/diversity paths, being corrected as one versioned contract pass before next live generation. Technical typed output is not source/semantic/full-course acceptance. Existing held job/accounting remain unchanged.
+
+- Date: 2026-11-03.
+- Symptom: exactDEV704 Standards job reused all9completed extractions, then first lesson returned HTTP200 in19208ms but strict inner JSON parsing failed; pending remains held and no course was saved.
+- Cause: producer schema constrained the outer content string, while inner lesson JSON remained manual text encoding. Client correctly refused malformed content, but old rejection path discarded complete response bytes, so exact syntax subtype and usage remain UNKNOWN.
+- Fix: explicit managed lesson-author-only typed-json-object-v1 applies the closed author schema directly at producer, serializes objects programmatically, binds full schema to request/stage identity and independently validates mode/hash/shape at consumer. Other provider/stages keep legacy contract. Bounded complete rejectedHTTP200 is retained in a distinct owned private checkpoint with acceptedFalse; job result contains only metadata/reference. Exact actor/source/pending/claim locks preserve hold/accounting/history and prohibit blind retries. No accepted result or usage is synthesized.
+- Verification: 4851APIunitPASS/61.15s,49focusedPASS,91offlineproducer/workflow/lifecyclePASS,baseline1005/2173. New PostgreSQL17check proof pending; earlier16check proof is not substituted. Synthetic pinnedCLI accepted schema/strictJSONobject11099ms,7543input726output; extra synthetic_shape=false remains unaccepted, no full-course proof. New runtime deployment and allthree semantic courses remain open.
+- Prevention: constrain the artifact object rather than asking the model to encode JSON inside text. Keep formatting/shape, source semantics and full-course acceptance distinct; retain rejected bytes privately before diagnostics are lost. Unknown provider outcomes are not retryable or refundable automatically.
+
+- Recurrence2026-11-03: DEV20fa Standards cc4853 completed9typed extractions,1typed author and1blind batch, then keyed batch HTTP200/18197ms failed at content JSON position437 (extra closing brace). Private owned complete-response receipt bce4c7f1a4a47dfa1ca79053988ce6464c12626d54146cafcb1518f66582fbf8 confirms syntax subtype; 21722input/2654output for rejected response, retained separately and never accepted. Prior11valid responses102654input15782output. Root cause recurred because the new batch reviewer still used manually encoded JSON rather than the typed producer protocol already applied to extraction/author. LOCAL correction applies closed typed batch schema with bounded anyOf/numeric primitives, bound request hash, independent consumer shape/ID and unchanged semantic validators; direct API keeps its supported JSON-object wire plus strict consumer validation. No regex repair or unknown-stage replay. Real isolated CLI synthetic typed batch returned valid shape in4962ms/7946input146output, one call; not a course acceptance. Full API4965PASS/63.83s plus25focused,29producer tests and baseline1005/2173PASS. Independent review caught and corrected direct-route incompatibility and malformed-schema unhashable-type error. PostgreSQL/runtime/full-course gates remain separate.
+
+- Follow-up2026-11-03: DEV1330 Standards ad5c3466 returned five HTTP200 responses40535input5530output, but fifth JSON-valid extraction failed downstream and its response was lost before finalizer. Exact offending field is UNKNOWN. LOCAL V2 now types extraction fields at producer, binds schema/request identity, and retains bounded complete managed response through application validation/metadata/finalization failures. Native V2 uses the same atomic pending substrate and truthful content-only rejection custody, request-local DeepSeek reasoningLOW/profile binding. Saved synthetic array-valued timing and interrupted/finalizer/source/owner/route regressions cover the failure class; they do not identify the actual lost fifth field. No blind replay or quota refund. Final integrated/PG/runtime/full-course gates remain separate.
+
+## OPS-DOCKER-MOUNTS-001 - Unordered Docker mount inventory compared as ordered state
+
+- Date: 2026-11-03.
+- Symptom: Isolated DEV connector upgrade failed runtime comparison and then reported rollback boundary unverified although retained old image, semantic environment/mounts and all six production container identities remained unchanged.
+- Cause: Docker inspect Mounts arrays are not order-stable. Actual consecutive read-only inspections returned different array order on unchanged production worker-ops and shared connector, while all complete records matched after sorting by Destination. Both replacement comparison and full production snapshot included incidental ordering.
+- Fix: Sort full mount records by Destination in both snapshots; retain exact paths, RW/mode/type/propagation fields, Env key/value set, command/user, hardening, resource limits, IDs, StartedAt and network checks. Never suppress mount comparisons or assume a changed ID is safe. Reinspect each retained state before a bounded continuation; preserve failed records and rollback files.
+- Verification: Actual ordering diagnostic SHA0c377febb67776ac19b2d74d6d4b7e3e25e98d09e5a684f1b8d3e43e303ea875 confirmed Mounts-only variation/normalizedequalTRUE. Seven offline tests execute the exact remote snapshot function: permutations stable, changed source/RW/environment/identity/start/network detected. R3 upgrade SHA12fb8aee888cd1029d1252301f4f3d88a2652b7f90082473182431668028bdc4 PASS; isolated imagece55ff5f/readiness verified, production six containers unchanged. No forced inference termination or provider-setting change.
+- Prevention: Canonicalize only fields whose ordering is unspecified; compare consequential values fully. Read back actual rollback state after any guard failure and prohibit blind repetition of a script whose exact old IDs no longer exist.
+
+## AI-REVIEW-TYPE-001 - A typed union did not bind each review to its method
+
+- Date: 2026-11-03.
+- Symptom: ExactDEV4e7 Standards5e4 reused9extractions and received3validtypedHTTP200 responses(46662input6716output), then failed40% without course/pending after keyed output used lesson-shaped scores for answer/prose review IDs. Downstream per-method axis validation rejected it; its failed status and saved responses remain unchanged.
+- Cause: The global anyOf schema allowed any structurally valid reviewer shape for every id. Method instructions were present, but no producer-side discriminator linked each id to its expected review type. Valid JSON/union membership did not imply an appropriate reviewer result.
+- Fix: Fresh reviewv3 uses five method-specific named arrays, each with exact request-bound ID enum/count and method-specific review schema. Independent consumer checks reject wrong bucket/id/type before stage finalization; legacyv1/v2 wire remains versioned. Direct Responses retains supported wire but validates the logical request contract before finalization and privately retains complete valid HTTP bodies rejected later. No coercion of lesson ratings into source entailment, no blind retries or relaxed semantic validators.
+- Verification:4994fullAPIunitPASS/68.16s,49focused plus9PendingJournal/directbucket cases,34producer/baseline1005/2173PASS. Saved-equivalent wrong-method shapes, foreign/duplicate/missing IDs, exact count/enum bindings, raw/body/request hashes, pending retention and cold no-call replay covered. Real isolatedCLI synthetic method-bucket probe5489ms8756input165output/typedhash/exactshapeTRUE/onecall; not a course acceptance. Final exactPG19/runtime/three-course quality gates remain open.
+- Prevention: Encode discriminating relationships in the output contract, not only in prose. Apply validation before durable completion and bind it to the actual request. Keep provider response receipt, accepted stage, semantic quality and full-course completion as separate facts.
+
+## AI-DIRECT-WIRE-001 - Reconstructed JSON hash differed from installed HTTPX serialization
+
+- Date: 2026-11-03.
+- Symptom: bf72 CI41565419914 failed test_success_capture_exact_wire_and_scope[owned] although local direct capture tests passed; private receipt request hash differed from actual MockTransport request.content.
+- Cause: Handwritten compact json.dumps reconstructed a body sent by HTTPX json=payload. Supported HTTPX versions use different JSON whitespace, so semantically identical JSON was not byte-identical to the actual wire request.
+- Fix: Compute the receipt digest from httpx.Request(...,json=payload).content using the same installed encoder as the actual send. Do not hash a guessed representation, change provider plans, or fabricate the old receipt.
+- Verification: Five direct capture/real PendingJournal bucket tests PASS/1.69s after correction, baseline1005/2173PASS. The failing CI log is preserved bf72e293-unit-ci-failure-view.log; exact successor CI remains required. No provider inference was repeated for this correction.
+- Prevention: Bind wire evidence to actual serialized bytes using the transport's encoder; keep logical request identity separate from byte identity and exercise the canonical CI dependency set before runtime activation.
+
+## DEV-MODEL-ISOLATION-001 - DEV shared a connector whose production route had become active
+
+- Date: 2026-11-03.
+- Symptom: readonly pre-replacement production routing check returned RESERVE_ACTIVE, while earlier handoff described the shared managed connector as dormant/OFF.
+- Cause: DEV transport and production fallback used the same installed connector; historical routing state was insufficient deployment authority. Shared replacement would couple a DEV protocol change to an active production service.
+- Fix: shared update stops before mutation. Prepare separate pinned DEV connector and mount-free egress on existing VM capacity with Docker-bridge-only endpoint. Explicit managed VM staging selects one fixed literal URL and immutable V4 receiver; Render source/legacy loopback/direct paths stay unchanged. Actual runtime env hash and new probe validate the route, with no hidden environment override or SSH-right changes. Preserve shared production containers, routing and dedicated auth files; never copy/export the managed profile.
+- Verification:75staging/runtime testsPASS/2platformskips, including26independent fixed-endpoint/default/foreign-source/path/hash negatives; baseline1005/2173. Deployment and real route readback remain open. Sole DEV worker warm-stopped cleanly after idle proof, no force kill. Shared connector scripts stopped at production_reserve_read before env/image/compose writes; production routing unchanged.
+- Prevention: re-read current shared dependencies before deployment. Treat cached OFF and Docker running as historical hints. Isolate DEV transport from production and do not forge route fingerprints to reuse old responses after an endpoint change.

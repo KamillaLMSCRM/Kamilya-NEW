@@ -33,13 +33,17 @@ from app.modules.ai.assistant_policy import (
     assistant_scope_refusal,
 )
 from app.modules.ai.generation_engine import (
+    CURRENT_GENERATION_ENGINE,
     RETIRED_GENERATION_ENGINE_CODE,
     RETIRED_GENERATION_ENGINE_MESSAGE,
     job_uses_current_generation_engine,
 )
 from app.modules.ai.job_service import (
     AIJobAdmissionLimitReachedError,
+    AIJobDispatchOutcomeUnknownError,
     AIJobSubmissionUnavailableError,
+    _lock_tenant_row,
+    abandon_unknown_generation,
     build_ai_job_queue_metadata,
     get_ai_job,
     is_resumable_generation_job,
@@ -51,6 +55,7 @@ from app.modules.ai.job_service import (
 )
 from app.modules.ai.llm_client import ResilientLLMClient
 from app.modules.ai.schemas import (
+    AbandonUnknownGenerationRequest,
     AIChatRequest,
     AIChatResponse,
     AIGenerateRequest,
@@ -351,6 +356,37 @@ def _job_progress_detail(job: AIJob) -> dict[str, int | str]:
     return result
 
 
+def _visible_job_errors(job: AIJob) -> list[str] | None:
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if job.status == "running" or not has_pending(getattr(job, "result", None)):
+        return cast(list[str] | None, job.errors)
+    errors = list(job.errors or [])
+    code = "source_first_commit_pending_or_unknown"
+    if code not in errors:
+        errors.append(code)
+    return errors
+
+
+def _visible_job_status_message(job: AIJob) -> tuple[str, str]:
+    from app.modules.ai.job_service import is_abandoned_unknown
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if is_abandoned_unknown(job):
+        return "abandoned", str(job.message or "")
+    if job.status != "running" and has_pending(getattr(job, "result", None)):
+        return ("reconciliation_required",
+                "Генерация выполняется или требует проверки. Обновите статус; если он не изменится, обратитесь к администратору. Не запускайте генерацию повторно.")
+    return str(job.status), str(job.message or "")
+
+
+def _viewer_can_abandon_unknown(job: AIJob, viewer_id: object) -> bool:
+    from app.modules.ai.job_service import can_abandon_unknown
+
+    return (isinstance(viewer_id, UUID) and viewer_id == getattr(job, "user_id", None)
+            and can_abandon_unknown(job))
+
+
 async def _job_response(
     db: AsyncSession,
     job: AIJob,
@@ -358,6 +394,7 @@ async def _job_response(
     message: str | None = None,
     queue_metadata: dict[str, int | None] | None = None,
     mixed_language_warning: dict[str, object] | None = None,
+    viewer_id: UUID | None = None,
 ) -> AIJobResponse:
     settings = get_settings()
     if queue_metadata is None:
@@ -373,9 +410,11 @@ async def _job_response(
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
+    visible_status, visible_message = _visible_job_status_message(job)
     return AIJobResponse(
         id=job.id,
-        status=job.status,
+        status=visible_status,
+        abandon_available=_viewer_can_abandon_unknown(job, viewer_id),
         job_type=_job_type(job),
         course_id=_job_course_uuid(job.course_id),
         created_at=job.created_at,
@@ -383,8 +422,8 @@ async def _job_response(
         started_at=job.started_at,
         progress=job.progress,
         stage=job.stage,
-        message=message if message is not None else (job.message or ""),
-        errors=job.errors,
+        message=visible_message if visible_status == "reconciliation_required" else (message if message is not None else visible_message),
+        errors=_visible_job_errors(job),
         mixed_language_warning=mixed_language_warning,
         **_job_progress_detail(job),
         **queue_metadata,
@@ -430,6 +469,7 @@ async def submit_course_generation(
         generation_lesson_ceiling,
         recommend_course_structure,
     )
+    from app.modules.ai.v3.source_reference_decisions import admit_reference_decisions
 
     if len(req.documents) > MULTI_DOCUMENT_MAX_SOURCES:
         raise HTTPException(
@@ -442,6 +482,9 @@ async def submit_course_generation(
         )
 
     tenant_id = UUID(str(user.tenant_id))
+    confirmed_reference_records = admit_reference_decisions(
+        req.reference_decisions, str(tenant_id), str(user.id), req.documents,
+    )
     analysis = await analyze_document_set(
         db,
         tenant_id,
@@ -477,13 +520,37 @@ async def submit_course_generation(
             },
         )
     analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
+    from app.modules.ai.v3.revision_policy import stamp_policy
+
+    analysis_payload = stamp_policy(analysis_payload)
     analysis_payload["course_sizing_request"] = {
         "course_format": req.course_format,
         "manual_modules": req.num_modules,
     }
-    # Every new job is bound to the sole evidence-first engine. Historical jobs
+    # Every new job is bound to the active engine. Historical jobs
     # without this marker fail closed and must be submitted as a new generation.
-    analysis_payload["generation_engine"] = "evidence_v2"
+    analysis_payload["generation_engine"] = CURRENT_GENERATION_ENGINE
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, admission_marker
+
+    analysis_payload.pop(QA_PENDING_KEY, None)
+    try:
+        qa_pending_marker = admission_marker(
+            settings=get_settings(), tenant_id=cast(UUID, user.tenant_id), user_id=cast(UUID, user.id),
+            course_id=req.course_id, source_first=False,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail="qa_luna_pending_admission_unavailable") from exc
+    if qa_pending_marker is not None:
+        analysis_payload[QA_PENDING_KEY] = qa_pending_marker
+    if req.completed_extraction_parent_job_id is not None:
+        from app.modules.ai.v3.completed_extraction_reuse import validate_parent_admission
+        try:
+            await validate_parent_admission(db, tenant_id=tenant_id, user_id=user.id,
+                parent_job_id=req.completed_extraction_parent_job_id, policy=qa_pending_marker,
+                documents=[str(value) for value in req.documents], references=confirmed_reference_records,
+                course_id=req.course_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="completed_extraction_parent_unverified") from exc
     if analysis.requires_decision and req.source_strategy != "intentional_combination":
         raise HTTPException(
             status_code=409,
@@ -597,6 +664,9 @@ async def submit_course_generation(
                 "source_strategy": req.source_strategy,
                 "combination_goal": req.combination_goal.strip(),
                 "source_analysis": analysis_payload,
+                "reference_decisions": confirmed_reference_records,
+                **({"completed_extraction_parent_job_id": str(req.completed_extraction_parent_job_id)}
+                   if req.completed_extraction_parent_job_id is not None else {}),
                 "reuse_reason": req.reuse_reason,
             },
             task_name="generate_course",
@@ -624,6 +694,8 @@ async def submit_course_generation(
             reserve_course_generation=target_course_id is None,
             **({"before_commit": before_commit} if before_commit is not None else {}),
         )
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except Exception as exc:
         await release_ai_generation_quota(db, user.id, user.tenant_id)
         if isinstance(exc, AIJobAdmissionLimitReachedError):
@@ -672,7 +744,8 @@ async def list_jobs(
     return [
         AIJobResponse(
             id=j.id,
-            status=j.status,
+            status=_visible_job_status_message(j)[0],
+            abandon_available=_viewer_can_abandon_unknown(j, getattr(user, "id", None)),
             job_type=_job_type(j),
             course_id=_job_course_uuid(j.course_id),
             created_at=j.created_at,
@@ -680,8 +753,8 @@ async def list_jobs(
             started_at=j.started_at,
             progress=j.progress,
             stage=j.stage,
-            message=j.message or "",
-            errors=j.errors,
+            message=_visible_job_status_message(j)[1],
+            errors=_visible_job_errors(j),
             **_job_progress_detail(j),
         )
         for j in jobs
@@ -699,7 +772,50 @@ async def get_job(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    return await _job_response(db, job)
+    return await _job_response(db, job, viewer_id=cast(UUID, user.id))
+
+
+async def _cleanup_cancelled_generation_reservation(
+    db: AsyncSession, job_id: str, user: User, tenant_id: UUID
+) -> None:
+    """Rebind the caller and prove cancellation/refund in the current transaction."""
+    from app.core.auth import _set_tenant_security_context, _set_user_security_context
+
+    if user.id is None:
+        raise ValueError("cancellation_security_context_missing")
+    tenant = str(tenant_id)
+    await _set_tenant_security_context(db, tenant)
+    await _set_user_security_context(db, user.id)
+    await _lock_tenant_row(db, tenant_id)
+    job = await get_ai_job(db, job_id, tenant_id=tenant, for_update=True)
+    if job is None or job.status != "cancelled":
+        raise ValueError("cancelled_job_unverified")
+    await release_generation_reservation_once(db, job_id=job_id, tenant_id=tenant)
+    params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+    required = params.get("generation_reservation_required") is True or (
+        "documents" in params and not params.get("action")
+    )
+    if job.course_id is None and required and params.get("generation_reservation_released") is not True:
+        raise ValueError("reservation_cleanup_unverified")
+    await db.commit()
+
+
+@router.post("/jobs/{job_id}/abandon-unknown")
+async def abandon_unknown_job(
+    job_id: str, payload: AbandonUnknownGenerationRequest,
+    db: AsyncSession = Depends(get_db), user: User = Depends(require_ai_job_access),  # noqa: B008
+) -> dict[str, str]:
+    """Retain an unknown provider stage and its reservation while ending this job."""
+    if payload.acknowledge_outcome_and_cost_unknown is not True:
+        raise HTTPException(status_code=409, detail={"code": "unknown_outcome_ack_required"})
+    if not isinstance(user.id, UUID) or not isinstance(user.tenant_id, UUID):
+        raise HTTPException(status_code=404, detail="Job not found")
+    result = await abandon_unknown_generation(db, job_id=job_id, tenant_id=user.tenant_id, user_id=user.id)
+    if result == "not_found":
+        raise HTTPException(status_code=404, detail="Job not found")
+    if result != "abandoned":
+        raise HTTPException(status_code=409, detail={"code": "unknown_outcome_abandon_unavailable"})
+    return {"status": "abandoned", "provider_outcome": "unknown", "cost": "unknown"}
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -709,23 +825,36 @@ async def cancel_generation(
     user: User = Depends(require_ai_job_access),
 ):
     """Cancel a running generation job."""
+    from app.core.auth import _set_tenant_security_context, _set_user_security_context
+
+    if getattr(user, "id", None) is None:
+        raise HTTPException(status_code=403, detail="Cancellation scope unavailable")
+    tenant_id = user.tenant_id
+    if tenant_id is None:
+        if user.role != "superadmin":
+            raise HTTPException(status_code=403, detail="Cancellation scope unavailable")
+        # Global read takes no row lock; then bind and recheck under ordered locks.
+        visible = await get_ai_job(db, job_id, tenant_id=None)
+        if visible is None or visible.tenant_id is None:
+            raise HTTPException(status_code=404, detail="Job not found")
+        tenant_id = visible.tenant_id
+        await _set_tenant_security_context(db, str(tenant_id))
+        await _set_user_security_context(db, user.id)
+    await _lock_tenant_row(db, tenant_id)
     job = await get_ai_job(
-        db,
-        job_id,
-        tenant_id=str(user.tenant_id) if user.tenant_id else None,
-        for_update=True,
+        db, job_id, tenant_id=str(tenant_id), for_update=True,
     )
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if has_pending(getattr(job, "result", None)):
+        raise HTTPException(status_code=409, detail={"code": "v3_stage_pending_or_unknown"})
+
     if job.status == "cancelled":
         try:
-            await release_generation_reservation_once(
-                db,
-                job_id=job_id,
-                tenant_id=str(user.tenant_id) if user.tenant_id else None,
-            )
-            await db.commit()
+            await _cleanup_cancelled_generation_reservation(db, job_id, user, tenant_id)
         except Exception as exc:
             await db.rollback()
             raise HTTPException(
@@ -741,7 +870,7 @@ async def cancel_generation(
     await update_ai_job(
         db,
         job_id,
-        tenant_id=str(user.tenant_id) if user.tenant_id else None,
+        tenant_id=str(tenant_id),
         status="cancelled",
         stage="cancelled",
         message="Cancelled by user",
@@ -749,12 +878,7 @@ async def cancel_generation(
     )
     await db.commit()
     try:
-        await release_generation_reservation_once(
-            db,
-            job_id=job_id,
-            tenant_id=str(user.tenant_id) if user.tenant_id else None,
-        )
-        await db.commit()
+        await _cleanup_cancelled_generation_reservation(db, job_id, user, tenant_id)
     except Exception as exc:
         await db.rollback()
         logger.exception(
@@ -796,6 +920,10 @@ async def resume_generation(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+
+    if has_pending(getattr(job, "result", None)):
+        raise HTTPException(status_code=409, detail={"code": "v3_stage_pending_or_unknown"})
     if not job_uses_current_generation_engine(job):
         raise HTTPException(
             status_code=409,
@@ -848,6 +976,8 @@ async def resume_generation(
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except AIJobSubmissionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
     return await _job_response(db, resumed, queue_metadata=queue_metadata)
@@ -911,12 +1041,15 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
 
     try:
         while True:
+            visible_status, visible_message = _visible_job_status_message(job)
             await websocket.send_json({
                 "job_id": job.id,
-                "status": job.status,
+                "status": visible_status,
+                "abandon_available": _viewer_can_abandon_unknown(job, getattr(user, "id", None)),
                 "stage": job.stage,
                 "progress": job.progress,
-                "message": job.message or "",
+                "message": visible_message,
+                "errors": _visible_job_errors(job),
                 **_job_progress_detail(job),
             })
 
@@ -1744,6 +1877,8 @@ async def regenerate_module(
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except AIJobSubmissionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
 
@@ -1799,6 +1934,8 @@ async def regenerate_lesson(
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc
+    except AIJobDispatchOutcomeUnknownError as exc:
+        raise HTTPException(status_code=503, detail={"code": "ai_job_dispatch_outcome_unknown", "job_id": exc.job_id}) from None
     except AIJobSubmissionUnavailableError as exc:
         raise HTTPException(status_code=503, detail=exc.detail) from exc
 

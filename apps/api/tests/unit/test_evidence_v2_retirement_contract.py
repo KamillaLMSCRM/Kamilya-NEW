@@ -1,11 +1,30 @@
 from __future__ import annotations
 
+import ast
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[4]
 AI_MODULE = ROOT / "apps/api/app/modules/ai"
+
+
+
+def _imports_retired_assessment(source: str) -> bool:
+    retired = "app.modules.ai.assessment"
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            if any(alias.name == retired or alias.name.startswith(retired + ".") for alias in node.names):
+                return True
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            if module == retired or module.startswith(retired + "."):
+                return True
+            if module == "app.modules.ai" and any(alias.name == "assessment" for alias in node.names):
+                return True
+    return False
 
 
 def test_only_evidence_v2_generation_implementation_remains() -> None:
@@ -49,8 +68,23 @@ def test_supported_replay_and_snapshot_builder_target_evidence_v2() -> None:
 def test_active_question_quality_does_not_import_retired_assessment() -> None:
     quality_source = (AI_MODULE / "evidence_engine/quality.py").read_text(encoding="utf-8")
 
-    assert "app.modules.ai.assessment" not in quality_source
+    assert not _imports_retired_assessment(quality_source)
 
+
+
+@pytest.mark.parametrize("source", [
+    "import app.modules.ai.assessment",
+    "import app.modules.ai.assessment as retired",
+    "from app.modules.ai.assessment import generate",
+    "from app.modules.ai import assessment",
+    "from app.modules.ai import assessment as retired",
+])
+def test_retired_import_gate_rejects_exact_module(source: str) -> None:
+    assert _imports_retired_assessment(source)
+
+
+def test_retired_import_gate_accepts_distinct_assessment_modules() -> None:
+    assert not _imports_retired_assessment("from app.modules.ai.assessment_preservation import guard")
 
 def test_snapshot_builder_emits_current_engine_without_retired_modules(tmp_path: Path) -> None:
     output = tmp_path / "snapshot.md"

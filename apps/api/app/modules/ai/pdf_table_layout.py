@@ -8,17 +8,43 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
-MAX_PAGES = 64
 MAX_OPERANDS_PER_PAGE = 60_000
+# Charge even empty pages, so page traversal and complex content share a
+# finite processing capacity without treating any page number as complete.
+PAGE_WORK_UNITS = 1_000
+MAX_DOCUMENT_WORK_UNITS = 4_000_000
 MAX_TABLE_CELLS = 4_096
 TOLERANCE = 0.5
 
 
 class PDFTableLayoutError(ValueError):
     """The source has a ruled table whose relationships cannot be verified."""
+
+
+PDF_LAYOUT_CAPACITY_ERRORS = frozenset({
+    'pdf_layout_processing_capacity_exceeded', 'pdf_layout_operand_limit',
+    'pdf_layout_grid_limit', 'pdf_layout_cell_limit',
+})
+
+
+def _safe_pages(reader: Any) -> Iterator[Any]:
+    """Treat lazy page-tree failures as terminal, including after earlier pages."""
+    try:
+        pages = iter(reader.pages)
+    except Exception as exc:
+        raise PDFTableLayoutError('pdf_layout_pages_unreadable') from exc
+    while True:
+        try:
+            page = next(pages)
+        except StopIteration:
+            return
+        except Exception as exc:
+            raise PDFTableLayoutError('pdf_layout_pages_unreadable') from exc
+        yield page
 
 
 def _point(x: float, y: float, matrix: list[float]) -> tuple[float, float]:
@@ -30,7 +56,7 @@ def _quantize(value: float) -> float:
     return round(value / TOLERANCE) * TOLERANCE
 
 
-def _page_tables(page: Any) -> list[list[list[str]]]:
+def _page_tables(page: Any, *, document_work: list[int] | None = None) -> list[list[list[str]]]:
     segments: list[tuple[tuple[float, float], tuple[float, float]]] = []
     pending: list[tuple[tuple[float, float], tuple[float, float]]] = []
     texts: list[tuple[float, float, str]] = []
@@ -42,6 +68,10 @@ def _page_tables(page: Any) -> list[list[list[str]]]:
         operands += 1
         if operands > MAX_OPERANDS_PER_PAGE:
             raise PDFTableLayoutError('pdf_layout_operand_limit')
+        if document_work is not None:
+            document_work[0] += 1
+            if document_work[0] > MAX_DOCUMENT_WORK_UNITS:
+                raise PDFTableLayoutError('pdf_layout_processing_capacity_exceeded')
         if op == b'm':
             cursor = _point(float(args[0]), float(args[1]), cm)
         elif op == b'l' and cursor is not None:
@@ -127,14 +157,16 @@ def preserve_pdf_tables(path: str | Path, markdown: str) -> tuple[str, int]:
         reader = PdfReader(str(path), strict=False)
     except Exception as exc:
         raise PDFTableLayoutError('pdf_layout_source_unreadable') from exc
-    if len(reader.pages) > MAX_PAGES:
-        raise PDFTableLayoutError('pdf_layout_page_limit')
     recovered = 0
     existing = [(headers, [cells for cells, _raw in rows])
                 for headers, rows in markdown_tables(markdown)]
-    for page in reader.pages:
+    document_work = [0]
+    for page in _safe_pages(reader):
+        document_work[0] += PAGE_WORK_UNITS
+        if document_work[0] > MAX_DOCUMENT_WORK_UNITS:
+            raise PDFTableLayoutError('pdf_layout_processing_capacity_exceeded')
         try:
-            tables = _page_tables(page)
+            tables = _page_tables(page, document_work=document_work)
         except PDFTableLayoutError:
             raise
         except Exception as exc:

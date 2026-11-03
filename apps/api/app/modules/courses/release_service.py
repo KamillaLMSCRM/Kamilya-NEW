@@ -37,6 +37,45 @@ def canonical_json_sha256(payload: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _question_snapshot_payload(question: Question, choices: list[QuizChoice]) -> dict[str, Any]:
+    result = {
+        "id": str(question.id), "text": question.text, "type": question.type,
+        "points": question.points, "explanation": question.explanation,
+        "order_index": question.order_index, "pool_group": question.pool_group,
+        "choices": [{"id": str(choice.id), "text": choice.text, "is_correct": bool(choice.is_correct),
+                     "order_index": choice.order_index} for choice in choices],
+    }
+    # Preserve the legacy snapshot shape for questions created without a quote.
+    if getattr(question, "source_quote", None):
+        result["source_quote"] = question.source_quote
+    return result
+
+
+async def touch_course(db: AsyncSession, course_id: object, tenant_id: object) -> None:
+    """Updates parent Course updated_at timestamp to synchronize content versioning and locking."""
+    from sqlalchemy import update
+    if course_id is not None and tenant_id is not None:
+        await db.execute(
+            update(Course)
+            .where(Course.id == course_id, Course.tenant_id == tenant_id)
+            .values(updated_at=func.now())
+        )
+
+
+async def touch_course_by_lesson(db: AsyncSession, lesson_id: object, tenant_id: object) -> None:
+    """Finds parent Course from lesson_id and synchronizes course content versioning and locking."""
+    if not lesson_id or not tenant_id:
+        return
+    res = await db.execute(
+        select(Module.course_id)
+        .join(Lesson, Lesson.module_id == Module.id)
+        .where(Lesson.id == lesson_id, Lesson.tenant_id == tenant_id)
+    )
+    course_id = res.scalar_one_or_none()
+    if course_id:
+        await touch_course(db, course_id, tenant_id)
+
+
 def _has_visible_text(value: object) -> bool:
     if not isinstance(value, str):
         return False
@@ -258,25 +297,8 @@ async def build_course_release_snapshot(
         .all()
     )
 
-    def choice_payload(choice: QuizChoice) -> dict[str, Any]:
-        return {
-            "id": str(choice.id),
-            "text": choice.text,
-            "is_correct": bool(choice.is_correct),
-            "order_index": choice.order_index,
-        }
-
     def question_payload(question: Question) -> dict[str, Any]:
-        return {
-            "id": str(question.id),
-            "text": question.text,
-            "type": question.type,
-            "points": question.points,
-            "explanation": question.explanation,
-            "order_index": question.order_index,
-            "pool_group": question.pool_group,
-            "choices": [choice_payload(choice) for choice in choices_by_question.get(question.id, [])],
-        }
+        return _question_snapshot_payload(question, choices_by_question.get(question.id, []))
 
     def quiz_payload(quiz: Quiz) -> dict[str, Any]:
         return {
