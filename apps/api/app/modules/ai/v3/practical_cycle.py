@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from app.modules.ai.v3.practical_applicability import SOURCE_APPLICABILITY_GUIDE
 from app.modules.ai.v3.practical_audit_units import audit_units
 from app.modules.ai.v3.practical_contract import (
     PracticalSourcePacket,
@@ -90,6 +91,15 @@ AUTHOR_SYSTEM = (
     'Верни весь курс по схеме, сохраняя устойчивые уникальные ID уроков и вопросов.'
 ) + SOURCE_LOGIC_GUIDE
 
+FRESH_AUTHOR_SYSTEM = AUTHOR_SYSTEM.replace(
+    'Программа явно показывает положения источника по source_refs как область задания: '
+    'вопрос проверяет понимание указанных положений и не должен объявлять глобальное '
+    'разрешение по отсутствию запрета. ',
+    'Ссылки source_refs подтверждают ответ и помогают найти исходник; они не добавляют '
+    'условий к вопросу и не ограничивают применимость остальных положений документа. ',
+    1,
+)
+
 PATCH_SYSTEM = (
     'assessment_additions разрешает только добавить новые вопросы в перечисленные уроки; '
     'не меняй существующие вопросы или прозу без отдельного разрешения. '
@@ -133,12 +143,14 @@ class PracticalCycleResult:
     history: tuple[dict[str, Any], ...]
     stop_reason: str
     source_readings: tuple[dict[str, Any], ...] = ()
+    legacy_source_rule_scope: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                               decision: PracticalReviewDecision, *,
                               model_view: PracticalModelView | None = None,
-                              source_readings: tuple[dict[str, Any], ...] = ()) -> list[dict[str, str]]:
+                              source_readings: tuple[dict[str, Any], ...] = (),
+                              legacy_source_rule_scope: bool = False) -> list[dict[str, str]]:
     editable = practical_patch_course_view(course, decision)
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view is not None else None)
         + source_reading_context(source_readings, model_view)
@@ -147,14 +159,16 @@ def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, An
         + '\nCHECKED_FINDINGS_JSON\n'
         + json.dumps(model_view.encode(decision.feedback) if model_view is not None else decision.feedback,
             ensure_ascii=False, sort_keys=True, indent=2))
-    return [{'role': 'system', 'content': PATCH_SYSTEM}, {'role': 'user', 'content': content}]
+    return [{'role': 'system', 'content': PATCH_SYSTEM + ('' if legacy_source_rule_scope else SOURCE_APPLICABILITY_GUIDE)},
+            {'role': 'user', 'content': content}]
 
 
 async def run_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, Any], invoke: StageInvoker,
                               *, max_revisions: int = 4,
-                              source_readings: tuple[dict[str, Any], ...] = ()) -> PracticalCycleResult:
+                              source_readings: tuple[dict[str, Any], ...] = (),
+                              legacy_source_rule_scope: bool = False) -> PracticalCycleResult:
     """Every returned candidate was fully reviewed. Unknown outcomes propagate without blind replay."""
-    if type(max_revisions) is not int or not 0 <= max_revisions <= 4:
+    if type(max_revisions) is not int or not 0 <= max_revisions <= 4 or type(legacy_source_rule_scope) is not bool:
         raise ValueError('practical_revision_policy_invalid')
     view = PracticalModelView(packet)
     if source_readings:
@@ -176,7 +190,7 @@ async def run_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, A
         validate(value)
         return value
 
-    messages = [{'role': 'system', 'content': AUTHOR_SYSTEM}, {'role': 'user', 'content':
+    messages = [{'role': 'system', 'content': AUTHOR_SYSTEM if legacy_source_rule_scope else FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE}, {'role': 'user', 'content':
         source_model_text(packet, aliases=view.canonical_to_alias)
         + source_reading_context(source_readings, view)
         + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False, sort_keys=True)
@@ -196,12 +210,14 @@ async def run_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, A
                             checked_previous: tuple[dict[str, Any], ...] = previous) -> None:
             interpret_practical_review(value, packet, checked_course, checked_previous)
         review = await invoke_model('review', 'practical:review:' + digest,
-            practical_review_messages(packet, candidate, previous, model_view=view, source_readings=source_readings),
+            practical_review_messages(packet, candidate, previous, model_view=view, source_readings=source_readings,
+                                      legacy_source_rule_scope=legacy_source_rule_scope),
             practical_review_format(packet, candidate, previous), validate_review)
         def validate_audit(value: dict[str, Any], checked_course: dict[str, Any] = candidate) -> None:
             validate_source_audit(value, packet, checked_course)
         audit = await invoke_model('review', 'practical:source-audit:' + digest,
-            source_audit_messages(packet, candidate, model_view=view, source_readings=source_readings),
+            source_audit_messages(packet, candidate, model_view=view, source_readings=source_readings,
+                                  legacy_source_rule_scope=legacy_source_rule_scope),
             source_audit_format(packet, candidate), validate_audit)
         raw_review = review
         notes = [*review['source_notes'], *audit['source_notes']]
@@ -218,9 +234,10 @@ async def run_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, A
                   if decision.source_uncertain and (not editable_claim or revision == max_revisions)
                   else 'revision_limit' if revision == max_revisions else '')
         if reason:
-            return PracticalCycleResult(candidate, review, decision, tuple(history), reason, source_readings)
+            return PracticalCycleResult(candidate, review, decision, tuple(history), reason, source_readings, legacy_source_rule_scope)
         patch_format = practical_patch_format(packet, candidate, decision)
-        patch_messages = practical_patch_messages(packet, candidate, decision, model_view=view, source_readings=source_readings)
+        patch_messages = practical_patch_messages(packet, candidate, decision, model_view=view, source_readings=source_readings,
+                                                  legacy_source_rule_scope=legacy_source_rule_scope)
         def validate_patch(value: dict[str, Any], checked_course: dict[str, Any] = candidate,
                            checked_decision: PracticalReviewDecision = decision) -> None:
             view.assert_course_ids_disjoint(merge_practical_patch(checked_course, packet, checked_decision, value))
@@ -230,7 +247,7 @@ async def run_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, A
         view.assert_course_ids_disjoint(revised)
         if _hash(revised) in seen:
             # Keep the last reviewed candidate and its still-open findings.
-            return PracticalCycleResult(candidate, review, decision, tuple(history), 'no_progress', source_readings)
+            return PracticalCycleResult(candidate, review, decision, tuple(history), 'no_progress', source_readings, legacy_source_rule_scope)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

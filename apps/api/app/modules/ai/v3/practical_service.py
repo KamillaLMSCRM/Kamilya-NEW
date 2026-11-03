@@ -22,7 +22,12 @@ from app.modules.ai.v3.practical_source_reader import (
     source_reader_parts,
     validate_source_read,
 )
-from app.modules.ai.v3.revision_policy import PRACTICAL_MAX_OUTPUT_TOKENS, PRACTICAL_REVIEW_POLICY
+from app.modules.ai.v3.revision_policy import (
+    PRACTICAL_MAX_OUTPUT_TOKENS,
+    PRACTICAL_REVIEW_POLICY,
+    PREVIOUS_PRACTICAL_REVIEW_POLICY,
+    is_practical_policy,
+)
 from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
 
 
@@ -35,7 +40,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                        doc_id=b.doc_id, source_revision=b.source_revision, source_start=b.start, source_end=b.end)
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
-    displayed = scoped_course_view(packet, result.course)
+    displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
+    review_policy = PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else PRACTICAL_REVIEW_POLICY
     lessons = []
     provenance_holds = []
     for lesson in displayed['lessons']:
@@ -71,7 +77,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                           and not doc.review_only_source_unresolved
                           and not doc.review_only_source_context for doc in corpus.documents)
     accepted = result.decision.accepted and not provenance_holds
-    report = {'review_policy': PRACTICAL_REVIEW_POLICY,
+    report = {'review_policy': review_policy,
               'automated_review_passed': accepted,
               'stop_reason': result.stop_reason, 'violations': issues,
               'coverage_review_signals': [row['note'] for row in result.review['source_notes']],
@@ -88,14 +94,15 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         for question, raw in zip(assessment.mcq, lesson['questions'], strict=True):
             question.question = raw['prompt']
     artifacts.diagnostics.update({
-        'v3_review_policy': PRACTICAL_REVIEW_POLICY, 'source_packet_fingerprint': packet.fingerprint,
+        'v3_review_policy': review_policy, 'source_packet_fingerprint': packet.fingerprint,
         'automated_review_passed': accepted,
         'practical_course': result.course, 'practical_question_source_refs': {
             q['id']: q['source_refs'] for lesson in result.course['lessons'] for q in lesson['questions']},
         'practical_cross_document_question_ids': provenance_holds,
         'practical_display_course': displayed,
         'practical_source_readings': list(result.source_readings),
-        'practical_question_mode': 'source_rule_comprehension_v1',
+        'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
+                                    else 'authored_question_scope_v2'),
     })
     return artifacts
 
@@ -107,7 +114,10 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
+    review_policy: str = PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
+    if not is_practical_policy(review_policy):
+        raise ValueError('v3_review_policy_invalid')
     if journal is not None and journal.tenant_id != corpus.tenant_id:
         raise ValueError('practical_journal_owner_mismatch')
     if any(doc.review_only_source_unresolved for doc in corpus.documents):
@@ -146,7 +156,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings))
+    result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings),
+                                       legacy_source_rule_scope=review_policy == PREVIOUS_PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
     return practical_artifacts(result, corpus, packet, source_sha256)

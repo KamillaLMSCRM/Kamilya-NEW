@@ -1,0 +1,95 @@
+import copy
+import json
+
+import pytest
+
+from app.modules.ai.evidence_engine.models import CourseIntent
+from app.modules.ai.v3.practical_applicability import SOURCE_APPLICABILITY_GUIDE
+from app.modules.ai.v3.practical_contract import source_model_text
+from app.modules.ai.v3.practical_cycle import AUTHOR_SYSTEM, FRESH_AUTHOR_SYSTEM, PATCH_SYSTEM, practical_patch_messages
+from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.practical_review import REVIEW_SYSTEM, PracticalReviewDecision, practical_review_messages
+from app.modules.ai.v3.practical_source_audit import AUDIT_SYSTEM, source_audit_messages
+from app.modules.ai.v3.response_contracts import response_contract
+from app.modules.ai.v3.revision_policy import (
+    POLICY,
+    PRACTICAL_REVIEW_POLICY,
+    PREVIOUS_PRACTICAL_REVIEW_POLICY,
+    is_practical_policy,
+    read_review_policy,
+    stamp_policy,
+)
+from app.modules.ai.v3.service import generate_v3_course_from_corpus
+from tests.unit.test_v3_practical_cycle import checked, model_wire
+
+pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
+
+
+def test_closed_practical_versions_and_fresh_stamp():
+    assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v12'
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == PRACTICAL_REVIEW_POLICY
+    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY):
+        assert is_practical_policy(version)
+        assert read_review_policy({'v3_review_policy': version}) == version
+    assert not is_practical_policy('v3-practical-source-review-v13')
+    with pytest.raises(ValueError, match='v3_review_policy_invalid'):
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v13'})
+
+
+def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):
+    _, packet, course = case
+    original = copy.deepcopy(course)
+    legacy = scoped_course_view(packet, course, legacy_source_rule_scope=True)
+    for lesson in legacy['lessons']:
+        for question in lesson['questions']:
+            del question['correct_index']
+            del question['source_refs']
+            del question['explanation']
+    expected = (source_model_text(packet) + '\n\nГОТОВЫЙ КУРС. COURSE_JSON\n'
+        + json.dumps(legacy, ensure_ascii=False, sort_keys=True, indent=2)
+        + '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps((), ensure_ascii=False, sort_keys=True, indent=2))
+    review = practical_review_messages(packet, course, legacy_source_rule_scope=True)
+    assert review == [{'role': 'system', 'content': REVIEW_SYSTEM}, {'role': 'user', 'content': expected}]
+    audit = source_audit_messages(packet, course, legacy_source_rule_scope=True)
+    assert audit[0]['content'] == AUDIT_SYSTEM
+    assert legacy['lessons'][0]['questions'][0]['prompt'] in audit[1]['content']
+    fresh = practical_review_messages(packet, course)
+    assert fresh[0]['content'] == REVIEW_SYSTEM + SOURCE_APPLICABILITY_GUIDE
+    assert original['lessons'][0]['questions'][0]['prompt'] in fresh[1]['content']
+    assert 'По указанным положениям источника (' not in fresh[1]['content']
+    assert source_audit_messages(packet, course)[0]['content'] == AUDIT_SYSTEM + SOURCE_APPLICABILITY_GUIDE
+    decision = PracticalReviewDecision(False, False, (), ('q1',), False, ())
+    assert practical_patch_messages(packet, course, decision, legacy_source_rule_scope=True)[0]['content'] == PATCH_SYSTEM
+    assert practical_patch_messages(packet, course, decision)[0]['content'] == PATCH_SYSTEM + SOURCE_APPLICABILITY_GUIDE
+    assert course == original
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('version,legacy', [(PREVIOUS_PRACTICAL_REVIEW_POLICY, True),
+                                             (PRACTICAL_REVIEW_POLICY, False)])
+async def test_real_dispatch_author_and_artifacts_remain_bound_to_saved_policy(case, version, legacy):
+    corpus, packet, course = case
+    calls, audits = [], []
+    async def model(messages, fmt):
+        calls.append((response_contract(fmt), messages))
+        return copy.deepcopy(course if response_contract(fmt) == 'practical_course' else checked(packet, course))
+    result = await generate_v3_course_from_corpus(corpus, intent=CourseIntent(audience='Staff'),
+        generation_client=model_wire(packet, model, audits), revision_policy=POLICY, review_policy=version)
+    author = next(messages for kind, messages in calls if kind == 'practical_course')
+    assert author[0]['content'] == (AUTHOR_SYSTEM if legacy else FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE)
+    assert ('по source_refs как область задания' in author[0]['content']) is legacy
+    assert ('они не добавляют условий к вопросу' in author[0]['content']) is not legacy
+    assert result.diagnostics['v3_review_policy'] == version
+    assert result.diagnostics['practical_question_mode'] == ('source_rule_comprehension_v1' if legacy else 'authored_question_scope_v2')
+    displayed = result.diagnostics['practical_display_course']['lessons'][0]['questions'][0]['prompt']
+    assert displayed == scoped_course_view(packet, course, legacy_source_rule_scope=legacy)['lessons'][0]['questions'][0]['prompt']
+    assert ('По указанным положениям источника (' in displayed) is legacy
+
+
+@pytest.mark.asyncio
+async def test_saved_v11_managed_worker_keeps_luna6_factory_profile(monkeypatch):
+    from app.modules.ai.v3 import revision_policy
+    from tests.unit import test_qa_luna_pending_isolation as pending_tests
+
+    monkeypatch.setattr(revision_policy, 'PRACTICAL_REVIEW_POLICY', PREVIOUS_PRACTICAL_REVIEW_POLICY)
+    await pending_tests.test_managed_factory_configuration_is_bound_before_generation(monkeypatch, practical=True)

@@ -611,7 +611,7 @@ async def _run_v3_generation(
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
     from app.modules.ai.v3.revision_policy import POLICY as PROFILE_REVISION_POLICY
-    from app.modules.ai.v3.revision_policy import PRACTICAL_REVIEW_POLICY, read_review_policy
+    from app.modules.ai.v3.revision_policy import is_practical_policy, read_review_policy
     review_policy = (read_review_policy(await _load_owned_generation_analysis(
         state.job_id, tenant_id, user_id, list(corpus.document_ids)))
         if revision_policy == PROFILE_REVISION_POLICY else None)
@@ -705,7 +705,7 @@ async def _run_v3_generation(
                     direct_client = await create_managed_qa_client(settings=get_settings(), tenant_id=tenant_id,
                         user_id=user_id, job_id=state.job_id,
                         **({"profile": "luna6"}
-                           if review_policy == PRACTICAL_REVIEW_POLICY else {}))
+                           if is_practical_policy(review_policy) else {}))
                 else:
                     direct_client = create_direct_qa_responses_client(settings=get_settings(), tenant_id=tenant_id,
                         user_id=user_id, job_id=state.job_id)
@@ -736,8 +736,8 @@ async def _run_v3_generation(
                 and direct_client is None and type(generation_client) is ResilientLLMClient):
             from app.modules.ai.v3.native_profile_binding import bind_native_profile
             from app.modules.ai.v3.provider_profile import V3ProfiledClient
-            from app.modules.ai.v3.revision_policy import REVIEW_POLICY, PRACTICAL_REVIEW_POLICY
-            cooperative_native = review_policy in {REVIEW_POLICY, PRACTICAL_REVIEW_POLICY}
+            from app.modules.ai.v3.revision_policy import REVIEW_POLICY
+            cooperative_native = review_policy == REVIEW_POLICY or is_practical_policy(review_policy)
             generation_client = V3ProfiledClient(
                 generation_client, policy, job_id=state.job_id,
                 **({"cooperative_deadline": True} if cooperative_native else {}),

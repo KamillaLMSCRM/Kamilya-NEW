@@ -1844,9 +1844,9 @@ async def generate_v3_course_from_corpus(
         BUCKET_REVIEW_POLICY,
         LEGACY_REVIEW_POLICY,
         PRACTICAL_MAX_OUTPUT_TOKENS,
-        PRACTICAL_REVIEW_POLICY,
         PREVIOUS_REVIEW_POLICY,
         REVIEW_POLICY,
+        is_practical_policy,
         is_scoped_policy,
     )
     from app.modules.ai.v3.revision_policy import POLICY as REVISION_POLICY
@@ -1857,7 +1857,7 @@ async def generate_v3_course_from_corpus(
     batched_decisions = review_policy in {LEGACY_REVIEW_POLICY, PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY}
     typed_auxiliary = review_policy in {AUXILIARY_REVIEW_POLICY, REVIEW_POLICY}
     strict_batch_contract = review_policy in {PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY}
-    practical = review_policy == PRACTICAL_REVIEW_POLICY
+    practical = is_practical_policy(review_policy)
     if review_policy is not None and (not (batched_decisions or practical) or revision_policy != REVISION_POLICY):
         raise ValueError("v3_review_policy_invalid")
     if allow_unreviewed_on_unknown and extraction_journal is None:
@@ -1917,11 +1917,12 @@ async def generate_v3_course_from_corpus(
 
     if practical:
         from app.modules.ai.v3.practical_service import generate_practical_course
+        assert review_policy is not None
         return await generate_practical_course(corpus, intent=intent, invoke=llm_invoker,
             source_sha256=doc_sha, journal=extraction_journal, route_fingerprint=route_fingerprint,
             reference_decisions=reference_decisions, direct_client=direct_client,
             direct_max_output_tokens=PRACTICAL_MAX_OUTPUT_TOKENS, cancellation_callback=cancellation_callback,
-            progress_callback=progress_callback)
+            progress_callback=progress_callback, review_policy=review_policy)
 
     neutral_fresh_quality = scoped_revision and authenticated_qa_policy is None
     quality_explanations = batched_decisions or neutral_fresh_quality or direct_client is not None

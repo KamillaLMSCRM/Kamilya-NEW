@@ -19,8 +19,11 @@ def _literal(line: str) -> str:
     return ' '.join(line.strip().replace('(', '[').replace(')', ']').split())[:100]
 
 
-def scoped_course_view(packet: PracticalSourcePacket, course: dict[str, Any]) -> dict[str, Any]:
-    """Return a separate course view; labels navigate owned text, not semantic authority."""
+def scoped_course_view(packet: PracticalSourcePacket, course: dict[str, Any], *,
+                       legacy_source_rule_scope: bool = False) -> dict[str, Any]:
+    """Render explicit source tokens; legacy mode also projects selected source scope."""
+    if type(legacy_source_rule_scope) is not bool:
+        raise ValueError('practical_question_scope_policy_invalid')
     result = validate_practical_course(course, packet)
     docs = [doc_id for doc_id, _revision, _digest in packet.source_documents]
     sources = {doc: ''.join(block.text for block in packet.blocks if block.doc_id == doc) for doc in docs}
@@ -118,6 +121,11 @@ def scoped_course_view(packet: PracticalSourcePacket, course: dict[str, Any]) ->
     for lesson in result['lessons']:
         lesson['content'] = render(lesson['content'])
         for question in lesson['questions']:
+            if not legacy_source_rule_scope:
+                question['prompt'] = render(question['prompt'])
+                question['explanation'] = render(question['explanation'])
+                question['choices'] = [render(choice) for choice in question['choices']]
+                continue
             if question['prompt'].startswith(_PREFIX):
                 raise ValueError('practical_question_scope_already_projected')
             selected = list(dict.fromkeys(question['source_refs']))

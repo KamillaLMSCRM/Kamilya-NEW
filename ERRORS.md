@@ -1,5 +1,21 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence P12, 2026-11-04: the display adapter prefixed every question with
+  the author's selected source clauses. That silently changed a general workplace
+  question into private-clause comprehension. Actual Micro L01Q03 then passed
+  without the unmarried-borrower alternative in later source sections. Fresh P12
+  preserves authored question conditions and uses references only for provenance;
+  its author prompt no longer promises automatic citation scoping. General
+  applicability, exceptions and mandatory versus optional conditions are explicit.
+  Stored P11 remains versioned, with byte-exact old prompts/display and Luna6
+  routing; it is not silently reinterpreted during recovery. Verification: actual
+  blind full-source saved-question control caught the missing alternative/key -1
+  in one call, 47.625s, 42039 input/2443 output; no human findings supplied. Exact
+  eight-stage P11 journal replay preserved course/display with zero provider calls.
+  Final focused34 PASS, full5312 PASS/57.59s after the author-only substitution,
+  baseline1005/2174 PASS; three-course/DEV/runtime gates remain
+  distinct. Do not infer semantic acceptance from these technical controls.
+
 - Date: 2026-11-04.
 - Symptom: the earlier engine repeatedly rewrote otherwise useful courses for
   form metrics, while model PASS still missed material source/answer errors.

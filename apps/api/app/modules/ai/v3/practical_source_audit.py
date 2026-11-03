@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from app.modules.ai.v3.batch_review_response_schema import _matches
+from app.modules.ai.v3.practical_applicability import SOURCE_APPLICABILITY_GUIDE
 from app.modules.ai.v3.practical_audit_units import audit_units
 from app.modules.ai.v3.practical_contract import (
     PracticalSourcePacket,
@@ -197,7 +198,8 @@ AUDIT_SYSTEM = (
 
 def source_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                           model_view: PracticalModelView | None = None,
-                          source_readings: tuple[dict[str, Any], ...] = ()) -> list[dict[str, str]]:
+                          source_readings: tuple[dict[str, Any], ...] = (), *,
+                          legacy_source_rule_scope: bool = False) -> list[dict[str, str]]:
     checked = validate_practical_course(course, packet)
     aliases = None
     if model_view is not None:
@@ -205,7 +207,7 @@ def source_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
             raise ValueError('practical_source_audit_view_invalid')
         model_view.assert_course_ids_disjoint(checked)
         aliases = model_view.canonical_to_alias
-    displayed = scoped_course_view(packet, checked)
+    displayed = scoped_course_view(packet, checked, legacy_source_rule_scope=legacy_source_rule_scope)
     lessons = [{'id': row['id'], 'title': row['title'], 'content': row['content'],
                 'answer_explanations': [{'question_id': q['id'], 'prompt': q['prompt'],
                     'correct_answer_text': q['choices'][q['correct_index']], 'explanation': q['explanation']}
@@ -219,4 +221,5 @@ def source_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                + '\n\nSOURCE_AUDIT_UNITS_JSON\n'
                + json.dumps(unit_rows, ensure_ascii=False, sort_keys=True, indent=2) + '\n\nLESSON_PROSE_JSON\n'
                + json.dumps(lessons, ensure_ascii=False, sort_keys=True, indent=2))
-    return [{'role': 'system', 'content': AUDIT_SYSTEM}, {'role': 'user', 'content': content}]
+    return [{'role': 'system', 'content': AUDIT_SYSTEM + ('' if legacy_source_rule_scope else SOURCE_APPLICABILITY_GUIDE)},
+            {'role': 'user', 'content': content}]

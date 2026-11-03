@@ -5,7 +5,11 @@ import pytest
 
 from app.modules.ai.direct_source import DirectSourceCorpus, DirectSourceDocument
 from app.modules.ai.v3.practical_contract import build_practical_source_packet
-from app.modules.ai.v3.practical_question_scope import scoped_course_view
+from app.modules.ai.v3.practical_question_scope import scoped_course_view as actual_scoped_course_view
+
+
+def scoped_course_view(packet, course):
+    return actual_scoped_course_view(packet, course, legacy_source_rule_scope=True)
 
 
 def packet_for(*sources):
@@ -119,3 +123,36 @@ def test_missing_parent_uses_list_locator_not_prior_section():
     orphan = next(b for b in packet.blocks if b.text.strip().startswith('1) Orphan'))
     prompt = scoped_course_view(packet, course_for([orphan.block_id]))['lessons'][0]['questions'][0]['prompt']
     assert 'элемент списка 1, блок ' in prompt and 'п. 1' not in prompt
+
+
+def test_default_preserves_general_question_and_reviewer_receives_later_exception():
+    from app.modules.ai.v3.practical_review import practical_review_messages
+
+    packet = packet_for('# 1. Consent\n\n2. A consent threshold is 1000 МРП.\n\n'
+                        '# 2. Exception\n\n4. For unmarried applicants the exception is 250 МРП.')
+    early = next(block for block in packet.blocks if '1000 МРП' in block.text)
+    course = course_for([early.block_id])
+    question = course['lessons'][0]['questions'][0]
+    question['prompt'] = 'Какая сумма требует согласия, если заявитель не состоит в браке?'
+    before = copy.deepcopy(course)
+    result = actual_scoped_course_view(packet, course)
+    assert result == before and course == before
+    content = practical_review_messages(packet, course)[1]['content']
+    assert '1000 МРП' in content and '250 МРП' in content
+    assert question['prompt'] in content and 'По указанным положениям источника (' not in content
+
+
+def test_default_keeps_explicit_authored_scope_and_only_renders_tokens():
+    packet = packet_for('1. General rule.\n\n2. Specific exception.')
+    course = course_for([packet.blocks[0].block_id])
+    question = course['lessons'][0]['questions'][0]
+    question['prompt'] = 'По указанным положениям источника в пункте 1, какое действие?'
+    original = copy.deepcopy(course)
+    assert actual_scoped_course_view(packet, course) == original
+    question['prompt'] = 'Согласно SRC1 какое действие?'
+    before = copy.deepcopy(course)
+    result = actual_scoped_course_view(packet, course)
+    assert result['lessons'][0]['questions'][0]['prompt'] == 'Согласно положению источника (п. 1) какое действие?'
+    for key in ('choices', 'correct_index', 'source_refs'):
+        assert result['lessons'][0]['questions'][0][key] == before['lessons'][0]['questions'][0][key]
+    assert course == before

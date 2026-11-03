@@ -7,13 +7,17 @@ document-to-confirmation acceptance. Existing customer courses remain unchanged.
    blind question review, source-first coverage audit, scoped paragraph/question
    corrections. All raw source spans and completed responses remain immutable.
    Review all three full Lombard courses against the independent 67-family /
-   16-ambiguity matrix. P11 now separates assessment repair permissions and
+   16-ambiguity matrix. P12 removes automatic citation-based question scoping;
+   the actual blind saved-question control caught the previously missed exception
+   in one call. Historical P11 replay remains exact. P11 separates assessment repair permissions and
    compiles every negative audit reason into retained feedback. Standards6L19Q
    independently acceptable for human review; automatic hold is not relabeled.
    Fire/Micro saved corrections active with no repeated authoring. Microcredit:
    276 source blocks grouped into42 structural audit units, retaining all text.
-2. **Exact DEV candidate — in progress, not deployed.** Feature8a6d4660 CI all7
-   passed; final P11 child source/CI still required. Commit selected integration;
+2. **Exact DEV candidate — in progress, not deployed.** P11 HEAD57d2e1f7 feature
+   and DEV-push CI all7 passed; its backend/connector images built with production
+   skipped. P12 supersedes that unactivated candidate and needs its own CI/images.
+   Commit selected integration;
    project-account push and remote readback, full CI, immutable API/connector
    images. Upgrade only the existing isolated DEV connector and VM worker.
    Luna 6 / high uses official stable CLI 0.166.0 and explicit profile on both
