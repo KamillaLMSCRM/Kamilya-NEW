@@ -1,4 +1,74 @@
-# Current P16 local successor / P15 DEV held — 2026-11-04
+# Current P17 local candidate / P16 DEV complete — 2026-11-04
+
+- result: P16 Standards job e3119da0-a852-475a-8358-a91ceee60bc2 COMPLETED,
+  saved draft13888e44-661e-4b2c-9631-82093bbf9eea/8L24Q/allquizzesneeds_review.
+  Independent complete source/matrix and owner-accepted7L23Q comparison: content
+  GO for human review, no remaining demonstrated material error/core omission.
+  Automatic engine still holds genuine source ambiguity and stale/scope findings;
+  no relabel to accepted. Three full courses/DeepSeek/production/live remain OPEN.
+- changed: LOCAL policy17 separates typed ANSWER_VALIDITY from COURSE_ASSESSMENT,
+  unified key disagreement, original-kind prior routing and no critic-prose leak
+  into blind arbitration. Same maximum two arbitration views, no new model stage.
+  Historical11-16 unchanged; normal tenant admission still legacyV5. Independent
+  reviewer accepted corrected local source boundary. Source HEAD remainsdc8846ba
+  until selected P17 commit/push; deployed API/frontend/worker still P16 below.
+- verified:5428unitPASS/86.86s/7warnings, baseline1005/2174/releasecontractsPASS.
+  Ordered-test pending mismatch isolated to test-only lazy-import mock leak;
+  preload before monkeypatch fixes original2FAIL, production guard unchanged.
+  Exact actualP16 all17receivedstage/request hashes and finalcourseb3d8a760 remain
+  replay-identical; actualP15 same7stages+rejectedbodye6b20489/quoteerror unchanged.
+  Real saved two-finding P17 control38.453s/2Luna6HIGHcalls43685input1553output
+  independently closed stale key and comparison with zero edits/newauthors.
+  Evidence p17-historical-p16-exact-replay.json, p17-historical-p15-rejection-parity.json,
+  saved-p16-purpose-p17-control-r1/report.json, p17-full-api-unit.log.
+- blockers: No P17 DEV deploy/full-course acceptance yet. P16 received17unique
+  responses319125input31165output; onlyone owned key/explanation patch, oneknown
+  cooperative samejobresume, no pending now. Ordinary API full8L24Q readback PASS
+  p16-standards-saved-api-readback.json, not browser acceptance. Fire/Micro have
+  NOT been admitted/uploaded. No local inference active after two-callcontrol.
+  Production/customer/provider/voice/rights/reserve unchanged.
+- next: Commit selected P17, exact project-account feature/dev push/readback and
+  immediate sanitized memorynote, CI/attestedimage/soleVMworker rollout retaining
+  P16 rollback, controller exactidentity. Then three ordinary DEV Luna courses,
+  all67families16ambiguities and full acceptedStandards comparison/time/tokens/
+  recovery; nativeDeepSeek then protected production/full synthetic live. Reuse
+  existing Standards doc/index; no need abandon completed P16. No blind retry.
+
+# Historical P16 DEV active snapshot — superseded by completion above
+
+Owner steering2026-11-04: ALWAYS compare full Standards26 output against accepted
+customer courseeff9e0c5/release0a7e6b9a; prioritize systematic causes and avoid
+minor/style rewrites. Frozen verified7L23Q reference is
+`.release-evidence/v3-production/standards26-accepted-reference/`, custody.json
+binds original authoring/city amendment/published receipt; no liveproductioncall.
+Do not force its lesson/question counts or treat it as superior to source truth.
+Full comparison criteria and confirmed next systemic review-kind fix are in
+docs/plans/2026-11-04_practical-engine-release.md.
+
+Active continuation update: P16job e3119da0 received13responses231069input21417output,
+then knowncooperativepause/no pending at40%, all26checkpointrows preserved.
+Ordinary samejobresume admitted once04:36:25UTC, no newcourse/admission/quota.
+Ninthsnapshot running42%/14received246994input23025output/pending nextstage;
+one additional L1 critic, one authoridentity total. Exactofflineprefixproof retains
+all26priorrows/source/policy/doc/index; onlyprogress_detail changed as expected.
+Independent whole8L24Q source review found L1Q1wrongcategorykey, machinecritic
+alsofoundit and receivedrepaircorrectedkey/explanation. L5Q3 omission-of-handover
+allegation was reassessed and downgraded optionalclarity: no supported different
+answer under its explicit unapprovedI/doubts/receipt/outside premises. Do not
+restore this optional change as a material requirement. Fullcourse not yet done.
+Actual P16 arbitration confirmed two SYSTEMIC context defects: duplicate
+answer-key allegation loses hidden numeric comparison, and course-comparison
+question cannot be judged without its comparison partner. Both remain safe holds;
+new typed-kind/unified-disagreement successor planned, not implemented. Current
+app/runner frozen while e3119da0 runs; no Fire/Micro/modelcontrols in parallel.
+
+- result: Exact `dc8846baf6a6850e7c707693ea0b0da66787ea85` deployed DEV RELEASE_OK+RECONCILED. CI41770697590 all7SUCCESS; backend41771451006 SUCCESS/productionSKIPPED; official attestation exactsource/dev/workflow/nonselfhosted PASS. RenderAPIdep-dblb2c3bc2fs73dofmig/live; Verceldpl_87V6Tt1TJBkZyoku4JJd86bvMqG4/READY/Hobby. SoleVMworker d8b11f1f6318a1447a597ae54e9eee0696f39f795812ee95a2e8d37670b2b53f/image339dfc58065e9c5d75a2e5c2134df0447aa389f27f1b454d300d1fac5d0e3954/env45SHAf14021260f43ab3399e80a076893af04bc53167b31137a2a2c056017ca881d7b/94sourcefiles/ready/restart0/unless-stopped. Previous6cfe worker warmstopped exit0/noforce, retainedrollback-ce3dd4dd; production6containers unchanged.
+- changed: Ordinary owner-only terminal fence applied once to oldP15job b0fd3db0, then independent DB proof17checkpointrows/result/pending/quarantine/route/source/reservationparams/document/index unchanged. Only canonical abandonment marker and terminalstate added; known8responseusage141739input17791output retained separately from platformunknown disposition. No model retry/refund/promotion. Current full Standards job `e3119da0-a852-475a-8358-a91ceee60bc2` admitted04:19:37UTC; receipt p16-dev-qa-standards-source-ready-result.json SHA1e59ad6ccaaae4ca5ac7e829dcde134b6163df779c002c5aaaa17fe14c46613d. Same reviewedMDdoce18c0fea/source8d71182b/p2 and request7b17f52a; no upload/reindex repetition. DO NOT duplicate/resume/modify while running/pending.
+- verified: Full5404APIunitPASS/57.27s/7warnings, baseline1005/2174 and releasecontractsPASS. Exact historical P15 replay retains7completedstages+sameheldHTTP200/quoteerror,0newcalls. P16 saved L3Q3 detection→adjudication→ownedpatch→blind recheck passed4calls; onlythatquestionchanged. Independent full5L18Q review found L4Q4 missing categoryI/unapprovedloan/shift-handover premise; one new blind L4 control46.109s17498input2333output independently caught it, no manual gold in prompt. These are controls, not fullcourseacceptance. Fresh04:20 read-only snapshot observes actualpolicy16/running5%/ingestion/noresponsesyet; usage/model UNKNOWN, not zero. Embeddingindex partial0vectors/directsource_ready observed separately, not semanticindexacceptance.
+- blockers: Three full67family/16ambiguity curricula, nativeDeepSeek, protectedproduction and live synthetic path remain OPEN. Normaltenant default stilllegacyV5. No active local inference/helper/controller; ONE realDEVworkerjob active. Do not edit app/runner during it. Original long dirty R&D preserved. No customer/production/providerplan/voice/rights/reservechanges.
+- next: Monitor exact P16job via p16-qa-job-db-readonly.py using above receiptSHA, read-only Supabase lms_app/nonbypass/exacttenant+actor. Inspect complete author and every finalquestion against16/4matrix; capture actualmodel/source/time/calls/tokens. Knowncooperativeyield/no pending may use samejobcanonicalresume; pending/unknown requires custody investigation, never blindretry. Then Fire/Micro via reviewed run-p16-dev-case.py (neitheradmitted/uploaded), with genuinely refreshed controller reconciliation ifolder600s. Continue nativeDeepSeek and protectedproduction/fullsyntheticlive; do not stop at technicalDEV. Canonical operations evidence REL-DEV-PRAC-P16-DC8846BA-20261104. First local readiness serialization was rejected before network by phone-pattern detector over public fullhashes; originalretained, v2 uses prior verified8char hashchunks with same94digests, dryrun+remoteSHA+executionPASS. No secret-filter weakening.
+
+# Historical P16 local successor / P15 DEV held — superseded status
 
 - result: Owner outcome production engine remains OPEN. Current checkout `v3-practical-dev-20261103`, branch `release/v3-practical-dev-20261103`, deployed HEADce3dd4dd9ab264b9411684854e1d3f551c127235/P15. P16 delta is LOCAL/UNCOMMITTED, not deployed or accepted. Production/customer courses unchanged.
 - changed: P16 standalone question examiner sees stems/options and full source only; question adjudication physically excludes lesson title/prose/explanation/key/unrelated questions. Evidence selectors resolve immutable owned fields/offsets/hash instead of model-retyped quotes. Non-UNIQUE reviewer -1 is no longer a second synthetic key-disagreement allegation. P16 prose links use TAUGHT audit rows only, never question references or negative audit owners; empty prose provenance prevents automated PASS. Negative findings retain repair targets. Historical11–15 contracts remain versioned.

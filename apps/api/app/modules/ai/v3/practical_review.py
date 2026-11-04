@@ -24,6 +24,8 @@ CONCISE_NAME = 'v3_practical_question_review_v8'
 LESSON_NAME = 'v3_practical_question_review_v9'
 STANDALONE_NAME = 'v3_practical_question_review_v10'
 CONSOLIDATED_NAME = 'v3_practical_consolidated_review_v11'
+TYPED_STANDALONE_NAME = 'v3_practical_question_review_v12'
+TYPED_CONSOLIDATED_NAME = 'v3_practical_consolidated_review_v13'
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
@@ -31,11 +33,15 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 
 def strict_finding_schema(sources: list[str], lessons: list[str], questions: list[str], *,
-                          allowed_scopes: tuple[str, ...] = ('lesson', 'question', 'coverage', 'source', 'assessment')) -> dict[str, Any]:
+                          allowed_scopes: tuple[str, ...] = ('lesson', 'question', 'coverage', 'source', 'assessment'),
+                          typed_findings: bool = False, question_kinds: tuple[str, ...] = ('ANSWER_VALIDITY', 'COURSE_ASSESSMENT')) -> dict[str, Any]:
     targets = {'lesson': lessons, 'assessment': lessons, 'question': questions,
                'source': sources, 'coverage': list(dict.fromkeys([*lessons, *sources]))}
     if (len(allowed_scopes) < 2 or len(set(allowed_scopes)) != len(allowed_scopes)
             or any(scope not in targets or not targets[scope] for scope in allowed_scopes)):
+        raise ValueError('practical_review_format_invalid')
+    if type(typed_findings) is not bool or (typed_findings and (not question_kinds or
+            len(set(question_kinds)) != len(question_kinds) or not set(question_kinds) <= {'ANSWER_VALIDITY', 'COURSE_ASSESSMENT'})):
         raise ValueError('practical_review_format_invalid')
     return {'anyOf': [_object({
         'scope': {'type': 'string', 'enum': [scope]},
@@ -43,12 +49,13 @@ def strict_finding_schema(sources: list[str], lessons: list[str], questions: lis
         'problem': {'type': 'string'},
         'source_refs': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
         'expected_rule': {'type': 'string'}, 'correction': {'type': 'string'},
+        **({'review_kind': {'type': 'string', 'enum': list(question_kinds)}} if typed_findings and scope == 'question' else {}),
     }) for scope in allowed_scopes]}
 
 
 def _format(sources: list[str], fingerprint: str, lessons: list[str], questions: dict[str, int],
             prior_ids: list[str], *, concise: bool = False, strict_targets: bool = False,
-            standalone: bool = False, allow_empty_narrative: bool = False) -> dict[str, Any]:
+            standalone: bool = False, allow_empty_narrative: bool = False, typed_findings: bool = False) -> dict[str, Any]:
     for ids in (sources, lessons, list(questions), prior_ids):
         if (type(ids) is not list or any(type(i) is not str or not i.strip() for i in ids)
                 or len(set(ids)) != len(ids)):
@@ -62,16 +69,21 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
         raise ValueError('practical_review_format_invalid')
     if allow_empty_narrative and (not concise or strict_targets or standalone):
         raise ValueError('practical_review_format_invalid')
+    if type(typed_findings) is not bool or (typed_findings and not (standalone or allow_empty_narrative)):
+        raise ValueError('practical_review_format_invalid')
     text = {'type': 'string'}
     refs = {'type': 'array', 'items': text, 'minItems': 1}
     finding = _object({'scope': {'type': 'string', 'enum': ['lesson', 'question', 'coverage', 'source', 'assessment']},
         'target_id': {'type': 'string', 'enum': list(dict.fromkeys([*lessons, *questions, *sources]))},
         'problem': text, 'source_refs': {**refs, 'items': {'type': 'string', 'enum': sources}},
         'expected_rule': text, 'correction': text})
-    if strict_targets:
+    if strict_targets or typed_findings:
         finding = strict_finding_schema(sources, lessons, list(questions),
                                         allowed_scopes=(('question', 'source') if standalone
-                                                        else ('lesson', 'question', 'source', 'assessment')))
+                                                        else ('lesson', 'question', 'coverage', 'source', 'assessment') if typed_findings
+                                                        else ('lesson', 'question', 'source', 'assessment')),
+                                        typed_findings=typed_findings,
+                                        question_kinds=('ANSWER_VALIDITY',) if standalone and typed_findings else ('ANSWER_VALIDITY', 'COURSE_ASSESSMENT'))
     props = {'source_fingerprint': {'type': 'string', 'enum': [fingerprint]},
         'source_review': text,
         'source_notes': {'type': 'array', 'items': _object({'note': text,
@@ -115,42 +127,51 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
         # Internal consolidation records only actual prose-audit links. Empty is
         # honest evidence absence, not permission to copy question basis here.
         props['narrative_sources'] = _object({lid: {**copy.deepcopy(refs), 'minItems': 0} for lid in lessons})
-    return {'type': 'json_schema', 'json_schema': {'name': CONSOLIDATED_NAME if allow_empty_narrative else STANDALONE_NAME if standalone else LESSON_NAME if strict_targets else CONCISE_NAME if concise else NAME, 'strict': True, 'schema': _object(props)}}
+    return {'type': 'json_schema', 'json_schema': {'name': (TYPED_CONSOLIDATED_NAME if typed_findings and allow_empty_narrative else TYPED_STANDALONE_NAME if typed_findings else CONSOLIDATED_NAME if allow_empty_narrative else STANDALONE_NAME if standalone else LESSON_NAME if strict_targets else CONCISE_NAME if concise else NAME), 'strict': True, 'schema': _object(props)}}
 
 
 def practical_review_format(packet: PracticalSourcePacket, course: dict[str, Any],
                             previous: tuple[dict[str, Any], ...] = (), *,
                             concise: bool = False, strict_targets: bool = False,
-                            standalone: bool = False, allow_empty_narrative: bool = False) -> dict[str, Any]:
+                            standalone: bool = False, allow_empty_narrative: bool = False,
+                            typed_findings: bool = False) -> dict[str, Any]:
     validate_practical_course(course, packet)
     if standalone:
         questions = {q['id'] for lesson in course['lessons'] for q in lesson['questions']}
         sources = {b.block_id for b in packet.blocks if b.text.strip()}
+        if typed_findings:
+            from app.modules.ai.v3.practical_arbitration import original_finding
+            checked_previous = [original_finding(item) for item in previous]
+        else:
+            checked_previous = list(previous)
         if any(item.get('scope') not in {'question', 'source'} or
-               item.get('id') not in (questions if item.get('scope') == 'question' else sources)
-               for item in previous):
+               item.get('id') not in (questions if item.get('scope') == 'question' else sources) or
+               typed_findings and item.get('scope') == 'question' and item.get('evidence', {}).get('review_kind') != 'ANSWER_VALIDITY'
+               for item in checked_previous):
             raise ValueError('practical_review_prior_scope_invalid')
     return _format([b.block_id for b in packet.blocks if b.text.strip()], packet.fingerprint,
         [lesson['id'] for lesson in course['lessons']],
         {q['id']: len(q['choices']) for lesson in course['lessons'] for q in lesson['questions']},
         [item['issue_id'] for item in previous], concise=concise, strict_targets=strict_targets,
-        standalone=standalone, allow_empty_narrative=allow_empty_narrative)
+        standalone=standalone, allow_empty_narrative=allow_empty_narrative, typed_findings=typed_findings)
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         props = value['json_schema']['schema']['properties']
-        standalone = value['json_schema']['name'] == STANDALONE_NAME
-        strict_targets = value['json_schema']['name'] in {LESSON_NAME, STANDALONE_NAME}
-        sources = (props['source_notes']['items']['properties']['source_refs']['items']['enum'] if strict_targets
+        name = value['json_schema']['name']
+        standalone = name in {STANDALONE_NAME, TYPED_STANDALONE_NAME}
+        typed_findings = name in {TYPED_STANDALONE_NAME, TYPED_CONSOLIDATED_NAME}
+        strict_targets = name in {LESSON_NAME, STANDALONE_NAME, TYPED_STANDALONE_NAME}
+        sources = (props['source_notes']['items']['properties']['source_refs']['items']['enum'] if strict_targets or typed_findings
                    else props['findings']['items']['properties']['source_refs']['items']['enum'])
         questions = {key: len(row['enum']) - 1 for key, row in props['answer_keys']['properties'].items()}
         rebuilt = _format(sources, props['source_fingerprint']['enum'][0],
             list(props['question_sources' if standalone else 'narrative_sources']['properties']), questions,
             list(props.get('issue_checks', {}).get('properties', {})),
-            concise=value['json_schema']['name'] in {CONCISE_NAME, LESSON_NAME, STANDALONE_NAME, CONSOLIDATED_NAME},
+            concise=name in {CONCISE_NAME, LESSON_NAME, STANDALONE_NAME, CONSOLIDATED_NAME, TYPED_STANDALONE_NAME, TYPED_CONSOLIDATED_NAME},
             strict_targets=strict_targets, standalone=standalone,
-            allow_empty_narrative=value['json_schema']['name'] == CONSOLIDATED_NAME)
+            allow_empty_narrative=name in {CONSOLIDATED_NAME, TYPED_CONSOLIDATED_NAME}, typed_findings=typed_findings)
         if value != rebuilt:
             raise ValueError
         return rebuilt
@@ -177,14 +198,14 @@ def matches_practical_review(value: Any, response_format: Any) -> bool:
         allowed = set(props['source_notes']['items']['properties']['source_refs']['items']['enum'])
         def valid_refs(refs: list[str]) -> bool:
             return bool(refs) and len(set(refs)) == len(refs) and set(refs) <= allowed
-        standalone = fmt['json_schema']['name'] == STANDALONE_NAME
+        standalone = fmt['json_schema']['name'] in {STANDALONE_NAME, TYPED_STANDALONE_NAME}
         sources_field = 'question_sources' if standalone else 'narrative_sources'
-        if any(not (valid_refs(refs) or fmt['json_schema']['name'] == CONSOLIDATED_NAME and refs == [])
+        if any(not (valid_refs(refs) or fmt['json_schema']['name'] in {CONSOLIDATED_NAME, TYPED_CONSOLIDATED_NAME} and refs == [])
                for refs in value[sources_field].values()):
             return False
         if any(not row['note'].strip() or not valid_refs(row['source_refs']) for row in value['source_notes']):
             return False
-        if fmt['json_schema']['name'] in {CONCISE_NAME, LESSON_NAME, STANDALONE_NAME, CONSOLIDATED_NAME}:
+        if fmt['json_schema']['name'] in {CONCISE_NAME, LESSON_NAME, STANDALONE_NAME, CONSOLIDATED_NAME, TYPED_STANDALONE_NAME, TYPED_CONSOLIDATED_NAME}:
             answerability_ids = [item['question_id'] for item in value['answerability']]
             if len(set(answerability_ids)) != len(answerability_ids) or set(answerability_ids) != set(value['answer_keys']):
                 return False
@@ -253,9 +274,11 @@ def _issue(scope: str, target: str, evidence: dict[str, Any]) -> dict[str, Any]:
 def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePacket,
                                course: dict[str, Any], previous: tuple[dict[str, Any], ...] = (), *,
                                concise: bool = False, strict_targets: bool = False,
-                               standalone: bool = False, allow_empty_narrative: bool = False) -> PracticalReviewDecision:
+                               standalone: bool = False, allow_empty_narrative: bool = False,
+                               typed_findings: bool = False) -> PracticalReviewDecision:
     if not matches_practical_review(value, practical_review_format(packet, course, previous, concise=concise,
-            strict_targets=strict_targets, standalone=standalone, allow_empty_narrative=allow_empty_narrative)):
+            strict_targets=strict_targets, standalone=standalone, allow_empty_narrative=allow_empty_narrative,
+            typed_findings=typed_findings)):
         raise ValueError('practical_review_response_invalid')
     feedback = [copy.deepcopy(item) for item in previous if value['issue_checks'][item['issue_id']]['status'] == 'OPEN']
     option_checks = {item['question_id']: item['options'] for item in value.get('option_checks', [])}
@@ -269,10 +292,13 @@ def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePac
             if concise:
                 answerability = answerability_by_id[question['id']]
                 if (answerability['status'] != 'UNIQUE'
-                        or answerability['possible_options'] != [question['correct_index']]):
+                        or answerability['possible_options'] != [question['correct_index']]
+                        or typed_findings and key != question['correct_index']):
                     feedback.append(_issue('question', question['id'], {
                         'problem': 'option_answerability_unresolved',
                         **copy.deepcopy(answerability),
+                        **({'review_kind': 'ANSWER_VALIDITY', 'reviewer_key': key,
+                            'author_key': question['correct_index']} if typed_findings else {}),
                     }))
             else:
                 graph = question_rules[question['id']]
@@ -293,7 +319,7 @@ def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePac
             # question finding. Its sentinel -1 is not a competing answer key.
             # Preserve historical policies' exact finding identities.
             comparable_key = not (standalone or allow_empty_narrative) or answerability_by_id[question['id']]['status'] == 'UNIQUE'
-            if key != question['correct_index'] and comparable_key:
+            if key != question['correct_index'] and comparable_key and not typed_findings:
                 feedback.append(_issue('question', question['id'], {'problem': 'independent_answer_key_mismatch',
                     'reviewer_key': key, 'author_key': question['correct_index'],
                     'source_refs': question['source_refs']}))
@@ -431,25 +457,35 @@ def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, A
                               source_readings: tuple[dict[str, Any], ...] = (),
                               legacy_source_rule_scope: bool = False,
                               concise: bool = False, lesson_scoped: bool = False,
-                              strict_targets: bool = False, standalone: bool = False) -> list[dict[str, str]]:
+                              strict_targets: bool = False, standalone: bool = False,
+                              typed_findings: bool = False) -> list[dict[str, str]]:
     if ((concise and legacy_source_rule_scope) or (lesson_scoped and (not concise or len(course['lessons']) != 1))
-            or (standalone and (not concise or not strict_targets or legacy_source_rule_scope or len(course['lessons']) != 1))):
+            or (standalone and (not concise or not strict_targets or legacy_source_rule_scope or len(course['lessons']) != 1))
+            or type(typed_findings) is not bool or (typed_findings and not standalone)):
         raise ValueError('practical_review_policy_invalid')
     candidate = scoped_course_view(packet, course, legacy_source_rule_scope=legacy_source_rule_scope)
     if standalone:
         # Prior evidence may itself quote hidden lesson prose or an answer; the
         # authoritative prior is kept by the caller for whole-course adjudication.
-        practical_review_format(packet, course, previous, concise=True, strict_targets=True, standalone=True)
+        practical_review_format(packet, course, previous, concise=True, strict_targets=True, standalone=True, typed_findings=typed_findings)
         lesson = candidate['lessons'][0]
         questions = {'lesson_id': lesson['id'], 'questions': [
             {'id': q['id'], 'prompt': q['prompt'], 'choices': q['choices']} for q in lesson['questions']]}
-        standalone_previous = [{key: item[key] for key in ('issue_id', 'scope', 'id')} for item in previous]
+        if typed_findings:
+            from app.modules.ai.v3.practical_arbitration import original_finding
+            prior_items = [original_finding(item) for item in previous]
+        else:
+            prior_items = list(previous)
+        standalone_previous = [{key: item[key] for key in ('issue_id', 'scope', 'id')} for item in prior_items]
         content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view is not None else None)
             + '\n\nSTANDALONE_QUESTIONS_JSON\n' + json.dumps(questions, ensure_ascii=False, sort_keys=True, indent=2)
             + '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps(
                 model_view.encode(standalone_previous) if model_view is not None else standalone_previous,
                 ensure_ascii=False, sort_keys=True, indent=2))
-        return [{'role': 'system', 'content': STANDALONE_REVIEW_SYSTEM + (CONCISE_PREVIOUS_GUIDE if previous else '')},
+        system = STANDALONE_REVIEW_SYSTEM + (CONCISE_PREVIOUS_GUIDE if previous else '')
+        if typed_findings:
+            system += ' Для каждого question finding укажи review_kind=ANSWER_VALIDITY.'
+        return [{'role': 'system', 'content': system},
                 {'role': 'user', 'content': content}]
     for lesson in candidate['lessons']:
         for question in lesson['questions']:

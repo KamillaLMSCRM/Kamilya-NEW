@@ -21,6 +21,7 @@ from app.modules.ai.v3.practical_review import PracticalReviewDecision
 
 NAME = 'v3_practical_finding_arbitration_v1'
 SELECTOR_NAME = 'v3_practical_finding_arbitration_v2'
+TYPED_SELECTOR_NAME = 'v3_practical_finding_arbitration_v3'
 VERDICTS = ['MATERIAL_ERROR', 'ALREADY_COVERED', 'SOURCE_AMBIGUITY', 'STYLE_ONLY', 'NEEDS_REVIEW']
 
 
@@ -55,12 +56,26 @@ def question_finding(item: dict[str, Any]) -> bool:
     return bool(original_finding(item)['scope'] == 'question')
 
 
+def answer_finding(item: dict[str, Any]) -> bool:
+    """Purpose is owned typed data, never guessed from wording or target field."""
+    original = original_finding(item)
+    if original['scope'] != 'question':
+        return False
+    kind = original['evidence'].get('review_kind')
+    if kind not in {'ANSWER_VALIDITY', 'COURSE_ASSESSMENT'}:
+        raise ValueError('practical_finding_review_kind_invalid')
+    return bool(kind == 'ANSWER_VALIDITY')
+
+
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
     return {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False}
 
 
 def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[str],
-            questions: list[str], issues: list[str], *, evidence_ids: list[str] | None = None) -> dict[str, Any]:
+            questions: list[str], issues: list[str], *, evidence_ids: list[str] | None = None,
+            typed_findings: bool = False) -> dict[str, Any]:
+    if type(typed_findings) is not bool or typed_findings and evidence_ids is None:
+        raise ValueError('practical_arbitration_format_invalid')
     if (any(not re.fullmatch('[0-9a-f]{64}', fp) for fp in (source_fp, course_fp))
             or any(not ids or len(ids) != len(set(ids)) or any(type(i) is not str or not i.strip() for i in ids)
                    for ids in ((sources, lessons, questions, issues) if evidence_ids is None else (sources, questions, issues)))):
@@ -83,7 +98,7 @@ def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[st
         'source_refs': refs, 'course_evidence': {'type': 'array', 'items': evidence if evidence_ids is None
                                                else {'type': 'string', 'enum': evidence_ids}},
         'answer_check': {'anyOf': [answer, _object({'status': {'type': 'string', 'enum': ['NOT_APPLICABLE']}})]}})
-    return {'type': 'json_schema', 'json_schema': {'name': NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
+    return {'type': 'json_schema', 'json_schema': {'name': TYPED_SELECTOR_NAME if typed_findings else NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
         'source_fingerprint': {'type': 'string', 'enum': [source_fp]},
         'course_fingerprint': {'type': 'string', 'enum': [course_fp]},
         'judgments': {'type': 'array', 'minItems': len(issues), 'maxItems': len(issues), 'items': row}})}}
@@ -114,11 +129,15 @@ def evidence_inventory(course: dict[str, Any]) -> tuple[dict[str, dict[str, Any]
 
 
 def _selected_evidence(course: dict[str, Any], decision: PracticalReviewDecision,
-                       question_only: bool) -> tuple[dict[str, Any], list[str]]:
+                       question_only: bool, *, typed_findings: bool = False) -> tuple[dict[str, Any], list[str]]:
     inventory = evidence_inventory(course)[0]
     questions = [q['id'] for lesson in course['lessons'] for q in lesson['questions']]
+    if typed_findings:
+        purposes = [answer_finding(item) for item in decision.feedback]
+        if not question_only and any(purposes):
+            raise ValueError('practical_arbitration_answer_context_invalid')
     if question_only:
-        if not decision.feedback or not all(question_finding(item) for item in decision.feedback):
+        if not decision.feedback or not all((answer_finding if typed_findings else question_finding)(item) for item in decision.feedback):
             raise ValueError('practical_arbitration_question_scope_invalid')
         selected = {original_finding(item)['id'] for item in decision.feedback}
         questions = [qid for qid in questions if qid in selected]
@@ -129,27 +148,27 @@ def _selected_evidence(course: dict[str, Any], decision: PracticalReviewDecision
 
 def arbitration_format(packet: PracticalSourcePacket, course: dict[str, Any],
                        decision: PracticalReviewDecision, *, selectors: bool = False,
-                       question_only: bool = False) -> dict[str, Any]:
+                       question_only: bool = False, typed_findings: bool = False) -> dict[str, Any]:
     validate_practical_course(course, packet)
     if question_only and not selectors:
         raise ValueError('practical_arbitration_question_scope_invalid')
-    inventory, questions = _selected_evidence(course, decision, question_only)
+    inventory, questions = _selected_evidence(course, decision, question_only, typed_findings=typed_findings)
     return _format(packet.fingerprint, _digest(course), [b.block_id for b in packet.blocks if b.text.strip()],
         [lesson['id'] for lesson in course['lessons']],
         questions,
         [item['issue_id'] for item in decision.feedback],
-        evidence_ids=list(inventory) if selectors else None)
+        evidence_ids=list(inventory) if selectors else None, typed_findings=typed_findings)
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         name = value['json_schema']['name']
-        if name not in {NAME, SELECTOR_NAME}:
+        if name not in {NAME, SELECTOR_NAME, TYPED_SELECTOR_NAME}:
             raise ValueError
         props = value['json_schema']['schema']['properties']
         row = props['judgments']['items']['properties']
         answer = row['answer_check']['anyOf'][0]['properties']
-        if name == SELECTOR_NAME:
+        if name in {SELECTOR_NAME, TYPED_SELECTOR_NAME}:
             # Selector ownership is rebuilt from the bound course fingerprint;
             # no redundant lesson-inventory echo is required from the model.
             lessons = []
@@ -160,7 +179,8 @@ def _reconstruct(value: Any) -> dict[str, Any]:
             evidence_ids = None
         result = _format(props['source_fingerprint']['enum'][0], props['course_fingerprint']['enum'][0],
             row['source_refs']['items']['enum'], lessons,
-            answer['question_id']['enum'], row['issue_id']['enum'], evidence_ids=evidence_ids)
+            answer['question_id']['enum'], row['issue_id']['enum'], evidence_ids=evidence_ids,
+            typed_findings=name == TYPED_SELECTOR_NAME)
         if value != result:
             raise ValueError
         return result
@@ -189,7 +209,7 @@ def matches_arbitration(value: Any, fmt: Any) -> bool:
             if (not row['reason'].strip() or len(set(row['source_refs'])) != len(row['source_refs'])
                     or row['verdict'] in {'ALREADY_COVERED', 'STYLE_ONLY'} and not row['course_evidence']):
                 return False
-            if fmt['json_schema']['name'] == SELECTOR_NAME:
+            if fmt['json_schema']['name'] in {SELECTOR_NAME, TYPED_SELECTOR_NAME}:
                 if len(set(row['course_evidence'])) != len(row['course_evidence']):
                     return False
             elif any(not e['quote'].strip() for e in row['course_evidence']):
@@ -224,13 +244,14 @@ def _evidence_text(evidence: dict[str, Any], lessons: dict[str, Any]) -> str:
 def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSourcePacket,
     course: dict[str, Any], decision: PracticalReviewDecision,
     narrative: dict[str, list[str]], *, selectors: bool = False,
-    question_only: bool = False) -> PracticalReviewDecision:
-    if not matches_arbitration(value, arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only)):
+    question_only: bool = False, typed_findings: bool = False) -> PracticalReviewDecision:
+    if not matches_arbitration(value, arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only,
+                                                       typed_findings=typed_findings)):
         raise ValueError('practical_arbitration_response_invalid')
     lessons = {lesson['id']: lesson for lesson in course['lessons']}
     questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
     findings = {item['issue_id']: item for item in decision.feedback}
-    inventory = _selected_evidence(course, decision, question_only)[0] if selectors else {}
+    inventory = _selected_evidence(course, decision, question_only, typed_findings=typed_findings)[0] if selectors else {}
     feedback = []
     for row in value['judgments']:
         resolved_evidence = ([inventory[key] for key in row['course_evidence']] if selectors else row['course_evidence'])
@@ -246,7 +267,8 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
         # issue keeps its original repair target if a later round confirms it.
         original = original_finding(original)
         verdict = row['verdict']
-        if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and original['scope'] == 'question':
+        if (verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and original['scope'] == 'question'
+                and (not typed_findings or answer_finding(original))):
             if (check['status'] == 'NOT_APPLICABLE' or check['question_id'] != original['id']
                     or not any(e['question_id'] == original['id'] and (not question_only or e['field'] == 'prompt')
                                for e in resolved_evidence)):
@@ -311,8 +333,10 @@ SYSTEM = (
 
 def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], decision: PracticalReviewDecision,
                          *, model_view: PracticalModelView | None = None, selectors: bool = False,
-                         question_only: bool = False) -> list[dict[str, str]]:
+                         question_only: bool = False, typed_findings: bool = False) -> list[dict[str, str]]:
     validate_practical_course(course, packet)
+    if typed_findings:
+        arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only, typed_findings=True)
     def blind(value: Any) -> Any:
         if isinstance(value, dict):
             return {key: blind(child) for key, child in value.items()
@@ -324,7 +348,7 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
     body = {'course_fingerprint': _digest(course), 'whole_course': blind(evidence_inventory(course)[1] if selectors else course),
             'critic_findings': blind(decision.feedback)}
     if question_only:
-        inventory, qids = _selected_evidence(course, decision, True)
+        inventory, qids = _selected_evidence(course, decision, True, typed_findings=typed_findings)
         questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
         def field(qid: str, name: str, index: int = -1) -> dict[str, str]:
             key, value = next((key, item) for key, item in inventory.items()
@@ -333,6 +357,14 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
         body.pop('whole_course')
         body['standalone_questions'] = [{'id': qid, 'prompt': field(qid, 'prompt'),
             'choices': [field(qid, 'choice', i) for i in range(len(questions[qid]['choices']))]} for qid in qids]
+        if typed_findings:
+            # A whole-course critic can quote hidden lesson context in arbitrary
+            # prose. Removing dictionary keys is insufficient for a blind exam.
+            # Preserve owned issue/target identity, not the critic's answer hints.
+            body['critic_findings'] = [{'issue_id': item['issue_id'], 'scope': 'question',
+                'id': original_finding(item)['id'], 'evidence': {'review_kind': 'ANSWER_VALIDITY',
+                'source_refs': original_finding(item)['evidence']['source_refs']}}
+                for item in decision.feedback]
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view else None)
         + '\nWHOLE_COURSE_AND_ALLEGATIONS_JSON\n'
         + json.dumps(model_view.encode(body) if model_view else body, ensure_ascii=False, sort_keys=True, indent=2))
@@ -347,4 +379,16 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
             'answer_check содержит его ID, статус и все возможные правильные индексы. '
             'В остальных случаях answer_check содержит только status="NOT_APPLICABLE". '
             'Не создавай новых замечаний и не расширяй разрешённые цели правки.')
+    if typed_findings:
+        system += (' review_kind=ANSWER_VALIDITY проверяет правильность отдельного вопроса по источнику. '
+            'review_kind=COURSE_ASSESSMENT проверяет состав теста в контексте всего курса: '
+            'повторы, представительность и распределение учебных решений. При оценке состава '
+            'сопоставляй конкретные вопросы и текст уроков; авторский ключ для этого не нужен, '
+            'answer_check может быть NOT_APPLICABLE. Такое решение не снимает отдельное '
+            'замечание ANSWER_VALIDITY к тому же вопросу.')
+        if question_only:
+            system += (' Текст прежней критики намеренно скрыт: независимо проверь весь вопрос '
+                'и каждый вариант по полному источнику. ID замечания сохраняет историю, '
+                'но не доказывает ошибку. При UNIQUE заполни answer_check с найденным индексом; '
+                'при нехватке условий или нескольких ответах укажи это явно.')
     return [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]

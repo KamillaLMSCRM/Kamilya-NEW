@@ -10,7 +10,7 @@ from app.modules.ai.job_service import AIJobAdmissionLimitReachedError
 from app.modules.ai.qa_luna_dev_route import QA_TENANT
 from app.modules.ai.schemas import AIGenerateRequest
 from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import STANDALONE_PRACTICAL_REVIEW_POLICY, practical_qa_admission
+from app.modules.ai.v3.revision_policy import TYPED_PRACTICAL_REVIEW_POLICY, practical_qa_admission
 from tests.unit.test_ai_router_admission import _lenient_db
 
 FLAGS = ('AI_QA_LUNA_DEV_ENABLED', 'AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED',
@@ -88,4 +88,4 @@ async def test_native_fresh_submission_carries_practical_stamp(monkeypatch):
     with pytest.raises(HTTPException) as error:
         await router.generate_course(request, db=_lenient_db(), user=user)
     assert error.value.status_code == 429
-    assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == STANDALONE_PRACTICAL_REVIEW_POLICY
+    assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == TYPED_PRACTICAL_REVIEW_POLICY

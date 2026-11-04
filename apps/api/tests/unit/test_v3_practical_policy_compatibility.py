@@ -28,6 +28,7 @@ from app.modules.ai.v3.revision_policy import (
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
     SCOPED_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
+    TYPED_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
     read_review_policy,
     stamp_policy,
@@ -42,13 +43,14 @@ def test_closed_practical_versions_and_fresh_stamp():
     assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v14'
     assert ARBITRATED_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v15'
     assert STANDALONE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v16'
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == STANDALONE_PRACTICAL_REVIEW_POLICY
-    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY):
+    assert TYPED_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v17'
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == TYPED_PRACTICAL_REVIEW_POLICY
+    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY, TYPED_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(version)
         assert read_review_policy({'v3_review_policy': version}) == version
-    assert not is_practical_policy('v3-practical-source-review-v17')
+    assert not is_practical_policy('v3-practical-source-review-v18')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v17'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v18'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):

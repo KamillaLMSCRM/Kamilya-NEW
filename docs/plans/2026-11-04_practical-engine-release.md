@@ -3,6 +3,39 @@
 Owner outcome: a usable course engine in production with a complete synthetic
 document-to-confirmation acceptance. Existing customer courses remain unchanged.
 
+Owner clarification2026-11-04: every Standards26 engine acceptance must compare
+the complete result with the owner's accepted Sandyk course
+`eff9e0c5-3499-4f86-b7ec-6325abe9fd7a`, published city-corrected reference release
+`0a7e6b9a-5250-4663-9622-279b25d58c91` (7lessons/23questions). Frozen original
+authoring plus verified city amendment is retained in
+`.release-evidence/v3-production/standards26-accepted-reference/`; accepted
+authoring canonical SHAf62da25564865e79d920941a957dac953d3f260f917a93f9030131da86771c70.
+Compare whole-course clarity, all working decisions, exceptions, usable questions,
+necessary repair burden, time/calls/tokens. Counts and wording are reference
+observations, not targets to fit. Source and confirmed owner interpretations
+prevail if the reference has a defect. Optional clarity/style does not justify
+mandatory rewriting. After a confirmed failure, fix the underlying contract or
+responsibility, then use saved examples and full comparison; do not chase isolated
+words or add another universal guard.
+
+Confirmed P16 remaining systemic delta: question-target alone does not determine
+the review context. Answer validity needs the physically standalone question;
+assessment repetition/comparison needs the complete course. P16 blind editor
+explicitly could not see a comparison question and could not compare hidden
+author/reviewer keys in a second synthetic mismatch allegation. Fresh successor
+must use a closed question-finding kind (ANSWER_VALIDITY / COURSE_ASSESSMENT),
+retain it through prior ownership/holds and route to the appropriate existing
+editor. Emit one unified answerability disagreement instead of a redundant second
+key allegation. Course-design dismissal cannot clear separate blind validity
+issues. Preserve admitted P16 and older replay identities. No extra model stage
+or textual keyword routing; same maximum two arbitration views. Independent
+bounded design review accepted this direction. P16 completed8L24Q and received
+17responses319125input31165output; full independent content/reference comparison
+GO for human review. Policy17 is implemented locally with5428unitPASS,
+baseline1005/2174, exact P16/P15 replay and independent corrected-boundary review.
+Two actual saved allegations now close in38.453s/2Luna6HIGHcalls, no edits/newauthor.
+Fresh DEV successor and three-course acceptance remain required.
+
 Current implementation delta: fresh policy16 separates standalone question
 review from whole-course prose/coverage review, then arbitrates allegations
 before granting edits. Owned evidence selectors replace model-retyped quotations.

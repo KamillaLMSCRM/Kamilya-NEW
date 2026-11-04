@@ -47,10 +47,21 @@ async def test_managed_factory_configuration_is_bound_before_generation(monkeypa
     from app.modules.admin.runtime_configuration import runtime
     from app.modules.ai import direct_luna_responses_factory, pipeline
     from app.modules.ai.managed_luna_client import ManagedLunaClient
-    from app.modules.ai.v3 import owned_route_binding, owned_source_context, pending_stage_transactions, service
+
+    # The worker imports this lazily. Load its transaction aliases before
+    # patching the repository so a cold test cannot retain a temporary mock
+    # in an unrelated module after monkeypatch teardown.
+    from app.modules.ai.v3 import (
+        owned_route_binding,
+        owned_source_context,
+        pending_stage_journal,
+        pending_stage_transactions,
+        service,
+    )
     from app.modules.ai.v3.qa_luna_pending_policy import KEY, MANAGED_POLICY
     from app.modules.ai.v3.revision_policy import POLICY as REVISION
     from app.modules.ai.v3.revision_policy import PRACTICAL_REVIEW_POLICY, REVIEW_POLICY
+    assert pending_stage_journal._locked_job is pending_stage_transactions._locked_job
 
     cfg = settings('render-development-worker')
     cfg.AI_MANAGED_LUNA_QA_DEV_ENABLED, cfg.AI_DIRECT_LUNA_QA_DEV_ENABLED = True, False

@@ -152,6 +152,7 @@ class PracticalCycleResult:
     lesson_scoped_review: bool = False
     arbitrated_review: bool = False
     standalone_review: bool = False
+    typed_findings: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

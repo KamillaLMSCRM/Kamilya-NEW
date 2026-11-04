@@ -57,7 +57,8 @@ async def test_fresh_service_uses_standalone_input_and_honest_prose_links(case, 
                     'reason': 'Cannot resolve the source by rewriting.', 'source_refs': row['evidence']['source_refs'],
                     'course_evidence': [], 'answer_check': {'status': 'NOT_APPLICABLE'}} for row in sent['critic_findings']]}
         return view.encode(value)
-    options = dict(intent=CourseIntent(), invoke=invoke, source_sha256='b' * 64, journal=Journal(), route_fingerprint='c' * 64)
+    options = dict(intent=CourseIntent(), invoke=invoke, source_sha256='b' * 64, journal=Journal(), route_fingerprint='c' * 64,
+                   review_policy=STANDALONE_PRACTICAL_REVIEW_POLICY)
     result = await generate_practical_course(corpus, **options)
     assert result.diagnostics['v3_review_policy'] == STANDALONE_PRACTICAL_REVIEW_POLICY
     assert result.diagnostics['automated_review_passed'] is not source_uncertain

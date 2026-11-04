@@ -39,6 +39,7 @@ from app.modules.ai.v3.revision_policy import (
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
     SCOPED_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
+    TYPED_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
 )
 from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
@@ -54,7 +55,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (STANDALONE_PRACTICAL_REVIEW_POLICY if result.standalone_review else
+    review_policy = (TYPED_PRACTICAL_REVIEW_POLICY if result.typed_findings else
+                     STANDALONE_PRACTICAL_REVIEW_POLICY if result.standalone_review else
                      ARBITRATED_PRACTICAL_REVIEW_POLICY if result.arbitrated_review else
                      PRACTICAL_REVIEW_POLICY if result.lesson_scoped_review else
                      PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else
@@ -138,7 +140,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = STANDALONE_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = TYPED_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
@@ -147,7 +149,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     if any(doc.review_only_source_unresolved for doc in corpus.documents):
         raise ValueError('practical_source_review_required')
     packet = build_practical_source_packet(corpus, reference_decisions)
-    lesson_policies = {PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY}
+    lesson_policies = {PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY,
+                       TYPED_PRACTICAL_REVIEW_POLICY}
     parts = () if review_policy in lesson_policies else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
@@ -194,7 +197,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         readings.append(validate_source_read(view.decode(value), packet, part))
     if review_policy in lesson_policies:
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
-        options = ({'adjudicate': True, 'standalone': True} if review_policy == STANDALONE_PRACTICAL_REVIEW_POLICY else
+        options = ({'adjudicate': True, 'standalone': True, 'typed_findings': True} if review_policy == TYPED_PRACTICAL_REVIEW_POLICY else
+                   {'adjudicate': True, 'standalone': True} if review_policy == STANDALONE_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True} if review_policy == ARBITRATED_PRACTICAL_REVIEW_POLICY else {})
         result = await run_lesson_practical_cycle(packet, asdict(intent), stage, max_revisions=3, **options)
     else:

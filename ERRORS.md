@@ -1,5 +1,24 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P16: completed Standards8L24Q/17received responses
+  319125input31165output. Whole-course independent source/matrix/reference review
+  found no remaining demonstrated material error, but automatic draft held a
+  stale second key allegation and a comparison allegation whose peer was hidden.
+  Cause: target field was used as review purpose; every question allegation
+  received the same blind context, and one disagreement generated two issues.
+  Fresh policy17 uses closed ANSWER_VALIDITY/COURSE_ASSESSMENT kinds, preserves
+  prior ownership/wrappers, emits one answer disagreement and routes to existing
+  blind/whole-course views without an extra stage. Independent review caught a
+  related prose leak through critic free text; typed blind allegations now carry
+  only owned IDs/kind/source refs. Legacy11-16 remain versioned.
+  Verification:5428unitPASS/86.86s, baseline1005/2174, exact actualP16 all17stages
+  and P15 same7stages/rejectedbody/quoteerror preserved without calls. Real saved
+  two-finding control38.453s/2Luna6HIGHcalls43685input1553output independently
+  discharged corrected key and course comparison without edits. This is local
+  control evidence, not three-course DEV or production acceptance. Prevention:
+  test mixed purposes on one question, global-origin correctness, held owner,
+  repair/recheck/replay and physically absent critic prose together.
+
 - Recurrence2026-11-04/P15 ordinary DEV: complete editor response correctly
   removed duplicate coverage allegations but joined two noncontiguous exact
   passages as one quote; contiguous-quote validation quarantined the stage.
