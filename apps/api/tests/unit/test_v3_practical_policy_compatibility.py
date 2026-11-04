@@ -21,6 +21,7 @@ from app.modules.ai.v3.practical_review import (
 from app.modules.ai.v3.practical_source_audit import AUDIT_SYSTEM, source_audit_messages
 from app.modules.ai.v3.response_contracts import response_contract
 from app.modules.ai.v3.revision_policy import (
+    ARBITRATED_PRACTICAL_REVIEW_POLICY,
     CONCISE_PRACTICAL_REVIEW_POLICY,
     POLICY,
     PRACTICAL_REVIEW_POLICY,
@@ -38,13 +39,14 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 def test_closed_practical_versions_and_fresh_stamp():
     assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v14'
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == PRACTICAL_REVIEW_POLICY
-    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY):
+    assert ARBITRATED_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v15'
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == ARBITRATED_PRACTICAL_REVIEW_POLICY
+    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(version)
         assert read_review_policy({'v3_review_policy': version}) == version
-    assert not is_practical_policy('v3-practical-source-review-v15')
+    assert not is_practical_policy('v3-practical-source-review-v16')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v15'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v16'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):

@@ -124,7 +124,7 @@ async def stage_once(
         from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 
         kind = response_contract(response_format) if response_format is not None else None
-        if (response_format is not None and (kind in {"batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read"}
+        if (response_format is not None and (kind in {"batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read", "practical_arbitration"}
                 or kind is not None and kind.startswith("aux:"))):
             if not matches_response_contract(value, response_format):
                 raise ValueError("v3_stage_response_shape_invalid")
@@ -187,6 +187,7 @@ async def stage_once(
             auxiliary = is_auxiliary_format(response_format)
             from app.modules.ai.v3.diversity_response_schema import is_diversity_author_format
             auxiliary = auxiliary or is_diversity_author_format(response_format)
+            from app.modules.ai.v3.practical_arbitration import is_arbitration_format
             from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format
             from app.modules.ai.v3.practical_contract import is_practical_course_format
             from app.modules.ai.v3.practical_patch import is_practical_patch_format
@@ -198,6 +199,7 @@ async def stage_once(
                 or stage == "review" and group_id.startswith("practical:review:") and is_practical_review_format(response_format)
                 or stage == "review" and group_id.startswith("practical:source-audit:") and (is_source_audit_format(response_format) or is_atomic_audit_format(response_format))
                 or stage == "review" and group_id.startswith("practical:source-read:") and is_source_read_format(response_format)
+                or stage == "review" and group_id.startswith("practical:arbitrate:") and is_arbitration_format(response_format)
                 or stage == "repair" and group_id.startswith("practical:repair:") and is_practical_patch_format(response_format)
             )
             if response_format not in (None, {"type": "json_object"}) and not (

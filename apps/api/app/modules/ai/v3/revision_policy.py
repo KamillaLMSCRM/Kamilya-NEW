@@ -14,6 +14,7 @@ PREVIOUS_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v11"
 SCOPED_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v12"
 CONCISE_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v13"
 PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v14"
+ARBITRATED_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v15"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
@@ -22,11 +23,11 @@ def is_scoped_policy(value: object) -> bool:
 
 
 def is_practical_policy(value: object) -> bool:
-    return type(value) is str and value in {PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY}
+    return type(value) is str and value in {PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY}
 
 
 def stamp_policy(analysis: dict[str, Any], *, practical: bool = False) -> dict[str, Any]:
-    return {**analysis, KEY: POLICY, REVIEW_KEY: PRACTICAL_REVIEW_POLICY if practical else REVIEW_POLICY}
+    return {**analysis, KEY: POLICY, REVIEW_KEY: ARBITRATED_PRACTICAL_REVIEW_POLICY if practical else REVIEW_POLICY}
 
 
 def practical_qa_admission(*, settings: Any, marker: str | None, tenant_id: Any, course_id: Any) -> bool:
@@ -51,6 +52,7 @@ def read_review_policy(analysis: Any) -> str | None:
     if type(analysis[REVIEW_KEY]) is not str or analysis[REVIEW_KEY] not in {
         LEGACY_REVIEW_POLICY, PREVIOUS_REVIEW_POLICY, BUCKET_REVIEW_POLICY, AUXILIARY_REVIEW_POLICY, REVIEW_POLICY,
         PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY,
+        ARBITRATED_PRACTICAL_REVIEW_POLICY,
     }:
         raise ValueError("v3_review_policy_invalid")
     return str(analysis[REVIEW_KEY])

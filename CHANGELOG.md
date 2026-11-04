@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Adjudicate generation criticisms against the whole course before authorizing edits;
+  retain unresolved source questions and reuse unchanged lesson reviews without losing open findings.
 - Preserve authored question conditions across source links and check applicable
   exceptions through a concise whole-course editor with explicit answerability.
 - Generate a coherent source-bound course, review questions independently, and

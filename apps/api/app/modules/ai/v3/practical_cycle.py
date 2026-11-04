@@ -150,6 +150,7 @@ class PracticalCycleResult:
     legacy_source_rule_scope: bool = False
     concise_review: bool = False
     lesson_scoped_review: bool = False
+    arbitrated_review: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

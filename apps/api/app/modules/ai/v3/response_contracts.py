@@ -15,6 +15,7 @@ from app.modules.ai.v3.auxiliary_response_contracts import (
 from app.modules.ai.v3.batch_review_response_schema import is_batch_review_response, is_batch_review_response_format
 from app.modules.ai.v3.diversity_response_schema import is_diversity_author_format, is_diversity_author_response
 from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_response, is_rule_extraction_response_format
+from app.modules.ai.v3.practical_arbitration import is_arbitration_format, matches_arbitration
 from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format, matches_atomic_audit
 from app.modules.ai.v3.practical_contract import is_practical_course_format, matches_practical_course_response
 from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
@@ -25,6 +26,8 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_arbitration_format(value):
+        return "practical_arbitration"
     if is_source_read_format(value):
         return "practical_source_read"
     if is_source_audit_format(value) or is_atomic_audit_format(value):
@@ -61,6 +64,8 @@ def response_contract_hash(value: dict[str, Any]) -> str:
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "practical_arbitration":
+        return matches_arbitration(value, response_format)
     if kind == "practical_source_read":
         return matches_source_read(value, response_format)
     if kind == "practical_source_audit":

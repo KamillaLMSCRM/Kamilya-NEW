@@ -3,6 +3,15 @@
 Owner outcome: a usable course engine in production with a complete synthetic
 document-to-confirmation acceptance. Existing customer courses remain unchanged.
 
+Current implementation delta: fresh policy15 arbitrates allegations against the
+whole course before granting edits. It carries unchanged full-lesson reviews,
+keeps previous issues until adjudication even after a critic claims resolution,
+and identifies literal evidence by actual lesson/question field. Source ambiguity
+holds a draft rather than inventing a norm. Existing11–14 jobs remain versioned.
+The paragraph/witness prototypes are NOT integrated. One saved7finding control
+and exact P14/P15 offline replays verify the correction policy; three full DEV
+courses, DeepSeek and production/live acceptance remain required.
+
 1. **Local source and course gate — in progress.** Coherent author, independent
    blind question review, source-first coverage audit, scoped paragraph/question
    corrections. All raw source spans and completed responses remain immutable.
