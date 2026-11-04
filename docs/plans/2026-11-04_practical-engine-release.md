@@ -36,6 +36,26 @@ baseline1005/2174, exact P16/P15 replay and independent corrected-boundary revie
 Two actual saved allegations now close in38.453s/2Luna6HIGHcalls, no edits/newauthor.
 Fresh DEV successor and three-course acceptance remain required.
 
+P17 DEV execution:3a721225 exact API/frontend/soleVMworker RELEASE_OK+RECONCILED,
+CI41777455777/build41778223424/attestationPASS; productionstageSKIPPED and all6
+productioncontainers unchanged. One full Standards9042f5bf admitted05:26:14UTC
+on existing reviewed source with canonical reuse_reason=other; preceding definite
+409source-reuse refusal preserved, no model call. Old P16 course preserved.
+P17 paused after12responses and was ordinarily cancelled at a known no-pending
+boundary after confirmed neighboring-question context leakage;24rows/usage/source
+preserved. It is not a full-course result. Fire/Micro have not been admitted.
+
+Fresh18 successor: compact source-supported counterexample check in the existing
+review call, followed by the existing physically blind arbiter. All case claims
+remain untrusted allegations; missing question premises can be repaired to a
+clear supported case without selecting an ambiguous norm. Actual saved control
+detected L4Q2, independent editor confirmed materialquestion authority, scoped
+repair changed onlyL4Q2 and independent recheck found it UNIQUE. Recheck added
+an unadjudicated L4Q1 timing allegation, not automatic edit authority. No new
+stage or per-question call multiplication. Final local/CI then new sole-worker
+DEV and three complete courses remain required. Do not relabel saved controls
+or preserved historical replays as that acceptance.
+
 Current implementation delta: fresh policy16 separates standalone question
 review from whole-course prose/coverage review, then arbitrates allegations
 before granting edits. Owned evidence selectors replace model-retyped quotations.

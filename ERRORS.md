@@ -1,5 +1,24 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P17: same-lesson blind batch still exposed neighboring
+  question premises. L4Q2 inherited locality/stage from Q1 and examiner asserted
+  UNIQUE although its own stem lacked those facts. Independent reference/source
+  review found the gap. Actual pipeline independently repaired different L5Q3
+  all-false options;12complete responses/24rows212701input22455output preserved
+  after known no-pending cooperative pause and ordinary cancellation. A generic
+  source-supported counterexample check caught L4Q2 in the same batch, keeping
+  self-contained neighbors UNIQUE. P18 local adds this compact check to the SAME
+  call, compiles FOUND/UNKNOWN only as untrusted answer allegations and retains
+  independent blind adjudication; no word blacklist, size guard or per-question
+  call multiplication. Related arbiter confusion between absent question context
+  and collateral source ambiguity is addressed by fresh18 prompt guidance only;
+  source holds and repair authority are not weakened. Final saved arbiter-only
+  control1call40.204s confirmed materialquestion target; ownedrepair/recheck2calls
+  60.219s changed onlythatquestion and founditUNIQUE. Another question received
+  an unadjudicated timing allegation, not automatic rewrite permission. Final
+  5443unitPASS/63.26s, baseline1005/2174 and exactlegacyparity PASS. Runtime
+  acceptance remains pending; technical tests cannot prove a model's NONE verdict.
+
 - Recurrence2026-11-04/P16: completed Standards8L24Q/17received responses
   319125input31165output. Whole-course independent source/matrix/reference review
   found no remaining demonstrated material error, but automatic draft held a

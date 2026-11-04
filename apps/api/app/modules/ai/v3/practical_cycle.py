@@ -153,6 +153,7 @@ class PracticalCycleResult:
     arbitrated_review: bool = False
     standalone_review: bool = False
     typed_findings: bool = False
+    counterexample_review: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

@@ -1,4 +1,92 @@
-# Current P17 local candidate / P16 DEV complete — 2026-11-04
+# Current P18 local successor / P17 DEV known cancelled — 2026-11-04
+
+- result: Owner production outcome remains OPEN. DEV source/API/frontend/sole
+  worker still exactP17 3a721225 below. Local P18 delta NOT committed/deployed.
+  P17 full Standards9042f5bf knowncooperativelypaused after12receivedresponses
+  212701input22455output/24rows/no pending at41%. Ordinary cancellation applied
+  once after confirmed semantic review gap; all24rows/result/source/p2/documents/
+  receivedusage preserved. p17-known-cancel-custody-proof.json PASS. No final
+  P17 course saved; do NOT claim complete-course acceptance or resume/repeat it.
+- changed: P17 author7L23Q all16families taught, but independent full source/
+  accepted-reference review found L5Q3 allchoicesfalse and L4Q2 missing locality/
+  stage borrowed from neighbor. Actual engine correctly detected/adjudicated and
+  patched ONLY L5Q3 without manualfeedback; L4Q2 examiner falselyUNIQUE. Source
+  A01 threshold700100 verified independently in original WordXML for bothgroups,
+  originalblob8411104b unchanged; standards26-original-lower-bound-proof.json.
+  This is source-fidelity proof, not a legal/source interpretation.
+- verified: Same-batch generic counterexample probe detected L4Q2 DEPENDS/FOUND,
+  left Q1/Q3 UNIQUE/NONE in1Luna6HIGHcall47.891s17885input2309output, no gold or
+  author. Its alternative-option mapping is imperfect/untrusted, NOT normative
+  truth. Local fresh18 adds compact case check inside existing reviewer call,
+  FOUND/UNKNOWN compile an existing ANSWER_VALIDITY allegation, never automatic
+  edit authority. Legacy11-17 unchanged. New v14/v15schemas/1000source shipped
+  runner/focused56PASS; full5442unitPASS65.55s preceded final prompt-only delta,
+  final39focused/baseline1005/2174/source-reviewPASS. ExactP17 all12stage prefix,
+  P16 full17stage/coursehash and P15 heldbodyfailure replay unchanged,0calls.
+- blockers: Actual production-contract control2calls76.984s34290input3813output
+  detected L4Q2 but blindarbiterSOURCE_AMBIGUITY denied edit despite recognizing
+  absent context and clear inside-locality branch. Root added ONLY P18 prompt
+  guide distinguishing missing question premises (may reframe to a clear source
+  case) from a norm requiring clarification. No schema/validator/edit-authority
+  override: SOURCE_AMBIGUITY/NEEDS_REVIEW remain noneditable. Independent source
+  review accepted this boundary. Arbiter-only saved-control completed1call40.204s
+  16663input2014output and confirmed L4Q2 MATERIAL_ERROR without sourcehold.
+  Same received review reused, no newreviewer/author. Scoped repair+newcheck
+  2calls60.219s42948input2832output changed ONLY L4Q2; repaired question UNIQUE[0],
+  Q3 UNIQUE[0]. Recheck additionally alleged L4Q1 timing dependence: unadjudicated
+  claim, NOT accepted rewrite authority or whole-course GO. No active inference/
+  DEV modeljob or production/clientchanges. Final fullunit5443PASS/63.26s/
+  7warnings in p18-final-full-api-unit.log after final prompt-onlydelta;
+  finalbaseline1005/2174 and independent source review PASS.
+- next: Selected P18 commit/projectaccount receipts/CI/attestedimage/soleVMworker rollout
+  retaining77306/P17 rollback. Three full DEV Luna courses/reference/matrices,
+  nativeDeepSeek and protectedproduction/fullsyntheticlive remain OPEN. Do not
+  repeat full authors before a confirmed root fix. Resume helper made NO auth or
+  mutating call: GET/health timed out before intent; later read-only health200.
+  Its failure and cancellation receipts retained. Current originalsource and
+  syntheticP16/course13888 unchanged; ordinary tenant default stilllegacyV5.
+
+# Historical P17 DEV active snapshot — superseded by known cancellation above
+
+- result: Exact3a72122558a8453495272fc3c6246487a9f383f2 deployed DEV RELEASE_OK
+  and RECONCILED. CI41777455777 all7SUCCESS, backend41778223424 SUCCESS with
+  productionstageSKIPPED. Official attestation exactsource/dev/workflow/nonselfhosted
+  PASS. Imagefc89f090094985699cdfe7706b6e6d1acc8b401e82d0ff9acd55c3705f661846.
+  APIdep-dblc1ijm8hqs738rooq0/live, Verceldpl_2Tn9Tg4tWtmrKNfFtiDXD4NLdB76/
+  READY/Hobby. SoleVMworker77306f1823a857b60d92e7af1a76a74296c53d488ec69e99a1b0013164dff4c3,
+  env45keysSHAbbada7a7305f78c1d60fc058b2e7c752281287ee906927855e21806e2314091e,
+  94sourcefiles/ready/restart0/unless-stopped. Oldd8b11warmstopped exit0/noforce,
+  retainedrollback-dc8846ba. Production6containers unchanged.
+- changed: One complete ordinary Standards job9042f5bf-a460-4445-adaf-254ce90ea024
+  ADMITTED05:26:14UTC. Receipt p17-dev-qa-standards-reuse-acknowledged-result.json
+  SHA18d9b8d089415484f5374d9fb539d467deaf26fce491ef7205865707873b208b.
+  Same source8d71182b/doce18c0fea/index418d4170/ownerp2; no upload/reindex.
+  First attempt returned definite409 before quota because existing completedP16
+  course cites source. Original intent/rejection retained, no model dispatch.
+  Canonical reuse_reason=other explicitly acknowledged creating a SEPARATE draft;
+  new requestSHA01bcc14c8a3fa0f942c98ac2f109623d696301c4b7edbe73bdaa28a8a7e7401f.
+  Activejob guard and previousP16completed check retained; old course unchanged.
+- verified: Local5428unit/baseline/releasecontracts and saved2callcontrol below.
+  Root and independent reviewer verified generated ops/pinnedtemplates/94hashes.
+  Live readiness, warmdrain/start/restart and exact controller PASS. First fresh
+  read-only lms_app/nonbypass/tenant+actor snapshot observespolicy17/running5%/
+  ingestion/0received/no pending yet; model/tokens UNKNOWN, not zero. No active
+  local inference/controller/helper remains. ONE DEV generation job active.
+- blockers: Three complete67family/16ambiguity course acceptance, nativeDeepSeek,
+  protectedproduction/fullsyntheticlive OPEN. Normaltenant default stilllegacyV5.
+  No customer/providerplan/voice/rights/reserve changes. Graph navigation remains
+  NOT_READY CodeGraph runtime absent; bounded source/tests used, no reinstall.
+- next: Freeze application/runner while9042f5bf runs. Monitor via
+  p17-qa-job-db-readonly.py with exact admittedreceiptSHA above; capture complete
+  author/final and compare every lesson/question with source16/4matrix and frozen
+  accepted7L23Q reference. No duplicate/admission/blind pending retry. Known
+  cooperative pause with independently proven no pending may use canonical
+  samejobresume, preserving stages/accounting. Then Fire/Micro via reviewed
+  run-p17-dev-case.py (neither admitted/uploaded yet), genuinely refresh controller
+  if older600seconds. Continue DeepSeek/protectedrelease/live; source/CI/runtime
+  alone are not completion. Ops packetSHA93cbf8949d378346b208d9e569155222c6b1abd6f3d1481e157069e8ae7fc34d.
+
+# Historical P17 local candidate / P16 DEV complete — superseded by deployment
 
 - result: P16 Standards job e3119da0-a852-475a-8358-a91ceee60bc2 COMPLETED,
   saved draft13888e44-661e-4b2c-9631-82093bbf9eea/8L24Q/allquizzesneeds_review.

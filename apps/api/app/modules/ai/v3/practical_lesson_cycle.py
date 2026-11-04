@@ -81,14 +81,17 @@ def partition_previous(course: dict[str, Any], packet: PracticalSourcePacket,
 
 async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, Any], invoke: StageInvoker,
                                      *, max_revisions: int = 3, adjudicate: bool = False,
-                                     standalone: bool = False, typed_findings: bool = False) -> PracticalCycleResult:
+                                     standalone: bool = False, typed_findings: bool = False,
+                                     counterexamples: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
-            or type(typed_findings) is not bool or typed_findings and not standalone):
+            or type(typed_findings) is not bool or typed_findings and not standalone
+            or type(counterexamples) is not bool or counterexamples and not typed_findings):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
     view = PracticalModelView(packet)
     typed_options = {'typed_findings': True} if typed_findings else {}
+    review_options = {**typed_options, **({'counterexamples': True} if counterexamples else {})}
     planning = [{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups]
 
     async def call(stage: str, group: str, messages: list[dict[str, str]], fmt: dict[str, Any], validate: Any) -> dict[str, Any]:
@@ -128,8 +131,9 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             def validate_part(value: dict[str, Any], checked: dict[str, Any] = part,
                               checked_prior: tuple[dict[str, Any], ...] = prior) -> None:
                 interpret_practical_review(value, packet, checked, checked_prior, concise=True, strict_targets=True,
-                                           **({'standalone': True} if standalone else {}), **typed_options)
-            review_version = ('v3-practical-source-review-v17' if typed_findings else
+                                           **({'standalone': True} if standalone else {}), **review_options)
+            review_version = ('v3-practical-source-review-v18' if counterexamples else
+                              'v3-practical-source-review-v17' if typed_findings else
                               'v3-practical-source-review-v16' if standalone else 'v3-practical-source-review-v14')
             group = 'practical:review:' + _hash([review_version, part, prior])
             part_key = _hash([packet.fingerprint, part])
@@ -146,9 +150,10 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             else:
                 result = await call('review', group,
                     practical_review_messages(packet, part, prior, model_view=view, concise=True, lesson_scoped=True,
-                        standalone=standalone, strict_targets=standalone, typed_findings=typed_findings),
+                        standalone=standalone, strict_targets=standalone, typed_findings=typed_findings,
+                        counterexamples=counterexamples),
                     practical_review_format(packet, part, prior, concise=True, strict_targets=True,
-                        **({'standalone': True} if standalone else {}), **typed_options), validate_part)
+                        **({'standalone': True} if standalone else {}), **review_options), validate_part)
                 if adjudicate:
                     reviewed_parts[part_key] = copy.deepcopy(result)
             parts.append(result)
@@ -186,7 +191,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         if previous:
             consolidated['issue_checks'] = issue_checks
         decision = interpret_practical_review(consolidated, packet, candidate, previous, concise=True,
-                                             **({'allow_empty_narrative': True} if standalone else {}), **typed_options)
+                                             **({'allow_empty_narrative': True} if standalone else {}), **review_options)
         if adjudicate:
             decision = retain_prior_findings(decision, previous, issue_checks)
         adjudication = None
@@ -209,7 +214,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                     adjudicate_practical_findings(value, packet, checked_course, checked_decision, checked_narrative,
                                                  selectors=standalone, question_only=checked_question_only, **typed_options)
                 response = await call('review', 'practical:arbitrate:' + _hash([digest, unadjudicated.feedback]),
-                    arbitration_messages(packet, candidate, unadjudicated, model_view=view, selectors=standalone, question_only=question_only, **typed_options),
+                    arbitration_messages(packet, candidate, unadjudicated, model_view=view, selectors=standalone,
+                        question_only=question_only, counterexamples=counterexamples, **typed_options),
                     arbitration_format(packet, candidate, unadjudicated, selectors=standalone, question_only=question_only, **typed_options), validate_adjudication)
                 applied.append(adjudicate_practical_findings(response, packet, candidate, unadjudicated,
                     consolidated['narrative_sources'], selectors=standalone, question_only=question_only, **typed_options))
@@ -236,7 +242,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         if reason:
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), reason,
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
-                                        typed_findings=typed_findings)
+                                        typed_findings=typed_findings, counterexample_review=counterexamples)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
                            checked_decision: Any = decision) -> None:
@@ -248,7 +254,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         if _hash(revised) in seen:
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), 'no_progress',
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
-                                        typed_findings=typed_findings)
+                                        typed_findings=typed_findings, counterexample_review=counterexamples)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

@@ -333,8 +333,11 @@ SYSTEM = (
 
 def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], decision: PracticalReviewDecision,
                          *, model_view: PracticalModelView | None = None, selectors: bool = False,
-                         question_only: bool = False, typed_findings: bool = False) -> list[dict[str, str]]:
+                         question_only: bool = False, typed_findings: bool = False,
+                         counterexamples: bool = False) -> list[dict[str, str]]:
     validate_practical_course(course, packet)
+    if type(counterexamples) is not bool or counterexamples and not typed_findings:
+        raise ValueError('practical_arbitration_policy_invalid')
     if typed_findings:
         arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only, typed_findings=True)
     def blind(value: Any) -> Any:
@@ -391,4 +394,13 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
                 'и каждый вариант по полному источнику. ID замечания сохраняет историю, '
                 'но не доказывает ошибку. При UNIQUE заполни answer_check с найденным индексом; '
                 'при нехватке условий или нескольких ответах укажи это явно.')
+            if counterexamples:
+                system += (' Различай дефект вопроса и неясность нормы. Если вопрос не задаёт '
+                    'существенные условия, это MATERIAL_ERROR вопроса, даже когда другая ветвь '
+                    'источника неоднозначна. Исправление может задать однозначный подтверждённый '
+                    'источником сценарий той же темы или заменить вопрос на такой сценарий; '
+                    'это не разрешает выбрать толкование спорной нормы или изменить источник. '
+                    'SOURCE_AMBIGUITY удерживает вопрос, когда корректный вопрос по этой теме '
+                    'требует сначала разрешить именно неясность нормы, а не уточнить условия '
+                    'самого вопроса. Не выдавай отсутствие условий вопроса за исправление источника.')
     return [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]
