@@ -35,6 +35,7 @@ RECEIVER_SHA = "a7470cca32295122245796acf17c9f8d6e3c7b904f417ac78b8ee069354b61ae
 RECEIVER_SHA_V3 = "5561169088dfdeade62f4566d468cfb0ae0d4587513138163efc892748db790a"
 RECEIVER_SHA_V4 = "4310ca718a53b48988a28501fa76517aa560e0e2246f0ec7b69821f4113ebc81"
 RECEIVER_SHA_V5 = "493f801fda8fb57d8aabfc2261fa7d23cb896069c001b464fe8d420b086bebe7"
+RECEIVER_SHA_V6 = "133ae5b74de1164d933eb379cea2ad0cdfe1751ec34f5759b3df62724f7e6f6b"
 IMAGE_RE = re.compile(r"ghcr\.io/kamillalmscrm/kamilya-api@sha256:[0-9a-f]{64}")
 HEALTH_CODE = r"""
 from app.core.celery_app import celery_app
@@ -166,6 +167,7 @@ def receiver_identity(staged, receiver_source):
         and staged.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") == "false"
     )
     expected = (
+        RECEIVER_SHA_V6 if staged.get("AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED") == "true" else
         RECEIVER_SHA_V5
         if native
         else RECEIVER_SHA_V4
@@ -199,8 +201,9 @@ def main():
             and first_env.get("AI_QA_LUNA_DEV_ENABLED") == "false"
             and first_env.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") == "false"
         )
+        local = first_env.get("AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED") == "true"
         payload = secure_file(
-            ROOT / ("env-v5" if native else "env-v2") / release / "runtime.env", 0o600
+            ROOT / ("env-v6" if local else "env-v5" if native else "env-v2") / release / "runtime.env", 0o600
         )
         env_sha = hashlib.sha256(payload).hexdigest()
         if env_sha != expected["environment_sha256"]:
@@ -212,6 +215,7 @@ def main():
             and staged.get("CHATGPT_RESERVE_URL") == "http://172.17.0.1:19000/v1"
         )
         receiver_path = ROOT / (
+            "vm126_dev_worker_env_receiver-v6.py" if local else
             "vm126_dev_worker_env_receiver-v5.py"
             if native
             else "vm126_dev_worker_env_receiver-v4.py"

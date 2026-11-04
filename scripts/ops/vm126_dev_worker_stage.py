@@ -32,6 +32,8 @@ RECEIVER_PATH_V5 = (
     "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v5.py"
 )
 RECEIVER_SHA_V5 = "493f801fda8fb57d8aabfc2261fa7d23cb896069c001b464fe8d420b086bebe7"
+RECEIVER_PATH_V6 = "/opt/kamilya-dev-worker/releases/vm126_dev_worker_env_receiver-v6.py"
+RECEIVER_SHA_V6 = "133ae5b74de1164d933eb379cea2ad0cdfe1751ec34f5759b3df62724f7e6f6b"
 STATUS_RE = re.compile(
     r"^STATUS\|status=(installed|already_present)\|release_sha=([0-9a-f]{40})\|payload_sha256=([0-9a-f]{64})\|keycount=([1-9][0-9]{0,2})$"
 )
@@ -80,7 +82,9 @@ def stage_payload(
         and b"CHATGPT_RESERVE_URL=http://172.17.0.1:19000/v1\n"
         in payload.splitlines(keepends=True)
     )
+    local = b"AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED=true\n" in payload.splitlines(keepends=True)
     receiver_path = (
+        RECEIVER_PATH_V6 if local else
         RECEIVER_PATH_V5
         if native
         else RECEIVER_PATH_V4
@@ -90,6 +94,7 @@ def stage_payload(
         else RECEIVER_PATH
     )
     expected_receiver_sha = (
+        RECEIVER_SHA_V6 if local else
         RECEIVER_SHA_V5
         if native
         else RECEIVER_SHA_V4

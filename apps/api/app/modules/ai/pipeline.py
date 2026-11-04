@@ -695,6 +695,17 @@ async def _run_v3_generation(
 
     policy = await resolve_runtime_settings()
     with runtime_settings_scope(policy):
+        from app.modules.ai.v3.local_deepseek_dev import create_local_deepseek_dev_client
+
+        local_deepseek = None
+        if getattr(get_settings(), "AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED", False) is True:
+            local_deepseek = create_local_deepseek_dev_client(
+                settings=get_settings(), tenant_id=tenant_id, course_id=state.course_id,
+                review_policy=review_policy, temperature=policy.number("generation.temperature"),
+            )
+        if local_deepseek is not None and (pending_mode or authenticated_qa_policy is not None
+                                          or revision_policy != PROFILE_REVISION_POLICY):
+            raise ValueError("local_deepseek_dev_profile_scope_invalid")
         if pending_mode and state.source_analysis.get(QA_PENDING_KEY) in (DIRECT_POLICY, DIRECT_POLICY_V2, MANAGED_POLICY):
             from app.modules.ai.direct_luna_responses_factory import (
                 create_direct_qa_responses_client,
@@ -729,7 +740,7 @@ async def _run_v3_generation(
         if generation_client is None:
             if pending_mode:
                 raise ExtractionOutcomeUnknownError("qa_luna_pending_provider_unavailable")
-            generation_client = await ResilientLLMClient.from_settings_async(
+            generation_client = local_deepseek or await ResilientLLMClient.from_settings_async(
                 tenant_id=tenant_id,
                 temperature=policy.number("generation.temperature"),
             )

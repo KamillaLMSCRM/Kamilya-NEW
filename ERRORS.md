@@ -5049,6 +5049,25 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   identity and bounded inference from the actual consuming worker. A configured
   position is not availability evidence.
 
+- DEV recurrence and scoped correction, 2026-11-04: owner-selected ASUS
+  DeepSeek-V4.1-Flash-1017 at10.66.66.20:8888 was reachable from Windows but
+  timed out from VM126 and its actual DEV worker. Do not change production
+  routing from workstation proof. Owner explicitly authorized a temporary path
+  through this Windows computer. `scripts/dev/run_dev_asus_bridge.py` uses the
+  canonical pinned SSH chain and exact DEV container/image/release, a loopback
+  listener inside that container, fixed ASUS upstream, maximum7200s lifetime,
+  and no reconnect/provider fallback/public port. Real worker inference PASS:
+  2.158s/96input122output, wrong synthetic key corrected/right key retained;
+  close readback proved listener absent. This is transport/inference proof,
+  NOT course quality or a deployed new worker. Receiver/profile remain
+  default-off and restricted to fresh policy25 courses in permanent QA tenant.
+  Windows benchmark: tuned4096-token reasoning budget completed real saved
+  editor task in74.964s/10939input5883output; full source semantics remain open.
+  Installed TensorFold rejects native response_format with400 before inference;
+  explicit prompt_json mode preserves the same closed local V3 contract.
+  Paramiko file.write returnsNone: use byte-counting ChannelWriter, tested with
+  framed handshake. Never infer relay health from successful SSH alone.
+
 ## UI-001 - Completed course generation trapped the methodologist on the old result
 
 - Date: 2026-09-13. Observed in production after the native `0.5.14` frontend

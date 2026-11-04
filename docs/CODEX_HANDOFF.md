@@ -1,3 +1,66 @@
+# P25 ASUS through Windows: actual DEV transport PASS, candidate LOCAL
+
+- result: Owner explicitly chose temporary DEV access through this computer.
+  Actual pinned DEV worker759b/P24source5467/image915b reached fixed ASUS model
+  DeepSeek-V4.1-Flash-1017 through canonical SSH reverse stream. One synthetic
+  inference2.158s/96input122output, bad key corrected/good key retained; reasoning
+  ON/budget256. Metadata0.575s. After close loopback18890 listener absent.
+  Evidence .release-evidence/v3-production/p25-asus-worker-inference.json and
+  its exclusive intent. No active bridge or generation remains from this probe.
+- changed: LOCAL default-off AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED profile, only
+  fresh policy25/permanentQAtenant; four Luna QA flags must be false. Fixed
+  container loopback18890, upstreamASUS20:8888, no paid key/fallback/retry;
+  reasoningON/budget4096/max16384, whole-invocation300s. prompt_json bypasses
+  unsupported native wire format while retaining identical closed V3 schema.
+  ReceiverV6/env-v6 adds one explicit local flag; previous receiver hashes/routes
+  retained. Bridge exact plan SHA, canonical hostkeys/credentials/nestedSSH,
+  max7200s; computer/SSH loss stops listener. No public port or persistent daemon.
+- verified:124 focused adapter/relay/env/runtime testsPASS/2platform skips;
+  final6502APIunitPASS67.49s, baseline1006/2174PASS, releasecontract0184/367PASS.
+  First full6500-unit run found7 legacy fixture failures because new selection
+  evaluated course_id while flagOFF. Guard moved before field access; all31
+  affected legacy+driver testsPASS. Empty local API key now omits Authorization
+  header entirely; real HTTP-client test preserves nonempty commercial auth.
+- blockers: None for temporary transport. Candidate not committed/pushed/deployed;
+  current sole DEV worker remainsP24, production unchanged. Actual full courses
+  on ASUS NOT RUN. Large saved task tuned profile74.964s/10939in5883out incl4097
+  reasoning/valid closed schema is NOT full semantic acceptance. Old P24 Micro
+  unknown stage remains quarantined; NEVER retry/reset/promote it. Saved P25
+  Standards and Fire controls completed; prior ACTIVE29014 entry below is stale.
+  Standards D05 assessment gap still not independently detected by producer;
+  Fire optional-detail arbiter still not GO. No full P25 semantic claim.
+- next: Final full gates/review and exact source/CI/image/DEV worker rollout with
+  receiverV6 and local flag; then start bridge on NEW exact worker and run ordinary
+  fresh QA courses sequentially, compare all67families/16ambiguities. No task-wide
+  model changes/customer data. Current owner authorization covers all fresh QA
+  courses for these tests, not a single claimed job. Production remains gated.
+
+# P25 committed LOCAL; one saved review ACTIVE, 2026-11-04 16:35UTC
+
+- result: Local candidate committed7b1ec626b2f66d8089b226c47b0e6a68a0ac5ae2,
+  canonicalauthor KamilyaCodex/kamilla_lms_crm@proton.me;17files1030insertions55deletions.
+  All6473unitPASS82.28s,951focusedPASS7.99s (840cross-product),baseline1006/2174PASS,
+  releasecontract0184/367errorsPASS; exact old24Std10/Fire16replayPASS0calls.
+  No P25 push/CI/deployment; DEV still5467, production unchanged.
+- active: AFTER completing owner's zero-model synthetic validation, one bounded
+  saved Standards source-audit semanticcontrol, NOT course generation. Script
+  .release-evidence/v3-production/p25-saved-semantic-control.py standards --execute,
+  localsession29014, rootp25-saved-controls/standards, sourcefingerprint
+  8a2e262738f5a0590c20bde50d04f08c5eaa5a55cedcc158e877e83c01bd05a4.
+  One Luna6HIGHrequest dispatched; no gold/matrix/known-defect label in input.
+  DO NOT duplicate. Preserve any intent/raw failure; no blind retries. Fire/Micro
+  saved controls not dispatched; same script offline-first/exclusive outputdir.
+- verified: Final saved93 old rejection rerun OFFLINE through successor validator
+  p25-saved-microcredit-validator-regression-final.json; all3unsupported IDs held,
+  6totalholds, no promotion/journal/DBcalls; source-file hashes bound. Private
+  control-input.json at p14-private-readback-ff9eac589c30484aa98a5c811c2b2374
+  supports exact three-Micro-verdict control. Old jobf0692f27 remains quarantined.
+- next: Read current one-control result/usage, independent source-first meaning;
+  then optional two bounded saved arbiter controls (Fire optional detail and
+  Micro3nonteaching allegations), not fullregeneration. Only after those controls
+  pass use exactsource/CI/DEV and fullthreecourses; no synthetics-as-semanticclaim.
+  Fullengine/nativeDeepSeek/production/live OPEN. Sourcecorrectionmodule afterward.
+
 # P25 LOCAL synthetic validator fix verified, 2026-11-04 16:28UTC
 
 - result: Owner explicitly requested synthetic validator simulation rather than

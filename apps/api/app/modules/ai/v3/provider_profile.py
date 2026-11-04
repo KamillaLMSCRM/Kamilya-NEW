@@ -43,6 +43,19 @@ def _policy_digest(policy: RuntimeSnapshot, values: Mapping[str, object]) -> str
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
+def _effective_profile_values(policy: RuntimeSnapshot, client: ResilientLLMClient) -> dict[str, object]:
+    from app.modules.ai.v3.local_deepseek_dev import (
+        GENERATION_SECONDS,
+        THINKING_BUDGET,
+        is_local_deepseek_dev_client,
+    )
+    values = _profile_values(policy)
+    if is_local_deepseek_dev_client(client):
+        values.update(local_generation_seconds=GENERATION_SECONDS, thinking_budget=THINKING_BUDGET,
+                      structured_output_mode='prompt_json')
+    return values
+
+
 class V3ProfiledClient:
     """Apply the fresh V3 course-generation profile to one resolved client."""
 
@@ -60,8 +73,8 @@ class V3ProfiledClient:
         self._policy = policy
         self._job_id = job_id
         self._base_fingerprint = client.cache_fingerprint()
-        self._values = _profile_values(policy)
-        seconds = self._values["deepseek_seconds"]
+        self._values = _effective_profile_values(policy, client)
+        seconds = self._values.get('local_generation_seconds', self._values["deepseek_seconds"])
         self._generation_deadline_seconds: float | None = None
         if cooperative_deadline:
             if (isinstance(seconds, bool) or not isinstance(seconds, int | float)
@@ -90,7 +103,7 @@ class V3ProfiledClient:
     def _assert_identity(self) -> None:
         if self._client.cache_fingerprint() != self._base_fingerprint:
             raise RuntimeError("v3_provider_profile_route_changed")
-        if _policy_digest(self._policy, _profile_values(self._policy)) != self._policy_identity:
+        if _policy_digest(self._policy, _effective_profile_values(self._policy, self._client)) != self._policy_identity:
             raise RuntimeError("v3_provider_profile_policy_changed")
 
     async def ainvoke(

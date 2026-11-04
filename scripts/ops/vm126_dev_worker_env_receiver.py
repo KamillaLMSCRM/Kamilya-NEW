@@ -21,8 +21,8 @@ REDIS_HOST = "173.249.51.164"
 REDIS_PORT = 6380
 REDIS_DB = "/1"
 ISOLATED_MANAGED_CONNECTOR_URL = "http://172.17.0.1:19000/v1"
-VERSION = "v5"
-ENV_DIRECTORY = "env-v5"
+VERSION = "v6"
+ENV_DIRECTORY = "env-v6"
 KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,63}$")
 VALUE_RE = re.compile(r"^[^\x00\r\n]+$")
 RELEASE_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -40,6 +40,7 @@ ALLOWED_KEYS = frozenset(
         "AI_LESSON_CYCLE_DEV_ENABLED",
         "AI_LESSON_CYCLE_DEV_TENANTS",
         "AI_QA_LUNA_DEV_ENABLED",
+        "AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED",
         "AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED",
         "APP_ENV",
         "DATABASE_URL",
@@ -267,6 +268,10 @@ def validate_payload(
         and values.get("AI_QA_LUNA_DEV_ENABLED") == "false"
         and values.get("AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED") == "false"
     )
+    if "AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED" in values and (
+        values["AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED"] != "true" or not native
+    ):
+        raise ValueError("local_deepseek_mode_invalid")
     if (
         values.get("CELERY_QUEUES") != "ai,documents,maintenance"
         or values.get("CELERY_CONCURRENCY") != "1"
@@ -301,10 +306,14 @@ def build_payload_from_render_values(
     *,
     isolated_managed_connector: bool = False,
     native_mode: bool = False,
+    local_deepseek: bool = False,
 ) -> bytes:
     """Normalize an authenticated Render worker snapshot without logging values."""
-    if type(native_mode) is not bool or type(isolated_managed_connector) is not bool:
+    if (type(native_mode) is not bool or type(isolated_managed_connector) is not bool
+            or type(local_deepseek) is not bool):
         raise ValueError("mode_type_invalid")
+    if local_deepseek and not native_mode:
+        raise ValueError("local_deepseek_mode_invalid")
     if source.get("DEPLOYMENT_ENVIRONMENT") != "render-development-worker":
         raise ValueError("source_environment_invalid")
     if native_mode:
@@ -361,6 +370,8 @@ def build_payload_from_render_values(
     )
     if isolated_managed_connector:
         values["CHATGPT_RESERVE_URL"] = ISOLATED_MANAGED_CONNECTOR_URL
+    if local_deepseek:
+        values["AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED"] = "true"
     body = "".join(f"{key}={values[key]}\n" for key in sorted(values)).encode()
     validate_payload(body, release_sha, hashlib.sha256(body).hexdigest())
     return body

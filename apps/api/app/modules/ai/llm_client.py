@@ -172,6 +172,17 @@ def _json_syntax_correction_messages(
 # ---------------------------------------------------------------------------
 
 
+def _prompt_json_forbidden_extra(extra: dict[str, Any]) -> bool:
+    return any(
+        isinstance(key, str)
+        and (
+            key.casefold() in {"response_format", "structured_output_policy"}
+            or key.casefold().startswith(("guided_", "structured_outputs"))
+        )
+        for key in extra
+    )
+
+
 @dataclass(frozen=True)
 class LLMProviderConfig:
     """Static config for one LLM/embedding provider."""
@@ -210,6 +221,14 @@ class LLMProviderConfig:
     # retain their own inference policy. The field name is retained for API
     # compatibility with the original evidence_low profile.
     managed_evidence_profile: bool = False
+    structured_output_mode: Literal["native", "prompt_json"] = "native"
+
+    def __post_init__(self) -> None:
+        if self.structured_output_mode not in ("native", "prompt_json"):
+            raise ValueError("structured_output_mode_invalid")
+        if self.structured_output_mode == "prompt_json":
+            if self.name == "chatgpt-reserve" or _prompt_json_forbidden_extra(self.extra_body):
+                raise ValueError("prompt_json_provider_config_invalid")
 
 
 def _managed_profile_attempt(
@@ -666,7 +685,8 @@ class _BaseProviderClient:
                         resp = await client.post(
                             f"{self.config.base_url}{self.config.endpoint}",
                             json=payload,
-                            headers={"Authorization": f"Bearer {self.config.api_key}"},
+                            headers=({"Authorization": f"Bearer {self.config.api_key}"}
+                                     if self.config.api_key else {}),
                         )
                     except (TimeoutError, httpx.TimeoutException):
                         timeout_context.emit(logger, "provider_http_post")
@@ -807,9 +827,18 @@ class LLMClient(_BaseProviderClient):
             response_contract_hash,
         )
         contract = response_contract(response_format)
+        prompt_json = self.config.structured_output_mode == "prompt_json"
+        if prompt_json and _prompt_json_forbidden_extra(self.config.extra_body):
+            raise ValueError("prompt_json_provider_config_invalid")
+        if prompt_json and response_format is not None and contract is None:
+            raise ValueError("prompt_json_response_format_unregistered")
         structured_reserve = contract is not None and self.config.name == "chatgpt-reserve"
-        wire_format = {"type": "json_object"} if contract is not None and not structured_reserve else response_format
-        request_messages = _structured_output_messages(messages, wire_format)
+        wire_format = (
+            None if prompt_json else
+            {"type": "json_object"} if contract is not None and not structured_reserve else response_format
+        )
+        hint_format = {"type": "json_object"} if prompt_json and contract is not None else wire_format
+        request_messages = _structured_output_messages(messages, hint_format)
         if contract is not None and not structured_reserve:
             # The native JSON-object dialect needs the exact schema in trusted instructions.
             assert response_format is not None
@@ -1001,8 +1030,12 @@ class ResilientLLMClient:
         Key rotation, options, model/order and generation limits invalidate same-job
         checkpoints. The serialized configuration exists only transiently in memory.
         """
+        providers = [asdict(client.config) for client in self._clients]
+        for provider in providers:
+            if provider["structured_output_mode"] == "native":
+                del provider["structured_output_mode"]
         payload = {
-            "providers": [asdict(client.config) for client in self._clients],
+            "providers": providers,
             "temperature": self.temperature, "max_tokens": self.max_tokens,
         }
         return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
