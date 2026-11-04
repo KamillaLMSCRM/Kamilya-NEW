@@ -62,6 +62,38 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P23: full DEV Standardsb3d60a37 completed5L16Q,
+  8actualLuna6HIGH responses169904input19552output, no resume/pending. Exact all8
+  stage replay and all ordinary saved text/keys/choices/quotes PASS. Own source
+  audit detected missing D05 collateral criteria and repaired L2 prose, but arbiter
+  rejected ONE integrated assessment addition citing three existing timing/
+  paperwork questions and no per-element quota. Final content broadly teaches16
+  families, but D05 is not assessed; original amount gaps remain a separate hold.
+- Cause: arbitration SYSTEM explicitly conflated ALREADY_COVERED as taught OR
+  assessed and allowed a taught detail to be dismissed because3–4 other questions
+  existed. This was an instruction defect, not evidence of inadequate model IQ.
+- Local P24 fix: fresh policy24 separates explanation coverage from assessment
+  coverage. Author chooses representative independent workplace decisions;
+  arbiter must match the disputed assessed decision to actual prompt/choices,
+  not prose/explanation/count. One integrated question may cover related criteria;
+  no per-fact quota, new stage/schema/write scope or fake semantic validator.
+  Historical23 request bytes remain unchanged.
+- Verification: saved actual criticism1Luna6HIGH call25507in1402out retained D05
+  assessment as material; one owned patch24843in713out added useful L2Q4 and the
+  source criteria, all16 old questions/title/peer lessons unchanged, independent
+  D05 semantic GO. Local harness initially passed tuple narrative and failed AFTER
+  raw response receipt; complete body revalidated offline against identical input,
+  zero repeated inference, original failure/intent retained. New arbiter called
+  original source gap MATERIAL_ERROR, but original scope=source remains held and
+  grants no edit authority; actual patch leaves gap explanation unchanged. Added
+  regression protects this hold independent of model verdict label. P24 full DEV
+  courses/native/production acceptance remain separate and OPEN.
+- Calibration: initial P23author L4Q2 category counterexample withdrawn after
+  comparing exact accepted reference with equal or less standalone context;
+  L1Q3 wording is editorial clarity, not a proven wrong answer. Do not use an
+  out-of-topic scenario or stricter moving target to extend an otherwise usable
+  course. Confirm material gaps against the source and accepted practical level.
+
 - Recurrence2026-11-04/P22: full6L22Q completed15Luna6responses334737input47397output,
   exact all-stage replay and every saved API field matched, but L5Q3 inherited the
   report trigger from its neighbor. New reviewer instructions, a source-only

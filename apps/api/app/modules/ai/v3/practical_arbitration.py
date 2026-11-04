@@ -330,13 +330,37 @@ SYSTEM = (
     'Не создавай новых замечаний и не расширяй разрешённые цели правки.'
 )
 
+ASSESSMENT_COVERAGE_SYSTEM = SYSTEM.replace(
+    'ALREADY_COVERED: нужное знание уже раскрыто или представительно проверяется существующими вопросами.',
+    'ALREADY_COVERED: соответствующее замечание уже устранено в принадлежащей ему области проверки.'
+).replace(
+    'Отсутствие отдельного вопроса о детали не является MATERIAL_ERROR, если урок объясняет её, '
+    'а существующие вопросы проверяют основные рабочие решения. Обычно 3–4 вопроса на смысловой урок достаточно. ',
+    ''
+)
+
+ASSESSMENT_COVERAGE_GUIDE = (
+    ' Различай полноту изложения и полноту проверки. Для scope=assessment или '
+    'review_kind=COURSE_ASSESSMENT ALREADY_COVERED допустим только если существующие '
+    'формулировки вопросов и варианты ответов действительно проверяют то же практическое '
+    'решение. Выбери в course_evidence реальные evidence_id формулировки и вариантов, '
+    'подтверждающих эту проверку. Текст урока, авторское объяснение, число вопросов, '
+    'место действия или вопрос о другом решении сами по себе не доказывают её. '
+    'Один интегрированный вопрос может проверять несколько тесно связанных критериев; '
+    'не требуй отдельного вопроса на каждый пункт. Отсутствие проверки целого существенного '
+    'семейства рабочих решений является MATERIAL_ERROR, даже если урок его объясняет. '
+    'Не выдумывай факты или вопросы; неопределённость источника сохраняй как SOURCE_AMBIGUITY.'
+)
+
 
 def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], decision: PracticalReviewDecision,
                          *, model_view: PracticalModelView | None = None, selectors: bool = False,
                          question_only: bool = False, typed_findings: bool = False,
-                         counterexamples: bool = False) -> list[dict[str, str]]:
+                         counterexamples: bool = False, assessment_coverage: bool = False) -> list[dict[str, str]]:
     validate_practical_course(course, packet)
     if type(counterexamples) is not bool or counterexamples and not typed_findings:
+        raise ValueError('practical_arbitration_policy_invalid')
+    if type(assessment_coverage) is not bool or assessment_coverage and not (typed_findings and selectors):
         raise ValueError('practical_arbitration_policy_invalid')
     if typed_findings:
         arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only, typed_findings=True)
@@ -371,7 +395,7 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view else None)
         + '\nWHOLE_COURSE_AND_ALLEGATIONS_JSON\n'
         + json.dumps(model_view.encode(body) if model_view else body, ensure_ascii=False, sort_keys=True, indent=2))
-    system = SYSTEM
+    system = ASSESSMENT_COVERAGE_SYSTEM if assessment_coverage else SYSTEM
     if selectors:
         system = system[:system.index('Для ALREADY_COVERED и STYLE_ONLY обязательна точная цитата')]
         system += ('Для ALREADY_COVERED и STYLE_ONLY выбери в course_evidence готовые evidence_id '
@@ -403,4 +427,6 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
                     'SOURCE_AMBIGUITY удерживает вопрос, когда корректный вопрос по этой теме '
                     'требует сначала разрешить именно неясность нормы, а не уточнить условия '
                     'самого вопроса. Не выдавай отсутствие условий вопроса за исправление источника.')
+    if assessment_coverage:
+        system += ASSESSMENT_COVERAGE_GUIDE
     return [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]

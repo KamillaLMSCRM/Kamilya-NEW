@@ -23,7 +23,10 @@ from app.modules.ai.v3.practical_question_context import (
 from app.modules.ai.v3.practical_review import QUESTION_BATCH_NAME
 from app.modules.ai.v3.practical_service import generate_practical_course
 from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
-from app.modules.ai.v3.revision_policy import CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY
+from app.modules.ai.v3.revision_policy import (
+    ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
+    CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
+)
 from app.modules.ai.v3.stage_checkpoint import stage_once
 from tests.unit.test_direct_luna_owned_stage import setup
 from tests.unit.test_v3_partitioned_extraction import Journal
@@ -49,7 +52,8 @@ def context_value(fmt, *, unresolved=(), supplement=''):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('unresolved', [False, True])
-async def test_service_context_reaches_assessment_and_cold_replay_never_repeats_calls(case, unresolved):
+@pytest.mark.parametrize('review_policy', [CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY])
+async def test_service_context_reaches_assessment_and_cold_replay_never_repeats_calls(case, unresolved, review_policy):
     corpus, packet, original = case
     view = PracticalModelView(packet)
     current = copy.deepcopy(original)
@@ -76,13 +80,14 @@ async def test_service_context_reaches_assessment_and_cold_replay_never_repeats_
     journal = Journal()
     kwargs = dict(intent=CourseIntent(), invoke=invoke, source_sha256='b' * 64,
                   journal=journal, route_fingerprint='c' * 64,
-                  review_policy=CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY)
+                  review_policy=review_policy)
     first = await generate_practical_course(corpus, **kwargs)
     # A new process reconstructs the cycle only from durable values.
     cold = Journal()
     cold.plans, cold.values = copy.deepcopy(journal.plans), copy.deepcopy(journal.values)
     replay = await generate_practical_course(corpus, **{**kwargs, 'journal': cold})
     assert first.diagnostics == replay.diagnostics
+    assert first.diagnostics['validation_report']['review_policy'] == review_policy
     assert names == ['practical_course', NAME, QUESTION_BATCH_NAME, STRICT_OWNER_NAME]
     assert first.diagnostics['automated_review_passed'] is not unresolved
     assert first.diagnostics['practical_unresolved_question_context'] == (['q1'] if unresolved else [])
@@ -94,7 +99,8 @@ async def test_service_context_reaches_assessment_and_cold_replay_never_repeats_
 
 
 @pytest.mark.asyncio
-async def test_unrelated_owned_question_repair_cannot_drop_prior_unresolved_context(case):
+@pytest.mark.parametrize('review_policy', [CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY])
+async def test_unrelated_owned_question_repair_cannot_drop_prior_unresolved_context(case, review_policy):
     corpus, packet, original = case
     view = PracticalModelView(packet)
     current = copy.deepcopy(original)
@@ -120,6 +126,8 @@ async def test_unrelated_owned_question_repair_cannot_drop_prior_unresolved_cont
         elif name == STRICT_OWNER_NAME:
             value = clean_audit(packet, current)
         elif name == TYPED_SELECTOR_NAME:
+            from app.modules.ai.v3.practical_arbitration import ASSESSMENT_COVERAGE_GUIDE
+            assert (ASSESSMENT_COVERAGE_GUIDE in messages[0]['content']) is (review_policy == ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY)
             sent = view.decode(json.loads(messages[1]['content'].split('\nWHOLE_COURSE_AND_ALLEGATIONS_JSON\n')[1]))
             evidence = sent['standalone_questions'][0]['prompt']['evidence_id']
             answer = {'status': 'UNIQUE' if repaired else 'UNKNOWN', 'question_id': 'q2',
@@ -145,7 +153,7 @@ async def test_unrelated_owned_question_repair_cannot_drop_prior_unresolved_cont
 
     result = await generate_practical_course(corpus, intent=CourseIntent(), invoke=invoke,
         source_sha256='b' * 64, journal=Journal(), route_fingerprint='c' * 64,
-        review_policy=CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY)
+        review_policy=review_policy)
     assert context_targets == [('q1', 'q2'), ('q2',)]
     assert result.diagnostics['practical_unresolved_question_context'] == ['q1']
     assert result.diagnostics['practical_course']['lessons'][0]['questions'][0] == original['lessons'][0]['questions'][0]

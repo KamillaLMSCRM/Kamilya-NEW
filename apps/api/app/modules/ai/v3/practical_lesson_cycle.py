@@ -31,6 +31,7 @@ from app.modules.ai.v3.practical_contract import (
     validate_practical_course,
 )
 from app.modules.ai.v3.practical_cycle import (
+    ASSESSMENT_COVERAGE_GUIDE,
     EXCLUSIVE_OPTIONS_GUIDE,
     EXPLICIT_CASE_GUIDE,
     FRESH_AUTHOR_SYSTEM,
@@ -115,7 +116,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      counterexamples: bool = False, explicit_cases: bool = False,
                                      question_batch: bool = False, strict_audit_owners: bool = False,
                                      exclusive_options: bool = False,
-                                     context_supplemented: bool = False) -> PracticalCycleResult:
+                                     context_supplemented: bool = False,
+                                     assessment_coverage: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
@@ -123,7 +125,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             or type(question_batch) is not bool or question_batch and not explicit_cases
             or type(strict_audit_owners) is not bool or strict_audit_owners and not question_batch
             or type(exclusive_options) is not bool or exclusive_options and not strict_audit_owners
-            or type(context_supplemented) is not bool or context_supplemented and not exclusive_options):
+            or type(context_supplemented) is not bool or context_supplemented and not exclusive_options
+            or type(assessment_coverage) is not bool or assessment_coverage and not context_supplemented):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
@@ -165,7 +168,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
 
     messages = [{'role': 'system', 'content': FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE
                  + (EXPLICIT_CASE_GUIDE if explicit_cases else '')
-                 + (EXCLUSIVE_OPTIONS_GUIDE if exclusive_options else '')},
+                 + (EXCLUSIVE_OPTIONS_GUIDE if exclusive_options else '')
+                 + (ASSESSMENT_COVERAGE_GUIDE if assessment_coverage else '')},
         {'role': 'user', 'content': source_model_text(packet, aliases=view.canonical_to_alias)
          + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False, sort_keys=True)
          + '\nCOURSE_INTENT_JSON\n' + json.dumps(intent, ensure_ascii=False, sort_keys=True, indent=2)}]
@@ -189,7 +193,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v23' if context_supplemented else
+        review_version = ('v3-practical-source-review-v24' if assessment_coverage else
+                          'v3-practical-source-review-v23' if context_supplemented else
                           'v3-practical-source-review-v22' if exclusive_options else
                           'v3-practical-source-review-v21' if strict_audit_owners else
                           'v3-practical-source-review-v20' if question_batch else
@@ -317,7 +322,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                                  selectors=standalone, question_only=checked_question_only, **typed_options)
                 response = await call('review', 'practical:arbitrate:' + _hash([digest, unadjudicated.feedback]),
                     arbitration_messages(packet, candidate, unadjudicated, model_view=view, selectors=standalone,
-                        question_only=question_only, counterexamples=counterexamples, **typed_options),
+                        question_only=question_only, counterexamples=counterexamples,
+                        **({'assessment_coverage': True} if assessment_coverage else {}), **typed_options),
                     arbitration_format(packet, candidate, unadjudicated, selectors=standalone, question_only=question_only, **typed_options), validate_adjudication)
                 applied.append(adjudicate_practical_findings(response, packet, candidate, unadjudicated,
                     consolidated['narrative_sources'], selectors=standalone, question_only=question_only, **typed_options))
@@ -355,7 +361,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
                                         explicit_case_author=explicit_cases, question_bank_review=question_batch,
                                         strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options,
-                                        context_supplemented=context_supplemented,
+                                        context_supplemented=context_supplemented, assessment_coverage=assessment_coverage,
                                         unresolved_question_context=unresolved_context)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
@@ -384,7 +390,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
                                         explicit_case_author=explicit_cases, question_bank_review=question_batch,
                                         strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options,
-                                        context_supplemented=context_supplemented,
+                                        context_supplemented=context_supplemented, assessment_coverage=assessment_coverage,
                                         unresolved_question_context=unresolved_context)
         candidate = revised
         previous = decision.feedback

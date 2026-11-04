@@ -78,6 +78,18 @@ def test_ambiguity_holds_without_edit_permission_and_material_keeps_permission(c
     assert material.assessment_lesson_ids == ('l1',) and not material.accepted
 
 
+def test_material_label_for_original_source_finding_cannot_authorize_course_or_source_repair(case):
+    from app.modules.ai.v3.practical_arbitration import adjudicate_practical_findings
+
+    _, packet, course = case
+    original = allegation(packet, scope='source', target=packet.blocks[0].block_id)
+    result = adjudicate_practical_findings(judgment(packet, course, original, 'MATERIAL_ERROR'),
+        packet, course, original, {'l1': [packet.blocks[0].block_id]})
+    assert result.source_uncertain and not result.accepted
+    assert result.feedback[0]['scope'] == 'source'
+    assert not (result.lesson_ids or result.question_ids or result.assessment_lesson_ids or result.allow_new_lessons)
+
+
 def test_question_key_allegation_cannot_be_dismissed_by_prose_alone(case):
     from app.modules.ai.v3.practical_arbitration import adjudicate_practical_findings
 

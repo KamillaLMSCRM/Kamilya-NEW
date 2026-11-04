@@ -5699,3 +5699,30 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
   Accepted add-onlyR3 20103/815 and actualcandidateR4 21078/1295 are bounded controls.
   No rejected reader/critic/case_facts protocol shipped. Audit-agent token totals
   unavailable, notzero. No freshP23 DEV/model generation or production mutation yet.
+
+## RUN-20261104-P23-DEV-STANDARDS-P24-SAVED-COVERAGE
+
+- Executor: root plus independent Terra6.1 reviewer; same source-reviewed worktree.
+- Deployed exact SHA: a33073109d159a5d4838bd70d873c75728909a8d, CI41841925890 SUCCESS,
+  image465ba155...dda8 attested; API/worker/Vercel independently reconciled.
+- Ordinary DEV Standards job b3d60a37-f052-404e-b494-44f0d1798f77 completed
+  14:13:41.052849–14:23:49.424643UTC, no resume/no pending;5L16Q,
+  8actualLuna6HIGHresponses169904input19552output. Reasoning/cache counters null.
+- All8exactreceivedstage replay0calls and ALL savedAPI text/keys/choices/literalquotes
+  PASS. Full quality NO-GO: D05 taught after own repair, not assessed. Actual original
+  source gaps remain held. No Fire/Micro inference, production or customer mutation.
+- Proven instruction cause: arbiter conflated taught OR assessed and dismissed an
+  integrated decision question based on3existing timing/paperwork questions.
+- Local P24 saved criticism+scopedpatch:2actualLuna6HIGHcalls50350input2115output;
+  first29.297s, second16.875s, no repeated inference. Initial local narrative tuple
+  argument failed after complete receipt; identicalrequest/raw revalidated offline
+  with mapping, old failure/intent retained. All old16Qs/title/peerlessons unchanged;
+  L2prose criteria + one useful integratedL2Q4, independent D05mechanism GO.
+- Local P24 final5566unitPASS69.34s/7knownwarnings, focused29PASS, baseline
+  Ruff1006/Mypy2174PASS, releasecontract0184/367errorsPASS. OldP23all8 exactrequests
+  unchanged, same final8f2ffb8b...f0879 (semanticNO-GO preserved),0model/DBcalls.
+- Source-reviewed fresh24 routing, native/managed and historical23 discrimination
+  tested. New fullcourse/three-doc/DEV/nativeDeepSeek/production acceptance OPEN.
+- Artifacts: .release-evidence/v3-production/p23-standards-*-owned-*.json,
+  p23-standards-saved-api-readback.json,p24-saved-coverage-r{1,2},
+  p24-legacy-p23-owned-replay.json,p24-final-{full-unit,quality}.log.
