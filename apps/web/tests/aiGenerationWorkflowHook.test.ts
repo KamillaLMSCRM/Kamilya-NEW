@@ -105,6 +105,47 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.currentJob?.status).toBe('interrupted');
   });
 
+  it('supersedes a persisted reconciliation hold with a newer executing job', async () => {
+    const heldJob = { ...activeJob, id: 'old-held-job', status: 'reconciliation_required', stage: 'interrupted', job_type: 'course_generation' };
+    const liveJob = { ...activeJob, id: 'new-live-job', created_at: '2026-08-30T09:00:00Z', status: 'running' };
+    localStorage.setItem('ai_active_job_id', heldJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: heldJob }).mockResolvedValueOnce({ data: [heldJob, liveJob] });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe(liveJob.id);
+    expect(result.current.currentJob?.status).toBe('running');
+    expect(localStorage.getItem('ai_active_job_id')).toBe(liveJob.id);
+    expect(apiMock.get).toHaveBeenNthCalledWith(2, '/v1/ai/jobs?scope=mine');
+  });
+
+  it('keeps a persisted reconciliation hold when discovery finds no executing job', async () => {
+    const heldJob = { ...activeJob, id: 'old-held-job', status: 'reconciliation_required', stage: 'interrupted', job_type: 'course_generation' };
+    localStorage.setItem('ai_active_job_id', heldJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: heldJob }).mockResolvedValueOnce({ data: [heldJob] });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe(heldJob.id);
+    expect(result.current.currentJob?.status).toBe('reconciliation_required');
+    expect(localStorage.getItem('ai_active_job_id')).toBe(heldJob.id);
+  });
+
+  it('keeps a persisted reconciliation hold when discovery fails', async () => {
+    const heldJob = { ...activeJob, id: 'old-held-job', status: 'reconciliation_required', stage: 'interrupted', job_type: 'course_generation' };
+    localStorage.setItem('ai_active_job_id', heldJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: heldJob }).mockRejectedValueOnce(new Error('list unavailable'));
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe(heldJob.id);
+    expect(result.current.currentJob?.status).toBe('reconciliation_required');
+    expect(localStorage.getItem('ai_active_job_id')).toBe(heldJob.id);
+  });
+
   it('ignores a delayed interrupted-job discovery after the request scope changes', async () => {
     const interruptedJob = { ...activeJob, id: 'old-interrupted-job', status: 'interrupted', stage: 'interrupted', job_type: 'course_generation' };
     const liveJob = { ...activeJob, id: 'new-live-job', status: 'running' };

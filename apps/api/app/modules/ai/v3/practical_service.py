@@ -38,6 +38,7 @@ from app.modules.ai.v3.revision_policy import (
     CONCISE_PRACTICAL_REVIEW_POLICY,
     CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
+    DOMAIN_PRACTICAL_REVIEW_POLICY,
     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
@@ -64,7 +65,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY if result.claim_evidence else
+    review_policy = (DOMAIN_PRACTICAL_REVIEW_POLICY if result.review_domains else
+                     CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY if result.claim_evidence else
                      MATERIALITY_PRACTICAL_REVIEW_POLICY if result.materiality_review else
                      ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY if result.assessment_coverage else
                      CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY if result.context_supplemented else
@@ -134,10 +136,11 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       # ordinary persistence layer still creates a draft course.
                       quality_verdict='verified' if accepted and source_verified else 'needs_review',
                       validation_report=report)
-    assessment_only = (review_policy == CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY and source_verified
+    assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} and source_verified
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
         and not result.unresolved_question_context and bool(result.decision.feedback)
-        and all(row.get('scope') == 'assessment' and isinstance(row.get('evidence'), dict)
+        and all(row.get('scope') in ({'assessment', 'question'} if result.review_domains else {'assessment'})
+                and isinstance(row.get('evidence'), dict)
                 and 'original_finding' not in row['evidence'] for row in result.decision.feedback))
     artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),
         source_corpus=corpus, source_rules=tuple(rules), canonical_source=True,
@@ -171,7 +174,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = DOMAIN_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
@@ -185,7 +188,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                        EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
                        OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
                        CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
-                       MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY}
+                       MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY}
     parts = () if review_policy in lesson_policies else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
@@ -234,12 +237,13 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
         options = ({'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True, 'strict_audit_owners': True,
-                    **({'exclusive_options': True} if review_policy in {EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'context_supplemented': True} if review_policy in {CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'assessment_coverage': True} if review_policy in {ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'materiality_review': True} if review_policy in {MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'claim_evidence': True} if review_policy == CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY else {})}
-                    if review_policy in {OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else
+                    **({'exclusive_options': True} if review_policy in {EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'context_supplemented': True} if review_policy in {CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'assessment_coverage': True} if review_policy in {ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'materiality_review': True} if review_policy in {MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'claim_evidence': True} if review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'review_domains': True} if review_policy == DOMAIN_PRACTICAL_REVIEW_POLICY else {})}
+                    if review_policy in {OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY} else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True} if review_policy == QUESTION_BANK_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,

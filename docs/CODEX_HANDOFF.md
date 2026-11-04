@@ -1,4 +1,71 @@
-# P26 LOCAL Fire repair complete; final freeze gates running, 2026-11-05
+# P27 LOCAL freeze ready; P26 course contentGO at accepted reference, 2026-11-05
+
+- result: Actual DEV19a64922/image41ba.../soleworker8bd... unchanged. FullStandards
+  27d06103 completed5L19Q/courseea77d745-cb09-4152-ad09-31c30f99d3e1,12received
+  Luna6/HIGH248785input25123output; samejobresume1 kept all10prior responses.
+  Exact12stage replay/savedAPI allfields PASS/coursehash2274a881...ab341f.
+  Independent16family/all19Q contentGO at owneracceptedreference standard:
+  priorL3time NO_GO WITHDRAWN because same strict criterion rejects accepted
+  reference's equivalentquestion too; exception after18 is taught/separatelytested.
+  Optional explicit time remains useful; workingday does not prove before18.
+- changed: Fresh27 consumer review_domains now preserves unsupported critique as
+  original-domain/ID NONEDITABLE hold, never sourceambiguity/approval/repairauthority.
+  Genuine sourceambiguity staysheld; confirmedMATERIAL_ERROR restores scope.
+  Actualpatch prompt/schema/merge exclude held feedback; noeditable scope stops
+  review_required. Question-only review allows ordinary quizreview without false
+  prose/source hold; course/quiz approval is unchanged. Historical25/26 exact.
+  Local web4filefix adds reconciliation_required recovery with pending/running
+  priority, exacthold fallback and scope/unmount fences; no oldjob mutation.
+- verified: Full6545APIunitPASS65.13s/7knownwarnings; baseline1006/2174PASS;
+  release0184/368journalPASS. Independentcycle/patch2PASS +56domain/materialityPASS;
+  all45old25/26received stages replay0calls unchanged; actualsavedL4consumer
+  simulation yields nonsource/noneditable/noautoapproval. Web1599/182filesPASS
+  263.63s/types+lint. Two extra LOCAL prompt pilots failed to improve L3 wording:
+  45034input4637output/about90.56s; REJECTED, no prompt change installed.
+- blockers: No active DEV generation/local model call. P27 not committed/deployed;
+  full3freshcourses/nativeDeepSeek/protected184prod/live still outstanding.
+  Source/assessment/question semantic checks remain global; no thresholds weakened.
+- next: Freeze reviewed27/CI/image/soleworker preservingDEV release, then full
+  Luna Standards/Fire/Micro sequentially against67families16ambiguities. Native
+  DeepSeek remainingapproved1.0652904USD; protected0184release/fullsyntheticlive.
+  Fresh signed183backup/restore proof below; production/customer data untouched.
+
+# Historical P26 exact DEV LIVE; Standards27d06103 ACTIVE, 2026-11-04 20:29UTC
+
+- result: Exact19a6492227615ed6c340630185bdcc3b87e47001 deployed/reconciled,
+  REL-DEV-P26-LUNA-19A64922-20261105. CI41904441632SUCCESS; immutablebuild
+  41905523898SUCCESS/prodfalse; GH attestation verified image41ba0eef28849409
+  aa07c651526b8393905ec674ef972b93dc4f4cb717d524da. APIdep-dblp98ou01pc7397536g
+  live; Verceldpl_6skB1kxdYd4fDeRRbS91pgX5iUQ6ready. Soleworker8bd258a3c0d2
+  afad9abb51d43e53b1ff63f5d036b9bbb84d8e4bc87e54885b2b, restart0/unless-stopped;
+  managed45keyenv30f9ca457290c5386c302c586a75bb4604bf61febf0f27505b62c1dfc00a453d.
+  All98image-source hashes checked. Old910 warm-stopped/retained rollbackf7bfe272.
+- active: ONE ordinary fullStandardsjob27d06103-c9b9-486a-897e-7a66f1cd076b,
+  admission20:28:53UTC; sourcee18c0fea/8d71182b... exact uploaded working derivative,
+  ownerp2reference preserved. Cooperative pause at10received206809input24361output,
+  no pending; exact10stage offline prefix replay0calls proved next arbiter not
+  dispatched. ONE ordinary samejob continuation20:43:55UTC, resume1; all10prior
+  request/response payloads, route, source, document and businessparams unchanged.
+  Resume1monitor active; no duplicate generation or unknown-outcome retry.
+  No Fire/Micro P26 admission; do not duplicate/resume/retry without pending proof.
+  ASUSoff, no bridge. Render Freeworker remains suspended/autodeployno.
+- verified: FullAPI6532PASS/baseline1006/2174/release0184/368PASS; old25exact33
+  replies replay0calls unchanged. Source/assessment separation independentboundedGO,
+  no automaticquizreview/publication. Fresh encryptedbackup + signed183restore
+  db61bfec... verified independently; RPO43s/RTO19s/130tables/126FORCE, ownedDB/temp
+  absent. ProductionDBwrites0/currentproduction66 and all6containers unchanged.
+- blockers: Three fresh full26 courses/nativeDeepSeekDEV/protected184prod/live
+  still required. Do not claim local savedFire or P25 courses as fresh26 acceptance.
+  Independent author-only review flagged L3Q1 missing time condition; both blind
+  bank replies missed it despite full source. Inspect final course before deciding
+  further action. Additional web recovery for public reconciliation_required holds
+  is LOCAL4files,29focused/1599full/182files263.63s/types+lintPASS, not yet deployed.
+  This status was absent from prior interrupted-only fixture; old holds preserved.
+- next: Collect exactownedstage snapshots/model/usage, fullindependentmatrix and
+  savedAPI readback. LiveUIcheck new activejob beats oldquarantinedhold, then
+  Fire/Micro sequentially. NativeDeepSeek remainingapproved1.0652904USD.
+
+# Historical P26 LOCAL Fire repair complete; final freeze gates running, 2026-11-05
 
 - result: Saved Fire repair completed7L30Q; independent full F01-F12/content
   review GO for human review. Four meaningful Luna6/HIGH calls (one structural

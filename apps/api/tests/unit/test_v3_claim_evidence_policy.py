@@ -7,6 +7,7 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3.practical_service import generate_practical_course
 from app.modules.ai.v3.revision_policy import (
     CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
+    DOMAIN_PRACTICAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
     read_review_policy,
@@ -17,16 +18,16 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 
 def test_fresh_policy_is_closed_and_preserves_saved_materiality_policy():
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == DOMAIN_PRACTICAL_REVIEW_POLICY
     assert CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v26'
-    for policy in (MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY):
+    for policy in (MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(policy)
         assert read_review_policy({'v3_review_policy': policy}) == policy
-    assert not is_practical_policy('v3-practical-source-review-v27')
+    assert not is_practical_policy('v3-practical-source-review-v28')
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('policy,expected', [(None, True), (CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, True),
+@pytest.mark.parametrize('policy,expected', [(None, True), (DOMAIN_PRACTICAL_REVIEW_POLICY, True), (CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, True),
                                            (MATERIALITY_PRACTICAL_REVIEW_POLICY, False)])
 async def test_ordinary_service_dispatch_selects_owned_evidence_only_for_fresh_policy(case, monkeypatch, policy, expected):
     corpus, _packet, _course = case
@@ -37,6 +38,7 @@ async def test_ordinary_service_dispatch_selects_owned_evidence_only_for_fresh_p
 
     async def observe(*args, **kwargs):
         assert kwargs.get('claim_evidence', False) is expected
+        assert kwargs.get('review_domains', False) is (policy in (None, DOMAIN_PRACTICAL_REVIEW_POLICY))
         assert kwargs['materiality_review'] is True
         assert kwargs['question_batch'] is True
         assert kwargs['strict_audit_owners'] is True
@@ -84,7 +86,7 @@ async def test_fresh_ordinary_service_retains_evidence_and_cold_replays_without_
     journal = Journal()
     options = dict(intent=CourseIntent(), source_sha256='a' * 64, route_fingerprint='b' * 64)
     artifacts = await generate_practical_course(corpus, invoke=invoke, journal=journal, **options)
-    assert artifacts.diagnostics['v3_review_policy'] == CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY
+    assert artifacts.diagnostics['v3_review_policy'] == DOMAIN_PRACTICAL_REVIEW_POLICY
     assert artifacts.diagnostics['automated_review_passed'] is True
     assert artifacts.diagnostics['practical_course'] == course
     assert calls.count('practical_course') == 1

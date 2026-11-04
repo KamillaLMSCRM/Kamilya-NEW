@@ -56,6 +56,12 @@ describe('AI generation job recovery', () => {
     expect(selectOldestActiveCourseJob([interrupted, running])?.id).toBe('running');
   });
 
+  it('prioritizes executing jobs over an older reconciliation hold', () => {
+    const held = { ...job('held', '2026-08-06T08:00:00Z', null, 'interrupted', 'course_generation'), status: 'reconciliation_required' };
+    const running = { ...job('running', '2026-08-06T08:01:00Z', null, 'ingestion', 'course_generation'), status: 'running' };
+    expect(selectOldestActiveCourseJob([held, running])?.id).toBe('running');
+  });
+
   it('keeps the result-based fallback for a staggered legacy API response', () => {
     const selected = selectOldestActiveCourseJob([
       job('legacy', '2026-08-06T08:00:00Z', 'course-1', 'content_generation'),

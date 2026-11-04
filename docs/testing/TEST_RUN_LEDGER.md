@@ -5836,3 +5836,19 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
   assessment suggestions retained; not fresh generation or DEV acceptance.
 - Web1595tests/182filesPASS285s (2workers), lint/typesPASS. Rejected incremental
   assessment-scope experiment removed; full source/assessment/question checks remain.
+
+# P27 review domains and acceptance calibration, 2026-11-05
+
+- FullAPI6545passed/7knownwarnings65.13s; baseline1006/2174PASS; release0184/368PASS.
+- Fresh-only noneditable original-domain hold tested through realcycle and patch
+  schema/messages; 56domain/materiality +2cycle PASS. No unsupported rewrite or
+  approval. Actual saved P26 L4Q3 consumer simulation0calls preserves review without
+  false source ambiguity. All45old25/26stages replay0calls/unchanged hashes.
+- Web reconciliation recovery1599tests/182files263.63s/types+lintPASS.
+- P26 Standards5L19Q independent16family contentGO at owneraccepted reference;
+  initial timing NO_GO withdrawn as stricter than equivalent accepted question.
+  Optional explicit time remains a wording limitation; after18 branch taught/tested.
+- Two saved-case prompt experiments did not improve wording:45034input4637output,
+ 90.562s total. Neither experimental prompt installed; no DB/job/course mutation.
+- Actual DEV remains19a64922, no active course/model request. Fresh27 three-course,
+  nativeDeepSeek and protectedproduction/live acceptance not yet performed.

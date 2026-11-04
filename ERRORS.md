@@ -62,6 +62,29 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-05/P26: fullStandards27d06103 completed5L19Q/12Luna6HIGH
+  replies248785input25123output, exact12stage replay/savedAPI PASS. Arbiter
+  NON_MATERIAL/UNIQUE for an answer-validity complaint without selector evidence
+  correctly remained unsupported, but was incorrectly reclassified as a source
+  ambiguity. Fresh27 review_domains preserves original domain/ID as a server-owned
+  NONEDITABLE hold; it neither approves nor grants repair authority. Genuine
+  source ambiguity remains source-held. Confirmed MATERIAL_ERROR alone clears
+  repair hold; fresh cycle excludes held feedback from actual patch instructions
+  and stops review_required if no confirmed editable scope exists. Both decision
+  builders retain the marker across repeated criticism. Old25/26 exact45stage
+  replay0calls unchanged; actual savedL4Q3 simulation proves nonsource/noneditable.
+- Independent review caught unsupported rewrite authority and mixed-prompt leakage
+  in the first local domain implementation; both fixed before deployment, with
+  real cycle/patch-schema regressions. Full6545APIunitPASS65.13s/7knownwarnings,
+  baseline1006/2174PASS; web1599PASS/182files263.63s/types+lintPASS.
+- Calibration: standalone L3Q1 timing ambiguity also exists in the equivalent
+  owner-accepted reference, which omits time entirely and separately tests the
+  after18 branch. Reviewer withdrew fullcourse NO_GO as stricter than that
+  accepted benchmark. Optional explicit time remains a clarity improvement;
+  do not infer workingday proves before18. Do not weaken a validator or invent
+  a temporal guard to force this interpretation. Two bounded saved-case prompt
+  pilots did NOT improve it (45034input4637output total); rejected, not installed.
+
 - Recurrence2026-11-05/P25: Fire e5256aa4 completed7L29Q with22received Luna6
   replies612522input54506output. Two no-pending cooperative continuations
   preserved all prior8/19 responses; exact22stage replay and saved API fields
@@ -10033,14 +10056,22 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   inferred from this synthetic fixture.
 - Cause: persisted interrupted recovery never discovered current jobs; empty
   local recovery sorted interrupted and live jobs together oldest-first.
+  Live P26 acceptance exposed the additional public reconciliation_required
+  status: historical unknown holds were classified as executing and skipped
+  discovery. Ordinary own-job-list readback confirmed current27d06103 running
+  beside oldf0692f27/7cce387a reconciliation holds; no hold was mutated.
 - Fix: live jobs precede interrupted fallback; persisted interrupted recovery
   performs scoped read-only discovery. Mount/current-request fences prevent
   late storage or state updates, and a latest-callback ref preserves callback
-  identity under the page's inline request-key function. No job mutation.
+  identity under the page's inline request-key function. Additional correction
+  discovers for reconciliation holds too and prefers actual pending/running
+  over reconciliation/interrupted fallback. No job mutation or custody loss.
 - Verification:25focused web tests/typecheck PASS; full1595tests/182files
   PASS285s with2workers. First broad run1594passed/1journal initial-button timeout
   retained; the isolated7journal tests passed without changes. DEV/browser
-  integration of this local patch remains pending.
+  integration initially failed for reconciliation status. New29focused tests
+  and typecheck PASS; full suite running. The additional frontend-only patch
+  remains LOCAL; actual DEV19 engine course continues without redeployment.
 - Prevention: test persisted oldinterrupted + currentlive, unavailable/no-live
   discovery, delayed actor/source switch/unmount and callback identity. Read
   recovery status without abandoning, cancelling or resuming historical jobs.

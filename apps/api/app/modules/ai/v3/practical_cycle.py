@@ -198,6 +198,7 @@ class PracticalCycleResult:
     materiality_review: bool = False
     unresolved_question_context: tuple[str, ...] = ()
     claim_evidence: bool = False
+    review_domains: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

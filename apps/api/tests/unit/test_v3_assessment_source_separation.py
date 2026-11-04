@@ -105,3 +105,28 @@ def test_cross_document_question_stays_source_held(case):
     artifacts = practical_artifacts(result, corpus, packet, 'a' * 64)
     assert artifacts.diagnostics['requires_source_review']
     assert artifacts.diagnostics['practical_cross_document_question_ids'] == ['q1']
+
+
+def test_fresh_domain_question_hold_keeps_assessment_review_without_false_source_hold(case):
+    from app.modules.ai.v3.practical_review import REVIEW_HOLD_KEY
+    from app.modules.ai.v3.revision_policy import DOMAIN_PRACTICAL_REVIEW_POLICY
+
+    corpus, packet, course = case
+    result = replace(build_result(course, packet, ('question',)), review_domains=True)
+    result.decision.feedback[0][REVIEW_HOLD_KEY] = True
+    artifacts = practical_artifacts(result, corpus, packet, 'a' * 64)
+    assert artifacts.diagnostics['v3_review_policy'] == DOMAIN_PRACTICAL_REVIEW_POLICY
+    assert artifacts.diagnostics['automated_review_passed'] is False
+    assert artifacts.diagnostics['quality_verdict'] == 'needs_review'
+    assert artifacts.diagnostics['requires_source_review'] is False
+    assert artifacts.diagnostics['requires_assessment_review'] is True
+    assert lesson_status(artifacts) == 'verified'
+    assert artifacts.diagnostics['practical_course'] == course
+
+
+def test_fresh_question_domain_does_not_clear_real_source_uncertainty(case):
+    corpus, packet, course = case
+    result = replace(build_result(course, packet, ('question',), source_uncertain=True), review_domains=True)
+    artifacts = practical_artifacts(result, corpus, packet, 'a' * 64)
+    assert artifacts.diagnostics['requires_source_review'] is True
+    assert lesson_status(artifacts) == 'needs_review'

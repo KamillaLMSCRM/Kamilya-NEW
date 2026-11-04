@@ -39,9 +39,9 @@ export function selectOldestActiveCourseJob(
     ))
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
   const live = candidates.filter((job) => (
-    job.status === 'pending' || job.status === 'running' || job.status === 'reconciliation_required'
+    job.status === 'pending' || job.status === 'running'
   ));
-  return (live[0] ?? candidates.find((job) => job.status === 'interrupted')) ?? null;
+  return (live[0] ?? candidates.find((job) => job.status === 'reconciliation_required' || job.status === 'interrupted')) ?? null;
 }
 
 export function selectLatestTerminalCourseJob(

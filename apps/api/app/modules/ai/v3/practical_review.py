@@ -295,6 +295,9 @@ class PracticalReviewDecision:
     assessment_lesson_ids: tuple[str, ...] = ()
 
 
+REVIEW_HOLD_KEY = '_server_noneditable_review_hold'
+
+
 def _issue(scope: str, target: str, evidence: dict[str, Any]) -> dict[str, Any]:
     item = {'scope': scope, 'id': target, 'evidence': copy.deepcopy(evidence)}
     digest = hashlib.sha256(json.dumps(item, ensure_ascii=False, sort_keys=True,
@@ -356,12 +359,18 @@ def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePac
                 feedback.append(_issue('question', question['id'], {'problem': 'independent_answer_key_mismatch',
                     'reviewer_key': key, 'author_key': question['correct_index'],
                     'source_refs': question['source_refs']}))
-    unique = {item['issue_id']: item for item in feedback}
+    unique: dict[str, dict[str, Any]] = {}
+    for item in feedback:
+        existing = unique.get(item['issue_id'])
+        if existing is None or existing.get(REVIEW_HOLD_KEY) is not True:
+            unique[item['issue_id']] = item
     feedback = list(unique.values())
     narrative = {} if standalone else value['narrative_sources']
     editable_lessons: list[str] = []
     allow_new = False
     for item in feedback:
+        if item.get(REVIEW_HOLD_KEY) is True:
+            continue
         if item['scope'] == 'lesson':
             editable_lessons.append(item['id'])
         elif item['scope'] == 'coverage':
@@ -373,8 +382,10 @@ def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePac
             else:
                 allow_new = True
     lesson_ids = tuple(dict.fromkeys(editable_lessons))
-    question_ids = tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'question'))
-    assessment_lesson_ids = tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'assessment'))
+    question_ids = tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'question'
+                                       and item.get(REVIEW_HOLD_KEY) is not True))
+    assessment_lesson_ids = tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'assessment'
+                                                and item.get(REVIEW_HOLD_KEY) is not True))
     return PracticalReviewDecision(not feedback, any(item['scope'] == 'source' for item in feedback),
         lesson_ids, question_ids, allow_new, tuple(feedback), assessment_lesson_ids)
 

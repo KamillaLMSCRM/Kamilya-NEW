@@ -17,7 +17,7 @@ from app.modules.ai.v3.practical_contract import (
 )
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_patch import _fragments
-from app.modules.ai.v3.practical_review import PracticalReviewDecision
+from app.modules.ai.v3.practical_review import REVIEW_HOLD_KEY, PracticalReviewDecision
 
 NAME = 'v3_practical_finding_arbitration_v1'
 SELECTOR_NAME = 'v3_practical_finding_arbitration_v2'
@@ -253,7 +253,9 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
     course: dict[str, Any], decision: PracticalReviewDecision,
     narrative: dict[str, list[str]], *, selectors: bool = False,
     question_only: bool = False, typed_findings: bool = False,
-    materiality_review: bool = False) -> PracticalReviewDecision:
+    materiality_review: bool = False, review_domains: bool = False) -> PracticalReviewDecision:
+    if type(review_domains) is not bool or review_domains and not (materiality_review and typed_findings and selectors):
+        raise ValueError('practical_arbitration_review_domains_invalid')
     if not matches_arbitration(value, arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only,
                                                        typed_findings=typed_findings, materiality_review=materiality_review)):
         raise ValueError('practical_arbitration_response_invalid')
@@ -326,12 +328,20 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
         if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'}:
             continue
         item = copy.deepcopy(original)
-        if materiality_review and verdict == 'NEEDS_REVIEW' and wrapped_hold:
+        if (review_domains and verdict == 'NEEDS_REVIEW' and not wrapped_ambiguity
+                and original['scope'] != 'source'):
+            # Lack of discharge proof does not make the source ambiguous. Keep
+            # the owned allegation and its existing, narrowly scoped repair target.
+            item = copy.deepcopy(original)
+            item[REVIEW_HOLD_KEY] = True
+        elif materiality_review and verdict == 'NEEDS_REVIEW' and wrapped_hold:
             item = copy.deepcopy(outer)
         elif verdict in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'}:
             item = {'issue_id': original['issue_id'], 'scope': 'source', 'id': row['source_refs'][0],
                 'evidence': {'problem': verdict, 'source_refs': row['source_refs'],
                              'original_finding': copy.deepcopy(original)}}
+        if review_domains and verdict == 'MATERIAL_ERROR':
+            item.pop(REVIEW_HOLD_KEY, None)
         item['evidence']['adjudication'] = copy.deepcopy(row)
         if selectors:
             item['evidence']['adjudication_spans'] = [{**{key: part for key, part in evidence.items() if key != 'text'},
@@ -340,6 +350,8 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
     editable = []
     allow_new = False
     for item in feedback:
+        if item.get(REVIEW_HOLD_KEY) is True:
+            continue
         if item['scope'] == 'lesson':
             editable.append(item['id'])
         elif item['scope'] == 'coverage':
@@ -348,8 +360,10 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
             editable.extend(owners)
             allow_new = allow_new or not owners
     return PracticalReviewDecision(not feedback, any(item['scope'] == 'source' for item in feedback),
-        tuple(dict.fromkeys(editable)), tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'question')),
-        allow_new, tuple(feedback), tuple(dict.fromkeys(item['id'] for item in feedback if item['scope'] == 'assessment')))
+        tuple(dict.fromkeys(editable)), tuple(dict.fromkeys(item['id'] for item in feedback
+            if item['scope'] == 'question' and item.get(REVIEW_HOLD_KEY) is not True)),
+        allow_new, tuple(feedback), tuple(dict.fromkeys(item['id'] for item in feedback
+            if item['scope'] == 'assessment' and item.get(REVIEW_HOLD_KEY) is not True)))
 
 
 SYSTEM = (

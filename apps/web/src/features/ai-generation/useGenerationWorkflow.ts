@@ -104,12 +104,12 @@ export function useGenerationWorkflow(
       const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${savedJobId}`);
       const job = response.data;
       if (!isCurrentRequest()) return;
-      if (job.status === 'interrupted') {
+      if (job.status === 'interrupted' || job.status === 'reconciliation_required') {
         try {
           const listed = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
           if (!isCurrentRequest()) return;
           const liveJob = selectOldestActiveCourseJob(listed.data);
-          if (liveJob && liveJob.status !== 'interrupted') {
+          if (liveJob && (liveJob.status === 'pending' || liveJob.status === 'running')) {
             const listedContext = readWorkflowContext();
             const programId = listedContext?.job_id === liveJob.id ? listedContext.program_id : null;
             localStorage.setItem(activeJobStorageKey, liveJob.id);
