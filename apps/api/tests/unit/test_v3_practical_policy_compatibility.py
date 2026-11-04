@@ -28,6 +28,7 @@ from app.modules.ai.v3.revision_policy import (
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
+    MATERIALITY_PRACTICAL_REVIEW_POLICY,
     OWNED_AUDIT_PRACTICAL_REVIEW_POLICY,
     POLICY,
     PRACTICAL_REVIEW_POLICY,
@@ -58,15 +59,18 @@ def test_closed_practical_versions_and_fresh_stamp():
     assert EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v22'
     assert CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v23'
     assert ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v24'
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY
+    assert MATERIALITY_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v25'
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == MATERIALITY_PRACTICAL_REVIEW_POLICY
+    assert is_practical_policy(MATERIALITY_PRACTICAL_REVIEW_POLICY)
+    assert read_review_policy({'v3_review_policy': MATERIALITY_PRACTICAL_REVIEW_POLICY}) == MATERIALITY_PRACTICAL_REVIEW_POLICY
     assert is_practical_policy(ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY)
     assert read_review_policy({'v3_review_policy': ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY}) == ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY
     for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY, TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY, EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY, OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(version)
         assert read_review_policy({'v3_review_policy': version}) == version
-    assert not is_practical_policy('v3-practical-source-review-v25')
+    assert not is_practical_policy('v3-practical-source-review-v26')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v25'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v26'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):

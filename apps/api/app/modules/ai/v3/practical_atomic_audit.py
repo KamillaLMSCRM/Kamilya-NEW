@@ -9,7 +9,7 @@ from typing import Any, cast
 from app.modules.ai.v3.batch_review_response_schema import _matches
 from app.modules.ai.v3.practical_applicability import SOURCE_APPLICABILITY_GUIDE
 from app.modules.ai.v3.practical_contract import PracticalSourcePacket, source_model_text, validate_practical_course
-from app.modules.ai.v3.practical_fidelity import EDITOR_REVIEW_GUIDE, SOURCE_FIDELITY_GUIDE
+from app.modules.ai.v3.practical_fidelity import EDITOR_REVIEW_GUIDE, PRACTICAL_DECISION_GUIDE, SOURCE_FIDELITY_GUIDE
 from app.modules.ai.v3.practical_logic import SOURCE_LOGIC_GUIDE
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
@@ -202,8 +202,9 @@ ATOMIC_AUDIT_SYSTEM = (
 def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                           previous: tuple[dict[str, Any], ...] = (), *,
                           model_view: PracticalModelView | None = None, typed_findings: bool = False,
-                          strict_owners: bool = False) -> list[dict[str, str]]:
-    if type(strict_owners) is not bool or strict_owners and typed_findings is not True:
+                          strict_owners: bool = False, materiality_review: bool = False) -> list[dict[str, str]]:
+    if (type(strict_owners) is not bool or strict_owners and typed_findings is not True
+            or type(materiality_review) is not bool or materiality_review and not strict_owners):
         raise ValueError('practical_atomic_audit_format_invalid')
     checked = validate_practical_course(course, packet)
     if model_view is not None:
@@ -221,6 +222,8 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
     context += '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps(
         model_view.encode(list(previous)) if model_view is not None else previous, ensure_ascii=False, sort_keys=True, indent=2)
     system = ATOMIC_AUDIT_SYSTEM
+    if materiality_review:
+        system += PRACTICAL_DECISION_GUIDE
     if typed_findings:
         system += (' Для каждого finding scope=question обязательно выбери review_kind: '
                    'ANSWER_VALIDITY для ошибки постановки, условий, вариантов или ключа данного вопроса; '

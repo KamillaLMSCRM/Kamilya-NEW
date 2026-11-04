@@ -22,6 +22,7 @@ from app.modules.ai.v3.practical_review import PracticalReviewDecision
 NAME = 'v3_practical_finding_arbitration_v1'
 SELECTOR_NAME = 'v3_practical_finding_arbitration_v2'
 TYPED_SELECTOR_NAME = 'v3_practical_finding_arbitration_v3'
+MATERIALITY_SELECTOR_NAME = 'v3_practical_finding_arbitration_v4'
 VERDICTS = ['MATERIAL_ERROR', 'ALREADY_COVERED', 'SOURCE_AMBIGUITY', 'STYLE_ONLY', 'NEEDS_REVIEW']
 
 
@@ -73,8 +74,10 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[str],
             questions: list[str], issues: list[str], *, evidence_ids: list[str] | None = None,
-            typed_findings: bool = False) -> dict[str, Any]:
+            typed_findings: bool = False, materiality_review: bool = False) -> dict[str, Any]:
     if type(typed_findings) is not bool or typed_findings and evidence_ids is None:
+        raise ValueError('practical_arbitration_format_invalid')
+    if type(materiality_review) is not bool or materiality_review and not (typed_findings and evidence_ids is not None):
         raise ValueError('practical_arbitration_format_invalid')
     if (any(not re.fullmatch('[0-9a-f]{64}', fp) for fp in (source_fp, course_fp))
             or any(not ids or len(ids) != len(set(ids)) or any(type(i) is not str or not i.strip() for i in ids)
@@ -94,11 +97,11 @@ def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[st
         'field': {'type': 'string', 'enum': ['title', 'content', 'prompt', 'explanation', 'choice']},
         'choice_index': {'type': 'integer', 'enum': [-1, 0, 1, 2, 3]}, 'quote': text})
     row = _object({'issue_id': {'type': 'string', 'enum': issues},
-        'verdict': {'type': 'string', 'enum': VERDICTS}, 'reason': text,
+        'verdict': {'type': 'string', 'enum': [*VERDICTS, 'NON_MATERIAL'] if materiality_review else VERDICTS}, 'reason': text,
         'source_refs': refs, 'course_evidence': {'type': 'array', 'items': evidence if evidence_ids is None
                                                else {'type': 'string', 'enum': evidence_ids}},
         'answer_check': {'anyOf': [answer, _object({'status': {'type': 'string', 'enum': ['NOT_APPLICABLE']}})]}})
-    return {'type': 'json_schema', 'json_schema': {'name': TYPED_SELECTOR_NAME if typed_findings else NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
+    return {'type': 'json_schema', 'json_schema': {'name': MATERIALITY_SELECTOR_NAME if materiality_review else TYPED_SELECTOR_NAME if typed_findings else NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
         'source_fingerprint': {'type': 'string', 'enum': [source_fp]},
         'course_fingerprint': {'type': 'string', 'enum': [course_fp]},
         'judgments': {'type': 'array', 'minItems': len(issues), 'maxItems': len(issues), 'items': row}})}}
@@ -148,8 +151,11 @@ def _selected_evidence(course: dict[str, Any], decision: PracticalReviewDecision
 
 def arbitration_format(packet: PracticalSourcePacket, course: dict[str, Any],
                        decision: PracticalReviewDecision, *, selectors: bool = False,
-                       question_only: bool = False, typed_findings: bool = False) -> dict[str, Any]:
+                       question_only: bool = False, typed_findings: bool = False,
+                       materiality_review: bool = False) -> dict[str, Any]:
     validate_practical_course(course, packet)
+    if type(materiality_review) is not bool or materiality_review and (typed_findings is not True or selectors is not True):
+        raise ValueError('practical_arbitration_format_invalid')
     if question_only and not selectors:
         raise ValueError('practical_arbitration_question_scope_invalid')
     inventory, questions = _selected_evidence(course, decision, question_only, typed_findings=typed_findings)
@@ -157,18 +163,18 @@ def arbitration_format(packet: PracticalSourcePacket, course: dict[str, Any],
         [lesson['id'] for lesson in course['lessons']],
         questions,
         [item['issue_id'] for item in decision.feedback],
-        evidence_ids=list(inventory) if selectors else None, typed_findings=typed_findings)
+        evidence_ids=list(inventory) if selectors else None, typed_findings=typed_findings, materiality_review=materiality_review)
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         name = value['json_schema']['name']
-        if name not in {NAME, SELECTOR_NAME, TYPED_SELECTOR_NAME}:
+        if name not in {NAME, SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
             raise ValueError
         props = value['json_schema']['schema']['properties']
         row = props['judgments']['items']['properties']
         answer = row['answer_check']['anyOf'][0]['properties']
-        if name in {SELECTOR_NAME, TYPED_SELECTOR_NAME}:
+        if name in {SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
             # Selector ownership is rebuilt from the bound course fingerprint;
             # no redundant lesson-inventory echo is required from the model.
             lessons = []
@@ -180,7 +186,8 @@ def _reconstruct(value: Any) -> dict[str, Any]:
         result = _format(props['source_fingerprint']['enum'][0], props['course_fingerprint']['enum'][0],
             row['source_refs']['items']['enum'], lessons,
             answer['question_id']['enum'], row['issue_id']['enum'], evidence_ids=evidence_ids,
-            typed_findings=name == TYPED_SELECTOR_NAME)
+            typed_findings=name in {TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME},
+            materiality_review=name == MATERIALITY_SELECTOR_NAME)
         if value != result:
             raise ValueError
         return result
@@ -207,9 +214,10 @@ def matches_arbitration(value: Any, fmt: Any) -> bool:
             return False
         for row in value['judgments']:
             if (not row['reason'].strip() or len(set(row['source_refs'])) != len(row['source_refs'])
-                    or row['verdict'] in {'ALREADY_COVERED', 'STYLE_ONLY'} and not row['course_evidence']):
+                    or fmt['json_schema']['name'] != MATERIALITY_SELECTOR_NAME
+                    and row['verdict'] in {'ALREADY_COVERED', 'STYLE_ONLY'} and not row['course_evidence']):
                 return False
-            if fmt['json_schema']['name'] in {SELECTOR_NAME, TYPED_SELECTOR_NAME}:
+            if fmt['json_schema']['name'] in {SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
                 if len(set(row['course_evidence'])) != len(row['course_evidence']):
                     return False
             elif any(not e['quote'].strip() for e in row['course_evidence']):
@@ -244,9 +252,10 @@ def _evidence_text(evidence: dict[str, Any], lessons: dict[str, Any]) -> str:
 def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSourcePacket,
     course: dict[str, Any], decision: PracticalReviewDecision,
     narrative: dict[str, list[str]], *, selectors: bool = False,
-    question_only: bool = False, typed_findings: bool = False) -> PracticalReviewDecision:
+    question_only: bool = False, typed_findings: bool = False,
+    materiality_review: bool = False) -> PracticalReviewDecision:
     if not matches_arbitration(value, arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only,
-                                                       typed_findings=typed_findings)):
+                                                       typed_findings=typed_findings, materiality_review=materiality_review)):
         raise ValueError('practical_arbitration_response_invalid')
     lessons = {lesson['id']: lesson for lesson in course['lessons']}
     questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
@@ -260,26 +269,66 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
                 if evidence['quote'] not in _evidence_text(evidence, lessons):
                     raise ValueError('practical_arbitration_quote_not_literal')
         check = row['answer_check']
-        if check['status'] != 'NOT_APPLICABLE' and any(i >= len(questions[check['question_id']]['choices']) for i in check['possible_options']):
+        invalid_answer = (check['status'] != 'NOT_APPLICABLE' and
+                          any(i >= len(questions[check['question_id']]['choices']) for i in check['possible_options']))
+        if invalid_answer and not materiality_review:
             raise ValueError('practical_arbitration_answer_check_invalid')
-        original = findings[row['issue_id']]
+        outer = findings[row['issue_id']]
         # These wrappers are created locally, not supplied by the arbiter. A held
         # issue keeps its original repair target if a later round confirms it.
-        original = original_finding(original)
+        original = original_finding(outer)
         verdict = row['verdict']
+        wrapped_hold = False
+        if materiality_review:
+            wrapped_hold = (outer['scope'] == 'source' and 'original_finding' in outer['evidence']
+                            and outer['evidence'].get('problem') in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'})
+            held_origin = outer
+            wrapped_ambiguity = False
+            while (held_origin['scope'] == 'source' and 'original_finding' in held_origin['evidence']
+                   and held_origin['evidence'].get('problem') in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'}):
+                wrapped_ambiguity = wrapped_ambiguity or held_origin['evidence']['problem'] == 'SOURCE_AMBIGUITY'
+                held_origin = held_origin['evidence']['original_finding']
+            assessment = (original['scope'] == 'assessment' or original['scope'] == 'question'
+                          and original['evidence'].get('review_kind') == 'COURSE_ASSESSMENT')
+            evidence_pairs = {e['question_id'] for e in resolved_evidence if e['field'] == 'prompt'} & {
+                e['question_id'] for e in resolved_evidence if e['field'] == 'choice'}
+            if invalid_answer or wrapped_ambiguity:
+                verdict = 'NEEDS_REVIEW'
+            if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and (
+                    not resolved_evidence or original['scope'] == 'source' or wrapped_ambiguity
+                    or assessment and not evidence_pairs):
+                verdict = 'NEEDS_REVIEW'
+            if verdict == 'NON_MATERIAL':
+                original_refs = original['evidence'].get('source_refs', [])
+                eligible_coverage = (original['scope'] == 'coverage'
+                    and original['id'] in {b.block_id for b in packet.blocks if b.text.strip()}
+                    and original['id'] in original_refs and original['id'] in row['source_refs']
+                    and set(row['source_refs']) <= set(original_refs))
+                if (wrapped_ambiguity or not (eligible_coverage or assessment and bool(evidence_pairs))
+                        or invalid_answer):
+                    verdict = 'NEEDS_REVIEW'
+                else:
+                    continue
         if (verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and original['scope'] == 'question'
                 and (not typed_findings or answer_finding(original))):
             if (check['status'] == 'NOT_APPLICABLE' or check['question_id'] != original['id']
                     or not any(e['question_id'] == original['id'] and (not question_only or e['field'] == 'prompt')
                                for e in resolved_evidence)):
-                raise ValueError('practical_arbitration_answer_check_missing')
+                if materiality_review:
+                    verdict = 'NEEDS_REVIEW'
+                else:
+                    raise ValueError('practical_arbitration_answer_check_missing')
             # A contrary/uncertain independent answer cannot discharge the allegation.
-            if check['status'] != 'UNIQUE' or check['possible_options'] != [questions[original['id']]['correct_index']]:
-                verdict = 'MATERIAL_ERROR'
+            if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and (check['status'] != 'UNIQUE'
+                    or check['possible_options'] != [questions[original['id']]['correct_index']]):
+                verdict = ('NEEDS_REVIEW' if materiality_review and (wrapped_hold or check['status'] != 'UNIQUE')
+                           else 'MATERIAL_ERROR')
         if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'}:
             continue
         item = copy.deepcopy(original)
-        if verdict in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'}:
+        if materiality_review and verdict == 'NEEDS_REVIEW' and wrapped_hold:
+            item = copy.deepcopy(outer)
+        elif verdict in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'}:
             item = {'issue_id': original['issue_id'], 'scope': 'source', 'id': row['source_refs'][0],
                 'evidence': {'problem': verdict, 'source_refs': row['source_refs'],
                              'original_finding': copy.deepcopy(original)}}
@@ -356,14 +405,18 @@ ASSESSMENT_COVERAGE_GUIDE = (
 def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], decision: PracticalReviewDecision,
                          *, model_view: PracticalModelView | None = None, selectors: bool = False,
                          question_only: bool = False, typed_findings: bool = False,
-                         counterexamples: bool = False, assessment_coverage: bool = False) -> list[dict[str, str]]:
+                         counterexamples: bool = False, assessment_coverage: bool = False,
+                         materiality_review: bool = False) -> list[dict[str, str]]:
     validate_practical_course(course, packet)
     if type(counterexamples) is not bool or counterexamples and not typed_findings:
         raise ValueError('practical_arbitration_policy_invalid')
     if type(assessment_coverage) is not bool or assessment_coverage and not (typed_findings and selectors):
         raise ValueError('practical_arbitration_policy_invalid')
+    if type(materiality_review) is not bool or materiality_review and (typed_findings is not True or selectors is not True):
+        raise ValueError('practical_arbitration_policy_invalid')
     if typed_findings:
-        arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only, typed_findings=True)
+        arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only, typed_findings=True,
+                           materiality_review=materiality_review)
     def blind(value: Any) -> Any:
         if isinstance(value, dict):
             return {key: blind(child) for key, child in value.items()
@@ -395,7 +448,7 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view else None)
         + '\nWHOLE_COURSE_AND_ALLEGATIONS_JSON\n'
         + json.dumps(model_view.encode(body) if model_view else body, ensure_ascii=False, sort_keys=True, indent=2))
-    system = ASSESSMENT_COVERAGE_SYSTEM if assessment_coverage else SYSTEM
+    system = ASSESSMENT_COVERAGE_SYSTEM if assessment_coverage or materiality_review else SYSTEM
     if selectors:
         system = system[:system.index('Для ALREADY_COVERED и STYLE_ONLY обязательна точная цитата')]
         system += ('Для ALREADY_COVERED и STYLE_ONLY выбери в course_evidence готовые evidence_id '
@@ -427,6 +480,19 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
                     'SOURCE_AMBIGUITY удерживает вопрос, когда корректный вопрос по этой теме '
                     'требует сначала разрешить именно неясность нормы, а не уточнить условия '
                     'самого вопроса. Не выдавай отсутствие условий вопроса за исправление источника.')
-    if assessment_coverage:
+    if assessment_coverage or materiality_review:
         system += ASSESSMENT_COVERAGE_GUIDE
+    if materiality_review:
+        from app.modules.ai.v3.practical_fidelity import PRACTICAL_DECISION_GUIDE
+
+        system += (PRACTICAL_DECISION_GUIDE + ' NON_MATERIAL — подтверждённое исходником отсутствие '
+            'самостоятельного существенного рабочего решения, а не доказательство, что курс его уже '
+            'раскрыл. Для source-targeted scope=coverage укажи относящийся source_refs и причину; '
+            'не выдумывай свидетельство курса. Для scope=assessment или COURSE_ASSESSMENT укажи '
+            'фактические evidence_id формулировки и вариантов существующего вопроса. '
+            'Оцени ситуацию конкретной роли, вероятное существенно неверное действие и что '
+            'действительно проверяют вопросы; последствие существенно, если меняет обязательное '
+            'действие или является центральной целью обучения. Не требуй вопрос на каждую деталь. '
+            'Не снимай так ошибки ответа, неверные нормы, неопределённость источника или сомнения: '
+            'при недостатке данных выбери NEEDS_REVIEW, при неясности источника SOURCE_AMBIGUITY.')
     return [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]

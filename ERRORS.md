@@ -62,6 +62,45 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P24: Microjobf0692f27 was interrupted after4 accepted
+  Luna6HIGHresponses203531input24814output. A COMPLETE HTTP200 arbiter response
+  (bodyd796e2c61d06173f96a382ac71c82eef83e448e631ddb52fd14aeb7775ed11d7)
+  contained all93 unique expected judgments and zero JSON-schema errors, but
+  three STYLE_ONLY source-coverage judgments had no course_evidence. Their
+  reasons concerned nonteaching/supporting source statements, not claims that
+  the omitted text was already taught. The matcher rejected the entire body
+  before per-issue handling. Received rejected usage74010input9612output is
+  separate from accepted-stage counters; actual received total277541/34426.
+  Original quarantine/pending claim retained, no resume/retry/promotion/refund.
+- Local P25 fix: versioned typed arbitrationv4 separates NON_MATERIAL from
+  ALREADY_COVERED. Missing dismissal proof produces an owned NEEDS_REVIEW issue
+  while other validated judgments remain usable. Source-targeted coverage
+  NON_MATERIAL requires original block/ref ownership; assessment materiality
+  requires an actual question prompt/choice evidence pair. Answer validity
+  still requires the owned independent unique-key check. Exact inventory,
+  fingerprints, foreign/duplicate refs and evidence remain hard gates. Genuine
+  source ambiguity stays held; insufficient-evidence holds can resolve after
+  valid rechecking. Existing24 request bytes and rejection behavior unchanged.
+- Synthetic verification, zero model/DB/provider calls:840 decision-table cases
+  (7issue kinds x5prior states x6verdicts x4proof states), plus partial-repair,
+  cold-replay, direct/managed and unknown-transport tests. Independent review
+  exposed source-ambiguity loss and permanent NEEDS_REVIEW holds; red-first
+  regressions fixed both. The broader matrix then reproduced4 further
+  assessment/comparison state failures,836passed; one overbroad wrapper predicate
+  fixed them. Initial matrix harness incorrectly used whole-course context for
+  blind answers (120 harness failures); corrected without weakening the blind
+  boundary. Final951 focused PASS7.99s; full6473unitPASS82.28s/7knownwarnings,
+  Ruff1006/Mypy2174PASS. Actual saved93-body successor projection retains all
+  three unsupported IDs as holds; old job is NOT promoted. Actual old Standards10
+  and Fire16 stages replay unchanged0calls/same course hashes. Local source only;
+  three-course/DEV/nativeDeepSeek/production semantic acceptance remains OPEN.
+- Prevention: exercise the cross-product of issue purpose, hold state, verdict,
+  proof completeness and subsequent correction before new course inference.
+  Corrected-source ambiguity and missing model proof are different states.
+  A nonmateriality decision is not positive coverage evidence. Structural tests
+  cannot establish whether a model's source interpretation is true; retain
+  independent whole-course semantic checks against the accepted reference.
+
 - Recurrence2026-11-04/P23: full DEV Standardsb3d60a37 completed5L16Q,
   8actualLuna6HIGH responses169904input19552output, no resume/pending. Exact all8
   stage replay and all ordinary saved text/keys/choices/quotes PASS. Own source

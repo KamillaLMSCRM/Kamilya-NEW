@@ -10,7 +10,7 @@ import pytest
 from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.managed_luna_client import ManagedLunaClient
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
-from app.modules.ai.v3.practical_arbitration import TYPED_SELECTOR_NAME
+from app.modules.ai.v3.practical_arbitration import MATERIALITY_SELECTOR_NAME, TYPED_SELECTOR_NAME
 from app.modules.ai.v3.practical_atomic_audit import STRICT_OWNER_NAME
 from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.practical_model_view import PracticalModelView
@@ -26,6 +26,7 @@ from app.modules.ai.v3.response_contracts import matches_response_contract, resp
 from app.modules.ai.v3.revision_policy import (
     ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
     CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
+    MATERIALITY_PRACTICAL_REVIEW_POLICY,
 )
 from app.modules.ai.v3.stage_checkpoint import stage_once
 from tests.unit.test_direct_luna_owned_stage import setup
@@ -52,7 +53,7 @@ def context_value(fmt, *, unresolved=(), supplement=''):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('unresolved', [False, True])
-@pytest.mark.parametrize('review_policy', [CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY])
+@pytest.mark.parametrize('review_policy', [CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY])
 async def test_service_context_reaches_assessment_and_cold_replay_never_repeats_calls(case, unresolved, review_policy):
     corpus, packet, original = case
     view = PracticalModelView(packet)
@@ -99,7 +100,7 @@ async def test_service_context_reaches_assessment_and_cold_replay_never_repeats_
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('review_policy', [CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY])
+@pytest.mark.parametrize('review_policy', [CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY])
 async def test_unrelated_owned_question_repair_cannot_drop_prior_unresolved_context(case, review_policy):
     corpus, packet, original = case
     view = PracticalModelView(packet)
@@ -125,9 +126,9 @@ async def test_unrelated_owned_question_repair_cannot_drop_prior_unresolved_cont
                 row.update(status='UNKNOWN', possible_options=[], reason='The question has a missing premise.')
         elif name == STRICT_OWNER_NAME:
             value = clean_audit(packet, current)
-        elif name == TYPED_SELECTOR_NAME:
+        elif name in {TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
             from app.modules.ai.v3.practical_arbitration import ASSESSMENT_COVERAGE_GUIDE
-            assert (ASSESSMENT_COVERAGE_GUIDE in messages[0]['content']) is (review_policy == ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY)
+            assert (ASSESSMENT_COVERAGE_GUIDE in messages[0]['content']) is (review_policy in {ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY})
             sent = view.decode(json.loads(messages[1]['content'].split('\nWHOLE_COURSE_AND_ALLEGATIONS_JSON\n')[1]))
             evidence = sent['standalone_questions'][0]['prompt']['evidence_id']
             answer = {'status': 'UNIQUE' if repaired else 'UNKNOWN', 'question_id': 'q2',

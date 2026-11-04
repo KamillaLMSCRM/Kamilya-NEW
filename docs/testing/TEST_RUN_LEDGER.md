@@ -5726,3 +5726,37 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
 - Artifacts: .release-evidence/v3-production/p23-standards-*-owned-*.json,
   p23-standards-saved-api-readback.json,p24-saved-coverage-r{1,2},
   p24-legacy-p23-owned-replay.json,p24-final-{full-unit,quality}.log.
+
+## RUN-20261104-P24-THREE-DOCUMENT-CAMPAIGN-P25-SYNTHETIC-VALIDATOR
+
+- Executor: root with independent Terra source/contract review; source-reviewed worktree.
+- DEV exact5467e5ae/worker759b5cb4/image915b1836/env6821 remained unchanged during
+  the local fix. P24 Standards completed4L12Q/10responses203101in21626out,
+  all10 exact replay and ALL savedAPI fields PASS; D05 assessment gap persists.
+- P24 Fire completed7L21Q/16responses427385in37309out/resume1, all16 exact replay
+  and ALL savedAPI fields PASS. Independent content GO against simulated rev03
+  source; engine accepted=false/revision_limit because separate L7 consequence
+  question absent. Independent reviewer judged that supporting detail optional.
+- P24 Microjobf0692f27-adc1-4f8b-8a78-a520f2981d9d author10L30Q, source audit
+  detected substantial missing procedures including conscript deferral. Interrupted
+  with retained complete rejected arbiter response, not a completed course.
+  Accepted4responses203531in24814out; rejected received74010in9612out separately,
+  total received277541in34426out. No native inference/production/customer writes.
+- Offline diagnosis proved all93 expected unique judgments/zero JSON-schema errors;
+  old semantic matcher rejected three evidence-free STYLE_ONLY coverage decisions.
+  Original job/quarantine/pending markers preserved, no repeat inference or promotion.
+- Local P25 synthetic controls: 840 cross-product scenarios; final951 focused
+  PASS7.99s, full6473unitPASS82.28s/7knownwarnings, canonical baseline1006/2174PASS.
+  Independent review findings were reproduced RED and fixed before completion.
+  Initial matrix harness blind-context error corrected separately; actual final
+  red run4failed836passed exposed remaining assessment hold progression.
+- Real saved93-response successor regression retains3unsupported rows as NEEDS_REVIEW
+  and handles other90,0provider/DB/journal calls. Actual old24 Standards10 + Fire16
+  stages replay unchanged/same final hashes. Original old rejection remains rejected.
+- New automated-generation calls during synthetic validation:0; token expense0.
+  These are validator/state/custody tests, not proof of model semantic quality,
+  full-course DEV or production acceptance. Engine/source-correction module goal OPEN.
+- Evidence: p25-state-matrix-{before-fix,red}.log,
+  p25-synthetic-matrix-and-contracts.log,p25-synthetic-final-{full-unit,quality}.log,
+  p25-saved-microcredit-validator-regression.json,p25-legacy-p24-*-replay.json,
+  p24-microcredit-quarantine-offline-report.json under .release-evidence/v3-production.

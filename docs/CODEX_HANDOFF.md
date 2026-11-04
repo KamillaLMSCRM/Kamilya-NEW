@@ -1,3 +1,189 @@
+# P25 LOCAL synthetic validator fix verified, 2026-11-04 16:28UTC
+
+- result: Owner explicitly requested synthetic validator simulation rather than
+  repeated generation.840 decision-table cases cover7issuekinds x5priorstates
+  x6verdicts x4proofstates. Final951focusedPASS7.99s, full6473unitPASS82.28s/
+  7knownwarnings, canonical Ruff1006/Mypy2174PASS. No model/provider/DB calls for
+  this validation. Independent reviewer final bounded GO. No active generation.
+- changed: LOCAL uncommitted policy25/typed arbitrationv4. NON_MATERIAL distinct
+  from ALREADY_COVERED. Evidence-deficient individual dismissals become retained
+  NEEDS_REVIEW while other rows process. Strict IDs/source/evidence fences and
+  independent answer key remain; genuine source ambiguity never gets edit rights.
+  Source-targeted coverage may be nonmaterial with original refs; assessment needs
+  actual same-question prompt+choice. Missing-proof holds can resolve after valid
+  recheck. Red-first checks fixed ambiguity loss and permanent holds; matrix found
+  4assessment/comparison progression failures after836PASS, fixed one overbroad
+  predicate. Initial120 matrix harness failures were wrong blind-context setup,
+  corrected without changing production boundaries. Reviewer guide in existing
+  audit/arbiter ONLY; author remains old24 bytes. No stage/planner/call addition.
+- verified: Actual P24 Standards all10 and Fire all16 exact owned requests replay
+  unchanged0calls/same hashes: p25-legacy-p24-{standards,fire}-replay.json.
+  p25-saved-microcredit-validator-regression.json reconstructs4prior stages and
+  applies successor validator OFFLINE to exact saved93judgments, preserving all3
+  unsupported IDs/6total holds. Old response/job remain rejected/held, not promoted.
+- blocker: MicroP24f0692f27 INTERRUPTED generation_stage_outcome_unknown; COMPLETE
+  HTTP200 arbiter bodyd796e2c6...d11d7, exact93IDs/schema0errors but3STYLE_ONLY no
+  courseproof.4accepted203531in24814out +rejected received74010in9612out =actual
+  received277541in34426out. Quarantine stage680bc687...b4cb/pending preserved.
+  NEVERresume/reset/repeat/promote this oldjob. No finalMicrocourse. Original
+  response, author10L30Q and sourceaudit retained. Source audit already detected
+  conscript deferral/other major omissions; author-only gaps NOT finalacceptance.
+- runtime: DEV still5467/P24/worker759b/image915b/env6821, production0.11.66/7c35c
+  unchanged. No P25 commit/push/CI/deployment yet. Source-reviewed linkedworktree
+  only; primary1679dirty untouched. ERRORS AI-QUALITY-053 and ledger updated.
+- next: Finaldiff/release-contract; preserve exact local synthetic evidence.
+  Before fresh fullgeneration, bounded saved producer/arbiter semantic controls
+  for Standards primary inspection-family gap, Fire optional supporting detail,
+  and Micro nonteaching verdicts. No gold/defect labels in model input, no pointless
+  repeats. Then testedP25source/DEV and three complete acceptableLuna courses,
+  nativeDeepSeek within remaining1.0652904ofapproved3USD, protectedprod/live.
+  Human source-correction/approval+journalALLedits AFTER acceptedengineproduction.
+
+# P24 campaign: Fire complete, Micro ACTIVE, 2026-11-04 15:48UTC
+
+- result: Fire9567da92 completed7L21Q/16actualLuna6HIGHresponses427385input37309output,
+  resume_count1/no pending. All16 exact owned replay0calls PASS and ALL ordinary
+  saved API text/keys/choices/literalquotes PASS; finalhash83b1ea3256152cd00bcd1575c1cd823610392ade71ac5cf04d1ccd7e0e22f9c8.
+  Independent Terra reviewed all7L21Q/source F01-F12: content GO for human review,
+  no proven material wrong action/key. Engine result remains accepted=false/
+  revision_limit/assessment_lesson_ids=[L7], source_uncertain=false. Missing separate
+  consequence question judged optional in context of key safety actions already
+  assessed; no overriding of engine hold. Staff advocacy prose omission also minor.
+- changed: No new product code/policy/P25/model controls. Same exact5467DEV/worker759b.
+  Source rev03 contains simulated owner-authorized decisions, not Lombard confirmation.
+  Engine assessment calibration has both under-detection (Std D05) and over-blocking
+  (Fire supporting consequence detail). Preserve material-vs-optional distinction.
+- verified: Fresh controller RECONCILED before Micro; receipt2625c0b75ef4897583931c839a35194afb829bde7da766f94191516b6ff387ad.
+  ONE ordinary Micro upload23a77278-ae2f-4582-bc7a-68880c11da3f/index85cc2658-021c-45f2-bc27-55ab2adbc594,
+  direct_source_ready/0embeddings, blob1fb8408c...355f. Jobf0692f27-adc1-4f8b-8a78-a520f2981d9d
+  ADMITTED15:46:05UTC, first owned DBread running/ingestion/0responses/no pending.
+  Composed receiptp24-microcredit-composed-owned-admission.json SHA
+  bd37b86fce689c963330771009c5b104a416e75480cbfc0b2ee45d4fd53de5f4.
+- blockers: Micro fullcourse still ACTIVE; do NOT duplicate. Standards D05 assessment
+  material gap remains. Three-course accepted engine/nativeDeepSeek/prod/live OPEN.
+  Original/customer docs and published four Lombard courses unchanged.
+- next: Finish Micro on sameP24, exact replay/API/full independentmatrix, aggregate
+  common material findings before any saved-control/freshpolicy. No one-course-only
+  rollout loop or stricter-than-accepted-reference gate. Native then protectedprod
+  after fullacceptance; human source-correction module/journal AFTER engineprod.
+- Micro author custody now p24-microcredit-author-review-custody.json,10L30Q,
+  author70626fb7ffddc943fc8038847757e4153860f2c1bf1fd5c0af5bd220e6ed76df,
+  privatep14-private-readback-b9c66ff5faee4103b028ed3299598b03. Independent Terra
+  AUTHOR-ONLY NO-GO: missing D35 existing-conscript deferral service+60days differs
+  from new-loan refusal; D21 recalculation, D28 distinct early-demand triggers,
+  D30 assignment notices, D31 bureau-before-auction, D36 requested account/payoff/
+  no-debt information also absent. FINAL pipeline may repair; do not label final
+  failed from author. Latest fourthreadback2responses82374in9251out, bank pending;
+  fifthreadback3responses150086in14154out, sourceaudit pending. No held outcomes.
+- Candidate calibration remains unimplemented: source-audit compare primary
+  role-bound workplace decisions with actual question prompt+correctanswer;
+  ask source-bound scenario/plausible materiallywrong action/why existingQs miss.
+  Consequence is primary only when it affects source-required action or central
+  learning purpose, not categorical exemption. Arbiter optional assessment
+  addition could use explicitly bounded STYLE_ONLY (not falsely ALREADY_COVERED),
+  with real question evidence. Unknown importance stays NEEDS_REVIEW. Preserve
+  actual old24 requests; no new call/schema/planner/automatic promotion. Source
+  audit currently sees correct answers/explanations, not all options; separate
+  blind bank still owns all-option validity. Full producer+arbiter saved controls
+  required AFTER Micro aggregate, before fresh policy/deployment.
+
+# P24 full three-document campaign: Fire ACTIVE after known continuation, 2026-11-04 15:31UTC
+
+- result: Standardsd9bcde28 COMPLETED/course7d4aa822-7605-4e2b-a5d7-34efb98da018,
+  4L12Q/10actualLuna6HIGHresponses203101input21626output/noresume/no pending.
+  All10exactownedreplay and ALL savedAPI text/keys/choices/literalquotesPASS;
+  finalhash7d136b9805d8ed369ecc8d51e1d557a6be5def2448e3c570e74696216a3a9794.
+  Broadly16families taught; II refusal now assessed after own scopedrepair. Final
+  independent D05 assessment gap persists: collateral criteria taught but no Q
+  checks them. Source gaps separate/held. L1 inherited I-AND-II wording optional
+  clarity, NOT engine-invented norm/proven wrong key. Do NOT regenerateStdagainnow.
+- active: ONE Firejob9567da92-a314-4649-964d-e9df5f5d711e on same exact5467DEV,
+  newcorrectedrev03 docc6303a50-087d-41c5-8c72-e6bccce4f185/indexbe21a44c-2418-454b-9c74-873f62d98807.
+  Source2d10cb35...7e269/20loggededitorialsimulateddecisions, originalunchanged.
+  Typeddegradedembedding0/source_readytrue, no vectoracceptanceclaim.
+- verified: Fireauthor7L21Q f48dea3d...b248 (p24-fire-author-review-custody.json).
+  Paused15:24:43UTC after9completeLuna6responses229113in25424out, errorsONLY
+  generation_interrupted/resultONLYroutebinding/no pending. Exact ALL9prefix
+  replayPASS0calls, nextarbitration notdispatched. ONE ordinarysamejobresume:
+  lastdelivery15:29:27.632828UTC (helperrecord'at'15:27:56 is BEFOREhealth/login,
+  not actualresume time). No repeatedinference; coldAPIpreflightdelayseparate.
+  p24-fire-resume-prefix-custody-proof.json independentlyprovesall9payloads/plans,
+  route/source/document/businessparamsunchanged/resume_count1. No forcekill,
+  unknownmarkerreset, refund or modelretry. Latestreadbackp24-fire-sixth-owned-
+  readback.json running/ingestion/nopending9complete; this mayadvance.
+- blockers: Fullqualitythreecourses/nativeDeepSeek/prod/liveOPEN. Micro NEVER
+  uploaded/admitted. Sixproduction/reserveunchanged; DEV5467/worker759b5cb4/image915b/env6821
+  remainsacceptedruntime; no controlleractive. Do NOTduplicateFire/continuation.
+- next: Finish Fire then Micro on THIS candidate to aggregate complete findings
+  instead of serialone-course-onlyrolloutloop (ownerexplicitlyrejectsendlesssmall
+  adjustments). Firefinalreplay use p24-replay-owned-resumed-course.py, otherfresh
+  use p24-replay-owned-completed-course.py; bothhelpersASTchecked. OrdinarysavedAPI
+  allfields + source-firstindependentmatrix, no partialpassedclaim.
+- root-cause candidate, NOTimplemented: P24fixedarbiter when criticism EXISTS;
+  existing atomic source_checks TAUGHT concerns teaching, assessmentfindingoptional.
+  Both savedStd audits missD05 even though prompt asksrepresentativeness. Terra
+  source review confirms structural windows are not semanticfamilies/completeness
+  proof. Minimal nextLOCAL SAVED control AFTERaggregation: at SAMEauditcall ask
+  explicit comparison of distinct important taught operationalfamilies to actual
+  prompt+correctanswer; whole untestedfamily ->assessmentfinding. No per-fact/block
+  quota, extra stage/schema/planner/fakevalidator or rolloutwithoutmeasuredcontrol.
+  Audit currentlydoesNOTseeallchoices; answer-validitystillseparateblindbank.
+  No P25 edits/modelcontrolstarted. Preservehistorical24replay. Human source
+  approval/journalALLedits AFTERacceptedengineproduction, not before.
+
+# P24 Standards fresh full DEV ACTIVE, 2026-11-04 14:56UTC
+
+- result: Exact5467e5aeaca9171323e8bae04c981211ca41cf82 deployedDEV. CI41849926658
+  all7SUCCESS, build41851284171SUCCESS/prodfalse. Official attestation exactdevsource
+  verified, denyselfhosted; image915b18364c74003da4135fe06e15e7f9e92228d8f3981b28e46e33b603980e77.
+- changed: VMworker759b5cb4e844fa05a6143f425be6500eb46e4a5f544bf8e5eee50eb6b2a1dea3
+  soleconsumer/ready/restart0/unless-stopped/env6821/45keys; all96candidatefiles
+  verified. Old0f8a4b20 cleanwarmexit0 retainedrollback-a3307310. All6production/
+  reserveidentities/config/start unchanged, no forcekill/cleanup/resourcechange.
+- verified: Canonicalcontroller RELEASE_OK then independent RECONCILED, packet
+  b216b1a9c94b60df63cfb9650a79755b36a98675b7b625abdc0c7b2838536f46;
+  APIdep-dblkdiff3r2c73addjc0 LIVE/publichealth5467, Vercel
+  dpl_DJCGLqqGLhq4ux2i6N5dSWtnd4w8 READY exact5467. No controlleractive now.
+- active: ONE ordinary freshStandards job d9bcde28-192c-4208-84af-1507785c7d8e
+  admitted14:56:19UTC, p24-dev-qa-standards-reuse-acknowledged-result.json.
+  Existingdocumente18c0fea/source8d71182 reused, no reindex or source mutation.
+  Direct-source readiness is NOT vector-index acceptance. DO NOT duplicatejob.
+- blockers: FinalthreeLuna/nativeDeepSeek/prod/liveOPEN; noFire/MicroP24admission.
+  User wants stable practical level of accepted reference; style/out-of-topic
+  counterexamples are not material blockers. Source gaps stayseparate; original
+  scope source cannot authorize invented repairs even ifmodelverdict MATERIAL_ERROR.
+- next: Read owned job via p24-qa-job-db-readonly.py with exactadmissionSHA;
+  extractauthor once afteraccepted author, finalall-stage replay/savedAPI and
+  independent67family/16ambiguity matrix/reference. Then Firecorrectedrev03 NEW
+  upload and Microfirstupload via reviewedP24helpers, sequentialonly. Nativeafter
+  Lunagates, protectedproduction/live, THEN human sourcecorrection+journalALLedits.
+
+# P24 exact source/CI ACTIVE, 2026-11-04 14:45UTC
+
+- result: HEAD5467e5aeaca9171323e8bae04c981211ca41cf82, clean tracked tree before
+  this operational note. Exactfeature+dev pushed/readbackunderKamillaLMSCRM at
+  14:40:27/14:40:32UTC, practical-p24-*-push-receipt.json + authorizedmemorynotes.
+  CI41849926658 ACTIVE:6/7jobsSUCCESS, backendpytest+coverage stillrunning.
+- changed: New immutableP24env45keys staged on existing VM, payloadSHA
+  6821ac1b86dc0fb5c2e69b705e14db0cd4e25a8a4bd2fe1899fad8899168be1d,
+  receiver-v4/builder-v5 unchanged. stage-vm-worker-p24-5467e5ae.py completed14:42UTC.
+  Worker stillP23/a330/0f8a4b20; no activegeneration/model/controller. No imagebuild
+  yet dispatched. DO NOT duplicate CI/build/stageenv.
+- verified: Local5566unitPASS69.34s, quality1006/2174PASS, old23all8replayPASS0calls.
+  New two-call saved D05 fix independentlyGO; sourcehold unchanged despite imprecise
+  model verdict label (original source scope cannot grant course/source edits).
+- blockers: Three full courses/nativeDeepSeek/prod/live OPEN. Owner14:44 objection
+  acknowledged: stabilize accepted practical level, no stricter moving target,
+  style/out-of-topic allegations cannot keep delayingrelease. No expandedtask.
+- next: OnceCIgreen ONE builddispatch exact5467/CI41849926658/releaseID
+  REL-DEV-PRAC-P24-5467E5AE-20261104/prodfalse; verifyattestation/download to
+  worker-image-p24-5467e5ae. prepare-p24-worker-ops.py LOCALready (notrun; needsimage),
+  derives96files from reviewedP23templates. Then reviewedreadiness/idlewarmdrain/start,
+  exactrestart/controllerexecute+reconcile using WORKSPACEenvC:/Kamilya New/.env.
+  Eight P24QAhelpers+qa-p24-sources prepared/ASTchecked, noneexecuted. LatestStdguard
+  requires terminalP23b3d60a37/coursef201c299; reusable source unchanged, Fire rev03,
+  Micro firstupload. Human correction+journal ALLedits AFTERacceptedengineprod.
+
 # P24 LOCAL correction READY FOR EXACT SOURCE/DEV, 2026-11-04 14:39UTC
 
 - result: P23 Standardsb3d60a37 COMPLETED/coursef201c299-1380-4f4d-9dbe-4915260630a9,

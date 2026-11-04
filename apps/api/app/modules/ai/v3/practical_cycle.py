@@ -195,6 +195,7 @@ class PracticalCycleResult:
     exclusive_options: bool = False
     context_supplemented: bool = False
     assessment_coverage: bool = False
+    materiality_review: bool = False
     unresolved_question_context: tuple[str, ...] = ()
 
 
