@@ -49,11 +49,12 @@ class PracticalModelView:
             if isinstance(node, dict):
                 if 'source_refs' in node:
                     node['source_refs'] = refs(node['source_refs'])
-                if 'narrative_sources' in node:
-                    narrative = node['narrative_sources']
-                    if not isinstance(narrative, dict):
-                        raise ValueError('practical_model_source_ref_invalid')
-                    node['narrative_sources'] = {key: refs(value) for key, value in narrative.items()}
+                for basis in ('narrative_sources', 'question_sources'):
+                    if basis in node:
+                        narrative = node[basis]
+                        if not isinstance(narrative, dict):
+                            raise ValueError('practical_model_source_ref_invalid')
+                        node[basis] = {key: refs(value) for key, value in narrative.items()}
                 if type(node.get('scope')) is str and node['scope'] in {'source', 'coverage'}:
                     for key in ('target_id', 'id'):
                         if key not in node:
@@ -67,7 +68,7 @@ class PracticalModelView:
                         # checked by the review contract, rather than guessed by this codec.
                         node[key] = mapping.get(target, target)
                 for key, child in node.items():
-                    if key not in {'source_refs', 'narrative_sources', 'target_id'}:
+                    if key not in {'source_refs', 'narrative_sources', 'question_sources', 'target_id'}:
                         walk(child)
             elif isinstance(node, list):
                 for child in node:

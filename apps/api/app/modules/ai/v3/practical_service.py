@@ -38,6 +38,7 @@ from app.modules.ai.v3.revision_policy import (
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
     SCOPED_PRACTICAL_REVIEW_POLICY,
+    STANDALONE_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
 )
 from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
@@ -53,18 +54,23 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (ARBITRATED_PRACTICAL_REVIEW_POLICY if result.arbitrated_review else
+    review_policy = (STANDALONE_PRACTICAL_REVIEW_POLICY if result.standalone_review else
+                     ARBITRATED_PRACTICAL_REVIEW_POLICY if result.arbitrated_review else
                      PRACTICAL_REVIEW_POLICY if result.lesson_scoped_review else
                      PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else
                      CONCISE_PRACTICAL_REVIEW_POLICY if result.concise_review else SCOPED_PRACTICAL_REVIEW_POLICY)
     lessons = []
     provenance_holds = []
+    prose_provenance_holds = []
     for lesson in displayed['lessons']:
         covered = list(narrative[lesson['id']])
+        if result.standalone_review and not covered:
+            prose_provenance_holds.append(lesson['id'])
         questions = []
         for q in lesson['questions']:
             refs = [blocks[ref] for ref in q['source_refs']]
-            covered.extend(q['source_refs'])
+            if not result.standalone_review:
+                covered.extend(q['source_refs'])
             quote = ''
             rule_id = ''
             if len({ref.doc_id for ref in refs}) == 1:
@@ -88,10 +94,12 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
     issues = [f"{row['scope']}:{row['id']}" for row in result.decision.feedback]
     if provenance_holds:
         issues.append('practical_cross_document_question_quote_requires_review')
+    if prose_provenance_holds:
+        issues.append('practical_lesson_prose_provenance_requires_review')
     source_verified = all(not doc.conversion_fidelity.needs_review
                           and not doc.review_only_source_unresolved
                           and not doc.review_only_source_context for doc in corpus.documents)
-    accepted = result.decision.accepted and not provenance_holds
+    accepted = result.decision.accepted and not provenance_holds and not prose_provenance_holds
     report = {'review_policy': review_policy,
               'automated_review_passed': accepted,
               'stop_reason': result.stop_reason, 'violations': issues,
@@ -114,6 +122,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         'practical_course': result.course, 'practical_question_source_refs': {
             q['id']: q['source_refs'] for lesson in result.course['lessons'] for q in lesson['questions']},
         'practical_cross_document_question_ids': provenance_holds,
+        'practical_unverified_prose_lesson_ids': prose_provenance_holds,
         'practical_display_course': displayed,
         'practical_source_readings': list(result.source_readings),
         'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
@@ -129,7 +138,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = ARBITRATED_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = STANDALONE_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
@@ -138,7 +147,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     if any(doc.review_only_source_unresolved for doc in corpus.documents):
         raise ValueError('practical_source_review_required')
     packet = build_practical_source_packet(corpus, reference_decisions)
-    lesson_policies = {PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY}
+    lesson_policies = {PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY}
     parts = () if review_policy in lesson_policies else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
@@ -168,7 +177,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                 elif stage == 'repair':
                     estimated_lessons += len(value['new_lessons'])
                 # Estimate four review rounds and three repairs. New lessons grow it.
-                checks = 2 if review_policy == ARBITRATED_PRACTICAL_REVIEW_POLICY else 1
+                checks = 1 if review_policy == PRACTICAL_REVIEW_POLICY else 2
                 total = max(completed + 1, 1 + (estimated_lessons + checks) * 4 + 3)
                 await progress_callback('realization', completed, total, None, 1)
             else:
@@ -185,7 +194,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         readings.append(validate_source_read(view.decode(value), packet, part))
     if review_policy in lesson_policies:
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
-        options = {'adjudicate': True} if review_policy == ARBITRATED_PRACTICAL_REVIEW_POLICY else {}
+        options = ({'adjudicate': True, 'standalone': True} if review_policy == STANDALONE_PRACTICAL_REVIEW_POLICY else
+                   {'adjudicate': True} if review_policy == ARBITRATED_PRACTICAL_REVIEW_POLICY else {})
         result = await run_lesson_practical_cycle(packet, asdict(intent), stage, max_revisions=3, **options)
     else:
         result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings),

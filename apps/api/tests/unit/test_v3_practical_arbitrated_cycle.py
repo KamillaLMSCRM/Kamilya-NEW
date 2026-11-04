@@ -146,16 +146,22 @@ async def test_unchanged_part_carries_open_issues_without_provider_recheck(case)
 
 
 @pytest.mark.asyncio
-async def test_arbitration_owned_journal_replays_and_fences_wrong_model(case, monkeypatch):
+@pytest.mark.parametrize('selectors', [False, True])
+async def test_arbitration_owned_journal_replays_and_fences_wrong_model(case, monkeypatch, selectors):
     from app.modules.ai.managed_luna_client import ManagedLunaClient
     from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
+    from app.modules.ai.v3.practical_arbitration import evidence_inventory
     from app.modules.ai.v3.stage_checkpoint import stage_once
     from tests.unit.test_direct_luna_owned_stage import setup
 
     _, packet, course = case
     decision = allegation(packet)
     view = PracticalModelView(packet)
-    wire = view.encode(judgment(packet, course, decision))
+    value = judgment(packet, course, decision)
+    if selectors:
+        value['judgments'][0]['course_evidence'] = [next(key for key, item in evidence_inventory(course)[0].items()
+                                                       if item['question_id'] == 'q1' and item['field'] == 'prompt')]
+    wire = view.encode(value)
     _, journal, _, _, _ = setup()
     client = ManagedLunaClient(base_url='http://127.0.0.1:18999/v1', api_key='synthetic',
         tenant_id=UUID(journal.tenant_id), user_id=journal.user_id, job_id=journal.job_id,
@@ -166,11 +172,11 @@ async def test_arbitration_owned_journal_replays_and_fences_wrong_model(case, mo
     monkeypatch.setattr(client, 'prepare', prepare)
     monkeypatch.setattr(client, 'invoke', invoke)
     def validate(value):
-        adjudicate_practical_findings(view.decode(value), packet, course, decision, {'l1': [packet.blocks[0].block_id]})
+        adjudicate_practical_findings(view.decode(value), packet, course, decision, {'l1': [packet.blocks[0].block_id]}, selectors=selectors)
     options = dict(journal=journal, direct_client=client, stage='review', group_id='practical:arbitrate:test',
         source_sha256='b' * 64, route_fingerprint=client.cache_fingerprint(),
-        messages=arbitration_messages(packet, course, decision, model_view=view),
-        response_format=view.schema(arbitration_format(packet, course, decision)),
+        messages=arbitration_messages(packet, course, decision, model_view=view, selectors=selectors),
+        response_format=view.schema(arbitration_format(packet, course, decision, selectors=selectors)),
         direct_max_output_tokens=128, response_validator=validate, invoke=AsyncMock())
     assert await stage_once(**options) == wire
     assert await stage_once(**{**options, 'journal': copy.copy(journal)}) == wire
@@ -225,7 +231,7 @@ async def test_fresh_service_persists_adjudication_and_replays_without_model(cas
 
     journal = Journal()
     options = dict(intent=CourseIntent(), invoke=invoke, source_sha256='b' * 64,
-                   journal=journal, route_fingerprint='c' * 64)
+                   journal=journal, route_fingerprint='c' * 64, review_policy=ARBITRATED_PRACTICAL_REVIEW_POLICY)
     result = await generate_practical_course(corpus, **options)
     assert result.diagnostics['v3_review_policy'] == ARBITRATED_PRACTICAL_REVIEW_POLICY
     assert result.diagnostics['automated_review_passed'] and result.diagnostics['practical_course'] == course

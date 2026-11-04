@@ -1,5 +1,23 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P15 ordinary DEV: complete editor response correctly
+  removed duplicate coverage allegations but joined two noncontiguous exact
+  passages as one quote; contiguous-quote validation quarantined the stage.
+  Separately question review inferred missing premises from lesson context;
+  downstream assembly promoted question references and negative audit owners
+  into lesson provenance. These are contract/scope defects, not evidence that
+  model capacity or additional retries are required. P16 uses owned fragment
+  selectors, physically standalone question views, TAUGHT-only prose links and
+  separate question citations; empty prose provenance remains needs_review.
+  Negative owners still route repairs. A DEPENDS/UNKNOWN key sentinel -1 is
+  not an independent competing-key finding in P16; old decisions unchanged.
+  Exact actual question control detected missing locality, one patch and blind
+  recheck fixed only that question (2calls/34.844s/41289in1554out). Three negative
+  provenance tests went RED then38focusedPASS/baseline1005/2174; independent
+  review boundedGO. Full-course/DEV successor acceptance still required.
+  Preserve rejected raw response and historical policies; never promote it or
+  erase pending history to force retry. No TypeSafe call or new paid route.
+
 - Correction-policy fix (2026-11-04): fresh practical policy15 adds a whole-course
   cloud adjudicator before edit authority. Style/already-covered criticisms do not
   cause a repair; ambiguity/insufficient evidence retain source-review holds.

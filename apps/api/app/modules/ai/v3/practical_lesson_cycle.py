@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+from dataclasses import replace
 from typing import Any
 
 from app.modules.ai.v3.practical_applicability import SOURCE_APPLICABILITY_GUIDE
@@ -10,6 +11,7 @@ from app.modules.ai.v3.practical_arbitration import (
     adjudicate_practical_findings,
     arbitration_format,
     arbitration_messages,
+    question_finding,
     retain_prior_findings,
 )
 from app.modules.ai.v3.practical_atomic_audit import (
@@ -36,6 +38,7 @@ from app.modules.ai.v3.practical_cycle import (
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_patch import merge_practical_patch, practical_patch_format
 from app.modules.ai.v3.practical_review import (
+    PracticalReviewDecision,
     interpret_practical_review,
     practical_review_format,
     practical_review_messages,
@@ -43,7 +46,7 @@ from app.modules.ai.v3.practical_review import (
 
 
 def partition_previous(course: dict[str, Any], packet: PracticalSourcePacket,
-                       previous: tuple[dict[str, Any], ...]) -> tuple[dict[str, tuple[dict[str, Any], ...]], tuple[dict[str, Any], ...]]:
+                       previous: tuple[dict[str, Any], ...], *, standalone: bool = False) -> tuple[dict[str, tuple[dict[str, Any], ...]], tuple[dict[str, Any], ...]]:
     """Each existing issue has exactly one reviewer; stale targets fail closed."""
     lessons = {lesson['id']: lesson for lesson in course['lessons']}
     question_owner = {q['id']: lesson['id'] for lesson in course['lessons'] for q in lesson['questions']}
@@ -59,7 +62,7 @@ def partition_previous(course: dict[str, Any], packet: PracticalSourcePacket,
         if scope == 'question' and target in question_owner:
             grouped[question_owner[target]].append(item)
         elif scope in {'lesson', 'assessment'} and target in lessons:
-            grouped[target].append(item)
+            (global_items if standalone else grouped[target]).append(item)
         elif scope == 'source' and target in sources or scope == 'coverage' and target in sources | set(lessons):
             global_items.append(item)
         else:
@@ -68,8 +71,9 @@ def partition_previous(course: dict[str, Any], packet: PracticalSourcePacket,
 
 
 async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, Any], invoke: StageInvoker,
-                                     *, max_revisions: int = 3, adjudicate: bool = False) -> PracticalCycleResult:
-    if type(adjudicate) is not bool:
+                                     *, max_revisions: int = 3, adjudicate: bool = False,
+                                     standalone: bool = False) -> PracticalCycleResult:
+    if type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate:
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
@@ -104,7 +108,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
     for revision in range(max_revisions + 1):
         digest = _hash(candidate)
         seen.add(digest)
-        by_lesson, global_previous = partition_previous(candidate, packet, previous)
+        by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone)
         parts = []
         carried = []
         for lesson in candidate['lessons']:
@@ -112,8 +116,10 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             prior = by_lesson[lesson['id']]
             def validate_part(value: dict[str, Any], checked: dict[str, Any] = part,
                               checked_prior: tuple[dict[str, Any], ...] = prior) -> None:
-                interpret_practical_review(value, packet, checked, checked_prior, concise=True, strict_targets=True)
-            group = 'practical:review:' + _hash(['v3-practical-source-review-v14', part, prior])
+                interpret_practical_review(value, packet, checked, checked_prior, concise=True, strict_targets=True,
+                                           **({'standalone': True} if standalone else {}))
+            review_version = 'v3-practical-source-review-v16' if standalone else 'v3-practical-source-review-v14'
+            group = 'practical:review:' + _hash([review_version, part, prior])
             part_key = _hash([packet.fingerprint, part])
             if adjudicate and part_key in reviewed_parts:
                 raw_review = reviewed_parts[part_key]
@@ -127,18 +133,20 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                     'raw_review_sha256': _hash(raw_review), 'open_issue_ids': [item['issue_id'] for item in prior]})
             else:
                 result = await call('review', group,
-                    practical_review_messages(packet, part, prior, model_view=view, concise=True, lesson_scoped=True),
-                    practical_review_format(packet, part, prior, concise=True, strict_targets=True), validate_part)
+                    practical_review_messages(packet, part, prior, model_view=view, concise=True, lesson_scoped=True,
+                        standalone=standalone, strict_targets=standalone),
+                    practical_review_format(packet, part, prior, concise=True, strict_targets=True,
+                        **({'standalone': True} if standalone else {})), validate_part)
                 if adjudicate:
                     reviewed_parts[part_key] = copy.deepcopy(result)
             parts.append(result)
         def validate_global(value: dict[str, Any], checked: dict[str, Any] = candidate,
                             prior: tuple[dict[str, Any], ...] = global_previous) -> None:
             validate_atomic_audit(value, packet, checked, prior)
-        audit = await call('review', 'practical:source-audit:' + _hash(['v3-practical-source-review-v14', candidate, global_previous]),
+        audit = await call('review', 'practical:source-audit:' + _hash([review_version, candidate, global_previous]),
             atomic_audit_messages(packet, candidate, global_previous, model_view=view),
             atomic_audit_format(packet, candidate, global_previous), validate_global)
-        narrative = atomic_audit_narrative_sources(audit, packet, candidate, global_previous)
+        narrative = atomic_audit_narrative_sources(audit, packet, candidate, global_previous, taught_only=standalone)
         consolidated: dict[str, Any] = {'source_fingerprint': packet.fingerprint,
             'source_review': '\n'.join([row['source_review'] for row in parts] + [audit['source_review']]),
             'source_notes': [], 'findings': [], 'answer_keys': {}, 'answerability': [], 'narrative_sources': {}}
@@ -149,8 +157,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             consolidated['findings'].extend(part['findings'])
             consolidated['answer_keys'].update(part['answer_keys'])
             consolidated['answerability'].extend(part['answerability'])
-            consolidated['narrative_sources'][lesson_id] = list(dict.fromkeys(
-                [*part['narrative_sources'][lesson_id], *narrative[lesson_id]]))
+            consolidated['narrative_sources'][lesson_id] = (narrative[lesson_id] if standalone else list(dict.fromkeys(
+                [*part['narrative_sources'][lesson_id], *narrative[lesson_id]])))
             for key, value in part.get('issue_checks', {}).items():
                 if key in issue_checks:
                     raise ValueError('practical_lesson_issue_inventory_invalid')
@@ -165,20 +173,43 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             raise ValueError('practical_lesson_issue_inventory_invalid')
         if previous:
             consolidated['issue_checks'] = issue_checks
-        decision = interpret_practical_review(consolidated, packet, candidate, previous, concise=True)
+        decision = interpret_practical_review(consolidated, packet, candidate, previous, concise=True,
+                                             **({'allow_empty_narrative': True} if standalone else {}))
         if adjudicate:
             decision = retain_prior_findings(decision, previous, issue_checks)
         adjudication = None
         if adjudicate and decision.feedback:
-            unadjudicated = decision
-            def validate_adjudication(value: dict[str, Any], checked_course: dict[str, Any] = candidate,
-                                      checked_decision: Any = unadjudicated,
-                                      checked_narrative: Any = consolidated['narrative_sources']) -> None:
-                adjudicate_practical_findings(value, packet, checked_course, checked_decision, checked_narrative)
-            adjudication = await call('review', 'practical:arbitrate:' + _hash([digest, decision.feedback]),
-                arbitration_messages(packet, candidate, decision, model_view=view),
-                arbitration_format(packet, candidate, decision), validate_adjudication)
-            decision = adjudicate_practical_findings(adjudication, packet, candidate, decision, consolidated['narrative_sources'])
+            modes = [('course', decision.feedback, False)]
+            if standalone:
+                modes = [(label, tuple(item for item in decision.feedback if question_finding(item) is question_only), question_only)
+                         for label, question_only in [('questions', True), ('course', False)]]
+            applied = []
+            adjudications = {}
+            for label, allegations, question_only in modes:
+                if not allegations:
+                    continue
+                unadjudicated = replace(decision, feedback=allegations)
+                def validate_adjudication(value: dict[str, Any], checked_course: dict[str, Any] = candidate,
+                                          checked_decision: Any = unadjudicated,
+                                          checked_narrative: Any = consolidated['narrative_sources'],
+                                          checked_question_only: bool = question_only) -> None:
+                    adjudicate_practical_findings(value, packet, checked_course, checked_decision, checked_narrative,
+                                                 selectors=standalone, question_only=checked_question_only)
+                response = await call('review', 'practical:arbitrate:' + _hash([digest, unadjudicated.feedback]),
+                    arbitration_messages(packet, candidate, unadjudicated, model_view=view, selectors=standalone, question_only=question_only),
+                    arbitration_format(packet, candidate, unadjudicated, selectors=standalone, question_only=question_only), validate_adjudication)
+                applied.append(adjudicate_practical_findings(response, packet, candidate, unadjudicated,
+                    consolidated['narrative_sources'], selectors=standalone, question_only=question_only))
+                adjudications[label] = response
+            if len(applied) == 1:
+                decision = applied[0]
+            else:
+                decision = PracticalReviewDecision(all(item.accepted for item in applied), any(item.source_uncertain for item in applied),
+                    tuple(dict.fromkeys(lid for item in applied for lid in item.lesson_ids)),
+                    tuple(dict.fromkeys(qid for item in applied for qid in item.question_ids)),
+                    any(item.allow_new_lessons for item in applied), tuple(issue for item in applied for issue in item.feedback),
+                    tuple(dict.fromkeys(lid for item in applied for lid in item.assessment_lesson_ids)))
+            adjudication = adjudications if standalone else adjudications['course']
         history.append({'course_sha256': digest, 'lesson_reviews': parts, 'atomic_audit': audit,
                         'consolidated_review': consolidated, 'accepted': decision.accepted,
                         'source_uncertain': decision.source_uncertain})
@@ -191,7 +222,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                   else 'revision_limit' if revision == max_revisions else '')
         if reason:
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), reason,
-                                        (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate)
+                                        (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
                            checked_decision: Any = decision) -> None:
@@ -202,7 +233,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         view.assert_course_ids_disjoint(revised)
         if _hash(revised) in seen:
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), 'no_progress',
-                                        (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate)
+                                        (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

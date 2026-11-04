@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import re
 from dataclasses import replace
@@ -15,9 +16,11 @@ from app.modules.ai.v3.practical_contract import (
     validate_practical_course,
 )
 from app.modules.ai.v3.practical_model_view import PracticalModelView
+from app.modules.ai.v3.practical_patch import _fragments
 from app.modules.ai.v3.practical_review import PracticalReviewDecision
 
 NAME = 'v3_practical_finding_arbitration_v1'
+SELECTOR_NAME = 'v3_practical_finding_arbitration_v2'
 VERDICTS = ['MATERIAL_ERROR', 'ALREADY_COVERED', 'SOURCE_AMBIGUITY', 'STYLE_ONLY', 'NEEDS_REVIEW']
 
 
@@ -37,15 +40,33 @@ def retain_prior_findings(decision: PracticalReviewDecision, previous: tuple[dic
     return replace(decision, accepted=False, feedback=tuple(feedback.values()))
 
 
+def original_finding(item: dict[str, Any]) -> dict[str, Any]:
+    """Unwrap only locally produced holds, keeping the original owned target."""
+    while (item['scope'] == 'source' and 'original_finding' in item['evidence']
+           and item['evidence'].get('problem') in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'}):
+        inner = item['evidence'].get('original_finding')
+        if not isinstance(inner, dict) or inner.get('issue_id') != item['issue_id']:
+            raise ValueError('practical_arbitration_original_owner_invalid')
+        item = inner
+    return item
+
+
+def question_finding(item: dict[str, Any]) -> bool:
+    return bool(original_finding(item)['scope'] == 'question')
+
+
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
     return {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False}
 
 
 def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[str],
-            questions: list[str], issues: list[str]) -> dict[str, Any]:
+            questions: list[str], issues: list[str], *, evidence_ids: list[str] | None = None) -> dict[str, Any]:
     if (any(not re.fullmatch('[0-9a-f]{64}', fp) for fp in (source_fp, course_fp))
             or any(not ids or len(ids) != len(set(ids)) or any(type(i) is not str or not i.strip() for i in ids)
-                   for ids in (sources, lessons, questions, issues))):
+                   for ids in ((sources, lessons, questions, issues) if evidence_ids is None else (sources, questions, issues)))):
+        raise ValueError('practical_arbitration_format_invalid')
+    if evidence_ids is not None and (not evidence_ids or len(set(evidence_ids)) != len(evidence_ids)
+                                    or any(type(i) is not str or not i.strip() for i in evidence_ids)):
         raise ValueError('practical_arbitration_format_invalid')
     text = {'type': 'string'}
     refs = {'type': 'array', 'minItems': 1, 'items': {'type': 'string', 'enum': sources}}
@@ -59,34 +80,87 @@ def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[st
         'choice_index': {'type': 'integer', 'enum': [-1, 0, 1, 2, 3]}, 'quote': text})
     row = _object({'issue_id': {'type': 'string', 'enum': issues},
         'verdict': {'type': 'string', 'enum': VERDICTS}, 'reason': text,
-        'source_refs': refs, 'course_evidence': {'type': 'array', 'items': evidence},
+        'source_refs': refs, 'course_evidence': {'type': 'array', 'items': evidence if evidence_ids is None
+                                               else {'type': 'string', 'enum': evidence_ids}},
         'answer_check': {'anyOf': [answer, _object({'status': {'type': 'string', 'enum': ['NOT_APPLICABLE']}})]}})
-    return {'type': 'json_schema', 'json_schema': {'name': NAME, 'strict': True, 'schema': _object({
+    return {'type': 'json_schema', 'json_schema': {'name': NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
         'source_fingerprint': {'type': 'string', 'enum': [source_fp]},
         'course_fingerprint': {'type': 'string', 'enum': [course_fp]},
         'judgments': {'type': 'array', 'minItems': len(issues), 'maxItems': len(issues), 'items': row}})}}
 
 
+def evidence_inventory(course: dict[str, Any]) -> tuple[dict[str, dict[str, Any]], dict[str, Any]]:
+    """Address original text once; the model selects IDs instead of retyping quotes."""
+    inventory: dict[str, dict[str, Any]] = {}
+    displayed = copy.deepcopy(course)
+    def add(lid: str, qid: str, field: str, text: str, index: int = -1,
+            start: int = 0, end: int | None = None) -> dict[str, str]:
+        key = f'E{len(inventory) + 1}'
+        finish = len(text) if end is None else end
+        inventory[key] = {'lesson_id': lid, 'question_id': qid, 'field': field, 'choice_index': index,
+                          'start': start, 'end': finish, 'text': text[start:finish]}
+        return {'evidence_id': key, 'text': text[start:finish]}
+    for lesson in displayed['lessons']:
+        lid = lesson['id']
+        lesson['title'] = add(lid, '', 'title', lesson['title'])
+        content = lesson['content']
+        lesson['content'] = [add(lid, '', 'content', content, start=start, end=end) for _, start, end in _fragments(content)]
+        for question in lesson['questions']:
+            qid = question['id']
+            question['prompt'] = add(lid, qid, 'prompt', question['prompt'])
+            question['explanation'] = add(lid, qid, 'explanation', question['explanation'])
+            question['choices'] = [add(lid, qid, 'choice', text, index=i) for i, text in enumerate(question['choices'])]
+    return inventory, displayed
+
+
+def _selected_evidence(course: dict[str, Any], decision: PracticalReviewDecision,
+                       question_only: bool) -> tuple[dict[str, Any], list[str]]:
+    inventory = evidence_inventory(course)[0]
+    questions = [q['id'] for lesson in course['lessons'] for q in lesson['questions']]
+    if question_only:
+        if not decision.feedback or not all(question_finding(item) for item in decision.feedback):
+            raise ValueError('practical_arbitration_question_scope_invalid')
+        selected = {original_finding(item)['id'] for item in decision.feedback}
+        questions = [qid for qid in questions if qid in selected]
+        inventory = {key: value for key, value in inventory.items()
+                     if value['question_id'] in selected and value['field'] in {'prompt', 'choice'}}
+    return inventory, questions
+
+
 def arbitration_format(packet: PracticalSourcePacket, course: dict[str, Any],
-                       decision: PracticalReviewDecision) -> dict[str, Any]:
+                       decision: PracticalReviewDecision, *, selectors: bool = False,
+                       question_only: bool = False) -> dict[str, Any]:
     validate_practical_course(course, packet)
+    if question_only and not selectors:
+        raise ValueError('practical_arbitration_question_scope_invalid')
+    inventory, questions = _selected_evidence(course, decision, question_only)
     return _format(packet.fingerprint, _digest(course), [b.block_id for b in packet.blocks if b.text.strip()],
         [lesson['id'] for lesson in course['lessons']],
-        [q['id'] for lesson in course['lessons'] for q in lesson['questions']],
-        [item['issue_id'] for item in decision.feedback])
+        questions,
+        [item['issue_id'] for item in decision.feedback],
+        evidence_ids=list(inventory) if selectors else None)
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
-        if value['json_schema']['name'] != NAME:
+        name = value['json_schema']['name']
+        if name not in {NAME, SELECTOR_NAME}:
             raise ValueError
         props = value['json_schema']['schema']['properties']
         row = props['judgments']['items']['properties']
-        evidence = row['course_evidence']['items']['properties']
         answer = row['answer_check']['anyOf'][0]['properties']
+        if name == SELECTOR_NAME:
+            # Selector ownership is rebuilt from the bound course fingerprint;
+            # no redundant lesson-inventory echo is required from the model.
+            lessons = []
+            evidence_ids = row['course_evidence']['items']['enum']
+        else:
+            evidence = row['course_evidence']['items']['properties']
+            lessons = evidence['lesson_id']['enum']
+            evidence_ids = None
         result = _format(props['source_fingerprint']['enum'][0], props['course_fingerprint']['enum'][0],
-            row['source_refs']['items']['enum'], evidence['lesson_id']['enum'],
-            answer['question_id']['enum'], row['issue_id']['enum'])
+            row['source_refs']['items']['enum'], lessons,
+            answer['question_id']['enum'], row['issue_id']['enum'], evidence_ids=evidence_ids)
         if value != result:
             raise ValueError
         return result
@@ -115,7 +189,10 @@ def matches_arbitration(value: Any, fmt: Any) -> bool:
             if (not row['reason'].strip() or len(set(row['source_refs'])) != len(row['source_refs'])
                     or row['verdict'] in {'ALREADY_COVERED', 'STYLE_ONLY'} and not row['course_evidence']):
                 return False
-            if any(not e['quote'].strip() for e in row['course_evidence']):
+            if fmt['json_schema']['name'] == SELECTOR_NAME:
+                if len(set(row['course_evidence'])) != len(row['course_evidence']):
+                    return False
+            elif any(not e['quote'].strip() for e in row['course_evidence']):
                 return False
             check = row['answer_check']
             if check['status'] != 'NOT_APPLICABLE' and (not check['reason'].strip()
@@ -146,33 +223,33 @@ def _evidence_text(evidence: dict[str, Any], lessons: dict[str, Any]) -> str:
 
 def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSourcePacket,
     course: dict[str, Any], decision: PracticalReviewDecision,
-    narrative: dict[str, list[str]]) -> PracticalReviewDecision:
-    if not matches_arbitration(value, arbitration_format(packet, course, decision)):
+    narrative: dict[str, list[str]], *, selectors: bool = False,
+    question_only: bool = False) -> PracticalReviewDecision:
+    if not matches_arbitration(value, arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only)):
         raise ValueError('practical_arbitration_response_invalid')
     lessons = {lesson['id']: lesson for lesson in course['lessons']}
     questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
     findings = {item['issue_id']: item for item in decision.feedback}
+    inventory = _selected_evidence(course, decision, question_only)[0] if selectors else {}
     feedback = []
     for row in value['judgments']:
-        for evidence in row['course_evidence']:
-            if evidence['quote'] not in _evidence_text(evidence, lessons):
-                raise ValueError('practical_arbitration_quote_not_literal')
+        resolved_evidence = ([inventory[key] for key in row['course_evidence']] if selectors else row['course_evidence'])
+        if not selectors:
+            for evidence in resolved_evidence:
+                if evidence['quote'] not in _evidence_text(evidence, lessons):
+                    raise ValueError('practical_arbitration_quote_not_literal')
         check = row['answer_check']
         if check['status'] != 'NOT_APPLICABLE' and any(i >= len(questions[check['question_id']]['choices']) for i in check['possible_options']):
             raise ValueError('practical_arbitration_answer_check_invalid')
         original = findings[row['issue_id']]
         # These wrappers are created locally, not supplied by the arbiter. A held
         # issue keeps its original repair target if a later round confirms it.
-        while (original['scope'] == 'source' and 'original_finding' in original['evidence']
-               and original['evidence'].get('problem') in {'SOURCE_AMBIGUITY', 'NEEDS_REVIEW'}):
-            inner = original['evidence'].get('original_finding')
-            if not isinstance(inner, dict) or inner.get('issue_id') != original['issue_id']:
-                raise ValueError('practical_arbitration_original_owner_invalid')
-            original = inner
+        original = original_finding(original)
         verdict = row['verdict']
         if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and original['scope'] == 'question':
             if (check['status'] == 'NOT_APPLICABLE' or check['question_id'] != original['id']
-                    or not any(e['question_id'] == original['id'] for e in row['course_evidence'])):
+                    or not any(e['question_id'] == original['id'] and (not question_only or e['field'] == 'prompt')
+                               for e in resolved_evidence)):
                 raise ValueError('practical_arbitration_answer_check_missing')
             # A contrary/uncertain independent answer cannot discharge the allegation.
             if check['status'] != 'UNIQUE' or check['possible_options'] != [questions[original['id']]['correct_index']]:
@@ -185,6 +262,9 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
                 'evidence': {'problem': verdict, 'source_refs': row['source_refs'],
                              'original_finding': copy.deepcopy(original)}}
         item['evidence']['adjudication'] = copy.deepcopy(row)
+        if selectors:
+            item['evidence']['adjudication_spans'] = [{**{key: part for key, part in evidence.items() if key != 'text'},
+                'text_sha256': hashlib.sha256(evidence['text'].encode('utf-8')).hexdigest()} for evidence in resolved_evidence]
         feedback.append(item)
     editable = []
     allow_new = False
@@ -230,7 +310,8 @@ SYSTEM = (
 
 
 def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], decision: PracticalReviewDecision,
-                         *, model_view: PracticalModelView | None = None) -> list[dict[str, str]]:
+                         *, model_view: PracticalModelView | None = None, selectors: bool = False,
+                         question_only: bool = False) -> list[dict[str, str]]:
     validate_practical_course(course, packet)
     def blind(value: Any) -> Any:
         if isinstance(value, dict):
@@ -240,9 +321,30 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
         if isinstance(value, list | tuple):
             return [blind(child) for child in value]
         return value
-    body = {'course_fingerprint': _digest(course), 'whole_course': blind(course),
+    body = {'course_fingerprint': _digest(course), 'whole_course': blind(evidence_inventory(course)[1] if selectors else course),
             'critic_findings': blind(decision.feedback)}
+    if question_only:
+        inventory, qids = _selected_evidence(course, decision, True)
+        questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
+        def field(qid: str, name: str, index: int = -1) -> dict[str, str]:
+            key, value = next((key, item) for key, item in inventory.items()
+                              if item['question_id'] == qid and item['field'] == name and item['choice_index'] == index)
+            return {'evidence_id': key, 'text': value['text']}
+        body.pop('whole_course')
+        body['standalone_questions'] = [{'id': qid, 'prompt': field(qid, 'prompt'),
+            'choices': [field(qid, 'choice', i) for i in range(len(questions[qid]['choices']))]} for qid in qids]
     content = (source_model_text(packet, aliases=model_view.canonical_to_alias if model_view else None)
         + '\nWHOLE_COURSE_AND_ALLEGATIONS_JSON\n'
         + json.dumps(model_view.encode(body) if model_view else body, ensure_ascii=False, sort_keys=True, indent=2))
-    return [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': content}]
+    system = SYSTEM
+    if selectors:
+        system = system[:system.index('Для ALREADY_COVERED и STYLE_ONLY обязательна точная цитата')]
+        system += ('Для ALREADY_COVERED и STYLE_ONLY выбери в course_evidence готовые evidence_id '
+            'из исходных полей курса. Для разных фрагментов выбери несколько ID; не переписывай и не склеивай цитаты. '
+            'Программа сохранит точный текст и исходные позиции. Вопросы используются также отдельно от урока: '
+            'заголовок, текст урока, соседние вопросы и объяснение автора не задают отсутствующие условия вопроса. '
+            'Если снимаешь замечание к вопросу, независимо проверь сам вопрос и ВСЕ варианты по источнику; '
+            'answer_check содержит его ID, статус и все возможные правильные индексы. '
+            'В остальных случаях answer_check содержит только status="NOT_APPLICABLE". '
+            'Не создавай новых замечаний и не расширяй разрешённые цели правки.')
+    return [{'role': 'system', 'content': system}, {'role': 'user', 'content': content}]

@@ -144,10 +144,12 @@ def compiled_atomic_audit_findings(value: Any, packet: PracticalSourcePacket, co
 
 
 def atomic_audit_narrative_sources(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
-                                   previous: tuple[dict[str, Any], ...] = ()) -> dict[str, list[str]]:
+                                   previous: tuple[dict[str, Any], ...] = (), *, taught_only: bool = False) -> dict[str, list[str]]:
     checked = validate_atomic_audit(value, packet, course, previous)
     result: dict[str, list[str]] = {lesson['id']: [] for lesson in course['lessons']}
     for row in checked['source_checks']:
+        if taught_only and row['status'] != 'TAUGHT':
+            continue
         for lesson_id in row['lesson_ids']:
             result[lesson_id].extend(row['source_refs'])
     return {lesson_id: list(dict.fromkeys(refs)) for lesson_id, refs in result.items()}
