@@ -21,14 +21,31 @@ from app.modules.ai.v3.practical_question_scope import scoped_course_view
 
 NAME = 'v3_practical_question_review_v7'
 CONCISE_NAME = 'v3_practical_question_review_v8'
+LESSON_NAME = 'v3_practical_question_review_v9'
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
     return {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False}
 
 
+def strict_finding_schema(sources: list[str], lessons: list[str], questions: list[str], *,
+                          allowed_scopes: tuple[str, ...] = ('lesson', 'question', 'coverage', 'source', 'assessment')) -> dict[str, Any]:
+    targets = {'lesson': lessons, 'assessment': lessons, 'question': questions,
+               'source': sources, 'coverage': list(dict.fromkeys([*lessons, *sources]))}
+    if (len(allowed_scopes) < 2 or len(set(allowed_scopes)) != len(allowed_scopes)
+            or any(scope not in targets or not targets[scope] for scope in allowed_scopes)):
+        raise ValueError('practical_review_format_invalid')
+    return {'anyOf': [_object({
+        'scope': {'type': 'string', 'enum': [scope]},
+        'target_id': {'type': 'string', 'enum': targets[scope]},
+        'problem': {'type': 'string'},
+        'source_refs': {'type': 'array', 'items': {'type': 'string'}, 'minItems': 1},
+        'expected_rule': {'type': 'string'}, 'correction': {'type': 'string'},
+    }) for scope in allowed_scopes]}
+
+
 def _format(sources: list[str], fingerprint: str, lessons: list[str], questions: dict[str, int],
-            prior_ids: list[str], *, concise: bool = False) -> dict[str, Any]:
+            prior_ids: list[str], *, concise: bool = False, strict_targets: bool = False) -> dict[str, Any]:
     for ids in (sources, lessons, list(questions), prior_ids):
         if (type(ids) is not list or any(type(i) is not str or not i.strip() for i in ids)
                 or len(set(ids)) != len(ids)):
@@ -36,12 +53,17 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
     if (not sources or not lessons or not questions or re.fullmatch('[0-9a-f]{64}', fingerprint) is None
             or any(type(count) is not int or count not in (3, 4) for count in questions.values())):
         raise ValueError('practical_review_format_invalid')
+    if strict_targets and (not concise or len(lessons) != 1):
+        raise ValueError('practical_review_format_invalid')
     text = {'type': 'string'}
     refs = {'type': 'array', 'items': text, 'minItems': 1}
     finding = _object({'scope': {'type': 'string', 'enum': ['lesson', 'question', 'coverage', 'source', 'assessment']},
         'target_id': {'type': 'string', 'enum': list(dict.fromkeys([*lessons, *questions, *sources]))},
         'problem': text, 'source_refs': {**refs, 'items': {'type': 'string', 'enum': sources}},
         'expected_rule': text, 'correction': text})
+    if strict_targets:
+        finding = strict_finding_schema(sources, lessons, list(questions),
+                                        allowed_scopes=('lesson', 'question', 'source', 'assessment'))
     props = {'source_fingerprint': {'type': 'string', 'enum': [fingerprint]},
         'source_review': text,
         'source_notes': {'type': 'array', 'items': _object({'note': text,
@@ -70,34 +92,39 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
                 'question_id': {'type': 'string', 'enum': list(questions)},
                 'possible_options': {'type': 'array', 'items': {'type': 'integer', 'enum': [0, 1, 2, 3]}},
                 'status': {'type': 'string', 'enum': ['UNIQUE', 'DEPENDS', 'AMBIGUOUS', 'UNKNOWN']},
-                'source_refs': copy.deepcopy(refs),
+                'source_refs': ({**copy.deepcopy(refs), 'items': {'type': 'string', 'enum': sources}}
+                                if strict_targets else copy.deepcopy(refs)),
                 'reason': text,
             })}
     if prior_ids:
         props['issue_checks'] = _object({key: _object({
             'status': {'type': 'string', 'enum': ['RESOLVED', 'OPEN', 'RETRACTED']}, 'reason': text}) for key in prior_ids})
-    return {'type': 'json_schema', 'json_schema': {'name': CONCISE_NAME if concise else NAME, 'strict': True, 'schema': _object(props)}}
+    if strict_targets:
+        props['narrative_sources'] = _object({lid: {**copy.deepcopy(refs), 'items': {'type': 'string', 'enum': sources}} for lid in lessons})
+    return {'type': 'json_schema', 'json_schema': {'name': LESSON_NAME if strict_targets else CONCISE_NAME if concise else NAME, 'strict': True, 'schema': _object(props)}}
 
 
 def practical_review_format(packet: PracticalSourcePacket, course: dict[str, Any],
                             previous: tuple[dict[str, Any], ...] = (), *,
-                            concise: bool = False) -> dict[str, Any]:
+                            concise: bool = False, strict_targets: bool = False) -> dict[str, Any]:
     validate_practical_course(course, packet)
     return _format([b.block_id for b in packet.blocks if b.text.strip()], packet.fingerprint,
         [lesson['id'] for lesson in course['lessons']],
         {q['id']: len(q['choices']) for lesson in course['lessons'] for q in lesson['questions']},
-        [item['issue_id'] for item in previous], concise=concise)
+        [item['issue_id'] for item in previous], concise=concise, strict_targets=strict_targets)
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         props = value['json_schema']['schema']['properties']
-        sources = props['findings']['items']['properties']['source_refs']['items']['enum']
+        strict_targets = value['json_schema']['name'] == LESSON_NAME
+        sources = (props['source_notes']['items']['properties']['source_refs']['items']['enum'] if strict_targets
+                   else props['findings']['items']['properties']['source_refs']['items']['enum'])
         questions = {key: len(row['enum']) - 1 for key, row in props['answer_keys']['properties'].items()}
         rebuilt = _format(sources, props['source_fingerprint']['enum'][0],
             list(props['narrative_sources']['properties']), questions,
             list(props.get('issue_checks', {}).get('properties', {})),
-            concise=value['json_schema']['name'] == CONCISE_NAME)
+            concise=value['json_schema']['name'] in {CONCISE_NAME, LESSON_NAME}, strict_targets=strict_targets)
         if value != rebuilt:
             raise ValueError
         return rebuilt
@@ -121,14 +148,14 @@ def matches_practical_review(value: Any, response_format: Any) -> bool:
             return False
         if not value['source_review'].strip():
             return False
-        allowed = set(props['findings']['items']['properties']['source_refs']['items']['enum'])
+        allowed = set(props['source_notes']['items']['properties']['source_refs']['items']['enum'])
         def valid_refs(refs: list[str]) -> bool:
             return bool(refs) and len(set(refs)) == len(refs) and set(refs) <= allowed
         if any(not valid_refs(refs) for refs in value['narrative_sources'].values()):
             return False
         if any(not row['note'].strip() or not valid_refs(row['source_refs']) for row in value['source_notes']):
             return False
-        if fmt['json_schema']['name'] == CONCISE_NAME:
+        if fmt['json_schema']['name'] in {CONCISE_NAME, LESSON_NAME}:
             answerability_ids = [item['question_id'] for item in value['answerability']]
             if len(set(answerability_ids)) != len(answerability_ids) or set(answerability_ids) != set(value['answer_keys']):
                 return False
@@ -196,8 +223,8 @@ def _issue(scope: str, target: str, evidence: dict[str, Any]) -> dict[str, Any]:
 
 def interpret_practical_review(value: dict[str, Any], packet: PracticalSourcePacket,
                                course: dict[str, Any], previous: tuple[dict[str, Any], ...] = (), *,
-                               concise: bool = False) -> PracticalReviewDecision:
-    if not matches_practical_review(value, practical_review_format(packet, course, previous, concise=concise)):
+                               concise: bool = False, strict_targets: bool = False) -> PracticalReviewDecision:
+    if not matches_practical_review(value, practical_review_format(packet, course, previous, concise=concise, strict_targets=strict_targets)):
         raise ValueError('practical_review_response_invalid')
     feedback = [copy.deepcopy(item) for item in previous if value['issue_checks'][item['issue_id']]['status'] == 'OPEN']
     option_checks = {item['question_id']: item['options'] for item in value.get('option_checks', [])}
@@ -347,8 +374,8 @@ def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, A
                               model_view: PracticalModelView | None = None,
                               source_readings: tuple[dict[str, Any], ...] = (),
                               legacy_source_rule_scope: bool = False,
-                              concise: bool = False) -> list[dict[str, str]]:
-    if concise and legacy_source_rule_scope:
+                              concise: bool = False, lesson_scoped: bool = False) -> list[dict[str, str]]:
+    if (concise and legacy_source_rule_scope) or (lesson_scoped and (not concise or len(course['lessons']) != 1)):
         raise ValueError('practical_review_policy_invalid')
     candidate = scoped_course_view(packet, course, legacy_source_rule_scope=legacy_source_rule_scope)
     for lesson in candidate['lessons']:
@@ -366,5 +393,9 @@ def practical_review_messages(packet: PracticalSourcePacket, course: dict[str, A
             ensure_ascii=False, sort_keys=True, indent=2))
     system = (CONCISE_REVIEW_SYSTEM + (CONCISE_PREVIOUS_GUIDE if previous else '') if concise
               else REVIEW_SYSTEM + ('' if legacy_source_rule_scope else SOURCE_APPLICABILITY_GUIDE))
+    if lesson_scoped:
+        system += ('\nПроверь только данный урок и его вопросы по всему исходнику, учитывая все применимые условия и исключения. '
+                   'Полноту всего курса и несвязанные с уроком сомнения источника проверяет отдельный аудит; '
+                   'не требуй добавления других глав. Замечания об источнике и source_notes ограничь существенным для этого урока.')
     return [{'role': 'system', 'content': system},
             {'role': 'user', 'content': content}]

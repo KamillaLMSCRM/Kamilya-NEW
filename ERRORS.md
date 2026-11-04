@@ -1,5 +1,16 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- P14 recurrence (2026-11-04): whole50-question compact, questions-only and lexical
+  navigation critics still missed a distant unmarried alternative. One coherent
+  three-question lesson found it in one call, but v8 narrative metadata was
+  freeform. A later source audit also emitted assessment scope with question ID.
+  Root cause is review granularity plus independent union schemas, not missing
+  model capacity proven by a model switch. Fresh14 separates lesson-focused
+  independent review from exact raw-block coverage; v9 producer constrains owned
+  refs and scope-specific targets. Do not repair/coerce previously rejected raw
+  responses. Stored11–13 replay exact. Full5357unit/baseline PASS; actual strict
+  single-lesson control valid/key-1 in34.5s. Full-course/DEV semantics still pending.
+
 - P13 recurrence: a full43-question critic still missed the unmarried alternative
   that the same critic found on one question/one coherent lesson. A concise
   whole-course editor found five material issues in one control while emitting

@@ -14,7 +14,7 @@ document-to-confirmation acceptance. Existing customer courses remain unchanged.
    independently acceptable for human review; automatic hold is not relabeled.
    Fire/Micro saved corrections active with no repeated authoring. Microcredit:
    276 source blocks grouped into42 structural audit units, retaining all text.
-2. **Exact DEV candidate — P12 deployed, P13 successor in progress.** Exact P12
+2. **Exact DEV candidate — P12 deployed, P14 successor in progress.** Exact P12
    5c5bbb0a passed all7CI, attested backend/connector builds, isolated connector
    Luna6 profile and91-file worker source verification; canonical controller
    RELEASE_OK proves API/frontend/sole VM consumer identity. Customer/production
@@ -48,3 +48,12 @@ Current checkout: `v3-practical-dev-20261103`, branch
 `v3-production-20261103` checkout is retained R&D, not a deployment source.
 Current evidence: `.release-evidence/v3-production/`; canonical current state:
 `docs/CODEX_HANDOFF.md`. Local R&D totals are not normal per-course cost.
+
+
+P14 execution delta: independent coherent-lesson critics + exact raw-block audit
+replace whole-course question critic and redundant model source readers. Full
+source stays available to every critic; unchanged parts reuse exact journal stages.
+Actual P11/P12/P13 replay and5357unit/baseline pass; strict saved L01 found the
+marital alternative in one valid call. Full Micro saved cycle is active; no full
+P14 acceptance, DEV rollout or production claim yet. Failed whole-course lexical
+navigation/questions-only experiments remain rejected approaches.

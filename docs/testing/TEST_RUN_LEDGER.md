@@ -5494,3 +5494,13 @@ Engine LOCAL129 remains separate and unreleased; no new model calls.
 - Final current5336APIunitPASS56.82s/7warnings, focused95PASS2.56s, baseline1005/2174PASS. Actual storedP11eightstagejournal+P12fivestagecycle exactreplayPASS0provider/DBcalls, rawcourse/review/display unchanged. Freshpreviouswire tuplealiascounterfactualwentRED thenfixed byfreshlistprojection; originalfeedback/IDs retained anddiagnostickeys redacted.
 - Initial MicroP13objectschema151851bytes rejected locallybeforeCLI: cli_attempts0,0raw,0providerinference; cache's attemptedcall counter1 is NOT consumedtokens. Failedreportunchanged. Shared-recordarray reduces actual50Q/276block schema to13664bytes withunchanged65536protocolguard. Actualshippedrunner50Q276blocks and100Q300blocks testsPASS; thisisnot100pagesemanticacceptance.
 - P13Standards object-summarycontrol on unchanged full6L20Q accepted1newcall73.843s29790in3918out plus1exact retainedP12sourceaudit. No unnecessarylocalrepeatforarray-onlytransportchange; actualfreshDEV stillrequired. P13currentMicro r2+Fire r1 active with exactunchangedaudit reuse/noauthoring/nohumanfindings; appfrozen. LiveDEV stillP12 until newexactP13 CI/image/runtime. Fullthreecourse/nativeDeepSeek/protectedproduction/live gates OPEN.
+
+
+## 2026-11-04 — Practical P14 local structural gates (not DEV acceptance)
+
+- Full API unit suite5357PASS/58.38s/7warnings; canonical Python baseline1005/2174PASS.
+- Independent disjoint source cross-review GO; no runtime claims.
+- Actual historical P11 journal8/P12 cycle5/P13 cycle2 exact completed-stage replay PASS,0model/DB calls, unchanged courses/reviews/displays.
+- P14 single coherent saved Micro L01/3Q control:1Luna6/HIGH call34.5s44308input1711output, valid strict v9 response; critic key-1 found unmarried alternative. No human findings sent; not whole-course acceptance.
+- Earlier P13 Micro7received447779input42379output790.859s STOP shape_invalid; final assessment→question ID remains rejected. Offline recovered14L51Q candidate uses2distinct validated patches with exact8received-stage custody,0newcalls; candidate NOT accepted.
+- Active saved P14 Micro full correction: practical-microcredit-saved-lesson-p14-luna6-r1. No production/customer writes; actual DEV remains P12 exact5c5bbb0a.

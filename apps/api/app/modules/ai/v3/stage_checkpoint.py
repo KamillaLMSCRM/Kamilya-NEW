@@ -187,6 +187,7 @@ async def stage_once(
             auxiliary = is_auxiliary_format(response_format)
             from app.modules.ai.v3.diversity_response_schema import is_diversity_author_format
             auxiliary = auxiliary or is_diversity_author_format(response_format)
+            from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format
             from app.modules.ai.v3.practical_contract import is_practical_course_format
             from app.modules.ai.v3.practical_patch import is_practical_patch_format
             from app.modules.ai.v3.practical_review import is_practical_review_format
@@ -195,7 +196,7 @@ async def stage_once(
             practical = (
                 stage == "lesson" and group_id.startswith("practical:author:") and is_practical_course_format(response_format)
                 or stage == "review" and group_id.startswith("practical:review:") and is_practical_review_format(response_format)
-                or stage == "review" and group_id.startswith("practical:source-audit:") and is_source_audit_format(response_format)
+                or stage == "review" and group_id.startswith("practical:source-audit:") and (is_source_audit_format(response_format) or is_atomic_audit_format(response_format))
                 or stage == "review" and group_id.startswith("practical:source-read:") and is_source_read_format(response_format)
                 or stage == "repair" and group_id.startswith("practical:repair:") and is_practical_patch_format(response_format)
             )

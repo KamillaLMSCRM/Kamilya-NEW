@@ -21,6 +21,7 @@ from app.modules.ai.v3.practical_review import (
 from app.modules.ai.v3.practical_source_audit import AUDIT_SYSTEM, source_audit_messages
 from app.modules.ai.v3.response_contracts import response_contract
 from app.modules.ai.v3.revision_policy import (
+    CONCISE_PRACTICAL_REVIEW_POLICY,
     POLICY,
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
@@ -36,14 +37,14 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 
 def test_closed_practical_versions_and_fresh_stamp():
-    assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v13'
+    assert PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v14'
     assert stamp_policy({}, practical=True)['v3_review_policy'] == PRACTICAL_REVIEW_POLICY
-    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY):
+    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(version)
         assert read_review_policy({'v3_review_policy': version}) == version
-    assert not is_practical_policy('v3-practical-source-review-v14')
+    assert not is_practical_policy('v3-practical-source-review-v15')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v14'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v15'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):
@@ -77,14 +78,14 @@ def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(ca
 @pytest.mark.asyncio
 @pytest.mark.parametrize('version,legacy', [(PREVIOUS_PRACTICAL_REVIEW_POLICY, True),
                                              (SCOPED_PRACTICAL_REVIEW_POLICY, False),
-                                             (PRACTICAL_REVIEW_POLICY, False)])
+                                             (CONCISE_PRACTICAL_REVIEW_POLICY, False)])
 async def test_real_dispatch_author_and_artifacts_remain_bound_to_saved_policy(case, version, legacy):
     corpus, packet, course = case
     calls, audits = [], []
     async def model(messages, fmt):
         calls.append((response_contract(fmt), messages))
         value = copy.deepcopy(course if response_contract(fmt) == 'practical_course' else checked(packet, course))
-        if response_contract(fmt) == 'practical_review' and version == PRACTICAL_REVIEW_POLICY:
+        if response_contract(fmt) == 'practical_review' and version == CONCISE_PRACTICAL_REVIEW_POLICY:
             del value['question_rules']
             del value['option_checks']
             value['answerability'] = [

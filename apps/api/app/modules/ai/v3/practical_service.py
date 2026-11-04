@@ -32,6 +32,7 @@ from app.modules.ai.v3.practical_source_reader import (
     validate_source_read,
 )
 from app.modules.ai.v3.revision_policy import (
+    CONCISE_PRACTICAL_REVIEW_POLICY,
     PRACTICAL_MAX_OUTPUT_TOKENS,
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
@@ -51,8 +52,9 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else
-                     PRACTICAL_REVIEW_POLICY if result.concise_review else SCOPED_PRACTICAL_REVIEW_POLICY)
+    review_policy = (PRACTICAL_REVIEW_POLICY if result.lesson_scoped_review else
+                     PREVIOUS_PRACTICAL_REVIEW_POLICY if result.legacy_source_rule_scope else
+                     CONCISE_PRACTICAL_REVIEW_POLICY if result.concise_review else SCOPED_PRACTICAL_REVIEW_POLICY)
     lessons = []
     provenance_holds = []
     for lesson in displayed['lessons']:
@@ -134,13 +136,14 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     if any(doc.review_only_source_unresolved for doc in corpus.documents):
         raise ValueError('practical_source_review_required')
     packet = build_practical_source_packet(corpus, reference_decisions)
-    parts = source_reader_parts(packet)
+    parts = () if review_policy == PRACTICAL_REVIEW_POLICY else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
+    estimated_lessons = 0
 
     async def stage(stage: str, group: str, messages: list[dict[str, str]], fmt: dict[str, Any],
                     validate: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
-        nonlocal completed
+        nonlocal completed, estimated_lessons
         if cancellation_callback:
             await cancellation_callback()
         if journal is not None:
@@ -156,7 +159,16 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         completed += 1
         if progress_callback:
             # Author + two checks per candidate + at most four scoped repairs.
-            await progress_callback('realization', completed, len(parts) + 15, None, 1)
+            if review_policy == PRACTICAL_REVIEW_POLICY:
+                if stage == 'lesson' and group == 'practical:author:v1':
+                    estimated_lessons = len(value['lessons'])
+                elif stage == 'repair':
+                    estimated_lessons += len(value['new_lessons'])
+                # Estimate four review rounds and three repairs. New lessons grow it.
+                total = max(completed + 1, 1 + (estimated_lessons + 1) * 4 + 3)
+                await progress_callback('realization', completed, total, None, 1)
+            else:
+                await progress_callback('realization', completed, len(parts) + 15, None, 1)
         return value
 
     readings = []
@@ -167,9 +179,13 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings),
-                                       legacy_source_rule_scope=review_policy == PREVIOUS_PRACTICAL_REVIEW_POLICY,
-                                       concise_review=review_policy == PRACTICAL_REVIEW_POLICY)
+    if review_policy == PRACTICAL_REVIEW_POLICY:
+        from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
+        result = await run_lesson_practical_cycle(packet, asdict(intent), stage, max_revisions=3)
+    else:
+        result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings),
+                                           legacy_source_rule_scope=review_policy == PREVIOUS_PRACTICAL_REVIEW_POLICY,
+                                           concise_review=review_policy == CONCISE_PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
     return practical_artifacts(result, corpus, packet, source_sha256)
