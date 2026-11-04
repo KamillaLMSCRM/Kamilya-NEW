@@ -5596,3 +5596,21 @@ under point schedule, all3lessonquestionsUNIQUE/no materialtarget. No gold stem 
 answers sent, but target was ROOT+INDEPENDENT HUMAN finding, not automatic detection.
 ExactactualP18all16/coursehash and P16all17/coursehash replay preserved offline0calls.
 ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
+
+
+## 2026-11-04 P20 local fresh-delivery and blind-bank integration
+
+- Scope: initial-save delivery parity, terminal recognized NULLhold disposition,
+  blind wholequestionbank+memo under fresh policy20. DEV stille87/P19, no prodchange.
+- Full API5492PASS67.98s/7warnings; quality1005ruff/2174mypyPASS after type/import
+  fixes; source reviewGO. Initialdelivery historicale87 behavioralRED retained;
+ 29positive/negative tests include concurrent replacement (syntheticTx only).
+- Saved P19 all8exactstage offline replay PASS/0providerDBcalls/same5L18Q SHA
+ 9d5bf8faf08b4b251ea248130e1da296ae1bd7cd7f18fdce4bb147d2691cf909/NULL retained.
+- Actualbank1call82.531s22090in4367out; helper4096 postcondition rejection recovered
+  from fullcapture offline without retry, production16384 unchanged. All18original
+  keys UNIQUE/match; one unlabelled historical missingcontext question DEPENDS.
+  Independentarbiter1call32.640s16679in1595out: onlythatquestioneditable.
+- This is NOT threecompletecurricula, realDBconcurrency, DEVsave or prodacceptance.
+  Retain reports saved-p19-question-bank-p20-r1/offline-semantic-report.json and
+  saved-p19-question-bank-p20-adjudication-r1/report.json; no oldstageacceptance.

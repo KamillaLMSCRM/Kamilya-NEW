@@ -1,4 +1,82 @@
-# Current P19 local case-construction successor / P18 completed, 2026-11-04
+# Current P20 local gates accepted, 2026-11-04
+
+- Local20 freshdelivery+recognizedNULLhold+blindbank integration: full5492PASS,
+  baseline1005/2174PASS, releasecontractsPASS, independent sourceGO. Historicale87
+  initialsave behavioralRED; fixed29PASS. SameP19all8offline replay/samecourseSHA.
+- Real savedbank18originalQs+oneunlabelledhistoricalcase:18UNIQUE/keymatch,
+  onlyhistoricalquestion DEPENDS0,1. Bank22090in4367out/82.531s; independentarbiter
+ 16679in1595out/32.640s confirms onlythatquestion MATERIAL_ERROR/editable.
+  Helper4096postcondition rejected completebankbody; recovered+validatedoffline
+  with0repeatcalls; production16384unchanged. Oldintentnotaccepted/promoted.
+- DEVstillP19e87/noactivegeneration/held70e2e585NULLuntouched. Nextcommit20,
+  exactsource/CI/attestedimage/controller/idleworker rollout. Then ordinaryowner
+  terminalack disposition onlyifnewgateaccepted, retainNULL/history/unknowncost;
+  neverresumeheld19. Freshfirstsave mustpasswithoutcontinuation.
+- ThreefullDEVcourses/nativeDeepSeek/protectedprod/fullsyntheticlive remainOPEN.
+
+# Current P19 DEV held at final-save / P20 local successor, 2026-11-04
+
+- P19 Standards70e2e585 is now INTERRUPTED98%/generation_stage_outcome_unknown,
+  result v3_pending_stages=NULL, no course/finalintent. DO NOT resume/clear/change
+  this unknown fence. Third-owned-readback SHA
+  481759116ab65b86f831ac7d7efec1089450289d47bbd0b9498b2abdfcddc99f,
+  8uniqueLuna6responses142741input18278output/16rows. Exactoffline replay of ALL8
+  received stages completes5L18Q hash9d5bf8faf08b4b251ea248130e1da296ae1bd7cd7f18fdce4bb147d2691cf909
+  with unchanged sourcehold; no newprovider/DBcall and NULL retained. Independent
+  complete source16/4/reference review finds contentGO for humanreview, no material
+  error/requiredrepair. This is NOT successful persistence or runtime acceptance.
+- Source-proven runtime defect: initial admission dispatches taskid=jobid and
+  authoritative delivery lock accepts missing delivery_task_id/count0; final
+  checkpoint/readback incorrectly required explicitdeliveryfield. Old exacte87
+  implementation reproduces behavioralRED in p20-historical-initial-save-red-canonical-fixtures.log;
+  fixed shared matches_generation_delivery has29focusedPASS (initial/resumed,
+  stale/malformed/owner/source/fence/concurrentreplacement). Particularheldjobcause
+  remains unproven because generic NULLhold loses its original failure class.
+- Current local P20 includes one blind question-bank call instead of fullsource
+  onceperlesson; sourceaudit/independentarbitration remain. Visiblebank-only memo
+  retains unresolved prior issuesOPEN. Reviewer caught disallowed stageprefix,
+  fixedto practical:review:bank: and actualPendingStageJournal/direct+managed
+  boundary/coldreplay tested; source summary deduped. Combined72affectedPASS.
+- Local NULLhold abandonment extension permits ONLY recognized interrupted
+  practical/directsource/unknown-error/no-course/no-intent holds through existing
+  authenticated owner+explicitack endpoint. It retains NULL, journal, reservations
+  and unknowncost; no refund/retry. Not deployed or executed. Held19 UNTOUCHED.
+- No active generation/providercall. Runtime remains exacte87/P19 below, frozen;
+  no Fire/Micro admission. Next finish local20 fullgates/savedbank semantic+cost
+  control, deployonlywhileworkeridle, then ordinary owner-ack terminal disposition
+  ofheld19 IF newgateaccepted and allcustodypreserved; never clearNULL or resumeit.
+  Three complete DEV20 curricula/nativeDeepSeek/protectedprod/fullsyntheticliveOPEN.
+
+# Historical P19 deployed/running checkpoint — superseded by hold above
+
+- Exact e87c4f04154bb19e0d885cde48c7f2859d97bc31 committed and pushed projectaccount
+  feature+dev with independent SHA readback/receipts/memorynotes at07:22UTC.
+  CI41791812755/all7SUCCESS; build41792721557 SUCCESS/prodstageSKIPPED; official
+  attestation exactsource/dev/workflow/hostedPASS. Image10804f70fe2c1536e1b250dd11445f7386a5a96571253078d714c4dc83354060.
+- RELEASE_OK+RECONCILED ID REL-DEV-PRAC-P19-E87C4F04-20261104, packetSHA
+  fe836b44b18477b1c35ad4c5a76040e511a70691bbd0219277c8d5900f413885.
+  APIdep-dble2gh42hec73fvqmdg/live; Verceldpl_9ztjmnxdFL2DYk2k53QE38xWpG1p/
+  READY/Hobby. SoleVMworker4b3deee26ee53f594959f33b95ac7dac90fed3dd87cbcfa02f9beab63c17a8eb,
+  source94files/ready/restart0/unless-stopped; env45SHA
+  9eb4dbe80ddce5502c7d00b79c244c7e1c515663ab1f95cc9819347173656f07.
+  Previouse256 warmstopped exit0/noforce, retainedrollback64b; production6unchanged.
+- ONE full Standards70e2e585-ebbf-41df-850b-02c39d78a8c9 ADMITTED07:44:25UTC.
+  Receipt p19-dev-qa-standards-reuse-acknowledged-result.json SHA
+  8e78c2bd2fa769a3e45a18b9d916d9347e6a1f5efe710fee21fac4a88293191e.
+  First readonly tenant+actor/nonbypass snapshot running5%/policy19/routebound,
+  no receivedresponse yet; model/tokens UNKNOWN, not zero. Do NOT repeat admission
+  or admit Fire/Micro while current job is active. Same original reviewedMD/P2
+  reused without reindex; native/defaultV5 stillnotactivated. Monitor exactreceipt
+  with p19-qa-job-db-readonly.py; no blind resume of unknown/pending call. Deployed
+  API/worker/connector runtime is frozen; do not redeploy during active job. Local
+  opt-in question-bank successor20 is being developed with prior19 path unchanged;
+  it cannot affect immutable DEV image. No local inference until prior control is
+  reconciled, no duplicate generation. Fire/Micro NOT uploaded/admitted.
+- Second readonly snapshot:5received Luna6responses80650input13227output/running30%
+  with pending stage. Author5L18Q SHA9d5bf8faf08b4b251ea248130e1da296ae1bd7cd7f18fdce4bb147d2691cf909
+  extracted for independent whole-source/reference review; NOT a final course GO.
+
+# Historical local P19 preparation / P18 completed reference
 
 - result: DEV remains exact64b1b37c/P18 below. Its sole Standards e32605ef is
   COMPLETED, course e00cfca7-22c1-4278-95f6-50637177b98b,5L17Q/16uniqueLuna6

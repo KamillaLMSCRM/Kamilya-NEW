@@ -1,4 +1,40 @@
+## AI-FINAL-DELIVERY-001 - Fresh generation rejected by final-save delivery identity
+
+- Date: 2026-11-04.
+- Symptom: P19 Standards70e2e585 interrupted98% after8complete responses and no
+  saved course; generic NULLpending hold lost its specific failure class. Do not
+  assert that this exact runtime failure is proven to be the defect below.
+- Cause: admission/owned lock accepts initial delivery taskid=jobid with
+  absent delivery_task_id/count0; final checkpoint/readback required explicitID.
+  Earlier accepted saves occurred after resume installed that ID. Exact historical
+  e87 implementation fails the same positive initial-save regression.
+- Fix: share matches_generation_delivery under existing locked owner/tenant/status/
+  source/route/intent fences. Malformed counts, stale IDs, nonzero orphan resume
+  and concurrent replacement still reject. Recognized interrupted generic NULL
+  holds may use existing owner+explicit-ack terminal abandonment only; retain NULL,
+  responses/reservations/unknown cost, never refund/clear/resume the old call.
+- Verification:29fresh/resumed/stale/malformed/concurrent focusedPASS; full5492
+  unitPASS67.98s; baseline1005/2174PASS. Independent source reviewGO. Fake-session
+  tests are not real PostgreSQL concurrency or DEV persistence acceptance.
+- Prevention: prove first-delivery save without continuation in DEV; retain and
+  independently read final intent/receipt/course/history. Held19 remains unchanged
+  until deployed ordinary authenticated disposition; no directSQL repair.
+
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
+
+- P20 bank2026-11-04: replace repeated fullsource perlesson question exams with
+  one physically blind question-bank review; retain wholeprose source audit and
+  independent arbiter. Memo keys source+displayed owner/id/stem/options, never
+  hidden answer/prose; prior unresolved issues stayOPEN until fresh arbitration.
+  Actual saved5L18Q plus one unlabelled historical missingcontext question: all18
+  original independent keys UNIQUE/match; historical question DEPENDS0,1 and only
+  it receives MATERIAL_ERROR edit authority. Bank1call82.531s22090in4367out;
+  arbiter1call32.640s16679in1595out. Old fiveexams81724in8721out (notwholepipeline).
+  Local bank helper incorrectly requested4096output while productionuses16384;
+  runner rejected measured4367 after complete CLI output. Complete saved capture
+  parsed+validated offline, no repeated bank request and no promotion of rejected
+  runtime stage. Parsed runner default model label is not route identity; actual
+  isolated route/payload is Luna6/HIGH. Production limit unchanged.
 
 - Recurrence2026-11-04/P18: full DEV Standards completed5L17Q/16Luna6responses,
   332071input35078output. Its examiner returned UNIQUE/NONE for an issuance on

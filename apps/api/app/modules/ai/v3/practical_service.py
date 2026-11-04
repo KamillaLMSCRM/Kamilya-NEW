@@ -39,6 +39,7 @@ from app.modules.ai.v3.revision_policy import (
     PRACTICAL_MAX_OUTPUT_TOKENS,
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
+    QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
     SCOPED_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
     TYPED_PRACTICAL_REVIEW_POLICY,
@@ -57,7 +58,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY if result.explicit_case_author else
+    review_policy = (QUESTION_BANK_PRACTICAL_REVIEW_POLICY if result.question_bank_review else
+                     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY if result.explicit_case_author else
                      COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY if result.counterexample_review else
                      TYPED_PRACTICAL_REVIEW_POLICY if result.typed_findings else
                      STANDALONE_PRACTICAL_REVIEW_POLICY if result.standalone_review else
@@ -144,7 +146,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
@@ -155,7 +157,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     packet = build_practical_source_packet(corpus, reference_decisions)
     lesson_policies = {PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY,
                        TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
-                       EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY}
+                       EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY}
     parts = () if review_policy in lesson_policies else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
@@ -203,6 +205,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     if review_policy in lesson_policies:
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
         options = ({'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
+                    'explicit_cases': True, 'question_batch': True} if review_policy == QUESTION_BANK_PRACTICAL_REVIEW_POLICY else
+                   {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True} if review_policy == EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True}
                    if review_policy == COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY else

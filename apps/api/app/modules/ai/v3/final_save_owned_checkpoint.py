@@ -5,6 +5,7 @@ import hashlib
 from typing import Any
 from uuid import UUID
 
+from app.modules.ai.delivery_ownership import matches_generation_delivery
 from app.modules.ai.generation_checkpoint import AIGenerationCheckpointError, PlannedLesson
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.final_save_contract import FENCE_POLICY, INTENT_KEY, install_intent
@@ -55,7 +56,7 @@ async def checkpoint_final_output(*, journal: WorkerCycleJournal, context: Owned
             if (job.course_id is not None or not isinstance(analysis, dict)
                     or analysis.get(KEY) not in OWNED_POLICIES or analysis.get(KEY) != intent["route_policy"] or analysis.get("generation_engine") != "evidence_v3"
                     or job.result is None or not isinstance(job.result, dict)
-                    or job.result.get("delivery_task_id") != intent["delivery_id"]
+                    or not matches_generation_delivery(journal.job_id, job.result, intent["delivery_id"])
                     or job.result.get(ROUTE_KEY) != {"policy": ROUTE_POLICY, "fingerprint": intent["route_fingerprint"]}
                     or await context.verify_locked(session, job, plan) is not True):
                 raise ValueError("v3_final_checkpoint_owner_invalid")

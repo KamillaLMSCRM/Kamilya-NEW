@@ -40,6 +40,7 @@ from app.modules.ai.v3.practical_cycle import (
 )
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_patch import merge_practical_patch, practical_patch_format
+from app.modules.ai.v3.practical_question_scope import scoped_course_view
 from app.modules.ai.v3.practical_review import (
     PracticalReviewDecision,
     interpret_practical_review,
@@ -80,14 +81,37 @@ def partition_previous(course: dict[str, Any], packet: PracticalSourcePacket,
     return ({key: tuple(items) for key, items in grouped.items()}, tuple(global_items))
 
 
+def _split_question_bank(value: dict[str, Any], course: dict[str, Any],
+                         by_lesson: dict[str, tuple[dict[str, Any], ...]]) -> list[dict[str, Any]]:
+    """Project a validated bank once per owner; global evidence appears only once."""
+    parts = []
+    for index, lesson in enumerate(course['lessons']):
+        ids = {q['id'] for q in lesson['questions']}
+        part = {'source_fingerprint': value['source_fingerprint'], 'source_review': value['source_review'],
+            'source_notes': copy.deepcopy(value['source_notes']) if index == 0 else [],
+            'findings': [copy.deepcopy(row) for row in value['findings'] if
+                         row['scope'] == 'question' and row['target_id'] in ids
+                         or index == 0 and row['scope'] == 'source'],
+            'answer_keys': {key: answer for key, answer in value['answer_keys'].items() if key in ids},
+            'answerability': [copy.deepcopy(row) for row in value['answerability'] if row['question_id'] in ids],
+            'question_sources': {lesson['id']: copy.deepcopy(value['question_sources'][lesson['id']])}}
+        if by_lesson[lesson['id']]:
+            part['issue_checks'] = {row['issue_id']: copy.deepcopy(value['issue_checks'][row['issue_id']])
+                                    for row in by_lesson[lesson['id']]}
+        parts.append(part)
+    return parts
+
+
 async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict[str, Any], invoke: StageInvoker,
                                      *, max_revisions: int = 3, adjudicate: bool = False,
                                      standalone: bool = False, typed_findings: bool = False,
-                                     counterexamples: bool = False, explicit_cases: bool = False) -> PracticalCycleResult:
+                                     counterexamples: bool = False, explicit_cases: bool = False,
+                                     question_batch: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
-            or type(explicit_cases) is not bool or explicit_cases and not counterexamples):
+            or type(explicit_cases) is not bool or explicit_cases and not counterexamples
+            or type(question_batch) is not bool or question_batch and not explicit_cases):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
@@ -128,17 +152,50 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        for lesson in candidate['lessons']:
+        review_version = ('v3-practical-source-review-v20' if question_batch else
+                          'v3-practical-source-review-v19' if explicit_cases else
+                          'v3-practical-source-review-v18' if counterexamples else
+                          'v3-practical-source-review-v17' if typed_findings else
+                          'v3-practical-source-review-v16' if standalone else 'v3-practical-source-review-v14')
+        if question_batch:
+            # The bank's evidence depends on exactly what the blind examiner sees,
+            # not on hidden prose, explanation or the author's key. Prior issues
+            # remain OPEN until the independent arbiter checks their resolution.
+            visible = scoped_course_view(packet, candidate)
+            bank = [(lesson['id'], q['id'], q['prompt'], q['choices'])
+                    for lesson in visible['lessons'] for q in lesson['questions']]
+            prior = tuple(row for rows in by_lesson.values() for row in rows)
+            bank_key = _hash([packet.fingerprint, bank])
+            def validate_bank(value: dict[str, Any], checked: dict[str, Any] = candidate,
+                              checked_prior: tuple[dict[str, Any], ...] = prior) -> None:
+                interpret_practical_review(value, packet, checked, checked_prior, concise=True,
+                    strict_targets=True, standalone=True, question_batch=True, **review_options)
+            if bank_key in reviewed_parts:
+                raw_bank = reviewed_parts[bank_key]
+                bank_review = copy.deepcopy(raw_bank)
+                bank_review.pop('issue_checks', None)
+                if prior:
+                    bank_review['issue_checks'] = {row['issue_id']: {'status': 'OPEN',
+                        'reason': 'Unchanged blind question bank: independent resolution still required.'} for row in prior}
+                validate_bank(bank_review)
+                carried.append({'question_bank_sha256': bank_key, 'raw_review_sha256': _hash(raw_bank),
+                                'open_issue_ids': [row['issue_id'] for row in prior]})
+            else:
+                bank_review = await call('review', 'practical:review:bank:' + _hash([review_version, bank, prior]),
+                    practical_review_messages(packet, candidate, prior, model_view=view, concise=True,
+                        strict_targets=True, standalone=True, question_batch=True,
+                        typed_findings=typed_findings, counterexamples=counterexamples),
+                    practical_review_format(packet, candidate, prior, concise=True,
+                        strict_targets=True, standalone=True, question_batch=True, **review_options), validate_bank)
+                reviewed_parts[bank_key] = copy.deepcopy(bank_review)
+            parts = _split_question_bank(bank_review, candidate, by_lesson)
+        for lesson in ([] if question_batch else candidate['lessons']):
             part = {'title': candidate['title'], 'lessons': [copy.deepcopy(lesson)]}
             prior = by_lesson[lesson['id']]
             def validate_part(value: dict[str, Any], checked: dict[str, Any] = part,
                               checked_prior: tuple[dict[str, Any], ...] = prior) -> None:
                 interpret_practical_review(value, packet, checked, checked_prior, concise=True, strict_targets=True,
                                            **({'standalone': True} if standalone else {}), **review_options)
-            review_version = ('v3-practical-source-review-v19' if explicit_cases else
-                              'v3-practical-source-review-v18' if counterexamples else
-                              'v3-practical-source-review-v17' if typed_findings else
-                              'v3-practical-source-review-v16' if standalone else 'v3-practical-source-review-v14')
             group = 'practical:review:' + _hash([review_version, part, prior])
             part_key = _hash([packet.fingerprint, part])
             if adjudicate and part_key in reviewed_parts:
@@ -168,8 +225,9 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             atomic_audit_messages(packet, candidate, global_previous, model_view=view, **typed_options),
             atomic_audit_format(packet, candidate, global_previous, **typed_options), validate_global)
         narrative = atomic_audit_narrative_sources(audit, packet, candidate, global_previous, taught_only=standalone, **typed_options)
+        summaries = [row['source_review'] for row in parts] + [audit['source_review']]
         consolidated: dict[str, Any] = {'source_fingerprint': packet.fingerprint,
-            'source_review': '\n'.join([row['source_review'] for row in parts] + [audit['source_review']]),
+            'source_review': '\n'.join(dict.fromkeys(summaries) if question_batch else summaries),
             'source_notes': [], 'findings': [], 'answer_keys': {}, 'answerability': [], 'narrative_sources': {}}
         issue_checks: dict[str, Any] = {}
         for lesson, part in zip(candidate['lessons'], parts, strict=True):
@@ -247,7 +305,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), reason,
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
-                                        explicit_case_author=explicit_cases)
+                                        explicit_case_author=explicit_cases, question_bank_review=question_batch)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
                            checked_decision: Any = decision) -> None:
@@ -261,7 +319,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), 'no_progress',
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
-                                        explicit_case_author=explicit_cases)
+                                        explicit_case_author=explicit_cases, question_bank_review=question_batch)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

@@ -376,6 +376,18 @@ def _abandon_marker_digest(job: Any) -> str | None:
     from app.modules.ai.v3.pending_stage_transactions import checked_entries
     if not isinstance(getattr(job, "result", None), dict) or any(key in job.result for key in (INTENT_KEY, RECEIPT_KEY, *SOURCE_FIRST_KEYS)):
         return None
+    if "v3_pending_stages" in job.result and job.result["v3_pending_stages"] is None:
+        # A server-created unclassified hold cannot be resumed or refunded. Its
+        # owner may explicitly terminally fence it, retaining NULL and all usage.
+        from app.modules.ai.v3.revision_policy import REVIEW_KEY, is_practical_policy
+        params = job.params if isinstance(getattr(job, "params", None), dict) else {}
+        analysis = params.get("source_analysis")
+        if (getattr(job, "errors", None) != ["generation_stage_outcome_unknown"]
+                or not isinstance(analysis, dict) or analysis.get("generation_engine") != "evidence_v3"
+                or analysis.get("analysis_mode") != CURRENT_SOURCE_ANALYSIS_MODE
+                or not is_practical_policy(analysis.get(REVIEW_KEY))):
+            return None
+        return hashlib.sha256(b"null").hexdigest()
     try:
         if not checked_entries(job.result):
             return None
@@ -398,6 +410,9 @@ def is_abandoned_unknown(job: Any) -> bool:
 def can_abandon_unknown(job: Any) -> bool:
     params = getattr(job, "params", None)
     if not isinstance(params, dict):
+        return False
+    if (isinstance(getattr(job, "result", None), dict) and "v3_pending_stages" in job.result
+            and job.result["v3_pending_stages"] is None and getattr(job, "status", None) != "interrupted"):
         return False
     return (getattr(job, "status", None) in {"running", "interrupted"}
             and getattr(job, "course_id", None) is None

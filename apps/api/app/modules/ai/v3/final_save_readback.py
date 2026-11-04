@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from app.modules.ai.delivery_ownership import matches_generation_delivery
 from app.modules.ai.v3.final_save_contract import (
     INTENT_KEY,
     RECEIPT_KEY,
@@ -56,7 +57,7 @@ def verify_snapshot(*, state: Any, intent: dict[str, Any], job: Any, course: Any
                 or str(course.tenant_id) != tenant or str(course.created_by) != user
                 or has_pending(job.result) or not isinstance(job.result, dict)):
             return False
-        if (job.result.get("delivery_task_id") != intent["delivery_id"] or INTENT_KEY in job.result
+        if (not matches_generation_delivery(job_id, job.result, intent["delivery_id"]) or INTENT_KEY in job.result
                 or any(key in job.result for key in SOURCE_FIRST_KEYS)):
             return False
         receipt = job.result.get(RECEIPT_KEY)
