@@ -5558,3 +5558,41 @@ Engine LOCAL129 remains separate and unreleased; no new model calls.
 2026-11-04 P18 semantic contract: exactP17 DEV3a721225 CI41777455777/all7PASS/build41778223424 and source/API/frontend/soleVMworker reconciled; production unchanged. Full Standards9042f5bf author7L23Q all16families, engine independently fixed L5Q3 all-false choices but missed L4Q2 borrowing adjacent context. Knowncooperativepause12responses212701in22455out/24rows/no pending, ordinarycancel/custodyproofPASS (no finalcourse). Resume preflight failed readonly healthGET before auth/intent; no resume dispatch. Original WordXML lowerbound700100 independently proven for bothgroups. Saved samebatch counterexampleprobe1call47.891s17885in2309out flaggedQ2 and lefttwo controlsUNIQUE; its scenario/options remain untrusted. Actual production-contract2calls76.984s34290in3813out detectedQ2 but arbiterconfusedquestionmissingcontextwithsourceambiguity. Fresh18-only classificationguide leavesactualSOURCE_AMBIGUITYholds/authorityunchanged; reuseofreceivedreview and1newblindarbiter40.204s16663in2014out confirmsMATERIALQ2. Scopedrepair+counterrecheck2calls60.219s42948in2832out changesONLYQ2 and findsitUNIQUE; Q1 newlyallegedtimingdependence is UNADJUDICATED, not neweditpermission. Local full5442PASS65.55s beforefinalpromptdelta,39affectedPASS/finalbaseline1005/2174; exactP17 all12prefix/P16all17/P15rejectedbody parity0calls. Finalfullsuiteactive; no three-course/newDEV/prod acceptance inferred. Reviewer/source claim is not normative fact or a reason to rewrite good parts automatically.
 
 2026-11-04 P18 FINAL local:5443unitPASS/63.26s/7warnings after finalclassificationprompt; baseline1005/2174/releasecontractsPASS. Independent source review accepted boundaries; actualthreecourse/runtime/production gates remainOPEN.
+
+2026-11-04 P18 complete DEV Standards: exact64b1b37c CI41783829960/all7SUCCESS,
+build41784790675/attestationPASS, soleVMworker e256fa95/image131ea613/45envkeys,
+APIdep-dbld18gu01pc739s7sng and frontdpl_49cpmsC5bhuQXtR9XfZcJhh2G4qq reconciled.
+Job e32605ef-b346-4edc-a357-f7671dd9a2c2 completed, draft e00cfca7-22c1-4278-95f6-50637177b98b,
+5lessons17questions/16uniqueLuna6HIGHresponses332071input35078output; reasoning/cache
+token counters unavailable, not zero. One known interrupted/no-pending ordinary
+resume preserved all11prior rows/source/policy/p2 exactly. Entire16stage offline
+replay coursehash d724d788729ab2243623f00a54bcaec05aacc02e1428c835397771a672719f71.
+Ordinary API saved text/keys/choices/explanations/literal quotes match canonical
+display projection for all5L17Q; initial helper compared internal SRC14 with human
+clause4 rendering and falsely flagged one explanation. Diagnostic preserved;
+projection proof p18-standards-saved-api-readback.json. No product data loss found.
+Independent whole-course16family/4ambiguity/source/owner-reference review: known
+L3Q2 Saturday does not establish day-off trigger; no other proven material error.
+D12 taught, not directly assessed; no per-family question quota. Sourcehold remains,
+no wholecourse GO or threecourse acceptance. Production/customer courses unchanged.
+
+2026-11-04 rejected local P19 examiner experiments: grounded-predicate format1call
+42.938s18388input1965output still returned UNIQUE/NONE; source-literal condition
+variant1call62.391s18450input3231output also missed and failed quote custody.
+Although5463unitPASS/61.68s/baseline1005/2174, candidate rejected and exact patch/new
+tests archived outside collection. Reviewer-only source-first prompt1call25.297s
+18086input1208output also missed. No raw body promoted, no blind retry or DEV rollout.
+Root changed hypothesis to preventing normative-condition substitution during
+author/ownedpatch construction; fresh19 remains local pending real saved control
+and complete courses. Current normal tenant admission remains legacyV5.
+
+2026-11-04 narrowed P19 local: EXPLICIT_CASE_GUIDE reaches fresh author and owned
+patch; no new response schema, local semantic validator, reviewer call, or automatic
+edit authority. Independent source review found no proven material implementation
+or legacy drift.30focusedPASS; full5445unitPASS61.19s/7warnings; baseline1005/2174;
+releasecontractsPASS. Saved human-confirmed L3Q2 construction+blind recheck2calls
+33.375s40895input1465output: only target changed, now explicitly a nonworking day
+under point schedule, all3lessonquestionsUNIQUE/no materialtarget. No gold stem or
+answers sent, but target was ROOT+INDEPENDENT HUMAN finding, not automatic detection.
+ExactactualP18all16/coursehash and P16all17/coursehash replay preserved offline0calls.
+ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.

@@ -1,7 +1,103 @@
-# Current P18 local successor / P17 DEV known cancelled — 2026-11-04
+# Current P19 local case-construction successor / P18 completed, 2026-11-04
+
+- result: DEV remains exact64b1b37c/P18 below. Its sole Standards e32605ef is
+  COMPLETED, course e00cfca7-22c1-4278-95f6-50637177b98b,5L17Q/16uniqueLuna6
+  responses332071input35078output; no pending. One ordinary known-no-pending
+  continuation preserved all11prior responses/source/policy/p2. Final exact16stage
+  offline replay hash d724d788729ab2243623f00a54bcaec05aacc02e1428c835397771a672719f71.
+  Ordinary allcontent API readback matches canonical display projection (raw SRC14
+  intentionally renders clause4); initial helper mismatch was representation,
+  not data loss. See p18-standards-saved-api-readback.json; original diagnostic kept.
+- changed: Complete independent source16/4/reference review found known L3Q2
+  Saturday premise unestablished; no other proven material error. D12 taught,
+  not directly assessed; no separate-question quota. L2Q2 authenticity wording is
+  fidelity polish. Automatic result remains source_uncertain, not course GO.
+- verified: Rejected local grounded-predicate experiment despite5463unitPASS:
+  first realcontrol1call42.938s18388in1965out missed target; literal-condition
+  variant1call62.391s18450in3231out also missed and failed source quote validation.
+  Generic reviewer-only source-first prompt1call25.297s18086in1208out still missed.
+  All raw responses/rejectedpatch/tests archived under .release-evidence/v3-production;
+  NONE of these predicate/schema changes is in current app diff or DEV.
+- changed: Root narrowed P19 to EXPLICIT_CASE_GUIDE in fresh author AND scoped
+  patch, preserving required source conditions when constructing examples, with
+  no new schema/validator/reviewer call. Independent source review found no proven
+  implementation/legacy drift;30focusedPASS/baseline1005/2174/full5445unitPASS61.19s/
+  7warnings/releasecontractsPASS. ONE human-targeted saved L3Q2 construction+blind
+  recheck completed2calls33.375s40895input1465output. ONLY L3Q2 changed: Saturday
+  explicitly declared nonworking according to point schedule; allthreequestions
+  UNIQUE/no questiontarget. Root inspected source/choices/explanation and scope.
+  This control is NOT automatic defect detection or full-course acceptance.
+  ExactP18all16/coursehash and P16all17/coursehash parity PASS/0provider/DBcalls.
+- blockers: No active inference/DEV generation. Native default stilllegacyV5;
+  three complete source/reference curricula/nativeDeepSeek/liveprod OPEN.
+- next: Finish exact owned diff/commit and P19 DEV rollout and
+  THREE full courses/source matrices/reference; nativeDeepSeek and protectedprod/
+  fullsyntheticlive remain OPEN. Fire/Micro not admitted. No active DEV generation,
+  no customer/production/voice/reserve/providerplan changes. Normal admission stillV5.
+
+# Historical P18 running checkpoint — superseded by completed result above
+
+- Runtime update06:51UTC: same job e32605ef resumed ONCE ordinarily after verified
+  interrupted/generation_interrupted/no pending,11received205812input24231output.
+  p18-standards-resume1-result.json=SAME_JOB_RESUME_ADMITTED; all11exact checkpoint
+  rows/source/policy/p2 preserved in p18-resume-prefix-custody-proof.json. Only
+  progress_detail is legitimately mutable. Current seventh-owned-readback running44%
+  with one pending tail stage; do not duplicate/resume/alter app or runner.
+- Independent root/Terra whole-author/reference calibration confirms one material
+  current-author risk L3Q2: Saturday alone does not establish the source trigger
+  nonworking/holiday or after18:00. Actual examiner returned UNIQUE/NONE. Other
+  alleged future-repayment cases were withdrawn as unproven; broad authenticity
+  wording is fidelity polish, not a standalone NO-GO. Root is checking final result
+  before a successor. General next mechanism: distinguish source-rule applicability
+  entailed by question facts from plausible unstated assumptions inside the SAME
+  batched reviewer call; not a calendar blacklist or extra per-question loop.
+
+- result: Exact64b1b37c7cc6e938e978d85b74063e72df48c97d RELEASE_OK+RECONCILED
+  DEV. CI41783829960/all7SUCCESS; build41784790675/attestationPASS and production
+  stageSKIPPED. Image131ea6134abe8cbd5f5150a8a4e9c1767e328905dfdca430b9f775293e7a1b57.
+  APIdep-dbld18gu01pc739s7sng/live; Verceldpl_49cpmsC5bhuQXtR9XfZcJhh2G4qq/
+  READY/Hobby. SoleVMworker e256fa95d981c32c71d4e3a73eff3f9fecb1d0580476db77e3e855b4eae7e662,
+  env45SHA c14db30dfa5b516567c1e2210554b8d361d6b16fd0185969f4b41eaab37d825d,
+  94sourcefiles/ready/restart0/unless-stopped. Prior77306 warmstopped exit0/noforce
+  retainedrollback-3a721225; allsixproduction containers unchanged.
+- changed: ONE ordinary full Standards e32605ef-b346-4edc-a357-f7671dd9a2c2
+  admitted06:32:48UTC using same reviewedMD doce18c0fea/source8d71182b/index418d4170/
+  ownerp2. No upload/reindex. Canonical reuse_reason=other creates separate draft;
+  P16 saved8L24Q and P17cancelled12stage history preserved. Receipt
+  p18-dev-qa-standards-reuse-acknowledged-result.json SHA
+  4e93d59b34ba2e581599d9f062f3e1c815c8fcf52db07b8f6cabc482a0e29b9c.
+- verified: Final5443unitPASS63.26s/baseline1005/2174/releasecontracts/source-review,
+  legacyP17all12prefix/P16all17/P15sameheldbody parity; savedcontext control
+  detection/adjudication/ownedrepair/newcheck completed as detailed below, NOT a
+  full-course acceptance. First fresh readonly lms_app/nonbypass/tenant+actor
+  snapshot observes actualpolicy18/running5%/0received/routebound/no pending yet;
+  model/tokens UNKNOWN, not zero. No active local inference/controller/helper.
+- blockers: Three complete67family/16ambiguity curricula/reference comparison,
+  nativeDeepSeek, protectedproduction/fullsyntheticlive OPEN. Current normal
+  tenant default stilllegacyV5. Customer courses/data/providerplan/rights/voice/
+  reserve unchanged. Original700100 WordXML proof retained, no source edit.
+- next: Freeze app/runner during e32605ef. Monitor p18-qa-job-db-readonly.py with
+  exact admittedreceiptSHA above; inspect entire author/final against16/4matrix
+  and acceptedStandards reference (counts/wording not targets), actualtime/calls/
+  tokens and recovery. Known cooperative pause without pending may use canonical
+  samejobresume after fresh custody proof; never repeat unknown dispatch. Fire/
+  Micro have NOT been uploaded/admitted. Use reviewed run-p18-dev-case.py after
+  genuine controller reconciliation ifolder600s. PacketSHA
+  a1f58085da7352178ef094c941bb84dd28d69ece331840685c2b74f4b053779c;
+  releaseID REL-DEV-PRAC-P18-64B1B37C-20261104. Continue nativeDeepSeek and protected
+  production/fullsyntheticlive; source/CI/runtime and saved controls are not GO.
+
+# Historical P18 local successor / P17 DEV known cancelled — superseded
 
 - result: Owner production outcome remains OPEN. DEV source/API/frontend/sole
-  worker still exactP17 3a721225 below. Local P18 delta NOT committed/deployed.
+  worker still exactP17 3a721225 below. P18 committed/pushed exactfeature+dev
+  64b1b37c7cc6e938e978d85b74063e72df48c97d with projectaccount/readback/notes.
+  CI41783829960 active (6/7SUCCESS, integration stillrunning at lastread); P18
+  runtime NOT deployed. Canonical45-key env staging for64b installed, payloadSHA
+  c14db30dfa5b516567c1e2210554b8d361d6b16fd0185969f4b41eaab37d825d.
+  prepare-p18-worker-ops.py prepared, requires new attestedimage/CI before run;
+  p18-qa-source-reuse-once.py/run-p18-dev-case.py/p18-qa-job-db-readonly.py
+  prepared but notexecuted. Do not duplicate any admission or modelcontrol.
   P17 full Standards9042f5bf knowncooperativelypaused after12receivedresponses
   212701input22455output/24rows/no pending at41%. Ordinary cancellation applied
   once after confirmed semantic review gap; all24rows/result/source/p2/documents/
@@ -38,7 +134,7 @@
   DEV modeljob or production/clientchanges. Final fullunit5443PASS/63.26s/
   7warnings in p18-final-full-api-unit.log after final prompt-onlydelta;
   finalbaseline1005/2174 and independent source review PASS.
-- next: Selected P18 commit/projectaccount receipts/CI/attestedimage/soleVMworker rollout
+- next: Finish exactP18 CI/attestedimage/soleVMworker rollout
   retaining77306/P17 rollback. Three full DEV Luna courses/reference/matrices,
   nativeDeepSeek and protectedproduction/fullsyntheticlive remain OPEN. Do not
   repeat full authors before a confirmed root fix. Resume helper made NO auth or

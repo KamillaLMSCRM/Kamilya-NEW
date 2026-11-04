@@ -1,5 +1,33 @@
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P18: full DEV Standards completed5L17Q/16Luna6responses,
+  332071input35078output. Its examiner returned UNIQUE/NONE for an issuance on
+  Saturday, although the source trigger requires after18:00 or a nonworking/holiday
+  day and the question does not establish the office schedule. The accepted owner
+  reference explicitly uses after18:00. Root and independent review withdrew
+  hypothetical future-repayment allegations and separated authenticity wording
+  polish from a changed operational answer; these are not mandatory rewrites.
+  Cause: a source-rule prerequisite was treated as entailed from plausibility.
+  Local compact prerequisite grounding was REJECTED: its real control still missed
+  the error, and stricter literal-source conditions additionally failed copying
+  without improving semantic detection. A reviewer-only source-first prompt also
+  missed. Green5463unit tests did not prove semantics. Raw responses, exact patch
+  and experimental tests retained; no predicate/schema change shipped. Current
+  narrower P19 constructs author/repair examples with explicit original normative
+  conditions, without new validators or calls. Its human-targeted saved control
+  completed2calls33.375s40895input1465output: ONLY owned L3Q2 changed to explicit
+  nonworking-day condition, threequestions UNIQUE/no materialquestiontarget.
+  Full5445unitPASS61.19s/baseline1005/2174, independent source review, exactactual
+  P18/P16 fullreplay parity PASS. Full DEV successor remains required; no automatic
+  detection or generalization claim from the human-targeted control.
+- P18 persistence readback correction: compare ordinary saved text with the
+  canonical scoped_course_view display projection, not raw internal SRC handles.
+  Initial helper falsely reported one explanation mismatch (SRC14 rendered to
+  original clause4). Offline comparison of all5L17Q against that exact projection
+  passed, including every key/choice/explanation and literal source quote;
+  original diagnostic retained. This is a harness representation correction,
+  not permission to normalize or ignore arbitrary content differences.
+
 - Recurrence2026-11-04/P17: same-lesson blind batch still exposed neighboring
   question premises. L4Q2 inherited locality/stage from Q1 and examiner asserted
   UNIQUE although its own stem lacked those facts. Independent reference/source
