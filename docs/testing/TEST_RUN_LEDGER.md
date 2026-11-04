@@ -5657,3 +5657,45 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
 - Rejectedcriticcontrols1call73s22982in3803out and1call142.188s23396in7645out
  failedsameoverlap; NOintegration. Pre-dispatchschemafailure0modelcalls retained.
 - Fresh22DEVthreefullcourses/nativeDeepSeek/productionlive remain pending.
+
+
+## 2026-11-04 P22 exact DEV and complete Standards result
+
+- Exactf7 API/worker/frontend controllerRECONCILED; CI41819759567/7SUCCESS,
+  imagebuild41820467009/attestationPASS, image13e8ae89. Web1589/182filesPASS,
+  lint/types/buildPASS. One sameSHA FreeRender cache-clear recovered a proven
+  provider-LIVE/public-health identity drift; original failure preserved.
+- Standards8c664578 completed6L22Q,15actualLuna6HIGH responses334737in47397out.
+  One known-no-pending preclaim pause; all7prefix requests replayexact0calls,
+  ordinary SAME-job resume once preserves all7 raw payloads/source/route/intent.
+  Initial before-resume health readtimeout occurred before any resume intent/POST;
+  provider/fresh health recovered, only one resumePOST was dispatched.
+- All15 exact completed requests replayPASS and ordinary persistedAPI ALL text,
+  keys/options/literalquotesPASS; finalreceiptv2/course3477761f. Independent full
+  source16families/4boundaries/reference audit found remaining L5Q3 missing report
+  trigger; original numeric sourcegap is separately visible/held. Three locality
+  omissions corrected by the engine. CONTENT NOTGO; not three-course acceptance.
+- p22-standards-full-course-gate.json preserves timing/accounting/boundary.
+  No Fire/MicroP22 admission or production/customer mutation. Saved blinded
+  consumer-view diagnostic is separate from another full-course generation.
+
+
+## 2026-11-04 P23 local add-only context and rejected controls
+
+- Localcandidate onf7 base, notdeployed. Newpolicy23 adds one source/route/course-
+  bound question-context operation before ordinary blind/source checks and only
+  actual owned changed/new questions after patches; original prompt bytes protected.
+- Independentroot+Terra ALL22saved questions GO for four supplemented cases. Actual
+  candidate schema/provenance controlR4:1call29.171s21078in1295out; source refs correct,
+  noanswerhints, nooptions/keys/explanation/prose changes. This is NOT a freshcourse.
+- Full5555unitPASS68.18s/7warnings, baselineRuff1006/Mypy2174PASS. Focused66PASS3.47s;
+  includes cold replay, direct+managed new stage, unknown no-repeat, unresolved
+  partialrepair retention, owned cites and100Q/1000blocks. OldactualP22all15requests
+  replay0modelDBcalls, canonicalhash90305710...eea100 unchanged/oldNO-GO preserved.
+- Diagnostic nine local calls total176938input25041output. Preserve all failures:
+  consumerrole1call22670/6698; case_facts author17220/5390; unusedsource-reader16711/5460;
+  isolatedquestion17294/585; plaineditor21613/1468; whole-stem normalizationR1
+  20049/1599 (answerhints),R2 20200/1731 (issuance->paperwork substitution).
+  Accepted add-onlyR3 20103/815 and actualcandidateR4 21078/1295 are bounded controls.
+  No rejected reader/critic/case_facts protocol shipped. Audit-agent token totals
+  unavailable, notzero. No freshP23 DEV/model generation or production mutation yet.

@@ -34,6 +34,7 @@ from app.modules.ai.v3.practical_source_reader import (
 from app.modules.ai.v3.revision_policy import (
     ARBITRATED_PRACTICAL_REVIEW_POLICY,
     CONCISE_PRACTICAL_REVIEW_POLICY,
+    CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
@@ -60,7 +61,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY if result.exclusive_options else
+    review_policy = (CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY if result.context_supplemented else
+                     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY if result.exclusive_options else
                      OWNED_AUDIT_PRACTICAL_REVIEW_POLICY if result.strict_audit_owners else
                      QUESTION_BANK_PRACTICAL_REVIEW_POLICY if result.question_bank_review else
                      EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY if result.explicit_case_author else
@@ -104,6 +106,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         lessons.append(V3Lesson(lesson_id=lesson['id'], title=lesson['title'], module_title=result.course['title'],
             content=lesson['content'], covered_rule_ids=tuple(dict.fromkeys(covered)), questions=tuple(questions)))
     issues = [f"{row['scope']}:{row['id']}" for row in result.decision.feedback]
+    issues.extend('question_context_unresolved:' + qid for qid in result.unresolved_question_context)
     if provenance_holds:
         issues.append('practical_cross_document_question_quote_requires_review')
     if prose_provenance_holds:
@@ -111,7 +114,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
     source_verified = all(not doc.conversion_fidelity.needs_review
                           and not doc.review_only_source_unresolved
                           and not doc.review_only_source_context for doc in corpus.documents)
-    accepted = result.decision.accepted and not provenance_holds and not prose_provenance_holds
+    accepted = (result.decision.accepted and not provenance_holds and not prose_provenance_holds
+                and not result.unresolved_question_context)
     report = {'review_policy': review_policy,
               'automated_review_passed': accepted,
               'stop_reason': result.stop_reason, 'violations': issues,
@@ -137,6 +141,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         'practical_unverified_prose_lesson_ids': prose_provenance_holds,
         'practical_display_course': displayed,
         'practical_source_readings': list(result.source_readings),
+        **({'practical_unresolved_question_context': list(result.unresolved_question_context)}
+           if result.context_supplemented else {}),
         'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
                                     else 'authored_question_scope_v2'),
     })
@@ -150,7 +156,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
@@ -162,7 +168,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     lesson_policies = {PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY,
                        TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
                        EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
-                       OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY}
+                       OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
+                       CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY}
     parts = () if review_policy in lesson_policies else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
@@ -211,8 +218,9 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
         options = ({'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True, 'strict_audit_owners': True,
-                    **({'exclusive_options': True} if review_policy == EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY else {})}
-                    if review_policy in {OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY} else
+                    **({'exclusive_options': True} if review_policy in {EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'context_supplemented': True} if review_policy == CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY else {})}
+                    if review_policy in {OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY} else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True} if review_policy == QUESTION_BANK_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,

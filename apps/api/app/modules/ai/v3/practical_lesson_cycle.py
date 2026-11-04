@@ -41,6 +41,12 @@ from app.modules.ai.v3.practical_cycle import (
 )
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_patch import merge_practical_patch, practical_patch_format
+from app.modules.ai.v3.practical_question_context import (
+    apply_context_supplements,
+    context_format,
+    context_messages,
+    retained_context_unresolved,
+)
 from app.modules.ai.v3.practical_question_scope import scoped_course_view
 from app.modules.ai.v3.practical_review import (
     PracticalReviewDecision,
@@ -108,14 +114,16 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      standalone: bool = False, typed_findings: bool = False,
                                      counterexamples: bool = False, explicit_cases: bool = False,
                                      question_batch: bool = False, strict_audit_owners: bool = False,
-                                     exclusive_options: bool = False) -> PracticalCycleResult:
+                                     exclusive_options: bool = False,
+                                     context_supplemented: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
             or type(explicit_cases) is not bool or explicit_cases and not counterexamples
             or type(question_batch) is not bool or question_batch and not explicit_cases
             or type(strict_audit_owners) is not bool or strict_audit_owners and not question_batch
-            or type(exclusive_options) is not bool or exclusive_options and not strict_audit_owners):
+            or type(exclusive_options) is not bool or exclusive_options and not strict_audit_owners
+            or type(context_supplemented) is not bool or context_supplemented and not exclusive_options):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
@@ -135,6 +143,26 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         validate(value)
         return value
 
+    unresolved_context: tuple[str, ...] = ()
+    context_history: list[dict[str, Any]] = []
+
+    async def add_question_context(course: dict[str, Any], targets: tuple[str, ...]) -> dict[str, Any]:
+        nonlocal unresolved_context
+        if not targets:
+            return course
+        targets = tuple(sorted(targets))
+        before = _hash(course)
+        def validate_context(value: dict[str, Any]) -> None:
+            apply_context_supplements(packet, course, targets, value)
+        value = await call('review', 'practical:context:' + _hash([before, targets]),
+            context_messages(packet, course, targets, model_view=view),
+            context_format(packet, course, targets), validate_context)
+        supplemented, unresolved = apply_context_supplements(packet, course, targets, value)
+        unresolved_context = retained_context_unresolved(unresolved_context, targets, unresolved)
+        context_history.append({'input_course_sha256': before, 'question_ids': list(targets),
+            'output_course_sha256': _hash(supplemented), 'unresolved_question_ids': list(unresolved)})
+        return supplemented
+
     messages = [{'role': 'system', 'content': FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE
                  + (EXPLICIT_CASE_GUIDE if explicit_cases else '')
                  + (EXCLUSIVE_OPTIONS_GUIDE if exclusive_options else '')},
@@ -146,6 +174,9 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         validate_practical_course(value, packet)
     candidate = validate_practical_course(await call('lesson', 'practical:author:v1', messages,
                                                       course_response_format(packet), validate_author), packet)
+    if context_supplemented:
+        candidate = await add_question_context(candidate,
+            tuple(q['id'] for lesson in candidate['lessons'] for q in lesson['questions']))
     previous: tuple[dict[str, Any], ...] = ()
     seen: set[str] = set()
     history: list[dict[str, Any]] = []
@@ -158,7 +189,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v22' if exclusive_options else
+        review_version = ('v3-practical-source-review-v23' if context_supplemented else
+                          'v3-practical-source-review-v22' if exclusive_options else
                           'v3-practical-source-review-v21' if strict_audit_owners else
                           'v3-practical-source-review-v20' if question_batch else
                           'v3-practical-source-review-v19' if explicit_cases else
@@ -304,17 +336,27 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                         'source_uncertain': decision.source_uncertain})
         if adjudicate:
             history[-1].update(adjudication=adjudication, carried_reviews=carried)
+        if context_supplemented:
+            history[-1].update(context_normalizations=copy.deepcopy(context_history),
+                               unresolved_question_context=list(unresolved_context))
         editable = bool(decision.lesson_ids or decision.question_ids or decision.assessment_lesson_ids
                         or adjudicate and decision.allow_new_lessons and not decision.source_uncertain)
         reason = ('accepted' if decision.accepted else 'source_uncertain'
                   if decision.source_uncertain and (not editable or not adjudicate and revision == max_revisions)
                   else 'revision_limit' if revision == max_revisions else '')
         if reason:
+            if unresolved_context:
+                decision = replace(decision, accepted=False)
+                history[-1]['accepted'] = False
+                if reason == 'accepted':
+                    reason = 'question_context_unresolved'
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), reason,
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
                                         explicit_case_author=explicit_cases, question_bank_review=question_batch,
-                                        strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options)
+                                        strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options,
+                                        context_supplemented=context_supplemented,
+                                        unresolved_question_context=unresolved_context)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
                            checked_decision: Any = decision) -> None:
@@ -325,12 +367,25 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      exclusive_options=exclusive_options), fmt, validate_patch)
         revised = merge_practical_patch(candidate, packet, decision, patch)
         view.assert_course_ids_disjoint(revised)
+        if context_supplemented:
+            # The patch contract owns these exact questions. A prose-only edit
+            # cannot grant permission to append context to an untouched peer.
+            owned = (list(patch.get('question_updates', {}))
+                + [row['question']['id'] for row in patch['new_questions']]
+                + [q['id'] for rows in patch.get('assessment_additions', {}).values() for q in rows]
+                + [q['id'] for lesson in patch['new_lessons'] for q in lesson['questions']])
+            previous_questions = {q['id']: q for lesson in candidate['lessons'] for q in lesson['questions']}
+            revised_questions = {q['id']: q for lesson in revised['lessons'] for q in lesson['questions']}
+            targets = tuple(qid for qid in owned if previous_questions.get(qid) != revised_questions[qid])
+            revised = await add_question_context(revised, targets)
         if _hash(revised) in seen:
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), 'no_progress',
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
                                         explicit_case_author=explicit_cases, question_bank_review=question_batch,
-                                        strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options)
+                                        strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options,
+                                        context_supplemented=context_supplemented,
+                                        unresolved_question_context=unresolved_context)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

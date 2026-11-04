@@ -75,6 +75,8 @@ async def run_direct_owned_stage(
                 and str(plan.get("group_id", "")).startswith("practical:review:"))
             or (kind == "practical_arbitration" and plan.get("stage") == "review"
                 and str(plan.get("group_id", "")).startswith("practical:arbitrate:"))
+            or (kind == "practical_question_context" and plan.get("stage") == "review"
+                and str(plan.get("group_id", "")).startswith("practical:context:"))
             or (kind == "practical_patch" and plan.get("stage") == "repair"
                 and str(plan.get("group_id", "")).startswith("practical:repair:"))
         ) and plan.get("request_sha256") == _digest([messages, response_format])

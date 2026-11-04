@@ -181,6 +181,8 @@ class PracticalCycleResult:
     question_bank_review: bool = False
     strict_audit_owners: bool = False
     exclusive_options: bool = False
+    context_supplemented: bool = False
+    unresolved_question_context: tuple[str, ...] = ()
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

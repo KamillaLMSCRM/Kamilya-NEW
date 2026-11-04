@@ -1,3 +1,141 @@
+# P23 LOCAL READY FOR SOURCE/DEV, 2026-11-04 13:45UTC
+
+- result: Add-only owned question-context operation integrated in SAME source-reviewed
+  worktree/branch on f7c105b6 base. New server policy v23; historical11-22 untouched.
+  No new model/DEV job/controller active now; deployedDEV remains exactf7/P22,
+  worker876118c5/image13e8/env7723, APIdep-dblhqfoae00c73c9vi30, VercelHjGPSFY3rTN5.
+- changed: Fresh author is followed by ONE bank supplement phase; after a scoped
+  patch ONLY actually changed/new question targets are normalized. Original prompt
+  bytes/events/negations cannot be rewritten. Answers/explanations hidden, no rule
+  hints; unresolved per-ID state survives partial repairs and prevents automated
+  acceptance. Closed source/course fingerprints and owned stage/provenance apply.
+  New context refs only extend old refs monotonically within one document; a
+  cross-document proposal remains unapplied/held. Literal saved quote spans refs.
+- verified: Local5555unitPASS68.18s/7warnings, baselineRuff1006/Mypy2174PASS,
+  release-contract0184/367errorsPASS. Exact actual oldP22all15requests/course90305710
+  replay0calls unchanged (oldsemanticNO-GO retained). Independent source review GO.
+  Actual LOCAL candidate schema/model control p23-shipped-context-r4:1Luna6HIGH
+  call29.171s21078in1295out, ALL22questions independently checked; four necessary
+  prefixes with correct block refs, no answer hint or unsupported premise. 'shipped'
+  in artifact filename does NOT mean deployed. All controls terminal, no local call.
+- blockers: FreshP23threeLunaDEV courses/67families16boundaries/nativeDeepSeek/
+  protectedprod/fullsyntheticlive remain OPEN. Do not promote this bounded control
+  or old fullcourse into three-course acceptance. Existing4Lombardcourses/customer
+  docs/data/rights/voice/sharedreserve unchanged. Originalstdamountgap staysvisible.
+- next: Commit explicit candidate files, canonical project-account feature+dev pushes
+  and immediate independent SHA receipts+authorized memory notes; exactCI/image,
+  96v3sourcefiles worker rollout/env + canonical controller. P22currentjob8c664578
+  terminalcompleted/course3477761f (15calls334737in47397out, resumedonce) needsreview,
+  no resume/rewrite. Then freshP23Std source reuse, FireNEW correctedrev03 upload,
+  Microfirst upload; no duplicate active generation. Native config AFTERLunagates.
+- source preparation: Fire rev03 workingMD2d10cb35...7e269/20logged edits alreadyready,
+  original unchanged, simulated root decision explicitly NOTcustomerconfirmation.
+  Human source correction/approval+journal of ALL automatic/manual changes AFTER
+  accepted engine prod; backlog entry already owns this. Do not enable rejected
+  source-reader/case_facts/extra reviewer experiments: concrete failures preserved.
+
+# P22 complete Standards NO-GO; saved diagnostic ACTIVE, 2026-11-04 12:38UTC
+
+- result: P22 logical job8c664578 COMPLETED/course3477761f6L22Q. All15 exact
+  owned requests replayPASS; ALL ordinaryAPI text/keys/choices/literalquotesPASS.
+  One ordinary same-job resume after known no-pending pause preserved all7prior
+  responses/route/source/businessparams. progress_detail alone legitimately changed.
+- verified:15actualLuna6HIGH responses334737in47397out; unknown reasoning/cache
+  remain null. Firstdelivery11:59:40UTC, lastdelivery12:18:42UTC, final12:29:51UTC;
+  do not report last started_at as logical walltime. Finalcourse90305710...eea100.
+  Root+Terra all16families/4boundaries taught, three locality defects corrected.
+- blockers: FinalL5Q3 still omits report/handover/suspicion trigger. Another source
+  described message (preliminary phone approval request) changes applicable timing.
+  Original amount gaps separately visible/sourceheld. Engine semantic GO NOTMET.
+  Fire/Micro not admitted; native/production untouched. No active DEV generation now.
+- next: ONE local blinded whole SAVED P22 AUTHOR bank consumer-role control ACTIVE
+  session63497/script practical-p23-consumer-view-control.py; output p23-saved-
+  consumer-view-bank-r1. No target IDs/gold/findings sent;22Qs/wholeactualsource,
+  existing review schema and no new course generation/DB. Do not duplicate or edit
+  apps/api while FileStageCache fingerprint is active. Compare four-case independent
+  oracle preserved separately. Only integrate a supported systemic change, then full
+  gates/new immutable DEV candidate/3courses/nativeDeepSeek/protectedprod/live.
+- changed: Native receiver installer LOCALONLY revised atomic-temp/link after
+  independent failure-residue review. SHA4848c2af...351ebb, dryrunREADY/no network.
+  Embedded receiver remains493f801f. NO remote execution/route activation. Abrupt
+  failure still requires exact residue reconciliation, not blind retry.
+- owner sequence: corrected synthetic Fire rev03/20journaled edits already ready;
+  original/customer docs unchanged. Human source correction/approval + journal of
+  automatic/manual edits AFTER accepted engine production, already backlog-owned.
+
+# P22 live continuation, 2026-11-04 12:12UTC
+
+- result: Canonical controller RECONCILED exact f7/API dep-dblhqfoae00c73c9vi30,
+  Vercel dpl_HjGPSFY3rTN5SXh2cww8LvF4wP3N, VM worker876118c5/image13e8/env7723.
+  These replace earlier ACTIVE controller entries below; no controller remains active.
+- changed: ONE fresh Standards job8c664578-c3d6-43c0-b74a-695884f12b61 admitted
+  11:59:36UTC on existing exact source e18c0fea/8d71182b. Original/customer data unchanged.
+- verified: Latest p22-standards-fifth-owned-readback.json shows running31%,
+  6 accepted Luna6 responses130935input22652output, provider pending true.
+  Engine independently found and patched L3Q2/L3Q3/L4Q2 missing standalone locality,
+  and added AUP role expansion once. L5Q3 trigger remains an author-snapshot review
+  concern; await complete final output, do not equate author flaws with final failure.
+- blockers: Do not duplicate/resume/edit current job. No final course yet; no P22 Fire
+  or Micro admission. Three whole-course semantic gates/nativeDeepSeek/prod/live OPEN.
+- next: Read current job until terminal; exact owned replay + all saved API content,
+  independent final whole-course matrix/reference audit. Then final Fire rev03/new
+  upload, Micro first upload; native route only after all Luna gates. Human correction
+  module with all automatic/manual journal entries remains AFTER accepted engine prod.
+
+# P22 API drift RECOVERED, 2026-11-04 11:58UTC
+
+- Initial controller14980 endedBLOCKED api_release_sha_mismatch. Providerdeclared
+ f7deploydep-dblhfmoae00c73c91ap0 succeeded/live but publichealthstill0da, both
+ /health and/api/v1/health withno-cache query/no-store/DYNAMIC. No REVIEW, job,
+ model or production action during mismatch. No namedRELEASE_SHA/RENDER_GIT_COMMIT
+ overridesin74directserviceenvkeys. Logsprovecheckoutf7/newAPIstartup11:43.
+ Exactstaleidentitycause beyond buildstate NOT PROVEN; do not claim sourcebug.
+- ONE reviewed clean-cache rebuild of SAME exactf7 on existingFree DEV API
+ dispatched11:55:43UTC: dep-dblhqfoae00c73c9vi30. Receipt/intentinp22-render-fresh-
+ rebuild-*.json retained; no billing/resource/secret/routechange. NewdeployLIVE
+ and publichealthf7 confirmed11:58. DoNOTrepeatcleardispatch. Originalfailure
+ preserved; healthSHA NEVERmanuallypinned/loosened.
+- ONE canonical controller RECONCILE ACTIVE session89515, sameP22packetSHA
+ f7143945850155c75307134410043b0f90f6f326400fdc506fef966d6e0db081. Awaitresult,
+ then P22helpers fullStd/Fire/Micro. Worker876118c5 remainsf7/ready/restart0;
+ all6prod/reserveunchanged. No P22generation/modelcurrentlyactive.
+- Weball1589tests/182filesPASS316.47s, lint/types/buildPASS; pnpm10.26.1frozenlock
+ all510cached/no downloads, no package/locksourcechange. LocalbuildprodAPIurl
+ https://api.kml.kz/api, telemetryoff. Not a production deployment proof.
+
+# P22 runtime rollout ACTIVE, 2026-11-04 11:45UTC
+
+- HEADf7c105b6c16508578462d70481ebd96eae033848 on same source-reviewed release
+ worktree/branch; clean tracked tree before this status update. Exactfeature+dev
+ pushes independentlyreadbackunderKamillaLMSCRM, receipts practical-p22-*-push-receipt.json
+ and owner-authorized memorynotes preserved. CI41819759567 all7SUCCESS.
+- Build41820467009 SUCCESS/productionfalse. Attested image
+ ghcr.io/kamillalmscrm/kamilya-api@sha256:13e8ae898fa6b77f09b2d89aadd7c89214ec521bb246687dcf96ce8b30fb58e3
+ version0.11.71. Worker876118c596b416f8629a3246049232cec09be1bf1cabb707ff949710d8893e76
+ ready/restart0/unless-stopped; env45keysSHA7723ef6cc2af55c0b2523b1314b43bd84e29607603a556a1eb51ef25c37a6939.
+ Old18d1a3f7 warmexit0 retainedrollback-0da67155;95sourcefiles verified and all6
+ production/reserve identities/config unchanged. No current model/generation.
+- ONE controller execute ACTIVE session14980: REL-DEV-PRAC-P22-F7C105B6-20261104,
+ packet .release-evidence/v3-production/vm-worker-p22-f7c105b6-packet.json
+ SHA f7143945850155c75307134410043b0f90f6f326400fdc506fef966d6e0db081.
+ DO NOT start duplicatecontroller/deploy. RenderAPIdep-dblhfmoae00c73c91ap0
+ created11:32:43UTC, update_in_progress since11:33:25. At11:44 no newapplication
+ logs since11:33:21; sanitizedlast100logread14rows/noerrors/startupmarkers.
+ PublicDEVhealth20s timedout; Renderstatuspagealloperational. No codecauseproven.
+ Wait currentcontroller900s/finalreceipt and inspectproviderbeforeanycontinuation.
+- Local finalAPI5529PASS75.64s/7warnings,baseline1006/2174PASS,releasecontract
+ 0184/367uniqueerrorsPASS, exactall4oldP21requestreplay0modelDBcallsPASS.
+ Web1589tests/182filesPASS316.47s, lint/typecheckPASS, productionbuildcompleted
+ (pnpm10.26.1frozenlock/reused510/downloaded0). stdout sessions12651/64823 mayneed
+ finalpoll; artifacts p22-web-*.log. No source/package/lockfilechange.
+- P22eightone-shot QAhelpers+qa-p22-sources manifest prepared (sameimmutable
+ sourcefiles/receipts; Firecorrectedrev03), ASTchecked. They require newcontroller
+ RECONCILED. NONE P22courses admitted yet. Afterruntimeparity: freshStdreuse, Fire
+ newupload2d10..., Microfirstupload1fb...; onlyonegeneration. Then nativeDeepSeek
+ all4QAflagsfalse under controlledAPI+workerconfiguration, then protectedprod/live.
+- ExistingP21completedStd6f08944d course1130da46 retained unchanged. P22saved
+ localowned edit independentlycontentGO, notliveP22orfullthreecourseacceptance.
+
 # P22 CURRENT LOCAL successor, 2026-11-04 11:12 UTC
 
 - P21 Standards6f08944d COMPLETED with sourcehold, course1130da46-738c-4cd4-a106-96e7be9755cf,

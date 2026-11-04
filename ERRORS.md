@@ -62,6 +62,39 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-04/P22: full6L22Q completed15Luna6responses334737input47397output,
+  exact all-stage replay and every saved API field matched, but L5Q3 inherited the
+  report trigger from its neighbor. New reviewer instructions, a source-only
+  reading, per-question isolation and a concise whole-course editor did NOT prove
+  detection; all rejected controls remain preserved. The unused source reader
+  also flattened combined conditions into an unsafe ANY and lost nested scope;
+  it was NOT enabled. An authored case_facts representation did not itself solve
+  the semantic omissions. Do not restore these as accepted fixes.
+- Local P23 fix: construct source-supported missing question context before
+  blind examination, rather than asking a verifier to notice every absent premise.
+  One owned bank operation supplements only factual premises, never rewrites the
+  original prompt or its event/negation/AND-OR. A first full-stem rewrite changed
+  issuance into paperwork, so the add-only interface preserves every original
+  prompt byte. Good peers, options, keys, explanations and lesson prose stay put.
+  Each nonempty supplement supplies owned block refs; same-document provenance
+  extends monotonically, the saved literal quote spans those refs. Cross-document
+  additions remain unapplied/unresolved because one quote cannot encode them.
+  Citation membership is custody, not semantic entailment. Full-source independent
+  blind review/audit/arbitration remain unchanged.
+- Verification: independent review of ALL22actual saved questions accepted the
+  four scoped supplements. Actual candidate schema control1call29.171s21078in1295out
+  fixed L3Q2/L3Q3/L4Q2/L5Q3 with four correct block bindings; no rule/answer hints.
+  Local5555unitPASS68.18s/7warnings, baseline1006/2174PASS. Source-bound new phase
+  covers both managed/direct transports, cold replay, unknown outcome no-repeat,
+  partial q2 repair retaining unresolved q1, stale/foreign citations and100Q/1000
+  blocks without repeated source enums. Actual oldP22 all15requests/course hash
+  replayed unchanged0modelDBcalls. Fresh3DEVcourses/nativeDeepSeek/prod/live OPEN.
+- Prevention: unresolved context is per-question durable review work, not source
+  certainty or edit permission. Partial repairs cannot drop unrelated held IDs;
+  clean model verdicts cannot publish them. Normalize only actually changed/new
+  question targets after an authorized patch; a prose-only edit grants no peer
+  rewrite. Historical policies/requests remain byte-compatible.
+
 - P20 bank2026-11-04: replace repeated fullsource perlesson question exams with
   one physically blind question-bank review; retain wholeprose source audit and
   independent arbiter. Memo keys source+displayed owner/id/stem/options, never
