@@ -31,6 +31,7 @@ from app.modules.ai.v3.practical_contract import (
     validate_practical_course,
 )
 from app.modules.ai.v3.practical_cycle import (
+    EXCLUSIVE_OPTIONS_GUIDE,
     EXPLICIT_CASE_GUIDE,
     FRESH_AUTHOR_SYSTEM,
     PracticalCycleResult,
@@ -106,13 +107,15 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      *, max_revisions: int = 3, adjudicate: bool = False,
                                      standalone: bool = False, typed_findings: bool = False,
                                      counterexamples: bool = False, explicit_cases: bool = False,
-                                     question_batch: bool = False, strict_audit_owners: bool = False) -> PracticalCycleResult:
+                                     question_batch: bool = False, strict_audit_owners: bool = False,
+                                     exclusive_options: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
             or type(explicit_cases) is not bool or explicit_cases and not counterexamples
             or type(question_batch) is not bool or question_batch and not explicit_cases
-            or type(strict_audit_owners) is not bool or strict_audit_owners and not question_batch):
+            or type(strict_audit_owners) is not bool or strict_audit_owners and not question_batch
+            or type(exclusive_options) is not bool or exclusive_options and not strict_audit_owners):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
@@ -133,7 +136,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         return value
 
     messages = [{'role': 'system', 'content': FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE
-                 + (EXPLICIT_CASE_GUIDE if explicit_cases else '')},
+                 + (EXPLICIT_CASE_GUIDE if explicit_cases else '')
+                 + (EXCLUSIVE_OPTIONS_GUIDE if exclusive_options else '')},
         {'role': 'user', 'content': source_model_text(packet, aliases=view.canonical_to_alias)
          + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False, sort_keys=True)
          + '\nCOURSE_INTENT_JSON\n' + json.dumps(intent, ensure_ascii=False, sort_keys=True, indent=2)}]
@@ -154,7 +158,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v21' if strict_audit_owners else
+        review_version = ('v3-practical-source-review-v22' if exclusive_options else
+                          'v3-practical-source-review-v21' if strict_audit_owners else
                           'v3-practical-source-review-v20' if question_batch else
                           'v3-practical-source-review-v19' if explicit_cases else
                           'v3-practical-source-review-v18' if counterexamples else
@@ -309,14 +314,15 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
                                         explicit_case_author=explicit_cases, question_bank_review=question_batch,
-                                        strict_audit_owners=strict_audit_owners)
+                                        strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
                            checked_decision: Any = decision) -> None:
             view.assert_course_ids_disjoint(merge_practical_patch(checked, packet, checked_decision, value))
         patch = await call('repair', 'practical:repair:' + _hash([digest, consolidated]),
             practical_patch_messages(packet, candidate, decision, model_view=view,
-                                     explicit_cases=explicit_cases), fmt, validate_patch)
+                                     explicit_cases=explicit_cases,
+                                     exclusive_options=exclusive_options), fmt, validate_patch)
         revised = merge_practical_patch(candidate, packet, decision, patch)
         view.assert_course_ids_disjoint(revised)
         if _hash(revised) in seen:
@@ -324,7 +330,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
                                         explicit_case_author=explicit_cases, question_bank_review=question_batch,
-                                        strict_audit_owners=strict_audit_owners)
+                                        strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

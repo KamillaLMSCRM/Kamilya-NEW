@@ -9853,3 +9853,37 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 - Fix: shared update stops before mutation. Prepare separate pinned DEV connector and mount-free egress on existing VM capacity with Docker-bridge-only endpoint. Explicit managed VM staging selects one fixed literal URL and immutable V4 receiver; Render source/legacy loopback/direct paths stay unchanged. Actual runtime env hash and new probe validate the route, with no hidden environment override or SSH-right changes. Preserve shared production containers, routing and dedicated auth files; never copy/export the managed profile.
 - Verification:75staging/runtime testsPASS/2platformskips, including26independent fixed-endpoint/default/foreign-source/path/hash negatives; baseline1005/2173. Deployment and real route readback remain open. Sole DEV worker warm-stopped cleanly after idle proof, no force kill. Shared connector scripts stopped at production_reserve_read before env/image/compose writes; production routing unchanged.
 - Prevention: re-read current shared dependencies before deployment. Treat cached OFF and Docker running as historical hints. Isolate DEV transport from production and do not forge route fingerprints to reuse old responses after an endpoint change.
+
+
+## AI-ANSWER-OVERLAP-001 - Broad and qualified actor choices can describe the same answer
+
+- Date: 2026-11-04
+- Symptom: P21 full DEV Standards6L23Q/4calls83711input12036output
+ saved successfully, but independent whole-course/source/reference review found
+ L5Q1 used both expert-appraiser and shift expert-appraiser as mutually exclusive
+ options without establishing a distinction. Blind examiner selected the literal
+ source label and treated absence of the qualified label as a refutation.
+- Cause: question construction confused different wording with incompatible
+ alternatives. The counterexample examiner focused on missing-condition branches;
+ it did not demonstrate static exclusion between a category and its subtype.
+- Fix: fresh22 author and existing scoped patch prompts require a shared
+ decision criterion and incompatible alternatives, prohibit broad/narrow overlap
+ and forbid inventing restrictions to separate options. Old21 prompt/replay bytes
+ and reviewer schemas, stage count, edit permissions and holds remain unchanged.
+ This is preventive construction guidance, NOT a proven detector fix.
+- Verification:40focusedPASS; full5529PASS/75.64s/7warnings after final cleanup; baseline1006/2174PASS. Exact all4 P21stage replay passes0calls. One
+ actual saved owned edit16.343s/23930input682output changed onlyL5Q1; all lessons
+ and22peerquestions unchanged, independent complete-course contentGO for human
+ review. Fresh22 threecourses/DEV/nativeDeepSeek/production still required.
+- Rejected approaches: one generic critic-guide pilot1call73s/22982in3803out and
+ one per-option proof pilot1call142.188s/23396in7645out both still missed L5Q1.
+ Neither is integrated. The first proof attempt failed a connector schema check
+ BEFORE CLI dispatch(integer bounds unsupported; enum supported),0inference; its
+ intent is retained and not relabelled a provider failure.
+- Calibration: reviewer allegations about L5Q4's completed approval and L6's
+ parenthetical liability list were withdrawn as proven material after source
+ review. Do not force stylistic edits or invent a countercase to fit an oracle.
+- Prevention: compare all options under the stated case, distinguish subset overlap
+ from missing facts, and confirm source-grounded exclusion. Test actual saved
+ defects plus source-excluded subclass cases; do not add a bulky proof protocol
+ or new model pass without measured improvement.
