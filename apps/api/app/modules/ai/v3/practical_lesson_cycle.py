@@ -30,6 +30,16 @@ from app.modules.ai.v3.practical_contract import (
     source_model_text,
     validate_practical_course,
 )
+from app.modules.ai.v3.practical_curriculum import (
+    CURRICULUM_AUTHOR_GUIDE,
+    compile_curriculum_findings,
+    curriculum_bank_format,
+    curriculum_bank_messages,
+    curriculum_context,
+    curriculum_format,
+    curriculum_messages,
+    validate_curriculum,
+)
 from app.modules.ai.v3.practical_cycle import (
     ASSESSMENT_COVERAGE_GUIDE,
     EXCLUSIVE_OPTIONS_GUIDE,
@@ -121,7 +131,9 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      assessment_coverage: bool = False,
                                      materiality_review: bool = False,
                                      claim_evidence: bool = False,
-                                     review_domains: bool = False) -> PracticalCycleResult:
+                                     review_domains: bool = False,
+                                     source_scope_complete: bool = False,
+                                     curriculum_review: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
@@ -133,7 +145,9 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             or type(assessment_coverage) is not bool or assessment_coverage and not context_supplemented
             or type(materiality_review) is not bool or materiality_review and not assessment_coverage
             or type(claim_evidence) is not bool or claim_evidence and not materiality_review
-            or type(review_domains) is not bool or review_domains and not claim_evidence):
+            or type(review_domains) is not bool or review_domains and not claim_evidence
+            or type(source_scope_complete) is not bool or source_scope_complete and not review_domains
+            or type(curriculum_review) is not bool or curriculum_review and not source_scope_complete):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
@@ -174,13 +188,21 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             'output_course_sha256': _hash(supplemented), 'unresolved_question_ids': list(unresolved)})
         return supplemented
 
+    plan = None
+    if curriculum_review:
+        plan = validate_curriculum(await call('review', 'practical:source-curriculum:v1',
+            curriculum_messages(packet, view), curriculum_format(packet),
+            lambda value: validate_curriculum(value, packet)), packet)
     messages = [{'role': 'system', 'content': FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE
                  + (EXPLICIT_CASE_GUIDE if explicit_cases else '')
                  + (EXCLUSIVE_OPTIONS_GUIDE if exclusive_options else '')
-                 + (ASSESSMENT_COVERAGE_GUIDE if assessment_coverage else '')},
+                 + (ASSESSMENT_COVERAGE_GUIDE if assessment_coverage else '')
+                 + (CURRICULUM_AUTHOR_GUIDE if plan is not None else '')},
         {'role': 'user', 'content': source_model_text(packet, aliases=view.canonical_to_alias)
          + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False, sort_keys=True)
          + '\nCOURSE_INTENT_JSON\n' + json.dumps(intent, ensure_ascii=False, sort_keys=True, indent=2)}]
+    if plan is not None:
+        messages[1]['content'] += curriculum_context(packet, plan, view)
     def validate_author(value: dict[str, Any]) -> None:
         view.assert_course_ids_disjoint(value)
         validate_practical_course(value, packet)
@@ -195,13 +217,15 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
     # Invocation-local memo: source, route and policy cannot change in this call.
     # Resumption reconstructs it only by replaying the owned immutable stages.
     reviewed_parts: dict[str, dict[str, Any]] = {}
+    unresolved_goals: tuple[str, ...] = ()
     for revision in range(max_revisions + 1):
         digest = _hash(candidate)
         seen.add(digest)
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v27' if review_domains else
+        review_version = ('v3-practical-source-review-v28' if source_scope_complete else
+                          'v3-practical-source-review-v27' if review_domains else
                           'v3-practical-source-review-v26' if claim_evidence else
                           'v3-practical-source-review-v25' if materiality_review else
                           'v3-practical-source-review-v24' if assessment_coverage else
@@ -221,10 +245,15 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             bank = [(lesson['id'], q['id'], q['prompt'], q['choices'])
                     for lesson in visible['lessons'] for q in lesson['questions']]
             prior = tuple(row for rows in by_lesson.values() for row in rows)
-            bank_key = _hash([packet.fingerprint, bank])
+            bank_key = _hash([packet.fingerprint, bank, plan] if plan is not None else [packet.fingerprint, bank])
             def validate_bank(value: dict[str, Any], checked: dict[str, Any] = candidate,
                               checked_prior: tuple[dict[str, Any], ...] = prior) -> None:
-                interpret_practical_review(value, packet, checked, checked_prior, concise=True,
+                base = value
+                if plan is not None:
+                    compile_curriculum_findings(value, packet, checked, plan, checked_prior)
+                    base = {key: item for key, item in value.items()
+                            if key not in {'goal_checks', 'curriculum_fingerprint'}}
+                interpret_practical_review(base, packet, checked, checked_prior, concise=True,
                     strict_targets=True, standalone=True, question_batch=True, **review_options)
             if bank_key in reviewed_parts:
                 raw_bank = reviewed_parts[bank_key]
@@ -237,12 +266,16 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                 carried.append({'question_bank_sha256': bank_key, 'raw_review_sha256': _hash(raw_bank),
                                 'open_issue_ids': [row['issue_id'] for row in prior]})
             else:
-                bank_review = await call('review', 'practical:review:bank:' + _hash([review_version, bank, prior]),
-                    practical_review_messages(packet, candidate, prior, model_view=view, concise=True,
+                bank_messages = (curriculum_bank_messages(packet, candidate, plan, prior, model_view=view)
+                    if plan is not None else practical_review_messages(packet, candidate, prior, model_view=view, concise=True,
                         strict_targets=True, standalone=True, question_batch=True,
-                        typed_findings=typed_findings, counterexamples=counterexamples),
+                        typed_findings=typed_findings, counterexamples=counterexamples))
+                bank_format = (curriculum_bank_format(packet, candidate, plan, prior) if plan is not None else
                     practical_review_format(packet, candidate, prior, concise=True,
-                        strict_targets=True, standalone=True, question_batch=True, **review_options), validate_bank)
+                        strict_targets=True, standalone=True, question_batch=True, **review_options))
+                identity = [review_version, bank, prior, _hash(plan)] if plan is not None else [review_version, bank, prior]
+                bank_review = await call('review', 'practical:review:bank:' + _hash(identity),
+                    bank_messages, bank_format, validate_bank)
                 reviewed_parts[bank_key] = copy.deepcopy(bank_review)
             parts = _split_question_bank(bank_review, candidate, by_lesson)
         for lesson in ([] if question_batch else candidate['lessons']):
@@ -279,7 +312,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             validate_atomic_audit(value, packet, checked, prior, **audit_options)
         audit = await call('review', 'practical:source-audit:' + _hash([review_version, candidate, global_previous]),
             atomic_audit_messages(packet, candidate, global_previous, model_view=view,
-                **({'materiality_review': True} if materiality_review else {}), **audit_options),
+                **({'materiality_review': True} if materiality_review else {}),
+                **({'source_scope_complete': True} if source_scope_complete else {}), **audit_options),
             atomic_audit_format(packet, candidate, global_previous, **audit_options), validate_global)
         narrative = atomic_audit_narrative_sources(audit, packet, candidate, global_previous, taught_only=standalone, **audit_options)
         summaries = [row['source_review'] for row in parts] + [audit['source_review']]
@@ -301,6 +335,9 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                 issue_checks[key] = value
         consolidated['source_notes'].extend(audit['source_notes'])
         consolidated['findings'].extend(compiled_atomic_audit_findings(audit, packet, candidate, global_previous, **audit_options))
+        if plan is not None:
+            goal_findings, unresolved_goals = compile_curriculum_findings(bank_review, packet, candidate, plan, prior)
+            consolidated['findings'].extend(goal_findings)
         for key, value in audit.get('issue_checks', {}).items():
             if key in issue_checks:
                 raise ValueError('practical_lesson_issue_inventory_invalid')
@@ -358,6 +395,10 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         history.append({'course_sha256': digest, 'lesson_reviews': parts, 'atomic_audit': audit,
                         'consolidated_review': consolidated, 'accepted': decision.accepted,
                         'source_uncertain': decision.source_uncertain})
+        if plan is not None:
+            history[-1].update(curriculum_fingerprint=_hash(plan),
+                curriculum_goal_checks=copy.deepcopy(bank_review['goal_checks']),
+                unresolved_curriculum_goals=list(unresolved_goals))
         if adjudicate:
             history[-1].update(adjudication=adjudication, carried_reviews=carried)
         if context_supplemented:
@@ -370,6 +411,11 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                   else 'review_required' if review_domains and decision.feedback and not editable
                   else 'revision_limit' if revision == max_revisions else '')
         if reason:
+            if unresolved_goals:
+                decision = replace(decision, accepted=False)
+                history[-1]['accepted'] = False
+                if reason == 'accepted':
+                    reason = 'curriculum_coverage_unresolved'
             if unresolved_context:
                 decision = replace(decision, accepted=False)
                 history[-1]['accepted'] = False
@@ -383,6 +429,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         context_supplemented=context_supplemented, assessment_coverage=assessment_coverage,
                                         materiality_review=materiality_review,
                                         claim_evidence=claim_evidence, review_domains=review_domains,
+                                        source_scope_complete=source_scope_complete,
+                                        curriculum_plan=plan, unresolved_curriculum_goals=unresolved_goals,
                                         unresolved_question_context=unresolved_context)
         patch_decision = (replace(decision, feedback=tuple(item for item in decision.feedback
             if item.get(REVIEW_HOLD_KEY) is not True)) if review_domains else decision)
@@ -416,6 +464,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         context_supplemented=context_supplemented, assessment_coverage=assessment_coverage,
                                         materiality_review=materiality_review,
                                         claim_evidence=claim_evidence, review_domains=review_domains,
+                                        source_scope_complete=source_scope_complete,
+                                        curriculum_plan=plan, unresolved_curriculum_goals=unresolved_goals,
                                         unresolved_question_context=unresolved_context)
         candidate = revised
         previous = decision.feedback

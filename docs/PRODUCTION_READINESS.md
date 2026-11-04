@@ -1,3 +1,39 @@
+## P28 LOCAL gates — DEV acceptance next, 2026-11-05
+
+Fresh unreleased28 adds a source-only curriculum before authoring and closed goal
+checks inside the existing blind question-bank review, retaining independent
+source/prose audit and materiality arbitration. Plan claims are not source truth
+or missing question facts. No-owner coverage remains a noneditable review hold.
+6577 API units/7 known warnings PASS; baseline1006/2174 PASS; all85 historical
+received stages replayed with five unchanged course hashes and no model calls.
+Paired semantic controls preserve missing-amount, invented-actor and conflicting
+source ambiguity. They are local bounded evidence, not full-course acceptance.
+
+Actual DEV remains P27/8f765bd7. Its Standards6L25Q content covers16families;
+Fire8L28Q retains a central rescue assessment gap. Fresh P28 three-full-course
+Luna, native DeepSeek and protected184 production/live gates remain OPEN.
+Production66/native70/customer courses remain unchanged.
+
+## Engine71 candidate — release gates remain open, 2026-11-05
+
+Current backend66/0183 is unchanged. Native frontend70/96a76b8f and rollback69/
+0f31ffd5 were independently verified; `/healthz` identifies the actual native
+release. A single obsolete68 expanded copy was removed only after canonical
+archive/manifest recovery verification; current/rollback and staged recovery
+remain. CT137 free space after cleanup:1432976KiB.
+
+DEV8f765bd7/imagece40248c is the sole VM worker, Luna6/HIGH; one completed
+Standards6L25Q has exact20-stage replay and all persisted API content/quotes
+verified,16families covered. It remains a source-held draft with quizzes needing
+review; it is not automatic approval. Fire/Micro/native DeepSeek and production
+synthetic document-to-confirmation remain gates, not inferred successes.
+
+Preserve the root-only course-approval encryption key and existing SMTP external
+network/socket/refresh timer. Current certificate/AUTH/NOOP250 and protected env
+identity were checked without email or config writes. Existing signed183 restore
+was independently verified (RPO43s/RTO19s,130tables/126FORCE);0184 is additive
+`questions.source_quote`, with binary rollback retaining that column.
+
 ## Frontend 0.11.68 — 2026-11-02
 
 Frontend exact076dba752432b4d161e0a419660ff277bc4c3e3d deployed by the canonical native controller, RELEASE_OK. Exact master CI41405315520/native41405369846 passed; full local web1502/lint/types. Live DEV changed-field save/revert/reload and production Sandyk custom-plan Save/toast accepted. Current monthly courses50 and financial flagtrue retained; no customer field changes by browser acceptance. API remains7c35, engine separate. Detailed receipts .release-evidence/tenant-settings68/. Frontend previous1c and rollback7c retained, old65 recoverable offhost; only native65 removed under standing exact cleanup rule. SMTP recovery separately preserved.

@@ -5852,3 +5852,61 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
  90.562s total. Neither experimental prompt installed; no DB/job/course mutation.
 - Actual DEV remains19a64922, no active course/model request. Fresh27 three-course,
   nativeDeepSeek and protectedproduction/live acceptance not yet performed.
+
+# P27 complete DEV content and source-scope control, 2026-11-05
+
+- ExactDEV8f765bd7/API+frontend/soleVMworker RECONCILED. Standards6L25Q,
+  20received468509input44768output; one same-job continuation retained10stages.
+  Fire8L28Q,20received580485input56246output; two same-job continuations
+  retained8then18stages. Every received stage replays0calls; all saved lesson
+  text, choices, keys and literal source quotes match through ordinary APIs.
+- Standards16families covered; bounded reference-qualityGO for human review,
+  source-held draft/6quizzesneeds_review. Two genuine amount gaps retained.
+  L4Q1 broad/qualified role precision is disputed; second independent review
+  did not establish another required answer. No universal exclusion invented.
+- Fire NO_GO on visitor scope: employees-only smoking prohibition omits visitors
+  named in source1.9. Prior electrical/chemical omissions repaired; all28keys
+  independently source-reviewed without a proven wrong key. Remaining L8test
+  admission coverage note is retained separately. No Micro27 admitted.
+- One local blind full-Fire audit plus3balanced scope controls, Luna6/HIGH,
+  38212input5873output/109.063s: actual omission found, partialMISSING/fullTAUGHT/
+  explicitexceptionTAUGHT. No production/DB changes. Initial local aggregate
+  dispatch assertion reconciled by validating all4unchanged atomic child bodies;
+  no second model request. Future28 integration and fresh three-course gates open.
+- Native68 unused expanded tree removed only after officialCI recovery proof;
+  currentnative70/rollback69/stagedcopy retained, free1432976KiB. Backend66/0183
+  unchanged; encryptionkey/SMTPsocket+refresh/certAUTHNOOP250 verified. Permanent
+  productionQA baseline24courses/41history rows, ordinary methodologist, no writes
+  or mail. NativeDeepSeek4flags env8f staged only; sameSHAcontroller packet rejected
+  offline, not activated; do not falsify previousSHA. Remaining approved native
+  DeepSeek budget1.0652904USD. Browsercontrol remains stopped this turn.
+
+## P28 source-first curriculum local controls — 2026-11-05
+
+- Source-only curriculum: gpt-6-luna/HIGH, one received response, 18271 input /
+  3269 output /61.672s; seven sections/23 server-owned goals. Original local
+  assertion about globally unique model labels was not in the sent contract;
+  received schema-valid response reconciled without a new call, raw preserved.
+- Closed blind bank mapping: one received response, 27894in5589out103.875s;
+  initial24 misses admission/disconnection/rescue/coordination; revised29 covers
+  admission/disconnection/coordination and still misses rescue. Extra detail
+  allegations are not accepted material defects or per-fact question quotas.
+- Adversarial plan premise parity: one received response,29969in4120out77.562s;
+  six independent cases/twelve questions: missing amount, invented duty actor,
+  source conflict with misleading plan retain ambiguity; clear controls correct.
+- Canonical integration24PASS2.11s; writer contract13PASS2.81s. New fresh28
+  source-only stage, blind bank, owner/missing hold, ordinary cold replay and
+  managed/direct pending boundaries; oldpaths unchanged. Full suite pending
+  final schema compaction. No new DEV generation or paid DeepSeek calls.
+- Evidence: .release-evidence/v3-production/p28-source-only-curriculum-pilot-reconciled.json,
+  p28-closed-goal-coverage-pilot-result.json,p28-curriculum-premise-parity-result.json.
+  Model controls are local, not three full courses, DEV or production acceptance.
+
+- Final P28 local gate:6577 unit PASS68.13s/7 known warnings; baseline
+  ruff1006/mypy2174 PASS; final38 curriculum/ordinary-service tests PASS3.76s.
+  First baseline exposed new typing/import violations, corrected without
+  suppressions; the failed log is retained. All85 historical received stages
+  replayed again with five unchanged course hashes and zero model/DB calls.
+  Independent frozen-source review BOUNDED GO/no P1/P2; semantic/runtime/full
+  acceptance remains unverified. New Micro276blocks20L80Q wire schema25219B,
+  closed source refs reconstructed locally; old transport cap/source unchanged.

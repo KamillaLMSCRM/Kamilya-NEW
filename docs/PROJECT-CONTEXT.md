@@ -3,7 +3,22 @@
 > Living document. Значения секретов здесь не хранятся.
 > Обновлено: 2026-10-27.
 
-## Current production66
+## Current independently checked runtime — 2026-11-05
+
+Backend remains exact66 `7c35c798d9ff4e44183a1e499f1b1c1a7cc2fe16`,
+API plus three workers/image `6af62edb…f3223`, revision0183. Native frontend
+is independently exact70 `96a76b8fedae0fcfef437f1eb636480cbad4a405`; rollback69
+`0f31ffd5812f1751fc0f1c98f716e65580b1b2ae` remains. These are separate releases.
+V3 candidate71/8f765bd7 is DEV only, not production acceptance.
+
+Production mail uses the preserved private SMTP egress route, not the historical
+Resend description below: [SMTP preservation runbook](runbooks/smtp-private-egress-recovery.md).
+The existing root-only runtime environment contains the course-approval encryption
+key; preserve it and the external `kamilya-runtime_default` network. Current
+SMTP certificate/AUTH/NOOP250 and socket/refresh-timer checks pass without sending
+mail. Source receipts and health alone do not prove a new live course journey.
+
+## Historical production66 acceptance
 
 Exact7c35c798/API+3workers/native66 and DEV/live read-only staff search accepted.
 No migration0183, roles/routing/reserve unchanged. Rollback65 retained; VM126df82%,

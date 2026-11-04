@@ -62,6 +62,34 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-05/P28 LOCAL: source prose coverage and open-ended assessment
+  criticism were not a complete inventory of essential workplace decisions.
+  Saved Fire24 missed admission before training, network disconnection,
+  coordinated response and immediate life-threat rescue. Later29 covered the
+  first three but still omitted rescue. A source-only curriculum (one actual
+  Luna6HIGH18271in3269out61.672s) frontloaded all four without seeing a course.
+  Closed blind mapping of both saved banks in one call27894in5589out103.875s
+  distinguished these exact changes. Its other MISSING labels overcall untested
+  subdetails: they remain allegations for independent materiality arbitration,
+  never a per-fact question quota or automatic rewrite authority.
+- Fix: fresh unreleased28 adds one checkpointed source-only plan before author,
+  then closed goal checks inside the existing blind bank review. Generated plan
+  IDs are replaced by server-owned ordered IDs; plan text/uncertainty/actors are
+  untrusted proposals, not corrected source or question facts. Only confirmed
+  existing assessment ownership enters the normal arbiter/patch path. Unowned
+  gaps stay noneditable and prevent automated acceptance without falsely becoming
+  source ambiguity. Old25/26/27 request paths remain unchanged.
+- Verification: paired synthetic missing-amount, invented-actor and contradictory
+  source cases retain ambiguous answers with/without misleading plan notes; all
+  clear controls remain correct. One actual Luna6HIGH29969in4120out77.562s, six
+  independent cases/twelve questions; bounded evidence, not semantic proof for
+  all inputs. Canonical integration24PASS includes source-only isolation,
+  ordinary cold replay, direct/managed owned-stage fences and no-owner holds.
+- Prevention: independently establish source decisions before inspecting a bank;
+  test both missing and already-covered decisions. Distinguish planner claims,
+  allegations, confirmed material defects and actual editable scope. Source,
+  model/worker acceptance and full-course/live acceptance remain separate gates.
+
 - Recurrence2026-11-05/P26: fullStandards27d06103 completed5L19Q/12Luna6HIGH
   replies248785input25123output, exact12stage replay/savedAPI PASS. Arbiter
   NON_MATERIAL/UNIQUE for an answer-validity complaint without selector evidence
@@ -10075,3 +10103,31 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 - Prevention: test persisted oldinterrupted + currentlive, unavailable/no-live
   discovery, delayed actor/source switch/unmount and callback identity. Read
   recovery status without abandoning, cancelling or resuming historical jobs.
+
+
+## AI-SOURCE-SCOPE-001 - Topic witnesses can lose part of a source rule's actor scope
+
+- Date:2026-11-05.
+- Symptom: full DEV P27 Fire8L28Q repaired electrical/chemical omissions, but its
+  indoor-smoking list applied only to employees. Source1.9 also applies to visitors.
+  Atomic v4 marked the source span TAUGHT using a real lesson-content selector.
+- Cause: literal E custody proves that the excerpt exists, not that its meaning
+  covers every applicable actor. A shared list heading narrowed one inherited
+  rule; a matching topic/partial source scope was mistaken for complete teaching.
+- Fix: in progress; fresh-only source-to-course scope entailment in the
+  existing audit. Selected passages jointly preserve actors/action/object/conditions/
+  exceptions; partial coverage is MISSING. Preserve exclusions and cross-fragment
+  coverage; do not demand literal repetition or one question per source fact.
+- Verification: ONE saved full-course plus3balanced synthetic controls, actual
+  Luna6/HIGH38212input5873output109.063s. SourceSPAN41 visitor omission detected;
+  partialactor MISSING, completeactor TAUGHT, explicitexception TAUGHT. No other
+  new prose finding; existing L8assessment note retained. Old course unchanged,
+  no DB calls. Fresh28 integration/tests/full DEV courses remain pending.
+- Evaluation boundary: the pilot first stopped on an unregistered aggregate-schema
+  dispatch assertion after receiving complete JSON. Each of the four registered
+  atomic child contracts validated unchanged. A separate reconciliation receipt
+  preserves that failure and reports0new calls; it was not a provider/JSON failure.
+- Prevention: test source-scope entailment, not evidence-ID existence alone. Keep
+  model findings untrusted until source review/ordinary scoped repair. Do not
+  insert a lexical actor guard, copy the whole source into lessons, or alter old
+  policy/checkpoint bytes to make the control pass.

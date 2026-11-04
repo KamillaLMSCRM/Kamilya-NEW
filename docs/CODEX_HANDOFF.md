@@ -1,4 +1,129 @@
-# P27 LOCAL freeze ready; P26 course contentGO at accepted reference, 2026-11-05
+# P28 source-first curriculum LOCAL gates PASS; DEV rollout next, 2026-11-04 23:45UTC
+
+- result: No DEV generation/model call active. P27 actualDEV8f765bd7 unchanged;
+  Standards6L25Q and Fire8L28Q saved/fullAPI verified. Fire rescue assessment gap
+  remains in oldcourse; no customer/production mutation. New local source-only
+  plan7sections23goals includes admission, disconnection, rescue and coordination.
+- changed: Uncommitted fresh28 adds one source-only checkpoint before author and
+  closed per-goal checks in existing blind bank reviewer. Root owns cycle/service/
+  registry/owned-stage wiring. p17_contract_review owns practical_curriculum.py
+  and focusedtests; p17_cycle_tests finished new curriculum_cycle tests. Separate
+  author/reviewer guides; source plan is untrusted and never supplies stem facts.
+  MISSING allegations go to existing independent arbiter; no-owner remains
+  noneditable/non-source hold. Preserve old25/26/27 bytes and all stored outcomes.
+- verified: Closed R24/S29 saved-bank control actualLuna6HIGH27894in5589out103.875s
+  finds four critical originalgaps and only rescue among those four in revised29.
+  Several additional subdetail MISSING labels are overcalls, NOT mandatory edits.
+  Paired misleadingplan/missingamount/inventedactor/sourceconflict controlPASS:
+  sixcases/twelveQs,29969in4120out77.562s; exactreviewguideSHA bff498b5...79d6f07.
+  Focused ordinary+cycle+owned-stage24PASS2.11s; writer13PASS. No newpaidDeepSeek.
+- verified-final: Full6577APIunitPASS68.13s/7knownwarnings; baseline1006/2174PASS.
+  All85oldreceived25/26/27stages replayed0calls; fivecoursehashes unchanged.
+  FinalMicro276blocks20L80Q wireformat25219B by deduplicating only repeated
+  schemaenums; localvalidator reconstructsclosedinventories and rejectsforeign
+  references. Oldv16bytes unchanged; fullsource context retained, capunchanged.
+- blockers: ThreefreshcurrentLunaDEVcourses/nativeDeepSeek/prod/live stillopen.
+  ComputerUse remainsSTOPPEDthisturn; no UIreset/alternatecontrol/delegation
+  bypass and no claim of livebrowseracceptance.
+- next: Commit exactownedP28source→CI/immutableimage/soleDEVworker. Verify
+  Fire/Standards/Micro completecourses against independentmatrix and accepted
+  reference; then nativeDeepSeek withinremaining1.0652904USD→protected184release
+  and fullsyntheticlive. Root owns rollout; no active model/job atcheckpoint.
+
+
+# Historical P28 local source-scope fix; pilot finished below, 2026-11-04 22:54UTC
+
+- result: No active DEV generation. P27Standards66cd8420 completed6L25Q/20calls
+  468509in44768out; Fire99e274b8 completed8L28Q/20calls580485in56246out. Both exact
+  all-stage replay and ordinary savedAPI PASS. Full P28local6554unitPASS66.90s/
+  7knownwarnings; baseline1006/2174PASS. All85received25/26/27responses replay
+  0calls with five unchangedcoursehashes. Independent boundedsourceGO.
+- changed: UNCOMMITTED fresh28 SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY in this linked
+  worktree; existing atomic audit adds tested source-to-course actor/action/scope
+  entailment only. Old25/26/27bytes preserved, no new modelstage/schema/authorguide/
+  revisionlimit. Root owns docs/ERRORS/ledger+SMTP runbook. Writer p17_contract_review
+  finished/frozen; review p17_cycle_tests GO. Initialfullsuite1failure was root's
+  journal fieldlabel, fixed; initialbaseline5I001importorder fixed. No weakening.
+- verified: Blind fullFire+3scopecontrolsONEactualLuna6HIGH38212in5873out109.063s
+  found real visitor omission; partialMISSING/fullTAUGHT/explicitexceptionTAUGHT.
+  Original local aggregate-dispatch assertion reconciled all4unchanged child
+  contracts0newcalls. Saved repair4actualcalls128320in9330out181.375s produces
+  LOCAL8L29Q/hash712d91e7...149c1da, visitor scopecorrect, all29blindkeysUNIQUE/match,
+  all28oldQs+7peerlessonprose preserved. All100source spans nowtaught/nonteaching.
+- blockers: Local repairedFire stillneeds essential immediate-life-rescue test
+  (taught but unassessed); root/auditor agree, notper-factquota. Extra L4duplicate
+  allegation is false/secondary: Q1testsWHO, Q4alreadytestsDISCONNECT; do not
+  implement its proposed rewrite blindly. Existing freeassessmentcriticism
+  discovers essentialgaps incrementally; do not merelyraise caps orfreshregenerate.
+- next: ONE LOCAL pilot p28-source-first-decisions-pilot.py/session1385 ACTIVE,
+  source-first compact criticaldecision→questionmap in existing source_review
+  field, sameaudit/schema, initialFire24 versusrevised29 independentcases. No
+  failedIDs/goldsent. If it frontloads knowncritical gaps and preserves covered
+  decisions, consider smallfresh28 guideextension; no sourceedituntil received.
+  No Micro27/new28 admission/nativeDeepSeek calls. Native8f env stagedONLY;
+  sameSHAcontroller packet rejectedoffline, NOTactivated; neverfakeoldSHA.
+  Root fullgoalstill3completecurrentLunaDEVcourses→nativeDeepSeek→protected184
+  production+syntheticlive. Productionbackend66/native70/customercourses unchanged.
+  ComputerUse stopped this turn; no furtherUIcalls/reset/delegationtoevade.
+
+# P27 Standards completed; Fire active; native capacity recovered, 2026-11-04 22:00UTC
+
+- result: Standards66cd8420 completed6L25Q/course47099c6a-ac06-421b-9924-eb2a61c95e2c,
+  20receivedLuna6HIGH/468509input44768output; one cooperative same-job continuation
+  preserved10prior stages. Exact20 replay0calls+ordinary savedAPI allcontent/keys/
+  choices/literalquotes PASS, rawhash4b4f56d1...73c1e28. All16families covered.
+- changed: NO new engine code or production deployment. CT137 canonical recoverable
+  cleanup removed ONLY obsolete076dba75 tree, exact officialarchive b4698be5...bf511d
+  +manifestfa6e7cf2...76f0b0 verified offhost; stagedcopy retained. Current96a76b8f
+  and rollback0f31ffd5 unchanged/running; free905360->1432976KiB. Independent
+  inventory/statusPASS. Lastcleanup p27-native68-cleanup-v2-result.json CLEANUP_OK.
+- verified: FinalStandards sixsourceholds describe two genuine amount gaps; retained,
+  not six distinct issues. Independent fullcourse review foundL4Q1 broad/qualified
+  actor overlap, sameclassAI-ANSWER-OVERLAP-001. NOTaccepted/autoFalse/sourceheld,
+  all6quizzesneeds_review. Local unchanged-prompt small-bank3question control also
+  missedoverlap(17731in918out/20.078s), so batchingattention hypothesis unproven;
+  no new heuristic/expandedcritic installed. Originalcourse unchanged.
+- blockers: Full3course quality/nativeDeepSeek/prod/live remain open. No UI work
+  permitted this turn after ComputerUse safety stop; do not reset/change tools.
+- next: ONE Fire99e274b8-e966-41a0-9dc3-7a5cf6f75f5b admitted21:56:34UTC,
+  sourcec6303a50/SHA2d10cb35 unchanged, P27 exact8f/imagece4; monitor89040,
+  p27-watch-job.py fire. No Micro/native admitted. Native8f env staging prepared
+  only, not activated. Preserve customer4courses/280staff and production6services.
+
+# P27 exact DEV LIVE; Standards66cd8420 ACTIVE, 2026-11-04 21:25UTC
+
+- result: Exact8f765bd7118e579a9070dd02cd1ccbc697ce22f9 DEV RELEASE_OK/RECONCILED,
+  REL-DEV-P27-LUNA-8F765BD7-20261105. CI41913285405SUCCESS; immutableimage build
+  41914431812SUCCESS/prodfalse; GHattestation ce40248ce4e509f5336d06568516fc2a
+  813a882a23a588bf5e21845c56e6fd28 verified. APIdep-dblq3bm417fc73b7k55g live,
+  Verceldpl_FREykRUeZg4fxvsAHthyzzwXPFrtREADY. Soleworker ebba98e4974528d600c7
+  e8eb01cca0e642d8a3dd8aea1cf5bc61c8decee2a4a3 restart0/unless-stopped;
+  env45keys/f5b80254e4edc433b9773a65072acc46af8ed3f828b897e920613ee5bb780f49,
+  all98source hashes checked. Old8bd warm-stopped/retained rollback19a64922.
+- active: ONE fullStandards66cd8420-e6cd-4dc1-9576-c484bf493be1, admitted21:24:47UTC,
+  same exactsourcee18c0fea/8d71182b +confirmedownerp2. Monitor p27-watch-job.py,
+  session83896, initialrunning/ingestion/0responses; no duplicate/resume/retry.
+  No Fire/Micro27 or nativeDeepSeek admitted yet. ASUSoff, Renderworker suspended.
+- verified: Full6545API/baseline1006/2174/release0184/368PASS;45historicalresponses
+  exactreplay0calls unchanged; realconsumer/cycle noneditablehold testsPASS.
+  Web1599/182files/types+lintPASS; now live8f recovery needs activejob UI proof.
+  Production6containers unchanged; SMTP existingcert/auth/NOOP250 PASS,0messages,
+  0configwrites. Mailroute systemd kamilya-smtp-egress/refresh must be preserved
+  on productionrollout. PublicappHEAD200 lackedreleaseheader: nativecurrent identity
+  NOTverified by thatHEAD, use canonicalCT137preflight before release.
+- blockers: Three full27 content/nativeDeepSeek/protected184production/live gates
+  still open. P26Std5L19contentGO at acceptedreference; initialtimingNO_GOwithdrawn
+  as stricterthanownerreference. Optionaltimeprecision remains, not new norma.
+  ComputerUse stopped this turn: Chrome URL could not be verified by the UI
+  control safety layer after repeated Page.getFrameTree timeouts. Do not retry
+  UI/control via another mechanism or reset to bypass. No live8f UI proof yet;
+  continue API/source/model gates, require legitimate browser availability before
+  claiming full live acceptance. Last DEVtab417817784, Chrome3, QA auth existed.
+- next: Read active result/ordinarysavedAPI/independentmatrix; liveUI recovernewjob
+  overoldhold. ThenFire/Microsequential, nativeDeepSeek remainingapproved1.0652904USD;
+  protected184/fullsyntheticprod. Oldquarantines/customerdata unchanged.
+
+# Historical P27 pushed; CI41913285405 ACTIVE, P26 course contentGO, 2026-11-05
 
 - result: Actual DEV19a64922/image41ba.../soleworker8bd... unchanged. FullStandards
   27d06103 completed5L19Q/courseea77d745-cb09-4152-ad09-31c30f99d3e1,12received
@@ -22,7 +147,14 @@
   simulation yields nonsource/noneditable/noautoapproval. Web1599/182filesPASS
   263.63s/types+lint. Two extra LOCAL prompt pilots failed to improve L3 wording:
   45034input4637output/about90.56s; REJECTED, no prompt change installed.
-- blockers: No active DEV generation/local model call. P27 not committed/deployed;
+- blockers: No active DEV generation/local model call. P27 exact8f765bd7118e579a
+  9070dd02cd1ccbc697ce22f9 pushed/readback feature+dev via KamillaLMSCRM canonical
+  helper; sanitized receipts p27-{feature,dev}-source-receipt.json and memorynotes.
+  CI41913285405 running; ONE waiter p27-dispatch-image-on-green.py/session42561
+  will dispatch one immutableimage/prodfalse after green. No duplicate dispatch.
+  Env stagedNOTactivated45keys/f5b80254e4edc433b9773a65072acc46af8ed3f828b897e920613ee5bb780f49.
+  Actual DEV still19/image41ba/8bd worker; p27-prepare-worker.py prepared but awaits
+  newimage receipt. Do not run oldP26 drain/start unchanged.
   full3freshcourses/nativeDeepSeek/protected184prod/live still outstanding.
   Source/assessment/question semantic checks remain global; no thresholds weakened.
 - next: Freeze reviewed27/CI/image/soleworker preservingDEV release, then full

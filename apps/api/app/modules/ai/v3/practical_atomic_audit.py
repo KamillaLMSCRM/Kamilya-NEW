@@ -283,6 +283,21 @@ ATOMIC_AUDIT_SYSTEM = (
 ) + SOURCE_LOGIC_GUIDE + EDITOR_REVIEW_GUIDE + SOURCE_FIDELITY_GUIDE + SOURCE_APPLICABILITY_GUIDE
 
 
+SOURCE_SCOPE_COMPLETE_GUIDE = (
+    '\nПроверяй полноту в направлении ИСХОДНОЕ ПРАВИЛО → изложенные в курсе правила. '
+    'Выбранные фрагменты уроков должны совместно сохранять применимых адресатов, действие, объект, '
+    'условия и исключения исходной нормы. Совпадение темы или части правила не даёт TAUGHT: '
+    'норма для нескольких групп не раскрыта полностью правилом только для одной из них. '
+    'Учитывай общий субъект и условия вводной фразы списка во всех зависимых пунктах. '
+    'Учебная аудитория сама по себе не сужает область исходной нормы. Ищи недостающий смысл '
+    'во всём тексте курса; он может быть раскрыт несколькими фрагментами. Сохраняй явные '
+    'исключения и различия условий, не расширяй запрет на исключённый источником случай. '
+    'Если существенная часть области действия не изложена, используй MISSING, укажи её в reason '
+    'и предложи адресное дополнение. Варианты теста и объяснение ответа не заменяют текст урока. '
+    'Не требуй дословного повторения или отдельного вопроса на каждую часть нормы.'
+)
+
+
 def _source_with_child_markers(packet: PracticalSourcePacket, aliases: Any) -> str:
     spans = audit_spans(packet)
     by_source: dict[str, list[Any]] = {}
@@ -309,10 +324,11 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                           previous: tuple[dict[str, Any], ...] = (), *,
                           model_view: PracticalModelView | None = None, typed_findings: bool = False,
                           strict_owners: bool = False, materiality_review: bool = False,
-                          claim_evidence: bool = False) -> list[dict[str, str]]:
+                          claim_evidence: bool = False, source_scope_complete: bool = False) -> list[dict[str, str]]:
     if (type(strict_owners) is not bool or strict_owners and typed_findings is not True
             or type(materiality_review) is not bool or materiality_review and not strict_owners
-            or type(claim_evidence) is not bool or claim_evidence and not strict_owners):
+            or type(claim_evidence) is not bool or claim_evidence and not strict_owners
+            or type(source_scope_complete) is not bool or source_scope_complete and not (claim_evidence and materiality_review)):
         raise ValueError('practical_atomic_audit_format_invalid')
     checked = validate_practical_course(course, packet)
     if model_view is not None:
@@ -350,4 +366,6 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                    'ANSWER_VALIDITY для ошибки постановки, условий, вариантов или ключа данного вопроса; '
                    'COURSE_ASSESSMENT для сравнения вопросов курса, дублирования или общей структуры проверки. '
                    'Это разные замечания: если обнаружены оба, верни их отдельно.')
+    if source_scope_complete:
+        system += SOURCE_SCOPE_COMPLETE_GUIDE
     return [{'role': 'system', 'content': system}, {'role': 'user', 'content': context}]

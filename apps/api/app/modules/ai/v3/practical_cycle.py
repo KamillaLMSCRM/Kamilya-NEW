@@ -199,6 +199,9 @@ class PracticalCycleResult:
     unresolved_question_context: tuple[str, ...] = ()
     claim_evidence: bool = False
     review_domains: bool = False
+    source_scope_complete: bool = False
+    curriculum_plan: dict[str, Any] | None = None
+    unresolved_curriculum_goals: tuple[str, ...] = ()
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

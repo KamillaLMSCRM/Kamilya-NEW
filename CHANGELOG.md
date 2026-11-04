@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Establish source-only curriculum decisions before authoring and check their
+  assessment against the complete blind question bank; arbitrate materiality
+  before scoped edits while preserving uncertain or unowned review holds.
+- Share repeated source inventories in the new review schema while retaining
+  full source context and closed-reference validation.
 - Adjudicate generation criticisms against the whole course before authorizing edits;
   retain unresolved source questions and reuse unchanged lesson reviews without losing open findings.
 - Preserve authored question conditions across source links and check applicable

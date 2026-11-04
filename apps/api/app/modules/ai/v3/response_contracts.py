@@ -18,6 +18,12 @@ from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_resp
 from app.modules.ai.v3.practical_arbitration import is_arbitration_format, matches_arbitration
 from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format, matches_atomic_audit
 from app.modules.ai.v3.practical_contract import is_practical_course_format, matches_practical_course_response
+from app.modules.ai.v3.practical_curriculum import (
+    is_curriculum_bank_format,
+    is_curriculum_format,
+    matches_curriculum,
+    matches_curriculum_bank,
+)
 from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
 from app.modules.ai.v3.practical_question_context import is_context_format, matches_context_response
 from app.modules.ai.v3.practical_review import is_practical_review_format, matches_practical_review
@@ -27,6 +33,10 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_curriculum_format(value):
+        return "practical_curriculum"
+    if is_curriculum_bank_format(value):
+        return "practical_curriculum_bank"
     if is_context_format(value):
         return "practical_question_context"
     if is_arbitration_format(value):
@@ -67,6 +77,10 @@ def response_contract_hash(value: dict[str, Any]) -> str:
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "practical_curriculum":
+        return matches_curriculum(value, response_format)
+    if kind == "practical_curriculum_bank":
+        return matches_curriculum_bank(value, response_format)
     if kind == "practical_question_context":
         return matches_context_response(value, response_format)
     if kind == "practical_arbitration":
