@@ -1,3 +1,168 @@
+# CURRENT OWNER ORDER: corrected source -> stable engine release -> human correction module
+
+- Owner resumed implementation: root may correct working source as simulated
+  human answers; original/customer data unchanged. FIRST finish stable engine
+  DEV Luna3/fullmatrices then nativeDeepSeek/protectedprod/fullsyntheticlive.
+  AFTER successful engine production, implement human source correction module
+  with complete journal including automatic changes. Do not pause on old steering.
+- ACTIVE RELEASE WORKTREE: C:/Kamilya New/Kamilya-NEW/.worktrees/v3-source-reviewed-dev-20261104,
+  branchrelease/v3-source-reviewed-dev-20261104, basea1177116, currentuncommitted.
+  Stable scope: native finalsource/profile guard+fresh-newcourse activation,
+  source-audit producer/consumer owner parity strict_owners freshpolicy21.
+ 75focusedPASS; full5524PASS85.30s/7warnings; baseline1006/2174PASS; independent
+  source reviewGO. AllrealDEV/runtime/matrices/prod gates stillrequired.
+- Experimental source-uncertain combined arbitration v4 is DEFERRED in separate
+  v3-native-practical-dev-20261104 WIP. Its uncommitted policy21 experiment NEVER
+  deployed; DO NOT use/reuse it as current release or blindly apply that patch.
+  Stable release21 means OWNED_AUDIT_PRACTICAL_REVIEW_POLICY only.
+- Corrected QA Fire source final revision03: .worktrees/v3-practical-dev-20261103/
+  .release-evidence/v3-production/qa-source-reviewed-20261104/fire/revision-03/
+  fire-simulated-reviewed.working.md SHA2d10cb359e724adf6b68f576377bd019fc4e0a08168dc4e2f52b9f418777e269.
+ 20loggedchanges13editorial7simulatedhuman; alloffsets/reconstruction/original
+  hashes independentlyverifiedGO. No actualcustomerconfirmation; ledgerstates
+  root_simulation_under_owner_instruction. OriginalPDF+oldeditions unchanged.
+- DeployedDEVstillP20a1177116/image99b97353/soleVM2537921e/env3ae08907, noactive
+  generation. OldFire7cce387a INTERRUPTED with pending+quarantine,12accepted
+  responses332973in42579out + completeREJECTED13th33525in3632out(actualLuna6).
+  Exact12offline replay proves13th rawschema passes but TAUGHT rows13/14 have no
+  lesson_ids; productionsemanticconsumer correctlyrejects. No transportfailure.
+  New strictauditv3 disallows such rows atproducer; heldjob NOTmodified/resumed/
+  promoted/refunded. Preserve allhistory. Userauthorizes NEWcorrectedsourceQA.
+- ExistingP20Standards full5L18Q/4Luna6calls/365.988s/source16-4-referenceGO and
+  allAPIpersistedprojectionPASS retained. MicroNEVERuploaded/admitted. Need
+  finalcandidate3fullLuna courses on corrected source, then nativeDeepSeek and
+  currentnormaltenant newcourse path, protectedprod/fullsyntheticlive.
+- Next commit reviewedstable scope and exactCI+attestedimage+idleworkerrollout;
+  derivehelpers from priorverifiedP20 scripts. Do not duplicate tests/generation.
+
+# OWNER STEERING: source-corrector simulation first; no further programming
+
+- Latest owner request: discuss and SIMULATE correction/approval of source errors
+  before coding. No additional source edits, model calls, generation, deployment
+  or automatic continuation until this discussion is incorporated. Leaf agents
+  have been told to freeze. Current response is a concrete review simulation.
+- P20 Fire seventh/eighth readbacks supersede running state below: INTERRUPTED
+  09:29:22UTC, generation_stage_outcome_unknown, pending marker+managed quarantine
+  retained. 12accepted responses332973input42579output; one additional complete
+  HTTP200 captured, structured_shape rejection/bodySHA
+  d966d69059373f8cbc572dd49b992adb8fd165ef72531c8c7e0f67c1941af682.
+  Rejected envelope reports actualgpt-6-luna33525input3632output (configured_model
+  metadata incorrectly retains5.6label; do not use it as actual model identity).
+  Do NOT resume, promote, refund, clear marker or repeat unknown call. Exact
+  shape cause not yet diagnosed; complete rejected body is preserved locally.
+- Original Fire PDF blob34601aea9e16b1087d5fcd1cb33ff912c2bc82d652be5f3cc0e599e14f6f41e5
+  pages4/5 visually checked: original literally says расходных сопротивлений and
+  отклонений от ненормальных режимов. This is not OCR. Images/custody in
+  fire-original-visual. Source questions7/8 appended to existing cabinet document,
+  retaining all previous UTF16 bytes and originalPDF unchanged. New discussion
+  considers whether obvious terminology correction should instead be automatic
+  in an approved working edition; no source correction has been applied.
+- Isolated uncommitted successor remains v3-native-practical-dev-20261104@a1177116:
+  native final guard+new-course admission, plus optional source-uncertain material
+  edit arbitration and fresh policy21 plumbing. Latest68focusedPASS; earlier
+  full5518PASS predates new arbitration/plumbing and is not current full gate.
+  Native guard now uses recognized practical policies rather than hardcoded20.
+  No P21model/control/DEV/production action. Current deployed P20 unchanged.
+
+# Historical Fire continuation / isolated native successor, 2026-11-04 09:23UTC
+
+- P20Fire7cce387a knowncooperativepause09:14:02 after8completeLuna6responses
+  214988in30133out, generation_interrupted/no pending/no course. Exactoffline
+  ALL8prefixrequests matched0model/DBcalls; nextmissingstagearbiter. Ordinarysame
+  jobcontinuation EXECUTEDONCE09:19:19, p20-fire-resume1-{intent,result}.json.
+  Sixthownedreadback nowrunning30%/same8received/pendingTRUE fornextarbiter.
+  DO NOT resume/admit/redeploy/localinferagain. Prefix/source/historyretained;
+  verifyaftercompletion. This is NOT a provider-outcome-unknown hold.
+- Fireauthor10L30Q independentreview detected L7 unsupported technicalword
+  substitution originalрасходных -> переходных; possibleL6 heatingcondition
+  paraphrase needscontextreview. Displayoptionkeys deterministicallyshuffle in
+  artifacts, so allauthorcorrectindex0 is NOTlearnerkeypredictability. Pipeline
+  already issuedoneaddressedpatch+rechecks; finalcontentnotyetavailable/accepted.
+- FutureP21 prepared in SEPARATE .worktrees/v3-native-practical-dev-20261104,
+  branchrelease/v3-native-practical-dev-20261104, HEADa1177116, uncommitted.
+  P20 runtime/source worktree remainsimmutable appcode. Writerpipeline native
+  finalsource/profile guard+actualwriterfakeDBtests, rootfresh-native admission
+  activation+destination tests. QAmarkerdrift and existing-target scope found by
+  independentreview andfixed;29admission/24nativefocusedPASS, latestfullgate
+  activeunifiedsession56859. BaselineonlyrootnewtestI001needsimportsorting.
+  NoP21commit/push/deploy/model/DBcalls. Verifycurrentnativeguardstate-courseID
+  handling beforefinalrootreview; existingdraftlegacyV5 deliberatelypreserved.
+- StandardsfullP20 gatebelow PASS5L18Q/4calls6min; MicroNOTuploaded/admitted.
+  ThreefullLuna/normalnativeDeepSeek/protectedprod/fullsyntheticlive stillOPEN.
+
+# Current P20 Standards complete / Fire active, 2026-11-04 09:03UTC
+
+- FreshStandardsdde78a5e COMPLETED08:55:09UTC from08:49:03 admission:365.988344s,
+ 4actualLuna6responses79892input11599output, noresume_count/delivery_task_id.
+  Finalreceiptv2+snapshot retained; coursee013c203-7c72-4f9a-8b76-63794c3175d7.
+  Same5L18Q SHAe8ddcbeefe51727fa1119c570818a2112382cef19105e40311b332520fe0b9ff
+  as completeindependent16/4/reference contentGO author; allsavedAPItexts/keys/
+  choices/literalquotes matchcanonicaldisplayprojection. Nativeartifact/savefirst
+  deliverydefect now realDEVPASSwithoutcontinuation. Draft/needs_review/sourcehold
+  retained; notautomaticapproval or 3course/prodacceptance. Reports p20-standards-
+  {fourth-owned-readback,final-owned-replay,saved-api-readback,full-course-gate}.json.
+- FireONEnewordinaryupload/index/admission EXECUTED: job7cce387a-1a8e-4d9f-93d3-6459c2c13ca2,
+  doc1ada9564-6c53-4119-b7c1-0fd63cb956ca,index992e3c8c-d6fc-4893-b7dd-c7b3bae126ee,
+  admitted09:00:57UTC. Originalreceipts p20-dev-qa-fire-{upload,index,result}.json
+  preserved; composedownedreceipt p20-fire-composed-owned-admission.json SHA
+  68402f0918eff1d109ae72c4444fa72aa667cd1a1a737d3ae72a4d96f73e465f
+  adds indexid fromexactequalparentreceipts, nooriginalrewrite.
+- Firefirstreadbackrunning5%/0received/pendingtrue. Actualusage/modelUNKNOWN,
+  notzero. Do NOT admitduplicate/resume/redeploy/localinferencewhileactive.
+  Monitorp20-qa-job-db-readonly.py withcomposedreceipt; afterauthorcomplete use
+  p20-extract-owned-author.py --case fire (newoutput), independentfullF01-F12check.
+  Sourceindexpartial/0vectors/directsource-ready is expectedembeddingunavailable
+  degradation, NOTvectoracceptance. MicroNOTuploaded/admitted.
+- ImmutableDEV a1177116/image99b97353/soleVM2537921e unchanged; normaltenantV5
+  stillrequiresactivation afterLuna3qualitypass thennativeDeepSeek/protectedprod/
+  complete synthetic live. No clientcourse/data/production/providerplanchange.
+
+# Current P20 DEV active Standards, 2026-11-04 08:54UTC
+
+- Controllerexecute RELEASE_OK and independentsuccessorRECONCILED exacta1177116;
+  APIdep-dblf136417fc738cd2p0/live, Verceldpl_9JLsfuqoD5XqGzQZ5vXN3vXeoyu5/READY.
+  SoleVM2537921e.../image99b97353.../env3ae08907... ready/unless-stopped; produnchanged.
+- Held19 ordinaryauthenticatedowner+ack abandonment EXECUTEDONCE, afterDBproof
+  p20-held-predecessor-custody-proof.json: NULL+all16rows+8knownusages+source+
+  reservation unchanged, cost/outcomeUNKNOWN/no refund/noresume/SQLrepair.
+- ONE freshP20Standards dde78a5e-aaa5-4499-9012-df9133f42b6f ADMITTED08:49:03UTC.
+  Receiptp20-dev-qa-standards-reuse-acknowledged-result.json SHA
+  573d98df6f17a3308625d53be6192a38c4ce8fef80ed53fc0bce31d2302c1031.
+  Thirdownedreadbackrunning24%,2receivedLuna6responses35568in8587out,pendingTRUE.
+  DO NOT admitduplicate/resume/redeploy/localinferwhileactive. Currentfresh
+  author5L18Q SHAe8ddcbeefe51727fa1119c570818a2112382cef19105e40311b332520fe0b9ff
+  completeindependentsource16/4/reference contentGO, nomaterialrequiredrepair;
+  p20-standards-independent-author-quality.json. NOTterminalcourseacceptance.
+- Nextmonitor exactp20-qa-job-db-readonly.py; completedfreshsnapshot ->
+  p20-extract-owned-author.py (alreadyextractedStandards, don'trepeatexistingoutput),
+  p20-replay-owned-completed-course.py -> p20-read-saved-course-once.py.
+  No continuation expected. Then Fire/Micro fullsource-and-quality checks;
+  nativeDeepSeek/defaultactivation/protectedprod/fullsyntheticlive remainOPEN.
+
+# Current P20 DEV rollout in progress, 2026-11-04 08:46UTC
+
+- Exactcommit a1177116880d0ac281291b4135ae55fe12137707 pushed feature+dev/project
+  account08:30:58/08:31:02UTC with independentreadback/receipts/memorynotes.
+  CI41800104992/all7SUCCESS; build41801128328SUCCESS/prodSKIPPED; officialexact
+  dev/source/workflow/hostedattestationPASS. Image99b97353c855ed65b8ad6e9858475b55392360be69b119c9632c980e33ccf989.
+- NewsoleDEVworker2537921e869037c5e65c49f61437d648f43d4e472035e9c2bc6532c4a164aba7
+  ready/restart0/unless-stopped, env45SHA3ae08907342c5479a203b2ac3953335adec64d729afc15a137a6775e93b54515.
+ 95sourcefiles compared incldelivery_ownership (readiness printed stale literal94,
+  actual comparedmap95; originalreceiptretained). Prior4b3warmstoppedexit0/noforce,
+  retainedrollback-e87c4f04; production6unchanged. Noactivegeneration.
+- Controller execute ACTIVE unifiedsession7377; DO NOT launchduplicateexecute.
+  Packet vm-worker-p20-a1177116-packet.json SHA6311f60a18edd73256faa2e451a97ccc870b4574bcd836fb31d4d2c3d747d3aa.
+  Need RELEASE_OK then independentreconcile beforeQA.
+- Held19unchanged/interrupted98/NULL/8received. Latestfourthreadback samecustody.
+  Preparedp20-dispose-held-predecessor-once.py NOTexecuted; aftercontrolleraccepted
+  getfreshbeforeDBsnapshot, oneordinaryownerack terminaldisposition, afterDBread+
+  p20-verify-predecessor-custody.py. PreserveNULL/16rows/reservation/unknowncost;
+  noresume/SQL/refund. Then p20-qa-source-reuse-once.py standards ordinaryfresh
+  admission; otherhelpersrun-p20-dev-case.py fire/microcredit, notyetuploaded.
+- Offline same8stages ALSO passedactualpractical_artifacts adapter5L18Q/0calls.
+  CurrentnormaltenantdefaultV5notactivated. ThreecompleteDEV20courses, native
+  DeepSeek, defaultactivation, protectedprod/fullsyntheticlive remainOPEN.
+
 # Current P20 local gates accepted, 2026-11-04
 
 - Local20 freshdelivery+recognizedNULLhold+blindbank integration: full5492PASS,

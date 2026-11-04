@@ -1,3 +1,43 @@
+## AI-AUDIT-OWNER-001 - Producer allowed a taught source row without a lesson owner
+
+- Date: 2026-11-04.
+- Symptom: P20 Fire retained complete HTTP200 but interrupted at structured_shape;
+  no finalcourse. This is not evidence of provider transport failure.
+- Cause: exact12stage offline replay reconstructs the13th format/hash. All59
+  source rows exist; rawschema matches, but TAUGHT rows13/14 have emptylesson_ids.
+  Producer permitted this combination while consumer rightly required an owner.
+  Prompt already required owners, so merely repeating instructions is unproven.
+- Fix: new strictowner atomic audit v3 has two closed anyOf variants; TAUGHT and
+  CONTRADICTED require at leastone ownedlesson. Other statuses retain behavior.
+  Freshpracticalpolicy21 threads strict_owners; historical20/oldsavedstagesunchanged.
+  No owner is guessed, oldresponse neverpromoted and no validator weakened.
+- Verification: actualheldbody/formatSHA matchedoffline; syntheticheldshape
+  regression plus1000source shippedrunner/nativeformat conformance pass. Stable
+ 75focusedPASS/full5524PASS85.30s/baseline1006-2174PASS/independentsourcereviewGO.
+  DEVprovidersemantic/fullcourses/prod acceptance remain separate.
+- Prevention: encode crossfield requirements at producer AND consumer; exercise
+  actual typed-stage boundary and saved-response replay before paid dispatch.
+
+## AI-NATIVE-FINAL-001 - Native final save did not recheck the source and profile
+
+- Date: 2026-11-04.
+- Symptom: ordinary V3 native stages checked source but final save could use a
+  source/profile changed after the last model response.
+- Cause: native journal verified source perstage; only QA state retained final
+  source context. Ordinary save already atomicallycommitscourse+completedjob under
+  deliverylock, but did not recheck source revision/nativeprofile at finalboundary.
+- Fix: retain exact native context/originalplan/profile in serverstate and recheck
+  under existing ordinarysave lock beforecourse mutation. Freshnewcourse admission
+  selects practicalpolicy; existingdraft/oldstoredpolicies keep their established
+  route. MatchedownedQA remainsseparate; source/profile/owner/policy/pending and
+  state-onlyroute/destination drift failclosed. No fabricatedQA marker/NULLhold.
+- Verification: actual-writer fake-session source/profile/owner/tenant/selection/
+  policy/pending/destination regressions, initialsave and lostack no duplicate;
+  state-marker/destination regressions wentREDbeforefix. Full5524PASS and
+  baselinePASS above. This does not establish realPG/RLS/nativeprovider recovery.
+- Prevention: protect finaltransaction against dependencydrift; do not equate
+  QA-only acceptance with ordinarytenant production readiness.
+
 ## AI-FINAL-DELIVERY-001 - Fresh generation rejected by final-save delivery identity
 
 - Date: 2026-11-04.

@@ -10,7 +10,11 @@ from app.modules.ai.job_service import AIJobAdmissionLimitReachedError
 from app.modules.ai.qa_luna_dev_route import QA_TENANT
 from app.modules.ai.schemas import AIGenerateRequest
 from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import QUESTION_BANK_PRACTICAL_REVIEW_POLICY, practical_qa_admission
+from app.modules.ai.v3.revision_policy import (
+    OWNED_AUDIT_PRACTICAL_REVIEW_POLICY,
+    REVIEW_POLICY,
+    practical_qa_admission,
+)
 from tests.unit.test_ai_router_admission import _lenient_db
 
 FLAGS = ('AI_QA_LUNA_DEV_ENABLED', 'AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED',
@@ -42,14 +46,18 @@ def test_server_admission_is_strict_and_managed_marker_remains_supported():
 
 
 @pytest.mark.asyncio
-async def test_native_parent_rejected_before_quota_and_dispatch(monkeypatch):
-    user = SimpleNamespace(id=uuid4(), tenant_id=QA_TENANT)
+@pytest.mark.parametrize('tenant_kind,environment', [
+    ('qa', 'render-development'), ('normal', 'render-development'), ('normal', 'production'),
+])
+async def test_native_parent_rejected_before_quota_and_dispatch(monkeypatch, tenant_kind, environment):
+    user = SimpleNamespace(id=uuid4(), tenant_id=QA_TENANT if tenant_kind == 'qa' else uuid4())
     request = AIGenerateRequest(documents=[uuid4()], completed_extraction_parent_job_id=uuid4())
     analysis = SimpleNamespace(status='compatible', score=1.0, requires_decision=False, clusters=[])
     monkeypatch.setattr('app.modules.ai.source_analysis.analyze_document_set', AsyncMock(return_value=analysis))
     monkeypatch.setattr('app.modules.ai.source_analysis.document_chunk_totals', AsyncMock(return_value={}))
     monkeypatch.setattr('app.modules.ai.v3.qa_luna_pending_policy.admission_marker', lambda **_kwargs: None)
     settings = native_settings()
+    settings.DEPLOYMENT_ENVIRONMENT = environment
     settings.AI_MULTI_DOC_MAX_TOTAL_CHUNKS = 1000
     monkeypatch.setattr(router, 'get_settings', lambda: settings)
     quota, submit, reuse = AsyncMock(), AsyncMock(), AsyncMock()
@@ -66,15 +74,23 @@ async def test_native_parent_rejected_before_quota_and_dispatch(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_native_fresh_submission_carries_practical_stamp(monkeypatch):
-    user = SimpleNamespace(id=uuid4(), tenant_id=QA_TENANT)
-    request = AIGenerateRequest(documents=[uuid4()])
+@pytest.mark.parametrize('tenant_kind,environment', [
+    ('qa', 'render-development'), ('normal', 'render-development'), ('normal', 'production'),
+])
+@pytest.mark.parametrize('destination', ['fresh', 'existing', 'reuse_new'])
+async def test_native_admission_binds_policy_to_actual_destination(monkeypatch, tenant_kind, environment, destination):
+    tenant = QA_TENANT if tenant_kind == 'qa' else uuid4()
+    user = SimpleNamespace(id=uuid4(), tenant_id=tenant)
+    course = uuid4() if destination == 'existing' else None
+    request = AIGenerateRequest(documents=[uuid4()], course_id=course,
+                                reuse_reason='other' if destination == 'reuse_new' else None)
     analysis = SimpleNamespace(status='compatible', score=1.0, requires_decision=False, clusters=[])
     monkeypatch.setattr('app.modules.ai.source_analysis.analyze_document_set', AsyncMock(return_value=analysis))
     monkeypatch.setattr('app.modules.ai.source_analysis.document_chunk_totals', AsyncMock(return_value={}))
     monkeypatch.setattr('app.modules.ai.source_analysis.document_script_languages', AsyncMock(return_value={}))
     monkeypatch.setattr('app.modules.ai.v3.qa_luna_pending_policy.admission_marker', lambda **_kwargs: None)
     settings = native_settings()
+    settings.DEPLOYMENT_ENVIRONMENT = environment
     settings.AI_MULTI_DOC_MAX_TOTAL_CHUNKS = 1000
     settings.AI_MAX_ACTIVE_JOBS_PER_TENANT = 2
     settings.AI_WORKER_CONCURRENCY = 1
@@ -83,9 +99,11 @@ async def test_native_fresh_submission_carries_practical_stamp(monkeypatch):
     monkeypatch.setattr('app.core.demo_limits.check_ai_generation_quota', AsyncMock())
     monkeypatch.setattr('app.core.demo_limits.release_ai_generation_quota', AsyncMock())
     monkeypatch.setattr(router, 'resolve_tenant_ai_active_limit', AsyncMock(return_value=2))
-    submit = AsyncMock(side_effect=AIJobAdmissionLimitReachedError(tenant_id=QA_TENANT, active_count=2, active_limit=2))
+    submit = AsyncMock(side_effect=AIJobAdmissionLimitReachedError(tenant_id=tenant, active_count=2, active_limit=2))
     monkeypatch.setattr(router, 'submit_ai_job', submit)
     with pytest.raises(HTTPException) as error:
         await router.generate_course(request, db=_lenient_db(), user=user)
     assert error.value.status_code == 429
-    assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == QUESTION_BANK_PRACTICAL_REVIEW_POLICY
+    expected = REVIEW_POLICY if destination == 'existing' else OWNED_AUDIT_PRACTICAL_REVIEW_POLICY
+    assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
+    assert submit.await_args.kwargs['course_id'] == (course if destination == 'existing' else None)

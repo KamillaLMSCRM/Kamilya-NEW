@@ -5614,3 +5614,22 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
 - This is NOT threecompletecurricula, realDBconcurrency, DEVsave or prodacceptance.
   Retain reports saved-p19-question-bank-p20-r1/offline-semantic-report.json and
   saved-p19-question-bank-p20-adjudication-r1/report.json; no oldstageacceptance.
+
+
+## 2026-11-04 stable source-reviewed P21 local gate
+
+- Isolatedrelease/v3-source-reviewed-dev-20261104 basea1177116. Scope nativefinal
+  source/profile+newcourseadmission, source-audit strictowner producerparity21;
+  experimentaluncertain-arbitrationv4 DEFERRED/notincluded.75focusedPASS4.90s,
+  full5524PASS85.30s/7warnings; canonicalbaseline1006ruff/2174mypyPASS.
+- ExactoldFire12stage replay shows rejected13th structured_shape actuallymeans
+  TAUGHT-withoutlesson crossfield failure;59rows/hashmatch/no providerDBcalls.
+  No oldresponse/job/hold/accounting rewritten. Nativefakewriter regressions and
+  shippedrunner1000source conformance are not liveDB/nativeprovideracceptance.
+- Owner-authorized FireQAcorrection revision03 SHA
+ 2d10cb359e724adf6b68f576377bd019fc4e0a08168dc4e2f52b9f418777e269,
+ 20changes13editorial7simulatedhuman; independenthash/offset/reconstruction/whole
+  textconsistencyGO. OriginalPDF/source/priorversions preserved; customerapproval
+  FALSE. Actualmodule withhumanapproval+journal scheduledAFTERproductionengine.
+- Runtimecurrentlya117/P20; no currentgeneration; oldFireheld12accepted+1rejected.
+  Newcandidate3Luna/nativeDeepSeek/protectedprod/fullsyntheticlive NOTYETRUN.

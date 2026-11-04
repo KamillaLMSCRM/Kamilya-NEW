@@ -25,6 +25,7 @@ from app.modules.ai.v3.revision_policy import (
     CONCISE_PRACTICAL_REVIEW_POLICY,
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
+    OWNED_AUDIT_PRACTICAL_REVIEW_POLICY,
     POLICY,
     PRACTICAL_REVIEW_POLICY,
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
@@ -50,13 +51,14 @@ def test_closed_practical_versions_and_fresh_stamp():
     assert COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v18'
     assert EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v19'
     assert QUESTION_BANK_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v20'
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == QUESTION_BANK_PRACTICAL_REVIEW_POLICY
-    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY, TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY, EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY):
+    assert OWNED_AUDIT_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v21'
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == OWNED_AUDIT_PRACTICAL_REVIEW_POLICY
+    for version in (PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY, TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY, EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY, OWNED_AUDIT_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(version)
         assert read_review_policy({'v3_review_policy': version}) == version
-    assert not is_practical_policy('v3-practical-source-review-v21')
+    assert not is_practical_policy('v3-practical-source-review-v22')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v21'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v22'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):

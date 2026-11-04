@@ -17,6 +17,7 @@ from app.modules.ai.v3.practical_review import strict_finding_schema
 
 NAME = 'v3_practical_atomic_source_audit_v1'
 TYPED_NAME = 'v3_practical_atomic_source_audit_v2'
+STRICT_OWNER_NAME = 'v3_practical_atomic_source_audit_v3'
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
@@ -24,7 +25,7 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 
 def _format(sources: list[str], fingerprint: str, lessons: list[str], questions: list[str],
-            prior_ids: list[str], *, typed_findings: bool = False) -> dict[str, Any]:
+            prior_ids: list[str], *, typed_findings: bool = False, strict_owners: bool = False) -> dict[str, Any]:
     for ids in (sources, lessons, questions, prior_ids):
         if (type(ids) is not list or any(type(item) is not str or not item.strip() for item in ids)
                 or len(set(ids)) != len(ids)):
@@ -32,12 +33,21 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
     if (type(typed_findings) is not bool or not sources or not lessons or not questions or set(sources) & (set(lessons) | set(questions))
             or set(lessons) & set(questions) or not re.fullmatch('[0-9a-f]{64}', fingerprint)):
         raise ValueError('practical_atomic_audit_format_invalid')
+    if type(strict_owners) is not bool or strict_owners and not typed_findings:
+        raise ValueError('practical_atomic_audit_format_invalid')
     refs = {'type': 'array', 'items': {'type': 'string', 'enum': sources}, 'minItems': 1}
     single = {**copy.deepcopy(refs), 'maxItems': 1}
     text = {'type': 'string'}
     check = _object({'source_refs': single,
         'status': {'type': 'string', 'enum': ['TAUGHT', 'MISSING', 'CONTRADICTED', 'UNCERTAIN', 'NON_TEACHING']},
         'lesson_ids': {'type': 'array', 'items': {'type': 'string', 'enum': lessons}}, 'reason': text})
+    if strict_owners:
+        owned = copy.deepcopy(check)
+        owned['properties']['status']['enum'] = ['TAUGHT', 'CONTRADICTED']
+        owned['properties']['lesson_ids']['minItems'] = 1
+        other = copy.deepcopy(check)
+        other['properties']['status']['enum'] = ['MISSING', 'UNCERTAIN', 'NON_TEACHING']
+        check = {'anyOf': [owned, other]}
     props = {'source_fingerprint': {'type': 'string', 'enum': [fingerprint]}, 'source_review': text,
         'source_notes': {'type': 'array', 'items': _object({'note': text, 'source_refs': copy.deepcopy(refs)})},
         'source_checks': {'type': 'array', 'items': check, 'minItems': len(sources), 'maxItems': len(sources)},
@@ -46,29 +56,38 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
         props['issue_checks'] = _object({issue_id: _object({
             'status': {'type': 'string', 'enum': ['RESOLVED', 'OPEN', 'RETRACTED']}, 'reason': text})
             for issue_id in prior_ids})
-    return {'type': 'json_schema', 'json_schema': {'name': TYPED_NAME if typed_findings else NAME, 'strict': True, 'schema': _object(props)}}
+    return {'type': 'json_schema', 'json_schema': {'name': STRICT_OWNER_NAME if strict_owners else TYPED_NAME if typed_findings else NAME, 'strict': True, 'schema': _object(props)}}
 
 
 def atomic_audit_format(packet: PracticalSourcePacket, course: dict[str, Any],
-                        previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False) -> dict[str, Any]:
+                        previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False,
+                        strict_owners: bool = False) -> dict[str, Any]:
     checked = validate_practical_course(course, packet)
     return _format([b.block_id for b in packet.blocks if b.text.strip()], packet.fingerprint,
                    [lesson['id'] for lesson in checked['lessons']],
                    [q['id'] for lesson in checked['lessons'] for q in lesson['questions']],
-                   [item['issue_id'] for item in previous], typed_findings=typed_findings)
+                   [item['issue_id'] for item in previous], typed_findings=typed_findings, strict_owners=strict_owners)
+
+
+def _check_properties(props: dict[str, Any], strict_owners: bool) -> dict[str, Any]:
+    item = props['source_checks']['items']
+    return cast(dict[str, Any], (item['anyOf'][0] if strict_owners else item)['properties'])
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         props = value['json_schema']['schema']['properties']
-        sources = props['source_checks']['items']['properties']['source_refs']['items']['enum']
-        lessons = props['source_checks']['items']['properties']['lesson_ids']['items']['enum']
+        strict_owners = value['json_schema']['name'] == STRICT_OWNER_NAME
+        check_props = _check_properties(props, strict_owners)
+        sources = check_props['source_refs']['items']['enum']
+        lessons = check_props['lesson_ids']['items']['enum']
         branches = props['findings']['items']['anyOf']
         question_branch = next(branch for branch in branches if branch['properties']['scope']['enum'] == ['question'])
         questions = question_branch['properties']['target_id']['enum']
         rebuilt = _format(sources, props['source_fingerprint']['enum'][0], lessons, questions,
                           list(props.get('issue_checks', {}).get('properties', {})),
-                          typed_findings=value['json_schema']['name'] == TYPED_NAME)
+                          typed_findings=value['json_schema']['name'] in {TYPED_NAME, STRICT_OWNER_NAME},
+                          strict_owners=strict_owners)
         if rebuilt != value:
             raise ValueError
         return rebuilt
@@ -90,8 +109,9 @@ def matches_atomic_audit(value: Any, response_format: Any) -> bool:
         if not _matches(value, fmt['json_schema']['schema']) or not value['source_review'].strip():
             return False
         props = fmt['json_schema']['schema']['properties']
-        sources = set(props['source_checks']['items']['properties']['source_refs']['items']['enum'])
-        lessons = set(props['source_checks']['items']['properties']['lesson_ids']['items']['enum'])
+        check_props = _check_properties(props, fmt['json_schema']['name'] == STRICT_OWNER_NAME)
+        sources = set(check_props['source_refs']['items']['enum'])
+        lessons = set(check_props['lesson_ids']['items']['enum'])
         branches = props['findings']['items']['anyOf']
         questions = set(next(b for b in branches if b['properties']['scope']['enum'] == ['question'])
                         ['properties']['target_id']['enum'])
@@ -120,15 +140,18 @@ def matches_atomic_audit(value: Any, response_format: Any) -> bool:
 
 
 def validate_atomic_audit(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
-                          previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False) -> dict[str, Any]:
-    if not matches_atomic_audit(value, atomic_audit_format(packet, course, previous, typed_findings=typed_findings)):
+                          previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False,
+                          strict_owners: bool = False) -> dict[str, Any]:
+    if not matches_atomic_audit(value, atomic_audit_format(packet, course, previous, typed_findings=typed_findings,
+                                                           strict_owners=strict_owners)):
         raise ValueError('practical_atomic_audit_response_invalid')
     return cast(dict[str, Any], copy.deepcopy(value))
 
 
 def compiled_atomic_audit_findings(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
-                                   previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False) -> list[dict[str, Any]]:
-    checked = validate_atomic_audit(value, packet, course, previous, typed_findings=typed_findings)
+                                   previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False,
+                                   strict_owners: bool = False) -> list[dict[str, Any]]:
+    checked = validate_atomic_audit(value, packet, course, previous, typed_findings=typed_findings, strict_owners=strict_owners)
     findings = cast(list[dict[str, Any]], checked['findings'])
     for row in checked['source_checks']:
         status = row['status']
@@ -147,8 +170,8 @@ def compiled_atomic_audit_findings(value: Any, packet: PracticalSourcePacket, co
 
 def atomic_audit_narrative_sources(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
                                    previous: tuple[dict[str, Any], ...] = (), *, taught_only: bool = False,
-                                   typed_findings: bool = False) -> dict[str, list[str]]:
-    checked = validate_atomic_audit(value, packet, course, previous, typed_findings=typed_findings)
+                                   typed_findings: bool = False, strict_owners: bool = False) -> dict[str, list[str]]:
+    checked = validate_atomic_audit(value, packet, course, previous, typed_findings=typed_findings, strict_owners=strict_owners)
     result: dict[str, list[str]] = {lesson['id']: [] for lesson in course['lessons']}
     for row in checked['source_checks']:
         if taught_only and row['status'] != 'TAUGHT':
@@ -178,7 +201,10 @@ ATOMIC_AUDIT_SYSTEM = (
 
 def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                           previous: tuple[dict[str, Any], ...] = (), *,
-                          model_view: PracticalModelView | None = None, typed_findings: bool = False) -> list[dict[str, str]]:
+                          model_view: PracticalModelView | None = None, typed_findings: bool = False,
+                          strict_owners: bool = False) -> list[dict[str, str]]:
+    if type(strict_owners) is not bool or strict_owners and typed_findings is not True:
+        raise ValueError('practical_atomic_audit_format_invalid')
     checked = validate_practical_course(course, packet)
     if model_view is not None:
         if dict(model_view.canonical_to_alias) != dict(PracticalModelView(packet).canonical_to_alias):

@@ -543,9 +543,13 @@ async def submit_course_generation(
     if qa_pending_marker is not None:
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
     from app.modules.ai.v3.revision_policy import practical_qa_admission
-    if practical_qa_admission(settings=get_settings(), marker=qa_pending_marker,
-                              tenant_id=tenant_id, course_id=req.course_id):
-        # Existing jobs retain their stored policy and exact checkpoints.
+    if ((qa_pending_marker is None and req.course_id is None) or practical_qa_admission(
+            settings=get_settings(), marker=qa_pending_marker,
+            tenant_id=tenant_id, course_id=req.course_id)):
+        # New native courses and managed-QA jobs use the practical contract.
+        # Existing-draft regeneration keeps its established save/review path.
+        # Existing jobs retain their stored policy and exact checkpoints; older
+        # QA transport markers keep their supported historical review contract.
         analysis_payload = stamp_policy(analysis_payload, practical=True)
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,

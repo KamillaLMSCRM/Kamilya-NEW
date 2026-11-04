@@ -168,6 +168,7 @@ class PracticalCycleResult:
     counterexample_review: bool = False
     explicit_case_author: bool = False
     question_bank_review: bool = False
+    strict_audit_owners: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

@@ -106,17 +106,19 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      *, max_revisions: int = 3, adjudicate: bool = False,
                                      standalone: bool = False, typed_findings: bool = False,
                                      counterexamples: bool = False, explicit_cases: bool = False,
-                                     question_batch: bool = False) -> PracticalCycleResult:
+                                     question_batch: bool = False, strict_audit_owners: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
             or type(explicit_cases) is not bool or explicit_cases and not counterexamples
-            or type(question_batch) is not bool or question_batch and not explicit_cases):
+            or type(question_batch) is not bool or question_batch and not explicit_cases
+            or type(strict_audit_owners) is not bool or strict_audit_owners and not question_batch):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
     view = PracticalModelView(packet)
     typed_options = {'typed_findings': True} if typed_findings else {}
+    audit_options = {**typed_options, **({'strict_owners': True} if strict_audit_owners else {})}
     review_options = {**typed_options, **({'counterexamples': True} if counterexamples else {})}
     planning = [{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups]
 
@@ -152,7 +154,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v20' if question_batch else
+        review_version = ('v3-practical-source-review-v21' if strict_audit_owners else
+                          'v3-practical-source-review-v20' if question_batch else
                           'v3-practical-source-review-v19' if explicit_cases else
                           'v3-practical-source-review-v18' if counterexamples else
                           'v3-practical-source-review-v17' if typed_findings else
@@ -220,11 +223,11 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             parts.append(result)
         def validate_global(value: dict[str, Any], checked: dict[str, Any] = candidate,
                             prior: tuple[dict[str, Any], ...] = global_previous) -> None:
-            validate_atomic_audit(value, packet, checked, prior, **typed_options)
+            validate_atomic_audit(value, packet, checked, prior, **audit_options)
         audit = await call('review', 'practical:source-audit:' + _hash([review_version, candidate, global_previous]),
-            atomic_audit_messages(packet, candidate, global_previous, model_view=view, **typed_options),
-            atomic_audit_format(packet, candidate, global_previous, **typed_options), validate_global)
-        narrative = atomic_audit_narrative_sources(audit, packet, candidate, global_previous, taught_only=standalone, **typed_options)
+            atomic_audit_messages(packet, candidate, global_previous, model_view=view, **audit_options),
+            atomic_audit_format(packet, candidate, global_previous, **audit_options), validate_global)
+        narrative = atomic_audit_narrative_sources(audit, packet, candidate, global_previous, taught_only=standalone, **audit_options)
         summaries = [row['source_review'] for row in parts] + [audit['source_review']]
         consolidated: dict[str, Any] = {'source_fingerprint': packet.fingerprint,
             'source_review': '\n'.join(dict.fromkeys(summaries) if question_batch else summaries),
@@ -243,7 +246,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                     raise ValueError('practical_lesson_issue_inventory_invalid')
                 issue_checks[key] = value
         consolidated['source_notes'].extend(audit['source_notes'])
-        consolidated['findings'].extend(compiled_atomic_audit_findings(audit, packet, candidate, global_previous, **typed_options))
+        consolidated['findings'].extend(compiled_atomic_audit_findings(audit, packet, candidate, global_previous, **audit_options))
         for key, value in audit.get('issue_checks', {}).items():
             if key in issue_checks:
                 raise ValueError('practical_lesson_issue_inventory_invalid')
@@ -305,7 +308,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), reason,
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
-                                        explicit_case_author=explicit_cases, question_bank_review=question_batch)
+                                        explicit_case_author=explicit_cases, question_bank_review=question_batch,
+                                        strict_audit_owners=strict_audit_owners)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
                            checked_decision: Any = decision) -> None:
@@ -319,7 +323,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             return PracticalCycleResult(candidate, consolidated, decision, tuple(history), 'no_progress',
                                         (), False, True, lesson_scoped_review=True, arbitrated_review=adjudicate, standalone_review=standalone,
                                         typed_findings=typed_findings, counterexample_review=counterexamples,
-                                        explicit_case_author=explicit_cases, question_bank_review=question_batch)
+                                        explicit_case_author=explicit_cases, question_bank_review=question_batch,
+                                        strict_audit_owners=strict_audit_owners)
         candidate = revised
         previous = decision.feedback
     raise AssertionError('unreachable')

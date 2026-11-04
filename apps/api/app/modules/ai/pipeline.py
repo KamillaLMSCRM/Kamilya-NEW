@@ -103,6 +103,7 @@ class GenerationState:
     server_source_review_required: bool = False
     owned_v3_source_context: Any = field(default=None, repr=False)
     owned_v3_route_fingerprint: str | None = field(default=None, repr=False)
+    native_practical_final: Any = field(default=None, repr=False)
     reuse_reason: str | None = None
 
 
@@ -745,6 +746,9 @@ async def _run_v3_generation(
             if cooperative_native:
                 journal.native_generation_seconds = generation_client.generation_deadline_seconds
             await bind_native_profile(journal=journal, user_id=user_id, client=generation_client)
+            if is_practical_policy(review_policy) and state.course_id is None:
+                state.native_practical_final = (journal.expected_revision_source,
+                    dict(journal.expected_revision_plan), dict(journal.expected_native_profile))
 
     realization_started = time.monotonic()
 
@@ -900,6 +904,60 @@ async def _verify_fresh_v3_final_source(
         raise ExtractionOutcomeUnknownError("v3_final_source_unverified")
 
 
+async def _verify_native_practical_final_source(
+    session: Any, job: Any, state: GenerationState, tenant_id: UUID, user_id: UUID,
+) -> None:
+    """Recheck the native practical source and profile under the final save lock."""
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY, POLICY_ID as PROFILE_POLICY
+    from app.modules.ai.v3.owned_source_context import OwnedSourceContext
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY, OWNED_POLICIES
+    from app.modules.ai.v3.revision_policy import (
+        POLICY, is_practical_policy, read_policy, read_review_policy,
+    )
+
+    params = job.params if isinstance(job.params, dict) else {}
+    analysis = params.get('source_analysis')
+    stored_review = analysis.get('v3_review_policy') if isinstance(analysis, dict) else None
+    state_review = state.source_analysis.get('v3_review_policy')
+    state_marker = state.source_analysis.get(QA_KEY)
+    stored_marker = analysis.get(QA_KEY) if isinstance(analysis, dict) else None
+    if (tenant_id == QA_TENANT and state_marker in OWNED_POLICIES
+            and state_marker == stored_marker
+            or not is_practical_policy(stored_review) and not is_practical_policy(state_review)):
+        return
+    guard = state.native_practical_final
+    if not isinstance(guard, tuple) or len(guard) != 3:
+        raise ValueError('v3_native_final_source_unverified')
+    context, plan, profile = guard
+    try:
+        valid = (type(context) is OwnedSourceContext and context.tenant_id == tenant_id
+                 and context.user_id == user_id and context.job_id == state.job_id
+                 and str(job.tenant_id) == str(tenant_id) and job.user_id == user_id
+                 and str(job.id) == state.job_id and job.course_id is None and state.course_id is None
+                 and context.selection == tuple(state.source_document_ids)
+                 and tuple(context.corpus.document_ids) == context.selection
+                 and isinstance(analysis, dict) and read_policy(analysis) == POLICY
+                 and is_practical_policy(state_review) and read_review_policy(analysis) == state_review
+                 and analysis.get(QA_KEY) is None
+                 and state_marker is None
+                 and context.journal.expected_revision_policy == POLICY
+                 and context.journal.expected_review_policy == state_review
+                 and isinstance(profile, dict) and profile == context.journal.expected_native_profile
+                 and set(profile) == {'policy', 'fingerprint'} and profile.get('policy') == PROFILE_POLICY
+                 and isinstance(profile.get('fingerprint'), str)
+                 and re.fullmatch(r'[0-9a-f]{64}', profile['fingerprint']) is not None
+                 and isinstance(job.result, dict) and job.result.get(PROFILE_KEY) == profile
+                 and not has_pending(job.result)
+                 and isinstance(plan, dict) and plan == context.journal.expected_revision_plan
+                 and await context.verify_locked(session, job, plan) is True)
+    except (ValueError, TypeError, AttributeError):
+        valid = False
+    if not valid:
+        raise ValueError('v3_native_final_source_unverified')
+
+
 async def _save_generation_to_db(
     state: GenerationState,
     tenant_id: UUID,
@@ -1001,6 +1059,7 @@ async def _save_generation_to_db_transaction(
             raise asyncio.CancelledError(f"Job {state.job_id} cancelled")
         if job.user_id is None or job.user_id != user_id:
             raise DirectSourceError("generation_source_job_mismatch")
+        await _verify_native_practical_final_source(session, job, state, tenant_id, user_id)
         # A late concurrent delivery may have generated against the original
         # null course_id while another delivery saved the review-required draft.
         if _restore_saved_v2_outcome(state, job):
