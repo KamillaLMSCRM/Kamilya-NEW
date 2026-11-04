@@ -1,3 +1,202 @@
+# P26 LOCAL Fire repair complete; final freeze gates running, 2026-11-05
+
+- result: Saved Fire repair completed7L30Q; independent full F01-F12/content
+  review GO for human review. Four meaningful Luna6/HIGH calls (one structural
+  audit plus arbiter/patch/audit)131357input15768output/about298s. This is LOCAL
+  saved-case repair, not fresh generation or DEV acceptance. Three remaining
+  assessment suggestions retained. Actual DEV still P25/f7bfe272, no new Micro.
+- changed: Fresh26 source audit checks each structural child with owned lesson
+  content evidence; old25 exact11+22-response replays preserve prior course hashes
+  with zero calls. Narrow source/assessment classification keeps assessment-only
+  suggestions visible without falsely labeling verified prose as source errors;
+  source/provenance/context/lesson/question/coverage holds remain fail-closed.
+  Quality stays needs_review and ordinary quizzes stay needs_review. No automatic
+  approval/publication. Rejected incremental assessment-scope experiment REMOVED:
+  evidence ownership does not prove an exhaustive semantic dependency graph.
+- verified: Classification focused13PASS; final full API6532PASS120.48s/7known
+  warnings; baseline1006/2174PASS; release contract0184/368entriesPASS. Exact
+  old25 replays11+22stages PASS0calls, both historical course hashes unchanged.
+  Web1595tests/182files plus lint/types already pass; live-job recovery patch
+  included. No active local model request or DEV course generation. Production
+  six containers and client records unchanged. Full source/assessment/question
+  checks remain global; no validator threshold weakened.
+- blockers: Full three fresh26 DEV courses and nativeDeepSeek stage outstanding.
+- next: Freeze reviewed code, exact project feature/dev push + independent receipt,
+  CI/immutable image/attestation and preserving sole-worker DEV release; three
+  full Luna courses/67 families/16 ambiguities, nativeDeepSeek within remaining
+  approved1.0652904USD; protected0184production/full synthetic live journey.
+
+# Historical P26 LOCAL saved Fire repair ACTIVE; full6519PASS, 2026-11-04T19:51:13.220639+00:00
+
+- result: Actual DEV still f7bfe272/P25 managedLuna, no DEV job active. P25
+  Standards6L19contentGO/humanholds and Fire7L29semanticNO_GO remain historical;
+  source/worker/API/frontend untouched since last exact receipt. Production6
+  containers freshly verified unchanged; VM free20.18GB/MemAvailable7.71GB,
+  release lock absent. No cleanup/resource/rights/reserve changes.
+- active: ONE LOCAL saved-case repair process p26-repair-saved-fire.py,
+  result p26-saved-fire-repair-result.json not yet present. Intent gives private
+  directory. It reinterprets saved source-audit body under corrected consumer
+  (NOT exact replay of clarified producer prompt), then actual Luna6/HIGH:
+  arbiter48.015s36010in2454out; scopedpatch35.906s34793in1820out received;
+  final source audit pending. DO NOT duplicate/retry. p18_standards_quality is
+  independently reviewing complete7L29candidate locally, no calls/writes.
+- changed: Fresh26 compact child checks use100Fire/368Micro spans and exact
+  server-owned E-content selectors, no repeated fullsource/copying quotations.
+  UNCONFIRMED audit proof is coverage, not source ambiguity. Root/independent
+  review fixed childtext loss into parent at arbitration and MISSING L4-vs-E
+  target mismatch (actual saved pilot returnedL4): exactownedLID accepted ONLY
+  as MISSING repairtarget, never TAUGHT/CONTRADICTED proof; collision rejects.
+  Blind questions/author/arbiter prompts unchanged, old25 hashes preserved.
+- verified: FULL6519APIunitPASS65.62s/7knownwarnings; baseline1006/2174PASS.
+  Web1595/182filesPASS285s bounded2workers/lint+typesPASS.12claimfocused and
+  new ordinaryservice/coldjournal replay PASS; old25 exact11+22stage replays
+  keepcourse hashes0calls. Independent read-only review boundedGO after2fixes.
+  Firstfull6515passed/1ERRORS headerdate failed; header synchronizedNov5 and
+  finalfullpasses. No validator/quality threshold weakened.
+- next: Read LOCAL pending result/independent quality verdict; do not claim
+  this as fresh fullgeneration or DEV acceptance. Freeze reviewedsource/CI and
+  immutableimage, preserving DEV rollout plus webrecovery, then3fullLuna courses,
+  nativeDeepSeek DEV (remainingapproved1.0652904USD) and protected0184prod/full
+  syntheticlive. New26 not yet committed/pushed/deployed. No Micro newjob.
+
+# P25 Fire complete NO_GO; P26 LOCAL cause fix, 2026-11-04 19:27UTC
+
+- result: Actual DEV remains exactf7bfe272/image9879/soleworker910 managedLuna.
+  Fire e5256aa4 completed7L29Q/22received612522input54506output, two ordinary
+  cooperative continuations. All8 then19 prior responses preserved exactly;
+  final22stage offline replay and ordinary saved API fulltext/keys/quotes PASS.
+  Finalcourse4fa12671/coursehashc5def176..., editableL4/revision_limit, not accepted.
+  Finalaudit DID flag missing independent electrical bans, but only after three
+  scoped repairs. Do not call this a fully blind final audit. Micro P25 NOT run.
+- changed: LOCAL fresh26 source audit enumerates structural child spans and
+  demands owned literal lesson evidence, same model stage; old25 hash/replay
+  must remain unchanged. Root wires service/policy/result; p17_contract_review
+  owns atomic module/helper/tests. Its initial missing-proof -> UNCERTAIN was
+  rejected by root: use distinct proof hold, not source ambiguity. Work ongoing.
+  Web-only recovery patch selects live jobs before oldinterrupted, fences stale
+  scope/unmount, stable inline callback identity.25focused/typecheck PASS;
+  full1595/182files PASS285s bounded2workers. Earlier full1594/1timeout retained;
+  failed journal case passed7focused, no assertion weakened.
+- verified: Root challenged independent L6Q4 material accusation. One generic
+  blind Luna6/HIGH review of all29 saved questions (no specific hints)67.219s,
+ 30301input3514output UNIQUE0. Reviewer withdrew accusation: powered/armed
+  standby lighting need not mean continuously glowing. Root removed unproved
+  generic question/arbiter/repair prompt changes; only the compound-list defect
+  drives26. Pilot request/response preserved p26-fire-blind-bank-pilot-result.json.
+- active: No DEV generation/admission/ASUS bridge now. LOCAL agent atomic work
+  only; do not run a new full course until saved-case26 evidence pilot passes.
+  Native env-v5/f7 staged but NOT activated: SHA c2e99ae2a44f76524427014fc6e63dd33
+  e667085e246d3e1d6ebade584d705ec. ReceiverV5 firstpreflight found absent (old note
+  was stale), installed exact493f...; production6containers unchanged. Active
+  env remains managed8cb5... . No paid DeepSeek inference; remainingcap1.0652904.
+- next: Review/test fresh26 audit and saved Fire pilot, preserve old25 exact
+  replay; integrate web recovery, full gates then one preserving DEV release.
+  Complete three fullgood courses on Luna, nativeDeepSeek DEV and protected
+ 0184production/fullsyntheticlive. Standards P25 humancontentGO remains evidence,
+  not fresh26/threecourse acceptance. Production/customer4courses/280staff untouched.
+
+# P25 LIVE DEV: Standards complete; Fire resumed ONCE, 2026-11-04 18:56UTC
+
+- result: Same exact f7bfe272 DEV API/frontend/sole worker910, managed gpt-6-luna;
+  production unchanged. Standards jobc28486cc complete6L19Q in13m7s/11received
+  replies245391input25536output. Exact11stage offline replay and normal saved
+  API alltext/choices/keys/literalquotes PASS. Independent16family review GO for
+  human content review; NOT automated acceptance: two duplicated genuine amount
+  gaps plus five conservative unsupported AUP-RD proof holds remain visible.
+  Source role is defined; do not silently clear these engine holds.
+- active: Fire e5256aa4-7ea6-4d87-95a5-ff2a14edfcbd, source c6303a50, same25.
+  Cooperative interruption after8received213973input27402output; no pending.
+  Exact8request/response replay0calls proved next sourceaudit not dispatched.
+  ONE ordinary samejob resume actually admitted18:55:33UTC; receipt
+  p25-fire-resume1-result.json. Prior attempted tool session had terminated before
+  intent/login, confirmed absence of intent and process; no duplicate request.
+  Fresh sixth readonly snapshot shows running/ingestion and resume_count1.
+- changed: No new source/model/app edit. ASUS remains off/no bridge. Resume only
+  continues remaining stages; all prior8responses must remain byte-identical.
+- verified: p25-fire-fresh-before-resume-prefix.json; p25-fire-{fifth,sixth}-owned-
+  readback.json; p25-fire-resume-custody-proof.py ready0call comparison. Do not
+  execute resume helper again. Micro P25 NOT admitted; oldP24f069 quarantined.
+- next: Finish Fire, exact replay with narrowly bound one-resume custody proof,
+  saved API + independent12family/allquestion review; then Micro fresh ordinary
+  policy25 admission with fresh controller reconcile. Then nativeDeepSeek DEV
+  within remaining approved1.0652904USD, protected0184release and full synthetic
+  live cycle. No production acceptance yet; maintain customer4courses/280staff.
+
+# P25 LIVE DEV Luna; Standards c28486cc ACTIVE, 2026-11-04 18:06UTC
+
+- result: Exactf7bfe2721d012602ce024c07d3485a961a4cfa85 DEV RELEASE_OK +RECONCILED.
+  CI41878617416SUCCESS; immutable build41880794665SUCCESS/prodfalse; GH attestation
+  verified exact9879cd7e987d59cf8aedb52f82e8a87bbf1b0b75ece9085b4ad0d00082c50ad5.
+  APIdep-dbln4o1srm7s73f4ecl0/live, Verceldpl_FBy7kaycT3osd6oogVUGhx9nfZxS/ready.
+  Soleworker910d4198e84ede59b8a94b9da26f8fcb7f9fd1a4a865b4e12578acd103e69828,
+  45keymanagedLuna env8cb5a9549f28d9e10f61cc35ee2c29d89aea9b4bb3b79ce2aa24bd67100aefc5;
+  restart0/unless-stopped. Old759b retained rollback5467e5ae, no duplicate consumer.
+  Production sixAPI/workers/reserve identities/config/start unchanged throughout.
+- active: ONE ordinary DEV Standardsjobc28486cc-9e28-47f9-88c1-407ce1ef3854,
+  admitted18:02:51UTC, actor5187fa5f/permanentQAtenant; doc e18c0fea-0779-46b9-8738-58664642af15,
+  exactworkingMD8d71182b..., existing typed directsource-ready index/embeddings0.
+  Firstownedread observed policy25 and pending author,0completedresponses; do not
+  duplicate/admit another Standards or retry/reset pending stage. Admission
+  p25-dev-qa-standards-reuse-acknowledged-result.json. Controllerfreshreconcile at
+  .release-evidence/dev/REL-DEV-P25-LUNA-F7BFE272-20261104/reconcile.json.
+- changed: Owner explicitly allowed fallback to previous working route. ASUS full
+  local service stopped after2received replies233.906s: author7L25Q valid,
+  18393input19410output total. Checker reply was valid JSON wrapped in Markdown;
+  strict prompt_json adapter rejected it (finishstop). Offline wrapper removal
+  found0schemaerrors, NOT semantic acceptance or response promotion. Preserve
+  raw4ebed730...aa4 and report/rejection-shape-readback.json under
+  p25-local-asus-standards. No more ASUS requests/bridge. Localflag staysOFF in
+  actualworker; all4Luna QAflags/isolatedconnector19000 unchanged. Stagedunused
+  env-v6 is retained but notactivated. No global ASUS/production route changes.
+- verified:6502APIunit/124focused/2platformskips/baseline1006/2174/release0184/367PASS.
+  NewP25 readonlyhelper initially still required policy24, gate stopped safely;
+  corrected assertion to exact25, no model/job mutation. Failedreadbacks retained.
+  Successful p25-standards-second-owned-readback.json/private1486775f... snapshot.
+  Read-only controller waiter was stopped before one canonical execute; only one
+  Render deploy triggered. Plans remain Free/Free/Hobby; old Render worker suspended.
+- next: Read active Standards state via p25-qa-job-db-readonly.py (strict25);
+  collect fresh unique snapshot/output, no blind model repeats. Complete/replay all
+  owned stages with p25-replay-owned-completed-course.py -- materiality_review=True
+  AND update its remaining explicit policy24 assertion to25 before use. Fullmatrix
+  independent source+accepted7L23Q. Then Fire and Micro sequentially. P25 source
+  reuse helper covers3cases; originalP24Microf069 remains quarantined, never
+  resume/reset/promote. Before every new admission refresh canonical reconcile
+  (<600s), verify exactblob/actor/source-ready; docs/INFRA_CELERY_WORKER.md contains
+  a local uncommitted DEV runbook update. Production0183 -> required0184 quote
+  column is additive; release still needs fullDEV/nativeDeepSeek/backup/live gates.
+
+# P25 ASUS candidate pushed; CI41878617416 QUEUED, 2026-11-04 17:40UTC
+
+- result: Committedf7bfe2721d012602ce024c07d3485a961a4cfa85; feature and dev
+  independently read back exact through KamillaLMSCRM/canonical helper; sanitized
+  receipts p25-asus-{feature,dev}-source-receipt.json and authorized memory notes.
+  Final6502APIunitPASS67.49s,124focusedPASS/2platformskips,baseline1006/2174PASS,
+  releasecontract0184/367PASS. NO fullcourse/production acceptance claimed.
+- changed: Installed ONLY immutable receiverV6 on VM, SHA133ae5b74de1164d933eb379
+  cea2ad0cdfe1751ec34f5759b3df62724f7e6f6b; sixproduction/reserve containers
+  verifiedunchanged. Staged new worker env-v6/f7bfe272/runtime.env,46keys,SHA
+  122b8e2ff802c30effdbaf826215162e4252918f671af2298f7c6b4609b4443c.
+  Source Render worker env leftunchanged. New staged env only flips4QAflagsfalse
+  and addslocaltrue; preserves reserve/key/roles/plans. NOTactivated.
+- verified: Bridge one real worker inference PASS+close proved no listener;
+  no bridge/model/controller/test process active now. New source initially failed
+  7legacy fixtures before flagOFF field-access guard, then full6502PASS. Empty
+  local API key auth fixed and realHTTP client tested. Source immutable atf7bfe272.
+- blockers: CI41878617416 queued, not failed; no build/deploy yet. DEV sole worker
+  still759b/P24source5467/image915b. Actual Render API and suspendedRenderworker
+  still QA_LUNA=true/PENDING=true/MANAGED=true/DIRECT=false; this was read back.
+  Before local ordinary admission API's4scoped QAflags needfalse with oldsnapshot
+  rollback, otherwise server stamps managed route and conflicts with native local.
+  Do NOT change global provider/reserve order or wake suspendedRenderworker.
+- next: Wait exact CI, dispatch only immutable image build deploy_to_production=false;
+  verify artifact/attestation. Local generator prepare-p25-asus-worker.py is ready
+  (requires worker-image-p25-f7bfe272 artifacts); inspect generated scripts before
+  canonical dry/execute. Warmdrain idlecurrent, preserve rollback5467, start new
+  image/env-v6, controller exactparity. Start bridge pinned NEWworker via
+  scripts/dev/run_dev_asus_bridge.py dry+exactplan execute7200s, then ordinaryfresh
+  Standards/Fire/Micro sequentially; old Microf069 stage stays quarantined.
+  No P25 wholecoursequality, producerD05gap, cloudDeepSeek/prod/live accepted yet.
+
 # P25 ASUS through Windows: actual DEV transport PASS, candidate LOCAL
 
 - result: Owner explicitly chose temporary DEV access through this computer.

@@ -5797,3 +5797,42 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
   fresh QA courses sequentially, compare all67families/16ambiguities. No task-wide
   model changes/customer data. Current owner authorization covers all fresh QA
   courses for these tests, not a single claimed job. Production remains gated.
+
+## RUN-20261104-P25-DEV-STANDARDS-FIRE-OWNED
+
+- Exact source: f7bfe2721d012602ce024c07d3485a961a4cfa85; immutable image9879cd7e.
+- Standards c28486cc:6L19Q/11received245391input25536output/13m7s; all11
+  exactstage replay and fullsavedAPI fields PASS; independent16family contentGO
+  for human review. Two duplicated genuine amount gaps +5unsupported roleproof
+  holds remain; automated acceptance not claimed.
+- Fire e5256aa4:7L29Q/22received612522input54506output; two cooperative no-pending
+  continuations retained all8/19 priorresponses. All22exactstage replay and full
+  savedAPI fields PASS; semantic NO_GO at revision_limit due electrical omissions.
+- Model actual gpt-6-luna; reasoning configuredHIGH. Separate reasoning/cache
+  token counters not returned. Local/DEV model usage is not a zero-cost claim.
+- No Micro admission, nativeDeepSeek or production acceptance. Current customer
+  courses/employees/routing unchanged. Fullcourse proof is not a singlelesson.
+
+## RUN-20261105-P26-LOCAL-WEB-RECOVERY
+
+- Base f7bfe272 plus fourfile local web patch; no runtime deployment yet.
+-25focused Vitest/typecheck PASS; full182files1595tests PASS285s/maxWorkers2.
+- Earlier broad run1594passed/1journal findbutton timeout retained; isolated
+  journal7tests PASS4.41s, no assertion or timeouts weakened.
+- One blind saved-Fire29question generic-guide probe67.219s30301input3514output,
+  actual gpt-6-luna/HIGH; not DEV/course acceptance. Specific L6Q4 accusation
+  withdrawn by independent auditor after root challenged an unstated stronger
+  interpretation. Unproved question prompt changes removed.
+# P26 final local freeze, 2026-11-05
+
+- Full API unit suite:6532passed/7knownwarnings/120.48s; canonical wrapper/rootvenv.
+- Python baseline:ruff1006/mypy2174PASS; releasecontract0184/368journalentriesPASS.
+- Exact historical P25 replay:11Standards+22Fire stages,0provider/DBcalls;
+  course hashes23ae6e75...54a56/c5def176...f8cd unchanged. These are regression
+  evidence, not new source acceptance. Classification focused13PASS and independent
+  read-only boundedGO; quiz/publication approvals unchanged.
+- Local saved Fire repair7L30Q independentF01-F12/contentGO for human review;
+  original audit plus3repair-stage calls131357input15768output, about298s. Three
+  assessment suggestions retained; not fresh generation or DEV acceptance.
+- Web1595tests/182filesPASS285s (2workers), lint/typesPASS. Rejected incremental
+  assessment-scope experiment removed; full source/assessment/question checks remain.

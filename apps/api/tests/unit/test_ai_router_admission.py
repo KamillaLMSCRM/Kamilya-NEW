@@ -90,9 +90,9 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch, 
     saved_decision = submit.await_args.kwargs["params"]["reference_decisions"][0]
     assert saved_decision["approved_by"] == str(user.id) and saved_decision["tenant_id"] == str(tenant_id)
     assert saved_decision["authority"] == "methodologist_confirmed"
-    from app.modules.ai.v3.revision_policy import MATERIALITY_PRACTICAL_REVIEW_POLICY, REVIEW_POLICY
+    from app.modules.ai.v3.revision_policy import CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, REVIEW_POLICY
 
-    expected = MATERIALITY_PRACTICAL_REVIEW_POLICY if qa_marker in (None, 'qa-managed-luna-diversity-v1') else REVIEW_POLICY
+    expected = CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY if qa_marker in (None, 'qa-managed-luna-diversity-v1') else REVIEW_POLICY
     assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
 
 

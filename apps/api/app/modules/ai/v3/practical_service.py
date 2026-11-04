@@ -34,6 +34,7 @@ from app.modules.ai.v3.practical_source_reader import (
 from app.modules.ai.v3.revision_policy import (
     ARBITRATED_PRACTICAL_REVIEW_POLICY,
     ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
+    CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
     CONCISE_PRACTICAL_REVIEW_POLICY,
     CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
@@ -63,7 +64,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (MATERIALITY_PRACTICAL_REVIEW_POLICY if result.materiality_review else
+    review_policy = (CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY if result.claim_evidence else
+                     MATERIALITY_PRACTICAL_REVIEW_POLICY if result.materiality_review else
                      ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY if result.assessment_coverage else
                      CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY if result.context_supplemented else
                      EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY if result.exclusive_options else
@@ -119,7 +121,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                           and not doc.review_only_source_unresolved
                           and not doc.review_only_source_context for doc in corpus.documents)
     accepted = (result.decision.accepted and not provenance_holds and not prose_provenance_holds
-                and not result.unresolved_question_context)
+                and not result.unresolved_question_context
+                and (not result.claim_evidence or not result.decision.feedback))
     report = {'review_policy': review_policy,
               'automated_review_passed': accepted,
               'stop_reason': result.stop_reason, 'violations': issues,
@@ -131,8 +134,14 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       # ordinary persistence layer still creates a draft course.
                       quality_verdict='verified' if accepted and source_verified else 'needs_review',
                       validation_report=report)
+    assessment_only = (review_policy == CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY and source_verified
+        and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
+        and not result.unresolved_question_context and bool(result.decision.feedback)
+        and all(row.get('scope') == 'assessment' and isinstance(row.get('evidence'), dict)
+                and 'original_finding' not in row['evidence'] for row in result.decision.feedback))
     artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),
-        source_corpus=corpus, source_rules=tuple(rules), canonical_source=True)
+        source_corpus=corpus, source_rules=tuple(rules), canonical_source=True,
+        **({'source_review_required': False} if assessment_only else {}))
     for assessment, lesson in zip(artifacts.assessment.assessments, displayed['lessons'], strict=True):
         for question, raw in zip(assessment.mcq, lesson['questions'], strict=True):
             question.question = raw['prompt']
@@ -150,6 +159,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
                                     else 'authored_question_scope_v2'),
     })
+    if assessment_only:
+        artifacts.diagnostics['requires_assessment_review'] = True
     return artifacts
 
 
@@ -160,7 +171,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = MATERIALITY_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
@@ -174,7 +185,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                        EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
                        OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
                        CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
-                       MATERIALITY_PRACTICAL_REVIEW_POLICY}
+                       MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY}
     parts = () if review_policy in lesson_policies else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
@@ -223,11 +234,12 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
         options = ({'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True, 'strict_audit_owners': True,
-                    **({'exclusive_options': True} if review_policy in {EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'context_supplemented': True} if review_policy in {CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'assessment_coverage': True} if review_policy in {ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY} else {}),
-                    **({'materiality_review': True} if review_policy == MATERIALITY_PRACTICAL_REVIEW_POLICY else {})}
-                    if review_policy in {OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY} else
+                    **({'exclusive_options': True} if review_policy in {EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'context_supplemented': True} if review_policy in {CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'assessment_coverage': True} if review_policy in {ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'materiality_review': True} if review_policy in {MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else {}),
+                    **({'claim_evidence': True} if review_policy == CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY else {})}
+                    if review_policy in {OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY} else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True} if review_policy == QUESTION_BANK_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,

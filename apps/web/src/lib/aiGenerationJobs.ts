@@ -29,7 +29,7 @@ export interface AIGenerationWorkflowContext {
 export function selectOldestActiveCourseJob(
   jobs: AIGenerationJob[],
 ): AIGenerationJob | null {
-  const activeJobs = jobs
+  const candidates = jobs
     .filter((job) => (
       (
         job.job_type === 'course_generation'
@@ -38,7 +38,10 @@ export function selectOldestActiveCourseJob(
       && (job.status === 'pending' || job.status === 'running' || job.status === 'interrupted' || job.status === 'reconciliation_required')
     ))
     .sort((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
-  return activeJobs[0] ?? null;
+  const live = candidates.filter((job) => (
+    job.status === 'pending' || job.status === 'running' || job.status === 'reconciliation_required'
+  ));
+  return (live[0] ?? candidates.find((job) => job.status === 'interrupted')) ?? null;
 }
 
 export function selectLatestTerminalCourseJob(

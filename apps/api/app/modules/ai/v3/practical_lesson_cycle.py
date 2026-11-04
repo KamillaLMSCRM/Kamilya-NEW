@@ -118,7 +118,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      exclusive_options: bool = False,
                                      context_supplemented: bool = False,
                                      assessment_coverage: bool = False,
-                                     materiality_review: bool = False) -> PracticalCycleResult:
+                                     materiality_review: bool = False,
+                                     claim_evidence: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
@@ -128,13 +129,15 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             or type(exclusive_options) is not bool or exclusive_options and not strict_audit_owners
             or type(context_supplemented) is not bool or context_supplemented and not exclusive_options
             or type(assessment_coverage) is not bool or assessment_coverage and not context_supplemented
-            or type(materiality_review) is not bool or materiality_review and not assessment_coverage):
+            or type(materiality_review) is not bool or materiality_review and not assessment_coverage
+            or type(claim_evidence) is not bool or claim_evidence and not materiality_review):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
     view = PracticalModelView(packet)
     typed_options = {'typed_findings': True} if typed_findings else {}
-    audit_options = {**typed_options, **({'strict_owners': True} if strict_audit_owners else {})}
+    audit_options = {**typed_options, **({'strict_owners': True} if strict_audit_owners else {}),
+                     **({'claim_evidence': True} if claim_evidence else {})}
     review_options = {**typed_options, **({'counterexamples': True} if counterexamples else {})}
     planning = [{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups]
 
@@ -195,7 +198,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v25' if materiality_review else
+        review_version = ('v3-practical-source-review-v26' if claim_evidence else
+                          'v3-practical-source-review-v25' if materiality_review else
                           'v3-practical-source-review-v24' if assessment_coverage else
                           'v3-practical-source-review-v23' if context_supplemented else
                           'v3-practical-source-review-v22' if exclusive_options else
@@ -371,6 +375,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options,
                                         context_supplemented=context_supplemented, assessment_coverage=assessment_coverage,
                                         materiality_review=materiality_review,
+                                        claim_evidence=claim_evidence,
                                         unresolved_question_context=unresolved_context)
         fmt = practical_patch_format(packet, candidate, decision)
         def validate_patch(value: dict[str, Any], checked: dict[str, Any] = candidate,
@@ -401,6 +406,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         strict_audit_owners=strict_audit_owners, exclusive_options=exclusive_options,
                                         context_supplemented=context_supplemented, assessment_coverage=assessment_coverage,
                                         materiality_review=materiality_review,
+                                        claim_evidence=claim_evidence,
                                         unresolved_question_context=unresolved_context)
         candidate = revised
         previous = decision.feedback

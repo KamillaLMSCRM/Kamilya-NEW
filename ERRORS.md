@@ -62,6 +62,20 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Recurrence2026-11-05/P25: Fire e5256aa4 completed7L29Q with22received Luna6
+  replies612522input54506output. Two no-pending cooperative continuations
+  preserved all prior8/19 responses; exact22stage replay and saved API fields
+  match coursec5def176. The last source audit detected missing electrical bans
+  only after3repairs/revision_limit. One TAUGHT row per compound source block
+  allowed partial coverage to hide sibling rules in earlier reviews. P26 LOCAL
+  child-span/literal-evidence correction is in progress; not deployed or accepted.
+  Independent L6Q4 wrong-key allegation was withdrawn on root challenge: powered
+  standby lighting is compatible with 'switched on'; continuous illumination was
+  not stated. One generic blind29question probe67.219s30301in3514out also returned
+  UNIQUE0; this is supporting evidence, not proof by model majority. Unproved
+  question-guide changes were removed. Do not manufacture an engine guard from
+  a reviewer's stronger interpretation than the actual answer.
+
 - Recurrence2026-11-04/P24: Microjobf0692f27 was interrupted after4 accepted
   Luna6HIGHresponses203531input24814output. A COMPLETE HTTP200 arbiter response
   (bodyd796e2c61d06173f96a382ac71c82eef83e448e631ddb52fd14aeb7775ed11d7)
@@ -469,7 +483,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-04.
+Current as of: 2026-11-05.
 
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
@@ -10010,3 +10024,23 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
  from missing facts, and confirm source-grounded exclusion. Test actual saved
  defects plus source-excluded subclass cases; do not add a bulky proof protocol
  or new model pass without measured improvement.
+
+## UI-GENERATION-RECOVERY-001 - Interrupted history hid the live generation
+
+- Date: 2026-11-05.
+- Symptom: ordinary DEV /ai/generate restored an old interrupted unknown-outcome
+  QA job while a newer course job was actually running. No client incident is
+  inferred from this synthetic fixture.
+- Cause: persisted interrupted recovery never discovered current jobs; empty
+  local recovery sorted interrupted and live jobs together oldest-first.
+- Fix: live jobs precede interrupted fallback; persisted interrupted recovery
+  performs scoped read-only discovery. Mount/current-request fences prevent
+  late storage or state updates, and a latest-callback ref preserves callback
+  identity under the page's inline request-key function. No job mutation.
+- Verification:25focused web tests/typecheck PASS; full1595tests/182files
+  PASS285s with2workers. First broad run1594passed/1journal initial-button timeout
+  retained; the isolated7journal tests passed without changes. DEV/browser
+  integration of this local patch remains pending.
+- Prevention: test persisted oldinterrupted + currentlive, unavailable/no-live
+  discovery, delayed actor/source switch/unmount and callback identity. Read
+  recovery status without abandoning, cancelling or resuming historical jobs.

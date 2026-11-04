@@ -98,12 +98,18 @@ def v3_course_to_generation_artifacts(
     source_rules: tuple[RuleEntity, ...] | None = None,
     exact_narrative_facts: bool = False,
     canonical_source: bool = False,
+    source_review_required: bool | None = None,
 ) -> GenerationArtifacts:
     """Converts a high-fidelity V3Course into the production GenerationArtifacts contract.
 
     This ensures complete compatibility with the existing database persistence pipeline
     (_save_generation_to_db), saving Course, Module, Lesson, Quiz, Question, and QuizChoice.
     """
+    if source_review_required is not None and type(source_review_required) is not bool:
+        raise ValueError("source_review_required_invalid")
+    if source_review_required is False and (not canonical_source or source_corpus is None or source_rules is None):
+        raise ValueError("source_review_required_unbound")
+    source_hold = course.quality_verdict != "verified" if source_review_required is None else source_review_required
     doc_ids = list(source_document_ids or [])
     doc_refs = [{"doc_id": did} for did in doc_ids]
 
@@ -171,7 +177,7 @@ def v3_course_to_generation_artifacts(
                     title=lesson.title,
                     content=lesson.content,
                     source_references=lesson_refs,
-                    source_validation_status="verified" if course.quality_verdict == "verified" and provenance_complete else "needs_review",
+                    source_validation_status="verified" if not source_hold and provenance_complete else "needs_review",
                 )
             )
 
@@ -222,7 +228,7 @@ def v3_course_to_generation_artifacts(
         "quality_verdict": course.quality_verdict,
         "validation_report": course.validation_report,
         "violations": warnings,
-        "requires_source_review": (course.quality_verdict != "verified" or bool(unresolved_provenance)),
+        "requires_source_review": (source_hold or bool(unresolved_provenance)),
     }
     if canonical_source or source_corpus is not None or source_rules is not None:
         diagnostics["unresolved_source_provenance_lesson_ids"] = unresolved_provenance

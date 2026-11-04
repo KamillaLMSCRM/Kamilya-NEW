@@ -43,40 +43,65 @@ checkout удалены.
 - `celery`: временно сохраняется только для безопасного дренирования старых
   сообщений.
 
-## DEV topology
+## DEV topology (актуализировано 2026-11-04)
 
-DEV не использует production Valkey, production PostgreSQL или worker VM126.
-Отдельный сервис Render `kamilya-lms-dev-worker` (`srv-dar2dvbncjis73bsda3g`)
-работает как Free Web Service с `autoDeploy=no`, без диска и без pre-deploy
-migration. Он запускает один Celery consumer для очередей
-`ai,documents,maintenance` с
-`concurrency=1`, используя те же DEV environment variables, что Render API, и
-публикует только статический health response на
-`https://kamilya-lms-dev-worker.onrender.com/`.
+DEV использует единственный изолированный контейнер `kamilya-dev-worker` на
+VM126, узел Celery `kamilya-dev-worker@vm126`, очереди
+`ai,documents,maintenance`, concurrency=1. Production broker, база и consumers
+не используются. DEV broker: прежний TLS Redis, logical database `/1`;
+DEV application database — канонический Supabase DEV, runtime `lms_app`.
+Контейнер ограничен 1 CPU/1 GiB, read-only root, без published ports и mounts,
+cap-drop ALL, no-new-privileges. Старый Render Free worker
+`srv-dar2dvbncjis73bsda3g` остаётся suspended/autoDeploy=no. Не будить его:
+это создаст второй consumer. Публичный health старого Render worker не является
+проверкой нынешнего DEV worker.
 
-DEV API и DEV worker обязаны использовать Redis logical database `1`. Старые
-worker на `vmi3311535` используют database `0`; общий DB `0` уже приводил к
-тому, что старый `ai` consumer забирал DEV-задачу и искал её в другой
-application database. Перед приёмкой нужно проверить не только совпадение
-`REDIS_URL` у DEV API/worker, но и путь `/1`, пустой список посторонних Celery
-узлов и ожидаемый единственный узел `render-dev-worker@...` с очередями
-`ai,documents,maintenance`. Очередь `maintenance` нужна для обязательного
-cleanup одноразовых документов и курсов после приёмки.
+Релизная проверка: `scripts/deploy/dev_release_controller.py` с точным VM packet,
+`scripts/ops/vm126_dev_worker_verify.sh` и совпадением SHA API/worker/frontend.
+Probe проверяет pinned image, environment digest, непривилегированный процесс,
+изоляцию и реальные Celery ping/queues. Новый env устанавливается исключительно
+immutable receiver-скриптом, секреты идут в памяти через SSH stdin и не печатаются.
+Перед обновлением — idle/queue proof, warm drain, сохранение предыдущего контейнера
+и env для отката. Текущие runtime SHA и доказательства — `CODEX_HANDOFF.md` и
+`PRODUCTION_READINESS.md`; Git push сам по себе не доказывает deploy.
 
-Render Free усыпляет web service без входящих запросов. Перед DEV-приёмкой
-нужно вызвать health URL и дождаться HTTP 200 `ok`; для генерации дольше 15 минут
-повторять безопасный health GET, не отправляя payload или credentials. После
-пробуждения acceptance обязана доказать не только HTTP 200, но и terminal state
-реальной задачи через публичный DEV API. Exact SHA worker проверяется через
-Render deploy readback. Нельзя заменять сервис платным Background Worker,
-включать auto-deploy, менять тариф или подключать production broker без новой
-явной санкции владельца.
+### Временная ASUS DeepSeek через компьютер владельца
 
-Канонический runner `scripts/ops/course_quality_dev_acceptance.py` получает
-health URL через `--worker-health-url`, будит consumer до загрузки документа и
-выполняет безопасный keepalive во время индексации, генерации и cleanup.
+Владелец 2026-11-04 разрешил этот путь только для DEV. Прямой API
+`http://10.66.66.20:8888/v1` доступен с Windows, но из VM/worker тайм-аут.
+`scripts/dev/run_dev_asus_bridge.py` использует канонические credentials/known
+hosts и тот же nested SSH transport, что проверенный Docling helper. Он создаёт
+loopback `127.0.0.1:18890` внутри ТОЧНО указанного DEV контейнера; единственный
+upstream — ASUS `10.66.66.20:8888`. Публичного listener, нового сервиса или платного
+ресурса нет. Требуются полные container ID, image digest, release SHA; сначала
+network-free plan, затем `--execute --expected-sha256` с точным digest.
+`--probe-only --inference-probe --receipt-path <новый файл>` выполняет один
+синтетический inference с exclusive intent без повторов. Проверено из настоящего
+DEV worker: точная модель `DeepSeek-V4.1-Flash-1017`, 2.158s/96input122output,
+правильная коррекция ключа и отсутствие listener после закрытия.
 
-## Текущий известный статус
+Для обычной генерации подготовлен default-off
+`AI_QA_LOCAL_DEEPSEEK_DEV_ENABLED`: только новые policy25 курсы постоянного
+синтетического QA tenant; все четыре Luna QA flags должны быть false. Это
+worker-wide выбор для свежих QA курсов, не one-job fence. Клиент без коммерческого
+ключа/fallback/retries, reasoning включён, thinking_budget4096/max_tokens16384,
+whole-invocation timeout300s. Установленный TensorFold не поддерживает native
+response_format; `prompt_json` передаёт ту же JSON schema в trusted instructions,
+а локальная строгая проверка контракта сохраняется. Код профиля входит в DEV
+f7bfe272, но флаг выключен и bridge закрыт. Локальный полный source-first прогон
+остановился после двух полученных ответов: checker вернул JSON внутри Markdown
+ограды, строгий адаптер его отклонил. Офлайн снятие ограды не является приёмкой.
+По последнему поручению владельца дальнейшие DEV проверки идут по прежнему
+managed Luna6/HIGH маршруту, reasoning включён. Transport smoke не равен приёмке
+полного курса; не включать ASUS профиль автоматически после перезапуска.
+
+Максимальная жизнь bridge7200s. Отключение компьютера, VPN, SSH или перезапуск
+worker прекращает доступ. Тайм-аут/неизвестный исход модельного запроса нельзя
+автоматически повторять; использовать штатный checkpoint/unknown-state workflow.
+При новом worker нужно заново проверить/pin его identity и запустить bridge.
+Production routing, reserve connector, права и тарифы этим путём не меняются.
+
+## Исторический статус 2026-08-04 (не runtime truth)
 
 На 2026-08-04 три unit active/enabled, checkout находится на application release
 `fe0f3c97`. Общая dev/test Supabase находится на Alembic `0089`; Celery inspect

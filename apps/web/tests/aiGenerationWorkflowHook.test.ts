@@ -78,6 +78,93 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.currentJob?.status).toBe('pending');
   });
 
+  it('supersedes a persisted interrupted job with a newer live job from scoped discovery', async () => {
+    const interruptedJob = { ...activeJob, id: 'old-interrupted-job', status: 'interrupted', stage: 'interrupted', job_type: 'course_generation' };
+    const liveJob = { ...activeJob, id: 'new-live-job', created_at: '2026-08-30T09:00:00Z', status: 'running' };
+    localStorage.setItem('ai_active_job_id', interruptedJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: interruptedJob }).mockResolvedValueOnce({ data: [interruptedJob, liveJob] });
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe(liveJob.id);
+    expect(result.current.currentJob?.status).toBe('running');
+    expect(localStorage.getItem('ai_active_job_id')).toBe(liveJob.id);
+    expect(apiMock.get).toHaveBeenNthCalledWith(2, '/v1/ai/jobs?scope=mine');
+  });
+
+  it('keeps the persisted interrupted job when live discovery is unavailable', async () => {
+    const interruptedJob = { ...activeJob, id: 'old-interrupted-job', status: 'interrupted', stage: 'interrupted', job_type: 'course_generation' };
+    localStorage.setItem('ai_active_job_id', interruptedJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: interruptedJob }).mockRejectedValueOnce(new Error('list unavailable'));
+    const { result } = renderHook(() => useGenerationWorkflow());
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe(interruptedJob.id);
+    expect(result.current.currentJob?.status).toBe('interrupted');
+  });
+
+  it('ignores a delayed interrupted-job discovery after the request scope changes', async () => {
+    const interruptedJob = { ...activeJob, id: 'old-interrupted-job', status: 'interrupted', stage: 'interrupted', job_type: 'course_generation' };
+    const liveJob = { ...activeJob, id: 'new-live-job', status: 'running' };
+    let scopeKey = 'actor-a/source-a';
+    let resolveList!: (value: unknown) => void;
+    localStorage.setItem('ai_active_job_id', interruptedJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: interruptedJob })
+      .mockReturnValueOnce(new Promise((resolve) => { resolveList = resolve; }));
+    const { result } = renderHook(() => useGenerationWorkflow(null, () => scopeKey));
+    let restore!: Promise<unknown>;
+    await act(async () => {
+      restore = result.current.restoreActiveJob();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledTimes(2));
+    scopeKey = 'actor-b/source-b';
+    await act(async () => {
+      resolveList({ data: [interruptedJob, liveJob] });
+      await restore;
+    });
+    expect(result.current.currentJob).toBeNull();
+    expect(localStorage.getItem('ai_active_job_id')).toBe(interruptedJob.id);
+  });
+
+  it('ignores a delayed interrupted-job discovery after unmount', async () => {
+    const interruptedJob = { ...activeJob, id: 'old-interrupted-job', status: 'interrupted', stage: 'interrupted', job_type: 'course_generation' };
+    const liveJob = { ...activeJob, id: 'new-live-job', status: 'running' };
+    let resolveList!: (value: unknown) => void;
+    localStorage.setItem('ai_active_job_id', interruptedJob.id);
+    apiMock.get.mockResolvedValueOnce({ data: interruptedJob })
+      .mockReturnValueOnce(new Promise((resolve) => { resolveList = resolve; }));
+    const { result, unmount } = renderHook(() => useGenerationWorkflow());
+    let restore!: Promise<unknown>;
+    await act(async () => {
+      restore = result.current.restoreActiveJob();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(apiMock.get).toHaveBeenCalledTimes(2));
+    unmount();
+    await act(async () => {
+      resolveList({ data: [interruptedJob, liveJob] });
+      await restore;
+    });
+    expect(result.current.currentJob).toBeNull();
+    expect(localStorage.getItem('ai_active_job_id')).toBe(interruptedJob.id);
+  });
+
+  it('keeps recovery callback identity stable across equivalent inline scope callbacks', async () => {
+    apiMock.get.mockResolvedValueOnce({ data: [] });
+    const { result, rerender } = renderHook(({ scope }: { scope: string }) =>
+      useGenerationWorkflow(null, () => scope), { initialProps: { scope: 'actor-a/source-a' } });
+    const restore = result.current.restoreActiveJob;
+
+    await act(async () => { await restore(); });
+    rerender({ scope: 'actor-a/source-a' });
+
+    expect(result.current.restoreActiveJob).toBe(restore);
+    expect(apiMock.get).toHaveBeenCalledTimes(1);
+  });
+
   it('reconciles unknown resume dispatch by exact GET and never posts twice while pending', async () => {
     const interruptedJob = { ...activeJob, status: 'interrupted', job_type: 'course_generation' };
     const pendingJob = { ...interruptedJob, status: 'pending', stage: 'queued' };

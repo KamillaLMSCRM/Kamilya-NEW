@@ -57,14 +57,20 @@ export function useGenerationWorkflow(
   const resumePostingRef = useRef<string | null>(null);
   const resumeRequestKeyRef = useRef<string | undefined>(undefined);
   const mountedRef = useRef(true);
+  const getRequestKeyRef = useRef(getRequestKey);
+  getRequestKeyRef.current = getRequestKey;
   const [resumeReconciliation, setResumeReconciliation] = useState(false);
 
-  useEffect(() => () => {
-    mountedRef.current = false;
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
-  const restoreFromJobList = useCallback(async () => {
+  const restoreFromJobList = useCallback(async (requestKey?: string) => {
     const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
+    if (!mountedRef.current || (requestKey !== undefined && getRequestKeyRef.current?.() !== requestKey)) return;
     const activeJob = selectOldestActiveCourseJob(response.data);
     if (activeJob) {
       const savedContext = readWorkflowContext();
@@ -80,11 +86,14 @@ export function useGenerationWorkflow(
   }, []);
 
   const restoreActiveJob = useCallback(async () => {
+    const requestKey = getRequestKeyRef.current?.();
+    const isCurrentRequest = () => mountedRef.current
+      && (requestKey === undefined || getRequestKeyRef.current?.() === requestKey);
     const savedContext = readWorkflowContext();
     const savedJobId = localStorage.getItem(activeJobStorageKey) || savedContext?.job_id;
     if (!savedJobId) {
       try {
-        await restoreFromJobList();
+        await restoreFromJobList(requestKey);
       } catch {
         // A missing list is non-blocking; the page remains usable for a new job.
       }
@@ -94,6 +103,25 @@ export function useGenerationWorkflow(
     try {
       const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${savedJobId}`);
       const job = response.data;
+      if (!isCurrentRequest()) return;
+      if (job.status === 'interrupted') {
+        try {
+          const listed = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
+          if (!isCurrentRequest()) return;
+          const liveJob = selectOldestActiveCourseJob(listed.data);
+          if (liveJob && liveJob.status !== 'interrupted') {
+            const listedContext = readWorkflowContext();
+            const programId = listedContext?.job_id === liveJob.id ? listedContext.program_id : null;
+            localStorage.setItem(activeJobStorageKey, liveJob.id);
+            persistWorkflowContext(liveJob.id, programId);
+            dispatch({ type: 'job_restored', job: liveJob, programId });
+            return;
+          }
+        } catch {
+          // The exact interrupted job remains the safe fallback when discovery is unavailable.
+        }
+      }
+      if (!isCurrentRequest()) return;
       const programId = savedContext?.job_id === job.id ? savedContext.program_id : null;
       if (isRestorable(job)) dispatch({ type: 'job_restored', job, programId });
       else {
@@ -105,10 +133,11 @@ export function useGenerationWorkflow(
       // An impersonation/tenant switch can leave a stale id. On a confirmed
       // 404, clear it and immediately discover the active job in this tenant.
       if (error?.response?.status === 404) {
+        if (!isCurrentRequest()) return;
         localStorage.removeItem(activeJobStorageKey);
         clearWorkflowContext();
         try {
-          await restoreFromJobList();
+          await restoreFromJobList(requestKey);
         } catch {
           // The job list is optional recovery; keep the page usable.
         }

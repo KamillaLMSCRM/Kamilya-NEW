@@ -50,6 +50,12 @@ describe('AI generation job recovery', () => {
     expect(selected?.id).toBe('older');
   });
 
+  it('prioritizes live course jobs over an older interrupted job', () => {
+    const interrupted = { ...job('interrupted', '2026-08-06T08:00:00Z', null, 'interrupted', 'course_generation'), status: 'interrupted' };
+    const running = { ...job('running', '2026-08-06T08:01:00Z', null, 'content_generation', 'course_generation'), status: 'running' };
+    expect(selectOldestActiveCourseJob([interrupted, running])?.id).toBe('running');
+  });
+
   it('keeps the result-based fallback for a staggered legacy API response', () => {
     const selected = selectOldestActiveCourseJob([
       job('legacy', '2026-08-06T08:00:00Z', 'course-1', 'content_generation'),
