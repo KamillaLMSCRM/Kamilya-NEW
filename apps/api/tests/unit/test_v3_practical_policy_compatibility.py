@@ -77,9 +77,10 @@ def test_closed_practical_versions_and_fresh_stamp():
     assert SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v29'
     assert is_practical_policy(SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY)
     assert read_review_policy({'v3_review_policy': SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY}) == SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
-    assert not is_practical_policy('v3-practical-source-review-v30')
+    assert is_practical_policy('v3-practical-source-review-v30')
+    assert not is_practical_policy('v3-practical-source-review-v31')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v30'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v31'})
 
 
 def test_legacy_review_and_audit_prompts_preserve_projection_and_system_bytes(case):

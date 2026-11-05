@@ -124,7 +124,7 @@ async def stage_once(
         from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 
         kind = response_contract(response_format) if response_format is not None else None
-        if (response_format is not None and (kind in {"batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read", "practical_arbitration", "practical_question_context", "practical_curriculum", "practical_curriculum_bank"}
+        if (response_format is not None and (kind in {"batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read", "practical_arbitration", "practical_question_context", "practical_curriculum", "practical_curriculum_bank", "practical_source_core", "practical_source_core_editor"}
                 or kind is not None and kind.startswith("aux:"))):
             if not matches_response_contract(value, response_format):
                 raise ValueError("v3_stage_response_shape_invalid")
@@ -195,9 +195,13 @@ async def stage_once(
             from app.modules.ai.v3.practical_question_context import is_context_format
             from app.modules.ai.v3.practical_review import is_practical_review_format
             from app.modules.ai.v3.practical_source_audit import is_source_audit_format
+            from app.modules.ai.v3.practical_source_core import is_source_core_format
+            from app.modules.ai.v3.practical_source_core_editor import is_source_core_editor_format
             from app.modules.ai.v3.practical_source_reader import is_source_read_format
             practical = (
                 stage == "lesson" and group_id.startswith("practical:author:") and is_practical_course_format(response_format)
+                or stage == "lesson" and group_id.startswith("practical:source-core:author:") and is_source_core_format(response_format)
+                or stage == "review" and group_id.startswith("practical:source-core:editor:") and is_source_core_editor_format(response_format)
                 or stage == "review" and group_id.startswith("practical:review:") and is_practical_review_format(response_format)
                 or stage == "review" and group_id.startswith("practical:review:bank:") and is_curriculum_bank_format(response_format)
                 or stage == "review" and group_id.startswith("practical:source-curriculum:") and is_curriculum_format(response_format)

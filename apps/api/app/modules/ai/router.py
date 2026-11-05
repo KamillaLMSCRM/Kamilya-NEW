@@ -530,7 +530,8 @@ async def submit_course_generation(
     # Every new job is bound to the active engine. Historical jobs
     # without this marker fail closed and must be submitted as a new generation.
     analysis_payload["generation_engine"] = CURRENT_GENERATION_ENGINE
-    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY, admission_marker
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
+    from app.modules.ai.v3.qa_luna_pending_policy import admission_marker
 
     analysis_payload.pop(QA_PENDING_KEY, None)
     try:
@@ -542,7 +543,14 @@ async def submit_course_generation(
         raise HTTPException(status_code=503, detail="qa_luna_pending_admission_unavailable") from exc
     if qa_pending_marker is not None:
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
-    from app.modules.ai.v3.revision_policy import practical_qa_admission
+    from app.modules.ai.v3.revision_policy import (
+        SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
+        SOURCE_CORE_QA_KEY,
+        SOURCE_CORE_QA_MARKER,
+        practical_qa_admission,
+        source_core_qa_admission,
+    )
+    analysis_payload.pop(SOURCE_CORE_QA_KEY, None)
     if ((qa_pending_marker is None and req.course_id is None) or practical_qa_admission(
             settings=get_settings(), marker=qa_pending_marker,
             tenant_id=tenant_id, course_id=req.course_id)):
@@ -551,6 +559,10 @@ async def submit_course_generation(
         # Existing jobs retain their stored policy and exact checkpoints; older
         # QA transport markers keep their supported historical review contract.
         analysis_payload = stamp_policy(analysis_payload, practical=True)
+        if source_core_qa_admission(settings=get_settings(), marker=qa_pending_marker,
+                                    tenant_id=tenant_id, user_id=user.id, course_id=req.course_id):
+            analysis_payload['v3_review_policy'] = SOURCE_CORE_PRACTICAL_REVIEW_POLICY
+            analysis_payload[SOURCE_CORE_QA_KEY] = SOURCE_CORE_QA_MARKER
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,
                 detail="completed_extraction_reuse_not_supported_for_practical_policy")

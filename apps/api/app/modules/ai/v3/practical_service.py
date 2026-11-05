@@ -49,6 +49,7 @@ from app.modules.ai.v3.revision_policy import (
     QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
     SCOPED_PRACTICAL_REVIEW_POLICY,
     SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
+    SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
     TYPED_PRACTICAL_REVIEW_POLICY,
@@ -67,7 +68,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY if result.separate_domains else
+    review_policy = (SOURCE_CORE_PRACTICAL_REVIEW_POLICY if result.source_core else
+                     SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY if result.separate_domains else
                      SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY if result.source_scope_complete else
                      DOMAIN_PRACTICAL_REVIEW_POLICY if result.review_domains else
                      CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY if result.claim_evidence else
@@ -120,6 +122,9 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
     issues = [f"{row['scope']}:{row['id']}" for row in result.decision.feedback]
     issues.extend('question_context_unresolved:' + qid for qid in result.unresolved_question_context)
     issues.extend('curriculum_coverage_unresolved:' + goal for goal in result.unresolved_curriculum_goals)
+    issues.extend('source_core_case_unresolved:' + case_id for case_id in result.source_core_unresolved_cases)
+    if result.source_core_source_review_pending:
+        issues.append('source_core_source_review_pending')
     if provenance_holds:
         issues.append('practical_cross_document_question_quote_requires_review')
     if prose_provenance_holds:
@@ -130,6 +135,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
     accepted = (result.decision.accepted and not provenance_holds and not prose_provenance_holds
                 and not result.unresolved_question_context
                 and not result.unresolved_curriculum_goals
+                and not result.source_core_unresolved_cases
+                and not result.source_core_source_review_pending
                 and (not result.claim_evidence or not result.decision.feedback))
     report = {'review_policy': review_policy,
               'automated_review_passed': accepted,
@@ -146,6 +153,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
         and not result.unresolved_question_context and bool(result.decision.feedback)
         and not result.unresolved_curriculum_goals
+        and not result.source_core_unresolved_cases
+        and not result.source_core_source_review_pending
         and all(row.get('scope') in ({'assessment', 'question'} if result.review_domains else {'assessment'})
                 and isinstance(row.get('evidence'), dict)
                 and 'original_finding' not in row['evidence'] for row in result.decision.feedback))
@@ -172,6 +181,14 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
                                     else 'authored_question_scope_v2'),
     })
+    if result.source_core:
+        artifacts.diagnostics['practical_source_core_unresolved_cases'] = list(result.source_core_unresolved_cases)
+        artifacts.diagnostics['practical_source_core_source_review_pending'] = result.source_core_source_review_pending
+        artifacts.diagnostics['practical_unverified_source_proposals'] = [
+            {'document_id': doc.doc_id, 'source_revision': doc.source_revision,
+             'proposals': [dict(item) for item in doc.review_only_source_context], 'status': 'UNVERIFIED'}
+            for doc in corpus.documents if doc.review_only_source_context
+        ]
     if assessment_only:
         artifacts.diagnostics['requires_assessment_review'] = True
     return artifacts
@@ -203,7 +220,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                        CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
                        MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY,
                        SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY}
-    parts = () if review_policy in lesson_policies else source_reader_parts(packet)
+    parts = () if review_policy in lesson_policies or review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
     estimated_lessons = 0
@@ -226,7 +243,9 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         completed += 1
         if progress_callback:
             # Author + two checks per candidate + at most four scoped repairs.
-            if review_policy in lesson_policies:
+            if review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
+                await progress_callback('realization', completed, 5, None, 1)
+            elif review_policy in lesson_policies:
                 if stage == 'lesson' and group == 'practical:author:v1':
                     estimated_lessons = len(value['lessons'])
                 elif stage == 'repair':
@@ -247,7 +266,10 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if review_policy in lesson_policies:
+    if review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
+        from app.modules.ai.v3.practical_source_core_cycle import run_source_core_cycle
+        result = await run_source_core_cycle(packet, corpus, intent, reference_decisions, stage)
+    elif review_policy in lesson_policies:
         from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
         options = ({'adjudicate': True, 'standalone': True, 'typed_findings': True, 'counterexamples': True,
                     'explicit_cases': True, 'question_batch': True, 'strict_audit_owners': True,

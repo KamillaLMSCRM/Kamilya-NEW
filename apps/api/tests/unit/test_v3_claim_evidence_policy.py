@@ -10,6 +10,7 @@ from app.modules.ai.v3.revision_policy import (
     DOMAIN_PRACTICAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
     SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
+    SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
     read_review_policy,
@@ -22,10 +23,13 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 def test_fresh_policy_is_closed_and_preserves_saved_materiality_policy():
     assert stamp_policy({}, practical=True)['v3_review_policy'] == SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
     assert CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v26'
-    for policy in (MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY):
+    for policy in (MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY, SOURCE_CORE_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(policy)
         assert read_review_policy({'v3_review_policy': policy}) == policy
-    assert not is_practical_policy('v3-practical-source-review-v30')
+    assert SOURCE_CORE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v30'
+    assert not is_practical_policy('v3-practical-source-review-v31')
+    with pytest.raises(ValueError, match='v3_review_policy_invalid'):
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v31'})
 
 
 @pytest.mark.asyncio

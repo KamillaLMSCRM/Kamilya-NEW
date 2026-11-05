@@ -203,6 +203,9 @@ class PracticalCycleResult:
     separate_domains: bool = False
     curriculum_plan: dict[str, Any] | None = None
     unresolved_curriculum_goals: tuple[str, ...] = ()
+    source_core: bool = False
+    source_core_unresolved_cases: tuple[str, ...] = ()
+    source_core_source_review_pending: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

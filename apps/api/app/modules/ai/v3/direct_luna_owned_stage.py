@@ -77,6 +77,10 @@ async def run_direct_owned_stage(
                 and str(plan.get("group_id", "")).startswith("practical:source-curriculum:"))
             or (kind == "practical_curriculum_bank" and plan.get("stage") == "review"
                 and str(plan.get("group_id", "")).startswith("practical:review:bank:"))
+            or (kind == "practical_source_core" and plan.get("stage") == "lesson"
+                and str(plan.get("group_id", "")).startswith("practical:source-core:author:"))
+            or (kind == "practical_source_core_editor" and plan.get("stage") == "review"
+                and str(plan.get("group_id", "")).startswith("practical:source-core:editor:"))
             or (kind == "practical_arbitration" and plan.get("stage") == "review"
                 and str(plan.get("group_id", "")).startswith("practical:arbitrate:"))
             or (kind == "practical_question_context" and plan.get("stage") == "review"

@@ -13,7 +13,11 @@ from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, MANAGED_POLI
 from app.modules.ai.v3.revision_policy import (
     REVIEW_POLICY,
     SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
+    SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
+    SOURCE_CORE_QA_KEY,
+    SOURCE_CORE_QA_MARKER,
     practical_qa_admission,
+    source_core_qa_admission,
 )
 from tests.unit.test_ai_router_admission import _lenient_db
 
@@ -30,6 +34,11 @@ def test_server_admission_is_strict_and_managed_marker_remains_supported():
     args = {'settings': cfg, 'marker': None, 'tenant_id': QA_TENANT, 'course_id': None}
     assert practical_qa_admission(**args)
     assert practical_qa_admission(**(args | {'marker': MANAGED_POLICY}))
+    assert source_core_qa_admission(**args, user_id=uuid4())
+    assert not source_core_qa_admission(**args, user_id=None)
+    assert not source_core_qa_admission(**(args | {'tenant_id': uuid4()}), user_id=uuid4())
+    assert not source_core_qa_admission(**(args | {'marker': MANAGED_POLICY}), user_id=uuid4())
+    assert not source_core_qa_admission(**(args | {'course_id': uuid4()}), user_id=uuid4())
     for changed in ({'tenant_id': uuid4()}, {'course_id': uuid4()}, {'marker': DIRECT_POLICY}):
         assert not practical_qa_admission(**(args | changed))
     cfg.DEPLOYMENT_ENVIRONMENT = 'production'
@@ -40,6 +49,7 @@ def test_server_admission_is_strict_and_managed_marker_remains_supported():
             altered = native_settings()
             setattr(altered, flag, invalid)
             assert not practical_qa_admission(**(args | {'settings': altered}))
+            assert not source_core_qa_admission(**(args | {'settings': altered}), user_id=uuid4())
         missing = native_settings()
         delattr(missing, flag)
         assert not practical_qa_admission(**(args | {'settings': missing}))
@@ -104,6 +114,10 @@ async def test_native_admission_binds_policy_to_actual_destination(monkeypatch, 
     with pytest.raises(HTTPException) as error:
         await router.generate_course(request, db=_lenient_db(), user=user)
     assert error.value.status_code == 429
-    expected = REVIEW_POLICY if destination == 'existing' else SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
+    expected = (REVIEW_POLICY if destination == 'existing' else
+                SOURCE_CORE_PRACTICAL_REVIEW_POLICY if tenant_kind == 'qa' and environment == 'render-development'
+                else SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY)
     assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
+    marker = submit.await_args.kwargs['params']['source_analysis'].get(SOURCE_CORE_QA_KEY)
+    assert marker == (SOURCE_CORE_QA_MARKER if expected == SOURCE_CORE_PRACTICAL_REVIEW_POLICY else None)
     assert submit.await_args.kwargs['course_id'] == (course if destination == 'existing' else None)
