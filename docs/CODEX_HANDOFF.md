@@ -1,3 +1,211 @@
+# P29 LOCAL gates complete; exact DEV source release next — 2026-11-05 02:51UTC
+
+- result: Candidate0.11.72/fresh29 separated existing phases; final6590unitPASS
+ 66.04s/7knownwarnings, baseline1006/2174PASS,14navigationtestsPASS, release
+  contractgatePASS(Alembic0184,queues,ownership,dependencies,369errorentries).
+  Navigation rebuilt serially/exclusionPASS; CodeGraph+Graphify staticrouting
+  narrowed to actual partition/arbiter consumers, confirmed in source/tests.
+- verified: Independent wiring review found no material defect. Synthetic5semantic
+  assertions PASS, full saved100row source audit and familybank controls retained;
+  exact110previousreceivedstages6courses replay0calls/samehashes. No currentmodel,
+  test or generation process active. This is NOT three freshcourses or prodGO.
+- next: Commit only owned exactfilelist; projectaccountpush feature+dev and
+  immediate independentremoteSHA receipts, CI/image/protectedsoleworker DEV.
+  Three full Luna/matrix/source/time/call/token reviews then nativeDeepSeek and
+  protectedproduction/fullsyntheticlive. CurrentDEV28/29ece976 and prod66/native70
+  unchanged until independently readback rollout. CUA stopped; no browserclaim.
+
+# P29 separated existing phases LOCAL; candidate72 gates — 2026-11-05 02:49 UTC
+
+- result: Rejected per-CHILD assessment/signoff prototype is disconnected and
+  preserved under ignored p29-rejected-prototype (including hashes/tests). It
+  overcalled6/7 quiz details despite an extra materiality prompt. No patch from
+  that control executed and no historical response was relabeled or approved.
+- changed: Fresh unpublished29 now SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY;
+  local stamp/service defaults select29, product0.11.72. Same existing model
+  phases: source-first decision-family plan, author, blind bank, source/prose
+  audit with separately labeled explanations, existing domain arbiters, scoped
+  patch. No per-CHILD assessment partition or extra signoff call. Explicit<=28
+  bytes/requests remain unchanged. DEV still exact28/29ece976 pending CI/deploy.
+- verified: Atomic synthetic4cases/5assertions PASS, one Luna6HIGH85.078s,
+  16206in1223out: missing prerequisite/actor prose, two wrong explanations with
+  correct keys, normal control. Full saved Fire audit1call98.203s31937in5305out,
+  100source rows includes visitor MISSING and explicit EXPLANATION_VALIDITY.
+  Existing family-bank1call129.625s33299in6934out finds admission and optional
+  chemistry breadth; access/docs details NOT_REQUIRED rather than6quiz quotas.
+  This is mechanism evidence, not fresh-course acceptance or universal quality.
+- verified: Explanation-only findings route to existing course arbiter with owned
+  explanation/source evidence; key-only view cannot discharge them. Blind answer
+  bank/arbiter remain physically blind. Independent module75PASS and cycle/owned
+ 6PASS, source review boundedGO. Exact110received stages of6oldcourses replay
+ 0provider/DB calls with all6hashes unchanged. Full6590unitPASS63.94s prior to
+  fresh-default switch; switch required10olddefault fixture updates,44focused
+  PASS2.62s after updates. Final full session44089 active; baseline1006/2174PASS.
+- active: Final fullunit44089 and navigation35745 only; no model or DEVjob active.
+  Graphify/CodeGraph earlierfreshREADY confirms partition/arbitration/test paths;
+  graph is static and truncated, dynamic dispatch confirmed in source/tests.
+  Fullcurrent3courses/nativeDeepSeek/prod/live remain NOT ACCEPTED.
+- next: Finish finalgates, commit/push exactprojectaccount/remoteSHA receipts,
+  CI+attestedimage, canonical sole-worker DEV rollout and three full Luna courses.
+  Compare source/matrix/acceptedStandards reference, meaningful calls/tokens/time;
+  nativeDeepSeek remaining1.0652904USD then protected184prod/fullsyntheticlive.
+  CUA remains STOPPED this turn: no reset/bypass/browseracceptance claim.
+- access: New GX10 SSH key works fromPC as gx10-7; actualVM126/soleDEVworker
+  TCP22/8888 time out, key not transferred. Existing managedLuna route unchanged.
+  Production66/native70/customer4courses/280staff unchanged.
+
+# P29 per-CHILD prototype rejected; existing-phase control ACTIVE — 2026-11-05 02:25 UTC
+
+- result: Materiality wording alone failed: one actual Luna6/HIGH100.953s,
+  69435in5414out again upholds all7 source-assessment allegations; independent
+  reviewer finds6 per-fact overcalls. Positive signoff also adds detail/wording
+  overcalls. No scoped patch executed; prototype NOT release-authorized/accepted.
+- changed: No default/deployment change. Ignored experiment
+  p29-existing-review-boundaries-control.py tests existing atomic audit with
+  prose-only input and existing blind bank with saved source-only23goal plan and
+  representative-family guide. No new semantic stage/gold/customer modification.
+- verified: Full7808PASS544skipped57warnings89.87s; baseline1006/2174PASS.
+  These prove technical contracts only, not semantic quality. Navigation fallback:
+  current index lacks new prototype function; bounded source inspected. One sync
+  only after chosen source freeze. P28 exact25stage replay remains authoritative.
+- active: audit control session45726, one request0bfb7e95...5d2ddce,76838bytes;
+  no bank inference yet. Preserve existing semantic explanation check: independent
+  boundary review requested before any app integration. CUA STOPPED.
+- next: Read audit result, one bank control if justified; choose minimal supported
+  mechanism, not another prompt/semantic-layer pile. Freshpolicy28/DEV29ece976/
+  production66/native70 unchanged; actualthreefullcourses still unaccepted.
+
+# P28 completed NO_GO; P29 saved controls LOCAL — 2026-11-05 02:18 UTC
+
+- result: Actual DEV Fire74608e00 completed00:53:36UTC,7L38Q,25 Luna6/HIGH replies,
+  738684input97020output,63m09wall including cooperative pauses. Exact25stage
+  offline replay and savedAPI match course92928c9354b34d8f56d2bd336fb690d0009e6fcbb9d3cdcdc1a4a3deaba98cd8.
+  NO_GO: source1.9 visitor scope lost and admission after BOTH training/instruction
+  not assessed. Genuine4.4/6.2 source ambiguity remains. No active model/job/monitor.
+- changed: P29 uncommitted opt-in source-signoff in existing course arbiter and
+  source-native assessment in existing blind bank. Fresh defaults still28; no
+  commit/push/CI/deploy. Teaching selector ownership is not semantic entailment.
+  Question/explanation mixing is a possible factor, NOT proven causal mechanism.
+- verified: Last full6631API PASS66.96s, baseline1006/2174PASS before latest partial
+  inventory correction. Latest16module/17cycle/6ownedstage PASS. Partial99/100
+  source inventory preserves7valid allegations plus SPAN56 noneditable UNKNOWN;
+  no automatic approval, source ambiguity, dropped peers or repeated model call.
+  Saved nativebank181.531s35874in9898out found admission without gold. Latest
+  existing arbiter+teaching83.422s69199in4435out confirms admission and visitor
+  omission. Other statutory-detail assessments require materiality calibration:
+  do not turn representative assessment into per-fact question quotas.
+- verified-access: Owner supplied GX10 key C:\Users\user\.ssh\kamilya_dev_worker_20261105_ed25519,
+  user gx10-7,10.66.66.20:22. Windows user+SYSTEM ACL; public fingerprint
+  SHA256:U3SJrg/t96H4Uj3foSiSmuJAYb/rexneJpfuS1zxj+8. Strict known-host SSH fromPC
+  succeeded(hostgx10-791e). VM126 AND sole6669DEVcontainer TCP22/8888 timeout.
+  Read-only receipt gx10-dev-route-readonly-20261105.sh, SHA
+  b64b6e99d86c50022dd2b4f0f087c0104eb09e6e8a692667ff7fb300c5059796.
+  Key NOT transferred toworker; no SSH/firewall/VPN/provider/model configuration
+  changed. PC ASUS semantic control148.985s43786in5736out misses both defects;
+  connectivity/speed alone does not justify replacing current DEV Luna route.
+- blockers: P29 source assessment currently overcalls secondary fact-level quiz
+  omissions; independent calibration requested. SPAN56 classification unknown,
+  old question-only/source holds retained. CUA STOPPED; no browser acceptance.
+- next: Correct systemic materiality on saved examples; scoped patch preserves
+  good sections/oldholds; full regressions/replay/navigation sync once at source
+  freeze. Then exactP29DEV,3completeLuna courses/matrix, nativeDeepSeek within
+  remaining1.0652904USD, protected184prod/fullsyntheticlive. Production66/native70,
+  customer4courses/280staff unchanged. Do not regenerate completedP28job.
+
+# P28 Fire third continuation ACTIVE — 2026-11-05 00:51 UTC
+
+- result: Same actual DEV29ece976 Fire74608e00; third ordinary continuation
+  admitted00:44:29UTC after a no-pending cooperative pause at22received replies,
+  648096input87604output. No new course/job or repeated inference. All7/15/22
+  earlier plans, responses, metadata and source/route/admission independently
+  preserved; three prefix-custody proofs and exact22stage offline replay PASS.
+- active: monitor40693, p28-watch-fire-third-resume.py fire; replaying owned
+  prefix, no newreply yet at00:51UTC. Completed replay helper now pins allthree
+  specific continuation proofs. Source/app code remains frozen; no P28Standards,
+  Micro/nativeDeepSeek/prod inference. Production66/native70/customer data unchanged.
+- verified: ONE grammar→curriculum differential received69.594s/25697in3705out,
+  result p28-saved-grammar-curriculum-differential-result.json. Independent review
+  finds admission BOTH training+instruction restored, passive disconnection actor
+  not invented; visitor scope still not explicit and admission merged with wider
+  goal can be hidden by whole-goal COVERED. NOT a demonstrated general fix.
+- diagnosis: Source audit mixes prompts/keys/explanations inside LESSON_PROSE_JSON;
+  selector custody proves actual text, not entailment. Saved first Fire TAUGHT
+  SPAN41/E34 employee-only versus source employees+visitors is confirmed false
+  coverage. Separate witness A notices it but whole response literal-quote checks
+  failed; raw result is diagnostic only, not accepted proof or edit authority.
+- tooling: Pinned CodeGraph1.6.1 install/signatures/attestations PASS. Real index
+  failed five nested scripts/docs exclusions; writer fixed same-class nested
+  exclusions and14Node regressions PASS. Root rebuilding serially/session66648;
+  index not accepted until final receipt. No inference/DB used by navigation.
+- next: Complete current Fire, exact replay and saved API, independent12family/
+  allquestion review; fix demonstrated source-entailment cause on saved controls
+  before fresh full courses. Then three complete currentLunaDEV→nativeDeepSeek
+  withinremaining1.0652904USD→protected184prod/fullsyntheticlive. ComputerUse remains
+  STOPPED this turn; no browser acceptance claim, reset or alternate UI bypass.
+
+# P28 Fire same-job continuation ACTIVE — 2026-11-05 00:13 UTC
+
+- result: Actual DEV29ece976 unchanged/exact; source code frozen while this
+  course runs. Initial Fire74608e00 cooperatively interrupted before the next
+  repair, with seven received Luna6/HIGH replies171468in32133out/no pending.
+  All seven replayed offline exactly; next repair was not dispatched locally.
+- changed: ONE ordinary same-job resume admitted00:07:33UTC; no newcourse/job.
+  All seven prior plans/responses/metadata preserved after resume (proof JSON).
+  Old monitor81782 ended. An early read-only resume monitor was started before
+  API acknowledgement and stopped on interrupted state; no model/mutation call.
+- verified: Correct active monitor1726, p28-watch-resume1-after-admit.py fire;
+  firstread f471049e...bd45428 retained all seven. Receipt
+  p28-fire-resume1-result.json; first pause p28-fire-monitor-17.json snapshot
+  8be8ebb97210872d5e1dc7dc3fe1751a0ee205bbdd30139d462be301dcc748b6.
+  Latest received patch is stage8; no sourcecode change/modelprobe/secondcourse.
+- blockers: FIRSTauthor7L27Q contains rescue and disconnection; independent
+  source reading found visitor scope/electrical omissions and admission Q gap.
+  Firstaudit caught electrical gaps but SPAN41 falselyTAUGHT via employee-only
+  E34. Sourceplan itself omitted admission, so closed goals did not test it.
+  This is observed first-pass weakness, not a final-course verdict. §6.2 repair
+  parenthetical was falsely called a proven author contradiction by auditor;
+  root challenged and auditor withdrew. It is genuine source wording ambiguity,
+  recorded as question9 in existing canonical Sandyk clarifications document in
+  cabinet-release-20261018 (UTF16 preserved), not a confirmed customer answer.
+- next: Finish this owned course/readback/independent fullmatrix; do not admit
+  Standards/Micro until actual material residuals are understood. p17_contract
+  diagnosis is read-only: positive TAUGHT entailment + omitted critical goals
+  need saved-case challenge if final still fails; no speculative patch yet.
+  NativeDeepSeek remaining1.0652904USD, prod66/native70/customerdata unchanged.
+  Prepared API journey runner45d83b69...af65a0 independently boundedGO, unexecuted;
+  root reviewed all phases and readiness/learner delta. Browser stillSTOPPED
+  thisturn; no bypass or claim of full liveacceptance.
+
+# P28 exact DEV live; one Fire course ACTIVE — 2026-11-04 23:52 UTC
+
+- result: Exact 29ece9767232b2707b4ab3fb7dc575df137c4ca4 DEV RELEASE_OK and
+  RECONCILED, REL-DEV-P28-LUNA-29ECE976-20261105. CI41935040803 and immutable
+  image build41935847752 SUCCESS. Image351b297b39674e182e0defcfb38dbb4014488432d4ddca357987c40e0f2f9967
+  attested; APIdep-dbls7ojbc2fs73a9kupg LIVE, Verceldpl_CTc9mmVKeXJTcVtbRDkx6ZDkqiuj READY.
+- changed: Sole VM126 worker6669ce1cf3cd66f14418989c0606eb756b7254fa1d9055aeef043d498703f8f5
+  has 1CPU/1GiB, read-only/no ports/no mounts/cap-drop, restartunless-stopped,
+  restarts0; 45 envkeys/dd65d33124ff245144c6d5e85c4a69f706fee2188cc82196fd57d410e344fabd,
+  all99 source hashes match exactGit. Prior ebba/8f765bd7 warm-stopped/retained
+  rollback8f765bd7; earlier8bd/19a retained. Production6services unchanged.
+- verified: 6577localAPI PASS68.13s, baseline1006/2174 PASS, final38focused PASS;
+  all85 actual25/26/27 stage responses replay0calls with five unchanged hashes.
+  Source-scope and source-only curriculum local controls passed bounded tests;
+  this does not establish three full current courses or production acceptance.
+- active: ONE full Fire74608e00-b7fb-4daf-9d6c-cc675de921d3 admitted23:50:27UTC,
+  exact unchanged sourcec6303a50/SHA2d10cb35...777e269. Monitor81782,
+  p28-watch-job.py fire, initial ingestion0responses/no pending. Do NOT admit
+  duplicate/resume/retry. No P28Standards/Micro/nativeDeepSeek yet. Full-source
+  generation readiness acknowledged; semantic embeddings unavailable is explicit,
+  not vector/OCR acceptance. ASUS off; managed Luna6/HIGH is requiredactualroute.
+- next: Read full result/savedAPI and independent12-family/fullbank quality;
+  then Standards/Micro sequentially, nativeDeepSeek remaining1.0652904USD,
+  protected184 production/fullsyntheticlive. ComputerUse STOPPEDthisturn, no
+  reset/alternate mechanism/delegation bypass or browseracceptance claim. Prepared
+  production API journey runner ignored/frozen f543e76c...21a9aef under independent
+  review, NOTexecuted. Exact QAstudent7181849f-9cdf-4897-bfad-1502eecacdda read-only
+  confirmed; first check used nonexistentfull_name, corrected tocanonical
+  first_name/last_name. Only auth session/audit writes; no enrollment/emails.
+
 # P28 source-first curriculum LOCAL gates PASS; DEV rollout next, 2026-11-04 23:45UTC
 
 - result: No DEV generation/model call active. P27 actualDEV8f765bd7 unchanged;

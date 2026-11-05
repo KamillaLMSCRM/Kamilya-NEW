@@ -62,6 +62,29 @@ CURRICULUM_REVIEW_GUIDE = (
     'Все выводы остаются замечаниями для независимого редактора, не разрешением на правку.'
 )
 
+FAMILY_COVERAGE_GUIDE = (
+    '\nПроверка представительная, а не экзамен на каждый пункт. Оцени семейства ключевых рабочих реше'
+    'ний всего курса. Вспомогательное действие внутри семейства, представительно проверенного реалис'
+    'тичной ситуацией, может быть NOT_REQUIRED для самостоятельной проверки. Это не означает необяза'
+    'тельности самой нормы. Не называй такую деталь COVERED, если она фактически не проверяется; исп'
+    'ользуй NOT_REQUIRED и назови представительные вопросы семейства. MISSING сохрани для самостояте'
+    'льного существенного решения, без которого обучающийся может выбрать другой порядок допуска, от'
+    'каза, остановки, исполнения важной условной ветви либо неотложных действий. Наличие любого возм'
+    'ожного последствия не делает каждую обязанность отдельной целью теста. Сравни ценность дополнит'
+    'ельного вопроса с уже проверяемыми основными решениями. Не считай нормативные названия, повторе'
+    'ния и более подробные формулировки самостоятельными семействами. Условия, реально меняющие прав'
+    'ильный ответ, сохраняй строго. Ключи ответов проверяй независимо и без добавления неуказанных у'
+    'словий из плана.'
+)
+
+ENTRY_DECISION_GUIDE = (
+    "\nСначала различи подготовительные действия и отдельные условия начала работы, допуска, "
+    "выдачи, согласования или отказа. Выполнение части подготовительных действий не доказывает "
+    "выполнение условия допуска; сохрани каждую меняющую решение предпосылку. При этом "
+    "не превращай каждую вспомогательную обязанность в отдельную цель тестирования. "
+    "Организуй цели по неповторяющимся семействам практических решений."
+)
+
 
 def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {'type': 'object', 'properties': props, 'required': list(props), 'additionalProperties': False}
@@ -149,14 +172,17 @@ def curriculum_context(packet: PracticalSourcePacket, plan: dict[str, Any],
     return '\nUNTRUSTED_SOURCE_ONLY_CURRICULUM_JSON\n' + json.dumps(visible, ensure_ascii=False, sort_keys=True)
 
 
-def curriculum_messages(packet: PracticalSourcePacket, model_view: PracticalModelView | None = None) -> list[dict[str, str]]:
+def curriculum_messages(packet: PracticalSourcePacket, model_view: PracticalModelView | None = None, *,
+                        family_coverage: bool = False) -> list[dict[str, str]]:
+    if type(family_coverage) is not bool:
+        raise ValueError('practical_curriculum_policy_invalid')
     if model_view is not None and dict(model_view.canonical_to_alias) != dict(PracticalModelView(packet).canonical_to_alias):
         raise ValueError('practical_curriculum_view_invalid')
     groups = [{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups]
     aliases = model_view.canonical_to_alias if model_view else None
     if model_view:
         groups = model_view.encode(groups)
-    return [{'role': 'system', 'content': CURRICULUM_SYSTEM},
+    return [{'role': 'system', 'content': CURRICULUM_SYSTEM + (ENTRY_DECISION_GUIDE if family_coverage else '')},
             {'role': 'user', 'content': source_model_text(packet, aliases=aliases) + '\nSOURCE_LOGICAL_UNITS_JSON\n'
              + json.dumps(groups, ensure_ascii=False)}]
 
@@ -248,11 +274,14 @@ def matches_curriculum_bank(value: Any, fmt: Any) -> bool:
 
 def curriculum_bank_messages(packet: PracticalSourcePacket, course: dict[str, Any], plan: dict[str, Any],
                              previous: tuple[dict[str, Any], ...] = (), *,
-                             model_view: PracticalModelView | None = None) -> list[dict[str, str]]:
+                             model_view: PracticalModelView | None = None,
+                             family_coverage: bool = False) -> list[dict[str, str]]:
+    if type(family_coverage) is not bool:
+        raise ValueError('practical_curriculum_policy_invalid')
     curriculum_bank_format(packet, course, plan, previous)
     messages = practical_review_messages(packet, course, previous, model_view=model_view, concise=True,
         strict_targets=True, standalone=True, typed_findings=True, counterexamples=True, question_batch=True)
-    messages[0]['content'] += CURRICULUM_REVIEW_GUIDE
+    messages[0]['content'] += CURRICULUM_REVIEW_GUIDE + (FAMILY_COVERAGE_GUIDE if family_coverage else '')
     messages[1]['content'] += curriculum_context(packet, plan, model_view)
     return messages
 

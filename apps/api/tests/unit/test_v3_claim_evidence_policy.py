@@ -9,6 +9,7 @@ from app.modules.ai.v3.revision_policy import (
     CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
     DOMAIN_PRACTICAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
+    SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
     read_review_policy,
@@ -19,12 +20,12 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 
 def test_fresh_policy_is_closed_and_preserves_saved_materiality_policy():
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
     assert CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v26'
-    for policy in (MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY):
+    for policy in (MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(policy)
         assert read_review_policy({'v3_review_policy': policy}) == policy
-    assert not is_practical_policy('v3-practical-source-review-v29')
+    assert not is_practical_policy('v3-practical-source-review-v30')
 
 
 @pytest.mark.asyncio
@@ -57,7 +58,7 @@ async def test_ordinary_service_dispatch_selects_owned_evidence_only_for_fresh_p
 
 @pytest.mark.asyncio
 async def test_fresh_ordinary_service_retains_evidence_and_cold_replays_without_provider(case):
-    from app.modules.ai.v3.practical_atomic_audit import CLAIM_EVIDENCE_NAME, SOURCE_SCOPE_COMPLETE_GUIDE
+    from app.modules.ai.v3.practical_atomic_audit import EXPLANATION_AUDIT_NAME, SOURCE_SCOPE_COMPLETE_GUIDE
     from app.modules.ai.v3.practical_audit_units import audit_units
     from app.modules.ai.v3.practical_contract import _digest
     from app.modules.ai.v3.practical_curriculum import CURRICULUM_BANK_NAME, CURRICULUM_NAME, validate_curriculum
@@ -81,7 +82,7 @@ async def test_fresh_ordinary_service_retains_evidence_and_cold_replays_without_
     async def invoke(messages, fmt):
         name = fmt['json_schema']['name']
         calls.append(name)
-        assert (SOURCE_SCOPE_COMPLETE_GUIDE in messages[0]['content']) is (name == CLAIM_EVIDENCE_NAME)
+        assert (SOURCE_SCOPE_COMPLETE_GUIDE in messages[0]['content']) is (name == EXPLANATION_AUDIT_NAME)
         if name == CURRICULUM_NAME:
             assert 'STANDALONE_QUESTIONS_JSON' not in messages[1]['content']
             value = plan
@@ -95,7 +96,7 @@ async def test_fresh_ordinary_service_retains_evidence_and_cold_replays_without_
                 'goal_id': 'G1', 'status': 'COVERED', 'source_refs': refs,
                 'question_ids': [course['lessons'][0]['questions'][0]['id']],
                 'assessment_lesson_id': '', 'reason': 'Representative procedure assessed.'}])
-        elif name == CLAIM_EVIDENCE_NAME:
+        elif name == EXPLANATION_AUDIT_NAME:
             value = response(packet, course)
         else:
             raise AssertionError('Unexpected stage in accepted fresh course')
@@ -104,11 +105,11 @@ async def test_fresh_ordinary_service_retains_evidence_and_cold_replays_without_
     journal = Journal()
     options = dict(intent=CourseIntent(), source_sha256='a' * 64, route_fingerprint='b' * 64)
     artifacts = await generate_practical_course(corpus, invoke=invoke, journal=journal, **options)
-    assert artifacts.diagnostics['v3_review_policy'] == SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY
+    assert artifacts.diagnostics['v3_review_policy'] == SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
     assert artifacts.diagnostics['automated_review_passed'] is True
     assert artifacts.diagnostics['practical_course'] == course
     assert calls.count('practical_course') == 1
-    assert calls.count(CLAIM_EVIDENCE_NAME) == 1
+    assert calls.count(EXPLANATION_AUDIT_NAME) == 1
     assert calls[0] == CURRICULUM_NAME
     assert artifacts.diagnostics['practical_curriculum_plan'] == plan
     assert len(calls) == 5

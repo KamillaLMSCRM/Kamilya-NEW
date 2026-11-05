@@ -1,3 +1,16 @@
+### GX10-7 DEV access verified 2026-11-05 (no worker route yet)
+
+Owner-provided SSH: `gx10-7@10.66.66.20:22`, key file
+`C:\Users\user\.ssh\kamilya_dev_worker_20261105_ed25519` (never print content).
+Strict known-host/IdentitiesOnly/BatchMode workstation login succeeded as gx10-7,
+actual hostname gx10-791e; Windows ACL user+SYSTEM only. Public fingerprint
+`SHA256:U3SJrg/t96H4Uj3foSiSmuJAYb/rexneJpfuS1zxj+8`.
+Actual VM126 host and exact DEV container6669 TCP22/8888 timed out. Key was not
+copied to worker and no network/SSH service setting changed. This is verified
+workstation access, not worker-to-GX10 readiness. Current DEV managed Luna route
+remains unchanged. Existing task-owned Windows bridge is a separate bounded
+procedure; do not infer permanent infrastructure readiness from a PC API200.
+
 # Kamilya LMS: текущий контекст проекта
 
 > Living document. Значения секретов здесь не хранятся.
@@ -9,7 +22,11 @@ Backend remains exact66 `7c35c798d9ff4e44183a1e499f1b1c1a7cc2fe16`,
 API plus three workers/image `6af62edb…f3223`, revision0183. Native frontend
 is independently exact70 `96a76b8fedae0fcfef437f1eb636480cbad4a405`; rollback69
 `0f31ffd5812f1751fc0f1c98f716e65580b1b2ae` remains. These are separate releases.
-V3 candidate71/8f765bd7 is DEV only, not production acceptance.
+V3 candidate71/29ece976 is exact DEV only, not production acceptance.
+Sole VM126 worker6669ce1c/image351b297b is Luna6/HIGH; CI41935040803 and
+attested image41935847752 passed. API/worker/Vercel exact SHA reconciled.
+Fire74608e00 completed7L38Q/25Luna replies and is NO_GO content; no DEVjob active.
+Local candidate72/fresh29 is not deployed; three fullcourses/native/prod/live remain open.
 
 Production mail uses the preserved private SMTP egress route, not the historical
 Resend description below: [SMTP preservation runbook](runbooks/smtp-private-egress-recovery.md).

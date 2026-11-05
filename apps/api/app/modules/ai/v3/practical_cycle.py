@@ -200,6 +200,7 @@ class PracticalCycleResult:
     claim_evidence: bool = False
     review_domains: bool = False
     source_scope_complete: bool = False
+    separate_domains: bool = False
     curriculum_plan: dict[str, Any] | None = None
     unresolved_curriculum_goals: tuple[str, ...] = ()
 

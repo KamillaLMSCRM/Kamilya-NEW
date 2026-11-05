@@ -26,6 +26,7 @@ NAME = 'v3_practical_atomic_source_audit_v1'
 TYPED_NAME = 'v3_practical_atomic_source_audit_v2'
 STRICT_OWNER_NAME = 'v3_practical_atomic_source_audit_v3'
 CLAIM_EVIDENCE_NAME = 'v3_practical_atomic_source_audit_v4'
+EXPLANATION_AUDIT_NAME = 'v3_practical_atomic_source_audit_v5'
 
 
 def _object(properties: dict[str, Any]) -> dict[str, Any]:
@@ -34,7 +35,8 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 def _format(sources: list[str], fingerprint: str, lessons: list[str], questions: list[str],
             prior_ids: list[str], *, typed_findings: bool = False, strict_owners: bool = False,
-            spans: list[str] | None = None, course_fingerprint: str | None = None) -> dict[str, Any]:
+            spans: list[str] | None = None, course_fingerprint: str | None = None,
+            separate_domains: bool = False) -> dict[str, Any]:
     for ids in (sources, lessons, questions, prior_ids, spans or []):
         if (type(ids) is not list or any(type(item) is not str or not item.strip() for item in ids)
                 or len(set(ids)) != len(ids)):
@@ -47,6 +49,8 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
     if spans is not None and (not strict_owners or not spans):
         raise ValueError('practical_atomic_audit_format_invalid')
     if spans is not None and (not isinstance(course_fingerprint, str) or not re.fullmatch('[0-9a-f]{64}', course_fingerprint)):
+        raise ValueError('practical_atomic_audit_format_invalid')
+    if type(separate_domains) is not bool or separate_domains and not (typed_findings and strict_owners and spans is not None):
         raise ValueError('practical_atomic_audit_format_invalid')
     refs = {'type': 'array', 'items': {'type': 'string', 'enum': sources}, 'minItems': 1}
     single = {**copy.deepcopy(refs), 'maxItems': 1}
@@ -71,19 +75,21 @@ def _format(sources: list[str], fingerprint: str, lessons: list[str], questions:
     props = {'source_fingerprint': {'type': 'string', 'enum': [fingerprint]}, 'source_review': text,
         'source_notes': {'type': 'array', 'items': _object({'note': text, 'source_refs': copy.deepcopy(refs)})},
         'source_checks': {'type': 'array', 'items': check, 'minItems': len(spans) if spans is not None else len(sources), 'maxItems': len(spans) if spans is not None else len(sources)},
-        'findings': {'type': 'array', 'items': strict_finding_schema(sources, lessons, questions, typed_findings=typed_findings)}}
+        'findings': {'type': 'array', 'items': strict_finding_schema(sources, lessons, questions, typed_findings=typed_findings,
+            **({'question_kinds': ('ANSWER_VALIDITY', 'COURSE_ASSESSMENT', 'EXPLANATION_VALIDITY')} if separate_domains else {}))}}
     if prior_ids:
         props['issue_checks'] = _object({issue_id: _object({
             'status': {'type': 'string', 'enum': ['RESOLVED', 'OPEN', 'RETRACTED']}, 'reason': text})
             for issue_id in prior_ids})
     if spans is not None:
         props['course_fingerprint'] = {'type': 'string', 'enum': [course_fingerprint]}
-    return {'type': 'json_schema', 'json_schema': {'name': CLAIM_EVIDENCE_NAME if spans is not None else STRICT_OWNER_NAME if strict_owners else TYPED_NAME if typed_findings else NAME, 'strict': True, 'schema': _object(props)}}
+    return {'type': 'json_schema', 'json_schema': {'name': EXPLANATION_AUDIT_NAME if separate_domains else CLAIM_EVIDENCE_NAME if spans is not None else STRICT_OWNER_NAME if strict_owners else TYPED_NAME if typed_findings else NAME, 'strict': True, 'schema': _object(props)}}
 
 
 def atomic_audit_format(packet: PracticalSourcePacket, course: dict[str, Any],
                         previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False,
-                        strict_owners: bool = False, claim_evidence: bool = False) -> dict[str, Any]:
+                        strict_owners: bool = False, claim_evidence: bool = False,
+                        separate_domains: bool = False) -> dict[str, Any]:
     if type(claim_evidence) is not bool:
         raise ValueError('practical_atomic_audit_format_invalid')
     checked = validate_practical_course(course, packet)
@@ -92,7 +98,7 @@ def atomic_audit_format(packet: PracticalSourcePacket, course: dict[str, Any],
                    [q['id'] for lesson in checked['lessons'] for q in lesson['questions']],
                    [item['issue_id'] for item in previous], typed_findings=typed_findings, strict_owners=strict_owners,
                    spans=[span.span_id for span in audit_spans(packet)] if claim_evidence else None,
-                   course_fingerprint=_digest(checked) if claim_evidence else None)
+                   course_fingerprint=_digest(checked) if claim_evidence else None, separate_domains=separate_domains)
 
 
 def _check_properties(props: dict[str, Any], strict_owners: bool) -> dict[str, Any]:
@@ -103,9 +109,9 @@ def _check_properties(props: dict[str, Any], strict_owners: bool) -> dict[str, A
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         props = value['json_schema']['schema']['properties']
-        strict_owners = value['json_schema']['name'] in {STRICT_OWNER_NAME, CLAIM_EVIDENCE_NAME}
+        strict_owners = value['json_schema']['name'] in {STRICT_OWNER_NAME, CLAIM_EVIDENCE_NAME, EXPLANATION_AUDIT_NAME}
         check_props = _check_properties(props, strict_owners)
-        claim_evidence = value['json_schema']['name'] == CLAIM_EVIDENCE_NAME
+        claim_evidence = value['json_schema']['name'] in {CLAIM_EVIDENCE_NAME, EXPLANATION_AUDIT_NAME}
         sources = (props['source_notes']['items']['properties']['source_refs']['items']['enum']
                    if claim_evidence else check_props['source_refs']['items']['enum'])
         branches = props['findings']['items']['anyOf']
@@ -115,10 +121,11 @@ def _reconstruct(value: Any) -> dict[str, Any]:
         questions = question_branch['properties']['target_id']['enum']
         rebuilt = _format(sources, props['source_fingerprint']['enum'][0], lessons, questions,
                           list(props.get('issue_checks', {}).get('properties', {})),
-                          typed_findings=value['json_schema']['name'] in {TYPED_NAME, STRICT_OWNER_NAME, CLAIM_EVIDENCE_NAME},
+                          typed_findings=value['json_schema']['name'] in {TYPED_NAME, STRICT_OWNER_NAME, CLAIM_EVIDENCE_NAME, EXPLANATION_AUDIT_NAME},
                           strict_owners=strict_owners,
                           spans=check_props['span_id']['enum'] if claim_evidence else None,
-                          course_fingerprint=props['course_fingerprint']['enum'][0] if claim_evidence else None)
+                          course_fingerprint=props['course_fingerprint']['enum'][0] if claim_evidence else None,
+                          separate_domains=value['json_schema']['name'] == EXPLANATION_AUDIT_NAME)
         if rebuilt != value:
             raise ValueError
         return rebuilt
@@ -140,8 +147,8 @@ def matches_atomic_audit(value: Any, response_format: Any) -> bool:
         if not _matches(value, fmt['json_schema']['schema']) or not value['source_review'].strip():
             return False
         props = fmt['json_schema']['schema']['properties']
-        claim_evidence = fmt['json_schema']['name'] == CLAIM_EVIDENCE_NAME
-        check_props = _check_properties(props, fmt['json_schema']['name'] in {STRICT_OWNER_NAME, CLAIM_EVIDENCE_NAME})
+        claim_evidence = fmt['json_schema']['name'] in {CLAIM_EVIDENCE_NAME, EXPLANATION_AUDIT_NAME}
+        check_props = _check_properties(props, fmt['json_schema']['name'] in {STRICT_OWNER_NAME, CLAIM_EVIDENCE_NAME, EXPLANATION_AUDIT_NAME})
         sources = set((props['source_notes']['items']['properties'] if claim_evidence else check_props)
                       ['source_refs']['items']['enum'])
         branches = props['findings']['items']['anyOf']
@@ -176,9 +183,10 @@ def matches_atomic_audit(value: Any, response_format: Any) -> bool:
 
 def validate_atomic_audit(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
                           previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False,
-                          strict_owners: bool = False, claim_evidence: bool = False) -> dict[str, Any]:
+                          strict_owners: bool = False, claim_evidence: bool = False,
+                          separate_domains: bool = False) -> dict[str, Any]:
     if not matches_atomic_audit(value, atomic_audit_format(packet, course, previous, typed_findings=typed_findings,
-            strict_owners=strict_owners, claim_evidence=claim_evidence)):
+            strict_owners=strict_owners, claim_evidence=claim_evidence, separate_domains=separate_domains)):
         raise ValueError('practical_atomic_audit_response_invalid')
     result = cast(dict[str, Any], copy.deepcopy(value))
     if claim_evidence:
@@ -213,9 +221,10 @@ def _evidence_lesson_ids(items: list[str], inventory: dict[str, dict[str, Any]],
 
 def compiled_atomic_audit_findings(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
                                    previous: tuple[dict[str, Any], ...] = (), *, typed_findings: bool = False,
-                                   strict_owners: bool = False, claim_evidence: bool = False) -> list[dict[str, Any]]:
+                                   strict_owners: bool = False, claim_evidence: bool = False,
+                                   separate_domains: bool = False) -> list[dict[str, Any]]:
     checked = validate_atomic_audit(value, packet, course, previous, typed_findings=typed_findings,
-        strict_owners=strict_owners, claim_evidence=claim_evidence)
+        strict_owners=strict_owners, claim_evidence=claim_evidence, separate_domains=separate_domains)
     findings = cast(list[dict[str, Any]], checked['findings'])
     spans = {span.span_id: span for span in audit_spans(packet)} if claim_evidence else {}
     inventory = evidence_inventory(scoped_course_view(packet, course))[0] if claim_evidence else {}
@@ -249,9 +258,9 @@ def compiled_atomic_audit_findings(value: Any, packet: PracticalSourcePacket, co
 def atomic_audit_narrative_sources(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
                                    previous: tuple[dict[str, Any], ...] = (), *, taught_only: bool = False,
                                    typed_findings: bool = False, strict_owners: bool = False,
-                                   claim_evidence: bool = False) -> dict[str, list[str]]:
+                                   claim_evidence: bool = False, separate_domains: bool = False) -> dict[str, list[str]]:
     checked = validate_atomic_audit(value, packet, course, previous, typed_findings=typed_findings,
-        strict_owners=strict_owners, claim_evidence=claim_evidence)
+        strict_owners=strict_owners, claim_evidence=claim_evidence, separate_domains=separate_domains)
     result: dict[str, list[str]] = {lesson['id']: [] for lesson in course['lessons']}
     owners = {span.span_id: span.source_ref for span in audit_spans(packet)} if claim_evidence else {}
     inventory = evidence_inventory(scoped_course_view(packet, course))[0] if claim_evidence else {}
@@ -324,11 +333,13 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                           previous: tuple[dict[str, Any], ...] = (), *,
                           model_view: PracticalModelView | None = None, typed_findings: bool = False,
                           strict_owners: bool = False, materiality_review: bool = False,
-                          claim_evidence: bool = False, source_scope_complete: bool = False) -> list[dict[str, str]]:
+                          claim_evidence: bool = False, source_scope_complete: bool = False,
+                          separate_domains: bool = False) -> list[dict[str, str]]:
     if (type(strict_owners) is not bool or strict_owners and typed_findings is not True
             or type(materiality_review) is not bool or materiality_review and not strict_owners
             or type(claim_evidence) is not bool or claim_evidence and not strict_owners
-            or type(source_scope_complete) is not bool or source_scope_complete and not (claim_evidence and materiality_review)):
+            or type(source_scope_complete) is not bool or source_scope_complete and not (claim_evidence and materiality_review)
+            or type(separate_domains) is not bool or separate_domains and not (claim_evidence and typed_findings and strict_owners)):
         raise ValueError('practical_atomic_audit_format_invalid')
     checked = validate_practical_course(course, packet)
     if model_view is not None:
@@ -340,6 +351,11 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
                 'answer_explanations': [{'question_id': q['id'], 'prompt': q['prompt'],
                     'correct_answer_text': q['choices'][q['correct_index']], 'explanation': q['explanation']}
                     for q in row['questions']]} for row in displayed['lessons']]
+    question_explanations: list[dict[str, Any]] = []
+    if separate_domains:
+        for lesson in lessons:
+            question_explanations.extend({'lesson_id': lesson['id'], **item}
+                                         for item in lesson.pop('answer_explanations'))
     if claim_evidence:
         _, evidence_course = evidence_inventory(displayed)
         fragments = {lesson['id']: lesson['content'] for lesson in evidence_course['lessons']}
@@ -348,6 +364,8 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
     aliases = model_view.canonical_to_alias if model_view is not None else None
     context = _source_with_child_markers(packet, aliases) if claim_evidence else source_model_text(packet, aliases=aliases)
     context += '\n\nLESSON_PROSE_JSON\n' + json.dumps(lessons, ensure_ascii=False, sort_keys=True, indent=2)
+    if separate_domains:
+        context += '\nQUESTION_EXPLANATIONS_JSON\n' + json.dumps(question_explanations, ensure_ascii=False, sort_keys=True, indent=2)
     context += '\nPREVIOUS_FINDINGS_JSON\n' + json.dumps(
         model_view.encode(list(previous)) if model_view is not None else previous, ensure_ascii=False, sort_keys=True, indent=2)
     system = ATOMIC_AUDIT_SYSTEM
@@ -362,10 +380,22 @@ def atomic_audit_messages(packet: PracticalSourcePacket, course: dict[str, Any],
     if materiality_review:
         system += PRACTICAL_DECISION_GUIDE
     if typed_findings:
-        system += (' Для каждого finding scope=question обязательно выбери review_kind: '
+        system += ((' Для каждого finding scope=question обязательно выбери review_kind: '
+                   'ANSWER_VALIDITY для ошибки постановки, условий, вариантов или ключа; '
+                   'COURSE_ASSESSMENT для структуры и представительности проверки; '
+                   'EXPLANATION_VALIDITY для ошибки только объяснения. Независимые ошибки верни отдельно.')
+                   if separate_domains else (' Для каждого finding scope=question обязательно выбери review_kind: '
                    'ANSWER_VALIDITY для ошибки постановки, условий, вариантов или ключа данного вопроса; '
                    'COURSE_ASSESSMENT для сравнения вопросов курса, дублирования или общей структуры проверки. '
-                   'Это разные замечания: если обнаружены оба, верни их отдельно.')
+                   'Это разные замечания: если обнаружены оба, верни их отдельно.'))
+    if separate_domains:
+        system += (' QUESTION_EXPLANATIONS_JSON — отдельные данные для проверки каждого объяснения '
+            'на соответствие источнику и выбранному ответу. Ошибка только объяснения имеет '
+            'scope=question и review_kind=EXPLANATION_VALIDITY; не называй её ошибкой ключа. '
+            'Объяснения и ответы не доказывают наличие содержания урока: TAUGHT подтверждай только LESSON_PROSE_JSON. '
+            'Смысл важнее буквального повторения. Не превращай корректное обобщение, нормативную '
+            'модальность или название акта в материальную ошибку без изменения обязательного '
+            'рабочего действия, условий либо области применения. Не ослабляй условия, адресатов и исключения.')
     if source_scope_complete:
         system += SOURCE_SCOPE_COMPLETE_GUIDE
     return [{'role': 'system', 'content': system}, {'role': 'user', 'content': context}]

@@ -1,12 +1,17 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { parseArgs, configureEnvironment, validateConfig, forbiddenPath, boundedJson } = require('./codegraph.cjs');
 
 test('invalid or weakened exclusions fail before source scanning', () => {
   const config = require('../../codegraph.json');
   assert.equal(validateConfig(config), config);
   assert.throws(() => validateConfig({ exclude: [] }));
+  for (const nested of ['**/docs/**', '**/.release-evidence/**', '**/graphify-out/**', '**/outputs/**']) {
+    assert.throws(() => validateConfig({ exclude: config.exclude.filter(pattern => pattern !== nested) }));
+  }
   assert.throws(() => validateConfig({ ...config, includeIgnored: ['.env*'] }));
   assert.throws(() => validateConfig({ exclude: [...config.exclude, '!docs/private.py'] }));
 });
@@ -40,8 +45,30 @@ test('telemetry, update, daemon and watcher disabled before SDK load', () => {
 });
 
 test('exclusion audit matches path segments, not release-evidence skill names', () => {
-  for (const file of ['.env', 'apps/api/.env.dev', 'docs/example.py', '.release-evidence/probe.cjs', 'vendor/key.pem', 'vendor/cert.crt', 'apps\\api\\.env.py', 'docs\\private.py', 'apps/web/node_modules/test.js']) assert.equal(forbiddenPath(file), true);
+  for (const file of ['.env', 'apps/api/.env.dev', 'docs/example.py', 'scripts/docs/build_methodologist_guide.py', '.release-evidence/probe.cjs', 'vendor/key.pem', 'vendor/cert.crt', 'apps\\api\\.env.py', 'docs\\private.py', 'apps/web/node_modules/test.js']) assert.equal(forbiddenPath(file), true);
   for (const file of ['apps/api/app/core/storage/local.py', '.codex/skills/kamilya-release-evidence-gate/scripts/evaluate_release_gate.py']) assert.equal(forbiddenPath(file), false);
+});
+
+test('SDK exclusion matcher rejects existing nested docs and all audited directory segments', (t) => {
+  const root = path.resolve(__dirname, '../..');
+  const sdk = path.join(root, '.release-evidence/codegraph-pilot/runtime/node_modules',
+    `@colbymchenry/codegraph-${process.platform}-${process.arch}`, 'lib/dist/extraction');
+  if (!fs.existsSync(sdk)) return t.skip('Pinned worktree-local CodeGraph runtime unavailable');
+  const projectConfig = require(path.join(sdk, '../project-config.js'));
+  const ignore = require(require.resolve('ignore', { paths: [sdk] }));
+  const matcher = ignore().add(projectConfig.loadExcludePatterns(root));
+  const existing = 'scripts/docs/build_methodologist_guide.py';
+  assert.ok(fs.existsSync(path.join(root, existing)), 'Regression targets a real nested source file');
+  for (const file of [existing, 'docs/root.py', 'x/docs/nested.py', 'x/.release-evidence/private.py',
+    'x/graphify-out/private.py', 'x/outputs/private.py', 'x/node_modules/a.js', 'x/.venv/a.py', 'x/.next/a.js']) {
+    assert.equal(forbiddenPath(file), true, file);
+    assert.equal(matcher.ignores(file), true, file);
+  }
+  for (const file of ['scripts/valid.py', 'apps/api/app/core/storage/local.py',
+    '.codex/skills/kamilya-release-evidence-gate/scripts/evaluate_release_gate.py']) {
+    assert.equal(matcher.ignores(file), false, file);
+    assert.equal(forbiddenPath(file), false, file);
+  }
 });
 
 test('bounded JSON remains valid, marks omissions and refuses oversized metadata', () => {

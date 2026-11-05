@@ -23,6 +23,7 @@ NAME = 'v3_practical_finding_arbitration_v1'
 SELECTOR_NAME = 'v3_practical_finding_arbitration_v2'
 TYPED_SELECTOR_NAME = 'v3_practical_finding_arbitration_v3'
 MATERIALITY_SELECTOR_NAME = 'v3_practical_finding_arbitration_v4'
+EXPLANATION_SELECTOR_NAME = 'v3_practical_finding_arbitration_v5'
 VERDICTS = ['MATERIAL_ERROR', 'ALREADY_COVERED', 'SOURCE_AMBIGUITY', 'STYLE_ONLY', 'NEEDS_REVIEW']
 
 
@@ -63,7 +64,7 @@ def answer_finding(item: dict[str, Any]) -> bool:
     if original['scope'] != 'question':
         return False
     kind = original['evidence'].get('review_kind')
-    if kind not in {'ANSWER_VALIDITY', 'COURSE_ASSESSMENT'}:
+    if kind not in {'ANSWER_VALIDITY', 'COURSE_ASSESSMENT', 'EXPLANATION_VALIDITY'}:
         raise ValueError('practical_finding_review_kind_invalid')
     return bool(kind == 'ANSWER_VALIDITY')
 
@@ -74,10 +75,13 @@ def _object(properties: dict[str, Any]) -> dict[str, Any]:
 
 def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[str],
             questions: list[str], issues: list[str], *, evidence_ids: list[str] | None = None,
-            typed_findings: bool = False, materiality_review: bool = False) -> dict[str, Any]:
+            typed_findings: bool = False, materiality_review: bool = False,
+            separate_domains: bool = False) -> dict[str, Any]:
     if type(typed_findings) is not bool or typed_findings and evidence_ids is None:
         raise ValueError('practical_arbitration_format_invalid')
     if type(materiality_review) is not bool or materiality_review and not (typed_findings and evidence_ids is not None):
+        raise ValueError('practical_arbitration_format_invalid')
+    if type(separate_domains) is not bool or separate_domains and not materiality_review:
         raise ValueError('practical_arbitration_format_invalid')
     if (any(not re.fullmatch('[0-9a-f]{64}', fp) for fp in (source_fp, course_fp))
             or any(not ids or len(ids) != len(set(ids)) or any(type(i) is not str or not i.strip() for i in ids)
@@ -101,7 +105,7 @@ def _format(source_fp: str, course_fp: str, sources: list[str], lessons: list[st
         'source_refs': refs, 'course_evidence': {'type': 'array', 'items': evidence if evidence_ids is None
                                                else {'type': 'string', 'enum': evidence_ids}},
         'answer_check': {'anyOf': [answer, _object({'status': {'type': 'string', 'enum': ['NOT_APPLICABLE']}})]}})
-    return {'type': 'json_schema', 'json_schema': {'name': MATERIALITY_SELECTOR_NAME if materiality_review else TYPED_SELECTOR_NAME if typed_findings else NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
+    return {'type': 'json_schema', 'json_schema': {'name': EXPLANATION_SELECTOR_NAME if separate_domains else MATERIALITY_SELECTOR_NAME if materiality_review else TYPED_SELECTOR_NAME if typed_findings else NAME if evidence_ids is None else SELECTOR_NAME, 'strict': True, 'schema': _object({
         'source_fingerprint': {'type': 'string', 'enum': [source_fp]},
         'course_fingerprint': {'type': 'string', 'enum': [course_fp]},
         'judgments': {'type': 'array', 'minItems': len(issues), 'maxItems': len(issues), 'items': row}})}}
@@ -152,7 +156,7 @@ def _selected_evidence(course: dict[str, Any], decision: PracticalReviewDecision
 def arbitration_format(packet: PracticalSourcePacket, course: dict[str, Any],
                        decision: PracticalReviewDecision, *, selectors: bool = False,
                        question_only: bool = False, typed_findings: bool = False,
-                       materiality_review: bool = False) -> dict[str, Any]:
+                       materiality_review: bool = False, separate_domains: bool = False) -> dict[str, Any]:
     validate_practical_course(course, packet)
     if type(materiality_review) is not bool or materiality_review and (typed_findings is not True or selectors is not True):
         raise ValueError('practical_arbitration_format_invalid')
@@ -163,18 +167,19 @@ def arbitration_format(packet: PracticalSourcePacket, course: dict[str, Any],
         [lesson['id'] for lesson in course['lessons']],
         questions,
         [item['issue_id'] for item in decision.feedback],
-        evidence_ids=list(inventory) if selectors else None, typed_findings=typed_findings, materiality_review=materiality_review)
+        evidence_ids=list(inventory) if selectors else None, typed_findings=typed_findings, materiality_review=materiality_review,
+        separate_domains=separate_domains)
 
 
 def _reconstruct(value: Any) -> dict[str, Any]:
     try:
         name = value['json_schema']['name']
-        if name not in {NAME, SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
+        if name not in {NAME, SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME, EXPLANATION_SELECTOR_NAME}:
             raise ValueError
         props = value['json_schema']['schema']['properties']
         row = props['judgments']['items']['properties']
         answer = row['answer_check']['anyOf'][0]['properties']
-        if name in {SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
+        if name in {SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME, EXPLANATION_SELECTOR_NAME}:
             # Selector ownership is rebuilt from the bound course fingerprint;
             # no redundant lesson-inventory echo is required from the model.
             lessons = []
@@ -186,8 +191,9 @@ def _reconstruct(value: Any) -> dict[str, Any]:
         result = _format(props['source_fingerprint']['enum'][0], props['course_fingerprint']['enum'][0],
             row['source_refs']['items']['enum'], lessons,
             answer['question_id']['enum'], row['issue_id']['enum'], evidence_ids=evidence_ids,
-            typed_findings=name in {TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME},
-            materiality_review=name == MATERIALITY_SELECTOR_NAME)
+            typed_findings=name in {TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME, EXPLANATION_SELECTOR_NAME},
+            materiality_review=name in {MATERIALITY_SELECTOR_NAME, EXPLANATION_SELECTOR_NAME},
+            separate_domains=name == EXPLANATION_SELECTOR_NAME)
         if value != result:
             raise ValueError
         return result
@@ -214,10 +220,10 @@ def matches_arbitration(value: Any, fmt: Any) -> bool:
             return False
         for row in value['judgments']:
             if (not row['reason'].strip() or len(set(row['source_refs'])) != len(row['source_refs'])
-                    or fmt['json_schema']['name'] != MATERIALITY_SELECTOR_NAME
+                    or fmt['json_schema']['name'] not in {MATERIALITY_SELECTOR_NAME, EXPLANATION_SELECTOR_NAME}
                     and row['verdict'] in {'ALREADY_COVERED', 'STYLE_ONLY'} and not row['course_evidence']):
                 return False
-            if fmt['json_schema']['name'] in {SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME}:
+            if fmt['json_schema']['name'] in {SELECTOR_NAME, TYPED_SELECTOR_NAME, MATERIALITY_SELECTOR_NAME, EXPLANATION_SELECTOR_NAME}:
                 if len(set(row['course_evidence'])) != len(row['course_evidence']):
                     return False
             elif any(not e['quote'].strip() for e in row['course_evidence']):
@@ -253,11 +259,13 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
     course: dict[str, Any], decision: PracticalReviewDecision,
     narrative: dict[str, list[str]], *, selectors: bool = False,
     question_only: bool = False, typed_findings: bool = False,
-    materiality_review: bool = False, review_domains: bool = False) -> PracticalReviewDecision:
+    materiality_review: bool = False, review_domains: bool = False,
+    separate_domains: bool = False) -> PracticalReviewDecision:
     if type(review_domains) is not bool or review_domains and not (materiality_review and typed_findings and selectors):
         raise ValueError('practical_arbitration_review_domains_invalid')
     if not matches_arbitration(value, arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only,
-                                                       typed_findings=typed_findings, materiality_review=materiality_review)):
+                                                       typed_findings=typed_findings, materiality_review=materiality_review,
+                                                       separate_domains=separate_domains)):
         raise ValueError('practical_arbitration_response_invalid')
     lessons = {lesson['id']: lesson for lesson in course['lessons']}
     questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
@@ -292,21 +300,27 @@ def adjudicate_practical_findings(value: dict[str, Any], packet: PracticalSource
                 held_origin = held_origin['evidence']['original_finding']
             assessment = (original['scope'] == 'assessment' or original['scope'] == 'question'
                           and original['evidence'].get('review_kind') == 'COURSE_ASSESSMENT')
+            explanation = (separate_domains and original['scope'] == 'question'
+                           and original['evidence'].get('review_kind') == 'EXPLANATION_VALIDITY')
+            original_refs = original['evidence'].get('source_refs', [])
+            explanation_proof = (explanation and bool(original_refs) and bool(row['source_refs'])
+                and set(row['source_refs']) <= set(original_refs)
+                and any(e['question_id'] == original['id'] and e['field'] == 'explanation'
+                        and bool(e['text'].strip()) for e in resolved_evidence))
             evidence_pairs = {e['question_id'] for e in resolved_evidence if e['field'] == 'prompt'} & {
                 e['question_id'] for e in resolved_evidence if e['field'] == 'choice'}
             if invalid_answer or wrapped_ambiguity:
                 verdict = 'NEEDS_REVIEW'
             if verdict in {'ALREADY_COVERED', 'STYLE_ONLY'} and (
                     not resolved_evidence or original['scope'] == 'source' or wrapped_ambiguity
-                    or assessment and not evidence_pairs):
+                    or assessment and not evidence_pairs or explanation and not explanation_proof):
                 verdict = 'NEEDS_REVIEW'
             if verdict == 'NON_MATERIAL':
-                original_refs = original['evidence'].get('source_refs', [])
                 eligible_coverage = (original['scope'] == 'coverage'
                     and original['id'] in {b.block_id for b in packet.blocks if b.text.strip()}
                     and original['id'] in original_refs and original['id'] in row['source_refs']
                     and set(row['source_refs']) <= set(original_refs))
-                if (wrapped_ambiguity or not (eligible_coverage or assessment and bool(evidence_pairs))
+                if (wrapped_ambiguity or not (eligible_coverage or assessment and bool(evidence_pairs) or explanation_proof)
                         or invalid_answer):
                     verdict = 'NEEDS_REVIEW'
                 else:
@@ -420,7 +434,7 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
                          *, model_view: PracticalModelView | None = None, selectors: bool = False,
                          question_only: bool = False, typed_findings: bool = False,
                          counterexamples: bool = False, assessment_coverage: bool = False,
-                         materiality_review: bool = False) -> list[dict[str, str]]:
+                         materiality_review: bool = False, separate_domains: bool = False) -> list[dict[str, str]]:
     validate_practical_course(course, packet)
     if type(counterexamples) is not bool or counterexamples and not typed_findings:
         raise ValueError('practical_arbitration_policy_invalid')
@@ -428,9 +442,11 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
         raise ValueError('practical_arbitration_policy_invalid')
     if type(materiality_review) is not bool or materiality_review and (typed_findings is not True or selectors is not True):
         raise ValueError('practical_arbitration_policy_invalid')
+    if type(separate_domains) is not bool or separate_domains and not (materiality_review and typed_findings and selectors):
+        raise ValueError('practical_arbitration_policy_invalid')
     if typed_findings:
         arbitration_format(packet, course, decision, selectors=selectors, question_only=question_only, typed_findings=True,
-                           materiality_review=materiality_review)
+                           materiality_review=materiality_review, separate_domains=separate_domains)
     def blind(value: Any) -> Any:
         if isinstance(value, dict):
             return {key: blind(child) for key, child in value.items()
@@ -473,6 +489,12 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
             'answer_check содержит его ID, статус и все возможные правильные индексы. '
             'В остальных случаях answer_check содержит только status="NOT_APPLICABLE". '
             'Не создавай новых замечаний и не расширяй разрешённые цели правки.')
+        if separate_domains and not question_only:
+            system = system.replace(
+                'Если снимаешь замечание к вопросу, независимо проверь сам вопрос и ВСЕ варианты по источнику; '
+                'answer_check содержит его ID, статус и все возможные правильные индексы. ',
+                'Для EXPLANATION_VALIDITY проверь объяснение этого вопроса по источнику; '
+                'answer_check может быть NOT_APPLICABLE. ')
     if typed_findings:
         system += (' review_kind=ANSWER_VALIDITY проверяет правильность отдельного вопроса по источнику. '
             'review_kind=COURSE_ASSESSMENT проверяет состав теста в контексте всего курса: '
@@ -480,6 +502,20 @@ def arbitration_messages(packet: PracticalSourcePacket, course: dict[str, Any], 
             'сопоставляй конкретные вопросы и текст уроков; авторский ключ для этого не нужен, '
             'answer_check может быть NOT_APPLICABLE. Такое решение не снимает отдельное '
             'замечание ANSWER_VALIDITY к тому же вопросу.')
+        if separate_domains and not question_only:
+            system += (' EXPLANATION_VALIDITY проверяет именно объяснение конкретного вопроса по источнику. '
+                'Для ALREADY_COVERED, STYLE_ONLY или NON_MATERIAL выбери evidence_id объяснения этого '
+                'вопроса и относящиеся source_refs; один правильный ключ не доказывает объяснение. '
+                'MATERIAL_ERROR разрешает исправлять только исходный вопрос. '
+                'Замечания assessment оценивай по семействам ключевых рабочих решений всего курса. '
+                'Вспомогательная обязанность внутри представительно проверенного семейства не требует '
+                'самостоятельного вопроса: для NON_MATERIAL назови реальные формулировку и варианты '
+                'представительного вопроса и объясни связь, не утверждая, что он проверяет пропущенную '
+                'деталь. Само отсутствие отдельного вопроса и любое мыслимое последствие нарушения '
+                'не доказывают существенный пробел. MATERIAL_ERROR сохраняй для отсутствующего '
+                'самостоятельного решения, меняющего порядок допуска, отказа, остановки, важную '
+                'условную ветвь либо неотложное действие. Источник определяет саму норму; '
+                'представительность проверки не делает вспомогательные нормы необязательными.')
         if question_only:
             system += (' Текст прежней критики намеренно скрыт: независимо проверь весь вопрос '
                 'и каждый вариант по полному источнику. ID замечания сохраняет историю, '

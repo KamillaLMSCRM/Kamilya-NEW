@@ -11,7 +11,8 @@ const LIMIT = 12;
 const MAX_OUTPUT = 6000;
 const COMMANDS = new Set(['index', 'sync', 'status', 'search', 'callers', 'callees']);
 const REQUIRED_EXCLUDES = ['**/.env*', '**/*.pem', '**/*.key', '**/*.crt',
-  '.release-evidence/**', 'graphify-out/**', 'outputs/**', 'docs/**',
+  '.release-evidence/**', '**/.release-evidence/**', 'graphify-out/**', '**/graphify-out/**',
+  'outputs/**', '**/outputs/**', 'docs/**', '**/docs/**',
   '**/node_modules/**', '**/.venv/**', '**/.next/**', 'apps/api/storage/**', 'storage/**'];
 
 function validateConfig(config) {

@@ -5910,3 +5910,39 @@ ThreecompleteDEVcurricula, nativeDeepSeek and production acceptance stillOPEN.
   Independent frozen-source review BOUNDED GO/no P1/P2; semantic/runtime/full
   acceptance remains unverified. New Micro276blocks20L80Q wire schema25219B,
   closed source refs reconstructed locally; old transport cap/source unchanged.
+
+## P28 exact DEV rollout and first full course — 2026-11-04 23:52 UTC
+
+- Source29ece976: independently paired feature/dev SHA readbacks under project
+  account, sanitized receipts and owner-authorized memory notes retained.
+- CI41935040803 SUCCESS incl PostgreSQL/RLS gates; image41935847752 SUCCESS,
+  attested351b297b; env45keys/dd65d331; all99 source hashes checked in actualimage.
+- Reviewed immutable readiness/drain/start/restart scripts PASS; only DEV worker
+  changed. Old ebba warm exit0/retained; new6669ce1c soleconsumer ready, restart0.
+  Controller RELEASE_OK/RECONCILED, APIdep-dbls7ojbc2fs73a9kupg and Vercel
+  dpl_CTc9mmVKeXJTcVtbRDkx6ZDkqiuj exact29ece976. Free/Hobby unchanged.
+- ONE Fire74608e00 admitted23:50:27UTC; full result/quality not yet verified.
+  No new model call outside that one course; no nativeDeepSeek/prod mutation.
+
+## P28 Fire first continuation — 2026-11-05 00:13 UTC
+
+- Known no-pending cooperative interruption:7 received/171468in32133out,
+  snapshot8be8ebb9...748b6. Exact offlineprefix all7, nextrepair notdispatched.
+- ONE ordinary samejobresume00:07:33UTC; all7 completeplans/responses/metadata,
+  source/admission/route unchanged in snapshotf471049e...bd45428. Active monitor
+  1726; originalmonitor ended. No new generation/admission/provider retry.
+- Firstauthor review is preliminary, not final acceptance. Positive SPAN41
+  employee-only witness falsely covers employee+visitor norm; sourceplan omits
+  independent before-admission prerequisite. Existingjournal recurrence updated.
+  Firstrepair fixes electrical/source and adds8questions, visitor remains absent
+  in that patch. The active independentcycle continues; no finalverdict inferred.
+
+
+## 2026-11-05 02:18UTC P29 saved controls (not full course acceptance)
+
+Completed P28 Fire25replies/738684in97020out/7L38Q NO_GO; exact replay0calls and savedAPI match. Source-native bank1call181.531s35874in9898out found admission,99/100inventory; reconciliation0calls retains SPAN56 UNKNOWN. Existing arbiter+teaching1call83.422s69199in4435out finds visitor and confirms admission, but fact-level materiality needs calibration. Sources unchanged; no paid DeepSeek, DB/course changes or fresh fullcourse. Latest16module/17cycle/6ownedstage PASS. Full6631PASS66.96s and baseline1006/2174PASS preceded last changes; rerun required before release. GX10 SSH PC PASS, exact worker TCP22/8888 timeout, key_transfer0.
+
+
+## 2026-11-05 02:49UTC P29 separated existing phases LOCAL
+
+Rejected all-child assessment/signoff prototype archived, no edit executed. Atomic synthetic4cases/5semantic assertions PASS85.078s16206in1223out; full saved100row audit98.203s31937in5305out findsvisitor with explanation checks retained; independent familybank129.625s33299in6934out findsadmission, optionalchemistry breadth only, representativecooperation NOT_REQUIRED. No gold/handcriticisms in requests, no DB. Explanation purpose+ownership75module/6cycle owned tests PASS. Exact110oldstages6courses replay0calls/samehashes. Full6590PASS63.94s before freshstamp29;10fixture default-ID failures fixed,44focusedPASS2.62s. Baseline1006/2174PASS; finalunit44089/navigation35745 running. No currentDEV/production inference or customerchanges.

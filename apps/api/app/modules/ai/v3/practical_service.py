@@ -48,6 +48,7 @@ from app.modules.ai.v3.revision_policy import (
     PREVIOUS_PRACTICAL_REVIEW_POLICY,
     QUESTION_BANK_PRACTICAL_REVIEW_POLICY,
     SCOPED_PRACTICAL_REVIEW_POLICY,
+    SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
     TYPED_PRACTICAL_REVIEW_POLICY,
@@ -66,7 +67,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY if result.source_scope_complete else
+    review_policy = (SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY if result.separate_domains else
+                     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY if result.source_scope_complete else
                      DOMAIN_PRACTICAL_REVIEW_POLICY if result.review_domains else
                      CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY if result.claim_evidence else
                      MATERIALITY_PRACTICAL_REVIEW_POLICY if result.materiality_review else
@@ -140,7 +142,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       # ordinary persistence layer still creates a draft course.
                       quality_verdict='verified' if accepted and source_verified else 'needs_review',
                       validation_report=report)
-    assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY} and source_verified
+    assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY} and source_verified
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
         and not result.unresolved_question_context and bool(result.decision.feedback)
         and not result.unresolved_curriculum_goals
@@ -182,10 +184,13 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
     cancellation_callback: Callable[[], Awaitable[None]] | None = None,
     progress_callback: Callable[[str, int, int, str | None, int | None], Awaitable[None]] | None = None,
-    review_policy: str = SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
+    review_policy: str = SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
 ) -> GenerationArtifacts:
     if not is_practical_policy(review_policy):
         raise ValueError('v3_review_policy_invalid')
+    separate_domains = review_policy == SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
+    if separate_domains:
+        review_policy = SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY
     if journal is not None and journal.tenant_id != corpus.tenant_id:
         raise ValueError('practical_journal_owner_mismatch')
     if any(doc.review_only_source_unresolved for doc in corpus.documents):
@@ -264,6 +269,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                    {'adjudicate': True, 'standalone': True, 'typed_findings': True} if review_policy == TYPED_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True, 'standalone': True} if review_policy == STANDALONE_PRACTICAL_REVIEW_POLICY else
                    {'adjudicate': True} if review_policy == ARBITRATED_PRACTICAL_REVIEW_POLICY else {})
+        if separate_domains:
+            options['separate_domains'] = True
         result = await run_lesson_practical_cycle(packet, asdict(intent), stage, max_revisions=3, **options)
     else:
         result = await run_practical_cycle(packet, asdict(intent), stage, source_readings=tuple(readings),

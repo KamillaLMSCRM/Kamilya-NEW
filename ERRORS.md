@@ -62,6 +62,50 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Fix candidate2026-11-05/P29: separate existing review domains rather than add
+  a per-sentence quiz inventory. Keep unconditional authored-explanation checks
+  in QUESTION_EXPLANATIONS_JSON, distinct from LESSON_PROSE_JSON. New typed
+  EXPLANATION_VALIDITY goes to existing course arbiter; prior ANSWER_VALIDITY
+  physically hid explanation and could incorrectly discharge an explanation-only
+  issue after confirming its key. New code requires owned explanation E-ID and
+  related source refs for discharge; MATERIAL keeps only originalq edit scope.
+  Explicit old policies retain request bytes; all110actual oldresponses replay
+  0calls/same6hashes. Four-case one-call held-out semantic control finds missing
+  prose despite complete explanation, wrong explanations with correct keys, and
+  retains normalcontrol. Full saved100row control finds visitor omission with
+  explanations still checked. Family-bank control reduces statutory-detail quiz
+  overcalls; generic chemistry extraquestion remains only an allegation for the
+  independent editor. Full fresh DEVcourses are still required before production.
+
+- Recurrence2026-11-05/P29 rejected LOCAL prototype: forcing a complete CHILD
+  assessment inventory produced seven allegations on saved Fire; independent
+  reviewer accepts admission but rejects six per-detail question quotas at the
+  owner reference quality. Arbiter upheld allseven, including an invented duty
+  to stop visitor smoking (source states visitor prohibition only). An added
+  role/case/consequence guide still upheld allseven:100.953s69435in5414out.
+  Consequence reasoning alone did not distinguish representative family coverage
+  from testing every statutory duty. Positive signoff also overcalled appointment
+  detail and conditional liability wording. Do NOT activate that prototype or use
+  its output as repair authority; no patch executed. Test existing family-level
+  curriculum and source-prose boundaries instead, preserving independent answer
+  and explanation checks. Last full7808PASS544skipped89.87s57warnings, baseline
+ 1006/2174PASS establish technical consistency, NOT semantic calibration.
+
+- Recurrence2026-11-05/P28 actual DEV: first Fire audit reports SPAN41 TAUGHT
+  through real E34 employee-only prose, although source1.9 includes employees
+  AND visitors. A valid selector is custody evidence, not semantic entailment.
+  The source-audit request also includes question prompts/keys/explanations within
+  LESSON_PROSE_JSON; these remain a possible substitute for missing prose despite
+  textual prohibition. Preserve existing question/explanation checks when isolating
+  teaching coverage; do not silently drop safety checks or add per-fact quiz quotas.
+  One saved full-source/prose-only witness challenge identified visitor omission
+  but failed whole-response literal-quote validation and also overcalled an already
+  taught instruction clause. Diagnostic only: no response promoted, no automatic
+  edit authority. One source-reading→curriculum differential restored admission
+  but still did not explicitly retain visitors. Neither extra planner nor another
+  prompt alone is established as a complete fix. Same-job22reply continuation
+  retains allreceived stages; finalfullcourse acceptance remains open.
+
 - Recurrence2026-11-05/P28 LOCAL: source prose coverage and open-ended assessment
   criticism were not a complete inventory of essential workplace decisions.
   Saved Fire24 missed admission before training, network disconnection,
@@ -1976,6 +2020,20 @@ current fix, actual verification, and concrete prevention. If remediation remain
 open, also record status, safe interim path, and review condition.
 
 ## TOOL-012 - New linked checkout lacked its local navigation runtime and indexes
+
+- Recurrence2026-11-05 in v3-source-reviewed-dev-20261104: after verified pinned
+  SDK install, real index safety audit found five scripts/docs sources. The input
+  matcher excluded docs only at root while the existing audit rejects that exact
+  directory segment at every depth. Align nested docs/.release-evidence/outputs/
+  graphify-out exclusions without weakening audit; guard now requires both root
+  and nested rules. Regression exercises the installed SDK's real ignore matcher
+  against existing scripts/docs/build_methodologist_guide.py and sibling negatives.
+  Fourteen Node tests PASS. Serialized AST preparation and read-only receipt PASS:
+  2409source files, Graphify27492nodes/83099edges/2361source files, exclusionPASS.
+  Bounded CodeGraph callers confirm atomic_audit_messages→run_lesson_practical_cycle;
+  Graphify multi-hop also locates practical_service. Static navigation only; no
+  inference/provider credentials, global upgrades, hooks or watchers. This fix
+  is local until committed/released; other checkout indexes are not copied.
 
 - Date: 2026-10-09; local developer tooling only.
 - Symptom: CodeGraph/Graphify were reported unavailable in the current checkout
@@ -10106,6 +10164,19 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 
 
 ## AI-SOURCE-SCOPE-001 - Topic witnesses can lose part of a source rule's actor scope
+
+- Recurrence2026-11-05/P28 first review: real DEV Fire74608e00's initial audit
+  marks SPAN41 TAUGHT via exact owned E34, but that lesson fragment names only
+  employees while the source also names visitors. The tested prompt clarification
+  caught this class on an older saved course, not this new wording. Literal
+  witness custody is confirmed; complete semantic entailment is not. The running
+  repair cycle may still correct it; do not call this a final-course outcome.
+- Related planning limit: the actual source-only plan omitted the independent
+  training AND instruction-before-admission decision. Its instruction-frequency
+  goal is therefore not a closed test of admission, even though later bank refs
+  include the admission source block. Unit/ID membership is not complete meaning.
+  Keep these two observed misses in saved regressions; no new inference or
+  unproved heuristic is authorized merely by writing this recurrence.
 
 - Date:2026-11-05.
 - Symptom: full DEV P27 Fire8L28Q repaired electrical/chemical omissions, but its

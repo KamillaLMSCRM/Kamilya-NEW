@@ -12,7 +12,7 @@ from app.modules.ai.schemas import AIGenerateRequest
 from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, MANAGED_POLICY
 from app.modules.ai.v3.revision_policy import (
     REVIEW_POLICY,
-    SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
+    SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
     practical_qa_admission,
 )
 from tests.unit.test_ai_router_admission import _lenient_db
@@ -104,6 +104,6 @@ async def test_native_admission_binds_policy_to_actual_destination(monkeypatch, 
     with pytest.raises(HTTPException) as error:
         await router.generate_course(request, db=_lenient_db(), user=user)
     assert error.value.status_code == 429
-    expected = REVIEW_POLICY if destination == 'existing' else SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY
+    expected = REVIEW_POLICY if destination == 'existing' else SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
     assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
     assert submit.await_args.kwargs['course_id'] == (course if destination == 'existing' else None)

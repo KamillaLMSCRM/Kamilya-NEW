@@ -6,6 +6,7 @@ from app.modules.ai.v3.practical_atomic_audit import SOURCE_SCOPE_COMPLETE_GUIDE
 from app.modules.ai.v3.practical_lesson_cycle import run_lesson_practical_cycle
 from app.modules.ai.v3.revision_policy import (
     DOMAIN_PRACTICAL_REVIEW_POLICY,
+    SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     is_practical_policy,
     read_review_policy,
@@ -49,7 +50,7 @@ async def test_scope_flag_rejected_before_cycle_dispatch(case, flags):
 
 
 def test_fresh_stamp_and_legacy_27_are_recognized():
-    assert stamp_policy({}, practical=True)['v3_review_policy'] == SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY
+    assert stamp_policy({}, practical=True)['v3_review_policy'] == SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY
     for policy in (DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY):
         assert is_practical_policy(policy)
         assert read_review_policy({'v3_review_policy': policy}) == policy

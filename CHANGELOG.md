@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Separate lesson-prose coverage, independent answer validity and explanation
+  correctness inside existing V3 review phases. Preserve historical checkpoints
+  and restrict each confirmed correction to its owned question or lesson.
+- Assess representative decision families instead of requiring a test per source
+  sentence. Source prerequisites and material conditional branches remain explicit.
+
+
+### Changed
 
 - Establish source-only curriculum decisions before authoring and check their
   assessment against the complete blind question bank; arbitrate materiality

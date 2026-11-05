@@ -133,7 +133,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                      claim_evidence: bool = False,
                                      review_domains: bool = False,
                                      source_scope_complete: bool = False,
-                                     curriculum_review: bool = False) -> PracticalCycleResult:
+                                     curriculum_review: bool = False,
+                                     separate_domains: bool = False) -> PracticalCycleResult:
     if (type(adjudicate) is not bool or type(standalone) is not bool or standalone and not adjudicate
             or type(typed_findings) is not bool or typed_findings and not standalone
             or type(counterexamples) is not bool or counterexamples and not typed_findings
@@ -147,14 +148,16 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
             or type(claim_evidence) is not bool or claim_evidence and not materiality_review
             or type(review_domains) is not bool or review_domains and not claim_evidence
             or type(source_scope_complete) is not bool or source_scope_complete and not review_domains
-            or type(curriculum_review) is not bool or curriculum_review and not source_scope_complete):
+            or type(curriculum_review) is not bool or curriculum_review and not source_scope_complete
+            or type(separate_domains) is not bool or separate_domains and not curriculum_review):
         raise ValueError('practical_revision_policy_invalid')
     if type(max_revisions) is not int or not 0 <= max_revisions <= 3:
         raise ValueError('practical_revision_policy_invalid')
     view = PracticalModelView(packet)
     typed_options = {'typed_findings': True} if typed_findings else {}
     audit_options = {**typed_options, **({'strict_owners': True} if strict_audit_owners else {}),
-                     **({'claim_evidence': True} if claim_evidence else {})}
+                     **({'claim_evidence': True} if claim_evidence else {}),
+                     **({'separate_domains': True} if separate_domains else {})}
     review_options = {**typed_options, **({'counterexamples': True} if counterexamples else {})}
     planning = [{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups]
 
@@ -190,8 +193,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
 
     plan = None
     if curriculum_review:
-        plan = validate_curriculum(await call('review', 'practical:source-curriculum:v1',
-            curriculum_messages(packet, view), curriculum_format(packet),
+        plan = validate_curriculum(await call('review', 'practical:source-curriculum:v2' if separate_domains else 'practical:source-curriculum:v1',
+            curriculum_messages(packet, view, **({'family_coverage': True} if separate_domains else {})), curriculum_format(packet),
             lambda value: validate_curriculum(value, packet)), packet)
     messages = [{'role': 'system', 'content': FRESH_AUTHOR_SYSTEM + SOURCE_APPLICABILITY_GUIDE
                  + (EXPLICIT_CASE_GUIDE if explicit_cases else '')
@@ -224,7 +227,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         by_lesson, global_previous = partition_previous(candidate, packet, previous, standalone=standalone, typed_findings=typed_findings)
         parts = []
         carried = []
-        review_version = ('v3-practical-source-review-v28' if source_scope_complete else
+        review_version = ('v3-practical-source-review-v29' if separate_domains else
+                          'v3-practical-source-review-v28' if source_scope_complete else
                           'v3-practical-source-review-v27' if review_domains else
                           'v3-practical-source-review-v26' if claim_evidence else
                           'v3-practical-source-review-v25' if materiality_review else
@@ -266,7 +270,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                 carried.append({'question_bank_sha256': bank_key, 'raw_review_sha256': _hash(raw_bank),
                                 'open_issue_ids': [row['issue_id'] for row in prior]})
             else:
-                bank_messages = (curriculum_bank_messages(packet, candidate, plan, prior, model_view=view)
+                bank_messages = (curriculum_bank_messages(packet, candidate, plan, prior, model_view=view,
+                        **({'family_coverage': True} if separate_domains else {}))
                     if plan is not None else practical_review_messages(packet, candidate, prior, model_view=view, concise=True,
                         strict_targets=True, standalone=True, question_batch=True,
                         typed_findings=typed_findings, counterexamples=counterexamples))
@@ -347,7 +352,8 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
         if previous:
             consolidated['issue_checks'] = issue_checks
         decision = interpret_practical_review(consolidated, packet, candidate, previous, concise=True,
-                                             **({'allow_empty_narrative': True} if standalone else {}), **review_options)
+                                             **({'allow_empty_narrative': True} if standalone else {}),
+                                             **({'separate_domains': True} if separate_domains else {}), **review_options)
         if adjudicate:
             decision = retain_prior_findings(decision, previous, issue_checks)
         adjudication = None
@@ -370,18 +376,19 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                     adjudicate_practical_findings(value, packet, checked_course, checked_decision, checked_narrative,
                                                  selectors=standalone, question_only=checked_question_only,
                                                  **({'review_domains': True} if review_domains else {}),
-                                                 **({'materiality_review': True} if materiality_review else {}), **typed_options)
-                response = await call('review', 'practical:arbitrate:' + _hash([digest, unadjudicated.feedback]),
+                                                 **({'materiality_review': True} if materiality_review else {}),
+                                                 **({'separate_domains': True} if separate_domains and not checked_question_only else {}), **typed_options)
+                response = await call('review', 'practical:arbitrate:' + _hash([review_version, digest, unadjudicated.feedback] if separate_domains else [digest, unadjudicated.feedback]),
                     arbitration_messages(packet, candidate, unadjudicated, model_view=view, selectors=standalone,
                         question_only=question_only, counterexamples=counterexamples,
                         **({'assessment_coverage': True} if assessment_coverage else {}),
-                        **({'materiality_review': True} if materiality_review else {}), **typed_options),
+                        **({'materiality_review': True} if materiality_review else {}), **({'separate_domains': True} if separate_domains and not question_only else {}), **typed_options),
                     arbitration_format(packet, candidate, unadjudicated, selectors=standalone, question_only=question_only,
-                        **({'materiality_review': True} if materiality_review else {}), **typed_options), validate_adjudication)
+                        **({'materiality_review': True} if materiality_review else {}), **({'separate_domains': True} if separate_domains and not question_only else {}), **typed_options), validate_adjudication)
                 applied.append(adjudicate_practical_findings(response, packet, candidate, unadjudicated,
                     consolidated['narrative_sources'], selectors=standalone, question_only=question_only,
                     **({'review_domains': True} if review_domains else {}),
-                    **({'materiality_review': True} if materiality_review else {}), **typed_options))
+                    **({'materiality_review': True} if materiality_review else {}), **({'separate_domains': True} if separate_domains and not question_only else {}), **typed_options))
                 adjudications[label] = response
             if len(applied) == 1:
                 decision = applied[0]
@@ -430,6 +437,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         materiality_review=materiality_review,
                                         claim_evidence=claim_evidence, review_domains=review_domains,
                                         source_scope_complete=source_scope_complete,
+                                        separate_domains=separate_domains,
                                         curriculum_plan=plan, unresolved_curriculum_goals=unresolved_goals,
                                         unresolved_question_context=unresolved_context)
         patch_decision = (replace(decision, feedback=tuple(item for item in decision.feedback
@@ -465,6 +473,7 @@ async def run_lesson_practical_cycle(packet: PracticalSourcePacket, intent: dict
                                         materiality_review=materiality_review,
                                         claim_evidence=claim_evidence, review_domains=review_domains,
                                         source_scope_complete=source_scope_complete,
+                                        separate_domains=separate_domains,
                                         curriculum_plan=plan, unresolved_curriculum_goals=unresolved_goals,
                                         unresolved_question_context=unresolved_context)
         candidate = revised

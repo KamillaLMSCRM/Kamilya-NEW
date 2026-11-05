@@ -1,3 +1,23 @@
+## P29 candidate72 LOCAL only — 2026-11-05 02:49UTC
+
+Fresh29 separates source/prose, explanation correctness and representative
+assessment in existing phases. Rejected CHILD-assessment/signoff experiment is
+archived outside runtime. P28 completed Fire is NO_GO content despite exact
+DEV deployment and successful25stage replay. New synthetic semantic5checks PASS,
+110old received stages retain6hashes/0calls, baseline1006/2174PASS. Final unit/CI/
+image/new DEV/three fullcourses/nativeDS/prod/full syntheticjourney remain open.
+Production66/native70 and customers unchanged; no browser acceptance claimed.
+
+## P28 exact DEV runtime accepted; full course gates ACTIVE — 2026-11-04 23:52 UTC
+
+Exact29ece976 DEV API/worker/frontend RELEASE_OK/RECONCILED; CI41935040803,
+image41935847752 PASS, immutable351b297b attested,99 image source hashes verified.
+Sole VM126 worker6669ce1c, envdd65d331,1CPU/1GiB/restart0/unless-stopped. Warm
+rollback8f765bd7 retained. Production66/native70 and all customer data unchanged.
+One full Fire74608e00 active on unchanged reviewed source. Standards/Micro,
+native DeepSeek and protected184 production/full synthetic live remain OPEN.
+No browser acceptance claim: ComputerUse stopped this turn.
+
 ## P28 LOCAL gates — DEV acceptance next, 2026-11-05
 
 Fresh unreleased28 adds a source-only curriculum before authoring and closed goal
