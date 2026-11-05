@@ -4439,6 +4439,29 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 - Verification: the workflow contract forbids a direct manual-input SHA override inside `build-image`; the next successful master CI must trigger an image build with the exact event SHA.
 - Prevention: normalize multi-trigger identity once at job scope and prohibit narrower steps from redefining release identity variables.
 
+## GH-003 - Protected promotion rebuilt rather than pinned the tested image
+
+- Date: 2026-11-05.
+- Symptom: a manual production dispatch always rebuilt the source and passed the
+  new digest into its protected manifest, with no path to select the exact image
+  already exercised in DEV. Same Git SHA alone does not prove binary identity.
+- Cause: build-image unconditionally ran build-push and downstream steps used
+  steps.build.outputs.digest; no prior immutable build receipt was an input.
+- Fix: optional reuse_build_run_id downloads a same-repository successful run's
+  receipt, binds source/CI/version/digest and verifies signed OCI provenance,
+  including builder workflow, repository, source and run attempt. Its verifier
+  comes from immutable github.workflow_sha; application checkout stays at tested
+  release_sha. Reuse skips rebuild and re-attestation, retaining the existing
+  protected environment, manifest and fixed-command runner.
+- Verification:25focused workflow/verifier tests pass, including stale identity,
+  foreign repository/workflow, failed run, digest and attestation negatives;
+  root and independent source review find no blocker. Actual P29 build metadata
+  and previously cryptographically verified attestation pass the parser offline.
+  GitHub execution of this new path is not yet proven; no production action made.
+- Prevention: bind runtime promotion to the exact tested digest before switch;
+  do not treat rebuilding the same source or post-deploy comparison as that gate.
+
+
 ## DEPLOY-007 - Release controller required a newer Python than VM126
 
 - Date: 2026-08-31.

@@ -1,3 +1,21 @@
+# Optional pinned-image promotion LOCAL — 2026-11-05 03:44UTC
+
+- result: Isolated fix/release-pinned-image-20261105, based906b5a11; optional
+  reuse_build_run_id preserves exact tested runtimeimage without rebuilding.
+  Active engine/DEV remains906b5a11; no appsource or runtimeconfiguration changed.
+- changed: Workflow plus verify_pinned_release_image.py and focusedcontracts.
+  Verifier checkout uses github.workflow_sha; application remains exactrelease_sha.
+  Existing protectedenvironment/manualapproval/migration/backup/runner retained.
+- verified:25focusedPASS; RuffPASS; root+independent review boundedGO. Actualrun
+ 41958075054 and previously cryptographically verified1ddf5332 attestation pass
+  the parser. Newworkflow live execution remains unverified. GH-003 recordscause.
+- blockers: No sourceblocker found. Do not merge/dispatchproduction until active
+  engine3fullLuna/nativeDeepSeek/content+sourcehold quality gates pass. Installed
+  controller stillneeds its separateprotectedupgrade and freshbackup/rollback.
+- next: Root maycommit/push this controlbranch forCI/review; keep runtime906 image
+ 1ddf5332 pinned. Afterallgates, mergecontrol and exercise build-only reuse first,
+  then separatelyauthorizedprotectedpromotion. No providerplan/resourcechanges.
+
 # P29 LOCAL gates complete; exact DEV source release next — 2026-11-05 02:51UTC
 
 - result: Candidate0.11.72/fresh29 separated existing phases; final6590unitPASS

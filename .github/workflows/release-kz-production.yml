@@ -49,6 +49,10 @@ on:
         required: true
         default: false
         type: boolean
+      reuse_build_run_id:
+        description: "Optional successful same-repository release image build run ID"
+        required: false
+        type: string
       deploy_to_production:
         description: "After build, request protected production execution"
         required: true
@@ -154,7 +158,34 @@ jobs:
         shell: bash
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/kamilya-api" >> "${GITHUB_OUTPUT}"
 
+      - name: Check out trusted workflow verifier
+        if: ${{ inputs.reuse_build_run_id != '' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-control
+          persist-credentials: false
+
+      - name: Retrieve and verify prior image provenance
+        id: reuse
+        if: ${{ inputs.reuse_build_run_id != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.reuse_build_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${BUILD_RUN_ID}" =~ ^[0-9]+$ ]]
+          mkdir "${RUNNER_TEMP}/verified-image"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${BUILD_RUN_ID}" > "${RUNNER_TEMP}/verified-image/run.json"
+          gh run download "${BUILD_RUN_ID}" --repo "${GITHUB_REPOSITORY}" --name "release-image-${RELEASE_SHA}" --dir "${RUNNER_TEMP}/verified-image"
+          image="$(python .release-control/scripts/deploy/verify_pinned_release_image.py receipt --dir "${RUNNER_TEMP}/verified-image" --repo "${GITHUB_REPOSITORY}" --sha "${RELEASE_SHA}" --ci "${CI_RUN_ID}" --run "${BUILD_RUN_ID}" --version "${PRODUCT_VERSION}")"
+          gh attestation verify "oci://${image}" --repo "${GITHUB_REPOSITORY}" --signer-workflow "${GITHUB_REPOSITORY}/.github/workflows/release-kz-production.yml" --format json > "${RUNNER_TEMP}/verified-image/attestation.json"
+          python .release-control/scripts/deploy/verify_pinned_release_image.py attestation --dir "${RUNNER_TEMP}/verified-image" --repo "${GITHUB_REPOSITORY}" --sha "${RELEASE_SHA}" --run "${BUILD_RUN_ID}" --image "${image}"
+          printf 'image=%s\n' "${image}" >> "${GITHUB_OUTPUT}"
+
       - uses: docker/setup-buildx-action@v3
+        if: ${{ inputs.reuse_build_run_id == '' }}
 
       - uses: docker/login-action@v3
         with:
@@ -163,6 +194,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Build and push immutable image
+        if: ${{ inputs.reuse_build_run_id == '' }}
         id: build
         uses: docker/build-push-action@v6
         with:
@@ -176,7 +208,7 @@ jobs:
       - name: Verify image identity and secret exclusions
         shell: bash
         env:
-          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.reuse.outputs.image || format('{0}@{1}', steps.image.outputs.name, steps.build.outputs.digest) }}
         run: |
           docker pull "${IMAGE}"
           docker run --rm --entrypoint sh "${IMAGE}" -c '
@@ -188,6 +220,7 @@ jobs:
           '
 
       - name: Attest image provenance
+        if: ${{ inputs.reuse_build_run_id == '' }}
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ steps.image.outputs.name }}
@@ -197,7 +230,7 @@ jobs:
       - name: Create immutable image record
         shell: bash
         env:
-          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.reuse.outputs.image || format('{0}@{1}', steps.image.outputs.name, steps.build.outputs.digest) }}
         run: |
           python - <<'PY'
           import json, os
@@ -219,7 +252,7 @@ jobs:
         env:
           RELEASE_ID: ${{ inputs.release_id }}
           RELEASE_SHA: ${{ inputs.release_sha }}
-          IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          IMAGE: ${{ steps.reuse.outputs.image || format('{0}@{1}', steps.image.outputs.name, steps.build.outputs.digest) }}
           PREVIOUS_RELEASE_SHA: ${{ inputs.previous_release_sha }}
           PREVIOUS_IMAGE: ${{ inputs.previous_image }}
           MIGRATION_MODE: ${{ inputs.migration_mode }}
