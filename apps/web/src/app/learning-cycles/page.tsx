@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { Badge, Button, Card, CardContent, Input } from '@/components/ui';
+import { Badge, Button, Input } from '@/components/ui';
+import { Repeat2 } from 'lucide-react';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar, WorkspaceEmpty } from '@/features/workspace-design';
 import { toast } from '@/components/ui/Toast';
 import { collectPages, correctiveAssignmentUrl, deriveOccurrenceState, isResendEligible, runBounded } from './helpers';
 
@@ -331,26 +333,27 @@ export default function LearningCyclesPage() {
     if (!eventHistory[occurrence.id]) await loadEventHistory(occurrence);
   };
 
-  if (!canManage) return <div className="p-6"><h1 className="text-2xl font-bold">{t('learningCycles.title')}</h1><p className="mt-2 text-sm text-muted-foreground">{t('learningCycles.forbidden')}</p></div>;
-  return <main className="mx-auto max-w-7xl space-y-6 p-6">
-    <header><h1 className="text-2xl font-bold">{t('learningCycles.title')}</h1><p className="mt-1 text-sm text-muted-foreground">{t('learningCycles.subtitle')}</p></header>
-    <Card><CardContent className="space-y-4 p-5">
-      <div><h2 className="font-semibold">{t('learningCycles.createTitle')}</h2><p className="text-sm text-muted-foreground">{t('learningCycles.identityHint')}</p></div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <label className="text-sm">{t('learningCycles.targetType')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetType} onChange={(event) => { const value = event.target.value as 'course' | 'learning_path'; setTargetType(value); setTargetId(''); }}><option value="course">{t('learningCycles.course')}</option><option value="learning_path">{t('learningCycles.program')}</option></select></label>
-        <label className="text-sm">{t('learningCycles.target')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">{t('learningCycles.selectTarget')}</option>{targetOptions.map((item) => <option key={item.id} value={item.id}>{item.optionLabel}</option>)}</select></label>
-        <label className="text-sm">{t('learningCycles.learner')}<select className="mt-1 block w-full rounded border bg-background p-2" value={userId} onChange={(event) => setUserId(event.target.value)}><option value="">{t('learningCycles.selectLearner')}</option>{learners.map((item) => <option key={item.id} value={item.id}>{learnerOptionLabel(item)}</option>)}</select></label>
-        {targetType === 'course' && <>
-          <div className="text-sm"><label htmlFor="learning-cycle-cadence">{t('learningCycles.cadenceDays')}</label><Input id="learning-cycle-cadence" aria-describedby="learning-cycle-cadence-hint" type="number" min={1} max={3660} value={cadence} onChange={(event) => setCadence(event.target.value)} /><span id="learning-cycle-cadence-hint" className="mt-1 block text-xs text-muted-foreground">{t('learningCycles.cadenceHint')}</span></div>
-          <div className="text-sm"><label htmlFor="learning-cycle-due">{t('learningCycles.dueDays')}</label><Input id="learning-cycle-due" aria-describedby="learning-cycle-due-hint" type="number" min={0} max={3650} value={due} onChange={(event) => setDue(event.target.value)} /><span id="learning-cycle-due-hint" className="mt-1 block text-xs text-muted-foreground">{t('learningCycles.dueHint')}</span></div>
-        </>}
-      </div>
-      {targetType === 'learning_path' && !loading && !loadError && targetOptions.length === 0 && <div className="rounded border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground" role="status"><p>{t('learningCycles.programEligibilityHint')}</p><Link className="mt-2 inline-flex font-medium text-primary underline-offset-4 hover:underline" href="/learning-paths">{t('learningCycles.openLearningPrograms')}</Link></div>}
-      <div className="flex justify-end"><Button onClick={() => void createRule()} disabled={saving || !targetId || !userId || (targetType === 'course' && (!Number.isInteger(Number(cadence)) || Number(cadence) < 1 || !Number.isInteger(Number(due)) || Number(due) < 0 || Number(due) > Number(cadence)))}>{saving ? t('learningCycles.saving') : t('learningCycles.createDraft')}</Button></div>
-    </CardContent></Card>
+  if (!canManage) return <WorkspacePage id="learning-cycles" title={t('learningCycles.title')}><p className="text-sm text-muted-foreground">{t('learningCycles.forbidden')}</p></WorkspacePage>;
+  return <WorkspacePage id="learning-cycles" title={t('learningCycles.title')} description={t('learningCycles.subtitle')} icon={<Repeat2 />}>
+    <WorkspacePanel title={t('learningCycles.attentionTitle')} description={t('learningCycles.attentionHint')} bodyClassName="space-y-4" actions={<Button variant="outline" disabled={!selected.size || busy.size > 0} onClick={() => void resendSelected()}>{t('learningCycles.resendSelected', { count: selected.size })}</Button>}>
+      {bulkReport && <div role="status" className={`rounded-xl border p-4 text-sm ${bulkReport.failed.length ? 'border-destructive' : 'border-border'}`}><p>{t('learningCycles.bulkSummary', { succeeded: bulkReport.succeeded, failed: bulkReport.failed.length })}</p>{bulkReport.failed.map((item) => <p key={item.id} className="mt-1 text-destructive">{item.id}: {item.error}</p>)}</div>}
+      {loading ? <p>{t('common.loading')}</p> : loadError ? <p className="text-sm text-destructive">{t('common.loadFailed')}</p> : !eligible.length ? <WorkspaceEmpty title={t('learningCycles.noAttention')} /> : <>
+        <WorkspaceToolbar className="bg-muted/25"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={eligible.length > 0 && eligible.every((item) => selected.has(item.id))} onChange={(event) => setSelected(event.target.checked ? new Set(eligibleIds) : new Set())} />{t('learningCycles.selectAll')}</label></WorkspaceToolbar>
+        <div className="space-y-3">{eligible.map((item) => {
+          const learner = learners.find((person) => person.id === item.user_id);
+          const learnerLabel = occurrenceLearnerLabel(item, learner);
+          const url = correctiveAssignmentUrl(item.course_id, item.user_id);
+          const state = deriveOccurrenceState(item);
+          return <article key={item.id} className="grid min-w-0 items-center gap-3 rounded-xl border p-4 md:grid-cols-[auto_minmax(0,1fr)_auto]">
+            <input aria-label={t('learningCycles.selectOccurrence', { learner: learnerLabel })} type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} />
+            <div className="min-w-0"><p className="flex flex-wrap items-center gap-2 break-words font-medium"><span>{targetLabel(item)} · {learnerLabel}</span>{item.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</p><p className="text-sm text-muted-foreground"><Badge variant={state === 'overdue' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${state}` as never)}</Badge> · {t('learningCycles.dueAt')}: {dateText(item.due_at)}</p></div>
+            <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy.has(item.id)} onClick={() => void resendOne(item)}>{t('learningCycles.resend')}</Button>{url && <Link className="inline-flex min-h-9 items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90" href={url}>{t('learningCycles.correctiveAssignment')}</Link>}</div>
+          </article>;
+        })}</div>
+      </>}
+    </WorkspacePanel>
 
-    <Card><CardContent className="space-y-4 p-5">
-      <div><h2 className="font-semibold">{t('learningCycles.historyTitle')}</h2><p className="text-sm text-muted-foreground">{t('learningCycles.historyHint')}</p></div>
+    <WorkspacePanel title={t('learningCycles.historyTitle')} description={t('learningCycles.historyHint')} bodyClassName="space-y-4">
       <div aria-live="polite">
         {historyLoading ? <p>{t('learningCycles.historyLoading')}</p> : historyError ? <div className="space-y-2"><p role="alert" className="text-sm text-destructive">{t('learningCycles.historyLoadFailed')}</p><Button type="button" variant="outline" onClick={() => void loadHistory()}>{t('common.retry')}</Button></div> : history.length === 0 ? <p className="text-sm text-muted-foreground">{t('learningCycles.emptyHistory')}</p> : <div className="space-y-3">{history.map((occurrence) => {
           const learner = learners.find((item) => item.id === occurrence.user_id);
@@ -359,7 +362,7 @@ export default function LearningCyclesPage() {
           const overrideOpen = overrideOccurrenceId === occurrence.id;
           const deadlineId = `deadline-override-${occurrence.id}`;
           const reasonId = `deadline-override-reason-${occurrence.id}`;
-          return <article key={occurrence.id} className="rounded-lg border p-4">
+          return <article key={occurrence.id} className="min-w-0 rounded-xl border bg-muted/10 p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('learningCycles.sequence', { number: occurrence.sequence_no })}</p><p className="mt-1 font-semibold">{targetLabel(occurrence)} · {occurrenceLearnerLabel(occurrence, learner)}</p></div>
               <div className="flex flex-wrap items-center gap-2"><Badge variant={state === 'overdue' || state === 'completed_late' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${occurrenceTranslationState(state)}` as never)}</Badge>{adjusted && <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">{t('learningCycles.deadlineAdjusted')}</Badge>}</div>
@@ -389,43 +392,41 @@ export default function LearningCyclesPage() {
           </article>;
         })}</div>}
       </div>
-    </CardContent></Card>
+    </WorkspacePanel>
 
-    <Card><CardContent className="space-y-4 p-5">
-      <div><h2 className="font-semibold">{t('learningCycles.rulesTitle')}</h2><p className="text-sm text-muted-foreground">{t('learningCycles.rulesHint')}</p></div>
+    <details className="group rounded-2xl border border-border bg-card text-card-foreground">
+      <summary className="cursor-pointer rounded-2xl px-5 py-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-6">{t('learningCycles.createTitle')}</summary>
+      <div className="space-y-4 border-t border-border p-5 sm:p-6">
+      <p className="text-sm text-muted-foreground">{t('learningCycles.identityHint')}</p>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <label className="text-sm">{t('learningCycles.targetType')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetType} onChange={(event) => { const value = event.target.value as 'course' | 'learning_path'; setTargetType(value); setTargetId(''); }}><option value="course">{t('learningCycles.course')}</option><option value="learning_path">{t('learningCycles.program')}</option></select></label>
+        <label className="text-sm">{t('learningCycles.target')}<select className="mt-1 block w-full rounded border bg-background p-2" value={targetId} onChange={(event) => setTargetId(event.target.value)}><option value="">{t('learningCycles.selectTarget')}</option>{targetOptions.map((item) => <option key={item.id} value={item.id}>{item.optionLabel}</option>)}</select></label>
+        <label className="text-sm">{t('learningCycles.learner')}<select className="mt-1 block w-full rounded border bg-background p-2" value={userId} onChange={(event) => setUserId(event.target.value)}><option value="">{t('learningCycles.selectLearner')}</option>{learners.map((item) => <option key={item.id} value={item.id}>{learnerOptionLabel(item)}</option>)}</select></label>
+        {targetType === 'course' && <>
+          <div className="text-sm"><label htmlFor="learning-cycle-cadence">{t('learningCycles.cadenceDays')}</label><Input id="learning-cycle-cadence" aria-describedby="learning-cycle-cadence-hint" type="number" min={1} max={3660} value={cadence} onChange={(event) => setCadence(event.target.value)} /><span id="learning-cycle-cadence-hint" className="mt-1 block text-xs text-muted-foreground">{t('learningCycles.cadenceHint')}</span></div>
+          <div className="text-sm"><label htmlFor="learning-cycle-due">{t('learningCycles.dueDays')}</label><Input id="learning-cycle-due" aria-describedby="learning-cycle-due-hint" type="number" min={0} max={3650} value={due} onChange={(event) => setDue(event.target.value)} /><span id="learning-cycle-due-hint" className="mt-1 block text-xs text-muted-foreground">{t('learningCycles.dueHint')}</span></div>
+        </>}
+      </div>
+      {targetType === 'learning_path' && !loading && !loadError && targetOptions.length === 0 && <div className="rounded border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground" role="status"><p>{t('learningCycles.programEligibilityHint')}</p><Link className="mt-2 inline-flex font-medium text-primary underline-offset-4 hover:underline" href="/learning-paths">{t('learningCycles.openLearningPrograms')}</Link></div>}
+      <div className="flex justify-end"><Button onClick={() => void createRule()} disabled={saving || !targetId || !userId || (targetType === 'course' && (!Number.isInteger(Number(cadence)) || Number(cadence) < 1 || !Number.isInteger(Number(due)) || Number(due) < 0 || Number(due) > Number(cadence)))}>{saving ? t('learningCycles.saving') : t('learningCycles.createDraft')}</Button></div>
+      </div>
+    </details>
+
+    <WorkspacePanel title={t('learningCycles.rulesTitle')} description={t('learningCycles.rulesHint')} bodyClassName="space-y-4">
       {loading ? <p>{t('common.loading')}</p> : loadError ? <div className="space-y-2"><p className="text-sm text-destructive">{loadError}</p><Button variant="outline" onClick={() => void load()}>{t('common.retry')}</Button></div> : rules.length === 0 ? <p className="text-sm text-muted-foreground">{t('learningCycles.emptyRules')}</p> : <div className="space-y-3">{rules.map((rule) => {
         const occurrence = occurrenceByRule.get(rule.id);
         const learner = learners.find((item) => item.id === rule.user_id);
         const learnerLabel = occurrence ? occurrenceLearnerLabel(occurrence, learner) : learnerName(learner);
         const state = occurrence ? deriveOccurrenceState(occurrence) : null;
-        return <article key={rule.id} className="grid gap-3 rounded-lg border p-4 lg:grid-cols-[1.5fr_1fr_1fr_auto]">
+        return <article key={rule.id} className="grid min-w-0 gap-5 rounded-xl border p-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
           <div><p className="text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.target')}</p><p className="font-medium">{targetLabel(rule)}</p><p className="mt-2 text-xs font-medium uppercase text-muted-foreground">{t('learningCycles.learner')}</p><p className="flex flex-wrap items-center gap-2"><span>{learnerLabel}</span>{occurrence?.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</p></div>
           <div className="space-y-1 text-sm"><Badge variant={rule.status === 'active' ? 'default' : 'outline'}>{t(`learningCycles.status.${rule.status}` as never)}</Badge><p>{t('learningCycles.cadenceDue', { cadence: rule.cadence_days, due: rule.due_days })}</p><p className="text-muted-foreground">{t('learningCycles.nextRun')}: {dateText(rule.next_run_at)}</p><p className="text-muted-foreground">{t('learningCycles.lastRun')}: {dateText(rule.last_run_at)}</p></div>
           <div className="text-sm">{occurrence ? <><p className="font-medium">{t('learningCycles.latestOccurrence')}</p><Badge variant={state === 'overdue' || state === 'completed_late' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${state}` as never)}</Badge><p className="mt-1 text-muted-foreground">{t('learningCycles.dueAt')}: {dateText(occurrence.due_at)}</p>{occurrence.completed_at && <p className="text-muted-foreground">{t('learningCycles.completedAt')}: {dateText(occurrence.completed_at)}</p>}</> : <p className="text-muted-foreground">{t('learningCycles.noOccurrence')}</p>}</div>
           <div className="flex flex-wrap items-start gap-2">{rule.status === 'active' ? <Button size="sm" variant="outline" disabled={busy.has(rule.id)} onClick={() => void setRuleState(rule, 'deactivate')}>{t('learningCycles.deactivate')}</Button> : <Button size="sm" disabled={busy.has(rule.id)} onClick={() => void setRuleState(rule, 'activate')}>{t('learningCycles.activate')}</Button>}</div>
         </article>;
       })}</div>}
-    </CardContent></Card>
-
-    <Card><CardContent className="space-y-4 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold">{t('learningCycles.attentionTitle')}</h2><p className="text-sm text-muted-foreground">{t('learningCycles.attentionHint')}</p></div><Button variant="outline" disabled={!selected.size || busy.size > 0} onClick={() => void resendSelected()}>{t('learningCycles.resendSelected', { count: selected.size })}</Button></div>
-      {bulkReport && <div role="status" className={`rounded border p-3 text-sm ${bulkReport.failed.length ? 'border-destructive' : 'border-border'}`}><p>{t('learningCycles.bulkSummary', { succeeded: bulkReport.succeeded, failed: bulkReport.failed.length })}</p>{bulkReport.failed.map((item) => <p key={item.id} className="mt-1 text-destructive">{item.id}: {item.error}</p>)}</div>}
-      {!eligible.length ? <p className="text-sm text-muted-foreground">{t('learningCycles.noAttention')}</p> : <>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={eligible.length > 0 && eligible.every((item) => selected.has(item.id))} onChange={(event) => setSelected(event.target.checked ? new Set(eligibleIds) : new Set())} />{t('learningCycles.selectAll')}</label>
-        <div className="space-y-2">{eligible.map((item) => {
-          const learner = learners.find((person) => person.id === item.user_id);
-          const learnerLabel = occurrenceLearnerLabel(item, learner);
-          const url = correctiveAssignmentUrl(item.course_id, item.user_id);
-          const state = deriveOccurrenceState(item);
-          return <article key={item.id} className="grid items-center gap-3 rounded border p-3 md:grid-cols-[auto_1fr_auto]">
-            <input aria-label={t('learningCycles.selectOccurrence', { learner: learnerLabel })} type="checkbox" checked={selected.has(item.id)} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} />
-            <div><p className="flex flex-wrap items-center gap-2 font-medium"><span>{targetLabel(item)} · {learnerLabel}</span>{item.learner_is_active === false && <Badge variant="outline">{t('learningCycles.learnerInactive')}</Badge>}</p><p className="text-sm text-muted-foreground"><Badge variant={state === 'overdue' ? 'destructive' : 'secondary'}>{t(`learningCycles.occurrence.${state}` as never)}</Badge> · {t('learningCycles.dueAt')}: {dateText(item.due_at)}</p></div>
-            <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy.has(item.id)} onClick={() => void resendOne(item)}>{t('learningCycles.resend')}</Button>{url && <Link className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90" href={url}>{t('learningCycles.correctiveAssignment')}</Link>}</div>
-          </article>;
-        })}</div>
-      </>}
-    </CardContent></Card>
-  </main>;
+    </WorkspacePanel>
+  </WorkspacePage>;
 }
 
 function dateText(value: string | null) {

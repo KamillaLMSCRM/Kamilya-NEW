@@ -4,8 +4,9 @@ import { FormEvent, useState } from 'react';
 import { KeyRound, ShieldCheck } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
-import { Logo } from '@/components/brand/Logo';
+import { Button, Input } from '@/components/ui';
+import { PublicWorkspace, WorkspacePanel } from '@/features/workspace-design';
+import { getPublicWorkspaceCopy } from '@/features/workspace-design/publicCopy';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUser } from '@/lib/auth';
 import { runExclusiveAuthAction } from '@/lib/authRefreshCoordinator';
@@ -21,7 +22,8 @@ function normalizePin(value: string) {
 
 export default function AssignmentAccessPage() {
   const params = useParams<{ token: string }>();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const copy = getPublicWorkspaceCopy(lang);
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
   const [pin, setPin] = useState('');
@@ -60,19 +62,9 @@ export default function AssignmentAccessPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <div className="absolute right-4 top-4">
-        <LanguageSwitcher />
-      </div>
-      <main className="w-full max-w-md">
-        <div className="mb-6 flex justify-center"><Logo variant="full" size={40} /></div>
-        <Card>
-          <CardHeader>
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary"><KeyRound className="h-6 w-6" /></div>
-            <CardTitle>{t('publicUi.assignmentAccess.title')}</CardTitle>
-            <p className="text-sm text-muted-foreground">{t('publicUi.assignmentAccess.subtitle')}</p>
-          </CardHeader>
-          <CardContent>
+    <PublicWorkspace id="assignment-access" title={t('publicUi.assignmentAccess.title')} description={t('publicUi.assignmentAccess.subtitle')} icon={<KeyRound />} actions={<LanguageSwitcher />}>
+      <div className="mx-auto w-full max-w-lg py-2 sm:py-6">
+        <WorkspacePanel title={copy.confirmationStep} bodyClassName="space-y-5">
             <form className="space-y-4" onSubmit={submit}>
               <div>
                 <label htmlFor="assignment-pin" className="mb-1.5 block text-sm font-medium">PIN</label>
@@ -83,10 +75,9 @@ export default function AssignmentAccessPage() {
               </Button>
               {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
             </form>
-          </CardContent>
-        </Card>
-      </main>
+        </WorkspacePanel>
+      </div>
       <PublicLegalFooter />
-    </div>
+    </PublicWorkspace>
   );
 }

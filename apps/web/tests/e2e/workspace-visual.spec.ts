@@ -178,13 +178,14 @@ if (!baseline) {
     expect(workspace.calls.filter((call) => call.method !== 'GET' && call.path !== '/v1/auth/refresh')).toEqual([]);
   });
 
-  test('public certificate entry retains its original palette after leaving the workspace', async ({ page }) => {
+  test('public certificate entry shares V2 design without authenticated navigation', async ({ page }) => {
     await page.goto('/courses');
     await expect(page.locator('[data-app-workspace]')).toBeVisible();
     await page.goto('/verify/certificate');
     await expect(page.locator('[data-app-workspace]')).toHaveCount(0);
-    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--background').trim())).toBe('36 33% 97%');
-    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(250, 248, 245)');
+    await expect(page.locator('[data-workspace-rail]')).toHaveCount(0);
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--background').trim())).toBe('228 33% 97%');
+    expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(245, 246, 250)');
   });
 
   test('2x CSS magnification keeps the catalogue within the document viewport', async ({ page }) => {

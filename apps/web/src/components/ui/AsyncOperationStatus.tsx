@@ -74,7 +74,7 @@ const stateStyles: Record<AsyncOperationState, string> = {
   queued: 'border-border bg-muted/30 text-foreground',
   running: 'border-primary/30 bg-primary/5 text-foreground',
   completed: 'border-success/30 bg-success/10 text-success',
-  failed: 'border-destructive/30 bg-destructive/10 text-destructive',
+  failed: 'border-destructive/30 bg-destructive/10 text-foreground',
   cancelled: 'border-border bg-muted text-muted-foreground',
   interrupted: 'border-warning/40 bg-warning/10 text-warning',
   stalled: 'border-warning/40 bg-warning/10 text-warning',
@@ -159,7 +159,7 @@ export function AsyncOperationStatus({
             <span className="text-xs font-medium">{labels[state]}</span>
           </div>
           {(stageLabel || operation.message) && (
-            <p className="mt-1 text-xs opacity-80">
+            <p className="mt-1 text-xs">
               {[stageLabel, operation.message].filter(Boolean).join(' · ')}
             </p>
           )}

@@ -66,7 +66,13 @@ const messages = {
     journal: 'Открыть запись в журнале',
     assignmentOperations: 'Открыть операции назначения',
     clearFocus: 'Показать все разделы',
-    chooseWeakCourse: 'Выберите курс в фильтре журнала, чтобы увидеть его слабые вопросы. Общая выборка вопросов здесь не загружена.',
+    weakCourseLabel: 'Курс для разбора вопросов',
+    coursePlaceholder: 'Выберите курс',
+    courseLoading: 'Загружаем курсы…',
+    courseLoadFailed: 'Не удалось загрузить список курсов.',
+    courseEmpty: 'Доступных курсов нет.',
+    courseTruncated: 'Список ограничен первыми 100 курсами. Остальные курсы в этом списке недоступны.',
+    chooseWeakCourse: 'Выберите курс, чтобы увидеть его слабые вопросы. Общая выборка вопросов здесь не загружена.',
   },
   kk: {
     title: 'Әдіскердің әрекет орталығы',
@@ -115,7 +121,13 @@ const messages = {
     journal: 'Журналдағы жазбаны ашу',
     assignmentOperations: 'Тағайындау операцияларын ашу',
     clearFocus: 'Барлық бөлімдерді көрсету',
-    chooseWeakCourse: 'Әлсіз сұрақтарды көру үшін журнал сүзгісінен курсты таңдаңыз. Барлық курстардың сұрақтары мұнда жүктелмеген.',
+    weakCourseLabel: 'Сұрақтарды талдауға арналған курс',
+    coursePlaceholder: 'Курсты таңдаңыз',
+    courseLoading: 'Курстар жүктелуде…',
+    courseLoadFailed: 'Курстар тізімін жүктеу мүмкін болмады.',
+    courseEmpty: 'Қолжетімді курстар жоқ.',
+    courseTruncated: 'Тізім алғашқы 100 курспен шектелген. Қалған курстар бұл тізімде қолжетімсіз.',
+    chooseWeakCourse: 'Әлсіз сұрақтарды көру үшін курсты таңдаңыз. Барлық курстардың сұрақтары мұнда жүктелмеген.',
   },
   en: {
     title: 'Methodologist action center',
@@ -164,7 +176,13 @@ const messages = {
     journal: 'Open journal record',
     assignmentOperations: 'Open assignment operations',
     clearFocus: 'Show all sections',
-    chooseWeakCourse: 'Select a course in the journal filter to see its weak questions. Questions across all courses are not loaded here.',
+    weakCourseLabel: 'Course for question review',
+    coursePlaceholder: 'Select a course',
+    courseLoading: 'Loading courses…',
+    courseLoadFailed: 'Could not load the course list.',
+    courseEmpty: 'No courses are available.',
+    courseTruncated: 'This list is limited to the first 100 courses. Other courses are not available in this list.',
+    chooseWeakCourse: 'Select a course to see its weak questions. Questions across all courses are not loaded here.',
   },
 } as const;
 
@@ -185,7 +203,27 @@ type Target =
   | { kind: 'enrollment'; item: TrainingAttentionItem }
   | { kind: 'question'; item: WeakQuestionItem };
 
-export function LearningActionCenter({ courseId, focus, issueType, onClearFocus }: { courseId?: string; focus?: ActionFocus; issueType?: ActionIssueType; onClearFocus?: () => void }) {
+export function LearningActionCenter({
+  courseId,
+  focus,
+  issueType,
+  onClearFocus,
+  courseCatalog = [],
+  courseCatalogLoading = false,
+  courseCatalogError = null,
+  courseCatalogTruncated = false,
+  onSelectCourse,
+}: {
+  courseId?: string;
+  focus?: ActionFocus;
+  issueType?: ActionIssueType;
+  onClearFocus?: () => void;
+  courseCatalog?: Array<{ id: string; title: string }>;
+  courseCatalogLoading?: boolean;
+  courseCatalogError?: string | null;
+  courseCatalogTruncated?: boolean;
+  onSelectCourse?: (courseId: string) => void;
+}) {
   const user = useAuthStore((state) => state.user);
   const lang = useLanguageStore((state) => state.lang);
   const m = messages[lang as keyof typeof messages] ?? messages.ru;
@@ -335,7 +373,36 @@ export function LearningActionCenter({ courseId, focus, issueType, onClearFocus 
         {truncated && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">{m.partial}</p>}
       </CardHeader>
       <CardContent className="space-y-6">
-        {focus === 'weak_questions' && !courseId ? <p role="status" className="text-sm text-muted-foreground">{m.chooseWeakCourse}</p>
+        {focus === 'weak_questions' && !courseId ? <section className="space-y-3 rounded-lg border border-border bg-muted/20 p-4" aria-labelledby="weak-course-title">
+          <h3 id="weak-course-title" className="font-medium">{m.weakCourseLabel}</h3>
+          <label className="grid gap-1 text-sm">
+            <span className="sr-only">{m.weakCourseLabel}</span>
+            <select
+              aria-label={m.weakCourseLabel}
+              className="min-h-10 rounded-md border bg-background px-3"
+              value=""
+              disabled={courseCatalogLoading || !onSelectCourse || courseCatalog.length === 0}
+              onChange={(event) => {
+                const nextCourseId = event.target.value;
+                if (nextCourseId) onSelectCourse?.(nextCourseId);
+              }}
+            >
+              <option value="">
+                {courseCatalogLoading
+                  ? m.courseLoading
+                  : courseCatalog.length === 0 && !courseCatalogError
+                    ? m.courseEmpty
+                    : m.coursePlaceholder}
+              </option>
+              {courseCatalog.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
+            </select>
+          </label>
+          {courseCatalogError && <p role="alert" className="text-sm text-destructive">{m.courseLoadFailed}</p>}
+          {courseCatalogTruncated && <p className="text-xs leading-5 text-muted-foreground">{m.courseTruncated}</p>}
+          {!courseCatalogError && <p className="text-sm text-muted-foreground">
+            {courseCatalogLoading ? m.courseLoading : courseCatalog.length === 0 ? m.courseEmpty : m.chooseWeakCourse}
+          </p>}
+        </section>
           : !hasVisibleSignals && <p className="text-sm text-muted-foreground">{m.empty}</p>}
         {visibleTraining.length > 0 && <section className="space-y-2">
           <h3 className="font-medium">{m.training}</h3>

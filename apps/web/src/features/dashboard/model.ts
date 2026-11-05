@@ -13,7 +13,9 @@ export interface DashboardJob {
   job_type?: string;
   stage?: string;
   course_title?: string;
+  course_id?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface DashboardSources {
@@ -49,6 +51,7 @@ export interface MethodologistDashboardModel {
     totalCourses: number | null;
     publishedCourses: number | null;
     draftCourses: number | null;
+    coursesTruncated: boolean;
     jobsAvailable: boolean;
     activeJobs: number | null;
     attentionJobs: number | null;
@@ -88,9 +91,10 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
     mandatory: sources.mandatory,
     content: {
       coursesAvailable: sources.courses !== null,
-      totalCourses: sources.courses?.length ?? null,
-      publishedCourses: sources.courses?.filter((course) => course.status === 'published').length ?? null,
-      draftCourses: sources.courses?.filter((course) => course.status !== 'published').length ?? null,
+      totalCourses: sources.courses && sources.courses.length < 100 ? sources.courses.length : null,
+      publishedCourses: sources.courses && sources.courses.length < 100 ? sources.courses.filter((course) => course.status === 'published').length : null,
+      draftCourses: sources.courses && sources.courses.length < 100 ? sources.courses.filter((course) => course.status !== 'published').length : null,
+      coursesTruncated: (sources.courses?.length ?? 0) === 100,
       jobsAvailable: sources.jobs !== null,
       activeJobs: sources.jobs === null ? null : relevantJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status)).length,
       attentionJobs: sources.jobs === null ? null : relevantJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status)).length,

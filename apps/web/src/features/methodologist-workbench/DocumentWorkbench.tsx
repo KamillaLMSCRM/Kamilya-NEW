@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
-import { Button, Card, CardContent, CardHeader, CardTitle, Modal } from '@/components/ui';
+import { Button, Modal } from '@/components/ui';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import type { DocumentCatalogItem, DocumentCatalogResponse } from '@/lib/documentCatalog';
 import {
@@ -489,11 +490,14 @@ function DocumentWorkbenchInner() {
     finally { if (mounted.current && current === epoch.current) setPending(false); }
   };
 
-  return <Card className="mt-6 border-primary/30">
-    <CardHeader><CardTitle>{ui.title}</CardTitle><p className="text-sm text-muted-foreground">{ui.description}</p></CardHeader>
-    <CardContent className="space-y-4">
+  return <WorkspacePage id="document-workbench">
+    <div className="min-w-0 border-t border-border pt-6"><h2 className="break-words text-xl font-semibold">{ui.title}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{ui.description}</p></div>
+    <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+    <WorkspacePanel aria-label={ui.sources} bodyClassName="space-y-5">
       <label className="block text-sm font-medium">{ui.upload}<input type="file" className="mt-2 block w-full text-sm" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = ''; }} /></label>{uploadStatus && <p role="status" className="text-sm text-muted-foreground">{uploadStatus === 'uploading' ? ui.uploading : `${ui.indexing} (${indexAttempt}/20)`}</p>}
-      <div className="space-y-2"><p className="text-sm font-medium">{ui.sources} ({selected.length}/5)</p>{documents.length === 0 ? <p className="text-sm text-muted-foreground">{ui.empty}</p> : documents.map((document) => <label key={document.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(document.id)} onChange={() => toggleDocument(document.id)} disabled={Boolean(dialogue) || (!selected.includes(document.id) && selected.length >= 5)} />{document.title} <span className="text-xs text-muted-foreground">v{document.version} · {ui.indexStatus[document.index.status as keyof typeof ui.indexStatus] ?? document.index.status}</span></label>)}</div>
+      <div className="space-y-3 border-t border-border pt-4"><p className="text-sm font-medium">{ui.sources} ({selected.length}/5)</p>{documents.length === 0 ? <p className="text-sm text-muted-foreground">{ui.empty}</p> : documents.map((document) => <label key={document.id} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border p-3 text-sm"><input type="checkbox" checked={selected.includes(document.id)} onChange={() => toggleDocument(document.id)} disabled={Boolean(dialogue) || (!selected.includes(document.id) && selected.length >= 5)} />{document.title} <span className="text-xs text-muted-foreground">v{document.version} · {ui.indexStatus[document.index.status as keyof typeof ui.indexStatus] ?? document.index.status}</span></label>)}</div>
+    </WorkspacePanel>
+    <WorkspacePanel bodyClassName="space-y-4">
       <label className="block text-sm font-medium">{ui.instruction}<textarea value={instruction} onChange={(event) => { clearStale(); setInstruction(event.target.value); }} maxLength={4000} rows={3} className="mt-2 w-full rounded border p-2" /></label><p className="text-xs text-muted-foreground">{ui.instructionHelp}</p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-sm">{ui.audience}<input value={candidate.target_audience} onChange={(event) => { clearStale(); setCandidate({ ...candidate, target_audience: event.target.value }); }} maxLength={2000} className="mt-1 w-full rounded border p-2" /></label>
@@ -505,7 +509,9 @@ function DocumentWorkbenchInner() {
       {candidate.source_strategy === 'intentional_combination' && <textarea value={candidate.combination_goal} onChange={(event) => { clearStale(); setCandidate({ ...candidate, combination_goal: event.target.value }); }} maxLength={2000} rows={2} placeholder={ui.combinationPlaceholder} className="w-full rounded border p-2 text-sm" />}
       <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={languageConfirmed} onChange={(event) => { clearStale(); setLanguageConfirmed(event.target.checked); }} />{ui.confirmLanguage}</label>
       <label className="text-sm">{ui.reuse}<select value={reuseReason ?? ''} onChange={(event) => { clearStale(); setReuseReason((event.target.value || null) as AIGenerateRequest['reuse_reason']); }} className="mt-1 w-full rounded border p-2">{Object.entries(ui.reuseOptions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-      <section aria-label={CONTENT_COPY[locale].questionTitle} className="space-y-3 rounded border p-3">
+    </WorkspacePanel>
+    </div>
+      <WorkspacePanel aria-label={CONTENT_COPY[locale].questionTitle} bodyClassName="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-medium">{CONTENT_COPY[locale].questionTitle}</h3><div className="flex flex-wrap gap-2">
           {!dialogue && <Button type="button" variant="outline" aria-label={dialogueLocator ? ui.reloadTask : CONTENT_COPY[locale].startQuestionTask} onClick={() => dialogueLocator ? void openDialogue(dialogueLocator) : void startDialogue()} disabled={dialogueSaving || pending || (!dialogueLocator && selected.length < 1)}>{dialogueLocator ? ui.reloadTask : CONTENT_COPY[locale].startQuestionTask}</Button>}
           {dialogue && <><Button type="button" variant="outline" onClick={() => void saveDialogue()} disabled={dialogueSaving || pending || Boolean(dialogue.pending_request_id) || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted' || !dialogueDraftDirty}>{ui.saveDraft}</Button><Button type="button" variant="outline" onClick={() => void reloadDialogue()} disabled={dialogueSaving}>{ui.reloadTask}</Button>{dialogue.plan_id && (planRecoveryRequired || confirmRecoveryRequired) && <Button type="button" variant="outline" onClick={() => void recoverLinkedPlan()} disabled={dialogueSaving}>{recoveryCopy.recoverPlan}</Button>}<Button type="button" onClick={() => void previewSavedDialogue()} disabled={dialogueSaving || pending || dialogueDraftDirty || planRecoveryRequired || confirmRecoveryRequired || plan?.state === 'submitted' || Boolean(dialogue.pending_request_id) || dialogue.source_stale || Boolean(dialogue.interrupted_request_id)}>{ui.prepare}</Button><Button type="button" variant="outline" onClick={resetDialogue}>{recoveryCopy.newTask}</Button></>}
@@ -536,18 +542,21 @@ function DocumentWorkbenchInner() {
             <div className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"><Button type="button" className="h-auto min-h-10 w-full whitespace-normal sm:w-auto" onClick={() => void downloadCitation()} disabled={citationDownloading || citationLoading || !citationDialog.excerpt || dialogue.source_stale}>{citationDownloading ? CONTENT_COPY[locale].downloadLoading : CONTENT_COPY[locale].downloadSource}</Button><Button type="button" variant="outline" className="h-auto min-h-10 w-full whitespace-normal sm:w-auto" onClick={closeCitationDialog}>{CONTENT_COPY[locale].closeSource}</Button></div>
           </Modal>}
         </>}
-      </section>
-      <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => void interpret()} disabled={pending || Boolean(dialogue) || !instruction.trim()}>{ui.interpret}</Button><Button type="button" onClick={() => void preview()} disabled={pending || Boolean(dialogue) || !instruction.trim() || !candidate.course_intent.trim() || selected.length < 1}>{ui.prepare}</Button></div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      </WorkspacePanel>
+      <WorkspaceToolbar><Button type="button" variant="outline" onClick={() => void interpret()} disabled={pending || Boolean(dialogue) || !instruction.trim()}>{ui.interpret}</Button><Button type="button" onClick={() => void preview()} disabled={pending || Boolean(dialogue) || !instruction.trim() || !candidate.course_intent.trim() || selected.length < 1}>{ui.prepare}</Button></WorkspaceToolbar>
+      {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
       {plan?.state === 'preview_ready' && <PreviewCard preview={plan} pending={pending || confirmRecoveryRequired || planRecoveryRequired} onConfirm={() => void confirm()} ui={ui} locale={locale} />}
       {job && <JobCard job={job} ui={ui} />}
-    </CardContent>
-  </Card>;
+  </WorkspacePage>;
 }
 
 function PreviewCard({ preview, pending, onConfirm, ui, locale }: { preview: DocumentPreview; pending: boolean; onConfirm: () => void; ui: typeof DOCUMENT_COPY[DocumentLocale]; locale: DocumentLocale }) {
   const generation = preview.generation;
-  return <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm"><p className="font-medium">{ui.previewReady} {preview.revision}</p><dl className="mt-2 grid gap-1 sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">{ui.audience}</dt><dd>{generation.target_audience || ui.audienceMissing}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.goal}</dt><dd>{generation.course_intent || ui.audienceMissing}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.language}</dt><dd>{ui.languages[generation.language]}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.format}</dt><dd>{ui.formats[generation.course_format]}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.combine}</dt><dd>{generation.source_strategy === 'intentional_combination' ? generation.combination_goal : ui.combinationNone}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.reuse}</dt><dd>{generation.reuse_reason ? ui.reuseOptions[generation.reuse_reason] : ui.reuseMissing}</dd></div></dl><p className="mt-2">{ui.sourcesList} {preview.sources.map((source) => `${source.title} v${source.version}`).join(', ')}</p><p>{ui.validUntil} {new Date(preview.expires_at).toLocaleString({ ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }[locale])}</p><p className="text-xs text-muted-foreground">{ui.fingerprint} {preview.fingerprint}</p><Button className="mt-3" type="button" onClick={onConfirm} disabled={pending}>{ui.confirm}</Button></div>;
+  return <WorkspacePanel title={<>{ui.previewReady} {preview.revision}</>} className="border-warning/40" bodyClassName="space-y-4 break-words text-sm">
+    <dl className="grid gap-4 sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">{ui.audience}</dt><dd>{generation.target_audience || ui.audienceMissing}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.goal}</dt><dd>{generation.course_intent || ui.audienceMissing}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.language}</dt><dd>{ui.languages[generation.language]}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.format}</dt><dd>{ui.formats[generation.course_format]}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.combine}</dt><dd>{generation.source_strategy === 'intentional_combination' ? generation.combination_goal : ui.combinationNone}</dd></div><div><dt className="text-xs text-muted-foreground">{ui.reuse}</dt><dd>{generation.reuse_reason ? ui.reuseOptions[generation.reuse_reason] : ui.reuseMissing}</dd></div></dl>
+    <div className="space-y-2 rounded-xl bg-muted/30 p-4"><p>{ui.sourcesList} {preview.sources.map((source) => `${source.title} v${source.version}`).join(', ')}</p><p>{ui.validUntil} {new Date(preview.expires_at).toLocaleString({ ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }[locale])}</p><p className="text-xs text-muted-foreground">{ui.fingerprint} {preview.fingerprint}</p></div>
+    <WorkspaceToolbar className="border-warning/20 bg-warning/5"><Button type="button" onClick={onConfirm} disabled={pending}>{ui.confirm}</Button></WorkspaceToolbar>
+  </WorkspacePanel>;
 }
 
 function JobCard({ job, ui }: { job: AIGenerationJob; ui: typeof DOCUMENT_COPY[DocumentLocale] }) {
@@ -555,5 +564,5 @@ function JobCard({ job, ui }: { job: AIGenerationJob; ui: typeof DOCUMENT_COPY[D
   const errors = Array.isArray((job as AIGenerationJob & { errors?: Array<string | { message?: string }> }).errors)
     ? (job as AIGenerationJob & { errors: Array<string | { message?: string }> }).errors.map((item: string | { message?: string }) => typeof item === 'string' ? item : item.message || JSON.stringify(item)).join('; ')
     : '';
-  return <div className="rounded border p-3 text-sm" role="status" aria-live="polite"><p className="font-medium">{ui.task} {job.status}</p><p>{job.message || `${ui.stage} ${job.stage || ui.noStage}`} · {ui.progress} {job.progress}%</p>{errors && <p role="alert" className="mt-1 text-destructive">{errors}</p>}{done && <div className="mt-2 flex gap-3"><a className="text-primary underline" href={`/courses/${job.course_id}/edit`}>{ui.openCourse}</a><a className="text-primary underline" href={`/ai/generate?job_id=${encodeURIComponent(job.id)}`}>{ui.openGeneration}</a></div>}</div>;
+  return <WorkspacePanel className={done ? 'border-success/30' : undefined} bodyClassName="space-y-3 break-words text-sm" role="status" aria-live="polite"><p className="font-medium">{ui.task} {job.status}</p><p>{job.message || `${ui.stage} ${job.stage || ui.noStage}`} · {ui.progress} {job.progress}%</p>{errors && <p role="alert" className="text-destructive">{errors}</p>}{done && <div className="flex flex-wrap gap-3 border-t border-border pt-3"><a className="text-primary underline" href={`/courses/${job.course_id}/edit`}>{ui.openCourse}</a><a className="text-primary underline" href={`/ai/generate?job_id=${encodeURIComponent(job.id)}`}>{ui.openGeneration}</a></div>}</WorkspacePanel>;
 }

@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { clearStoredAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { Logo } from '@/components/brand/Logo';
+import { PublicWorkspace, WorkspacePanel } from '@/features/workspace-design';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { PUBLIC_DEMO_ROLE_IDS } from '@/lib/demoRoleCopy';
 import { useT } from '@/i18n/useT';
 import { useLocaleQuery } from '@/i18n/useLocaleQuery';
@@ -66,17 +67,7 @@ export default function DemoLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/5 to-background">
-      <main className="w-full max-w-2xl p-8">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <Logo variant="full" size={44} />
-          </div>
-          <h2 className="text-xl font-semibold mt-2 text-foreground">{t('demo.login.title')}</h2>
-          <p className="text-sm text-muted-foreground mt-2">
-            {t('demo.login.exampleSubtitle')}
-          </p>
-        </div>
+    <PublicWorkspace id="demo-login" title={t('demo.login.title')} description={t('demo.login.exampleSubtitle')} actions={<LanguageSwitcher />}>
 
         {error && (
           <div className="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm" role="alert">
@@ -86,7 +77,7 @@ export default function DemoLoginPage() {
 
         <Link
           href={`/login/example?lang=${lang}`}
-          className="mb-4 flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+          className="flex min-w-0 items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-card p-5 text-left transition-colors hover:bg-primary/5"
         >
           <span>
             <span className="block font-semibold text-foreground">{t('demo.login.openExample')}</span>
@@ -95,14 +86,14 @@ export default function DemoLoginPage() {
           <ChevronRight className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         </Link>
 
-        <p className="mb-3 text-sm text-muted-foreground">{t('demo.login.workspaceSubtitle')}</p>
-        <div className="grid grid-cols-1 gap-4">
+        <WorkspacePanel title={t('demo.login.workspaceSubtitle')}>
+        <div className="grid min-w-0 gap-4 md:grid-cols-2">
           {roles.map((card) => (
             <button
               key={card.role}
               onClick={() => handleDemoLogin(card)}
               disabled={loading !== null}
-              className={`flex items-center gap-5 p-6 rounded-xl border-2 text-left transition-all duration-200 ${card.bg} ${loading === card.role ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+              className={`flex min-w-0 items-start gap-4 rounded-2xl border p-5 text-left transition-colors ${card.bg} ${loading === card.role ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
             >
               <div className={`shrink-0 ${card.color}`}>
                 {loading === card.role ? (
@@ -121,6 +112,7 @@ export default function DemoLoginPage() {
             </button>
           ))}
         </div>
+        </WorkspacePanel>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-border pt-6 text-center">
           <Link
@@ -137,7 +129,6 @@ export default function DemoLoginPage() {
             {t('demo.login.register')}
           </Link>
         </div>
-      </main>
-    </div>
+    </PublicWorkspace>
   );
 }

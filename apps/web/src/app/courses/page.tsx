@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button, Input } from '@/components/ui';
 import { useT } from '@/i18n/useT';
@@ -49,6 +50,12 @@ type CourseResult = {
   error?: string;
 };
 
+const COURSE_STATUS_FILTERS = new Set(['draft', 'published']);
+
+function readCourseStatusFilter(value: string | null): string {
+  return value && COURSE_STATUS_FILTERS.has(value) ? value : '';
+}
+
 const getSourceBlueprintId = (course: CourseWithBlueprintSource) =>
   course.source_analysis?.blueprint?.id;
 
@@ -59,12 +66,18 @@ export default function CoursesPage() {
   // Remount presentation on actor/session changes: no previous actor's cards,
   // open forms, confirmations or asynchronous continuations survive the switch.
   const actorKey = JSON.stringify([user.user_id, user.tenant_id, user.role, sessionEpoch]);
-  return <CourseCatalog key={actorKey} canManage={user.role === 'methodologist'} />;
+  return (
+    <Suspense fallback={null}>
+      <CourseCatalog key={actorKey} canManage={user.role === 'methodologist'} />
+    </Suspense>
+  );
 }
 
 function CourseCatalog({ canManage }: { canManage: boolean }) {
   const { t, lang } = useT();
   const copy = getCourseCatalogCopy(lang);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const tRef = useRef(t);
   tRef.current = t;
   const { confirm, dialog } = useConfirm();
@@ -77,8 +90,8 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const [scormStatus, setScormStatus] = useState('draft');
   const [scormFile, setScormFile] = useState<File | null>(null);
   const [scormImporting, setScormImporting] = useState(false);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
+  const [statusFilter, setStatusFilter] = useState(() => readCourseStatusFilter(searchParams.get('status')));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<CourseBlueprintCatalogItem[]>([]);
   const [blueprintsLoading, setBlueprintsLoading] = useState(true);
@@ -98,6 +111,16 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const loadError = !loading && courseResult.phase === 'error' ? courseResult.error : null;
   const courses = !loading && courseResult.phase === 'ready' ? courseResult.courses : [];
   const hasFilters = Boolean(search || statusFilter);
+  const coursesTruncated = !loading && !loadError && courses.length === 100;
+  const browserQuery = searchParams.toString();
+
+  useEffect(() => {
+    const params = new URLSearchParams(browserQuery);
+    const nextSearch = params.get('q') ?? '';
+    const nextStatus = readCourseStatusFilter(params.get('status'));
+    setSearch((current) => current === nextSearch ? current : nextSearch);
+    setStatusFilter((current) => current === nextStatus ? current : nextStatus);
+  }, [browserQuery]);
 
   useEffect(() => {
     mounted.current = true;
@@ -115,6 +138,14 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
     || error?.message
     || fallback;
 
+  const replaceFilterQuery = useCallback((nextSearch: string, nextStatus: string, history: 'push' | 'replace' = 'push') => {
+    const params = new URLSearchParams();
+    if (nextSearch) params.set('q', nextSearch);
+    if (nextStatus) params.set('status', nextStatus);
+    const nextQuery = params.toString();
+    router[history](nextQuery ? `/courses?${nextQuery}` : '/courses', { scroll: false });
+  }, [router]);
+
   const fetchCourses = useCallback(async () => {
     if (!mounted.current || currentQuery.current !== query) return;
     const request = ++courseRequest.current;
@@ -124,6 +155,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
       const params = new URLSearchParams();
       if (search) params.set('q', search);
       if (statusFilter) params.set('status', statusFilter);
+      params.set('per_page', '100');
       const res = await api.get(`/v1/courses?${params}`);
       if (!isCurrent()) return;
       setCourseResult({ query, phase: 'ready', courses: Array.isArray(res.data) ? res.data : [] });
@@ -399,24 +431,25 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           <h2 id="own-courses-title" className="text-lg font-semibold text-foreground">{copy.ownCourses}</h2>
           {!loading && !loadError && <p className="text-sm text-muted-foreground" role="status">{copy.loadedList}: <span className="font-semibold text-foreground">{courses.length}</span></p>}
         </div>
+        {coursesTruncated && <p className="text-xs leading-5 text-muted-foreground">{copy.first100}</p>}
 
         <div role="search" aria-label={copy.filters} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="min-w-0 flex-1 sm:min-w-48">
             <label htmlFor="courses-search" className="mb-1.5 block text-xs font-medium text-muted-foreground">{copy.searchLabel}</label>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <Input id="courses-search" type="search" placeholder={copy.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} className="min-h-11 pl-9" />
+              <Input id="courses-search" type="search" placeholder={copy.searchPlaceholder} value={search} onChange={(e) => { const value = e.target.value; setSearch(value); replaceFilterQuery(value, statusFilter, 'replace'); }} className="min-h-11 pl-9" />
             </div>
           </div>
           <div className="min-w-0 sm:w-48">
             <label htmlFor="courses-status" className="mb-1.5 block text-xs font-medium text-muted-foreground">{t('courses.status')}</label>
-            <select id="courses-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring">
+            <select id="courses-status" value={statusFilter} onChange={(e) => { const value = e.target.value; setStatusFilter(value); replaceFilterQuery(search, value); }} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring">
               <option value="">{t('common.all')}</option>
               <option value="draft">{t('courses.draft')}</option>
               <option value="published">{t('courses.published')}</option>
             </select>
           </div>
-          {hasFilters && <Button variant="ghost" className="min-h-11" onClick={() => { setSearch(''); setStatusFilter(''); }}>{copy.resetFilters}</Button>}
+          {hasFilters && <Button variant="ghost" className="min-h-11" onClick={() => { setSearch(''); setStatusFilter(''); replaceFilterQuery('', ''); }}>{copy.resetFilters}</Button>}
         </div>
 
         <div data-course-catalog-results aria-busy={loading}>

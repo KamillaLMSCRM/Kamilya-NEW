@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 
-import { Logo } from '@/components/brand/Logo';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { useT } from '@/i18n/useT';
+import { PublicWorkspace, WorkspacePanel } from '@/features/workspace-design';
+import { getPublicWorkspaceCopy } from '@/features/workspace-design/publicCopy';
 
 type Language = 'ru' | 'kk';
 type DocumentKind = 'privacy' | 'terms';
@@ -58,8 +59,18 @@ const copy: Record<Language, Record<DocumentKind, { title: string; sections: Sec
 };
 
 export function LegalDocument({ language, kind }: { language: Language; kind: DocumentKind }) {
-  const { t } = useT();
+  const { t, lang } = useT();
+  const publicCopy = getPublicWorkspaceCopy(lang);
   const document = copy[language][kind];
   const suffix = language === 'ru' ? '/kk' : '';
-  return <main id="main-content" className="relative min-h-screen bg-muted/30 px-4 py-8"><div className="absolute right-4 top-4"><LanguageSwitcher /></div><article lang={language} className="mx-auto max-w-3xl rounded-lg bg-card p-6 shadow-card sm:p-8"><div className="mb-8 flex flex-wrap items-center justify-between gap-4 pr-28 sm:pr-0"><Logo variant="full" size={36} /><Link href={`/legal/${kind}${suffix}`} className="text-sm text-primary underline-offset-4 hover:underline">{language === 'ru' ? t('publicUi.legal.kazakhVersion') : t('publicUi.legal.russianVersion')}</Link></div><p className="mb-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('publicUi.legal.documentLanguage', { language: language === 'ru' ? t('publicUi.legal.russian') : t('publicUi.legal.kazakh') })}</p><h1 className="text-2xl font-semibold">{document.title}</h1><p className="mt-2 text-sm text-muted-foreground">{document.updated}</p><div className="mt-6 space-y-5 text-sm leading-6 text-foreground">{document.sections.map((section) => <section key={section.title}><h2 className="font-semibold">{section.title}</h2><p>{section.body}</p></section>)}</div></article><PublicLegalFooter /></main>;
+  return <PublicWorkspace id={`legal-${kind}`} title={document.title} description={document.updated} actions={<><LanguageSwitcher /><Link href={`/legal/${kind}${suffix}`} className="inline-flex min-h-10 items-center rounded-xl border border-border bg-card px-3 text-sm font-medium text-primary hover:bg-muted">{language === 'ru' ? t('publicUi.legal.kazakhVersion') : t('publicUi.legal.russianVersion')}</Link></>}>
+    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <aside className="min-w-0 lg:sticky lg:top-6"><WorkspacePanel title={publicCopy.contents}>
+        <p className="mb-4 text-xs leading-5 text-muted-foreground">{t('publicUi.legal.documentLanguage', { language: language === 'ru' ? t('publicUi.legal.russian') : t('publicUi.legal.kazakh') })}</p>
+        <nav aria-label={document.title} className="space-y-1">{document.sections.map((section, index) => <a key={section.title} href={`#legal-section-${index}`} className="block rounded-lg px-2 py-2 text-sm leading-5 text-muted-foreground hover:bg-muted hover:text-primary">{section.title}</a>)}</nav>
+      </WorkspacePanel></aside>
+      <article lang={language} className="min-w-0"><WorkspacePanel bodyClassName="space-y-8 sm:p-8">{document.sections.map((section, index) => <section key={section.title} id={`legal-section-${index}`} className="scroll-mt-8 space-y-3"><h2 className="text-lg font-semibold leading-7">{section.title}</h2><p className="whitespace-pre-line text-sm leading-7 text-foreground">{section.body}</p></section>)}</WorkspacePanel></article>
+    </div>
+    <PublicLegalFooter />
+  </PublicWorkspace>;
 }

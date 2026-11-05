@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useReducer } from 'react';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import {
   selectOldestActiveCourseJob,
@@ -50,8 +49,11 @@ function actionForPolledJob(job: AIGenerationJob): GenerationWorkflowAction {
 
 export function useGenerationWorkflow(
   requestedProgramId: string | null = null,
-  getRequestKey?: () => string,
+  requestKeyOrJobId?: (() => string) | string | null,
+  requestedJobIdArg: string | null = null,
 ) {
+  const getRequestKey = typeof requestKeyOrJobId === 'function' ? requestKeyOrJobId : undefined;
+  const requestedJobId = typeof requestKeyOrJobId === 'string' ? requestKeyOrJobId : requestedJobIdArg;
   const [state, dispatch] = useReducer(generationWorkflowReducer, initialGenerationWorkflowState);
   const resumeAttemptRef = useRef<string | null>(null);
   const resumePostingRef = useRef<string | null>(null);
@@ -60,6 +62,11 @@ export function useGenerationWorkflow(
   const getRequestKeyRef = useRef(getRequestKey);
   getRequestKeyRef.current = getRequestKey;
   const [resumeReconciliation, setResumeReconciliation] = useState(false);
+  const requestedJobApplied = useRef<string | null>(null);
+  const workflowEpoch = useRef(0);
+  const requestedJobRef = useRef(requestedJobId);
+  requestedJobRef.current = requestedJobId;
+  const [requestedJobMissing, setRequestedJobMissing] = useState(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -68,10 +75,15 @@ export function useGenerationWorkflow(
     };
   }, []);
 
-  const restoreFromJobList = useCallback(async (requestKey?: string) => {
+  useEffect(() => {
+    if (!requestedJobId) setRequestedJobMissing(false);
+  }, [requestedJobId]);
+
+  const restoreFromJobList = useCallback(async (isCurrent: () => boolean) => {
     const response = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
-    if (!mountedRef.current || (requestKey !== undefined && getRequestKeyRef.current?.() !== requestKey)) return;
+    if (!isCurrent()) return;
     const activeJob = selectOldestActiveCourseJob(response.data);
+    workflowEpoch.current += 1;
     if (activeJob) {
       const savedContext = readWorkflowContext();
       const programId = savedContext?.job_id === activeJob.id ? savedContext.program_id : null;
@@ -89,11 +101,40 @@ export function useGenerationWorkflow(
     const requestKey = getRequestKeyRef.current?.();
     const isCurrentRequest = () => mountedRef.current
       && (requestKey === undefined || getRequestKeyRef.current?.() === requestKey);
+    const epoch = workflowEpoch.current;
+    const isCurrent = () => isCurrentRequest() && epoch === workflowEpoch.current && requestedJobRef.current === requestedJobId;
+    if (requestedJobId) {
+      if (requestedJobApplied.current === requestedJobId) return;
+      requestedJobApplied.current = requestedJobId;
+      try {
+        const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${encodeURIComponent(requestedJobId)}`);
+        if (!isCurrent()) return;
+        const job = response.data;
+        if (job.id !== requestedJobId) throw new Error('requested_job_identity_mismatch');
+        const savedContext = readWorkflowContext();
+        const programId = savedContext?.job_id === job.id ? savedContext.program_id : null;
+        if (isRestorable(job)) {
+          localStorage.setItem(activeJobStorageKey, job.id);
+          persistWorkflowContext(job.id, programId);
+        }
+        workflowEpoch.current += 1;
+        setRequestedJobMissing(false);
+        dispatch({ type: 'job_restored', job, programId });
+        return;
+      } catch (error: any) {
+        if (!isCurrent()) return;
+        requestedJobApplied.current = null;
+        if (error?.response?.status === 404) setRequestedJobMissing(true);
+        // Fall through to the normal recovery path for a transient failure or a
+        // job that disappeared after the dashboard was loaded.
+      }
+    }
+
     const savedContext = readWorkflowContext();
     const savedJobId = localStorage.getItem(activeJobStorageKey) || savedContext?.job_id;
     if (!savedJobId) {
       try {
-        await restoreFromJobList(requestKey);
+        await restoreFromJobList(isCurrent);
       } catch {
         // A missing list is non-blocking; the page remains usable for a new job.
       }
@@ -102,18 +143,20 @@ export function useGenerationWorkflow(
 
     try {
       const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${savedJobId}`);
+      if (!isCurrent()) return;
       const job = response.data;
-      if (!isCurrentRequest()) return;
+      if (!isCurrent()) return;
       if (job.status === 'interrupted' || job.status === 'reconciliation_required') {
         try {
           const listed = await api.get<AIGenerationJob[]>('/v1/ai/jobs?scope=mine');
-          if (!isCurrentRequest()) return;
+          if (!isCurrent()) return;
           const liveJob = selectOldestActiveCourseJob(listed.data);
           if (liveJob && (liveJob.status === 'pending' || liveJob.status === 'running')) {
             const listedContext = readWorkflowContext();
             const programId = listedContext?.job_id === liveJob.id ? listedContext.program_id : null;
             localStorage.setItem(activeJobStorageKey, liveJob.id);
             persistWorkflowContext(liveJob.id, programId);
+            workflowEpoch.current += 1;
             dispatch({ type: 'job_restored', job: liveJob, programId });
             return;
           }
@@ -121,31 +164,36 @@ export function useGenerationWorkflow(
           // The exact interrupted job remains the safe fallback when discovery is unavailable.
         }
       }
-      if (!isCurrentRequest()) return;
+      if (!isCurrent()) return;
       const programId = savedContext?.job_id === job.id ? savedContext.program_id : null;
-      if (isRestorable(job)) dispatch({ type: 'job_restored', job, programId });
+      if (isRestorable(job)) {
+        workflowEpoch.current += 1;
+        dispatch({ type: 'job_restored', job, programId });
+      }
       else {
         localStorage.removeItem(activeJobStorageKey);
         clearWorkflowContext();
         dispatch({ type: 'job_cleared' });
       }
     } catch (error: any) {
+      if (!isCurrent()) return;
       // An impersonation/tenant switch can leave a stale id. On a confirmed
       // 404, clear it and immediately discover the active job in this tenant.
       if (error?.response?.status === 404) {
-        if (!isCurrentRequest()) return;
+        if (!isCurrent()) return;
         localStorage.removeItem(activeJobStorageKey);
         clearWorkflowContext();
         try {
-          await restoreFromJobList(requestKey);
+          await restoreFromJobList(isCurrent);
         } catch {
           // The job list is optional recovery; keep the page usable.
         }
       }
     }
-  }, [restoreFromJobList]);
+  }, [requestedJobId, restoreFromJobList]);
 
   const startJob = useCallback((job: AIGenerationJob, options?: { programId: string | null }) => {
+    workflowEpoch.current += 1;
     const programId = options && Object.prototype.hasOwnProperty.call(options, 'programId')
       ? options.programId
       : requestedProgramId || state.programId;
@@ -156,8 +204,14 @@ export function useGenerationWorkflow(
 
   const refreshJob = useCallback(async () => {
     if (!state.currentJob) return;
+    const epoch = workflowEpoch.current;
+    const requestKey = getRequestKeyRef.current?.();
+    const selectedJobId = requestedJobRef.current;
     const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${state.currentJob.id}`);
+    if (!mountedRef.current || epoch !== workflowEpoch.current || selectedJobId !== requestedJobRef.current
+        || (requestKey !== undefined && getRequestKeyRef.current?.() !== requestKey)) return;
     const job = response.data;
+    if (job.id !== state.currentJob.id) throw new Error('refresh_job_identity_mismatch');
     dispatch(actionForPolledJob(job));
     if (!isRestorable(job)) {
       localStorage.removeItem(activeJobStorageKey);
@@ -167,7 +221,13 @@ export function useGenerationWorkflow(
 
   const cancelJob = useCallback(async () => {
     if (!state.currentJob) return;
+    const epoch = workflowEpoch.current;
+    const requestKey = getRequestKeyRef.current?.();
+    const selectedJobId = requestedJobRef.current;
     await api.post(`/v1/ai/jobs/${state.currentJob.id}/cancel`);
+    if (!mountedRef.current || epoch !== workflowEpoch.current || selectedJobId !== requestedJobRef.current
+        || (requestKey !== undefined && getRequestKeyRef.current?.() !== requestKey)) return;
+    workflowEpoch.current += 1;
     localStorage.removeItem(activeJobStorageKey);
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
@@ -177,7 +237,10 @@ export function useGenerationWorkflow(
     if (!state.currentJob || state.currentJob.status !== 'interrupted') return;
     const jobId = state.currentJob.id;
     const requestKey = getRequestKey?.();
-    const isCurrentRequest = () => requestKey === undefined || getRequestKey?.() === requestKey;
+    const epoch = workflowEpoch.current;
+    const selectedJobId = requestedJobRef.current;
+    const isCurrentRequest = () => (requestKey === undefined || getRequestKey?.() === requestKey)
+      && epoch === workflowEpoch.current && selectedJobId === requestedJobRef.current;
     if (resumeRequestKeyRef.current !== undefined && resumeRequestKeyRef.current !== requestKey) {
       resumeAttemptRef.current = null;
       resumePostingRef.current = null;
@@ -241,12 +304,14 @@ export function useGenerationWorkflow(
   }, [getRequestKey, state.currentJob, state.programId]);
 
   const prepareRetry = useCallback(() => {
+    workflowEpoch.current += 1;
     localStorage.removeItem(activeJobStorageKey);
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
   }, []);
 
   const resetWorkflow = useCallback(() => {
+    workflowEpoch.current += 1;
     localStorage.removeItem(activeJobStorageKey);
     clearWorkflowContext();
     dispatch({ type: 'job_cleared' });
@@ -265,6 +330,7 @@ export function useGenerationWorkflow(
 
   return {
     ...state,
+    requestedJobMissing,
     restoreActiveJob,
     startJob,
     refreshJob,

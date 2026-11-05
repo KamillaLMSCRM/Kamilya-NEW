@@ -4,7 +4,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, BookOpenCheck, RefreshCw, Search } from 'lucide-react';
 
-import { Badge, Button, Card, CardContent, Input, Table } from '@/components/ui';
+import { Badge, Button, Input, Table } from '@/components/ui';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import {
   loadMandatoryTraining,
   type MandatoryTrainingFilters,
@@ -143,19 +144,14 @@ export default function MandatoryTrainingPage() {
     setFilters((current) => ({ ...current, action_required: undefined, offset: 0 }));
   };
 
-  return <div className="space-y-6" data-testid="mandatory-training-page">
-    <header className="flex items-start gap-3">
-      <div className="rounded-xl bg-primary/10 p-3 text-primary"><BookOpenCheck className="h-6 w-6" /></div>
-      <div><h1 className="text-2xl font-bold text-foreground font-display">{m.title}</h1><p className="mt-1 max-w-4xl text-sm text-muted-foreground">{m.subtitle}</p></div>
-    </header>
-
-    {error && <div role="alert" className="flex items-center justify-between gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-950"><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{m.loadError}</span><Button variant="outline" size="sm" onClick={() => setReload((value) => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />{m.retry}</Button></div>}
-    {!error && (!page || !summary) && <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">{m.loading}</div>}
-    {filters.action_required && <div data-testid="mandatory-training-active-filter" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground"><span>{m.activeFilter} {m.actionLabels[filters.action_required]}</span><Button type="button" variant="outline" size="sm" onClick={clearActionFilter}>{m.clearFilter}</Button></div>}
+  return <WorkspacePage id="mandatory-training" data-testid="mandatory-training-page" title={m.title} description={m.subtitle} icon={<BookOpenCheck />}>
+    {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{m.loadError}</span><Button variant="outline" size="sm" onClick={() => setReload((value) => value + 1)}><RefreshCw className="mr-2 h-4 w-4" />{m.retry}</Button></div>}
+    {!error && (!page || !summary) && <WorkspacePanel><p role="status" className="text-sm text-muted-foreground">{m.loading}</p></WorkspacePanel>}
+    {filters.action_required && <div data-testid="mandatory-training-active-filter" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground"><span>{m.activeFilter} {m.actionLabels[filters.action_required]}</span><Button type="button" variant="outline" size="sm" onClick={clearActionFilter}>{m.clearFilter}</Button></div>}
 
     {page && summary && <>
-      {page.reporting_scope === 'restricted' && <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">{m.restrictedScope}</div>}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label={m.total}>
+      {page.reporting_scope === 'restricted' && <div role="status" className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-foreground">{m.restrictedScope}</div>}
+      <section className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label={m.total}>
         <Summary label={m.total} value={summary.total} />
         <Summary label={m.materialized} value={summary.materialized} />
         <Summary label={m.missing} value={summary.missing_enrollment} testId="missing-enrollment-count" tone="danger" />
@@ -163,8 +159,8 @@ export default function MandatoryTrainingPage() {
         <Summary label={m.stale} value={summary.stale_managed_enrollment} tone="warning" />
       </section>
 
-      <Card><CardContent className="p-4 sm:p-5">
-        <form onSubmit={submit} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_240px_auto]">
+      <WorkspaceToolbar>
+        <form onSubmit={submit} className="grid w-full min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_240px_auto]">
           <label className="relative"><span className="sr-only">{m.searchPlaceholder}</span><Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={m.searchPlaceholder} /></label>
           <select value={state} onChange={(event) => setState(event.target.value as RequirementState | '')} aria-label={m.state} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
             <option value="">{m.allStates}</option>
@@ -172,28 +168,27 @@ export default function MandatoryTrainingPage() {
           </select>
           <Button type="submit">{m.apply}</Button>
         </form>
-      </CardContent></Card>
+      </WorkspaceToolbar>
 
-      {page.items.length === 0 ? <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{m.empty}</div> : <>
-        <div className="grid gap-3 lg:hidden">{page.items.map((row) => <MobileRow key={`${row.user_id}-${row.course_id}`} row={row} m={m} />)}</div>
+      {page.items.length === 0 ? <WorkspaceEmpty title={m.empty} /> : <WorkspacePanel padded={false} className="overflow-hidden"><div className="grid gap-3 p-4 lg:hidden">{page.items.map((row) => <MobileRow key={`${row.user_id}-${row.course_id}`} row={row} m={m} />)}</div>
         <Table className="hidden overflow-x-auto lg:block" tableClassName="min-w-[1180px]">
           <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-4 py-3">{m.employee}</th><th className="px-4 py-3">{m.structure}</th><th className="px-4 py-3">{m.course}</th><th className="px-4 py-3">{m.state}</th><th className="px-4 py-3">{m.reason}</th><th className="px-4 py-3">{m.action}</th></tr></thead>
           <tbody>{page.items.map((row) => <DesktopRow key={`${row.user_id}-${row.course_id}`} row={row} m={m} />)}</tbody>
         </Table>
-      </>}
-      {page.total > 0 && <nav className="flex items-center justify-end gap-3" aria-label={m.total}>
+      </WorkspacePanel>}
+      {page.total > 0 && <nav className="flex flex-wrap items-center justify-end gap-3" aria-label={m.total}>
         <span className="text-sm tabular-nums text-muted-foreground">{m.range(page.offset + 1, Math.min(page.offset + page.items.length, page.total), page.total)}</span>
         <Button type="button" variant="outline" disabled={page.offset === 0} onClick={() => setFilters((current) => ({ ...current, offset: Math.max(0, page.offset - page.limit) }))}>{m.previousPage}</Button>
         <Button type="button" variant="outline" disabled={page.offset + page.limit >= page.total} onClick={() => setFilters((current) => ({ ...current, offset: page.offset + page.limit }))}>{m.nextPage}</Button>
       </nav>}
     </>}
-  </div>;
+  </WorkspacePage>;
 }
 
 type Copy = typeof copy[keyof typeof copy];
 
 function Summary({ label, value, testId, tone }: { label: string; value: number; testId?: string; tone?: 'danger' | 'warning' }) {
-  return <div className={`rounded-xl border p-4 ${tone === 'danger' ? 'border-red-200 bg-red-50/70' : tone === 'warning' ? 'border-amber-200 bg-amber-50/70' : 'border-border bg-card'}`}><div className="text-xs text-muted-foreground">{label}</div><div data-testid={testId} className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</div></div>;
+  return <div className={`min-w-0 rounded-2xl border p-4 ${tone === 'danger' ? 'border-destructive/30 bg-destructive/5' : tone === 'warning' ? 'border-warning/30 bg-warning/5' : 'border-border bg-card'}`}><div className="text-xs font-medium text-muted-foreground">{label}</div><div data-testid={testId} className={`mt-1 text-3xl font-semibold tabular-nums ${tone === 'danger' ? 'text-destructive' : tone === 'warning' ? 'text-warning' : 'text-foreground'}`}>{value}</div></div>;
 }
 
 function Reason({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
@@ -206,7 +201,7 @@ function DesktopRow({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
 }
 
 function MobileRow({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {
-  return <article className="space-y-3 rounded-xl border border-border bg-card p-4"><div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{row.full_name}</h2><p className="text-sm text-muted-foreground">{row.course_title}</p></div><Badge variant={row.requirement_state === 'missing_enrollment' ? 'destructive' : 'secondary'}>{m.stateLabels[row.requirement_state]}</Badge></div><p className="text-sm">{row.position_name || m.noPosition} · {row.organization_unit_path.join(' → ') || m.noUnit}</p><OperationalState row={row} m={m} /><Reason row={row} m={m} /><p className="text-sm font-medium">{m.actionLabels[row.action_required]}</p></article>;
+  return <article className="min-w-0 space-y-3 rounded-xl border border-border bg-card p-4"><div className="flex min-w-0 flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h2 className="break-words font-semibold">{row.full_name}</h2><p className="break-words text-sm text-muted-foreground">{row.course_title}</p></div><Badge variant={row.requirement_state === 'missing_enrollment' ? 'destructive' : 'secondary'}>{m.stateLabels[row.requirement_state]}</Badge></div><p className="break-words text-sm">{row.position_name || m.noPosition} · {row.organization_unit_path.join(' → ') || m.noUnit}</p><OperationalState row={row} m={m} /><Reason row={row} m={m} /><p className="text-sm font-medium">{m.actionLabels[row.action_required]}</p></article>;
 }
 
 function OperationalState({ row, m }: { row: MandatoryTrainingRow; m: Copy }) {

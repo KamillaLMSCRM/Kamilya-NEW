@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
@@ -752,10 +753,10 @@ export default function CoursePlayerPage() {
     || assignmentAccessPolicy?.state === 'revoked'
     || assignmentRemainingSeconds === 0;
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
-  if (loadError) return <div role="alert" className="space-y-3 p-6"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchData()}>{t('common.retry')}</Button></div>;
+  if (loading) return <WorkspacePage id="course-reader" title={t('courses.title')}><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
+  if (loadError) return <WorkspacePage id="course-reader" title={t('courses.title')}><WorkspacePanel role="alert" bodyClassName="space-y-3"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchData()}>{t('common.retry')}</Button></WorkspacePanel></WorkspacePage>;
   if (!course && assignmentAccessBlocked) return <AssignmentAccessExpired />;
-  if (!course) return <div className="p-6">{t('errors.notFound')}</div>;
+  if (!course) return <WorkspacePage id="course-reader" title={t('courses.title')}><WorkspaceEmpty title={t('errors.notFound')} /></WorkspacePage>;
 
   const kioskSessionNotice = kioskSession && kioskWarningSeconds !== null ? (
     <div className="fixed inset-x-0 top-0 z-50 mx-auto max-w-2xl px-4 pt-4" role="status">
@@ -767,29 +768,27 @@ export default function CoursePlayerPage() {
 
   if (enrolled === false) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
+      <WorkspacePage id="course-reader" className="mx-auto max-w-2xl py-6" title={course.title}>
         {kioskSessionNotice}
-        <div className="bg-card rounded-lg shadow-md p-8 max-w-md w-full text-center">
-          <h2 className="text-xl font-bold mb-2">{course.title}</h2>
+        <WorkspacePanel bodyClassName="text-center">
           <p className="text-muted-foreground mb-6">{occurrenceUnavailable ? studentDailyLearningCopy[lang].assignmentAccessRequired : t('courses.enrollRequired')}</p>
           {!occurrenceUnavailable && <button onClick={handleEnroll} disabled={enrolling} className="bg-primary text-primary-foreground px-6 py-2 rounded hover:bg-primary disabled:opacity-50">
             {enrolling ? t('common.saving' as any) : t('courses.enrollButton')}
           </button>}
-          <Link href={courseListHref} className="block mt-4 flex items-center gap-1 text-sm text-primary hover:underline justify-center">
+          <Link href={courseListHref} className="mt-4 flex min-h-11 items-center gap-1 text-sm text-primary hover:underline justify-center">
             <ChevronLeft className="w-4 h-4" /> {t('courses.backToCourses')}
           </Link>
-        </div>
-      </div>
+        </WorkspacePanel>
+      </WorkspacePage>
     );
   }
 
   if (courseCompleted) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="bg-card rounded-lg shadow-md p-6 sm:p-8 max-w-2xl w-full space-y-5">
+      <WorkspacePage id="course-reader" className="mx-auto max-w-3xl py-6" title={course.title}>
+        <WorkspacePanel bodyClassName="space-y-5">
           <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" aria-hidden="true" />
           <div className="text-center">
-            <h2 className="text-xl font-bold mb-2">{course.title}</h2>
             <p className="text-muted-foreground">{t('courses.courseComplete')}</p>
           </div>
           {completionEvidenceEventId ? (
@@ -809,23 +808,23 @@ export default function CoursePlayerPage() {
               </Link>
             </div>
           )}
-        </div>
-      </div>
+        </WorkspacePanel>
+      </WorkspacePage>
     );
   }
 
   if (course.delivery_type === 'scorm') {
     return (
-      <div className="min-h-screen bg-muted flex flex-col">
-        <div className="flex h-14 items-center justify-between border-b bg-card px-4">
+      <WorkspacePage id="course-reader" className="flex min-h-screen flex-col gap-4 !space-y-0">
+        <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-5">
           <div className="min-w-0">
             <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
               <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
             </Link>
-            <h1 className="truncate text-sm font-semibold">{course.title}</h1>
+            <h1 className="mt-2 break-words text-xl font-semibold">{course.title}</h1>
           </div>
           <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">SCORM 1.2</span>
-        </div>
+        </header>
         {scormLaunchLoading ? (
           <div className="flex flex-1 items-center justify-center text-muted-foreground">{t('common.loading')}</div>
         ) : scormLaunchError ? (
@@ -841,7 +840,7 @@ export default function CoursePlayerPage() {
             </div>
           </div>
         ) : scormLaunchSession ? (
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-[70dvh] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card">
             <p className="sr-only" aria-live="polite">
               {scormRuntimeStatus ? `SCORM: ${scormRuntimeStatus}` : t('authenticatedUi.player.scormLoading')}
             </p>
@@ -856,7 +855,7 @@ export default function CoursePlayerPage() {
             />
           </div>
         ) : null}
-      </div>
+      </WorkspacePage>
     );
   }
 
@@ -873,15 +872,15 @@ export default function CoursePlayerPage() {
   const hasQuiz = lessonQuiz !== null;
 
   return (
-    <div className="min-h-screen bg-muted flex flex-col md:flex-row">
+    <WorkspacePage id="course-reader" className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-5 !space-y-0 md:flex-row">
       {kioskSessionNotice}
       {/* Left sidebar — TOC */}
-      <div className="w-full md:w-80 md:shrink-0 bg-card border-b md:border-b-0 md:border-r flex flex-col">
-        <div className="p-4 border-b">
+      <div className="flex w-full min-w-0 flex-col self-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:sticky md:top-6 md:max-h-[calc(100dvh-3rem)] md:w-80 md:shrink-0">
+        <div className="border-b border-border p-5">
           <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
           </Link>
-          <h2 className="font-bold mt-2">{course.title}</h2>
+          <h2 className="mt-3 break-words font-semibold leading-6">{course.title}</h2>
           <div className="mt-2 h-2 bg-muted rounded">
             <div className="h-2 bg-primary rounded transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
@@ -930,23 +929,23 @@ export default function CoursePlayerPage() {
       </div>
 
       {/* Center — lesson content + quiz */}
-      <div className="min-w-0 flex-1 p-4 md:p-8">
+      <div className="min-w-0 flex-1">
         {assignmentAccessPolicy && (
           <AssignmentAccessTimer remainingSeconds={assignmentRemainingSeconds} blocked={assignmentAccessBlocked} />
         )}
         {selectedLesson ? (
           <div className={`mx-auto grid gap-6 ${assistantOpen ? 'max-w-6xl xl:grid-cols-[minmax(0,1fr)_340px]' : 'max-w-3xl'}`}>
-            <div className="min-w-0">
-            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+            <WorkspacePanel bodyClassName="p-5 sm:p-8" padded={false}>
+            <header className="mb-7 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
               <div className="min-w-0 flex-1">
-                <h1 ref={lessonHeadingRef} tabIndex={-1} className="break-words text-2xl font-bold focus:outline-none">{selectedLesson.title}</h1>
+                <h1 ref={lessonHeadingRef} tabIndex={-1} className="break-words text-2xl font-semibold leading-tight tracking-tight focus:outline-none sm:text-3xl">{selectedLesson.title}</h1>
                 <p className="mt-2 text-sm text-muted-foreground">{workspaceCopy.learningHint}</p>
                 {lessonCompleted && <p className="mt-2 text-xs font-medium text-success">{workspaceCopy.materialDone}</p>}
               </div>
               <Button type="button" variant="outline" aria-expanded={assistantOpen} aria-controls="learner-lesson-help" onClick={() => setAssistantOpen((value) => !value)}>{workspaceCopy.help}</Button>
-            </div>
+            </header>
 
-            <div className="prose max-w-none">
+            <article className="prose min-w-0 max-w-none break-words text-base leading-8 [&_table]:block [&_table]:overflow-x-auto">
               {selectedLesson.content ? (
                 <LessonContent
                   text={selectedLesson.content}
@@ -956,9 +955,9 @@ export default function CoursePlayerPage() {
               ) : (
                 <p className="text-muted-foreground italic">{t('common.noData')}</p>
               )}
-            </div>
+            </article>
 
-            <div className="mt-8 space-y-4">
+            <footer className="mt-8 space-y-4 border-t border-border pt-6 [&_button]:whitespace-normal [&_button]:text-left">
               {quizStatus === 'error' && (
                 <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
                   <p className="text-sm text-destructive">{t('common.loadFailed')}</p>
@@ -977,7 +976,7 @@ export default function CoursePlayerPage() {
                 <div className="border rounded-lg p-6 bg-card shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-primary" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
                       </svg>
                     </div>
@@ -1065,8 +1064,8 @@ export default function CoursePlayerPage() {
                   </Button>
                 </div>
               ) : null}
-            </div>
-            </div>
+            </footer>
+            </WorkspacePanel>
             {assistantOpen && <aside id="learner-lesson-help" aria-label={workspaceCopy.help} className="h-fit rounded-xl border border-border bg-card p-4 shadow-sm">
               <div className="mb-3">
                 <h2 className="text-sm font-semibold text-foreground">{t('authenticatedUi.player.assistantTitle')}</h2>
@@ -1114,12 +1113,10 @@ export default function CoursePlayerPage() {
             </aside>}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            {t('common.search')}
-          </div>
+          <WorkspaceEmpty title={t('common.search')} />
         )}
       </div>
-    </div>
+    </WorkspacePage>
   );
 }
 
@@ -1154,13 +1151,13 @@ function AssignmentAccessTimer({
 function AssignmentAccessExpired() {
   const { t } = useT();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted p-6">
-      <div className="max-w-lg rounded-xl border border-destructive/30 bg-card p-8 text-center shadow-sm" role="alert">
+    <WorkspacePage id="course-reader" className="mx-auto max-w-2xl py-6">
+      <WorkspacePanel className="border-destructive/30" bodyClassName="text-center" role="alert">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive" aria-hidden="true" />
         <h1 className="mt-4 text-xl font-bold">{t('authenticatedUi.player.sessionExpiredTitle')}</h1>
         <p className="mt-2 text-muted-foreground">{t('authenticatedUi.player.sessionExpiredDescription')}</p>
-      </div>
-    </div>
+      </WorkspacePanel>
+    </WorkspacePage>
   );
 }
 

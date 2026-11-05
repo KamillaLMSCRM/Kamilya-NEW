@@ -287,3 +287,21 @@
 raw не является новым вызовом. Unknown dispatch не повторяется автоматически.
 Изменение уровня reasoning не объявляется улучшением без сравнения: в текущих
 прогонах Luna6/HIGH остался тем же, что раньше.
+
+
+## P31 guided recheck — 2026-11-05
+
+- Standards4L12Q: independent CONTENT GO for human review across16families;
+  explicit after18:00 fixes workday-premise case, property-care duty restored.
+  Original source intervals stay unresolved.3calls165.469s/67377tokens.
+- Fire6L18Q: three previous semantic categories repaired; prevention implementation
+  still omitted and one stem discloses its answer.4calls301.656s/113976tokens.
+- Microcredit11L33Q: several earlier omissions repaired, but collateral sealing/
+  lost-ticket handling, assignment notices, bureau property reporting and3-day
+  customer-information responses are absent. Source conjunction ambiguity is
+  detected by keyed review and remains a visible source hold; prose still asserts
+  AND/OR and needs human correction. No separately wrong key established.
+  4calls622.516s/268432tokens. Do not label all three CONTENT GO.
+- These are source/model completeness limits, not a new deterministic parser
+  failure. Keep editable drafts and typed human review, without another automatic
+  generator rerun. Native DEV persistence and combined UI are separate gates.

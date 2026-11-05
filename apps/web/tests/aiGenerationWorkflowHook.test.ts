@@ -14,6 +14,44 @@ const activeJob = {
 };
 
 describe('AI generation workflow recovery', () => {
+  it('ignores an unresolved explicit restore after a new job starts', async () => {
+    let resolve!: (value: { data: typeof activeJob }) => void;
+    apiMock.get.mockReturnValueOnce(new Promise((yes) => { resolve = yes; }));
+    const { result } = renderHook(() => useGenerationWorkflow(null, 'old-job'));
+    let restore!: Promise<void>;
+    act(() => { restore = result.current.restoreActiveJob(); });
+    act(() => { result.current.startJob(activeJob); });
+    await act(async () => { resolve({ data: { ...activeJob, id: 'old-job' } }); await restore; });
+    expect(result.current.currentJob?.id).toBe(activeJob.id);
+    expect(localStorage.getItem('ai_active_job_id')).toBe(activeJob.id);
+  });
+  it('does not reconcile an old unknown resume after a different job is selected', async () => {
+    const interrupted = { ...activeJob, id: 'old-interrupted', status: 'interrupted', job_type: 'course_generation' };
+    let rejectPost!: (error: unknown) => void;
+    apiMock.get.mockResolvedValueOnce({ data: [interrupted] });
+    apiMock.post.mockReturnValueOnce(new Promise((_, reject) => { rejectPost = reject; }));
+    const { result } = renderHook(() => useGenerationWorkflow());
+    await act(async () => { await result.current.restoreActiveJob(); });
+    let resume!: Promise<unknown>;
+    await act(async () => { resume = result.current.resumeJob(); await Promise.resolve(); });
+    act(() => { result.current.startJob(activeJob); });
+    await act(async () => { rejectPost({ response: { status: 503 } }); await resume; });
+    expect(result.current.currentJob?.id).toBe(activeJob.id);
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.get.mock.calls.filter(([url]) => url === '/v1/ai/jobs/old-interrupted')).toHaveLength(0);
+  });
+  it('ignores an old status response after a different job is selected', async () => {
+    let resolve!: (value: { data: typeof activeJob }) => void;
+    const old = { ...activeJob, id: 'old-job' };
+    apiMock.get.mockReturnValueOnce(new Promise((yes) => { resolve = yes; }));
+    const { result } = renderHook(() => useGenerationWorkflow());
+    act(() => { result.current.startJob(old); });
+    let read!: Promise<void>;
+    act(() => { read = result.current.refreshJob(); });
+    act(() => { result.current.startJob(activeJob); });
+    await act(async () => { resolve({ data: old }); await read; });
+    expect(result.current.currentJob?.id).toBe(activeJob.id);
+  });
   beforeEach(() => {
     vi.resetAllMocks();
     localStorage.clear();
@@ -53,6 +91,79 @@ describe('AI generation workflow recovery', () => {
     expect(result.current.currentJob).toBeNull();
     expect(result.current.step).toBe('documents');
     expect(localStorage.getItem('ai_active_job_id')).toBeNull();
+  });
+
+  it('restores an explicit failed job from the dashboard link without starting generation', async () => {
+    const failedJob = {
+      ...activeJob,
+      id: 'failed-course-job',
+      job_type: 'course_generation',
+      course_id: null,
+      status: 'failed',
+      stage: 'review',
+      message: 'generation failed',
+    };
+    apiMock.get.mockResolvedValueOnce({ data: failedJob });
+    const { result } = renderHook(() => useGenerationWorkflow(null, 'failed-course-job'));
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe('failed-course-job');
+    expect(result.current.step).toBe('generate');
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs/failed-course-job');
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(localStorage.getItem('ai_active_job_id')).toBeNull();
+  });
+
+  it('does not let an already-applied explicit job replace a newly started job', async () => {
+    const failedJob = {
+      ...activeJob,
+      id: 'failed-course-job',
+      job_type: 'course_generation',
+      status: 'failed',
+      stage: 'review',
+    };
+    apiMock.get.mockResolvedValueOnce({ data: failedJob });
+    const { result } = renderHook(() => useGenerationWorkflow(null, 'failed-course-job'));
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+    expect(result.current.currentJob?.id).toBe('failed-course-job');
+
+    act(() => { result.current.startJob(activeJob); });
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.currentJob?.id).toBe('current-tenant-job');
+    expect(apiMock.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains a missing explicit job while keeping ordinary recovery available', async () => {
+    apiMock.get
+      .mockRejectedValueOnce({ response: { status: 404 } })
+      .mockResolvedValueOnce({ data: [activeJob] });
+    const { result } = renderHook(() => useGenerationWorkflow(null, 'missing-job'));
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+
+    expect(result.current.requestedJobMissing).toBe(true);
+    expect(result.current.currentJob?.id).toBe('current-tenant-job');
+    expect(result.current.step).toBe('generate');
+  });
+
+  it('clears the missing explicit-job notice when the query is dismissed', async () => {
+    apiMock.get
+      .mockRejectedValueOnce({ response: { status: 404 } })
+      .mockResolvedValueOnce({ data: [activeJob] });
+    const { result, rerender } = renderHook(
+      ({ jobId }: { jobId: string | null }) => useGenerationWorkflow(null, jobId),
+      { initialProps: { jobId: 'missing-job' as string | null } },
+    );
+
+    await act(async () => { await result.current.restoreActiveJob(); });
+    expect(result.current.requestedJobMissing).toBe(true);
+
+    rerender({ jobId: null });
+
+    await waitFor(() => expect(result.current.requestedJobMissing).toBe(false));
   });
 
   it('restores and resumes an interrupted generation with the same job id', async () => {

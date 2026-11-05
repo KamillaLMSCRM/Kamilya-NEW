@@ -21,6 +21,7 @@ import { toast } from "@/components/ui/Toast";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from "@/components/ui";
 import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationUnitPicker";
 import type { OrganizationUnitNode } from "@/features/staff-structure/organizationStructure";
+import { WorkspacePage, WorkspaceToolbar, WorkspaceEmpty } from "@/features/workspace-design";
 
 interface Position {
   id: string;
@@ -253,19 +254,7 @@ export default function PositionsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0">
-          <p className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <BriefcaseBusiness className="h-4 w-4" aria-hidden="true" />
-            {ui("authenticatedUi.positions.eyebrow")}
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{t("positions.title")}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            {ui("authenticatedUi.positions.subtitle")}
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+    <WorkspacePage id="positions" title={t("positions.title")} description={ui("authenticatedUi.positions.subtitle")} eyebrow={ui("authenticatedUi.positions.eyebrow")} icon={<BriefcaseBusiness />} className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8" actions={<>
           <Button
             type="button"
             variant="outline"
@@ -293,11 +282,10 @@ export default function PositionsPage() {
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t("positions.create")}
           </Button>
-        </div>
-      </header>
+        </>}>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <label className="relative block w-full sm:max-w-md">
+      <WorkspaceToolbar className="justify-between">
+        <label className="relative block w-full sm:max-w-md sm:flex-1">
           <span className="sr-only">{ui("authenticatedUi.positions.searchLabel")}</span>
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -325,7 +313,7 @@ export default function PositionsPage() {
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
-      </div>
+      </WorkspaceToolbar>
 
       {bulkError && (
         <div
@@ -364,19 +352,10 @@ export default function PositionsPage() {
           </CardContent>
         </Card>
       ) : positions.length === 0 ? (
-        <Card>
-          <CardContent className="flex min-h-60 flex-col items-center justify-center gap-3 px-6 text-center">
-            <BriefcaseBusiness className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
-            <h2 className="text-lg font-medium">{ui("authenticatedUi.positions.emptyTitle")}</h2>
-            <p className="max-w-md text-sm text-muted-foreground">
-              {ui("authenticatedUi.positions.emptyDescription")}
-            </p>
-            <Button type="button" onClick={() => setShowCreate(true)} className="mt-2 gap-2">
+        <WorkspaceEmpty title={ui("authenticatedUi.positions.emptyTitle")} description={ui("authenticatedUi.positions.emptyDescription")} icon={<BriefcaseBusiness />} action={<Button type="button" onClick={() => setShowCreate(true)} className="gap-2">
               <Plus className="h-4 w-4" aria-hidden="true" />
               {ui("authenticatedUi.positions.create")}
-            </Button>
-          </CardContent>
-        </Card>
+            </Button>} />
       ) : filteredPositions.length === 0 ? (
         <Card>
           <CardContent className="flex min-h-40 items-center justify-center px-6 text-center text-sm text-muted-foreground">
@@ -384,27 +363,27 @@ export default function PositionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid items-stretch gap-4 md:grid-cols-2">
           {filteredPositions.map((position) => (
             <Link
               key={position.id}
               href={`/positions/${position.id}`}
-              className="group block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="group block min-w-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              <Card className="transition-colors group-hover:border-primary/50 group-hover:bg-muted/20">
-                <CardContent className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+              <Card className="h-full rounded-2xl transition-colors group-hover:border-primary/50 group-hover:bg-muted/20">
+                <CardContent className="flex h-full flex-col gap-5 p-5 sm:p-6">
                   <div className="min-w-0">
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <h2 className="min-w-0 truncate text-base font-semibold text-foreground sm:text-lg">
+                      <h2 className="min-w-0 break-words text-base font-semibold text-foreground sm:text-lg">
                         {position.name}
                       </h2>
                       <Badge variant={instructionVariant(position)}>{instructionLabel(position, t)}</Badge>
                     </div>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">
+                    <p className="mt-2 break-words text-sm text-muted-foreground">
                       {position.department || ui("authenticatedUi.positions.noDepartment")}
                       {position.level ? ` · ${position.level}` : ""}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
                         <FileText className="h-3.5 w-3.5" aria-hidden="true" />
                         {tp('common.counts.course', position.course_ids?.length ?? 0)}
@@ -423,7 +402,7 @@ export default function PositionsPage() {
                       )}
                     </div>
                   </div>
-                  <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-primary">
+                  <span className="mt-auto inline-flex items-center justify-between gap-2 border-t border-border pt-4 text-sm font-medium text-primary">
                     {ui("authenticatedUi.positions.openCard")}
                     <ChevronRight
                       className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
@@ -641,6 +620,6 @@ export default function PositionsPage() {
           </Card>
         </div>
       )}
-    </div>
+    </WorkspacePage>
   );
 }

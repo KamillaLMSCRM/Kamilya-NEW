@@ -52,7 +52,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className={`${manrope.variable} ${syne.variable} ${dmMono.variable}`}>
-      <body className={manrope.className}>
+      <body data-design-system="workspace-v2" className={manrope.className}>
         <LocaleDocumentSync />
         <SkipToContent />
         <RouteWrapper>

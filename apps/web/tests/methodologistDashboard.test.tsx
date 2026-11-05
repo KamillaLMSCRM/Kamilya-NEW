@@ -73,7 +73,7 @@ beforeEach(() => {
   });
   apiMock.get.mockImplementation((path: string) => {
     if (path === '/v1/admin/learning-actions') return Promise.resolve({ data: actionCenter });
-    if (path === '/v1/courses') return Promise.resolve({ data: [
+    if (path === '/v1/courses?per_page=100') return Promise.resolve({ data: [
       { id: 'course-1', title: 'Опубликованный курс', status: 'published' },
       { id: 'course-2', title: 'Черновик', status: 'draft' },
     ] });
@@ -110,6 +110,15 @@ describe('methodologist operations dashboard', () => {
     render(<MethodologistDashboard />);
     expect(await screen.findByText(label)).toBeInTheDocument();
     expect(screen.queryByText(failedLabel)).not.toBeInTheDocument();
+  });
+  it.each([99, 100])('does not claim complete totals from a full bounded catalogue (%s)', (count) => {
+    const model = buildMethodologistDashboard({ learning: null, mandatory: null, jobs: [],
+      courses: Array.from({ length: count }, (_, index) => ({ id: String(index), title: 'Course', status: 'published' })),
+    });
+    expect(model.content.coursesTruncated).toBe(count === 100);
+    expect(model.content.totalCourses).toBe(count === 100 ? null : 99);
+    expect(model.content.publishedCourses).toBe(count === 100 ? null : 99);
+    expect(model.content.draftCourses).toBe(count === 100 ? null : 0);
   });
   it('counts every relevant generation while limiting only the visible job list', () => {
     const jobs = [
@@ -156,8 +165,24 @@ describe('methodologist operations dashboard', () => {
     expect(screen.getByText('Этап: проверка качества · заявка 0228597d')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Без назначения: 2' })).toHaveAttribute('href', '/mandatory-training?action_required=materialize');
     expect(screen.getByRole('link', { name: 'Требует сверки: 1' })).toHaveAttribute('href', '/mandatory-training?action_required=review_stale');
+    expect(screen.getByRole('link', { name: /заявка 0228597d/ })).toHaveAttribute(
+      'href',
+      '/ai/generate?job_id=0228597d-1111-4111-8111-111111111111',
+    );
+    expect(screen.getByRole('link', { name: 'Все курсы: 2' })).toHaveAttribute('href', '/courses');
+    expect(screen.getByRole('link', { name: 'Опубликовано: 1' })).toHaveAttribute('href', '/courses?status=published');
+    expect(screen.getByRole('link', { name: 'Черновики: 1' })).toHaveAttribute('href', '/courses?status=draft');
     expect(apiMock.get).toHaveBeenCalledWith('/v1/admin/learning-actions', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(apiMock.get).not.toHaveBeenCalledWith('/v1/admin/training-log/summary', expect.anything());
+  });
+
+  it('places actionable situations before the completion summary in DOM order', async () => {
+    render(<MethodologistDashboard />);
+
+    const attention = await screen.findByRole('heading', { name: 'Требует внимания' });
+    const health = screen.getByRole('heading', { name: 'Состояние обучения' });
+
+    expect(attention.compareDocumentPosition(health) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('links only truthful training metrics and exact priority assignments to canonical filters', async () => {
@@ -198,6 +223,49 @@ describe('methodologist operations dashboard', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Сводка обучения временно недоступна');
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
     expect(screen.queryByTestId('training-overdue')).not.toBeInTheDocument();
+  });
+
+  it('does not present unavailable generation or mandatory data as confirmed zero', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path === '/v1/admin/learning-actions') return Promise.resolve({ data: actionCenter });
+      if (path === '/v1/courses?per_page=100') return Promise.resolve({ data: [
+        { id: 'course-1', title: 'Опубликованный курс', status: 'published' },
+      ] });
+      if (path === '/v1/ai/jobs') return Promise.reject(new Error('jobs unavailable'));
+      if (path === '/v1/admin/mandatory-training/summary') return Promise.reject(new Error('mandatory unavailable'));
+      return Promise.reject(new Error(`Unexpected path: ${path}`));
+    });
+
+    render(<MethodologistDashboard />);
+
+    expect(await screen.findByText('Данные о генерациях недоступны. Список не заменён нулём.')).toBeInTheDocument();
+    expect(screen.queryByText('Активных или проблемных генераций нет.')).not.toBeInTheDocument();
+    expect(screen.getByTestId('mandatory-missing-unavailable')).toHaveTextContent('—');
+    expect(screen.getByTestId('mandatory-stale-unavailable')).toHaveTextContent('—');
+  });
+
+  it('labels canonical generation stages without a false preparation fallback', async () => {
+    apiMock.get.mockImplementation((path: string) => {
+      if (path === '/v1/admin/learning-actions') return Promise.resolve({ data: actionCenter });
+      if (path === '/v1/courses?per_page=100') return Promise.resolve({ data: [
+        { id: 'course-1', title: 'Опубликованный курс', status: 'published' },
+      ] });
+      if (path === '/v1/ai/jobs') return Promise.resolve({ data: [
+        { id: 'job-a', job_type: 'course_generation', status: 'running', stage: 'content_generation', created_at: '2026-09-24T10:00:00Z' },
+        { id: 'job-b', job_type: 'course_generation', status: 'failed', stage: 'failed', created_at: '2026-09-24T09:00:00Z' },
+      ] });
+      if (path === '/v1/admin/mandatory-training/summary') return Promise.resolve({ data: {
+        total: 0, materialized: 0, missing_enrollment: 0, protected_assignment: 0,
+        stale_managed_enrollment: 0, action_materialize: 0, action_review_stale: 0,
+      } });
+      return Promise.reject(new Error(`Unexpected path: ${path}`));
+    });
+
+    render(<MethodologistDashboard />);
+
+    expect(await screen.findByText('Этап: генерация содержания · заявка job-a')).toBeInTheDocument();
+    expect(screen.getByText('Этап: ошибка · заявка job-b')).toBeInTheDocument();
+    expect(screen.queryByText(/Этап: подготовка/)).not.toBeInTheDocument();
   });
 
   it('does not request learner-level data for a tenant admin', async () => {

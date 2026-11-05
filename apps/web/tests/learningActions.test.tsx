@@ -177,6 +177,22 @@ describe('learning action center', () => {
     expect(apiMock.post).not.toHaveBeenCalled();
   });
 
+  it('offers an in-place course selector for weak questions without a course', async () => {
+    const onSelectCourse = vi.fn();
+    apiMock.get.mockResolvedValueOnce({ data: { ...payload, weak_questions: [] } });
+    render(<LearningActionCenter
+      focus="weak_questions"
+      courseCatalog={[{ id: 'course-1', title: 'Safety' }]}
+      onSelectCourse={onSelectCourse}
+    />);
+
+    const select = await screen.findByRole('combobox', { name: /Курс для разбора вопросов/i });
+    expect(select).toHaveValue('');
+    fireEvent.change(select, { target: { value: 'course-1' } });
+    expect(onSelectCourse).toHaveBeenCalledWith('course-1');
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
   it('offers a local reset when opened through a focused deep link', async () => {
     const onClearFocus = vi.fn();
     render(<LearningActionCenter courseId="course-1" focus="training" onClearFocus={onClearFocus} />);

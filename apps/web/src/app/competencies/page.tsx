@@ -6,7 +6,8 @@ import { ExternalLink, Plus, Save, Target } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { useT } from "@/i18n/useT";
-import { Button, Card, CardContent, Input } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
+import { WorkspacePage, WorkspacePanel } from "@/features/workspace-design";
 import { toast } from "@/components/ui/Toast";
 
 type Item = { id: string; name: string; description: string; position_count: number; course_count: number };
@@ -109,25 +110,17 @@ export default function CompetenciesPage() {
   if (!allowed) return <div className="p-8 text-center text-muted-foreground">{t("competencies.forbidden")}</div>;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t("competencies.title")}</h1>
-        <p className="text-muted-foreground">{t("competencies.subtitle")}</p>
-      </div>
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
-        <Card>
-          <CardContent className="space-y-3 p-4">
-            <Button className="w-full gap-2" onClick={startNew}>
-              <Plus className="h-4 w-4" />
-              {t("competencies.new")}
-            </Button>
+    <WorkspacePage id="competencies" title={t("competencies.title")} description={t("competencies.subtitle")} icon={<Target />} className="mx-auto max-w-7xl px-4 py-6 sm:px-6" actions={<Button className="gap-2" onClick={startNew}><Plus className="h-4 w-4" aria-hidden="true" />{t("competencies.new")}</Button>}>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(240px,0.35fr)_minmax(0,1fr)]">
+        <WorkspacePanel title={t("competencies.title")} bodyClassName="space-y-3 max-h-[36rem] overflow-y-auto">
             {items.map((item) => (
               <button
                 key={item.id}
                 onClick={() => void open(item)}
-                className={`w-full rounded-md border p-3 text-left ${selected?.id === item.id ? "border-primary bg-primary/5" : "border-border"}`}
+                aria-pressed={selected?.id === item.id}
+                className={`w-full rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected?.id === item.id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"}`}
               >
-                <div className="truncate font-medium">{item.name}</div>
+                <div className="break-words font-medium">{item.name}</div>
                 <div className="mt-1 text-xs text-muted-foreground">
                   {tp('common.counts.position', item.position_count)} ·{' '}
                   {tp('common.counts.course', item.course_count)}
@@ -135,10 +128,9 @@ export default function CompetenciesPage() {
               </button>
             ))}
             {!items.length && <p className="p-3 text-sm text-muted-foreground">{t("competencies.empty")}</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="space-y-6 p-6">
+        </WorkspacePanel>
+        <div className="min-w-0 space-y-5">
+          <WorkspacePanel title={selected?.name || t("competencies.new")}>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="space-y-2 text-sm font-medium">
                 {t("competencies.name")}
@@ -157,6 +149,7 @@ export default function CompetenciesPage() {
                 />
               </label>
             </div>
+          </WorkspacePanel>
             {selected && <ReadOnlyPositions positionIds={selected.position_ids} positions={positions} />}
             <CourseSelector
               title={t("competencies.courses")}
@@ -176,24 +169,16 @@ export default function CompetenciesPage() {
                 {selected ? t("competencies.save") : t("competencies.create")}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }
 
 function ReadOnlyPositions({ positionIds, positions }: { positionIds: string[]; positions: LinkItem[] }) {
   const linkedPositions = positionIds.map((id) => positions.find((position) => position.id === id) ?? { id, name: id });
   return (
-    <section className="space-y-3">
-      <div>
-        <h2 className="flex items-center gap-2 font-semibold">
-          <Target className="h-4 w-4 text-primary" />
-          Связанные должности
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">Требования компетенций задаются в карточке должности.</p>
-      </div>
+    <WorkspacePanel title="Связанные должности" description="Требования компетенций задаются в карточке должности.">
       {linkedPositions.length ? (
         <ul className="grid gap-2 sm:grid-cols-2">
           {linkedPositions.map((position) => (
@@ -211,7 +196,7 @@ function ReadOnlyPositions({ positionIds, positions }: { positionIds: string[]; 
       ) : (
         <p className="text-sm text-muted-foreground">Компетенция пока не связана с должностями.</p>
       )}
-    </section>
+    </WorkspacePanel>
   );
 }
 
@@ -227,23 +212,19 @@ function CourseSelector({
   onToggle: (id: string) => void;
 }) {
   return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 font-semibold">
-        <Target className="h-4 w-4 text-primary" />
-        {title}
-      </h2>
+    <WorkspacePanel title={title}>
       <div className="grid gap-2 sm:grid-cols-2">
         {items.map((item) => (
           <label
             key={item.id}
-            className="flex min-w-0 cursor-pointer items-center gap-3 rounded-md border border-border p-3"
+            className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border p-3 ${selected.includes(item.id) ? 'border-primary/30 bg-primary/5' : 'border-border'}`}
           >
             <input type="checkbox" checked={selected.includes(item.id)} onChange={() => onToggle(item.id)} />
-            <span className="truncate text-sm">{item.name}</span>
+            <span className="break-words text-sm">{item.name}</span>
           </label>
         ))}
       </div>
       {!items.length && <p className="text-sm text-muted-foreground">Нет доступных курсов.</p>}
-    </section>
+    </WorkspacePanel>
   );
 }

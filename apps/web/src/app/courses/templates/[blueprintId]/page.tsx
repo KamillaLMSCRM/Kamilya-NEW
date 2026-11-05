@@ -10,6 +10,7 @@ import { LoadError } from '@/components/ui/LoadError';
 import { toast } from '@/components/ui/Toast';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
+import { WorkspacePage, WorkspacePageHeader, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import {
   adaptationResumeStep,
   buildAdaptationSteps,
@@ -222,35 +223,28 @@ function BlueprintPageContent() {
   };
 
   if (loading) {
-    return <div className="flex min-h-80 items-center justify-center text-muted-foreground">{t('common.loading')}</div>;
+    return <WorkspacePage id="course-blueprint"><WorkspacePanel><div role="status" className="flex min-h-64 items-center justify-center text-muted-foreground">{t('common.loading')}</div></WorkspacePanel></WorkspacePage>;
   }
   if (loadError || !blueprint) {
     return (
-      <LoadError
+      <WorkspacePage id="course-blueprint"><LoadError
         title={t('courses.blueprint.loadFailed')}
         message={loadError || t('courses.blueprint.loadFailed')}
         retryLabel={t('common.retry')}
         onRetry={() => void load()}
-      />
+      /></WorkspacePage>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-12">
+    <WorkspacePage id="course-blueprint" className="mx-auto max-w-7xl pb-12">
       <Link href="/courses" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         {t('courses.blueprint.back')}
       </Link>
 
-      <header className="overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-card to-accent/10 p-6 shadow-card sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-              {t('courses.blueprint.badge')}
-            </div>
-             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{blueprint.title}</h1>
-             <p className="mt-3 text-muted-foreground">{blueprint.description}</p>
+      <WorkspacePageHeader title={blueprint.title} icon={<ShieldCheck />} eyebrow={t('courses.blueprint.badge')} description={<>
+             <p>{blueprint.description}</p>
              <p className="mt-3 text-sm font-medium text-foreground">{blueprint.audience}</p>
              {blueprint.applicability && (
                <p className="mt-2 text-sm text-muted-foreground">{blueprint.applicability}</p>
@@ -264,11 +258,39 @@ function BlueprintPageContent() {
                      : t('courses.blueprint.complianceModes.lmsOnly')}
                </span>
              )}
+      </>} />
+
+      <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.55fr)]">
+      <WorkspacePanel>
+        <div className="flex items-start gap-3">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+          <div>
+            <h2 className="font-semibold">{t(isFinanceBlueprint ? 'courses.blueprint.introTitle' : 'courses.blueprint.genericIntroTitle')}</h2>
+            <p className="mt-2 text-sm leading-6 text-foreground">{t(isFinanceBlueprint ? 'courses.blueprint.introBody' : 'courses.blueprint.genericIntroBody')}</p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{t('courses.blueprint.introNotice')}</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{t('courses.blueprint.introMicrocopy')}</p>
+            <p className="mt-2 text-xs font-medium leading-5 text-foreground">{t('courses.blueprint.methodologistResponsibility')}</p>
           </div>
-          <div className="w-full max-w-xs rounded-2xl border bg-card/90 p-5">
+        </div>
+      </WorkspacePanel>
+      <WorkspacePanel title={t('courses.blueprint.limitationTitle')} className="border-warning/30">
+        <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
+          {blueprint.limitations.map((limitation) => <li key={limitation}>• {limitation}</li>)}
+          {courseId && <li>• {t('courses.blueprint.manualEditWarning')}</li>}
+        </ul>
+      </WorkspacePanel>
+      </div>
+
+      <WorkspaceToolbar className="items-center justify-between gap-5">
+        <div className="min-w-0 flex-1 basis-72">
+          <label className="block text-sm font-semibold" htmlFor="blueprint-course-title">{t('courses.blueprint.courseNameOptional')}</label>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('courses.blueprint.courseNameHint')}</p>
+          <Input id="blueprint-course-title" className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} />
+        </div>
+          <div className="w-full min-w-0 rounded-xl bg-muted/30 p-4 sm:max-w-xs">
             <div className="flex items-end justify-between">
               <span className="text-sm text-muted-foreground">{t('courses.blueprint.readiness')}</span>
-              <strong className="text-3xl text-primary">{readiness}%</strong>
+               <strong className="text-2xl font-semibold tabular-nums text-primary">{readiness}%</strong>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
               <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${readiness}%` }} />
@@ -278,29 +300,10 @@ function BlueprintPageContent() {
               <span>{t('courses.blueprint.tenantPart')}: {completedCount}/{blueprint.checklist.length}</span>
             </div>
           </div>
-        </div>
-      </header>
+      </WorkspaceToolbar>
 
-      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6">
-        <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
-          <div>
-            <h2 className="font-bold">{t(isFinanceBlueprint ? 'courses.blueprint.introTitle' : 'courses.blueprint.genericIntroTitle')}</h2>
-            <p className="mt-1 text-sm text-foreground">{t(isFinanceBlueprint ? 'courses.blueprint.introBody' : 'courses.blueprint.genericIntroBody')}</p>
-            <p className="mt-2 text-sm text-muted-foreground">{t('courses.blueprint.introNotice')}</p>
-            <p className="mt-2 text-xs text-muted-foreground">{t('courses.blueprint.introMicrocopy')}</p>
-            <p className="mt-2 text-xs font-medium text-foreground">{t('courses.blueprint.methodologistResponsibility')}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-2xl border bg-card p-6 shadow-card">
-        <label className="block text-sm font-semibold" htmlFor="blueprint-course-title">{t('courses.blueprint.courseNameOptional')}</label>
-        <p className="mt-1 text-xs text-muted-foreground">{t('courses.blueprint.courseNameHint')}</p>
-        <Input id="blueprint-course-title" className="mt-2" value={title} onChange={(event) => setTitle(event.target.value)} />
-      </section>
-
-       <nav aria-label={t('courses.blueprint.adaptationSteps')} className="grid gap-3">
+      <div data-blueprint-workspace className="grid min-w-0 items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+       <nav aria-label={t('courses.blueprint.adaptationSteps')} className="grid gap-2 sm:grid-cols-2 lg:sticky lg:top-4 lg:grid-cols-1">
          {adaptationSteps.map((step, index) => {
           const complete = !firstMissingId(index);
           const active = index === currentStep;
@@ -327,9 +330,10 @@ function BlueprintPageContent() {
             </button>
           );
         })}
-      </nav>
+       </nav>
 
-      <section className="rounded-2xl border bg-card p-5 shadow-card sm:p-6">
+      <div className="min-w-0 space-y-5">
+      <WorkspacePanel>
         <div className="flex flex-col gap-2 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-xl font-bold">{t(activeStep.titleKey as never)}</h2>
@@ -379,7 +383,7 @@ function BlueprintPageContent() {
             </p>
           )}
         </div>
-      </section>
+      </WorkspacePanel>
 
       {currentStep === adaptationSteps.length - 1 && (
         <section className="rounded-2xl border border-dashed bg-muted/20 p-5 sm:p-6">
@@ -403,13 +407,8 @@ function BlueprintPageContent() {
         </section>
       )}
 
-      {currentStep === adaptationSteps.length - 1 && <section className="rounded-2xl border border-warning/30 bg-warning/5 p-5">
-        <h2 className="font-bold">{t('courses.blueprint.limitationTitle')}</h2>
-        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-          {blueprint.limitations.map((limitation) => <li key={limitation}>• {limitation}</li>)}
-          {courseId && <li>• {t('courses.blueprint.manualEditWarning')}</li>}
-        </ul>
-      </section>}
+      </div>
+      </div>
 
       <div className="sticky bottom-3 rounded-2xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:bottom-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
         <div className="mb-3 text-xs text-muted-foreground sm:mb-0">
@@ -452,13 +451,13 @@ function BlueprintPageContent() {
           )}
         </div>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }
 
 export default function BlueprintPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-80 items-center justify-center">...</div>}>
+    <Suspense fallback={<WorkspacePage id="course-blueprint"><WorkspacePanel><div className="flex min-h-64 items-center justify-center">...</div></WorkspacePanel></WorkspacePage>}>
       <BlueprintPageContent />
     </Suspense>
   );

@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation';
 
 import { Button, Input } from '@/components/ui';
 import { useT } from '@/i18n/useT';
+import { PublicWorkspace, WorkspacePanel } from '@/features/workspace-design';
+import { getPublicWorkspaceCopy } from '@/features/workspace-design/publicCopy';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
 import {
   fetchCertificateVerification,
   formatVerificationDate,
@@ -25,12 +29,13 @@ function statusStyles(status: CertificateVerification['status']): {
   Icon: typeof CheckCircle2;
 } {
   if (status === 'active') return { className: 'border-success/40 bg-success/10 text-success', Icon: CheckCircle2 };
-  if (status === 'expired') return { className: 'border-warning/50 bg-warning/10 text-warning-foreground', Icon: AlertTriangle };
+  if (status === 'expired') return { className: 'border-warning/50 bg-warning/10 text-warning', Icon: AlertTriangle };
   return { className: 'border-destructive/40 bg-destructive/10 text-destructive', Icon: XCircle };
 }
 
 export default function VerificationPanel({ initialNumber }: VerificationPanelProps) {
   const { t, lang } = useT();
+  const copy = getPublicWorkspaceCopy(lang);
   const router = useRouter();
   const [number, setNumber] = useState(initialNumber ? normalizeCertificateNumber(initialNumber) : '');
   const [result, setResult] = useState<CertificateVerification | null>(null);
@@ -78,20 +83,9 @@ export default function VerificationPanel({ initialNumber }: VerificationPanelPr
   const StatusIcon = styles?.Icon;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10 sm:px-6 sm:py-16">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Kamilya LMS</p>
-            <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{t('certificateVerification.title')}</h1>
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-5 shadow-sm sm:p-8">
-          <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">{t('certificateVerification.description')}</p>
+    <PublicWorkspace id="certificate-verification" title={t('certificateVerification.title')} description={t('certificateVerification.description')} icon={<ShieldCheck />} actions={<LanguageSwitcher />}>
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <WorkspacePanel title={t('certificateVerification.numberLabel')} className="lg:sticky lg:top-6">
           <form onSubmit={submit} className="mt-6 space-y-3">
             <label htmlFor="public-certificate-number" className="block text-sm font-medium">
               {t('certificateVerification.numberLabel')}
@@ -113,6 +107,9 @@ export default function VerificationPanel({ initialNumber }: VerificationPanelPr
               </Button>
             </div>
           </form>
+        </WorkspacePanel>
+        <WorkspacePanel title={copy.result} bodyClassName="min-h-40">
+          {state === 'idle' && <p className="text-sm leading-7 text-muted-foreground">{t('certificateVerification.description')}</p>}
 
           {state === 'loading' && (
             <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
@@ -169,8 +166,9 @@ export default function VerificationPanel({ initialNumber }: VerificationPanelPr
               {t('certificateVerification.back')}
             </Button>
           )}
-        </div>
+        </WorkspacePanel>
       </div>
-    </main>
+      <PublicLegalFooter />
+    </PublicWorkspace>
   );
 }

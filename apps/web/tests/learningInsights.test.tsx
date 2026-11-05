@@ -211,7 +211,7 @@ describe('learning insights panel', () => {
       path.join(process.cwd(), 'src/features/learning-insights/LearningInsights.tsx'),
       'utf8',
     );
-    expect(source).toContain("api.get<Array<{ id: string; title: string }>>('/v1/courses')");
+    expect(source).toContain("api.get<Array<{ id: string; title: string }>>('/v1/courses?per_page=100')");
     expect(source).toContain('{canInspectLearning && (');
     expect(featureSource).toContain('setSaving(pendingReviews.has(reviewKey));');
   });

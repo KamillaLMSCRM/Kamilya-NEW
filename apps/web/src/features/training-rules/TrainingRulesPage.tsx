@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Building2, GraduationCap, Plus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from "@/features/workspace-design";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { api } from "@/lib/api";
 import { useT } from "@/i18n/useT";
@@ -198,25 +199,20 @@ export default function TrainingRulesPage() {
   };
 
   if (role !== "methodologist") {
-    return <Card><CardContent className="p-6"><h2 className="text-lg font-semibold">{t("trainingRulesPage.accessDenied")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("trainingRulesPage.methodologistOnly")}</p></CardContent></Card>;
+    return <WorkspacePage id="training-rules"><WorkspacePanel><h2 className="text-lg font-semibold">{t("trainingRulesPage.accessDenied")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("trainingRulesPage.methodologistOnly")}</p></WorkspacePanel></WorkspacePage>;
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold"><GraduationCap className="h-6 w-6 shrink-0" aria-hidden="true" />{t("trainingRulesPage.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("trainingRulesPage.subtitle")}</p>
-      </header>
-
-      <div className="flex min-w-0 flex-wrap gap-2" role="tablist" aria-label={t("trainingRulesPage.scopeLabel")}>
+    <WorkspacePage id="training-rules" title={t("trainingRulesPage.title")} description={t("trainingRulesPage.subtitle")} icon={<GraduationCap />}>
+      <WorkspaceToolbar role="tablist" aria-label={t("trainingRulesPage.scopeLabel")} className="gap-2">
         {SCOPES.map((item) => (
-          <button key={item} type="button" role="tab" aria-selected={scope === item} onClick={() => setScopeFromUrl(item)} className={`min-h-10 rounded-md border px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scope === item ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
+          <button key={item} type="button" role="tab" aria-selected={scope === item} onClick={() => setScopeFromUrl(item)} className={`min-h-10 rounded-xl border px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${scope === item ? "border-primary/30 bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
             {t(`trainingRulesPage.scopes.${item}` as never)}
           </button>
         ))}
-      </div>
+      </WorkspaceToolbar>
 
-      {loading ? <p className="text-sm text-muted-foreground">{t("trainingRulesPage.loading")}</p> : scope === "position" ? (
+      {loading ? <WorkspacePanel><p role="status" className="text-sm text-muted-foreground">{t("trainingRulesPage.loading")}</p></WorkspacePanel> : scope === "position" ? (
         <PositionOverview positions={positions} t={t} />
       ) : (
         <RuleEditor
@@ -239,7 +235,7 @@ export default function TrainingRulesPage() {
         />
       )}
       {dialog}
-    </div>
+    </WorkspacePage>
   );
 }
 

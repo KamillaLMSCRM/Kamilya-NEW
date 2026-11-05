@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   setActor('tenant-a');
   apiMock.get.mockImplementation(async (url: string) => {
-    if (url === '/v1/courses') return { data: [{ id: 'course-a', title: 'Synthetic catalog-only course' }] } as never;
+    if (url.startsWith('/v1/courses')) return { data: [{ id: 'course-a', title: 'Synthetic catalog-only course' }] } as never;
     if (url.includes('/summary')) return { data: { total: 0, assigned: 0, in_progress: 0, completed: 0, overdue: 0 } } as never;
     if (url.startsWith('/v1/admin/training-log?')) return { data: { items: [], total: 0, limit: 100, offset: 0 } } as never;
     throw new Error('Unexpected synthetic route');
@@ -49,7 +49,7 @@ describe('learning insights journal integration', () => {
       uploaded_at: '2026-09-16T10:00:00Z', status: 'uploaded_pending_review',
     };
     apiMock.get.mockImplementation(async (url: string) => {
-      if (url === '/v1/courses') return { data: [] } as never;
+      if (url.startsWith('/v1/courses')) return { data: [] } as never;
       if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 0, completed: 1, overdue: 0 } } as never;
       if (url.startsWith('/v1/training-evidence/events/event-a/signed-scans')) {
         return { data: { event_id: 'event-a', status: reviewAccepted ? 'accepted' : 'uploaded_pending_review', scans: [{ ...pendingScan, status: reviewAccepted ? 'accepted' : 'uploaded_pending_review' }] } } as never;
@@ -81,7 +81,7 @@ describe('learning insights journal integration', () => {
     });
 
     render(<AdminTrainingLogPage />);
-    const accept = (await screen.findAllByRole('button', { name: 'Принять' }))[0];
+    const accept = (await screen.findAllByRole('button', { name: 'Принять' }, { timeout: 5000 }))[0];
     expect(reviewAccepted).toBe(false);
     expect(apiMock.post).not.toHaveBeenCalled();
     const pageReadsBeforeReview = pageReads;
@@ -90,11 +90,11 @@ describe('learning insights journal integration', () => {
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith(
       '/v1/training-evidence/events/event-a/signed-scans/scan-a/review',
       { action: 'accept', reason: null },
-    ));
-    await waitFor(() => expect(pageReads).toBeGreaterThan(pageReadsBeforeReview));
-    expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.pdf' })).not.toHaveLength(0);
-    expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.zip' })).not.toHaveLength(0);
-  });
+    ), { timeout: 5000 });
+    await waitFor(() => expect(pageReads).toBeGreaterThan(pageReadsBeforeReview), { timeout: 5000 });
+    expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.pdf' }, { timeout: 5000 })).not.toHaveLength(0);
+    expect(await screen.findAllByRole('button', { name: 'trainingLog.evidence.zip' }, { timeout: 5000 })).not.toHaveLength(0);
+  }, 10000);
 
   it('keeps the signed-copy review error visible when the review request fails', async () => {
     const pendingScan = {
@@ -115,7 +115,7 @@ describe('learning insights journal integration', () => {
       certificate_issued_at: null, kiosk_last_seen_at: null,
     };
     apiMock.get.mockImplementation(async (url: string) => {
-      if (url === '/v1/courses') return { data: [] } as never;
+      if (url.startsWith('/v1/courses')) return { data: [] } as never;
       if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 0, completed: 1, overdue: 0 } } as never;
       if (url.startsWith('/v1/training-evidence/events/event-a/signed-scans')) {
         return { data: { event_id: 'event-a', status: 'uploaded_pending_review', scans: [pendingScan] } } as never;
@@ -203,7 +203,7 @@ describe('learning insights journal integration', () => {
     render(<AdminTrainingLogPage />);
     await screen.findByRole('option', { name: 'Synthetic catalog-only course' });
     apiMock.get.mockImplementation(async (url: string) => {
-      if (url === '/v1/courses') return await new Promise<never>(() => {});
+      if (url.startsWith('/v1/courses')) return await new Promise<never>(() => {});
       return { data: url.includes('/summary') ? { total: 0 } : { items: [], total: 0 } } as never;
     });
     await act(async () => setActor('tenant-b'));

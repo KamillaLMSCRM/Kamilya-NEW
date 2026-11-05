@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, Button, Badge } from '@/components/ui';
+import { Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import Link from 'next/link';
@@ -10,6 +10,7 @@ import { useLanguageStore } from '@/store/languageStore';
 import { assignmentSourceLabel, formatAssignmentDueAt, safeResumeHref, selectNextAssignment, studentDailyLearningCopy } from '@/features/student-daily-learning/nextAssignment';
 import { AssignmentDetails } from '@/features/student-daily-learning/AssignmentDetails';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceStat } from '@/features/workspace-design';
 
 interface EnrolledCourse {
   enrollment_id?: string;
@@ -94,27 +95,22 @@ function ScopedStudentDashboard() {
     setRetryNonce((value) => value + 1);
   }, []);
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loading) return <WorkspacePage id="student" title={t('student.title')}><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
   if (!dashboard) return loadError ? (
-    <div className="p-6 space-y-3" role="alert">
+    <WorkspacePage id="student" title={t('student.title')}><WorkspacePanel role="alert" bodyClassName="space-y-3">
       <p>{copy.loadError}</p>
       <Button onClick={retry}>{copy.retry}</Button>
-    </div>
-  ) : <div className="p-6">{t('common.error')}</div>;
+    </WorkspacePanel></WorkspacePage>
+  ) : <WorkspacePage id="student" title={t('student.title')}><WorkspaceEmpty title={t('common.error')} /></WorkspacePage>;
 
   const nextCourse = selectNextAssignment(dashboard.enrolled_courses);
   const nextDueLabel = nextCourse ? formatAssignmentDueAt(nextCourse.assignment_due_at, lang) : null;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t('student.title')}</h1>
-        <p className="text-muted-foreground">{t('dashboard.welcome')}, {dashboard.full_name || t('student.learnerFallback')}!</p>
-      </div>
+    <WorkspacePage id="student" title={t('student.title')} description={<>{t('dashboard.welcome')}, {dashboard.full_name || t('student.learnerFallback')}!</>} icon={<PlayCircle />}>
 
       {nextCourse && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <WorkspacePanel className="overflow-hidden border-primary/25" bodyClassName="flex flex-col gap-5 border-l-4 border-primary bg-primary/5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">{getLearnerWorkspaceCopy(lang).next}</p>
               <h2 className="mt-1 break-words text-lg font-semibold text-foreground">{nextCourse.title}</h2>
@@ -136,52 +132,27 @@ function ScopedStudentDashboard() {
             <Link href={safeResumeHref(nextCourse)} className="shrink-0">
               <Button className="gap-2"><PlayCircle className="h-4 w-4" aria-hidden="true" />{nextCourse.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}</Button>
             </Link>
-          </CardContent>
-        </Card>
+        </WorkspacePanel>
       )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-primary">{dashboard.total_courses}</div>
-            <div className="text-sm text-muted-foreground">{t('courses.title')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-success">{dashboard.completed_courses}</div>
-            <div className="text-sm text-muted-foreground">{t('student.completed')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-warning">{dashboard.total_progress_percent}%</div>
-            <div className="text-sm text-muted-foreground">{t('dashboard.overallProgress')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-3xl font-bold text-accent">{dashboard.certificates_count}</div>
-            <div className="text-sm text-muted-foreground">{t('dashboard.certificatesCount')}</div>
-          </CardContent>
-        </Card>
+        <WorkspaceStat label={t('courses.title')} value={dashboard.total_courses} />
+        <WorkspaceStat label={t('student.completed')} value={dashboard.completed_courses} tone="success" />
+        <WorkspaceStat label={t('dashboard.overallProgress')} value={dashboard.total_progress_percent == null ? null : `${dashboard.total_progress_percent}%`} />
+        <WorkspaceStat label={t('dashboard.certificatesCount')} value={dashboard.certificates_count} />
       </div>
 
       <div>
         <h2 className="text-lg font-semibold mb-4">{t('student.enrolledCourses')}</h2>
         {dashboard.enrolled_courses.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
-              <p className="text-muted-foreground">{t('student.noCourses')}</p>
-            </CardContent>
-          </Card>
+          <WorkspaceEmpty title={t('student.noCourses')} icon={<PlayCircle />} />
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {dashboard.enrolled_courses.map((course, index) => (
-              <Card key={course.enrollment_id || `${course.course_id}:${index}`} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
+              <WorkspacePanel key={course.enrollment_id || `${course.course_id}:${index}`} className="transition-shadow hover:shadow-md" bodyClassName="h-full">
+                <article className="flex h-full min-w-0 flex-col">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium line-clamp-2">{course.title}</h3>
+                    <h3 className="min-w-0 break-words font-semibold">{course.title}</h3>
                     {course.enrollment_status === 'completed' ? (
                       <Badge variant="default" className="flex items-center gap-1 bg-success/15 text-success">
                         <CheckCircle2 className="w-3 h-3" />
@@ -210,7 +181,7 @@ function ScopedStudentDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4 [&_button]:h-auto [&_button]:min-h-11 [&_button]:py-2 [&_button]:whitespace-normal">
                     {course.can_resume === false ? (
                       <p className="text-sm text-muted-foreground" role="status">{copy.assignmentAccessRequired}</p>
                     ) : (
@@ -230,12 +201,12 @@ function ScopedStudentDashboard() {
                       </Link>
                     )}
                   </div>
-                </CardContent>
-              </Card>
+                </article>
+              </WorkspacePanel>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </WorkspacePage>
   );
 }

@@ -6,7 +6,7 @@ import { buildMethodologistDashboard, type DashboardCourse, type DashboardJob, t
 export async function loadMethodologistDashboard(signal: AbortSignal): Promise<MethodologistDashboardModel> {
   const [learning, courses, jobs, mandatory] = await Promise.allSettled([
     getLearningActionCenter(undefined, signal),
-    api.get<DashboardCourse[]>('/v1/courses', { signal }),
+    api.get<DashboardCourse[]>('/v1/courses?per_page=100', { signal }),
     api.get<DashboardJob[]>('/v1/ai/jobs', { signal }),
     api.get<MandatoryTrainingSummary>('/v1/admin/mandatory-training/summary', { signal }),
   ]);

@@ -63,7 +63,8 @@
   /* The product workspace follows the reviewed prototypes. Keeping these on the
      root only while the authenticated shell is present also themes body portals,
      without recolouring public pages or leaving a JS-managed theme behind. */
-  :root:has([data-app-workspace]) {
+  :root:has([data-app-workspace]),
+  :root:has([data-design-system="workspace-v2"]) {
     --background: 228 33% 97%;
     --foreground: 218 43% 16%;
     --card: 0 0% 100%;
@@ -94,7 +95,8 @@
 
   /* Attribute matching keeps this base rule in generated CSS even when no
      application source contains the literal `dark` class (only runtime use). */
-  :root[class~="dark"]:has([data-app-workspace]) {
+  :root[class~="dark"]:has([data-app-workspace]),
+  :root[class~="dark"]:has([data-design-system="workspace-v2"]) {
     --background: 222 40% 10%;
     --foreground: 220 33% 94%;
     --card: 220 29% 14%;
@@ -283,10 +285,22 @@
   letter-spacing: -0.025em;
 }
 
+[data-design-system='workspace-v2'] .grain::before {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-workspace *,
   .app-workspace *::before,
   .app-workspace *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  [data-design-system='workspace-v2'] *,
+  [data-design-system='workspace-v2'] *::before,
+  [data-design-system='workspace-v2'] *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

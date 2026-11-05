@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Building2, CheckCircle2, Mail, ShieldCheck, Sparkles } from 'lucide-react';
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import { Badge, Button, Input } from '@/components/ui';
+import { WorkspacePanel } from '@/features/workspace-design';
 import { Logo } from '@/components/brand/Logo';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -146,11 +147,11 @@ export default function TenantRegisterPage() {
   }
 
   return (
-    <main id="main-content" className="relative min-h-screen bg-background">
+    <main id="main-content" data-redesign-page="register-tenant" className="relative min-h-dvh bg-background">
       <div className="absolute right-4 top-4 z-10">
         <LanguageSwitcher />
       </div>
-      <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 lg:grid-cols-[1fr_420px] lg:items-center lg:px-8">
+      <div className="mx-auto grid min-h-dvh w-full max-w-6xl grid-cols-1 gap-8 px-4 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-center lg:gap-12 lg:px-8">
         <section className="space-y-6">
           <div className="flex items-center gap-3">
             <Logo variant="full" size={44} />
@@ -167,50 +168,26 @@ export default function TenantRegisterPage() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">{t('publicUi.registration.generationTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                {t('publicUi.registration.generationDescription')}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">{t('publicUi.registration.learnersTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                {t('publicUi.registration.learnersDescription')}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="p-4 pb-2">
-                <Building2 className="h-5 w-5 text-primary" aria-hidden="true" />
-                <CardTitle className="text-sm">{t('publicUi.registration.workspaceTitle')}</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
-                {t('publicUi.registration.workspaceDescription')}
-              </CardContent>
-            </Card>
+            <WorkspacePanel bodyClassName="space-y-2 p-4">
+              <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2 className="text-sm font-semibold">{t('publicUi.registration.generationTitle')}</h2>
+              <p className="text-sm leading-6 text-muted-foreground">{t('publicUi.registration.generationDescription')}</p>
+            </WorkspacePanel>
+            <WorkspacePanel bodyClassName="space-y-2 p-4">
+              <ShieldCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2 className="text-sm font-semibold">{t('publicUi.registration.learnersTitle')}</h2>
+              <p className="text-sm leading-6 text-muted-foreground">{t('publicUi.registration.learnersDescription')}</p>
+            </WorkspacePanel>
+            <WorkspacePanel bodyClassName="space-y-2 p-4">
+              <Building2 className="h-5 w-5 text-primary" aria-hidden="true" />
+              <h2 className="text-sm font-semibold">{t('publicUi.registration.workspaceTitle')}</h2>
+              <p className="text-sm leading-6 text-muted-foreground">{t('publicUi.registration.workspaceDescription')}</p>
+            </WorkspacePanel>
           </div>
         </section>
 
-        <Card className="w-full">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-xl">{t('publicUi.registration.formTitle')}</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t('publicUi.registration.formDescription')}
-                </p>
-              </div>
-
-              <Building2 className="h-6 w-6 text-primary" aria-hidden="true" />
-            </div>
-          </CardHeader>
-          <CardContent>
+        <WorkspacePanel title={t('publicUi.registration.formTitle')} description={t('publicUi.registration.formDescription')}>
+          <div className="space-y-4">
             {error && (
               <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
                 {error}
@@ -434,8 +411,8 @@ export default function TenantRegisterPage() {
                 {t('publicUi.registration.sharedDemo')}
               </Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </WorkspacePanel>
       </div>
       <PublicLegalFooter />
     </main>

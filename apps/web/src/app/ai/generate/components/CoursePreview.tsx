@@ -159,20 +159,20 @@ export function CoursePreviewTree({
         const moduleBusy = busyTargetId === m.id;
         return (
           <li key={m.id}>
-            <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
+            <div className="flex min-w-0 flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/20 sm:flex-row sm:flex-wrap sm:items-center">
               <button
                 type="button"
                 onClick={() => toggle(m.id)}
                 aria-expanded={isOpen}
-                className="flex flex-1 items-center gap-3 text-left min-w-0"
+                className="flex min-h-10 min-w-0 flex-1 items-center gap-3 text-left sm:basis-64"
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
                   {mi + 1}
                 </span>
                 <span className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-foreground truncate">{m.title}</div>
+                  <div className="break-words text-sm font-semibold leading-6 text-foreground">{m.title}</div>
                   {m.description && (
-                    <div className="text-xs text-muted-foreground truncate">{m.description}</div>
+                    <div className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{m.description}</div>
                   )}
                 </span>
                 <span className="shrink-0 text-[11px] text-muted-foreground">
@@ -183,11 +183,11 @@ export function CoursePreviewTree({
                   aria-hidden="true"
                 />
               </button>
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                 <button
                   type="button"
                   onClick={() => onFocusChat("module", m.id)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   title={t('authenticatedUi.coursePreview.askModule')}
                 >
                   <MessageSquare className="w-3 h-3" />
@@ -197,7 +197,7 @@ export function CoursePreviewTree({
                   type="button"
                   onClick={() => onRegenerateModule(m.id, m.title)}
                   disabled={moduleBusy || !!busyTargetId}
-                  className="inline-flex items-center gap-1 rounded-lg border border-warning/40 bg-warning/10 px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs font-medium text-warning transition-colors hover:bg-warning/15 disabled:opacity-50"
                 >
                   {moduleBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                   {t('authenticatedUi.coursePreview.regenerate')}
@@ -205,7 +205,7 @@ export function CoursePreviewTree({
               </div>
             </div>
             {isOpen && (
-              <ul role="list" className="bg-muted/30 divide-y divide-border">
+              <ul role="list" className="divide-y divide-border bg-muted/15">
                 {m.lessons?.length ? (
                   m.lessons.map((l: any, li: number) => {
                     const lessonBusy = busyTargetId === l.id;
@@ -215,7 +215,7 @@ export function CoursePreviewTree({
                       ? editLessonError.message
                       : null;
                     return (
-                      <li key={l.id} className="px-4 py-3 pl-14 space-y-1.5">
+                      <li key={l.id} className="space-y-2 px-4 py-5 sm:pl-10 sm:pr-5">
                         <div className="flex items-start gap-2">
                           <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">{mi + 1}.{li + 1}</span>
                           <div className="flex-1 min-w-0">
@@ -261,12 +261,12 @@ export function CoursePreviewTree({
                               </div>
                             ) : (
                               <>
-                                <div className="flex items-center gap-2">
-                                  <div className="text-sm font-medium text-foreground truncate flex-1 min-w-0">{l.title}</div>
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <div className="w-full min-w-0 break-words text-sm font-semibold leading-6 text-foreground">{l.title}</div>
                                   <button
                                     type="button"
                                     onClick={() => onFocusChat("lesson", l.id)}
-                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
+                                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                     title={t('authenticatedUi.coursePreview.askLesson')}
                                   >
                                     <MessageSquare className="w-2.5 h-2.5" />
@@ -276,7 +276,7 @@ export function CoursePreviewTree({
                                     type="button"
                                     onClick={() => onEditLesson(l.id)}
                                     disabled={!!busyTargetId || !!loadingLessonId}
-                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50 shrink-0"
+                                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                                     title={t('authenticatedUi.coursePreview.editLesson')}
                                   >
                                     {lessonLoading ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <PenLine className="w-2.5 h-2.5" />}
@@ -286,14 +286,14 @@ export function CoursePreviewTree({
                                     type="button"
                                     onClick={() => onRegenerateLesson(l.id, l.title)}
                                     disabled={lessonBusy || !!busyTargetId}
-                                    className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-warning hover:bg-warning/15 transition-colors disabled:opacity-50 shrink-0"
+                                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs font-medium text-warning transition-colors hover:bg-warning/15 disabled:opacity-50"
                                   >
                                     {lessonBusy ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
                                     {t('authenticatedUi.coursePreview.regenerate')}
                                   </button>
                                 </div>
                                 {l.content_preview && (
-                                  <p className="text-xs text-muted-foreground line-clamp-3 mt-1 leading-relaxed">
+                                  <p className="mt-3 line-clamp-3 text-sm leading-6 text-muted-foreground">
                                     {formatLessonPreview(l.content_preview, l.title)}
                                   </p>
                                 )}

@@ -37,6 +37,7 @@ import {
 import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 import { GenerationProgressPanel } from '@/features/ai-generation/GenerationProgressPanel';
 import { useGenerationWorkflow } from '@/features/ai-generation/useGenerationWorkflow';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import {
   SourceReuseDialog,
   type ReusedSourceCourse,
@@ -188,10 +189,12 @@ export default function AIGeneratePage() {
   const [language, setLanguage] = useState('ru');
   const [requestedProgramId, setRequestedProgramId] = useState<string | null>(null);
   const workflowRequestKeyRef = useRef<() => string>(() => 'initial');
+  const [requestedJobId, setRequestedJobId] = useState<string | null>(null);
   const {
     currentJob,
     programId,
     step: workflowStep,
+    requestedJobMissing,
     restoreActiveJob,
     startJob,
     refreshJob,
@@ -200,7 +203,7 @@ export default function AIGeneratePage() {
     resumeReconciliation,
     prepareRetry,
     resetWorkflow,
-  } = useGenerationWorkflow(requestedProgramId, () => workflowRequestKeyRef.current());
+  } = useGenerationWorkflow(requestedProgramId, () => workflowRequestKeyRef.current(), requestedJobId);
   const step = currentJob ? workflowStep : pageStep;
   const savedAssessmentDraftId = (
     currentJob?.status === 'interrupted'
@@ -379,8 +382,19 @@ export default function AIGeneratePage() {
   }, [documentIndexProgress]);
 
   useEffect(() => {
-    const contextualProgramId = new URLSearchParams(window.location.search).get('program_id')?.trim();
-    setRequestedProgramId(contextualProgramId || null);
+    const params = new URLSearchParams(window.location.search);
+    setRequestedProgramId(params.get('program_id')?.trim() || null);
+    setRequestedJobId(params.get('job_id')?.trim() || null);
+  }, []);
+
+  const clearRequestedJobQuery = useCallback(() => {
+    setRequestedJobId(null);
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('job_id')) return;
+    params.delete('job_id');
+    const query = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
   }, []);
 
   useEffect(() => {
@@ -688,6 +702,7 @@ export default function AIGeneratePage() {
       setLanguageConfirmation({ open: false, detectedLanguages: [] });
       setAcknowledgements({ languageConfirmed: false, reuseReason: null });
       startJob(res.data);
+      clearRequestedJobQuery();
     } catch (e: any) {
       if (!generationPageMountedRef.current || scopeKeyRef.current !== requestScopeKey || scopeRevisionRef.current !== requestScopeRevision) return;
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
@@ -862,11 +877,13 @@ export default function AIGeneratePage() {
   const retryGeneration = () => {
     setPageStep('documents');
     prepareRetry();
+    clearRequestedJobQuery();
   };
 
   const createNewCourse = () => {
     setPageStep('documents');
     resetWorkflow();
+    clearRequestedJobQuery();
     setSelectedDocIds([]);
     setTargetAudience('');
     setCourseIntent('');
@@ -1108,15 +1125,15 @@ export default function AIGeneratePage() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-foreground font-display">{t('ai.title')}</h1>
+    <WorkspacePage id="ai-generation" className="mx-auto max-w-7xl" title={t('ai.title')} icon={<Layers3 />}>
 
       {/* Step indicator */}
-      <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:gap-4">
+      <WorkspaceToolbar className="grid grid-cols-3 items-center gap-2 sm:gap-4">
         {stepConfig.map((s, i) => (
           <div
             key={s.key}
-            className="flex min-w-0 flex-col items-center gap-1 text-center sm:flex-row sm:gap-2 sm:text-left"
+            aria-current={step === s.key ? 'step' : undefined}
+            className="flex min-w-0 flex-col items-center gap-2 text-center sm:flex-row sm:gap-3 sm:text-left"
           >
             <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
               step === s.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -1133,7 +1150,13 @@ export default function AIGeneratePage() {
             )}
           </div>
         ))}
-      </div>
+      </WorkspaceToolbar>
+
+      {requestedJobMissing && (
+        <div className="mb-4 rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground" role="status">
+          {t('aiGeneration.errors.jobContextMissing')}
+        </div>
+      )}
 
       {/* STEP 1: Documents */}
       {admissionError && (
@@ -1219,7 +1242,8 @@ export default function AIGeneratePage() {
         </div>
       )}
       {step === 'documents' && (
-        <div className="space-y-4">
+        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.65fr)]">
+          <WorkspacePanel title={t('aiGeneration.steps.documents')} bodyClassName="space-y-4">
           <section className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-display text-sm font-bold text-foreground">{t('documents.youtubeSourceTitle')}</h3>
@@ -1246,7 +1270,7 @@ export default function AIGeneratePage() {
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            className={`rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition-all ${
+            className={`rounded-2xl border-2 border-dashed bg-muted/20 p-6 text-center cursor-pointer transition-all ${
               dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-border hover:bg-muted'
             }`}
           >
@@ -1333,7 +1357,7 @@ export default function AIGeneratePage() {
                       : doc.index_status === 'partial'
                         ? doc.embedding_error || t('aiGeneration.documents.partialTitle')
                         : undefined}
-                    className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${
+                    className={`flex min-w-0 flex-wrap items-center gap-3 rounded-xl border p-3 transition-all sm:flex-nowrap ${
                       isSelected
                         ? 'border-primary bg-primary/5'
                         : isReady
@@ -1350,7 +1374,7 @@ export default function AIGeneratePage() {
                       aria-label={t('aiGeneration.documents.selectAria', { title: doc.title })}
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
                         <div className="text-sm font-medium text-foreground truncate">{doc.title}</div>
                         <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium ${documentStatusClass(doc.index_status)}`}>
                           {doc.index_status === 'failed' ? 'Без поискового индекса' : documentStatusLabel(doc.index_status)}
@@ -1390,7 +1414,7 @@ export default function AIGeneratePage() {
                         <div className="text-xs text-muted-foreground truncate">{doc.description}</div>
                       ) : null}
                     </div>
-                    <div className="text-xs text-muted-foreground shrink-0 max-w-[180px] truncate">{doc.filename}</div>
+                    <div className="ml-7 max-w-full truncate text-xs text-muted-foreground sm:ml-0 sm:max-w-[130px] sm:shrink-0">{doc.filename}</div>
                   </div>
                 );
               })}
@@ -1503,9 +1527,10 @@ export default function AIGeneratePage() {
             </section>
           )}
 
-          {/* Config */}
-          <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-            <h3 className="font-bold text-foreground font-display">{t('aiGeneration.generation.settings')}</h3>
+          </WorkspacePanel>
+          {/* Config and its admission action stay together beside the sources. */}
+          <div className="min-w-0 space-y-4">
+          <WorkspacePanel title={t('aiGeneration.generation.settings')} bodyClassName="space-y-4">
             <div>
               <label htmlFor="course-intent" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.courseIntent')}</label>
               <textarea
@@ -1618,7 +1643,7 @@ export default function AIGeneratePage() {
                 </div>
               )}
             </details>
-          </div>
+          </WorkspacePanel>
 
           <button
             onClick={() => void handleGenerate()}
@@ -1632,6 +1657,7 @@ export default function AIGeneratePage() {
               {t('aiGeneration.generation.notReady')}
             </div>
           )}
+          </div>
         </div>
       )}
 
@@ -1688,18 +1714,18 @@ export default function AIGeneratePage() {
 
       {/* STEP 3: Review */}
       {step === 'review' && currentJob?.course_id && (
-        <div className="space-y-4">
+        <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
           {/* Completion describes the saved draft, not a quality approval. */}
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
-            <div className="mb-3">
-              <CheckCircle2 className="w-12 h-12 mx-auto text-primary" />
-            </div>
-            <h3 className="font-bold text-foreground font-display text-lg">{t('aiGeneration.result.success')}</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+          <WorkspaceToolbar className="items-center justify-between xl:col-span-2">
+            <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">
+              <CheckCircle2 className="mt-1 h-6 w-6 shrink-0 text-primary" />
+            <div>
+            <h3 className="text-base font-semibold text-foreground">{t('aiGeneration.result.success')}</h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">
               {t('aiGeneration.result.successHint')}
             </p>
-          </div>
-          <div className="flex justify-end">
+            </div>
+            </div>
             <button
               type="button"
               onClick={createNewCourse}
@@ -1708,13 +1734,13 @@ export default function AIGeneratePage() {
               <RefreshCw className="h-4 w-4" />
               Создать новый курс
             </button>
-          </div>
+          </WorkspaceToolbar>
 
           {/* Course meta + review status */}
           {courseMeta && (
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <WorkspacePanel className="xl:col-start-2 xl:row-start-2" bodyClassName="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
-                <h4 className="text-base font-bold text-foreground font-display flex-1 min-w-0 truncate">
+                <h4 className="min-w-0 flex-1 break-words text-lg font-semibold leading-7 text-foreground">
                   {courseMeta.title}
                 </h4>
                 <ReviewBadge status={courseMeta.review_status} />
@@ -1777,17 +1803,17 @@ export default function AIGeneratePage() {
                   </button>
                 </div>
               )}
-            </div>
+            </WorkspacePanel>
           )}
 
           {/* Preview: modules → lessons → quiz headers */}
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="border-b border-border bg-muted/50 px-4 py-3 flex items-center justify-between">
+          <WorkspacePanel padded={false} className="overflow-hidden xl:col-start-1 xl:row-start-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
               <h4 className="text-sm font-bold text-foreground font-display">
                  {t('aiGeneration.result.structure')}
               </h4>
               {preview && (
-                <div className="flex gap-3 text-xs text-muted-foreground">
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                   <span>{tp('common.counts.module', preview.modules_count)}</span>
                   <span>·</span>
                   <span>{tp('common.counts.lesson', preview.lessons_count)}</span>
@@ -1822,11 +1848,11 @@ export default function AIGeneratePage() {
                  {t('aiGeneration.result.emptyStructure')}
               </div>
             )}
-          </div>
+          </WorkspacePanel>
 
           {/* AI Assistant chat panel */}
-          <div className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="border-b border-border bg-muted/50 px-4 py-3 flex items-center justify-between gap-3">
+          <WorkspacePanel padded={false} className="overflow-hidden xl:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
               <div className="flex items-center gap-2 min-w-0">
                 <MessageSquare className="w-4 h-4 text-primary shrink-0" />
                 <h4 className="text-sm font-bold text-foreground font-display truncate">
@@ -1937,7 +1963,7 @@ export default function AIGeneratePage() {
                 }
                 disabled={chatSending}
                 maxLength={2000}
-                className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
+                className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none disabled:opacity-50"
               />
               <button
                 type="button"
@@ -1949,10 +1975,10 @@ export default function AIGeneratePage() {
                  <span className="hidden sm:inline">{t('aiGeneration.chat.send')}</span>
               </button>
             </div>
-          </div>
+          </WorkspacePanel>
 
           {/* Footer actions */}
-          <div className="flex flex-wrap gap-3">
+          <WorkspaceToolbar className="xl:col-span-2">
             {courseMeta?.status === 'published' && programId && (
               <div className={`mb-4 rounded-xl border p-4 ${programAttachState === 'failed' ? 'border-destructive/30 bg-destructive/5' : 'border-primary/20 bg-primary/5'}`} role="status" aria-live="polite">
                 <div className="flex items-start gap-3">
@@ -1995,7 +2021,7 @@ export default function AIGeneratePage() {
             >
                {t('aiGeneration.result.allCourses')}
             </button>
-          </div>
+          </WorkspaceToolbar>
         </div>
       )}
 
@@ -2209,10 +2235,10 @@ export default function AIGeneratePage() {
             />
           </div>
           <div className="text-[11px] text-muted-foreground">
-            {regenJob.stage} · {regenJob.progress}%
+             {regenJob.stage} · {regenJob.progress}%
           </div>
         </div>
       )}
-    </div>
+    </WorkspacePage>
   );
 }

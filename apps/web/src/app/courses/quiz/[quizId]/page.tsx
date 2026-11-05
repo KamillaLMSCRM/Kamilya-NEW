@@ -1,9 +1,11 @@
 'use client';
 
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Card, CardContent, Button, Badge } from '@/components/ui';
+import { Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { isSingleAnswerQuestionType } from '@/lib/quizChoice';
@@ -398,8 +400,8 @@ function ScopedQuizPlayer() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  if (loading && !result) return <div className="p-6">{t('common.loading')}</div>;
-  if (!quiz || (loadError && !result)) return <div className="space-y-3 p-6" role="alert"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchQuiz()}>{t('common.retry')}</Button></div>;
+  if (loading && !result) return <WorkspacePage id="quiz-player"><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
+  if (!quiz || (loadError && !result)) return <WorkspacePage id="quiz-player"><WorkspacePanel bodyClassName="space-y-3" role="alert"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchQuiz()}>{t('common.retry')}</Button></WorkspacePanel></WorkspacePage>;
 
   const currentQ = quiz.questions[currentIdx];
   const totalQuestions = quiz.questions.length;
@@ -424,11 +426,10 @@ function ScopedQuizPlayer() {
   const visibleRemainingSeconds = assignmentRemainingSeconds ?? timeLeft;
 
   return (
-    <div className="min-h-screen bg-muted">
-      <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-6">
+    <WorkspacePage id="quiz-player" className="mx-auto max-w-4xl">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">{result ? copy.result : t('quiz.passScore') + ': ' + quiz.pass_score + '%'}</p><h1 className="break-words text-xl font-bold">{quiz.title}</h1></div>
+        <header className="flex min-w-0 flex-wrap items-start justify-between gap-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+          <div className="min-w-0 flex-1"><p className="mb-2 text-xs font-semibold leading-5 text-primary">{result ? copy.result : t('quiz.passScore') + ': ' + quiz.pass_score + '%'}</p><h1 className="break-words text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{quiz.title}</h1></div>
           <div className="flex items-center gap-4">
             {visibleRemainingSeconds !== null && !result && (
               <div
@@ -452,7 +453,7 @@ function ScopedQuizPlayer() {
               </Badge>
             )}
           </div>
-        </div>
+        </header>
 
         {assignmentBlocked && !result && (
           <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -474,8 +475,7 @@ function ScopedQuizPlayer() {
 
         {/* Results Summary */}
         {result && (
-          <Card className={result.passed ? 'border-success bg-success/10' : 'border-destructive bg-destructive/10'}>
-            <CardContent className="p-6 text-center space-y-3">
+          <WorkspacePanel className={result.passed ? 'border-success/40' : 'border-destructive/40'} bodyClassName="space-y-4 text-center sm:p-8">
               <div className={`${result.passed ? 'text-success' : 'text-destructive'}`}>
                 {result.passed ? <CheckCircle2 className="w-12 h-12 mx-auto" /> : <XCircle className="w-12 h-12 mx-auto" />}
               </div>
@@ -496,7 +496,7 @@ function ScopedQuizPlayer() {
                 {downloadingAttemptId === result.attempt.id ? copy.preparing : copy.download}
               </Button>
               {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
-              <div className="flex flex-wrap gap-3 justify-center mt-4">
+              <div className="mt-6 flex flex-wrap justify-center gap-3 border-t border-border pt-5">
                 {canAttempt && !assignmentBlocked && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
@@ -520,8 +520,7 @@ function ScopedQuizPlayer() {
                   </Link>
                 )}
               </div>
-            </CardContent>
-          </Card>
+          </WorkspacePanel>
         )}
 
         {result?.training_evidence_event_id && user?.role === 'student' && (
@@ -533,22 +532,19 @@ function ScopedQuizPlayer() {
         )}
 
         {result?.passed && !nextLessonHref && (
-          <Card>
-            <CardContent className="space-y-3 p-5">
-              <h2 className="font-semibold">{t('quiz.nextStepsTitle')}</h2>
+          <WorkspacePanel title={t('quiz.nextStepsTitle')} bodyClassName="space-y-3">
               <p className="text-sm text-muted-foreground">
                 {t('quiz.nextStepsDescription')}
               </p>
               <Button onClick={() => router.push(nextLessonHref || courseHref || getRoleHome(user?.role))}>
                 {t('quiz.returnAndComplete')}
               </Button>
-            </CardContent>
-          </Card>
+          </WorkspacePanel>
         )}
 
         {/* Question Navigation */}
         {!result && (
-          <div className="flex flex-wrap gap-2">
+          <WorkspaceToolbar role="navigation" aria-label={t('quiz.questionNumber', { current: currentIdx + 1, total: totalQuestions })} className="gap-2">
             {quiz.questions.map((q, i) => {
               const selected = answers[q.id]?.length > 0;
               return (
@@ -557,7 +553,7 @@ function ScopedQuizPlayer() {
                   aria-current={i === currentIdx ? 'step' : undefined}
                   onClick={() => setCurrentIdx(i)}
                   disabled={attemptBlocked}
-                  className={`w-9 h-9 rounded-full text-sm font-medium border transition-colors ${
+                  className={`h-11 min-w-11 rounded-xl px-3 text-sm font-medium border transition-colors ${
                     i === currentIdx
                       ? 'bg-primary text-primary-foreground border-primary'
                       : selected
@@ -569,18 +565,17 @@ function ScopedQuizPlayer() {
                 </button>
               );
             })}
-          </div>
+          </WorkspaceToolbar>
         )}
 
         {/* Question Display */}
         {currentQ && !result && (
-          <Card>
-            <CardContent className="p-6 space-y-4">
-              <div className="flex items-start gap-2">
+          <WorkspacePanel bodyClassName="space-y-6 sm:p-8">
+              <div className="flex min-w-0 items-start gap-3 border-b border-border pb-5">
                 <span className="text-sm text-muted-foreground shrink-0">
                   {currentIdx + 1}/{totalQuestions}
                 </span>
-                <p className="font-medium">{currentQ.text}</p>
+                <h2 className="min-w-0 break-words text-lg font-semibold leading-7">{currentQ.text}</h2>
               </div>
               <p className="text-xs text-muted-foreground">
                 {t('quiz.points')}: {currentQ.points} · {currentQ.type}
@@ -591,7 +586,7 @@ function ScopedQuizPlayer() {
                   return (
                     <label
                       key={choice.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        className={`flex min-h-12 items-start gap-3 p-4 rounded-xl border cursor-pointer transition-colors ${
                         isSelected ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'
                       }`}
                     >
@@ -601,21 +596,20 @@ function ScopedQuizPlayer() {
                         checked={isSelected}
                         onChange={() => handleSelect(currentQ.id, choice.id, currentQ.type)}
                         disabled={attemptBlocked}
-                        className="shrink-0"
+                        className="mt-1 shrink-0"
                       />
-                      <span>{getChoiceLabel(choice)}</span>
+                      <span className="min-w-0 break-words text-sm leading-6">{getChoiceLabel(choice)}</span>
                     </label>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
+          </WorkspacePanel>
         )}
 
 
         {/* Submit / Navigation */}
         {!result && (
-          <div className="flex items-center justify-between">
+          <WorkspaceToolbar className="items-center justify-between [&_button]:min-h-11 [&_button]:whitespace-normal">
             <Button
               variant="outline"
               onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
@@ -638,7 +632,7 @@ function ScopedQuizPlayer() {
                 {submitting ? t('quiz.submitting') : t('quiz.finish')}
               </Button>
             )}
-          </div>
+          </WorkspaceToolbar>
         )}
         {!result && currentIdx === totalQuestions - 1 && answeredCount < totalQuestions && !attemptBlocked && (
           <p className="text-sm text-muted-foreground" role="status">{t('quiz.answerAllBeforeFinish')}</p>
@@ -646,12 +640,10 @@ function ScopedQuizPlayer() {
 
         {/* Previous Attempts */}
         {!result && attempts.length > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <h3 className="font-medium mb-2">{t('quiz.attempts')} ({attemptsUsed}/{quiz.attempt_limit})</h3>
-              <div className="space-y-1">
+          <WorkspacePanel title={<>{t('quiz.attempts')} ({attemptsUsed}/{quiz.attempt_limit})</>}>
+              <div className="divide-y divide-border">
                 {attempts.map((a) => (
-                  <div key={a.id} className="flex flex-wrap items-center gap-3 text-sm">
+                  <div key={a.id} className="flex flex-wrap items-center gap-3 py-3 text-sm first:pt-0 last:pb-0">
                     <Badge variant={a.passed ? 'default' : 'outline'}>
                       {a.score_percent}%
                     </Badge>
@@ -675,10 +667,8 @@ function ScopedQuizPlayer() {
                 ))}
               </div>
               {downloadError && <p role="alert" className="mt-3 text-sm text-destructive">{downloadError}</p>}
-            </CardContent>
-          </Card>
+          </WorkspacePanel>
         )}
-      </div>
-    </div>
+    </WorkspacePage>
   );
 }

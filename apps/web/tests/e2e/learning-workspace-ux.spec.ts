@@ -142,7 +142,7 @@ for (const viewport of [
       await page.goto(`/courses/${ids.course}/edit?lessonId=${ids.lesson}`);
       const content = page.getByRole('textbox', { name: 'Lesson content', exact: true });
       await expect(content).toHaveValue(lessons[0].content);
-      await expect(page.getByText('No unsaved lesson changes', { exact: true })).toBeVisible();
+      await expect(page.getByText('No unsaved course changes', { exact: true })).toBeVisible();
       await content.fill('Inspect equipment');
       await content.press('ControlOrMeta+A');
       const toolbar = page.getByRole('toolbar', { name: 'Text formatting', exact: true });
@@ -153,7 +153,7 @@ for (const viewport of [
       await page.keyboard.press('ArrowRight');
       await expect(toolbar.getByRole('button', { name: 'Italic', exact: true })).toBeFocused();
       await expect(page.getByRole('status').filter({ hasText: /^Unsaved changes$/ })).toBeVisible();
-      await expect(page.getByText('Save or discard the selected lesson changes before approval or publication.', { exact: true })).toBeVisible();
+      await expect(page.getByText('Save or discard unsaved course changes before approval or publication.', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Approve course', exact: true })).toBeDisabled();
       await page.getByRole('group', { name: 'Lesson view mode', exact: true })
         .getByRole('button', { name: 'Preview', exact: true }).click();
@@ -171,7 +171,7 @@ for (const viewport of [
       });
       await page.getByRole('button', { name: 'Save', exact: true }).click();
       await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible();
-      await expect(page.getByText('No unsaved lesson changes', { exact: true })).toBeVisible();
+      await expect(page.getByText('No unsaved course changes', { exact: true })).toBeVisible();
       expect(workspace.matching('PATCH', `/v1/lessons/${ids.lesson}`)[0].body)
         .toEqual({ title: lessons[0].title, content: '**Inspect equipment**' });
       await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
@@ -277,8 +277,8 @@ for (const viewport of [
       await expect(page.getByRole('heading', { name: 'Course version review', exact: true })).toBeVisible();
       await expect(page.getByText('This is the frozen version three, not a current draft.', { exact: true })).toBeVisible();
       await page.getByText('Snapshot · v3', { exact: true }).click();
-      await expect(page.locator('header details')).toContainText(ids.request);
-      await expect(page.locator('header details')).toContainText(snapshotHash);
+      await expect(page.locator('[data-redesign-page="review-request"] details')).toContainText(ids.request);
+      await expect(page.locator('[data-redesign-page="review-request"] details')).toContainText(snapshotHash);
       await expect(page.getByRole('button', { name: 'Return for changes', exact: true })).toBeDisabled();
       await page.getByRole('button', { name: 'Approve version', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Save the decision for this snapshot?', exact: true });

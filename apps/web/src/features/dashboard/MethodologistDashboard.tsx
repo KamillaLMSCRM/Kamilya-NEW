@@ -18,6 +18,7 @@ import { useLanguageStore } from '@/store/languageStore';
 import { loadMethodologistDashboard } from './api';
 import type { MethodologistDashboardModel } from './model';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
+import { WorkspacePage, WorkspaceToolbar } from '@/features/workspace-design';
 import { buildTrainingLogBrowserHref, type TrainingLogFilters } from '@/app/admin/training-log/query';
 
 const copy = {
@@ -57,7 +58,10 @@ const copy = {
     activeGeneration: 'Генераций идёт',
     generationAttention: 'Генераций с проблемой',
     contentUnavailable: 'Часть данных о контенте недоступна.',
+    coursesTruncated: 'Загружены первые 100 курсов. Общие итоги по курсам неизвестны и показаны как «—».',
+    jobsScope: 'Счётчики генераций относятся к загруженным заданиям. В списке показано не более пяти.',
     noJobs: 'Активных или проблемных генераций нет.',
+    jobsUnavailable: 'Данные о генерациях недоступны. Список не заменён нулём.',
     running: 'В работе',
     jobAttention: 'Требует внимания',
     reconciliationRequired: 'Сохранение или проверка результата',
@@ -65,8 +69,8 @@ const copy = {
     failedGeneration: 'Не удалось создать курс',
     jobStage: 'Этап: {stage}',
     jobRequest: 'заявка {id}',
-    unknownStage: 'подготовка',
-    jobStages: { pending: 'в очереди', processing: 'обработка материалов', architect: 'проектирование структуры', generating: 'генерация содержания', review: 'проверка качества', saving: 'сохранение' },
+    unknownStage: 'этап неизвестен',
+    jobStages: { pending: 'в очереди', queued: 'в очереди', running: 'выполняется', processing: 'обработка материалов', ingestion: 'обработка материалов', architect: 'проектирование структуры', generating: 'генерация содержания', content_generation: 'генерация содержания', review: 'проверка качества', assessment: 'проверка тестов', saving: 'сохранение', completed: 'завершено', failed: 'ошибка', cancelled: 'отменено', interrupted: 'прервано' },
     quickActions: 'Быстрые действия',
     createFromMaterials: 'Создать курс из материалов',
     reviewCourses: 'Проверить курсы',
@@ -112,7 +116,10 @@ const copy = {
     activeGeneration: 'Generations running',
     generationAttention: 'Generations with issues',
     contentUnavailable: 'Some content data is unavailable.',
+    coursesTruncated: 'The first 100 courses are loaded. Course totals are unknown and shown as “—”.',
+    jobsScope: 'Generation counts cover loaded jobs. The list shows at most five.',
     noJobs: 'There are no active or problematic generations.',
+    jobsUnavailable: 'Generation data is unavailable. The list is not shown as zero.',
     running: 'In progress',
     jobAttention: 'Needs attention',
     reconciliationRequired: 'Saving or result verification required',
@@ -120,8 +127,8 @@ const copy = {
     failedGeneration: 'Course generation failed',
     jobStage: 'Stage: {stage}',
     jobRequest: 'request {id}',
-    unknownStage: 'preparation',
-    jobStages: { pending: 'queued', processing: 'processing materials', architect: 'designing structure', generating: 'generating content', review: 'quality review', saving: 'saving' },
+    unknownStage: 'unknown stage',
+    jobStages: { pending: 'queued', queued: 'queued', running: 'running', processing: 'processing materials', ingestion: 'processing materials', architect: 'designing structure', generating: 'generating content', content_generation: 'generating content', review: 'quality review', assessment: 'assessment review', saving: 'saving', completed: 'completed', failed: 'failed', cancelled: 'cancelled', interrupted: 'interrupted' },
     quickActions: 'Quick actions',
     createFromMaterials: 'Create from materials',
     reviewCourses: 'Review courses',
@@ -167,7 +174,10 @@ const copy = {
     activeGeneration: 'Генерация орындалуда',
     generationAttention: 'Мәселелі генерация',
     contentUnavailable: 'Контент деректерінің бір бөлігі қолжетімсіз.',
+    coursesTruncated: 'Алғашқы 100 курс жүктелді. Курстардың жалпы саны белгісіз және «—» түрінде көрсетілген.',
+    jobsScope: 'Генерация сандары жүктелген тапсырмаларға қатысты. Тізімде ең көбі бес тапсырма көрсетіледі.',
     noJobs: 'Белсенді немесе мәселелі генерация жоқ.',
+    jobsUnavailable: 'Генерация деректері қолжетімсіз. Тізім нөлмен ауыстырылмаған.',
     running: 'Орындалуда',
     jobAttention: 'Назар аудару қажет',
     reconciliationRequired: 'Сақтау немесе нәтижені тексеру қажет',
@@ -175,8 +185,8 @@ const copy = {
     failedGeneration: 'Курсты жасау мүмкін болмады',
     jobStage: 'Кезең: {stage}',
     jobRequest: 'өтінім {id}',
-    unknownStage: 'дайындау',
-    jobStages: { pending: 'кезекте', processing: 'материалдарды өңдеу', architect: 'құрылымды жобалау', generating: 'мазмұнды жасау', review: 'сапаны тексеру', saving: 'сақтау' },
+    unknownStage: 'кезең белгісіз',
+    jobStages: { pending: 'кезекте', queued: 'кезекте', running: 'орындалуда', processing: 'материалдарды өңдеу', ingestion: 'материалдарды өңдеу', architect: 'құрылымды жобалау', generating: 'мазмұнды жасау', content_generation: 'мазмұнды жасау', review: 'сапаны тексеру', assessment: 'тесттерді тексеру', saving: 'сақтау', completed: 'аяқталды', failed: 'қате', cancelled: 'тоқтатылды', interrupted: 'үзілді' },
     quickActions: 'Жылдам әрекеттер',
     createFromMaterials: 'Материалдардан курс жасау',
     reviewCourses: 'Курстарды тексеру',
@@ -219,6 +229,7 @@ export function MethodologistDashboard() {
             totalCourses: null,
             publishedCourses: null,
             draftCourses: null,
+            coursesTruncated: false,
             jobsAvailable: false,
             activeJobs: null,
             attentionJobs: null,
@@ -253,36 +264,39 @@ export function MethodologistDashboard() {
   };
 
   return (
-    <div className="space-y-6" data-testid="methodologist-dashboard">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div><h1 className="text-2xl font-bold text-foreground font-display">{m.title}</h1><p className="mt-1 text-sm text-muted-foreground">{m.subtitle}</p></div>
-        <Link href="/ai/generate" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"><FilePlus2 className="h-4 w-4" />{m.newCourse}</Link>
-      </header>
+    <WorkspacePage id="dashboard" data-testid="methodologist-dashboard" title={m.title} description={m.subtitle} icon={<ListChecks />} actions={
+      <Link href="/ai/generate" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"><FilePlus2 className="h-4 w-4" />{m.newCourse}</Link>
+    }>
 
-      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6" aria-label={w.queueTitle}>
-        <h2 className="text-xl font-semibold tracking-tight text-foreground">{w.queueTitle}</h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{w.queueHint}</p>
-        <nav className="mt-4 flex flex-wrap gap-2" aria-label={w.allWork}>
+      <WorkspaceToolbar className="items-center justify-between" aria-label={w.queueTitle}>
+        <div className="min-w-0 flex-1 basis-72"><h2 className="text-base font-semibold tracking-tight text-foreground">{w.queueTitle}</h2>
+        <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{w.queueHint}</p></div>
+        <nav className="flex flex-wrap gap-2" aria-label={w.allWork}>
           {([['all', w.allWork], ['training', w.trainingWork], ['content', w.contentWork]] as const).map(([value, label]) => (
             <button key={value} type="button" aria-pressed={workView === value} onClick={() => setWorkView(value)} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${workView === value ? 'border-primary/30 bg-card text-primary' : 'border-transparent text-muted-foreground hover:bg-card/70'}`}>{label}</button>
           ))}
         </nav>
-      </section>
+      </WorkspaceToolbar>
 
-      {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 animate-spin" />{m.loading}</div>}
+      {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 motion-safe:animate-spin" />{m.loading}</div>}
       {model && !model.learningAvailable && <div role="status" className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" /><p className="min-w-0 flex-1 basis-64">{m.unavailable}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="min-h-10 rounded-lg border border-current/20 px-3 py-2 text-sm font-medium">{w.retry}</button></div>}
 
-      {workView !== 'content' && model?.training && model.attention && <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+      {workView !== 'content' && model?.training && model.attention && <div className="flex min-w-0 flex-col gap-6">
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
           <SectionHeading id="attention-title" title={m.attention} hint={m.attentionHint} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             <Metric label={m.trainingIssues} value={model.attention.trainingIssues} testId="training-issues" href={actionFocusHref('training')} />
             <Metric label={m.weakQuestions} value={model.attention.weakQuestions} href={actionFocusHref('weak_questions')} />
-            <p className="col-span-2 text-xs text-muted-foreground sm:col-span-4">{m.weakQuestionsHint}</p>
             <Metric label={m.openActions} value={model.attention.openActions} testId="open-actions" href={actionFocusHref('open')} />
             <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} href={actionFocusHref('overdue')} />
-            {model.mandatory && <Metric label={m.missingAssignments} value={model.mandatory.missing_enrollment} tone={model.mandatory.missing_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=materialize" />}
-            {model.mandatory && <Metric label={m.staleAssignments} value={model.mandatory.stale_managed_enrollment} tone={model.mandatory.stale_managed_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=review_stale" />}
+            {model.mandatory ? <>
+              <Metric label={m.missingAssignments} value={model.mandatory.missing_enrollment} tone={model.mandatory.missing_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=materialize" />
+              <Metric label={m.staleAssignments} value={model.mandatory.stale_managed_enrollment} tone={model.mandatory.stale_managed_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=review_stale" />
+            </> : <>
+              <Metric label={m.missingAssignments} value="—" testId="mandatory-missing-unavailable" />
+              <Metric label={m.staleAssignments} value="—" testId="mandatory-stale-unavailable" />
+            </>}
+            <p className="text-xs leading-5 text-muted-foreground sm:col-span-2 xl:col-span-3">{m.weakQuestionsHint}</p>
           </div>
           <div className="mt-6 border-t border-border pt-5">
             <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"><h3 className="font-semibold text-foreground">{m.priorityPeople}</h3><Link href={actionCenterHref} className="inline-flex min-w-0 items-center gap-1 text-sm font-medium text-primary hover:underline">{m.allActions}<ArrowRight className="h-4 w-4 shrink-0" /></Link></div>
@@ -293,30 +307,33 @@ export function MethodologistDashboard() {
           </div>
         </section>
 
-        <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="health-title">
+        <section className="grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5 sm:p-6 xl:grid-cols-[minmax(220px,1fr)_minmax(200px,0.7fr)_minmax(0,2fr)] xl:items-center" aria-labelledby="health-title">
           <SectionHeading id="health-title" title={m.health} hint={m.healthHint} icon={<ListChecks className="h-5 w-5" />} tone="primary" />
-          <Link href={trainingLogHref({ status: 'completed' })} className="mt-6 flex items-end justify-between rounded-xl transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`${m.completion}: ${model.training.completed}`}><div><div className="text-4xl font-bold tracking-tight text-foreground">{model.training.completionPercent}%</div><div className="mt-1 text-sm text-muted-foreground">{m.completion}: {model.training.completed} / {model.training.total}</div></div><CheckCircle2 className="h-9 w-9 text-emerald-500" /></Link>
-          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={m.completion} aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.training.completionPercent}><div className="h-full rounded-full bg-emerald-500" style={{ width: `${model.training.completionPercent}%` }} /></div>
-          <div className="mt-6 grid grid-cols-2 gap-x-5 gap-y-4"><MetricCompact label={m.notStarted} value={model.training.notStarted} href={trainingLogHref({ status: 'assigned' })} /><MetricCompact label={m.inProgress} value={model.training.inProgress} href={trainingLogHref({ status: 'in_progress' })} /><MetricCompact label={m.overdue} value={model.training.overdue} testId="training-overdue" danger={model.training.overdue > 0} href={trainingLogHref({ status: 'overdue' })} /><MetricCompact label={m.failed} value={model.training.failed} danger={model.training.failed > 0} href={trainingLogHref({ assessment_status: 'failed' })} /><MetricCompact label={m.exhausted} value={model.training.exhausted} danger={model.training.exhausted > 0} href={trainingLogHref({ assessment_status: 'exhausted' })} /></div>
+          <div><Link href={trainingLogHref({ status: 'completed' })} className="flex items-end justify-between gap-3 rounded-xl transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`${m.completion}: ${model.training.completed}`}><div><div className="text-3xl font-semibold tracking-tight text-foreground">{model.training.completionPercent}%</div><div className="mt-1 text-xs text-muted-foreground">{m.completion}: {model.training.completed} / {model.training.total}</div></div><CheckCircle2 className="h-6 w-6 shrink-0 text-success" /></Link>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={m.completion} aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.training.completionPercent}><div className="h-full rounded-full bg-success" style={{ width: `${model.training.completionPercent}%` }} /></div></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:border-l xl:border-border xl:pl-4"><MetricCompact label={m.notStarted} value={model.training.notStarted} href={trainingLogHref({ status: 'assigned' })} /><MetricCompact label={m.inProgress} value={model.training.inProgress} href={trainingLogHref({ status: 'in_progress' })} /><MetricCompact label={m.overdue} value={model.training.overdue} testId="training-overdue" danger={model.training.overdue > 0} href={trainingLogHref({ status: 'overdue' })} /><MetricCompact label={m.failed} value={model.training.failed} danger={model.training.failed > 0} href={trainingLogHref({ assessment_status: 'failed' })} /><MetricCompact label={m.exhausted} value={model.training.exhausted} danger={model.training.exhausted > 0} href={trainingLogHref({ assessment_status: 'exhausted' })} /></div>
         </section>
       </div>}
 
       {workView !== 'training' && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
         <SectionHeading id="content-title" title={m.content} hint={m.contentHint} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
         {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
-        <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></dl>
+        {model.content.coursesTruncated && <p className="mt-2 text-xs leading-5 text-muted-foreground">{m.coursesTruncated}</p>}
+        {model.content.jobsAvailable && <p className="mt-2 text-xs leading-5 text-muted-foreground">{m.jobsScope}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} href="/courses" /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} href="/courses?status=published" /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} href="/courses?status=draft" /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></div>
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.45fr)]">
-          <div className="rounded-xl border border-border">{model.content.jobs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{m.noJobs}</p> : <ul className="divide-y divide-border">{model.content.jobs.map((job) => {
+          <div className="rounded-xl border border-border">{!model.content.jobsAvailable ? <p className="p-4 text-sm text-muted-foreground">{m.jobsUnavailable}</p> : model.content.jobs.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{m.noJobs}</p> : <ul className="divide-y divide-border">{model.content.jobs.map((job) => {
             const active = job.status === 'pending' || job.status === 'running';
             const reconciliation = job.status === 'reconciliation_required';
             const title = job.course_title || (active || reconciliation ? m.courseGeneration : m.failedGeneration);
+            const statusLabel = reconciliation ? m.reconciliationRequired : active ? m.running : m.jobAttention;
             const details = `${m.jobStage.replace('{stage}', jobStageLabel(job.stage))} · ${m.jobRequest.replace('{id}', job.id.slice(0, 8))}`;
-            return <li key={job.id} className="flex items-center justify-between gap-3 p-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{title}</p><p className="mt-0.5 text-xs text-muted-foreground">{details}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>{reconciliation ? m.reconciliationRequired : active ? m.running : m.jobAttention}</span></li>;
+            return <li key={job.id}><Link href={`/ai/generate?job_id=${encodeURIComponent(job.id)}`} aria-label={`${title}. ${details}. ${statusLabel}`} className="flex min-h-14 items-center justify-between gap-3 p-4 transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{title}</p><p className="mt-0.5 text-xs text-muted-foreground">{details}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${active ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'}`}>{statusLabel}</span><ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /></Link></li>;
           })}</ul>}</div>
           <nav aria-label={m.quickActions} className="space-y-2"><h3 className="mb-3 font-semibold text-foreground">{m.quickActions}</h3><QuickLink href="/ai/generate" label={m.createFromMaterials} icon={<FilePlus2 className="h-4 w-4" />} /><QuickLink href="/courses" label={m.reviewCourses} icon={<BookOpen className="h-4 w-4" />} /><QuickLink href="/training-log" label={m.trainingLog} icon={<Clock3 className="h-4 w-4" />} /></nav>
         </div>
       </section>}
-    </div>
+    </WorkspacePage>
   );
 }
 
@@ -326,8 +343,8 @@ function SectionHeading({ id, title, hint, icon, tone }: { id: string; title: st
 }
 
 function Metric({ label, value, tone = 'default', testId, href }: { label: string; value: number | string; tone?: 'default' | 'danger'; testId?: string; href?: string }) {
-  const className = `flex min-w-0 flex-col rounded-xl border p-3 ${tone === 'danger' ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30' : 'border-border bg-muted/30'}`;
-  const content = <><span className="order-2 mt-1 break-words text-xs leading-4 text-muted-foreground">{label}</span><span className={`order-1 text-2xl font-bold ${tone === 'danger' ? 'text-red-700 dark:text-red-300' : 'text-foreground'}`}>{value}</span></>;
+  const className = `flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${tone === 'danger' ? 'border-destructive/20 bg-destructive/5' : 'border-border bg-muted/20'}`;
+  const content = <><span className="break-words text-xs leading-5 text-muted-foreground">{label}</span><span className={`shrink-0 text-xl font-semibold tabular-nums ${tone === 'danger' ? 'text-destructive' : 'text-foreground'}`}>{value}</span></>;
   return href
     ? <Link data-testid={testId} href={href} aria-label={`${label}: ${value}`} className={`${className} transition hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}>{content}</Link>
     : <div data-testid={testId} className={className}>{content}</div>;

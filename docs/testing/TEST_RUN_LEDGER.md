@@ -5946,3 +5946,28 @@ Completed P28 Fire25replies/738684in97020out/7L38Q NO_GO; exact replay0calls and
 ## 2026-11-05 02:49UTC P29 separated existing phases LOCAL
 
 Rejected all-child assessment/signoff prototype archived, no edit executed. Atomic synthetic4cases/5semantic assertions PASS85.078s16206in1223out; full saved100row audit98.203s31937in5305out findsvisitor with explanation checks retained; independent familybank129.625s33299in6934out findsadmission, optionalchemistry breadth only, representativecooperation NOT_REQUIRED. No gold/handcriticisms in requests, no DB. Explanation purpose+ownership75module/6cycle owned tests PASS. Exact110oldstages6courses replay0calls/samehashes. Full6590PASS63.94s before freshstamp29;10fixture default-ID failures fixed,44focusedPASS2.62s. Baseline1006/2174PASS; finalunit44089/navigation35745 running. No currentDEV/production inference or customerchanges.
+
+
+## RUN-20261105-P31-DESIGN-INTEGRATION
+
+- Backend:7889PASS544skipped57warnings93.10s; after shared source instructions,
+  58focusedPASS3.81s and baselineRuff1004/Mypy2174PASS. No real PG/RLS acceptance.
+- Real service/durable local journal, Luna6/HIGH: guided Standards4L12Q3calls
+  165.469s67377tokens (independent CONTENT GO/source hold); Fire6L18Q4calls
+  301.656s113976tokens (material teaching hold/weak stem); Microcredit11L33Q4calls
+  622.516s268432tokens (material workflows/source hold). No three-course semantic GO.
+- Combined design:153focused/typecheck/lintPASS. First broad run1674PASS1FAIL at
+  async signed-copy accept wait; same test passed isolated, waits raised1→5s with
+  all request/reload/export assertions retained; related54PASS. Second full189files/
+  1675testsPASS222.10s. Later visual review found duplicate approval-policy control;
+  real regression red-before/green-after,53editor testsPASS. Full CI remains required.
+- Built candidate67pagesPASS; Narrow A21PASS/whole-LMS19PASS/draft-review2PASS.
+  Rebuilt after duplicate removal; targeted browser results in task evidence.
+- All browser APIs intercepted synthetic fixtures; real backend authorization,
+  persistence, native worker and deployed journey not inferred. Local build uses
+  loopback API and MUST NOT be deployed as an artifact. No packages/flags upgraded.
+- Prior live DEV906b5a11 controller RECONCILED, sole worker52466039 running0restarts,
+  existing Free/Free/Hobby unchanged. New P31 sourcea416116c independently pushed/
+  read back; no new DEV or production deployment claimed by that receipt.
+- Evidence: .release-evidence/p31-design-integration/ in integration checkout and
+  .release-evidence/p31-editorial-integration-20261105/ in source checkout.

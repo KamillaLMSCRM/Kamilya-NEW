@@ -5,7 +5,8 @@ import { Plus, Save, Users } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { Button, Card, CardContent, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import { toast } from '@/components/ui/Toast';
 import {
   cohortMemberPayload,
@@ -117,31 +118,29 @@ export default function CohortsPage() {
 
   const toggle = (id: string) => setUserIds((list) => list.includes(id) ? list.filter((item) => item !== id) : [...list, id]);
 
-  if (!canManage) return <div className="space-y-2 p-6"><h1 className="text-2xl font-bold">{t('cohorts.title')}</h1><p className="text-sm text-muted-foreground">{t('learningPaths.forbidden')}</p></div>;
-  if (loadState === 'loading') return <div className="p-6">{t('common.loading')}</div>;
-  if (loadState === 'error') return <div className="space-y-3 p-6"><p className="text-sm text-destructive">{t('cohorts.loadFailed')}</p><Button variant="outline" onClick={load}>{t('common.retry')}</Button></div>;
+  if (!canManage) return <WorkspacePage id="cohorts" title={t('cohorts.title')} icon={<Users />} className="p-6"><WorkspacePanel><p className="text-sm text-muted-foreground">{t('learningPaths.forbidden')}</p></WorkspacePanel></WorkspacePage>;
+  if (loadState === 'loading') return <WorkspacePage id="cohorts" title={t('cohorts.title')} icon={<Users />} className="p-6"><WorkspacePanel><p role="status" className="py-8 text-center text-sm text-muted-foreground">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
+  if (loadState === 'error') return <WorkspacePage id="cohorts" title={t('cohorts.title')} icon={<Users />} className="p-6"><WorkspacePanel bodyClassName="space-y-4"><p role="alert" className="text-sm text-destructive">{t('cohorts.loadFailed')}</p><Button variant="outline" onClick={load}>{t('common.retry')}</Button></WorkspacePanel></WorkspacePage>;
 
-  return <div className="mx-auto max-w-7xl space-y-6 p-6">
-    <div>
-      <h1 className="text-2xl font-bold">{t('cohorts.title')}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{t('cohorts.subtitle')}</p>
-      <p className="mt-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+  return <WorkspacePage id="cohorts" title={t('cohorts.title')} description={t('cohorts.subtitle')} icon={<Users />} className="mx-auto max-w-7xl px-4 py-6 sm:px-6" actions={<Button className="gap-2" onClick={resetEditor}><Plus className="h-4 w-4" aria-hidden="true" />{t('cohorts.new')}</Button>}>
+    <WorkspaceToolbar>
+      <p className="text-xs leading-5 text-muted-foreground">
         {t('cohorts.audienceHint')}
       </p>
-    </div>
-    <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-      <Card><CardContent className="space-y-3 p-4">
-        <Button className="w-full gap-2" onClick={resetEditor}><Plus className="h-4 w-4" />{t('cohorts.new')}</Button>
-        {items.map((item) => <button key={item.id} onClick={() => open(item)} className={`w-full rounded-lg border p-3 text-left ${selected?.id === item.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
-          <div className="truncate font-medium">{item.name}</div>
+    </WorkspaceToolbar>
+    <div className="grid items-start gap-6 lg:grid-cols-[minmax(240px,0.35fr)_minmax(0,1fr)]">
+      <WorkspacePanel title={t('cohorts.title')} bodyClassName="space-y-3 max-h-[36rem] overflow-y-auto">
+        {items.map((item) => <button key={item.id} onClick={() => open(item)} aria-pressed={selected?.id === item.id} className={`w-full rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected?.id === item.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'}`}>
+          <div className="break-words font-medium">{item.name}</div>
           <div className="mt-1 text-xs text-muted-foreground">
             {tp('common.counts.participant', item.member_count)}
           </div>
           {item.responsible_user_name && <div className="mt-1 truncate text-xs text-primary">{t('cohorts.responsible')}: {item.responsible_user_name}</div>}
         </button>)}
         {!items.length && <p className="p-3 text-sm text-muted-foreground">{t('cohorts.empty')}</p>}
-      </CardContent></Card>
-      <Card><CardContent className="space-y-5 p-6">
+      </WorkspacePanel>
+      <div className="min-w-0 space-y-5">
+      <WorkspacePanel title={selected?.name || t('cohorts.new')} bodyClassName="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2 text-sm font-medium">{t('cohorts.name')}<Input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('cohorts.namePlaceholder')} /></label>
           <label className="space-y-2 text-sm font-medium">{t('cohorts.description')}<Input value={description} onChange={(event) => setDescription(event.target.value)} /></label>
@@ -154,15 +153,16 @@ export default function CohortsPage() {
           </select>
           <span className="block text-xs font-normal text-muted-foreground">{t('cohorts.responsibleHint')}</span>
         </label>
-        {selected ? <>
+      </WorkspacePanel>
+        {selected ? <WorkspacePanel title={t('cohorts.members')} bodyClassName="space-y-5">
           <Selector title={t('cohorts.members')} items={users} selected={userIds} onToggle={toggle} />
-          <div className="flex justify-end"><Button variant="outline" onClick={saveMembers} disabled={saving} className="gap-2"><Save className="h-4 w-4" />{t('cohorts.save')}</Button></div>
-        </> : <div className="flex justify-end"><Button onClick={create} disabled={saving || !name.trim()}>{t('cohorts.create')}</Button></div>}
-      </CardContent></Card>
+          <div className="flex justify-end border-t border-border pt-4"><Button onClick={saveMembers} disabled={saving} className="gap-2"><Save className="h-4 w-4" aria-hidden="true" />{t('cohorts.save')}</Button></div>
+        </WorkspacePanel> : <div className="flex justify-end"><Button onClick={create} disabled={saving || !name.trim()}>{t('cohorts.create')}</Button></div>}
+      </div>
     </div>
-  </div>;
+  </WorkspacePage>;
 }
 
 function Selector({ title, items, selected, onToggle }: { title: string; items: Option[]; selected: string[]; onToggle: (id: string) => void }) {
-  return <section><h2 className="mb-3 flex items-center gap-2 font-semibold"><Users className="h-4 w-4 text-primary" />{title}</h2><div className="grid max-h-64 gap-2 overflow-y-auto sm:grid-cols-2">{items.map((item) => <label key={item.id} className="flex cursor-pointer items-center gap-3 rounded-lg border border-border p-3"><input type="checkbox" checked={selected.includes(item.id)} onChange={() => onToggle(item.id)} /><span className="truncate text-sm">{item.name}</span></label>)}</div></section>;
+  return <div role="group" aria-label={title} className="grid max-h-80 gap-2 overflow-y-auto sm:grid-cols-2">{items.map((item) => <label key={item.id} className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-xl border p-3 ${selected.includes(item.id) ? 'border-primary/30 bg-primary/5' : 'border-border'}`}><input className="mt-1 shrink-0" type="checkbox" checked={selected.includes(item.id)} onChange={() => onToggle(item.id)} /><span className="break-words text-sm">{item.name}</span></label>)}</div>;
 }

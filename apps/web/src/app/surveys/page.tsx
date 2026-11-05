@@ -5,7 +5,8 @@ import { MessageSquare, Plus, Send } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { Button, Card, CardContent, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import { toast } from '@/components/ui/Toast';
 
 type Survey = { id: string; course_id: string; title: string; status: string; question_count: number };
@@ -23,12 +24,17 @@ export default function SurveysPage() {
   const [courseId, setCourseId] = useState('');
   const [question, setQuestion] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
     try {
       if (manager) { const [surveys, courseList] = await Promise.all([api.get<Survey[]>('/v1/surveys'), api.get<any[]>('/v1/courses')]); setItems(surveys.data); setCourses(courseList.data.map((course) => ({ id: course.id, title: course.title }))); }
       else { const response = await api.get<LearnerSurvey[]>('/v1/surveys/my'); setLearnerItems(response.data); }
-    } catch (error: any) { toast.error(t('surveys.loadFailed'), { description: error?.response?.data?.detail || error?.message }); }
+    } catch (error: any) { setLoadError(true); toast.error(t('surveys.loadFailed'), { description: error?.response?.data?.detail || error?.message }); }
+    finally { setLoading(false); }
   }, [manager, t]);
   useEffect(() => { load(); }, [load]);
 
@@ -47,7 +53,39 @@ export default function SurveysPage() {
     finally { setSaving(false); }
   };
 
-  if (manager) return <div className="mx-auto max-w-6xl space-y-6 p-6"><div><h1 className="text-2xl font-bold">{t('surveys.title')}</h1><p className="text-muted-foreground">{t('surveys.managerSubtitle')}</p></div><Card><CardContent className="space-y-4 p-6"><div className="grid gap-4 md:grid-cols-2"><label className="space-y-2 text-sm font-medium">{t('surveys.name')}<Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('surveys.namePlaceholder')} /></label><label className="space-y-2 text-sm font-medium">{t('surveys.course')}<select value={courseId} onChange={(event) => setCourseId(event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"><option value="">{t('surveys.selectCourse')}</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label></div><label className="space-y-2 text-sm font-medium">{t('surveys.question')}<Input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t('surveys.questionPlaceholder')} /></label><div className="flex justify-end"><Button onClick={create} disabled={saving || !title.trim() || !courseId || !question.trim()} className="gap-2"><Plus className="h-4 w-4" />{t('surveys.create')}</Button></div></CardContent></Card><div className="space-y-3">{items.map((item) => <Card key={item.id}><CardContent className="flex items-center justify-between gap-4 p-5"><div><h2 className="font-semibold">{item.title}</h2><p className="text-sm text-muted-foreground">{tp('common.counts.question', item.question_count)} · {item.status}</p></div><MessageSquare className="h-5 w-5 text-primary" /></CardContent></Card>)}{!items.length && <Card><CardContent className="p-8 text-center text-muted-foreground">{t('surveys.empty')}</CardContent></Card>}</div></div>;
+  const readState = loading ? <p role="status" className="p-6 text-sm text-muted-foreground">{t('common.loading')}</p> : loadError ? <div role="alert" className="space-y-3 p-6 text-sm text-destructive"><p>{t('surveys.loadFailed')}</p><Button variant="outline" onClick={() => void load()}>{t('common.retry')}</Button></div> : null;
 
-  return <div className="mx-auto max-w-5xl space-y-6 p-6"><div><h1 className="text-2xl font-bold">{t('surveys.title')}</h1><p className="text-muted-foreground">{t('surveys.learnerSubtitle')}</p></div>{learnerItems.length === 0 ? <Card><CardContent className="p-8 text-center text-muted-foreground">{t('surveys.noPending')}</CardContent></Card> : <div className="space-y-4">{learnerItems.map((survey) => <Card key={survey.id}><CardContent className="space-y-4 p-6"><div><h2 className="font-semibold">{survey.title}</h2><p className="text-sm text-muted-foreground">{survey.course_title}</p></div>{survey.submitted ? <p className="text-sm text-success">{t('surveys.alreadySubmitted')}</p> : <div className="flex flex-wrap gap-2"><span className="mr-2 self-center text-sm">{survey.questions[0]?.text}</span>{[1, 2, 3, 4, 5].map((value) => <Button key={value} variant="outline" size="sm" disabled={saving} onClick={() => submit(survey, value)}>{value}</Button>)}<Send className="ml-2 h-4 w-4 self-center text-primary" /></div>}</CardContent></Card>)}</div>}</div>;
+  if (manager) return (
+    <WorkspacePage id="surveys" title={t('surveys.title')} description={t('surveys.managerSubtitle')} icon={<MessageSquare />} className="mx-auto max-w-6xl">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <WorkspacePanel title={t('surveys.create')} bodyClassName="space-y-5">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <label className="block min-w-0 space-y-2 text-sm font-medium">{t('surveys.name')}<Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('surveys.namePlaceholder')} /></label>
+            <label className="block min-w-0 space-y-2 text-sm font-medium">{t('surveys.course')}<select value={courseId} onChange={(event) => setCourseId(event.target.value)} className="min-h-10 w-full min-w-0 rounded-md border border-border bg-background px-3 py-2 text-sm"><option value="">{t('surveys.selectCourse')}</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label>
+          </div>
+          <label className="block space-y-2 text-sm font-medium">{t('surveys.question')}<Input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={t('surveys.questionPlaceholder')} /></label>
+          <div className="flex flex-wrap justify-end border-t border-border pt-4"><Button onClick={create} disabled={saving || !title.trim() || !courseId || !question.trim()} className="gap-2"><Plus className="h-4 w-4" aria-hidden="true" />{t('surveys.create')}</Button></div>
+        </WorkspacePanel>
+        <WorkspacePanel title={t('surveys.title')} padded={false}>
+          {readState || (items.length ? <ul className="divide-y divide-border">{items.map((item) => <li key={item.id} className="flex min-w-0 items-start gap-3 p-5"><MessageSquare className="mt-1 h-5 w-5 shrink-0 text-primary" aria-hidden="true" /><div className="min-w-0"><h3 className="break-words font-semibold">{item.title}</h3><p className="mt-2 text-sm text-muted-foreground">{tp('common.counts.question', item.question_count)} · {item.status}</p></div></li>)}</ul> : <div className="p-5"><WorkspaceEmpty title={t('surveys.empty')} /></div>)}
+        </WorkspacePanel>
+      </div>
+    </WorkspacePage>
+  );
+
+  return (
+    <WorkspacePage id="surveys" title={t('surveys.title')} description={t('surveys.learnerSubtitle')} icon={<MessageSquare />} className="mx-auto max-w-5xl">
+      {readState || (learnerItems.length === 0 ? <WorkspaceEmpty title={t('surveys.noPending')} /> : <div className="grid min-w-0 gap-5">{learnerItems.map((survey) => (
+        <WorkspacePanel key={survey.id} title={survey.title} description={survey.course_title} bodyClassName="space-y-4">
+          {survey.submitted ? <p role="status" className="rounded-xl border border-success/20 bg-success/5 p-4 text-sm text-success">{t('surveys.alreadySubmitted')}</p> : <>
+            <p className="break-words text-sm font-medium">{survey.questions[0]?.text}</p>
+            <WorkspaceToolbar role="group" aria-label={survey.questions[0]?.text} className="border-0 bg-muted/30">
+              {[1, 2, 3, 4, 5].map((value) => <Button key={value} variant="outline" disabled={saving} onClick={() => submit(survey, value)} className="min-h-11 min-w-11">{value}</Button>)}
+              <Send className="ml-2 h-4 w-4 self-center text-primary" aria-hidden="true" />
+            </WorkspaceToolbar>
+          </>}
+        </WorkspacePanel>
+      ))}</div>)}
+    </WorkspacePage>
+  );
 }

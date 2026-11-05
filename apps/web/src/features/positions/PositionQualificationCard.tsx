@@ -27,6 +27,7 @@ import { toast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { api } from "@/lib/api";
 import { useT, type TranslationKey } from "@/i18n/useT";
+import { WorkspacePage, WorkspacePageHeader, WorkspacePanel, WorkspaceStat } from "@/features/workspace-design";
 
 import {
   getQualificationCard,
@@ -449,18 +450,16 @@ export function PositionQualificationCard({ positionId }: Props) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[420px] items-center justify-center" aria-live="polite">
+      <WorkspacePage id="position-detail" className="mx-auto max-w-[1280px]"><WorkspacePanel bodyClassName="flex min-h-[420px] items-center justify-center" aria-live="polite">
         <RefreshCw className="h-7 w-7 animate-spin text-primary motion-reduce:animate-none" aria-hidden="true" />
         <span className="sr-only">{ui("authenticatedUi.positions.cardLoading")}</span>
-      </div>
+      </WorkspacePanel></WorkspacePage>
     );
   }
 
   if (error || !card) {
     return (
-      <div className="mx-auto max-w-xl py-16 text-center">
-        <h1 className="text-xl font-semibold text-foreground">{ui("authenticatedUi.positions.cardUnavailable")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{error ?? ui("authenticatedUi.positions.cardNotFound")}</p>
+      <WorkspacePage id="position-detail" title={ui("authenticatedUi.positions.cardUnavailable")} description={error ?? ui("authenticatedUi.positions.cardNotFound")} icon={<BriefcaseBusiness />} className="mx-auto max-w-xl py-16">
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <Button type="button" onClick={load}>
             <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -473,12 +472,12 @@ export function PositionQualificationCard({ positionId }: Props) {
             {ui("authenticatedUi.positions.backToPositions")}
           </Link>
         </div>
-      </div>
+      </WorkspacePage>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] space-y-6 pb-10">
+    <WorkspacePage id="position-detail" className="mx-auto max-w-[1280px] pb-10">
       <header className="space-y-4">
         <Link
           href="/positions"
@@ -488,43 +487,18 @@ export function PositionQualificationCard({ positionId }: Props) {
           {ui("authenticatedUi.positions.allPositions")}
         </Link>
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="break-words text-2xl font-bold text-foreground sm:text-3xl">{card.profile.name}</h1>
-              {card.profile.level ? <Badge variant="secondary">{card.profile.level}</Badge> : null}
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">{card.profile.department || ui("authenticatedUi.positions.departmentNotSpecified")}</p>
-          </div>
-
-          <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4 xl:min-w-[520px]">
-            <div>
-              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.employees")}</dt>
-              <dd className="mt-1 flex items-center gap-1.5 font-semibold tabular-nums">
-                <Users className="h-4 w-4 text-primary" aria-hidden="true" />
-                {card.employees.active_count}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.competencies")}</dt>
-              <dd className="mt-1 font-semibold tabular-nums">{card.competencies.length}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.courses")}</dt>
-              <dd className="mt-1 font-semibold tabular-nums">
-                {publishedEffectiveCount}/{card.training.effective_courses.length}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted-foreground">{ui("authenticatedUi.positions.version")}</dt>
-              <dd className="mt-1 font-semibold tabular-nums">{card.latest_version ?? "—"}</dd>
-            </div>
-          </dl>
-        </div>
+        <WorkspacePageHeader title={card.profile.name} description={card.profile.department || ui("authenticatedUi.positions.departmentNotSpecified")} icon={<BriefcaseBusiness />} actions={card.profile.level ? <Badge variant="secondary">{card.profile.level}</Badge> : undefined} />
       </header>
 
-      <nav aria-label={ui("authenticatedUi.positions.cardSectionsAria")} className="-mx-1 overflow-x-auto px-1 pb-1">
-        <div className="flex min-w-max gap-1 border-b border-border">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <WorkspaceStat label={ui("authenticatedUi.positions.employees")} value={card.employees.active_count} icon={<Users />} />
+        <WorkspaceStat label={ui("authenticatedUi.positions.competencies")} value={card.competencies.length} icon={<ClipboardCheck />} />
+        <WorkspaceStat label={ui("authenticatedUi.positions.courses")} value={`${publishedEffectiveCount}/${card.training.effective_courses.length}`} icon={<BookOpenCheck />} />
+        <WorkspaceStat label={ui("authenticatedUi.positions.version")} value={card.latest_version} icon={<History />} />
+      </div>
+      <div className="grid items-start gap-5 xl:grid-cols-[15rem_minmax(0,1fr)]">
+      <nav aria-label={ui("authenticatedUi.positions.cardSectionsAria")} className="min-w-0 rounded-2xl border border-border bg-card p-2 xl:sticky xl:top-6">
+        <div className="flex flex-wrap gap-1 xl:flex-col">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const selected = activeTab === tab.id;
@@ -534,13 +508,13 @@ export function PositionQualificationCard({ positionId }: Props) {
                 type="button"
                 aria-current={selected ? "page" : undefined}
                 onClick={() => chooseTab(tab.id)}
-                className={`inline-flex min-h-11 items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`inline-flex min-h-11 min-w-0 items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   selected
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {ui(tab.labelKey)}
               </button>
             );
@@ -548,6 +522,7 @@ export function PositionQualificationCard({ positionId }: Props) {
         </div>
       </nav>
 
+      <WorkspacePanel bodyClassName="space-y-5" className="[&_section]:min-w-0">
       {activeTab === "profile" ? (
         <section aria-labelledby="profile-heading" className="space-y-5">
           <div>
@@ -558,7 +533,7 @@ export function PositionQualificationCard({ positionId }: Props) {
               {ui("authenticatedUi.positions.profileDescription")}
             </p>
           </div>
-          <div className="grid gap-5 rounded-lg border border-border bg-card p-5 lg:grid-cols-2">
+          <div className="grid gap-5 lg:grid-cols-2">
             <label className="space-y-1.5">
                 <span className="text-sm font-medium">{ui("authenticatedUi.positions.name")}</span>
               <input
@@ -1317,7 +1292,9 @@ export function PositionQualificationCard({ positionId }: Props) {
           )}
         </section>
       ) : null}
+      </WorkspacePanel>
+      </div>
       {dialog}
-    </div>
+    </WorkspacePage>
   );
 }

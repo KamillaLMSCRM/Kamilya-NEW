@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CheckCircle2, Eye, FileCheck2, LockKeyhole, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, DateInput, Input } from "@/components/ui";
+import { Badge, Button, DateInput, Input } from "@/components/ui";
+import { WorkspacePage, WorkspacePanel } from "@/features/workspace-design";
 import { toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/useT";
 import { api } from "@/lib/api";
@@ -219,38 +220,28 @@ export default function TrainingProceduresPage() {
   };
 
   if (role !== "methodologist") {
-    return <Card><CardContent className="p-6"><h1 className="text-lg font-semibold">{t("trainingProceduresPage.accessDenied")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("trainingProceduresPage.methodologistOnly")}</p></CardContent></Card>;
+    return <WorkspacePage id="training-procedures"><WorkspacePanel><h1 className="text-lg font-semibold">{t("trainingProceduresPage.accessDenied")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("trainingProceduresPage.methodologistOnly")}</p></WorkspacePanel></WorkspacePage>;
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      <header className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-2xl font-semibold"><FileCheck2 className="h-6 w-6 shrink-0" aria-hidden="true" />{t("trainingProceduresPage.title")}</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("trainingProceduresPage.subtitle")}</p>
-        </div>
-        <Button type="button" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }} disabled={saving} className="shrink-0"><Plus className="h-4 w-4" aria-hidden="true" />{t("trainingProceduresPage.newProcedure")}</Button>
-      </header>
-
-      <div className="flex min-w-0 gap-3 border-l-4 border-warning bg-warning/10 px-4 py-3 text-sm text-foreground" role="note">
+    <WorkspacePage id="training-procedures" title={t("trainingProceduresPage.title")} description={t("trainingProceduresPage.subtitle")} icon={<FileCheck2 />} actions={<Button type="button" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }} disabled={saving}><Plus className="h-4 w-4" aria-hidden="true" />{t("trainingProceduresPage.newProcedure")}</Button>}>
+      <div className="flex min-w-0 gap-3 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground" role="note">
         <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden="true" />
-        <p className="min-w-0">{t("trainingProceduresPage.evidenceBoundary")}</p>
+        <p className="min-w-0 leading-6">{t("trainingProceduresPage.evidenceBoundary")}</p>
       </div>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-        <Card className="min-w-0 overflow-hidden">
-          <CardHeader><CardTitle className="text-base">{t("trainingProceduresPage.catalog")}</CardTitle></CardHeader>
-          <CardContent className="p-0">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.35fr)]">
+        <WorkspacePanel title={t("trainingProceduresPage.catalog")} padded={false} className="overflow-hidden">
+          <div className="min-w-0">
             {loading ? <p className="p-6 text-sm text-muted-foreground">{t("common.loading")}</p> : items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">{t("trainingProceduresPage.empty")}</p> : <ul className="divide-y divide-border">{items.map((item) => <li key={item.id} className={`min-w-0 p-4 ${editingId === item.id ? "bg-primary/5" : ""}`}>
               <div className="flex min-w-0 items-start gap-3"><div className="min-w-0 flex-1"><div className="flex min-w-0 flex-wrap items-center gap-2"><span className="truncate font-medium" title={item.title}>{item.title}</span><Badge variant={item.status === "active" ? "default" : "secondary"}>{t(`trainingProceduresPage.status.${item.status}` as never)}</Badge></div><p className="mt-1 break-words text-xs text-muted-foreground">{item.code} v{item.version} · {t(`trainingProceduresPage.types.${item.procedure_type}` as never)}</p></div><Button type="button" variant="outline" size="sm" disabled={saving} onClick={() => { setEditingId(item.id); setForm(formFromProcedure(item)); }} aria-label={item.status === "draft" ? t("trainingProceduresPage.edit") : t("common.open")} title={item.status === "draft" ? t("trainingProceduresPage.edit") : t("common.open")}>{item.status === "draft" ? <Pencil className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}</Button></div>
               <div className="mt-3 flex min-w-0 flex-wrap gap-2">{item.status === "draft" && <Button type="button" size="sm" onClick={() => void action(item, "activate")} disabled={saving}><CheckCircle2 className="h-4 w-4" aria-hidden="true" />{t("trainingProceduresPage.activate")}</Button>}{item.status === "active" && <Button type="button" size="sm" variant="outline" onClick={() => void action(item, "retire")} disabled={saving}><RotateCcw className="h-4 w-4" aria-hidden="true" />{t("trainingProceduresPage.retire")}</Button>}{item.status === "draft" && <Button type="button" size="sm" variant="ghost" onClick={() => void action(item, "delete")} disabled={saving} aria-label={t("common.delete")} title={t("common.delete")}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button>}</div>
             </li>)}</ul>}
-          </CardContent>
-        </Card>
+          </div>
+        </WorkspacePanel>
 
-        <Card className="min-w-0">
-          <CardHeader><CardTitle className="text-base">{isEditing ? t("trainingProceduresPage.editTitle") : t("trainingProceduresPage.createTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t("trainingProceduresPage.formHint")}</p></CardHeader>
-          <CardContent className="space-y-4">
+        <WorkspacePanel title={isEditing ? t("trainingProceduresPage.editTitle") : t("trainingProceduresPage.createTitle")} description={t("trainingProceduresPage.formHint")}>
+          <div className="space-y-4">
             <fieldset disabled={readOnly || saving} className="space-y-4">
             <Field label={t("trainingProceduresPage.name")}><Input value={form.title} onChange={(event) => updateForm("title", event.target.value)} /></Field>
             <Field label={t("trainingProceduresPage.type")}><select className="min-h-10 w-full min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.procedure_type} onChange={(event) => updateForm("procedure_type", event.target.value as ProcedureType)} disabled={isEditing}><option value="acknowledgement">{t("trainingProceduresPage.types.acknowledgement")}</option><option value="internal_attestation">{t("trainingProceduresPage.types.internal_attestation")}</option><option value="admission_decision">{t("trainingProceduresPage.types.admission_decision")}</option></select></Field>
@@ -272,10 +263,10 @@ export default function TrainingProceduresPage() {
             </fieldset>
             <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); }}>{readOnly ? t("common.close") : t("common.cancel")}</Button>{!readOnly && <Button type="button" onClick={() => void save()} disabled={saving || !form.title}>{saving ? t("common.saving") : t("common.save")}</Button>}</div>
             {selected?.status === "retired" && <p className="text-xs text-muted-foreground">{t("trainingProceduresPage.retiredHint")}</p>}
-          </CardContent>
-        </Card>
+          </div>
+        </WorkspacePanel>
       </div>
-    </div>
+    </WorkspacePage>
   );
 }
 

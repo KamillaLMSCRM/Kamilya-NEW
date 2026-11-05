@@ -22,10 +22,11 @@ import {
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { Badge, Button, Card, CardContent, DateInput, Input } from '@/components/ui';
+import { Badge, Button, DateInput, Input } from '@/components/ui';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { PROGRAM_SCENARIOS, type ProgramScenarioId } from '@/features/learning-programs/programScenarios';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar, WorkspaceEmpty } from '@/features/workspace-design';
 
 type ProgramStatus = 'draft' | 'published' | 'archived';
 type SequencingMode = 'linear' | 'open';
@@ -551,7 +552,7 @@ export default function LearningPathsPage() {
     }
   };
 
-  if (loading) return <div className="p-6 text-muted-foreground">{t('common.loading')}</div>;
+  if (loading) return <WorkspacePage id="learning-paths" title={t('learningPaths.title')}><p role="status" className="text-muted-foreground">{t('common.loading')}</p></WorkspacePage>;
   if (!canManage && !isLearner) return <ForbiddenState t={t} />;
   if (isLearner) return <LearnerView programs={learnerPrograms} t={t} tp={tp} />;
 
@@ -568,35 +569,24 @@ export default function LearningPathsPage() {
   const uiBusy = saving || pathLoading;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('learningPaths.title')}</h1>
-          <p className="mt-1 max-w-2xl text-muted-foreground">{t('learningPaths.managerDescription')}</p>
-        </div>
-        {(paths.length > 0 || editing) && (
-          <Button className="gap-2 self-start" onClick={resetEditor}>
-            <Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.new')}
-          </Button>
-        )}
-      </header>
+    <WorkspacePage id="learning-paths" title={t('learningPaths.title')} description={t('learningPaths.managerDescription')} icon={<BookOpen />} actions={(paths.length > 0 || editing) && (
+      <Button className="gap-2 self-start" onClick={resetEditor}>
+        <Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.new')}
+      </Button>
+    )}>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="rounded-lg border bg-background p-3" aria-label={t('learningPaths.programList')}>
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h2 className="font-semibold">{t('learningPaths.programs')}</h2>
-            <span className="text-xs text-muted-foreground">{paths.length}</span>
-          </div>
-          <div className="space-y-2">
+      <div className="grid items-start gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <WorkspacePanel title={t('learningPaths.programs')} aria-label={t('learningPaths.programList')} bodyClassName="space-y-3" actions={<span className="rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">{paths.length}</span>}>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
             {paths.map((path) => (
               <button
                 key={path.id}
                 type="button"
                 aria-pressed={selected?.id === path.id}
                 onClick={() => selectPath(path)}
-                className={`w-full rounded-md border p-3 text-left transition-colors hover:bg-muted/50 ${selected?.id === path.id ? 'border-primary bg-primary/5' : 'border-border'}`}
+                className={`min-w-0 w-full rounded-xl border p-4 text-left transition-colors hover:bg-muted/50 ${selected?.id === path.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border'}`}
               >
-                <div className="truncate font-medium">{path.title}</div>
+                 <div className="break-words font-medium leading-6">{path.title}</div>
                 <div className="mt-2 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
                   <Badge variant={path.status === 'published' ? 'default' : 'secondary'}>{t(`learningPaths.status.${path.status}` as never)}</Badge>
                   <span>v{path.version || 1}</span>
@@ -611,59 +601,65 @@ export default function LearningPathsPage() {
             ))}
           </div>
           {!paths.length && <p className="px-1 py-4 text-sm text-muted-foreground">{t('learningPaths.empty')}</p>}
-        </aside>
+        </WorkspacePanel>
 
         {!editing ? (
           <EmptyManagerState onCreate={resetEditor} t={t} />
         ) : (
-          <section className="min-w-0 rounded-lg border bg-background p-4 sm:p-6" aria-label={t('learningPaths.editor')}>
-            <div className="mb-6 flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 space-y-4" aria-label={t('learningPaths.editor')}>
+            <WorkspacePanel padded={false} bodyClassName="p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="truncate text-xl font-semibold">{title || t('learningPaths.new')}</h2>
+                  <h2 className="break-words text-xl font-semibold">{title || t('learningPaths.new')}</h2>
                   {selected && <Badge variant={selected.status === 'published' ? 'default' : 'secondary'}>{t(`learningPaths.status.${selected.status}` as never)}</Badge>}
                 </div>
                 {selected && <p className="mt-1 text-sm text-muted-foreground">v{selected.version || 1} · {tp('common.counts.course', selected.course_count)} · {selected.assignment_count == null ? '—' : tp('common.counts.learner', selected.assignment_count)}</p>}
               </div>
               {selected?.status === 'published' && <Button variant="outline" onClick={createVersion} disabled={uiBusy}>{t('learningPaths.newVersion')}</Button>}
             </div>
+            </WorkspacePanel>
 
-            <nav className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t('learningPaths.stages')}>
+            <WorkspaceToolbar className="block p-3">
+            <nav className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t('learningPaths.stages')}>
               {STAGES.map((item, index) => (
                 <button key={item} type="button" role="tab" aria-selected={stage === item} onClick={() => setStage(item)} className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${stage === item ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground hover:bg-muted/50'}`}>
                   <span className="mr-2 font-semibold">{index + 1}</span>{t(`learningPaths.stage.${item}` as never)}
                 </button>
               ))}
             </nav>
+            </WorkspaceToolbar>
 
+            <WorkspacePanel bodyClassName="space-y-6" aria-label={t(`learningPaths.stage.${stage}` as never)}>
             {stage === 'basic' && <><BasicStage scenario={scenario} setScenario={setScenario} title={title} description={description} sequencingMode={sequencingMode} responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} methodologists={methodologists} disabled={!isDraft} setTitle={setTitle} setDescription={setDescription} setSequencingMode={setSequencingMode} t={t} /><BasicSettings responsibleUserId={responsibleUserId} setResponsibleUserId={setResponsibleUserId} defaultDueDays={defaultDueDays} setDefaultDueDays={setDefaultDueDays} certificateMode={certificateMode} setCertificateMode={setCertificateMode} certificateValidityMonths={certificateValidityMonths} setCertificateValidityMonths={setCertificateValidityMonths} recurrenceMode={recurrenceMode} setRecurrenceMode={setRecurrenceMode} recurrenceCadenceDays={recurrenceCadenceDays} setRecurrenceCadenceDays={setRecurrenceCadenceDays} recurrenceDueDays={recurrenceDueDays} setRecurrenceDueDays={setRecurrenceDueDays} methodologists={methodologists} disabled={!isDraft} t={t} /></>}
             {stage === 'content' && selected?.status === 'draft' && <div className="mb-5 flex flex-col gap-3 rounded-md border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{t('learningPaths.createCourseFromMaterials' as never)}</p><p className="mt-1 text-sm text-muted-foreground">{t('learningPaths.createCourseFromMaterialsHint' as never)}</p></div><Link href={`/ai/generate?program_id=${encodeURIComponent(selected.id)}`} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"><Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.createCourseFromMaterialsAction' as never)}</Link></div>}
             {stage === 'content' && <ContentStage courses={filteredCourses} steps={steps} search={courseSearch} setSearch={setCourseSearch} onToggle={toggleStep} onRemove={(id) => setSteps((current) => current.filter((step) => step.course_id !== id))} onMove={moveStep} onRequired={(id, required) => setSteps((current) => current.map((step) => step.course_id === id ? { ...step, required } : step))} disabled={!isDraft} t={t} tp={tp} />}
             {stage === 'audience' && <AudienceStage selected={selected} audienceTab={audienceTab} setAudienceTab={setAudienceTab} options={currentAudience} selectedIds={selectedAudience[audienceTab]} search={audienceSearch} setSearch={setAudienceSearch} onToggle={toggleAudience} startsAt={startsAt} dueAt={dueAt} setStartsAt={setStartsAt} setDueAt={setDueAt} invalidDates={invalidAssignmentDates} assignments={assignments} onCancel={cancelAssignment} onAssign={assign} saving={uiBusy} totalSelected={totalSelectedAudience} t={t} />}
             {stage === 'review' && <ReviewStage selected={selected} title={title} description={description} sequencingMode={sequencingMode} steps={steps} totalSelectedAudience={totalSelectedAudience} canPublish={canPublish} onPublish={publish} saving={uiBusy} t={t} />}
 
-            <div className="mt-8 flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
+            </WorkspacePanel>
+            <WorkspaceToolbar className="flex-col-reverse items-stretch sm:flex-row sm:items-center sm:justify-between">
               <Button variant="ghost" onClick={() => { invalidatePathRead(); setEditing(false); }}>{t('learningPaths.closeEditor')}</Button>
-              <div className="flex flex-col gap-3 sm:flex-row">
+               <div className="flex flex-wrap gap-3">
                 {isDraft && <Button variant="outline" onClick={() => void persistDraft()} disabled={uiBusy || !title.trim()} className="gap-2"><Save className="h-4 w-4" aria-hidden="true" />{t('learningPaths.saveDraft')}</Button>}
                 {stage !== 'basic' && <Button variant="ghost" onClick={() => setStage(STAGES[STAGES.indexOf(stage) - 1])}>{t('learningPaths.back')}</Button>}
                 {stage !== 'review' && <Button onClick={() => setStage(STAGES[STAGES.indexOf(stage) + 1])}>{t('learningPaths.next')}</Button>}
               </div>
-            </div>
-          </section>
+            </WorkspaceToolbar>
+          </div>
         )}
       </div>
       {dialog}
-    </div>
+    </WorkspacePage>
   );
 }
 
 function EmptyManagerState({ onCreate, t }: { onCreate: () => void; t: (key: never, params?: Record<string, string | number>) => string }) {
-  return <div className="flex min-h-[360px] items-center justify-center rounded-lg border border-dashed p-8 text-center"><div className="max-w-md"><BookOpen className="mx-auto mb-4 h-10 w-10 text-primary" aria-hidden="true" /><h2 className="text-xl font-semibold">{t('learningPaths.emptyTitle' as never)}</h2><p className="mt-2 text-sm text-muted-foreground">{t('learningPaths.emptyDescription' as never)}</p><Button className="mt-6 gap-2" onClick={onCreate}><Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.new' as never)}</Button></div></div>;
+  return <WorkspaceEmpty className="min-h-[360px]" title={t('learningPaths.emptyTitle' as never)} description={t('learningPaths.emptyDescription' as never)} icon={<BookOpen />} action={<Button className="gap-2" onClick={onCreate}><Plus className="h-4 w-4" aria-hidden="true" />{t('learningPaths.new' as never)}</Button>} />;
 }
 
 function ForbiddenState({ t }: { t: (key: never, params?: Record<string, string | number>) => string }) {
-  return <div className="mx-auto max-w-3xl p-6"><Card><CardContent className="p-8 text-center"><Info className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden="true" /><h1 className="text-xl font-semibold">{t('learningPaths.forbidden' as never)}</h1></CardContent></Card></div>;
+  return <WorkspacePage id="learning-paths" title={t('learningPaths.forbidden' as never)} icon={<Info />}>{null}</WorkspacePage>;
 }
 
 function BasicStage({ scenario, setScenario, title, description, sequencingMode, responsibleUserId, setResponsibleUserId, defaultDueDays, setDefaultDueDays, methodologists, disabled, setTitle, setDescription, setSequencingMode, t }: { scenario: ProgramScenarioId | null; setScenario: (value: ProgramScenarioId | null) => void; title: string; description: string; sequencingMode: SequencingMode; responsibleUserId: string; setResponsibleUserId: (value: string) => void; defaultDueDays: string; setDefaultDueDays: (value: string) => void; methodologists: AudienceOption[]; disabled: boolean; setTitle: (value: string) => void; setDescription: (value: string) => void; setSequencingMode: (value: SequencingMode) => void; t: (key: never, params?: Record<string, string | number>) => string }) {
@@ -696,8 +692,8 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
           <span>{t('learningPaths.assignmentAfterPublishHint' as never)}</span>
         </div>
       )}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-w-0">
+      <div className="grid items-start gap-5 2xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0 rounded-xl border border-border p-4">
           <div className="mb-4 grid grid-cols-2 gap-2" role="tablist">
             {AUDIENCE_TABS.map((tab) => (
               <button
@@ -754,7 +750,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
             )}
           </div>
         </div>
-        <aside className="rounded-md border p-4">
+        <aside className="rounded-xl border border-primary/15 bg-primary/5 p-4">
           <h4 className="font-medium">{t('learningPaths.assignmentSettings' as never)}</h4>
           <div className="mt-4 space-y-3">
             <label className="block space-y-1 text-sm">
@@ -795,8 +791,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
         </aside>
       </div>
       {published && (
-        <div className="border-t pt-5">
-          <h4 className="mb-3 font-medium">{t('learningPaths.currentAssignments' as never)}</h4>
+        <WorkspacePanel title={t('learningPaths.currentAssignments' as never)} padded={false} bodyClassName="p-4">
           {assignments.length ? (
             <div className="space-y-2">
               {assignments.map((assignment) => (
@@ -837,7 +832,7 @@ function AudienceStage({ selected, audienceTab, setAudienceTab, options, selecte
           ) : (
             <p className="text-sm text-muted-foreground">{t('learningPaths.noAssignments' as never)}</p>
           )}
-        </div>
+        </WorkspacePanel>
       )}
     </div>
   );
@@ -852,5 +847,31 @@ function ReviewStage({ selected, title, description, sequencingMode, steps, tota
 }
 
 function LearnerView({ programs, t, tp }: { programs: LearnerProgram[]; t: (key: never, params?: Record<string, string | number>) => string; tp: (key: never, count: number, params?: Record<string, string | number>) => string }) {
-  return <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6"><header><h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('learningPaths.title' as never)}</h1><p className="mt-1 text-muted-foreground">{t('learningPaths.learnerDescription' as never)}</p></header>{programs.some((program) => program.access_scope === 'course') && <div role="status" className="rounded-md border bg-muted/30 p-4 text-sm"><p>{t('learningPaths.courseAccessNotice' as never)}</p><Link href="/my-courses" className="mt-2 inline-block text-primary underline">{t('learningPaths.openPersonalCourse' as never)}</Link></div>}{!programs.length ? <div className="rounded-lg border border-dashed p-10 text-center"><BookOpen className="mx-auto mb-3 h-8 w-8 text-muted-foreground" aria-hidden="true" /><p className="text-muted-foreground">{t('learningPaths.learnerEmpty' as never)}</p></div> : <div className="space-y-5">{programs.map((program) => { const steps = program.steps || program.courses || []; const requiredCompleted = program.completed_required_courses ?? 0; const requiredTotal = program.total_required_courses ?? steps.filter((step) => step.required).length; const progress = program.progress_percent ?? (requiredTotal ? Math.round((requiredCompleted / requiredTotal) * 100) : 0); return <article key={program.id} className="rounded-lg border p-4 sm:p-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex items-center gap-2"><BookOpen className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" /><h2 className="truncate text-lg font-semibold">{program.title}</h2></div>{program.description && <p className="mt-1 text-sm text-muted-foreground">{program.description}</p>}</div><span className="shrink-0 text-sm font-medium text-primary">{progress}%</span></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} /></div><p className="mt-2 text-xs text-muted-foreground">{requiredCompleted} из {tp('common.counts.courseTotal' as never, requiredTotal)} · {t('learningPaths.required' as never)}</p><ol className="mt-5 space-y-2">{steps.map((step, index) => { const scopeBlocked = step.state !== 'locked' && (program.access_scope === 'course' ? step.can_open !== true : step.can_open === false); const available = !scopeBlocked && (step.state === 'available' || step.state === 'completed'); const completed = step.state === 'completed'; return <li key={step.course_id} className={`flex min-w-0 items-center gap-3 rounded-md border p-3 ${step.state === 'locked' ? 'bg-muted/30' : ''}`}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">{completed ? <CheckCircle2 className="h-4 w-4 text-green-600" aria-label={t('learningPaths.completed' as never)} /> : step.state === 'locked' ? <Lock className="h-4 w-4 text-muted-foreground" aria-label={t('learningPaths.locked' as never)} /> : <span>{index + 1}</span>}</span><div className="min-w-0 flex-1"><div className="truncate font-medium" title={step.title}>{step.title}</div><p className="text-xs text-muted-foreground">{step.required ? t('learningPaths.required' as never) : t('learningPaths.optional' as never)} · {scopeBlocked ? t('learningPaths.courseAccessRequired' as never) : t(`learningPaths.stepState.${step.state}` as never)}</p></div>{available ? <Link href={`/courses/${step.course_id}`}><Button size="sm" variant={completed ? 'outline' : 'default'}>{completed ? t('learningPaths.reviewCourse' as never) : t('learningPaths.startCourse' as never)}</Button></Link> : <span className="flex max-w-[45%] shrink-0 items-center gap-1 text-xs text-muted-foreground"><Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />{scopeBlocked ? t('learningPaths.courseAccessRequired' as never) : t('learningPaths.lockedHint' as never)}</span>}</li>; })}</ol></article>; })}</div>}</div>;
+  return <WorkspacePage id="learning-paths" title={t('learningPaths.title' as never)} description={t('learningPaths.learnerDescription' as never)} icon={<BookOpen />}>
+    {programs.some((program) => program.access_scope === 'course') && <WorkspaceToolbar role="status"><p className="text-sm">{t('learningPaths.courseAccessNotice' as never)}</p><Link href="/my-courses" className="text-sm text-primary underline">{t('learningPaths.openPersonalCourse' as never)}</Link></WorkspaceToolbar>}
+    {!programs.length ? <WorkspaceEmpty title={t('learningPaths.learnerEmpty' as never)} icon={<BookOpen />} /> : <div className="space-y-6">{programs.map((program) => {
+      const steps = program.steps || program.courses || [];
+      const requiredCompleted = program.completed_required_courses ?? 0;
+      const requiredTotal = program.total_required_courses ?? steps.filter((step) => step.required).length;
+      const progress = program.progress_percent ?? (requiredTotal ? Math.round((requiredCompleted / requiredTotal) * 100) : 0);
+      return <WorkspacePanel key={program.id} title={program.title} description={program.description} padded={false} actions={<span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{progress}%</span>}>
+        <div className="grid min-w-0 gap-6 p-5 sm:p-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="min-w-0 rounded-xl bg-muted/30 p-4">
+            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} /></div>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">{requiredCompleted} из {tp('common.counts.courseTotal' as never, requiredTotal)} · {t('learningPaths.required' as never)}</p>
+          </div>
+          <ol className="min-w-0 space-y-3">{steps.map((step, index) => {
+            const scopeBlocked = step.state !== 'locked' && (program.access_scope === 'course' ? step.can_open !== true : step.can_open === false);
+            const available = !scopeBlocked && (step.state === 'available' || step.state === 'completed');
+            const completed = step.state === 'completed';
+            return <li key={step.course_id} className={`flex min-w-0 flex-wrap items-center gap-3 rounded-xl border p-4 ${step.state === 'locked' ? 'bg-muted/30' : ''}`}>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold">{completed ? <CheckCircle2 className="h-4 w-4 text-success" aria-label={t('learningPaths.completed' as never)} /> : step.state === 'locked' ? <Lock className="h-4 w-4 text-muted-foreground" aria-label={t('learningPaths.locked' as never)} /> : <span>{index + 1}</span>}</span>
+              <div className="min-w-0 flex-1"><div className="break-words font-medium" title={step.title}>{step.title}</div><p className="text-xs leading-5 text-muted-foreground">{step.required ? t('learningPaths.required' as never) : t('learningPaths.optional' as never)} · {scopeBlocked ? t('learningPaths.courseAccessRequired' as never) : t(`learningPaths.stepState.${step.state}` as never)}</p></div>
+              {available ? <Link href={`/courses/${step.course_id}`}><Button size="sm" variant={completed ? 'outline' : 'default'}>{completed ? t('learningPaths.reviewCourse' as never) : t('learningPaths.startCourse' as never)}</Button></Link> : <span className="flex max-w-[45%] shrink-0 items-center gap-1 text-xs text-muted-foreground"><Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />{scopeBlocked ? t('learningPaths.courseAccessRequired' as never) : t('learningPaths.lockedHint' as never)}</span>}
+            </li>;
+          })}</ol>
+        </div>
+      </WorkspacePanel>;
+    })}</div>}
+  </WorkspacePage>;
 }

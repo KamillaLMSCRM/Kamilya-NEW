@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { DatabaseZap, LockKeyhole } from "lucide-react";
 
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { Badge } from "@/components/ui";
+import { WorkspacePage, WorkspacePanel } from "@/features/workspace-design";
 import { toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/useT";
 import { api } from "@/lib/api";
@@ -42,24 +43,18 @@ export default function TrainingRetentionPage() {
   useEffect(() => { void load(); }, [load]);
 
   if (role !== "methodologist") {
-    return <Card><CardContent className="p-6"><h1 className="text-lg font-semibold">{t("trainingRetentionPage.accessDenied" as never)}</h1></CardContent></Card>;
+    return <WorkspacePage id="training-retention"><WorkspacePanel><h1 className="text-lg font-semibold">{t("trainingRetentionPage.accessDenied" as never)}</h1></WorkspacePanel></WorkspacePage>;
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
-      <header className="min-w-0">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold"><DatabaseZap className="h-6 w-6 shrink-0" aria-hidden="true" />{t("trainingRetentionPage.title" as never)}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("trainingRetentionPage.subtitle" as never)}</p>
-      </header>
-
-      <div className="flex min-w-0 gap-3 border-l-4 border-primary bg-primary/5 px-4 py-3 text-sm" role="note">
+    <WorkspacePage id="training-retention" title={t("trainingRetentionPage.title" as never)} description={t("trainingRetentionPage.subtitle" as never)} icon={<DatabaseZap />}>
+      <div className="flex min-w-0 gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm" role="note">
         <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-        <p className="min-w-0">{t("trainingRetentionPage.readOnlyNotice" as never)}</p>
+        <p className="min-w-0 leading-6">{t("trainingRetentionPage.readOnlyNotice" as never)}</p>
       </div>
 
-      <Card className="min-w-0 overflow-hidden">
-        <CardHeader><CardTitle className="text-base">{t("trainingRetentionPage.policies" as never)}</CardTitle></CardHeader>
-        <CardContent className="p-0">
+      <WorkspacePanel title={t("trainingRetentionPage.policies" as never)} padded={false} className="overflow-hidden">
+        <div className="min-w-0">
           {loading ? <p className="p-6 text-sm text-muted-foreground">{t("common.loading" as never)}</p> : items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">{t("trainingRetentionPage.empty" as never)}</p> : <ul className="divide-y divide-border">{items.map((item) => {
             const years = item.retention_days % 365 === 0 ? item.retention_days / 365 : null;
             return <li key={item.id} className="min-w-0 p-5">
@@ -75,8 +70,8 @@ export default function TrainingRetentionPage() {
               </div>
             </li>;
           })}</ul>}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </WorkspacePanel>
+    </WorkspacePage>
   );
 }

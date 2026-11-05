@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, Users, X } from "lucide-react";
+import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Modal } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT, type TranslationKey } from "@/i18n/useT";
@@ -15,6 +15,7 @@ import { OrganizationUnitPicker } from "@/features/staff-structure/OrganizationU
 import { OrganizationUnitTree } from "@/features/staff-structure/OrganizationUnitTree";
 import { StaffWorkspace } from "@/features/staff-structure/StaffWorkspace";
 import { EmployeeStatusBadge } from "@/features/staff-structure/EmployeeStatusBadge";
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar, WorkspaceStat } from "@/features/workspace-design";
 import {
   collectOrganizationUnitSubtreeIds,
   flattenOrganizationUnits,
@@ -549,11 +550,18 @@ export default function AdminStaffPage() {
     : positionOptions;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:p-6">
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground"><Users className="h-6 w-6 shrink-0" aria-hidden="true" />{t("staffPage.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">{t("staffPage.subtitle")}</p>
+    <WorkspacePage id="staff" title={t("staffPage.title")} description={t("staffPage.subtitle")} icon={<Users />} className="mx-auto max-w-7xl px-4 py-5 sm:p-6" actions={isStaffOwnersRole ? (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Link
+          href="/invitations"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-control-hover hover:text-control-hover-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <UserPlus className="h-4 w-4" aria-hidden="true" />
+          {t("invitations.navLabel")}
+        </Link>
+        {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && <Button type="button" onClick={() => setManualOpen(true)}>{ui("authenticatedUi.adminStaff.manual.addEmployee")}</Button>}
       </div>
+    ) : undefined}>
 
       {!isStaffOwnersRole ? (
         // Student hit /admin/staff (maybe via stale link). Очищаем
@@ -568,24 +576,13 @@ export default function AdminStaffPage() {
         </Card>
       ) : (
         <>
-          {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm text-muted-foreground">
-                {ui("authenticatedUi.adminStaff.manual.intro")}
-              </div>
-              <Button type="button" onClick={() => setManualOpen(true)}>
-                {ui("authenticatedUi.adminStaff.manual.addEmployee")}
-              </Button>
-            </div>
-          )}
-
           {manualOpen && (
             <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:items-center">
               <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="manual-employee-title"
-                className="w-full max-w-2xl rounded-xl bg-card p-6 shadow-xl"
+                className="w-full max-w-2xl rounded-2xl border border-border bg-card p-5 shadow-xl sm:p-6"
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
@@ -603,7 +600,8 @@ export default function AdminStaffPage() {
                   </button>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-5">
+                <div role="group" aria-label={ui("authenticatedUi.adminStaff.manual.newEmployee")} className="grid gap-4 rounded-xl bg-muted/30 p-4 md:grid-cols-2">
                   <label className="space-y-1">
                     <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.personnelNumberRequired")}</span>
                     <input
@@ -641,6 +639,8 @@ export default function AdminStaffPage() {
                       placeholder={ui("authenticatedUi.adminStaff.fields.lastName")}
                     />
                   </label>
+                </div>
+                <div role="group" aria-label={t("staffPage.tabs.structure")} className="grid gap-4 rounded-xl border border-border p-4 md:grid-cols-2">
                   <label className="space-y-1">
                     <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.department")} <span className="font-normal text-muted-foreground">({t("common.optional")})</span></span>
                     <OrganizationUnitPicker
@@ -707,7 +707,8 @@ export default function AdminStaffPage() {
                       </>
                     )}
                   </label>
-                  <label className="space-y-1 md:col-span-2">
+                </div>
+                  <label className="block space-y-1">
                     <span className="text-sm font-medium">{ui("authenticatedUi.adminStaff.fields.phone")}</span>
                     <input
                       type="tel"
@@ -722,7 +723,7 @@ export default function AdminStaffPage() {
                   </label>
                 </div>
 
-                <div className="mt-6 flex justify-end gap-2">
+                <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
                   <Button type="button" variant="outline" onClick={closeManualModal}>
                     {ui("authenticatedUi.adminStaff.actions.cancel")}
                   </Button>
@@ -735,14 +736,15 @@ export default function AdminStaffPage() {
           )}
 
           {/* ADR-0011 + ADR-0012: import and structure are one URL-backed workspace. */}
-          <div role="tablist" className="flex border-b border-border">
+          <WorkspaceToolbar className="items-center justify-between">
+          <div role="tablist" className="flex min-w-0 flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
             <button
               role="tab"
               aria-selected={tab === "import"}
               onClick={() => selectTab("import")}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 tab === "import"
-                  ? "border-b-2 border-primary text-primary"
+                  ? "bg-card text-primary shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -752,15 +754,17 @@ export default function AdminStaffPage() {
               role="tab"
               aria-selected={tab === "structure"}
               onClick={() => selectTab("structure")}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                 tab === "structure"
-                  ? "border-b-2 border-primary text-primary"
+                  ? "bg-card text-primary shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Network className="h-4 w-4" aria-hidden="true" />{t("staffPage.tabs.structure")}
             </button>
           </div>
+          {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && <p className="max-w-lg text-xs leading-5 text-muted-foreground">{ui("authenticatedUi.adminStaff.manual.intro")}</p>}
+          </WorkspaceToolbar>
 
           {applyTaskId && <ApplyRulesProgress taskId={applyTaskId} />}
 
@@ -803,7 +807,7 @@ export default function AdminStaffPage() {
           }} />}
         </>
       )}
-    </div>
+    </WorkspacePage>
   );
 }
 
@@ -957,28 +961,18 @@ function AdaptiveImportFlow({
   };
 
   return (
-    <Card data-testid="adaptive-import-flow">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-3">
-          <span>{ui("authenticatedUi.adminStaff.import.title")}</span>
-          <Badge variant="secondary">{ui("authenticatedUi.adminStaff.import.safeFlowBadge")}</Badge>
-        </CardTitle>
-        <p className="text-sm text-muted-foreground">
-          {ui("authenticatedUi.adminStaff.import.description")}
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        <ol className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-5" aria-label={ui("authenticatedUi.adminStaff.import.stepsAria")}>
+    <WorkspacePanel data-testid="adaptive-import-flow" title={ui("authenticatedUi.adminStaff.import.title")} description={ui("authenticatedUi.adminStaff.import.description")} actions={<Badge variant="secondary">{ui("authenticatedUi.adminStaff.import.safeFlowBadge")}</Badge>} bodyClassName="space-y-6">
+        <ol className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-5" aria-label={ui("authenticatedUi.adminStaff.import.stepsAria")}>
           {steps.map((label, index) => (
-            <li key={label} className={`rounded-md border px-2 py-2 ${step >= index + 1 ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
-              <span className="font-semibold">{index + 1}. </span>{label}
+            <li key={label} className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-3 ${step >= index + 1 ? "border-primary/30 bg-primary/5 text-primary" : "border-border text-muted-foreground"}`}>
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted font-semibold">{index + 1}</span><span className="pt-1 leading-4">{label}</span>
             </li>
           ))}
         </ol>
 
         {!session && (
-          <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="grid gap-5 rounded-xl border border-dashed border-primary/25 bg-primary/5 p-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div className="flex min-w-0 flex-col items-start justify-center gap-3">
               <input
                 ref={(element) => {
                   inputRef.current = element;
@@ -992,9 +986,9 @@ function AdaptiveImportFlow({
               <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
                 {ui("authenticatedUi.adminStaff.import.chooseFile")}
               </Button>
-              <span className="text-sm text-muted-foreground">{file?.name || ui("authenticatedUi.adminStaff.import.noFileSelected")}</span>
+               <span className="break-all text-sm text-muted-foreground">{file?.name || ui("authenticatedUi.adminStaff.import.noFileSelected")}</span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3">
               <label className="space-y-1 text-sm">
                 <span className="font-medium">{ui("authenticatedUi.adminStaff.import.modeLabel")}</span>
                 <select
@@ -1011,7 +1005,7 @@ function AdaptiveImportFlow({
                 {ui("authenticatedUi.adminStaff.import.modeHint")}
               </div>
             </div>
-            <Button type="button" onClick={onAnalyze} disabled={!file || loading}>
+            <Button type="button" className="justify-self-start lg:col-span-2" onClick={onAnalyze} disabled={!file || loading}>
               {loading ? ui("authenticatedUi.adminStaff.import.analyzing") : ui("authenticatedUi.adminStaff.import.startAnalysis")}
             </Button>
           </div>
@@ -1161,8 +1155,7 @@ function AdaptiveImportFlow({
             <p className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.revisionNote", { revision: session.proposal_revision || "—" })}</p>
           </>
         )}
-      </CardContent>
-    </Card>
+    </WorkspacePanel>
   );
 }
 
@@ -1705,28 +1698,17 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
         onAddUnit={(parentId) => setUnitModal({ type: "department", parentId })}
         onArchiveUnit={archiveUnit}
       />}
-      {!STAFF_WORKSPACE_ENABLED && data && <>
+      {!STAFF_WORKSPACE_ENABLED && data && <section id="staff-structure" data-redesign-page="staff-structure" className="space-y-5">
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg bg-primary/10 p-3 text-center">
-          <div className="text-2xl font-bold text-primary">{data.summary.total_employees}</div>
-          <div className="text-xs text-primary">{ui("authenticatedUi.adminStaff.structure.employees")}</div>
-        </div>
-        <div className="rounded-lg bg-accent/10 p-3 text-center">
-        <div className="text-2xl font-bold text-accent">{data.summary.total_branches ?? data.branches.length}</div>
-          <div className="text-xs text-accent">{ui("authenticatedUi.adminStaff.structure.branches")}</div>
-        </div>
-        <div className="rounded-lg bg-warning/10 p-3 text-center">
-          <div className="text-2xl font-bold text-warning">{data.summary.total_departments}</div>
-          <div className="text-xs text-warning">{ui("authenticatedUi.adminStaff.structure.departments")}</div>
-        </div>
-        <div className="rounded-lg bg-muted p-3 text-center">
-          <div className="text-2xl font-bold text-foreground">{data.summary.total_positions}</div>
-          <div className="text-xs text-foreground">{ui("authenticatedUi.adminStaff.structure.positions")}</div>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <WorkspaceStat label={ui("authenticatedUi.adminStaff.structure.employees")} value={data.summary.total_employees} icon={<Users />} />
+        <WorkspaceStat label={ui("authenticatedUi.adminStaff.structure.branches")} value={data.summary.total_branches ?? data.branches.length} icon={<Network />} />
+        <WorkspaceStat label={ui("authenticatedUi.adminStaff.structure.departments")} value={data.summary.total_departments} icon={<Building2 />} />
+        <WorkspaceStat label={ui("authenticatedUi.adminStaff.structure.positions")} value={data.summary.total_positions} icon={<GraduationCap />} />
       </div>
 
-      <div className="flex justify-end">
+      <WorkspaceToolbar className="items-center">
+      <div className="order-last sm:ml-auto">
         <Button type="button" onClick={() => setUnitModal({ type: "branch" })}>{ui("authenticatedUi.adminStaff.structure.addBranch")}</Button>
       </div>
 
@@ -1753,6 +1735,7 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
           className="w-full rounded-md border border-border bg-background px-9 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </label>
+      </WorkspaceToolbar>
 
       <OrganizationUnitTree
         roots={data.roots}
@@ -2014,7 +1997,7 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
         </Card>
       )}
 
-      </>}
+      </section>}
       <Modal open={Boolean(archiveTarget)} title="Архивировать подразделение" dismissable={!archivingUnit}
         onClose={() => { if (!archivingUnit) setArchiveTarget(null); }}>
         <p>{ui("authenticatedUi.adminStaff.structure.archiveConfirm", { name: archiveTarget?.name || "" })}</p>

@@ -56,7 +56,7 @@ function trainingLogRow(deadline: Record<string, unknown>) {
 
 function renderTrainingLog(deadline: Record<string, unknown>) {
   apiMock.get.mockImplementation(async (url: string) => {
-    if (url === '/v1/courses') return { data: [] } as never;
+    if (url.startsWith('/v1/courses')) return { data: [] } as never;
     if (url.includes('/summary')) return { data: { total: 1, assigned: 0, in_progress: 1, completed: 0, overdue: 0 } } as never;
     if (url.startsWith('/v1/admin/training-log?')) return { data: { items: [trainingLogRow(deadline)], total: 1, limit: 100, offset: 0 } } as never;
     throw new Error(`Unexpected GET ${url}`);
@@ -83,7 +83,7 @@ describe('training log deadline presentation', () => {
     let reject!: (reason: Error) => void;
     apiMock.get.mockImplementation((url: string) => {
       if (url.includes('format=csv')) return new Promise((yes, no) => { resolve = yes; reject = no; }) as never;
-      if (url === '/v1/courses') return Promise.resolve({ data: [] }) as never;
+      if (url.startsWith('/v1/courses')) return Promise.resolve({ data: [] }) as never;
       if (url.includes('/summary')) return Promise.resolve({ data: { total: 1 } }) as never;
       return Promise.resolve({ data: { items: [trainingLogRow({})], total: 1, limit: 100, offset: 0 } }) as never;
     });
@@ -133,7 +133,7 @@ describe('training log deadline presentation', () => {
     expect(apiMock.get).toHaveBeenCalledWith(expect.stringContaining('status=overdue'));
 
     fireEvent.change(screen.getByLabelText('trainingLog.filter.status.label'), { target: { value: 'assigned' } });
-    expect(navigation.replace).toHaveBeenCalledWith(
+    expect(navigation.push).toHaveBeenCalledWith(
       '/training-log?status=assigned&return_to=%2Fdashboard',
       { scroll: false },
     );

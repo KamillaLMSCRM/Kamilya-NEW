@@ -1,7 +1,7 @@
 import { expect, test as base, type BrowserContext } from '@playwright/test';
 
 export const appOrigin = process.env.KAMILYA_WORKSPACE_TEST_ORIGIN || 'http://127.0.0.1:3024';
-if (!['http://127.0.0.1:3024', 'http://127.0.0.1:3026'].includes(appOrigin)) {
+if (!['http://127.0.0.1:3024', 'http://127.0.0.1:3026', 'http://127.0.0.1:3027'].includes(appOrigin)) {
   throw new Error('Synthetic workspace tests require an explicitly allowed loopback origin.');
 }
 const uuid = (suffix: number) => `71000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
@@ -129,8 +129,10 @@ type Handler = (call: ApiCall) => Reply | Promise<Reply>;
 
 /** Every API call is local synthetic data. Unknown reads/writes receive 501, never passthrough. */
 export class SyntheticWorkspace {
-  role: 'student' | 'methodologist' = 'student';
+  role: 'student' | 'methodologist' | 'admin' | 'superadmin' = 'student';
+  assignedRoles?: Array<'student' | 'methodologist' | 'admin' | 'superadmin'>;
   presentation: { tenantName?: string; fullName?: string; impersonatedBy?: string } = {};
+  expectsSession = true;
   readonly calls: ApiCall[] = [];
   readonly unexpectedApi: string[] = [];
   readonly unexpectedMutations: string[] = [];
@@ -184,7 +186,7 @@ export class SyntheticWorkspace {
         const actor = {
           user_id: this.role === 'student' ? ids.learner : ids.author, tenant_id: ids.tenant,
           tenant: { id: ids.tenant, name: this.presentation.tenantName ?? 'Synthetic workspace QA', slug: 'synthetic-workspace', is_demo: false },
-          telegram_id: '0', role: this.role, roles: [this.role],
+          telegram_id: '0', role: this.role, roles: this.assignedRoles ?? [this.role],
           first_name: 'Synthetic', last_name: this.role === 'student' ? 'Learner' : 'Author',
           full_name: this.presentation.fullName ?? (this.role === 'student' ? 'Synthetic Learner' : 'Synthetic Author'),
           impersonated_by: this.presentation.impersonatedBy,
@@ -302,7 +304,11 @@ export class SyntheticWorkspace {
     expect(this.externalRequests, 'Only the dedicated loopback app may receive passthrough traffic').toEqual([]);
     expect(this.pageErrors, 'Production pages must not crash').toEqual([]);
     expect(this.commands.size, 'Every armed command must be consumed exactly once').toBe(0);
-    expect(this.matching('POST', '/v1/auth/refresh').length, 'Session restoration is intercepted, never real auth').toBeGreaterThan(0);
+    if (this.expectsSession) {
+      expect(this.matching('POST', '/v1/auth/refresh').length, 'Session restoration is intercepted, never real auth').toBeGreaterThan(0);
+    } else {
+      expect(this.matching('POST', '/v1/auth/refresh').length, 'Public screens must not attempt a tenant session').toBe(0);
+    }
   }
 }
 

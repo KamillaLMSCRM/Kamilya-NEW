@@ -11,6 +11,7 @@ import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { QuestionAssistantPreview } from '@/components/quizzes/QuestionAssistantPreview';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import { bindQuestionDraftScope, clearQuestionDraft, readQuestionDraft, retainQuestionDraft, sameQuestionDraftScope, sameSavedQuestion, type QuestionEditorSnapshot } from '@/features/quiz-authoring/questionDraft';
 import { currentAuthorSession, sameAuthorSession } from '@/features/course-authoring/authorSession';
 import {
@@ -782,21 +783,14 @@ export default function QuizzesAdminPage() {
 // is the only supported way to pick a quiz now. Methodologists don't
 // have access to UUIDs without opening the database.)
 
-  if (editorOwnerRef.current !== draftScope) return <div className="p-6">{t('common.loading')}</div>;
+  if (editorOwnerRef.current !== draftScope) return <WorkspacePage id="quiz-authoring"><WorkspacePanel><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
 
   return (
-    <div className="mx-auto max-w-[1560px] space-y-5 px-1">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 max-w-4xl">
-          <h1 className="text-2xl font-bold leading-8 text-foreground">{t('authenticatedUi.quizUi.title')}</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            {t('authenticatedUi.quizUi.description')}
-          </p>
-        </div>
+    <WorkspacePage id="quiz-authoring" className="mx-auto max-w-[1560px]" title={t('authenticatedUi.quizUi.title')} description={t('authenticatedUi.quizUi.description')} icon={<CheckCircle2 />} actions={
         <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)} className="h-11 px-5">
           {t('quiz.create')}
         </Button>
-      </div>
+      }>
 
       {recoveredDraftRef.current && (draftRecoveryUnavailable || questionConflict) && <div role="alert" className="space-y-3 rounded-lg border border-amber-300 p-4 text-sm">
         <p>{questionConflict ? copy.draftConflict : copy.draftRecoveryUnavailable}</p>
@@ -1147,17 +1141,16 @@ export default function QuizzesAdminPage() {
         </Card>
       )}
 
-      <div className="grid items-start gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <div data-quiz-workspace className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(260px,0.45fr)_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)]">
         {/* Quiz list — grouped by Course → Module → Lesson.
             Data source is `grouped` (the response from GET /v1/quizzes/grouped).
             Each course row shows its quiz count; lessons without a quiz are
             skipped so we don't render empty rows. Orphans surface as their
             own bucket (real orphans: lesson deleted or FK nulled). */}
-        <Card className="overflow-hidden border-border/70 shadow-none">
-          <CardContent className="p-0">
+        <WorkspacePanel padded={false} className="overflow-hidden lg:sticky lg:top-4">
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.quizUi.tests')}</h3>
-              <Badge variant="secondary" className="bg-muted text-foreground">{loadError && !grouped ? '—' : flatQuizzes.length + (grouped?.orphans.length ?? 0)}</Badge>
+              <Badge variant="secondary" className="bg-muted text-foreground">{!grouped && (loading || loadError) ? '—' : flatQuizzes.length + (grouped?.orphans.length ?? 0)}</Badge>
             </div>
             {loading ? (
               <p className="px-4 py-5 text-sm text-muted-foreground">{t('authenticatedUi.quizUi.loading')}</p>
@@ -1168,7 +1161,7 @@ export default function QuizzesAdminPage() {
                 {t('authenticatedUi.quizUi.empty')}
               </p>
             ) : (
-              <div className="max-h-[calc(100vh-280px)] space-y-1 overflow-y-auto p-3">
+              <div className="max-h-[65dvh] space-y-2 overflow-y-auto p-3 lg:max-h-[calc(100dvh-7rem)]">
                 {grouped?.courses.map((course) => {
                   const isOpen = openCourses[course.id] ?? false;
                   const moduleRows = course.modules
@@ -1252,24 +1245,22 @@ export default function QuizzesAdminPage() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
+        </WorkspacePanel>
 
         {/* Selected Quiz */}
         {selectedQuiz ? (
           <div className="min-w-0 space-y-5">
-            {selectedContext && <nav aria-label={copy.context} className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm">
+            {selectedContext && <WorkspaceToolbar className="items-center"><nav aria-label={copy.context} className="min-w-0 text-sm">
               <p className="break-words text-muted-foreground">{selectedContext.course.title} · {selectedContext.module.title} · {selectedContext.lesson.title}</p>
               <div className="flex flex-wrap gap-4 font-medium text-primary">
                 <Link className="inline-flex min-h-10 items-center" href={`/courses/${encodeURIComponent(selectedContext.course.id)}?lessonId=${encodeURIComponent(selectedContext.lesson.id)}`}>{copy.openLesson}</Link>
                 <Link className="inline-flex min-h-10 items-center" href={`/courses/${encodeURIComponent(selectedContext.course.id)}/edit?lessonId=${encodeURIComponent(selectedContext.lesson.id)}`}>{copy.editLesson}</Link>
               </div>
-            </nav>}
-            <Card className="border-border/70 shadow-none">
-              <CardContent className="p-5">
+            </nav></WorkspaceToolbar>}
+            <WorkspacePanel>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="truncate text-lg font-semibold leading-7 text-foreground sm:text-xl">{selectedQuiz.title}</h3>
+                    <h2 className="break-words text-lg font-semibold leading-7 text-foreground sm:text-xl">{selectedQuiz.title}</h2>
                     <div className="mt-2 text-sm text-muted-foreground">
                       {tp('common.counts.question', selectedQuiz.questions.length)} ·{' '}
                       {tp(
@@ -1291,7 +1282,9 @@ export default function QuizzesAdminPage() {
                     </Button>
                   )}
                 </div>
-                <section className="mt-5" aria-labelledby="quiz-settings-heading">
+            </WorkspacePanel>
+            <WorkspacePanel>
+                <section aria-labelledby="quiz-settings-heading">
                   <div className="mb-3 flex min-h-9 flex-wrap items-center justify-between gap-3">
                     <h4 id="quiz-settings-heading" className="text-sm font-semibold text-foreground">
                       {t('authenticatedUi.quizUi.settings')}
@@ -1398,18 +1391,15 @@ export default function QuizzesAdminPage() {
                     {t('authenticatedUi.quizUi.deleteTest')}
                   </Button>
                 </section>
-              </CardContent>
-            </Card>
+            </WorkspacePanel>
 
             {/* Questions */}
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h4 className="text-base font-semibold text-foreground">{t('authenticatedUi.quizUi.questions')}</h4>
+            <WorkspacePanel title={t('authenticatedUi.quizUi.questions')} padded={false} bodyClassName="space-y-3 p-4 sm:p-5" actions={
                 <Button size="sm" className="h-9" onClick={openCreateQuestionEditor} disabled={draftRecoveryUnavailable || questionConflict}>
                   <Plus className="mr-1.5 h-4 w-4" />
                   {t('common.create')} {t('authenticatedUi.quizUi.question')}
                 </Button>
-              </div>
+            }>
 
               {selectedQuiz.questions.length === 0 && <p className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">{copy.noQuestions}</p>}
               {selectedQuiz.questions.length > 0 && <nav aria-label={copy.questionNavigation} className="flex flex-wrap gap-2">
@@ -1418,7 +1408,7 @@ export default function QuizzesAdminPage() {
 
               {selectedQuiz.questions.map((q, i) => (
                 <article key={q.id} id={`question-${q.id}`} tabIndex={-1} aria-label={`${copy.question} ${i + 1}`} className="scroll-mt-4 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                <Card className="border-border/70 shadow-none">
+                <Card className="rounded-xl border-border/70 bg-muted/10 shadow-none">
                   <CardContent className="p-0">
                     <div className="grid grid-cols-[36px_minmax(0,1fr)] gap-3 px-4 py-4 lg:grid-cols-[44px_minmax(0,1fr)_auto] lg:gap-4">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-muted text-sm font-medium tabular-nums text-muted-foreground">
@@ -1473,7 +1463,7 @@ export default function QuizzesAdminPage() {
                 </Card>
                 </article>
               ))}
-            </div>
+            </WorkspacePanel>
 
           </div>
         ) : (
@@ -1720,6 +1710,6 @@ export default function QuizzesAdminPage() {
       </Modal>
 
       {dialog}
-    </div>
+    </WorkspacePage>
   );
 }

@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn() }));
 vi.mock('@/lib/api', () => ({ api: apiMock }));
 import CandidateAssessmentsPage from '@/app/candidate-assessments/page';
+import { useLanguageStore } from '@/store/languageStore';
 
 describe('candidate assessments manager page', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    useLanguageStore.setState({ lang: 'ru' });
     apiMock.get.mockImplementation((url: string) => Promise.resolve({ data: url.includes('/courses?')
       ? [{ id: 'c1', title: 'Кассовая дисциплина', status: 'published', current_release_id: 'r1' }, { id: 'c2', title: 'Черновик', status: 'published', current_release_id: null }]
       : [{ id: 'campaign', title: 'Кассир', status: 'active', expires_at: '2030-01-01T00:00:00Z' }] }));
@@ -41,5 +43,32 @@ describe('candidate assessments manager page', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'В опубликованной версии курса нет одобренных вопросов. Проверьте тесты и опубликуйте новую версию курса.',
     );
+  });
+
+  it('distinguishes an empty campaign list from an empty published course list', async () => {
+    apiMock.get.mockResolvedValue({ data: [] });
+    render(<CandidateAssessmentsPage />);
+
+    expect(await screen.findByText('Кампаний пока нет. Создайте первую кампанию.')).toBeInTheDocument();
+    expect(screen.getByText('Нет опубликованных курсов с готовой версией.')).toBeInTheDocument();
+  });
+
+  it('shows a campaign load failure without hiding the usable course list', async () => {
+    apiMock.get.mockImplementation((url: string) => url.includes('/courses?')
+      ? Promise.resolve({ data: [{ id: 'c1', title: 'Кассовая дисциплина', status: 'published', current_release_id: 'r1' }] })
+      : Promise.reject(new Error('campaigns unavailable')));
+    render(<CandidateAssessmentsPage />);
+
+    expect(await screen.findByText('Не удалось загрузить оценки кандидатов.')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Кассовая дисциплина' })).toHaveValue('r1');
+  });
+
+  it('uses product status labels and the selected locale date', async () => {
+    useLanguageStore.setState({ lang: 'en' });
+    render(<CandidateAssessmentsPage />);
+
+    expect(await screen.findByRole('heading', { name: 'Candidate assessment' })).toBeInTheDocument();
+    expect(await screen.findByText(/Active · until/)).toBeInTheDocument();
+    expect(screen.queryByText(/^active ·/)).not.toBeInTheDocument();
   });
 });

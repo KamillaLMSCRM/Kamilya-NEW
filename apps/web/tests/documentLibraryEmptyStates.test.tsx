@@ -123,13 +123,13 @@ describe('document library empty-state intent', () => {
   ])('explains the empty %s lifecycle view and returns to active documents', async (tab, title, lifecycle) => {
     render(<DocumentsPage />);
     await screen.findByText('Документов пока нет');
-    fireEvent.click(screen.getByRole('tab', { name: tab }));
+    fireEvent.click(screen.getByRole('button', { name: tab }));
     expect(await screen.findByText(title)).toBeInTheDocument();
     expect(screen.queryByText('Загрузите источник, чтобы создать курс или должностную инструкцию')).not.toBeInTheDocument();
     expect(vi.mocked(api.get).mock.calls.some(([url]) => String(url).includes(`lifecycle_status=${lifecycle}`))).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Показать активные документы' }));
     expect(await screen.findByText('Документов пока нет')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Активные' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('button', { name: 'Активные' })).toHaveAttribute('aria-pressed', 'true');
     expect(api.post).not.toHaveBeenCalled();
     expect(api.delete).not.toHaveBeenCalled();
   });

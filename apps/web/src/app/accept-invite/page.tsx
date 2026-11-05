@@ -4,9 +4,10 @@ import { FormEvent, Suspense, useCallback, useEffect, useMemo, useRef, useState 
 import { AlertTriangle, BookOpen, Building2, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { Logo } from '@/components/brand/Logo';
 import { PublicLegalFooter } from '@/components/legal/PublicLegalFooter';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { PublicWorkspace, WorkspacePanel } from '@/features/workspace-design';
+import { getPublicWorkspaceCopy } from '@/features/workspace-design/publicCopy';
 import { api } from '@/lib/api';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
@@ -32,20 +33,18 @@ function normalizeCode(value: string): string {
 
 export default function AcceptInvitePage() {
   return (
-    <div className="relative min-h-screen">
-      <div className="fixed right-4 top-4 z-50">
-        <LanguageSwitcher />
-      </div>
+    <>
       <Suspense fallback={<LoadingState />}>
         <AcceptInviteForm />
       </Suspense>
-    </div>
+    </>
   );
 }
 
 function AcceptInviteForm() {
   const router = useRouter();
   const { t, lang } = useT();
+  const copy = getPublicWorkspaceCopy(lang);
   const params = useSearchParams();
   const token = params.get('token');
   const { login, accessToken } = useAuthStore();
@@ -180,25 +179,10 @@ function AcceptInviteForm() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 px-4 py-8 sm:py-12">
-      <main className="mx-auto w-full max-w-xl">
-        <div className="mb-6 flex justify-center">
-          <Logo variant="full" size={40} />
-        </div>
-
-        <Card className="overflow-hidden border-border shadow-card">
-          <CardHeader className="border-b bg-card px-5 py-5 sm:px-7">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <ShieldCheck className="h-6 w-6" aria-hidden="true" />
-            </div>
-            <CardTitle className="text-2xl">{t('publicUi.invite.title')}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {t('publicUi.invite.subtitle')}
-            </p>
-          </CardHeader>
-
-          <CardContent className="space-y-6 px-5 py-6 sm:px-7">
-            <section className="space-y-4 rounded-md border bg-muted/20 p-4" aria-label={t('publicUi.invite.details')}>
+    <PublicWorkspace id="accept-invite" title={t('publicUi.invite.title')} description={t('publicUi.invite.subtitle')} icon={<ShieldCheck />} actions={<LanguageSwitcher />}>
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+        <WorkspacePanel title={t('publicUi.invite.details')} bodyClassName="space-y-6">
+            <section className="space-y-5" aria-label={t('publicUi.invite.details')}>
               <div className="flex items-start gap-3">
                 <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
                 <div>
@@ -240,6 +224,9 @@ function AcceptInviteForm() {
                 </ul>
               </section>
             )}
+
+        </WorkspacePanel>
+        <WorkspacePanel title={copy.confirmationStep} bodyClassName="space-y-5">
 
             {!codeSent ? (
               <Button className="h-11 w-full" onClick={requestCode} disabled={submitting}>
@@ -318,20 +305,19 @@ function AcceptInviteForm() {
                 minute: '2-digit',
               }) })}
             </p>
-          </CardContent>
-        </Card>
-      </main>
+        </WorkspacePanel>
+      </div>
       <PublicLegalFooter />
-    </div>
+    </PublicWorkspace>
   );
 }
 
 function LoadingState() {
   const { t } = useT();
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 p-4">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-label={t('publicUi.invite.loading')} />
-    </div>
+    <PublicWorkspace id="accept-invite" actions={<LanguageSwitcher />}>
+      <WorkspacePanel><div className="flex min-h-40 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-label={t('publicUi.invite.loading')} /></div></WorkspacePanel>
+    </PublicWorkspace>
   );
 }
 
@@ -339,9 +325,9 @@ function UnavailableState({ title, message }: { title: string; message: string }
   const router = useRouter();
   const { t } = useT();
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md">
-        <CardContent className="space-y-4 p-6 text-center">
+    <PublicWorkspace id="accept-invite" actions={<LanguageSwitcher />}>
+      <div className="mx-auto w-full max-w-lg py-4 sm:py-10">
+        <WorkspacePanel bodyClassName="space-y-4 text-center">
           <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-md bg-warning/10 text-warning">
             <AlertTriangle className="h-6 w-6" aria-hidden="true" />
           </div>
@@ -350,9 +336,9 @@ function UnavailableState({ title, message }: { title: string; message: string }
           <Button variant="outline" className="w-full" onClick={() => router.push('/login')}>
             {t('publicUi.invite.goToLogin')}
           </Button>
-        </CardContent>
-      </Card>
+        </WorkspacePanel>
+      </div>
       <PublicLegalFooter />
-    </div>
+    </PublicWorkspace>
   );
 }

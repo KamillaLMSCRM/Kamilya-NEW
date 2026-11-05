@@ -1,0 +1,21 @@
+import { readFileSync } from 'node:fs';
+import { Script } from 'node:vm';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import assert from 'node:assert/strict';
+
+const html = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'index.html'), 'utf8');
+assert.match(html, /<html lang="ru">/);
+assert.match(html, /name="viewport"/);
+assert.match(html, /синтетические данные/i);
+assert.match(html, /не изменяется на сервере/i);
+assert.doesNotMatch(html, /(?:https?:)?\/\//i, 'No remote URLs or protocol-relative resources');
+assert.doesNotMatch(html, /<(?:link|iframe|img|video|audio|source)\b/i, 'No external resource elements');
+assert.doesNotMatch(html, /\b(?:fetch|XMLHttpRequest|WebSocket|sendBeacon)\s*\(/i, 'No network calls');
+assert.doesNotMatch(html, /@import|url\s*\(/i, 'No CSS imports or resources');
+assert.match(html, /href="#main"/);
+for (const term of ['generation','review','assignment','empty','loading','unavailable','error','Правильный ответ','версия источника','отсутствует','актуальность']) assert.ok(html.toLowerCase().includes(term.toLowerCase()), `Missing ${term}`);
+const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
+assert.equal(scripts.length, 1, 'Exactly one inline script');
+new Script(scripts[0][1], { filename: 'inline-prototype.js' });
+console.log('PASS: self-contained HTML, fixture coverage, accessibility markers, and inline script syntax');

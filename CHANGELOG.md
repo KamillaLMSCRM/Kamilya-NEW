@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Integrate the whole-LMS visual and Narrow A workspace improvements with the
+  editorial draft workflow, retaining source review and generation recovery.
+- Protect unsaved module and lesson edits consistently, fence late generation
+  responses, and keep one approval-policy control in the course editor.
+
+### Changed
 - Add an opt-in DEV V3 editorial workflow: coherent course authoring, full-course
   source and assessment review, one addressed revision and blind answer checking.
   Preserve complete editable drafts and version-bound findings for human review.

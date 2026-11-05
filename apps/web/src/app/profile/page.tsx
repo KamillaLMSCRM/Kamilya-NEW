@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, Button, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useLanguageStore } from '@/store/languageStore';
 import { locales, localeNames, type Locale } from '@/i18n/config';
 import { api } from '@/lib/api';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, UserRound } from 'lucide-react';
 import { toast } from '@/components/ui/Toast';
 import { PRODUCT_VERSION } from '@/lib/productVersion';
 
@@ -77,15 +78,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground font-display">{t('nav.myProfile')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{user?.tenant?.name || ''}</p>
-      </div>
-
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <h2 className="text-lg font-semibold text-foreground">{t('settings.profile')}</h2>
+    <WorkspacePage id="profile" title={t('nav.myProfile')} description={user?.tenant?.name || ''} icon={<UserRound />} className="mx-auto max-w-6xl">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <WorkspacePanel title={t('settings.profile')} className="lg:row-span-2" bodyClassName="space-y-4">
           {isImpersonating ? (
             <div className="rounded-xl border border-warning/30 bg-warning/10 p-4">
               <p className="font-medium text-foreground">{t('settings.impersonationProfileTitle')}</p>
@@ -101,7 +96,7 @@ export default function ProfilePage() {
               {t('common.loading')}
             </div>
           ) : (
-            <>
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="profile-first-name" className="mb-1 block text-sm font-medium text-foreground">
                   {t('auth.firstName')}
@@ -114,24 +109,21 @@ export default function ProfilePage() {
                 </label>
                 <Input id="profile-last-name" value={lastName} onChange={(event) => setLastName(event.target.value)} />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label htmlFor="profile-email" className="mb-1 block text-sm font-medium text-foreground">
                   {t('auth.email')}
                 </label>
                 <Input id="profile-email" type="email" value={email} readOnly className="bg-muted" />
                 <p className="mt-1 text-xs text-muted-foreground">{t('settings.emailLocked')}</p>
               </div>
-              <Button onClick={() => void saveProfile()} disabled={saving}>
+              <div className="flex flex-wrap justify-end border-t border-border pt-4 sm:col-span-2"><Button onClick={() => void saveProfile()} disabled={saving}>
                 {saving ? t('common.loading') : t('common.save')}
-              </Button>
-            </>
+              </Button></div>
+            </div>
           )}
-        </CardContent>
-      </Card>
+      </WorkspacePanel>
 
-      <Card>
-        <CardContent className="space-y-4 p-6">
-          <h2 className="text-lg font-semibold text-foreground">{t('settings.language')}</h2>
+      <WorkspacePanel title={t('settings.language')} bodyClassName="space-y-4">
           <p className="text-sm text-muted-foreground">{t('settings.languageHelp')}</p>
           <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('settings.language')}>
             {locales.map((locale: Locale) => {
@@ -146,7 +138,7 @@ export default function ProfilePage() {
                     setLang(locale);
                     toast.success(t('settings.languageChanged', { lang: localeNames[locale] }));
                   }}
-                  className={'flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ' +
+                  className={'min-w-[100px] flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors ' +
                     (active ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card text-foreground hover:border-primary/50')}
                 >
                   {active && <CheckCircle2 className="mr-1.5 inline h-4 w-4" aria-hidden="true" />}
@@ -155,31 +147,22 @@ export default function ProfilePage() {
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+      </WorkspacePanel>
 
-      <Card>
-        <CardContent className="space-y-3 p-6">
-          <h2 className="text-lg font-semibold text-foreground">{t('settings.security')}</h2>
-          <p className="text-sm text-foreground">
+      <WorkspacePanel title={t('settings.security')} bodyClassName="space-y-3">
+          <p className="break-words text-sm text-foreground">
             <span className="font-medium">{t('settings.telegram')}:</span>{' '}
             {user?.telegram_id || t('settings.notLinked')}
           </p>
           <p className="text-sm text-muted-foreground">{t('settings.passwordHelp')}</p>
-        </CardContent>
-      </Card>
+      </WorkspacePanel>
+      </div>
 
-      <Card>
-        <CardContent className="space-y-3 p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">{t('settings.about')}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t('settings.productVersion')}</p>
-            </div>
+      <WorkspacePanel title={t('settings.about')} description={t('settings.productVersion')} bodyClassName="flex flex-wrap items-center justify-between gap-4" actions={
             <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm font-semibold text-primary">
               Kamilya LMS {PRODUCT_VERSION}
             </span>
-          </div>
+      }>
           <p className="text-sm text-muted-foreground">{t('settings.releaseNotesHelp')}</p>
           <a
             href={`https://www.kml.kz/${updatesLocale}/updates`}
@@ -189,8 +172,7 @@ export default function ProfilePage() {
           >
             {t('settings.whatsNew')}
           </a>
-        </CardContent>
-      </Card>
-    </div>
+      </WorkspacePanel>
+    </WorkspacePage>
   );
 }

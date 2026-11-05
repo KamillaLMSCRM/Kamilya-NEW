@@ -12,7 +12,7 @@ const sheet = postcss.parse(readFileSync(resolve(process.cwd(), 'src/app/globals
 function declaration(selector: string, property: string) {
   let value: string | undefined;
   sheet.walkRules((rule) => {
-    if (rule.selector === selector) rule.walkDecls(property, (decl) => { value = decl.value; });
+    if (rule.selectors.includes(selector)) rule.walkDecls(property, (decl) => { value = decl.value; });
   });
   return value;
 }
@@ -29,11 +29,12 @@ describe('production workspace visual contract', () => {
     expect(darkRules).toHaveLength(1);
     expect(darkRules[0]).toContain('[data-app-workspace]');
   });
-  it('uses the prototype canvas/ink only while the authenticated workspace is mounted', () => {
+  it('uses the prototype canvas/ink for the authorized V2 application and authenticated workspace', () => {
     expect(declaration(':root:has([data-app-workspace])', '--background')).toBe('228 33% 97%');
     expect(declaration(':root:has([data-app-workspace])', '--foreground')).toBe('218 43% 16%');
     expect(declaration(':root:has([data-app-workspace])', '--radius')).toBe('0.875rem');
     expect(declaration(':root', '--background')).toBe('36 33% 97%');
+    expect(declaration(':root:has([data-design-system="workspace-v2"])', '--background')).toBe('228 33% 97%');
     expect(declaration(':root:has([data-app-workspace])', '--dialog-surface')).toBe('var(--card)');
     expect(declaration(':root', '--dialog-surface')).toBe('var(--background)');
   });

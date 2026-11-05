@@ -10206,3 +10206,34 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   model findings untrusted until source review/ordinary scoped repair. Do not
   insert a lexical actor guard, copy the whole source into lessons, or alter old
   policy/checkpoint bytes to make the control pass.
+
+
+## AGENT-INTEGRATION-001 — moved UI control retained twice during reconciliation
+
+- Date:2026-11-05.
+- Symptom: merged course editor displayed approval-policy controls both above the
+  source-review panel and in the aside; independent component state could diverge.
+- Cause: manual three-way reconciliation retained the old placement and the
+  design's moved placement. Focused tests did not assert real control cardinality.
+- Fix: retain one global ApprovalPolicyCard beside source review and readiness.
+- Verification: real-page regression failed with two headings before the fix;
+  53course-editor tests PASS afterward; rebuilt app/browser retest recorded in
+  TEST_RUN_LEDGER. No policy/role/API mutation.
+- Prevention: when integrating moved stateful controls, verify one canonical
+  instance on the real page, not only mocked child presence.
+
+## AGENT-PREFLIGHT-001 — local verification invoked without its required harness setup
+
+- Date:2026-11-05.
+- Symptom: setup stopped before intended verification: standalone local service
+  needed isolated JWT/settings, direct controller invocation lacked repository
+  import root, synthetic browser test required PLAYWRIGHT_SKIP_WEBSERVER.
+- Cause: assumptions from neighboring invocations replaced exact entrypoint and
+  fixture preflight. These setup failures were not model or product failures.
+- Fix: ephemeral isolated local settings with DB disabled; canonical controller
+  adapter import; explicit loopback origin and skip-server flag. Preserve failed
+  logs and received replies; never repeat unknown inference outcomes blindly.
+- Verification: actual service courses completed; prior DEV controller RECONCILED;
+  Narrow A21, whole-LMS19 and draft-review2 browser scenarios passed afterward.
+- Prevention: run the documented harness with complete environment and exact cwd;
+  classify pre-dispatch setup separately from inference/runtime outcomes.

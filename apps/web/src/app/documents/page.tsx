@@ -36,6 +36,7 @@ import { useAuthStore } from '@/store/authStore';
 import { SourceActualityPanel } from '@/features/source-actuality/SourceActualityPanel';
 import { DocumentInspection } from '@/features/learning-workspace/DocumentInspection';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
+import { WorkspacePage, WorkspacePageHeader, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import {
   documentDeleteError,
   getDuplicateDocumentConflict,
@@ -538,13 +539,8 @@ function ScopedDocumentsPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">{t('documents.title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('documents.subtitle')}</p>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">{m.sourceIntro}</p>
-        </div>
+    <WorkspacePage id="documents">
+      <WorkspacePageHeader title={t('documents.title')} icon={<FolderOpen />} description={<><p>{t('documents.subtitle')}</p><p className="mt-2">{m.sourceIntro}</p></>} actions={
         <div className="flex flex-wrap gap-2">
           {youtubeEnabled && (
             <button
@@ -565,9 +561,7 @@ function ScopedDocumentsPage() {
             {t('documents.upload')}
           </button>
         </div>
-      </header>
-
-      {user?.role === 'methodologist' && <SourceActualityPanel userId={user.user_id} isImpersonating={Boolean(user.impersonated_by)} catalogDocuments={documents} />}
+      } />
 
       {uploading && uploadStartedAt && (
         <AsyncOperationStatus
@@ -620,7 +614,9 @@ function ScopedDocumentsPage() {
         />
       )}
 
-      <div className="flex flex-wrap gap-1 border-b border-border pb-3" role="tablist" aria-label={t('documents.libraryViews')}>
+      <WorkspacePanel padded={false} aria-label={t('documents.libraryViews')}>
+      <WorkspaceToolbar className="rounded-b-none border-0 border-b p-4 sm:p-5">
+      <div className="flex w-full flex-wrap gap-1" role="group" aria-label={t('documents.libraryViews')}>
         {([
           ['active', t('documents.activeDocuments')],
           ['delete_failed', t('documents.requiresAttention')],
@@ -629,10 +625,9 @@ function ScopedDocumentsPage() {
           <button
             key={value}
             type="button"
-            role="tab"
-            aria-selected={lifecycleFilter === value}
+            aria-pressed={lifecycleFilter === value}
             onClick={() => setLifecycleFilter(value)}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+            className={`min-h-11 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               lifecycleFilter === value
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -643,8 +638,8 @@ function ScopedDocumentsPage() {
         ))}
       </div>
 
-      <div className="grid gap-3 border-b border-border pb-4 lg:grid-cols-[minmax(240px,1fr)_220px_220px]">
-        <label className="relative">
+      <div className="grid w-full min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_minmax(160px,220px)_minmax(160px,220px)]">
+        <label className="relative min-w-0 md:col-span-2 xl:col-span-1">
           <span className="sr-only">{t('documents.search')}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -677,6 +672,7 @@ function ScopedDocumentsPage() {
           <option value="failed">{t('documents.statusFailed')}</option>
         </select>
       </div>
+      </WorkspaceToolbar>
 
       {loading ? (
         <div className="flex min-h-48 items-center justify-center" aria-label={t('common.loading')}>
@@ -708,7 +704,7 @@ function ScopedDocumentsPage() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="overflow-hidden rounded-b-2xl bg-card">
           <div className="hidden grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] gap-3 border-b border-border bg-muted/40 px-4 py-2 text-xs font-semibold text-muted-foreground 2xl:grid">
             <span>{t('documents.name')}</span>
             <span>{t('documents.category')}</span>
@@ -738,7 +734,7 @@ function ScopedDocumentsPage() {
       )}
 
       {hasMore && !loading && !loadError && (
-        <div className="flex justify-center">
+        <div className="flex justify-center border-t border-border p-4">
           <button
             type="button"
             disabled={loadingMore}
@@ -750,6 +746,9 @@ function ScopedDocumentsPage() {
           </button>
         </div>
       )}
+      </WorkspacePanel>
+
+      {user?.role === 'methodologist' && <div className="min-w-0 border-t border-border pt-6" data-workspace-secondary="source-actuality"><SourceActualityPanel userId={user.user_id} isImpersonating={Boolean(user.impersonated_by)} catalogDocuments={documents} /></div>}
 
       {showYoutubeImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -992,7 +991,7 @@ function ScopedDocumentsPage() {
         </div>
       )}
       {dialog}
-    </div>
+    </WorkspacePage>
   );
 }
 
@@ -1026,8 +1025,8 @@ function DocumentRow({
   const usage = document.usages_summary;
   const isActive = document.lifecycle_status === 'active';
   return (
-    <div className="grid min-w-0 gap-3 border-b border-border px-4 py-4 last:border-b-0 2xl:grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] 2xl:items-center">
-      <div className="flex min-w-0 items-start gap-3">
+    <div className="grid min-w-0 grid-cols-2 gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/20 sm:px-5 2xl:grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] 2xl:items-center">
+      <div className="col-span-2 flex min-w-0 items-start gap-3 2xl:col-span-1">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
           {fileIcon(document.content_type)}
         </div>
@@ -1067,7 +1066,7 @@ function DocumentRow({
           </button>
         ) : t('documents.notUsed')}
       </div>
-      <div className="flex items-center justify-end gap-1">
+      <div className="col-span-2 flex flex-wrap items-center justify-end gap-1 border-t border-border/60 pt-2 2xl:col-span-1 2xl:border-0 2xl:pt-0">
         <button
           type="button"
           disabled={downloading}

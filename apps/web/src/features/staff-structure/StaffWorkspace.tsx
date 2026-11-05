@@ -27,6 +27,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Modal } from '@/compo
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { apiErrorMessage } from '@/lib/apiErrorMessage';
 import { useAuthStore } from '@/store/authStore';
+import { WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 
 import {
   confirmStaffChange,
@@ -312,7 +313,7 @@ function TabButton({
       tabIndex={selected ? 0 : -1}
       onClick={onClick}
       onKeyDown={onKeyDown}
-      className={`min-h-11 border-b-2 px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+      className={`min-h-11 rounded-lg px-4 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
     >
       {children}
     </button>
@@ -907,7 +908,7 @@ export function StaffWorkspace({
   };
 
   const detailPanel = location.view === 'schema' && (selectedUnit || location.unit === 'unplaced') ? (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-2xl">
       <CardHeader className="pb-3">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Выбранное место</p>
         <CardTitle>{selectedUnit?.name || 'Без подразделения'}</CardTitle>
@@ -920,7 +921,7 @@ export function StaffWorkspace({
         )}
       </CardHeader>
       <CardContent>
-        <div role="tablist" aria-label="Содержимое подразделения" className="flex border-b border-border">
+        <div role="tablist" aria-label="Содержимое подразделения" className="flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
           {(['people', 'positions', 'training'] as DetailView[]).map((tab) => (
             <button
               key={tab}
@@ -932,7 +933,7 @@ export function StaffWorkspace({
               tabIndex={detailView === tab ? 0 : -1}
               onClick={() => setDetailView(tab)}
               onKeyDown={(event) => handleTabKey(event, ['people', 'positions', 'training'], detailView, (value) => setDetailView(value as DetailView), 'detail-')}
-              className={`min-h-10 flex-1 border-b-2 px-2 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${detailView === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'}`}
+              className={`min-h-10 flex-1 rounded-lg px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${detailView === tab ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground'}`}
             >
               {tab === 'people' ? 'Люди' : tab === 'positions' ? 'Должности' : 'Обучение'}
             </button>
@@ -1008,11 +1009,20 @@ export function StaffWorkspace({
   );
 
   return (
-    <section aria-label="Рабочее пространство сотрудников" className="space-y-4">
-      <div className="flex flex-wrap justify-end gap-2">
+    <section id="staff-structure" data-redesign-page="staff-structure" aria-label="Рабочее пространство сотрудников" className="space-y-5">
+      <WorkspaceToolbar className="items-center justify-between">
+      <div role="tablist" aria-label="Представление структуры" className="flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
+        {(['schema', 'people'] as WorkspaceView[]).map((tab) => (
+          <TabButton key={tab} tabKey={tab} selected={location.view === tab} controls="staff-workspace-panel" onClick={() => navigate({ view: tab, page: 1 })} onKeyDown={(event) => handleTabKey(event, ['schema', 'people'], location.view, (value) => navigate({ view: value as WorkspaceView, page: 1 }))}>
+            {tab === 'schema' ? 'Схема' : 'Сотрудники'}
+          </TabButton>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" disabled={Boolean(selectedUnit && !selectedUnit.is_active)} onClick={() => onAddUnit(selectedUnit?.id || null)}><Building2 className="mr-2 h-4 w-4" aria-hidden="true" />Добавить подразделение</Button>
           <Button type="button" disabled={Boolean(selectedUnit && !selectedUnit.is_active)} onClick={() => onAddEmployee(selectedUnit?.id || null)}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Добавить сотрудника</Button>
       </div>
+      </WorkspaceToolbar>
 
       {pendingConfirmationId && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950" role="alert">
@@ -1039,22 +1049,7 @@ export function StaffWorkspace({
         </div>
       )}
 
-      <div role="tablist" aria-label="Представление структуры" className="flex border-b border-border">
-        {(['schema', 'people'] as WorkspaceView[]).map((tab) => (
-          <TabButton
-            key={tab}
-            tabKey={tab}
-            selected={location.view === tab}
-            controls="staff-workspace-panel"
-            onClick={() => navigate({ view: tab, page: 1 })}
-            onKeyDown={(event) => handleTabKey(event, ['schema', 'people'], location.view, (value) => navigate({ view: value as WorkspaceView, page: 1 }))}
-          >
-            {tab === 'schema' ? 'Схема' : 'Сотрудники'}
-          </TabButton>
-        ))}
-      </div>
-
-      <div className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-3">
+      <WorkspaceToolbar className="grid gap-4 md:grid-cols-3">
         <label className="grid gap-1.5 text-sm font-medium">Подразделение
           <select className={inputClassName} value={location.unit} onChange={(event) => selectUnit(event.target.value)}>
             <option value="all">Вся компания</option>
@@ -1075,7 +1070,7 @@ export function StaffWorkspace({
             <option value="all">Любой</option>
           </select>
         </label>
-      </div>
+      </WorkspaceToolbar>
 
       <nav aria-label="Путь подразделения" className="flex flex-wrap items-center gap-2 text-sm">
         <button type="button" className="rounded text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => selectUnit('all')}>Компания</button>
@@ -1088,19 +1083,11 @@ export function StaffWorkspace({
         {location.unit === 'unplaced' && <><span aria-hidden="true">/</span><span>Без подразделения</span></>}
       </nav>
 
-      <div id="staff-workspace-panel" role="tabpanel" className={`grid min-w-0 gap-4 ${detailPanel ? 'lg:grid-cols-[minmax(0,1fr)_22rem]' : ''}`}>
+      <div id="staff-workspace-panel" role="tabpanel" className={`grid min-w-0 items-start gap-5 ${detailPanel ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]' : ''}`}>
         {location.view === 'schema' ? (
-          <Card className="min-w-0 overflow-hidden">
-            <CardHeader className="flex-row items-start justify-between gap-3 space-y-0">
-              <div>
-                <CardTitle>Схема подразделений</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">Линия вложенности показывает место в структуре, а не личную подчинённость.</p>
-              </div>
-              {selectedUnit?.parent_id !== undefined && selectedUnit && (
+          <WorkspacePanel title="Схема подразделений" description="Линия вложенности показывает место в структуре, а не личную подчинённость." actions={selectedUnit?.parent_id !== undefined && selectedUnit ? (
                 <Button type="button" variant="ghost" size="sm" onClick={() => selectUnit(selectedUnit.parent_id || 'all')}>↑ К родителю</Button>
-              )}
-            </CardHeader>
-            <CardContent>
+              ) : undefined}>
               <div className="mx-auto max-w-lg rounded-xl border-2 border-primary bg-primary/5 p-5 text-center">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{selectedUnit ? getOrganizationUnitTypeLabel(selectedUnit.unit_type) : location.unit === 'unplaced' ? 'Служебная выборка' : 'Компания'}</p>
                 <h3 ref={focusHeading} tabIndex={-1} className="mt-1 text-xl font-semibold outline-none">{selectedUnit?.name || (location.unit === 'unplaced' ? 'Без подразделения' : 'Вся компания')}</h3>
@@ -1134,7 +1121,7 @@ export function StaffWorkspace({
                 </div>
               )}
               {visibleChildren.length > 0 ? (
-                <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="mt-6 grid gap-3 border-l-2 border-primary/15 pl-4 sm:grid-cols-2">
                   {visibleChildren.map((unit) => (
                     <button key={unit.id} type="button" onClick={() => selectUnit(unit.id)} aria-label={`${unit.is_active ? 'Открыть подразделение' : 'Открыть архивное подразделение'}: ${unitLabel(unit)}`} className={`flex min-h-36 flex-col items-start rounded-lg border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${unit.is_active ? 'border-border hover:border-primary hover:bg-primary/5' : 'border-dashed border-border bg-muted/30 hover:bg-muted/60'}`}>
                       <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{getOrganizationUnitTypeLabel(unit.unit_type)}{unit.is_head_office ? ' · Центральный офис' : ''}</span>
@@ -1158,10 +1145,9 @@ export function StaffWorkspace({
                   <Button type="button" variant="outline" onClick={() => selectUnit('unplaced')}>Открыть · {overview.unplaced_count}</Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </WorkspacePanel>
         ) : (
-          <Card className="min-w-0 overflow-hidden">
+          <Card className="min-w-0 overflow-hidden rounded-2xl">
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2"><CardTitle>{copy('title')}</CardTitle><span className="rounded-full bg-muted px-2 py-0.5 text-xs" aria-live="polite">{rosterLoading || searchPending ? copy('searching') : !rosterError && roster ? copy('found', { count: roster.total }) : ''}</span></div>
@@ -1218,7 +1204,7 @@ export function StaffWorkspace({
             <summary className="cursor-pointer px-4 py-3 font-medium text-primary">Люди, должности и обучение · {selectedUnit?.name || 'Без подразделения'}</summary>
             <div className="p-3 pt-0">{detailPanel}</div>
           </details>
-        ) : <aside>{detailPanel}</aside>)}
+        ) : <aside className="min-w-0 lg:sticky lg:top-6">{detailPanel}</aside>)}
       </div>
 
       <Modal

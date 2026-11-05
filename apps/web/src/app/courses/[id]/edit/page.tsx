@@ -32,6 +32,7 @@ import { LessonContent } from '@/features/course-authoring/LessonContent';
 import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
 import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel';
+import { WorkspacePage, WorkspacePageHeader, WorkspaceToolbar } from '@/features/workspace-design';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
 import { currentAuthorSession, sameAuthorSession } from '@/features/course-authoring/authorSession';
 import LessonCorrectionPanel, { type LessonCorrectionPanelHandle } from '@/features/methodologist-workbench/LessonCorrectionPanel';
@@ -146,6 +147,9 @@ export default function CourseEditPage() {
   const activeModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === editingLessonId));
   const lessonDirty = Boolean(editingLessonId)
     && (editLessonTitle !== savedLessonTitle || editLessonContent !== savedLessonContent);
+  const moduleDirty = Boolean(editingModuleId)
+    && editModuleTitle !== modules.find((module) => module.id === editingModuleId)?.title;
+  const workspaceDirty = lessonDirty || moduleDirty;
   const editorSnapshot = useRef({ courseId, editingLessonId, token, editLessonTitle, savedLessonTitle, editLessonContent, savedLessonContent, savingLesson, loadingLessonId });
   editorSnapshot.current = { courseId, editingLessonId, token, editLessonTitle, savedLessonTitle, editLessonContent, savedLessonContent, savingLesson, loadingLessonId };
   const onCorrectionApplied = (receipt: CorrectionApplicationReceipt, content: string, before: string) => {
@@ -162,17 +166,17 @@ export default function CourseEditPage() {
   };
 
   useEffect(() => {
-    if (!lessonDirty && !correctionBusy) return;
+    if (!workspaceDirty && !correctionBusy) return;
     const guardUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', guardUnload);
     return () => window.removeEventListener('beforeunload', guardUnload);
-  }, [lessonDirty, correctionBusy]);
+  }, [workspaceDirty, correctionBusy]);
 
   useEffect(() => {
-    if (!lessonDirty && !correctionBusy) return;
+    if (!workspaceDirty && !correctionBusy) return;
 
     const guardInternalNavigation = (event: MouseEvent) => {
       if (
@@ -212,7 +216,7 @@ export default function CourseEditPage() {
 
     document.addEventListener('click', guardInternalNavigation, true);
     return () => document.removeEventListener('click', guardInternalNavigation, true);
-  }, [confirm, lessonDirty, correctionBusy, router, t]);
+  }, [confirm, workspaceDirty, correctionBusy, router, t]);
 
   const fetchData = useCallback(async () => {
     if (!courseId || !latestTokenRef.current) return;
@@ -270,6 +274,20 @@ export default function CourseEditPage() {
       setModules((prev) => [...prev, { ...mod, lessons: [] }]);
       setNewModuleTitle('');
     }
+  };
+
+  const handleEditModule = async (module: Module) => {
+    if (moduleDirty) {
+      const discard = await confirm({
+        title: t('authenticatedUi.editor.unsavedTitle'),
+        message: t('authenticatedUi.editor.unsavedDescription'),
+        confirmLabel: t('authenticatedUi.editor.leaveWithoutSaving'),
+        variant: 'danger',
+      });
+      if (!discard) return;
+    }
+    setEditingModuleId(module.id);
+    setEditModuleTitle(module.title);
   };
 
   const handleUpdateModule = async (moduleId: string) => {
@@ -578,7 +596,7 @@ export default function CourseEditPage() {
   const handleOpenLearnerPreview = async () => {
     if (correctionBusyRef.current) return;
     if (!activeLesson) return;
-    if (lessonDirty) {
+    if (workspaceDirty) {
       const discard = await confirm({
         title: t('authenticatedUi.editor.unsavedTitle'),
         message: t('authenticatedUi.editor.unsavedDescription'),
@@ -592,7 +610,7 @@ export default function CourseEditPage() {
 
   const handleGuardedLink = async (event: ReactMouseEvent<HTMLAnchorElement>, href: string) => {
     if (correctionBusyRef.current) { event.preventDefault(); return; }
-    if (!lessonDirty) return;
+    if (!workspaceDirty) return;
     event.preventDefault();
     const discard = await confirm({
       title: t('authenticatedUi.editor.unsavedTitle'),
@@ -664,21 +682,20 @@ export default function CourseEditPage() {
     }
   };
 
-  if (loading || dataScopeRef.current !== workspaceScope) return <div className="p-6">{t('common.loading')}</div>;
-  if (!course) return <div role="alert" className="space-y-3 p-6"><p>{copy.loadFailed}</p><Button onClick={() => void fetchData()}>{copy.retry}</Button></div>;
+  if (loading || dataScopeRef.current !== workspaceScope) return <WorkspacePage id="course-editor"><div role="status" className="rounded-2xl border border-border bg-card p-6">{t('common.loading')}</div></WorkspacePage>;
+  if (!course) return <WorkspacePage id="course-editor"><div role="alert" className="space-y-3 rounded-2xl border border-border bg-card p-6"><p>{copy.loadFailed}</p><Button onClick={() => void fetchData()}>{copy.retry}</Button></div></WorkspacePage>;
 
   const hasBlueprintMarker = Boolean(course.source_analysis?.blueprint && Object.keys(course.source_analysis.blueprint).length > 0);
   const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
 
   return (
-    <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-5 sm:p-6">
+    <WorkspacePage id="course-editor" className="mx-auto max-w-[1800px]">
       <fieldset
         disabled={correctionBusy || loadingLessonId !== null || savingLesson || releaseAction !== null}
         aria-label={t('courses.editCourse')}
         className="min-w-0 space-y-6 border-0 p-0"
       >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <WorkspacePageHeader title={t('courses.editCourse')} icon={<Pencil />} eyebrow={
           <a
             href={`/courses/${courseId}`}
             onClick={(event) => void handleGuardedLink(event, `/courses/${courseId}`)}
@@ -686,7 +703,7 @@ export default function CourseEditPage() {
           >
             <ChevronLeft className="w-4 h-4" /> {course.title}
           </a>
-          <h1 className="text-2xl font-bold mt-1">{t('courses.editCourse')}</h1>
+      } description={
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Badge variant={course.status === 'published' ? 'default' : 'outline'}>
               {course.status === 'published' ? t('courses.published') : t('courses.draft')}
@@ -698,16 +715,16 @@ export default function CourseEditPage() {
             )}
             {course.source_instruction_id && <Badge variant="outline">{t('authenticatedUi.editor.byJobInstruction')}</Badge>}
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2 sm:justify-end">
+      } actions={
+        <div className="flex max-w-full flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal">
           {course.status !== 'published' && requiresCourseReview && course.review_status !== 'approved' && (
-            <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || lessonDirty || readinessUnavailable}>
+            <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
               <CheckCircle2 className="mr-1.5 h-4 w-4" />
               {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
             </Button>
           )}
           {course.status !== 'published' && (!requiresCourseReview || course.review_status === 'approved') && (
-            <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null || lessonDirty || readinessUnavailable}>
+            <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
               <Rocket className="mr-1.5 h-4 w-4" />
               {releaseAction === 'publish'
                 ? t('authenticatedUi.editor.publishing')
@@ -733,23 +750,32 @@ export default function CourseEditPage() {
               event,
               `/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`,
             )}
-            className="inline-flex min-h-9 items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-input px-3 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {t('authenticatedUi.editor.approval')}
           </Link>
         </div>
-      </div>
+      } />
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
       {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
-        courseId={course.id} lang={lang} disabled={readinessUnavailable || lessonDirty || Boolean(releaseAction)}
+        courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
         onResolved={() => { void fetchData(); }} />}
-      <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={lessonDirty}
+      <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={workspaceDirty}
         requiresReview={requiresCourseReview} reviewStatus={course.review_status} unavailable={readinessUnavailable} />
-      <nav aria-label={copy.readiness} className="flex flex-wrap gap-4 text-sm font-medium text-primary">
-        <Link className="inline-flex min-h-10 items-center" href={`/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`}>{copy.approvalLink}</Link>
+      <WorkspaceToolbar className="py-2">
+      <nav aria-label={copy.readiness} className="flex flex-wrap gap-x-6 gap-y-2 text-sm font-medium text-primary">
+        <Link
+          className="inline-flex min-h-10 items-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          href={`/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`}
+          onClick={(event) => void handleGuardedLink(
+            event,
+            `/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`,
+          )}
+        >{copy.approvalLink}</Link>
         <Link className="inline-flex min-h-10 items-center" href="/quizzes">{copy.quizzesLink}</Link>
       </nav>
+      </WorkspaceToolbar>
       {course.status !== 'published' && course.ai_generated && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           {t('authenticatedUi.editor.quizReviewHint')}
@@ -762,10 +788,10 @@ export default function CourseEditPage() {
         </div>
       )}
 
-      <div className="grid min-h-[680px] min-w-0 grid-cols-1 gap-4 xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]">
-        <Card className="min-h-0 min-w-0 xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
+      <div data-authoring-workspace className="grid min-h-[680px] min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[minmax(280px,340px)_minmax(0,1fr)_280px]">
+        <Card className="min-h-0 min-w-0 overflow-hidden xl:sticky xl:top-4 xl:h-[calc(100dvh-2rem)]">
           <CardContent className="flex h-full min-h-0 flex-col gap-4 p-4">
-            <div className="flex items-center gap-2">
+            <div className="-mx-4 -mt-4 flex items-center gap-2 border-b border-border bg-muted/20 px-4 py-4">
               <ListTree className="h-5 w-5 text-primary" aria-hidden="true" />
               <h2 className="font-semibold">{t('authenticatedUi.editor.outline')}</h2>
             </div>
@@ -798,11 +824,11 @@ export default function CourseEditPage() {
                   ) : (
                     <div className="flex items-start gap-1">
                       <div className="flex flex-col gap-0.5">
-                        <Button aria-label={t('authenticatedUi.editor.moveModuleUp')} variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="h-3 w-3" aria-hidden="true" /></Button>
-                        <Button aria-label={t('authenticatedUi.editor.moveModuleDown')} variant="ghost" size="sm" className="h-5 px-1" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="h-3 w-3" aria-hidden="true" /></Button>
+                        <Button aria-label={t('authenticatedUi.editor.moveModuleUp')} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="h-4 w-4" aria-hidden="true" /></Button>
+                        <Button aria-label={t('authenticatedUi.editor.moveModuleDown')} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="h-4 w-4" aria-hidden="true" /></Button>
                       </div>
                       <h3 id={`module-${mod.id}`} className="min-w-0 flex-1 py-1 text-sm font-semibold leading-5">{mod.title}</h3>
-                      <Button aria-label={t('common.edit')} variant="ghost" size="sm" className="h-8 px-2" onClick={() => { setEditingModuleId(mod.id); setEditModuleTitle(mod.title); }}><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></Button>
+                      <Button aria-label={t('common.edit')} variant="ghost" size="sm" className="h-8 px-2" onClick={() => void handleEditModule(mod)}><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                       <Button aria-label={t('common.delete')} variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => handleDeleteModule(mod.id)}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                     </div>
                   )}
@@ -810,8 +836,8 @@ export default function CourseEditPage() {
                     {mod.lessons.map((lesson, lessonIdx) => (
                       <div key={lesson.id} className={`group flex items-center gap-1 rounded-md border ${editingLessonId === lesson.id ? 'border-primary bg-primary/10' : 'border-transparent hover:border-border hover:bg-muted/60'}`}>
                         <div className="flex flex-col">
-                          <Button aria-label={t('authenticatedUi.editor.moveLessonUp')} variant="ghost" size="sm" className="h-4 px-1" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="h-3 w-3" aria-hidden="true" /></Button>
-                          <Button aria-label={t('authenticatedUi.editor.moveLessonDown')} variant="ghost" size="sm" className="h-4 px-1" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="h-3 w-3" aria-hidden="true" /></Button>
+                          <Button aria-label={t('authenticatedUi.editor.moveLessonUp')} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleMoveLesson(lesson.id, mod.id, 'up')} disabled={lessonIdx === 0}><ChevronUp className="h-4 w-4" aria-hidden="true" /></Button>
+                          <Button aria-label={t('authenticatedUi.editor.moveLessonDown')} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleMoveLesson(lesson.id, mod.id, 'down')} disabled={lessonIdx === mod.lessons.length - 1}><ChevronDown className="h-4 w-4" aria-hidden="true" /></Button>
                         </div>
                         <button
                           type="button"
@@ -844,7 +870,7 @@ export default function CourseEditPage() {
           </CardContent>
         </Card>
 
-        <Card className="min-w-0">
+        <Card className="min-w-0 overflow-hidden rounded-2xl">
           <CardContent className="flex min-h-[680px] flex-col p-0">
             {editingLessonId && activeLesson ? (
               <>
@@ -889,8 +915,8 @@ export default function CourseEditPage() {
                     />
                   </article>
                 )}
-                <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border p-4">
-                  <p role="status" className={`text-sm ${lessonDirty ? 'text-amber-700' : 'text-muted-foreground'}`}>
+                <div className="sticky bottom-0 z-10 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-card p-4 shadow-sm">
+                  <p role="status" className={`text-sm ${lessonDirty ? 'text-warning' : 'text-muted-foreground'}`}>
                     {savingLesson ? t('common.saving') : lessonDirty ? t('authenticatedUi.editor.unsavedChanges') : t('common.saved')}
                   </p>
                   <div className="flex min-w-0 max-w-full flex-wrap gap-2">
@@ -917,8 +943,8 @@ export default function CourseEditPage() {
           </CardContent>
         </Card>
 
-        <aside className="min-w-0 space-y-4 xl:col-span-2 2xl:col-span-1">
-          <Card>
+        <aside className="min-w-0 space-y-4 xl:col-span-2 2xl:sticky 2xl:top-4 2xl:col-span-1">
+          <Card className="rounded-2xl">
             <CardContent className="space-y-4 p-4">
               <h2 className="font-semibold">{t('authenticatedUi.editor.lessonProperties')}</h2>
               {activeLesson ? (
@@ -979,6 +1005,6 @@ export default function CourseEditPage() {
           return correctionPanelRef.current?.stageInstruction({ lessonId, instruction, locale: lang }) ?? false;
         }}
       />
-    </div>
+    </WorkspacePage>
   );
 }

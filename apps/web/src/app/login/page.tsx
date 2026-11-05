@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Copy, KeyRound, Mail, MessageCircle, RefreshCw } from 'lucide-react';
 
-import { Logo } from '@/components/brand/Logo';
+import { PublicWorkspace, WorkspacePageHeader, WorkspacePanel } from '@/features/workspace-design';
+import { getPublicWorkspaceCopy } from '@/features/workspace-design/publicCopy';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -21,7 +22,8 @@ type LoginMode = 'password' | 'email' | 'telegram';
 export default function LoginPage() {
   useLocaleQuery();
   const router = useRouter();
-  const { t } = useT();
+  const { t, lang } = useT();
+  const publicCopy = getPublicWorkspaceCopy(lang);
   const { login, accessToken } = useAuthStore();
   const [mode, setMode] = useState<LoginMode>('email');
   const [passwordEmail, setPasswordEmail] = useState('');
@@ -236,22 +238,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-primary/5 to-background px-4 py-10">
-      <div className="absolute right-4 top-4">
-        <LanguageSwitcher />
-      </div>
-      <main id="main-content" className="w-full max-w-md rounded-lg bg-card p-8 shadow-card">
-        <div className="mb-7 text-center">
-          <div className="mb-3 flex justify-center">
-            <Logo variant="full" size={40} />
-          </div>
-          <h1 className="text-xl font-semibold">{t('publicUi.login.title')}</h1>
+    <PublicWorkspace id="login" actions={<LanguageSwitcher />}>
+      <div className="grid min-w-0 items-start gap-8 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] lg:gap-14 lg:py-10">
+        <div className="min-w-0 space-y-6 lg:sticky lg:top-12">
+          <WorkspacePageHeader title={t('publicUi.login.title')} description={publicCopy.loginIntro} icon={<KeyRound />} />
+          <div className="hidden max-w-lg rounded-2xl border border-border bg-card p-5 text-sm leading-7 text-muted-foreground lg:block">{publicCopy.loginHint}</div>
         </div>
+        <WorkspacePanel title={t('publicUi.login.method')} bodyClassName="space-y-5">
 
         <div
           role="tablist"
           aria-label={t('publicUi.login.method')}
-          className={`mb-5 grid gap-1.5 rounded-lg border border-primary/20 bg-primary/5 p-1.5 shadow-inner ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}
+          className={`grid gap-1.5 rounded-xl border border-border bg-muted/50 p-1.5 ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}
         >
           <button
             type="button"
@@ -481,8 +479,9 @@ export default function LoginPage() {
             </Link>
           </div>
         </div>
-      </main>
+        </WorkspacePanel>
+      </div>
       <PublicLegalFooter />
-    </div>
+    </PublicWorkspace>
   );
 }

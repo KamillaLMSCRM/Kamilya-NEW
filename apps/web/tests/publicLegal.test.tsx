@@ -17,7 +17,7 @@ describe('public legal content', () => {
   it('describes contextual consent and necessary-only cookies', () => {
     render(<LegalDocument language="ru" kind="privacy" />);
 
-    expect(screen.getByText('Кого и какие данные мы обрабатываем')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Кого и какие данные мы обрабатываем', level: 2 })).toBeInTheDocument();
     expect(screen.getByText(/обеспечивает хранение основной базы данных/i)).toBeInTheDocument();
     expect(screen.getByText(/контур разворачивается для конкретного клиента/i)).toBeInTheDocument();
     expect(screen.getByText(/трансграничная обработка может происходить/i)).toBeInTheDocument();

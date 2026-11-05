@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Download, Mail, RefreshCw, ShieldCheck, Upload } from 'lucide-react';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useT } from '@/i18n/useT';
 import { useAuthStore } from '@/store/authStore';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 import { useLanguageStore } from '@/store/languageStore';
+import { WorkspacePanel } from '@/features/workspace-design';
 
 export interface LearnerEvidenceEvent {
   id: string;
@@ -265,19 +266,16 @@ function ScopedEvidenceConfirmationPanel({
 
   if (loading) {
     return (
-      <Card aria-busy="true">
-        <CardContent className="flex items-center gap-3 p-5 text-sm text-muted-foreground">
+      <WorkspacePanel aria-busy="true" bodyClassName="flex items-center gap-3 text-sm text-muted-foreground" role="status">
           <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />
           {t('evidenceConfirmation.loading')}
-        </CardContent>
-      </Card>
+      </WorkspacePanel>
     );
   }
 
   if (error && !event) {
     return (
-      <Card className="border-destructive/30">
-        <CardContent className="space-y-3 p-5">
+      <WorkspacePanel className="border-destructive/30" bodyClassName="space-y-4">
           <div className="flex items-start gap-3 text-sm text-destructive" role="alert">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
@@ -286,29 +284,19 @@ function ScopedEvidenceConfirmationPanel({
             <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('common.retry')}
           </Button>
-        </CardContent>
-      </Card>
+      </WorkspacePanel>
     );
   }
 
   return (
-    <Card className={confirmed ? 'border-success/40 bg-success/5' : 'border-primary/30'}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full bg-primary/10 p-2 text-primary" aria-hidden="true">
-            {confirmed ? <CheckCircle2 className="h-5 w-5 text-success" /> : <ShieldCheck className="h-5 w-5" />}
-          </div>
-          <div className="min-w-0">
-            <CardTitle className="text-lg">{notRequired ? m.confirmationNotRequired : t('evidenceConfirmation.title')}</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">{notRequired ? m.noConfirmationHint : confirmed ? t('evidenceConfirmation.status.confirmed') : t('evidenceConfirmation.subtitle')}</p>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+    <WorkspacePanel className={confirmed ? 'border-success/40' : 'border-primary/30'}
+      title={<span className="flex items-start gap-3"><span className="rounded-xl bg-primary/10 p-2 text-primary" aria-hidden="true">{confirmed ? <CheckCircle2 className="h-5 w-5 text-success" /> : <ShieldCheck className="h-5 w-5" />}</span><span className="min-w-0 break-words pt-1">{notRequired ? m.confirmationNotRequired : t('evidenceConfirmation.title')}</span></span>}
+      description={notRequired ? m.noConfirmationHint : confirmed ? t('evidenceConfirmation.status.confirmed') : t('evidenceConfirmation.subtitle')}
+      bodyClassName="space-y-6 [&_button]:h-auto [&_button]:min-h-11 [&_button]:py-2 [&_button]:whitespace-normal">
+        <dl className="grid gap-5 rounded-xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2 sm:p-5">
           <div>
             <dt className="text-muted-foreground">{t('evidenceConfirmation.activity')}</dt>
-            <dd className="mt-1 font-medium text-foreground">{title}</dd>
+             <dd className="mt-1 break-words font-medium text-foreground">{title}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">{t('evidenceConfirmation.procedure')}</dt>
@@ -348,7 +336,8 @@ function ScopedEvidenceConfirmationPanel({
           <span className={confirmed ? 'text-success' : 'text-muted-foreground'}>{statusText}</span>
         </div>
 
-        <div className="rounded-md border border-border bg-muted/30 p-4">
+        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2">
+        <section className="rounded-xl border border-border p-5">
           <p className="text-sm text-muted-foreground">
             {t('evidenceConfirmation.pdfDescription')}
           </p>
@@ -362,12 +351,10 @@ function ScopedEvidenceConfirmationPanel({
             <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             {downloading ? t('evidenceConfirmation.downloadingPdf') : t('evidenceConfirmation.downloadPdf')}
           </Button>
-        </div>
-
-        {error && (confirmed || notRequired || !learnerEmail) && <p className="text-sm text-destructive" role="alert">{error}</p>}
+        </section>
 
         {activityKind === 'course' && (
-          <div className="space-y-3 rounded-md border border-border bg-muted/30 p-4">
+          <section className="min-w-0 space-y-3 rounded-xl border border-border p-5">
             <div>
               <p className="text-sm font-medium text-foreground">{t('evidenceConfirmation.signedCopy')}</p>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -385,7 +372,7 @@ function ScopedEvidenceConfirmationPanel({
                       ? t('evidenceConfirmation.signedCopyReplace', { reason: signedCopyLedger.scans.at(-1)?.latest_review_reason || t('evidenceConfirmation.signedCopyReason') })
                       : t('evidenceConfirmation.signedCopyMissing')}
             </div>
-            <label className="inline-flex min-h-10 cursor-pointer items-center rounded-md border border-input px-3 text-sm font-medium hover:bg-accent">
+            <label className="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-input px-3 py-2 text-sm font-medium hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
               {signedCopyUploading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
               {signedCopyUploading ? t('evidenceConfirmation.signedCopyUploading') : t('evidenceConfirmation.signedCopyUpload')}
               <input
@@ -402,11 +389,14 @@ function ScopedEvidenceConfirmationPanel({
             </label>
             <p className="text-xs text-muted-foreground">{t('evidenceConfirmation.signedCopyFormats')}</p>
             {signedCopyError && <p className="text-sm text-destructive" role="alert">{signedCopyError}</p>}
-          </div>
+          </section>
         )}
+        </div>
+
+        {error && (confirmed || notRequired || !learnerEmail) && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
         {!confirmed && !notRequired && learnerEmail && (
-          <div className="space-y-3 rounded-md border border-border p-4">
+          <section className="min-w-0 space-y-4 rounded-xl border border-primary/25 bg-primary/5 p-5 sm:p-6">
             <p className="text-sm text-muted-foreground">{t('evidenceConfirmation.explanation')}</p>
             {!challengeId ? (
               <Button type="button" onClick={() => void requestCode()} disabled={requesting || retryAfter !== null}>
@@ -429,6 +419,7 @@ function ScopedEvidenceConfirmationPanel({
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="000000"
                     aria-describedby={`evidence-code-help-${eventId}`}
+                    className="max-w-xs font-mono text-lg tracking-[0.3em]"
                   />
                   <Button type="button" onClick={() => void verifyCode()} disabled={verifying || code.length !== 6}>
                     {verifying ? t('evidenceConfirmation.verifying') : t('evidenceConfirmation.confirm')}
@@ -441,7 +432,7 @@ function ScopedEvidenceConfirmationPanel({
             )}
             {retryAfter !== null && <p className="text-xs text-muted-foreground">{t('evidenceConfirmation.retryAfter', { seconds: retryAfter })}</p>}
             {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-          </div>
+          </section>
         )}
 
         {!confirmed && !notRequired && !learnerEmail && (
@@ -450,8 +441,7 @@ function ScopedEvidenceConfirmationPanel({
           </div>
         )}
 
-        {actionButtons}
-      </CardContent>
-    </Card>
+        {(continueHref || resultHref) && <footer className="border-t border-border pt-5 [&_button]:min-h-11 [&_button]:whitespace-normal">{actionButtons}</footer>}
+    </WorkspacePanel>
   );
 }

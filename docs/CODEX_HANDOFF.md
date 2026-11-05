@@ -1,3 +1,37 @@
+# P31 + design LOCAL gates closed; DEV integration next — 2026-11-05
+
+- result: New coherent author → full keyed editor → optional addressed revision →
+  blind answer workflow implemented in normal service/worker; complete editable
+  drafts and typed version-bound human review retained. This is not automatic
+  human approval or production acceptance.
+- changed: Engine commit a416116cd0681481036a220d5ef3316145e26537 independently pushed
+  and read back on release/v3-source-reviewed-dev-20261104. Clean integration branch
+  release/v3-p31-design-dev-20261105 combines full owner design96a76b8f..5fb9dcff
+  with P30/P31 source panel and unknown-outcome fences. Fixed duplicate stateful
+  approval card and async test timing; retained exact historical design evidence.
+- verified: FullAPI7889PASS544skipped;58focused + baseline1004/2174PASS. Guided
+  Luna6/HIGH local service: Standards4L12Q3calls165.469s67377tokens CONTENT GO with
+  original source intervals held; Fire6L18Q4calls301.656s113976tokens and Micro11L33Q
+  4calls622.516s268432tokens are editable drafts with independent material holds.
+  All67families reviewed; not all passed. No active model call remains. Combined
+  web189files1675PASS222.10s before last two-line duplicate removal; new real-page
+  regression red/green +53editor testsPASS after. Types/lint/build67pagesPASS;
+  NarrowA21/wholeLMS19/draftReview2PASS; rebuilt after fix, editor2+draft2PASS.
+  Version72/release-contract371entriesPASS. New checkout navigationNOT_READY
+  (runtime absent), bounded source review used; original backend indexes refreshed.
+- blockers: Local actual-service journal controls are not native DB/DEV acceptance.
+  Remaining Micro workflows/source conjunction and Fire prevention duty/weak stem
+  are recorded, not hidden or declared repaired. Existing DEV906b5a11 independently
+  controllerRECONCILED with sole worker52466039 running0restarts; prod66/native70
+  and all customer data untouched. Local loopback build MUST NOT be deployed.
+- next: Push exact combined candidate through existing DEV CI/image/controller;
+  native synthetic generation/draft/human-review/save/recovery verification, then
+  DeepSeek and production only after content/business acceptance. No more full
+  model reruns for these saved defects. Source evidence remains in sibling
+  v3-source-reviewed-dev-20261104/.release-evidence/p31-editorial-integration-20261105;
+  merged frontend evidence is .release-evidence/p31-design-integration/ here.
+  Product defects: docs/testing/GENERATION_ENGINE_ERRORS.md; agent errors:ERRORS.md.
+
 # P29 LOCAL gates complete; exact DEV source release next — 2026-11-05 02:51UTC
 
 - result: Candidate0.11.72/fresh29 separated existing phases; final6590unitPASS

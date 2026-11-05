@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, ExternalLink, FileCheck2, Loader2 } from 'lucide-react';
 
-import { Badge, Button, Card, CardContent } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 
 interface Certificate {
   id: string;
@@ -24,6 +25,7 @@ export default function CertificatesPage() {
   const { t, lang } = useT();
   const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -36,7 +38,9 @@ export default function CertificatesPage() {
       });
       if (!res.ok) throw new Error(`Certificate request failed (${res.status})`);
       setCertificates(await res.json());
+      setLoadError(false);
     } catch {
+      setLoadError(true);
       toast.error(t('common.loadFailed') || 'Failed to load certificates');
     } finally {
       setLoading(false);
@@ -89,36 +93,31 @@ export default function CertificatesPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-48 items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+      <WorkspacePage id="certificates" title={t('certificates.title')}><WorkspacePanel aria-busy="true" bodyClassName="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         {t('common.loading')}
-      </div>
+      </WorkspacePanel></WorkspacePage>
     );
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t('certificates.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('certificates.description')}</p>
-      </div>
+    <WorkspacePage id="certificates" title={t('certificates.title')} description={t('certificates.description')} icon={<FileCheck2 />}>
+      <WorkspaceToolbar>
+        <p className="min-w-0 flex-1 text-sm leading-6 text-muted-foreground">{t('certificates.publicVerificationHint')}</p>
+        <Link href="/verify/certificate" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm font-medium text-primary hover:bg-muted"><ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />{t('certificates.verify')}</Link>
+      </WorkspaceToolbar>
 
-      {certificates.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 p-8 text-center">
-            <FileCheck2 className="h-12 w-12 text-muted-foreground/50" aria-hidden="true" />
-            <p className="max-w-md text-muted-foreground">{t('certificates.noCertificates')}</p>
+      {loadError ? <WorkspacePanel role="alert" bodyClassName="space-y-3"><p>{t('common.loadFailed')}</p><Button variant="outline" onClick={() => { setLoading(true); void fetchCertificates(); }}>{t('common.retry')}</Button></WorkspacePanel> : certificates.length === 0 ? (
+        <WorkspaceEmpty title={t('certificates.noCertificates')} icon={<FileCheck2 />} action={
             <Link href="/my-courses" className="text-sm font-medium text-primary hover:underline">
               {t('certificates.browseCourses')}
             </Link>
-          </CardContent>
-        </Card>
+        } />
       ) : (
-        <div className="space-y-4">
+        <WorkspacePanel padded={false} bodyClassName="divide-y divide-border">
           {certificates.map((cert) => (
-            <Card key={cert.id}>
-              <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
+            <article key={cert.id} className="grid min-w-0 gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,auto)] sm:p-6">
+                <div className="min-w-0 border-l-4 border-primary/25 pl-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="break-words text-base font-semibold">
                       {cert.course_title || t('certificates.courseFallback')}
@@ -146,16 +145,16 @@ export default function CertificatesPage() {
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col gap-2 sm:min-w-48">
+                <div className="flex min-w-0 flex-wrap items-start gap-2 lg:max-w-xs lg:flex-col lg:items-stretch">
                   <Link
                     href={`/verify/certificate/${encodeURIComponent(cert.certificate_number)}`}
-                    className="inline-flex h-9 items-center justify-center rounded-md border border-input px-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     <ExternalLink className="mr-2 h-4 w-4" aria-hidden="true" />
                     {t('certificates.openVerification')}
                   </Link>
                   <Button
-                    size="sm"
+                    className="min-h-11"
                     onClick={() => handleDownload(cert)}
                     disabled={downloadingId === cert.id}
                   >
@@ -167,18 +166,11 @@ export default function CertificatesPage() {
                     {t('common.download')}
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+            </article>
           ))}
-        </div>
+        </WorkspacePanel>
       )}
 
-      <p className="text-sm text-muted-foreground">
-        {t('certificates.publicVerificationHint')}{' '}
-        <Link href="/verify/certificate" className="font-medium text-primary hover:underline">
-          {t('certificates.verify')}
-        </Link>
-      </p>
-    </div>
+    </WorkspacePage>
   );
 }

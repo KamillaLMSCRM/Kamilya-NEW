@@ -3,7 +3,12 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { Clock3, KeyRound, UserRound } from 'lucide-react';
+import { PublicWorkspace, WorkspacePanel } from '@/features/workspace-design';
+import { getPublicWorkspaceCopy } from '@/features/workspace-design/publicCopy';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { setAuth, getStoredAuth, AuthState } from '@/lib/auth';
 import { useIdleTimeout } from '@/lib/useIdleTimeout';
@@ -39,18 +44,6 @@ interface KioskIdentifyResponse {
   token_type: string;
 }
 
-const REASON_LABELS: Record<string, string> = {
-  kiosk_not_found: 'Ссылка не найдена. Проверьте QR-код.',
-  kiosk_disabled: 'Этот киоск отключён. Обратитесь к HR.',
-  kiosk_expired: 'Срок действия киоска истёк. Обратитесь к HR.',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  not_started: 'Не начат',
-  in_progress: 'В процессе',
-  completed: 'Пройден',
-};
-
 const STATUS_COLORS: Record<string, string> = {
   not_started: 'bg-muted text-muted-foreground',
   in_progress: 'bg-warning/15 text-warning',
@@ -60,6 +53,10 @@ const STATUS_COLORS: Record<string, string> = {
 export default function KioskPage() {
   const params = useParams();
   const token = params?.token as string;
+  const { lang } = useT();
+  const copy = getPublicWorkspaceCopy(lang);
+  const reasonLabels: Record<string, string> = { kiosk_not_found: copy.kioskMissing, kiosk_disabled: copy.kioskDisabled, kiosk_expired: copy.kioskExpired };
+  const statusLabels: Record<string, string> = { not_started: copy.notStarted, in_progress: copy.inProgress, completed: copy.completed };
 
   const [kiosk, setKiosk] = useState<KioskInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,7 +117,7 @@ export default function KioskPage() {
     setError('');
     if (!token) return;
     if (!personnelNumber.trim() || !/^\d{6}$/.test(pin)) {
-      setError('Введите табельный номер и шестизначный PIN');
+      setError(copy.identifyInvalid);
       return;
     }
     setSubmitting(true);
@@ -143,12 +140,12 @@ export default function KioskPage() {
       if (typeof window !== 'undefined') sessionStorage.setItem('kamilya_kiosk_session', '1');
       setSessionExpired(false);
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || 'Не удалось идентифицировать';
+      const detail = err?.response?.data?.detail || copy.identifyFailed;
       setError(typeof detail === 'string' ? detail : JSON.stringify(detail));
     } finally {
       setSubmitting(false);
     }
-  }, [token, personnelNumber, pin]);
+  }, [token, personnelNumber, pin, copy.identifyInvalid, copy.identifyFailed]);
 
   const handleBack = () => {
     if (typeof window !== 'undefined') sessionStorage.removeItem('kamilya_kiosk_session');
@@ -167,94 +164,47 @@ export default function KioskPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
+      <PublicWorkspace id="kiosk-access" actions={<LanguageSwitcher />}><WorkspacePanel><div role="status" className="flex min-h-40 items-center justify-center gap-3 text-sm text-muted-foreground"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />{copy.loading}</div></WorkspacePanel></PublicWorkspace>
     );
   }
 
   if (!kiosk || !kiosk.valid) {
     const reason = kiosk?.reason_if_invalid || 'kiosk_not_found';
-    const label = REASON_LABELS[reason] || 'Киоск недоступен';
+    const label = reasonLabels[reason] || copy.kioskUnavailable;
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-8 text-center space-y-4">
-            <div className="text-5xl">⚠️</div>
-            <h1 className="text-xl font-bold text-foreground">Киоск недоступен</h1>
-            <p className="text-sm text-muted-foreground">{label}</p>
-          </CardContent>
-        </Card>
-      </div>
+      <PublicWorkspace id="kiosk-access" title={copy.kioskUnavailable} icon={<KeyRound />} actions={<LanguageSwitcher />}><WorkspacePanel><p role="alert" className="text-sm leading-7 text-muted-foreground">{label}</p></WorkspacePanel></PublicWorkspace>
     );
   }
 
   if (sessionExpired && !result) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-8 text-center space-y-4">
-            <div className="text-4xl">⌛</div>
-            <h1 className="text-xl font-bold text-foreground">Сеанс завершён</h1>
-            <p className="text-sm text-muted-foreground">Для защиты данных сотрудника введите табельный номер ещё раз.</p>
-            <Button className="w-full" onClick={() => setSessionExpired(false)}>Вернуться к входу</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <PublicWorkspace id="kiosk-access" title={copy.sessionDone} description={copy.sessionDoneHint} icon={<Clock3 />} actions={<LanguageSwitcher />}><div className="mx-auto max-w-lg"><WorkspacePanel><Button className="min-h-11 w-full" onClick={() => setSessionExpired(false)}>{copy.returnLogin}</Button></WorkspacePanel></div></PublicWorkspace>
     );
   }
 
   // ── After identify: show user's courses ──
   if (result) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-2xl mx-auto space-y-4 py-6">
+      <PublicWorkspace id="kiosk-access" title={`${result.user.first_name} ${result.user.last_name}`} description={`${copy.personnel}: ${result.user.personnel_number}`} icon={<UserRound />} actions={<><LanguageSwitcher /><Button variant="outline" onClick={handleBack}>{copy.changePerson}</Button></>}>
           {warningSeconds !== null && (
             <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning" role="status">
-              Сеанс завершится через {warningSeconds} сек. Продолжите работу, чтобы сохранить доступ.
+              {copy.idleWarning.replace('{seconds}', String(warningSeconds))}
             </div>
           )}
-          {/* User header */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-2xl">
-                  {result.user.first_name[0]}{result.user.last_name[0]}
-                </div>
-                <div className="flex-1">
-                  <div className="text-xl font-bold text-foreground">
-                    {result.user.first_name} {result.user.last_name}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Табельный №: <span className="font-mono">{result.user.personnel_number}</span>
-                    {result.user.position_name && (
-                      <span className="ml-2">· {result.user.position_name}</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="rounded-xl border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
-                >
-                  Сменить
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Courses */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Назначенные курсы</CardTitle>
-            </CardHeader>
-            <CardContent>
+        <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+          <WorkspacePanel title={result.kiosk_name} bodyClassName="space-y-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-xl font-semibold text-primary">{result.user.first_name[0]}{result.user.last_name[0]}</div>
+            {result.user.position_name && <p className="text-sm font-medium">{result.user.position_name}</p>}
+            <p className="text-sm leading-6 text-muted-foreground">{result.kiosk_location || copy.sharedKiosk}</p>
+            <p className="border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{copy.kioskAuditHint}</p>
+          </WorkspacePanel>
+          <WorkspacePanel title={copy.assignedCourses}>
               {result.courses.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                  Курсы не назначены. Обратитесь к HR.
+                  {copy.noKioskCourses}
                 </p>
               ) : (
-                <div className="space-y-2">
+                <div className="grid min-w-0 gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))]">
                   {result.courses.map((c) => (
                     <Link
                       key={c.course_id}
@@ -265,9 +215,9 @@ export default function KioskPage() {
                           sessionStorage.setItem('kamilya_kiosk_return', `/kiosk/${token}`);
                         }
                       }}
-                      className="block rounded-lg border border-border p-3 hover:border-primary hover:bg-primary/5 transition-colors"
+                      className="block min-w-0 rounded-xl border border-border p-4 transition-colors hover:border-primary/40 hover:bg-primary/5"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-foreground">{c.title}</div>
                           {c.description && (
@@ -277,50 +227,38 @@ export default function KioskPage() {
                           )}
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_COLORS[c.status] || STATUS_COLORS.not_started}`}>
-                          {STATUS_LABELS[c.status] || c.status}
+                          {statusLabels[c.status] || c.status}
                         </span>
                       </div>
                     </Link>
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
-
-          <p className="text-center text-xs text-muted-foreground">
-            {result.kiosk_name} · {result.kiosk_location || 'общий киоск'}
-          </p>
+          </WorkspacePanel>
         </div>
-      </div>
+      </PublicWorkspace>
     );
   }
 
   // ── Default: identify screen ──
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="max-w-md w-full">
-        <CardHeader>
-          <div className="text-center space-y-2">
-            <div className="text-5xl">🏭</div>
-            <CardTitle>{kiosk.name}</CardTitle>
-            <div className="text-sm text-muted-foreground">
-              {kiosk.tenant_name}
-              {kiosk.location && <span className="block text-xs mt-0.5">{kiosk.location}</span>}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-center text-sm text-muted-foreground">
-            Введите ваш <strong>табельный номер</strong> и отдельный PIN для киоска, чтобы увидеть назначенные курсы.
+    <PublicWorkspace id="kiosk-access" title={kiosk.name} description={kiosk.tenant_name} icon={<KeyRound />} actions={<LanguageSwitcher />}>
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+        <WorkspacePanel title={copy.accessStep} bodyClassName="space-y-4">
+          {kiosk.location && <p className="text-sm font-medium">{kiosk.location}</p>}
+          <p className="text-sm leading-7 text-muted-foreground">{copy.identifyHint}
             {kiosk.scope_position_name && (
               <span className="block text-xs text-warning mt-1">
-                Этот киоск только для должности: <strong>{kiosk.scope_position_name}</strong>
+                {copy.kioskScope}: <strong>{kiosk.scope_position_name}</strong>
               </span>
             )}
           </p>
+          <p className="border-t border-border pt-4 text-xs leading-6 text-muted-foreground">{copy.kioskAuditHint}</p>
+        </WorkspacePanel>
+        <WorkspacePanel title={copy.confirmationStep} bodyClassName="space-y-5">
 
           <label className="block">
-            <span className="block text-xs font-semibold text-muted-foreground mb-1">Табельный номер</span>
+            <span className="mb-1.5 block text-sm font-medium">{copy.personnel}</span>
             <Input
               value={personnelNumber}
               onChange={(e) => setPersonnelNumber(e.target.value)}
@@ -335,11 +273,11 @@ export default function KioskPage() {
           </label>
 
           <label className="block">
-            <span className="block text-xs font-semibold text-muted-foreground mb-1">PIN для киоска</span>
+            <span className="mb-1.5 block text-sm font-medium">{copy.kioskPin}</span>
             <Input
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              placeholder="6 цифр"
+              placeholder={copy.pinPlaceholder}
               inputMode="numeric"
               autoComplete="one-time-code"
               className="text-lg tracking-[0.35em]"
@@ -358,17 +296,13 @@ export default function KioskPage() {
           <Button
             onClick={handleIdentify}
             disabled={submitting || !personnelNumber.trim() || !/^\d{6}$/.test(pin)}
-            className="w-full"
+            className="min-h-11 w-full"
           >
-            {submitting ? 'Проверяю...' : 'Показать курсы'}
+            {submitting ? copy.checking : copy.showCourses}
           </Button>
 
-          <p className="text-xs text-muted-foreground text-center">
-            Киоск предназначен для общего пользования (планшет в цехе).
-            Все входы регистрируются для аудита.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        </WorkspacePanel>
+      </div>
+    </PublicWorkspace>
   );
 }

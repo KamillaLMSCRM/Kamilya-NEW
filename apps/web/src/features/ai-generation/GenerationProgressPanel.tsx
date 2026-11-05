@@ -3,6 +3,7 @@ import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import { CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
+import { WorkspacePanel } from '@/features/workspace-design';
 
 export interface GenerationStage {
   key: string;
@@ -47,12 +48,13 @@ export function GenerationProgressPanel({
     && (job.progress_current ?? 0) <= (job.progress_total ?? 0)
   );
 
-  return <div className="space-y-6">
+  return <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.65fr)]" data-generation-workspace>
+    <div className="min-w-0 space-y-4">
     {(job.status === 'interrupted' || state === 'stalled' || state === 'failed') && (
       <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6" aria-label={m.generationTitle}>
         <h3 className="text-lg font-semibold text-foreground">{m.generationTitle}</h3>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">{m.generationHint}</p>
-        <p className="mt-2 text-xs leading-6 text-muted-foreground">{m.resumeHint}</p>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-foreground">{m.generationHint}</p>
+        <p className="mt-2 text-xs leading-6 text-foreground">{m.resumeHint}</p>
         {job.course_id && <div className="mt-4 rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-foreground">{m.savedDraft}</p>
           <Link href={`/courses/${encodeURIComponent(job.course_id)}/edit`} className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium text-primary hover:bg-muted">{m.openDraft}</Link>
@@ -89,14 +91,14 @@ export function GenerationProgressPanel({
       <p className="mt-2 text-xs text-muted-foreground">{queueEstimateHint}</p>
     </div>}
 
-    <div className="space-y-2">
-      <p className="text-xs leading-6 text-muted-foreground">{m.stepsHint}</p>
+    </div>
+    <WorkspacePanel description={m.stepsHint} bodyClassName="space-y-2">
       {stages.map((stage, index) => {
         const isAllDone = job.stage === 'completed' || job.status === 'completed';
         const isActive = !isAllDone && job.stage === stage.key;
         const isDone = isAllDone || index < currentStageIndex;
         const Icon = stage.icon;
-        return <div key={stage.key} className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${isActive ? 'border-primary bg-primary/5 shadow-sm' : isDone ? 'border-success/40 bg-success/10' : 'border-border opacity-50'}`}>
+        return <div key={stage.key} aria-current={isActive ? 'step' : undefined} className={`flex items-center gap-3 rounded-xl border p-3 transition-all ${isActive ? 'border-primary bg-primary/5 shadow-sm' : isDone ? 'border-success/40 bg-success/5' : 'border-transparent bg-muted/30'}`}>
           <div className={isDone ? 'text-success' : isActive ? stage.color : 'text-muted-foreground'}>
             {isDone ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
           </div>
@@ -104,6 +106,6 @@ export function GenerationProgressPanel({
           {isActive && <div className="ml-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />}
         </div>;
       })}
-    </div>
+    </WorkspacePanel>
   </div>;
 }

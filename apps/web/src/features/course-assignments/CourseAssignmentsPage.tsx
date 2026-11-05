@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Copy, KeyRound } from 'lucide-react';
+import { Copy, KeyRound, Users } from 'lucide-react';
 import {
-  Card,
-  CardContent,
   Button,
   Badge,
   Table,
@@ -21,6 +19,7 @@ import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 import { AssignmentSelectionPreview } from '@/features/learning-workspace/AssignmentSelectionPreview';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { authorSessionScope } from '@/features/course-authoring/authorSession';
+import { WorkspacePage, WorkspacePanel, WorkspaceToolbar, WorkspaceEmpty } from '@/features/workspace-design';
 
 interface Course {
   id: string;
@@ -969,34 +968,23 @@ function AssignmentsContent() {
 
   if (!canManageAssignments) {
     return (
-      <Card>
-        <CardContent className="p-6 space-y-2">
-          <h1 className="text-xl font-semibold">{t('courseAssignments.accessDenied.title')}</h1>
+      <WorkspacePage id="assignments" title={t('courseAssignments.accessDenied.title')}>
+        <WorkspacePanel>
           <p className="text-sm text-muted-foreground">
             {t('courseAssignments.accessDenied.description')}
           </p>
-        </CardContent>
-      </Card>
+        </WorkspacePanel>
+      </WorkspacePage>
     );
   }
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loading) return <WorkspacePage id="assignments" title={t('courseAssignments.title')}><p role="status">{t('common.loading')}</p></WorkspacePage>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{t('courseAssignments.title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('courseAssignments.description')}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t('courseAssignments.testsDescription')}
-        </p>
-      </div>
+    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />} description={<>{t('courseAssignments.description')}<p>{t('courseAssignments.testsDescription')}</p></>}>
 
       {accessLinks.length > 0 && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="space-y-3 p-4">
+        <WorkspacePanel className="border-primary/30" bodyClassName="space-y-3" aria-label={t('courseAssignments.ui.activationTitle')}>
             <div className="flex items-start gap-3">
               <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div>
@@ -1017,13 +1005,11 @@ function AssignmentsContent() {
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+        </WorkspacePanel>
       )}
 
       {issuedNoEmailAccess && (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="space-y-2 p-4">
+        <WorkspacePanel className="border-primary/30" bodyClassName="space-y-2" aria-label={t('courseAssignments.ui.personalAccessTitle')}>
             <h2 className="font-semibold">{t('courseAssignments.ui.personalAccessTitle')}</h2>
             <p className="text-sm text-muted-foreground">
               {issuedNoEmailAccess.learner_name}. {t('courseAssignments.ui.pinNotice')}
@@ -1056,22 +1042,18 @@ function AssignmentsContent() {
                 ? t('courseAssignments.ui.completionWindow', { minutes: issuedNoEmailAccess.completion_window_minutes })
                 : ''}
             </p>
-          </CardContent>
-        </Card>
+        </WorkspacePanel>
       )}
 
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
-        {/* ── LEFT: course selector + enrolled users ─────── */}
-        <Card className="min-w-0">
-          <CardContent className="min-w-0 p-4 space-y-4">
-            <h2 className="font-semibold">{t('courses.title')}</h2>
-
+      <WorkspaceToolbar aria-label={t('courses.title')} className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-2">
+            <div className="min-w-0 space-y-2"><h2 className="text-sm font-semibold">{t('courses.title')}</h2>
             <SearchInput
               value={courseSearch}
               onChange={setCourseSearch}
               placeholder={t('courseAssignments.ui.searchCourse')}
             />
-
+            </div>
+            <div className="min-w-0">
             <select
               aria-label={t('courseAssignments.ui.courseLabel')}
               value={selectedCourse}
@@ -1096,6 +1078,11 @@ function AssignmentsContent() {
                 {t('courseAssignments.ui.noCourses')}
               </p>
             )}
+            </div>
+      </WorkspaceToolbar>
+
+      <div className="min-w-0 space-y-6">
+        <WorkspacePanel title={t('courses.enrollments')} padded={false} bodyClassName="min-w-0 space-y-4 p-4 sm:p-6">
 
             {selectedCourse && (
               <>
@@ -1137,11 +1124,9 @@ function AssignmentsContent() {
                 )}
 
                 {enrollmentReadState !== 'ready' ? <p className="text-sm text-muted-foreground">{m.enrollmentsUnknown}</p> : filteredEnrollments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    {enrollments.length === 0
+                  <WorkspaceEmpty title={enrollments.length === 0
                       ? t('courseAssignments.emptyEnrollments')
-                      : t('courseAssignments.ui.noFilteredEnrollments')}
-                  </p>
+                      : t('courseAssignments.ui.noFilteredEnrollments')} />
                 ) : (
                   <Table className="min-w-0 max-w-full">
                     <thead>
@@ -1279,14 +1264,10 @@ function AssignmentsContent() {
                 )}
               </>
             )}
-          </CardContent>
-        </Card>
+        </WorkspacePanel>
 
-        {/* ── RIGHT: available users to enroll ──────────── */}
-        <Card className="min-w-0">
-          <CardContent className="min-w-0 p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">{t('courseAssignments.ui.learners')}</h2>
+        {/* New audience and delivery settings stay separate from existing enrollments. */}
+        <WorkspacePanel title={t('courseAssignments.ui.learners')} bodyClassName="space-y-5" actions={
               <Button
                 onClick={handleEnroll}
                 disabled={
@@ -1298,7 +1279,9 @@ function AssignmentsContent() {
                   ? t('common.loading')
                   : t('courseAssignments.ui.assignCount', { count: selectedUsers.size })}
               </Button>
-            </div>
+        }>
+          <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+            <div className="min-w-0 space-y-4 rounded-xl bg-muted/25 p-4">
             <fieldset className="space-y-3 rounded-md border border-border p-3">
               <legend className="px-1 text-sm font-medium">{t('courseAssignments.ui.deliveryLegend')}</legend>
               <label className="flex items-start gap-2 text-sm">
@@ -1377,6 +1360,8 @@ function AssignmentsContent() {
               completedCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse && item.status === 'completed').map((item) => item.user_id)).size : null}
               deliveryLabel={t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email')}
             />
+            </div>
+            <div className="min-w-0 space-y-4">
             {enrollmentReadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
             {enrollmentReadState === 'error' && <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 p-3 text-sm"><p>{t('common.loadFailed')}</p><Button type="button" variant="outline" size="sm" onClick={() => void fetchEnrollments(selectedCourse)}>{m.retry}</Button></div>}
             <p className="text-sm text-muted-foreground">
@@ -1389,7 +1374,7 @@ function AssignmentsContent() {
               onChange={setUserSearch}
               placeholder={t('courseAssignments.ui.searchLearner')}
             />
-            <div className="max-h-96 overflow-y-auto space-y-1">
+            <div className="max-h-96 overflow-y-auto space-y-2 rounded-xl border border-border p-2">
               {selectedCourse && enrollmentReadState !== 'ready' ? null : availableUsers.length === 0 && users.length > 0 ? (
                 <p className="text-xs text-muted-foreground p-2">
                   {selectedCourse
@@ -1400,7 +1385,7 @@ function AssignmentsContent() {
                 availableUsers.map((user) => (
                   <label
                     key={user.id}
-                    className={`flex items-center gap-3 p-2 rounded cursor-pointer ${
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer ${
                       selectedUsers.has(user.id)
                         ? 'bg-primary/10'
                         : 'hover:bg-muted'
@@ -1438,19 +1423,13 @@ function AssignmentsContent() {
                 ))
               )}
             </div>
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        </WorkspacePanel>
       </div>
 
-      <Card className="min-w-0">
-        <CardContent className="min-w-0 space-y-4 p-4">
-          <div>
-            <h2 className="font-semibold">{t('courseAssignments.ui.recurringTitle')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('courseAssignments.ui.recurringDescription')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
+      <WorkspacePanel title={t('courseAssignments.ui.recurringTitle')} description={t('courseAssignments.ui.recurringDescription')} bodyClassName="space-y-4">
+          <WorkspaceToolbar className="bg-muted/25 shadow-none">
             <label className="min-w-0 max-w-full text-sm">
               {t('courseAssignments.ui.course')}
               <select className="mt-1 block w-full min-w-0 max-w-full rounded border bg-background px-2 py-1" value={recurringCourseId} onChange={(event) => setRecurringCourseId(event.target.value)}>
@@ -1476,7 +1455,7 @@ function AssignmentsContent() {
             <Button variant="outline" onClick={() => void createRecurringRule()} disabled={savingRule || !recurringCourseId || !recurringUserId}>
               {t('courseAssignments.ui.saveDraft')}
             </Button>
-          </div>
+          </WorkspaceToolbar>
           <p className="text-xs text-muted-foreground">{t('courseAssignments.ui.recurringHint')}</p>
           <div className="space-y-2">
             {recurringRules.length === 0 ? (
@@ -1586,10 +1565,9 @@ function AssignmentsContent() {
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+      </WorkspacePanel>
 
       {dialog}
-    </div>
+    </WorkspacePage>
   );
 }

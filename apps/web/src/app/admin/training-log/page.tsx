@@ -38,6 +38,7 @@ import { useLearningInsightsT } from '@/features/learning-insights/i18n';
 import { LearningActionCenter } from '@/features/learning-actions/LearningActionCenter';
 import type { AssignmentReason, RequirementAction, RequirementState } from '@/features/mandatory-training/types';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
+import { WorkspacePage, WorkspacePageHeader, WorkspacePanel } from '@/features/workspace-design';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -186,6 +187,7 @@ export default function AdminTrainingLogPage() {
   const [courseCatalogScopeKey, setCourseCatalogScopeKey] = useState<string | null>(null);
   const [courseCatalogError, setCourseCatalogError] = useState<string | null>(null);
   const [courseCatalogLoading, setCourseCatalogLoading] = useState(false);
+  const [courseCatalogTruncated, setCourseCatalogTruncated] = useState(false);
   const courseCatalogGeneration = useRef(0);
 
   const [searchInput, setSearchInputState] = useState(browserState.search);
@@ -195,8 +197,8 @@ export default function AdminTrainingLogPage() {
     setSearchInputState(browserState.search);
   }, [browserState.search]);
 
-  const replaceBrowserState = useCallback((nextFilters: Filters, nextSearch: string) => {
-    router.replace(buildTrainingLogBrowserHref({
+  const replaceBrowserState = useCallback((nextFilters: Filters, nextSearch: string, history: 'push' | 'replace' = 'push') => {
+    router[history](buildTrainingLogBrowserHref({
       filters: nextFilters,
       search: nextSearch,
       returnTo: browserState.returnTo,
@@ -211,7 +213,7 @@ export default function AdminTrainingLogPage() {
 
   const setSearchInput = useCallback((value: string) => {
     setSearchInputState(value);
-    replaceBrowserState(filters, value);
+    replaceBrowserState(filters, value, 'replace');
   }, [filters, replaceBrowserState]);
 
   useEffect(() => {
@@ -284,6 +286,7 @@ export default function AdminTrainingLogPage() {
     const request = ++courseCatalogGeneration.current;
     if (!accessToken || !canInspectLearning) {
       setCourseCatalog([]);
+      setCourseCatalogTruncated(false);
       setCourseCatalogScopeKey(null);
       setCourseCatalogError(null);
       return;
@@ -292,14 +295,17 @@ export default function AdminTrainingLogPage() {
     setCourseCatalogLoading(true);
     setCourseCatalogError(null);
     try {
-      const response = await api.get<Array<{ id: string; title: string }>>('/v1/courses');
+      const response = await api.get<Array<{ id: string; title: string }>>('/v1/courses?per_page=100');
       if (request === courseCatalogGeneration.current) {
-        setCourseCatalog(Array.isArray(response.data) ? response.data : []);
+        const nextCatalog = Array.isArray(response.data) ? response.data : [];
+        setCourseCatalog(nextCatalog);
+        setCourseCatalogTruncated(nextCatalog.length === 100);
         setCourseCatalogScopeKey(courseCatalogIdentityKey);
       }
     } catch (cause: any) {
       if (request === courseCatalogGeneration.current) {
         setCourseCatalog([]);
+        setCourseCatalogTruncated(false);
         setCourseCatalogScopeKey(null);
         setCourseCatalogError(String(cause?.response?.data?.detail || cause?.message || t('common.loadFailed')));
       }
@@ -385,7 +391,7 @@ export default function AdminTrainingLogPage() {
     setSelectedEvidenceIds(new Set());
   };
   const clearActionFocus = () => {
-    router.replace(buildTrainingLogBrowserHref({
+    router.push(buildTrainingLogBrowserHref({
       filters,
       search: searchInput,
       returnTo: browserState.returnTo,
@@ -444,67 +450,37 @@ export default function AdminTrainingLogPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          {browserState.returnTo && (
-            <Link href={browserState.returnTo} className="mb-2 inline-flex items-center text-sm font-medium text-primary hover:underline">
-              {t('trainingLog.returnToDashboard')}
-            </Link>
-          )}
-          <h1 className="text-2xl font-semibold text-foreground">
-            {t('trainingLog.title')}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {t('trainingLog.subtitle')}
-          </p>
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground">{m.logHint}</p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={resetFilters}
-          >
-            {t('trainingLog.filters.reset')}
-          </Button>
-          <Button type="button" onClick={exportCsv} disabled={loading || total === 0}>
-            {t('trainingLog.export.csv')}
-          </Button>
-          {isMethodologist && selectedEvidenceIds.size > 0 && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={exportingKey !== null}
-                onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'pdf', 'group-pdf')}
-              >
-                <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('trainingLog.evidence.groupPdf')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={exportingKey !== null}
-                onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'zip', 'group-zip')}
-              >
-                <Package className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('trainingLog.evidence.groupZip')}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShareEventIds(Array.from(selectedEvidenceIds))}
-              >
-                <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('trainingLog.evidence.shareButton')}
-              </Button>
-            </>
-          )}
-        </div>
-      </header>
+    <WorkspacePage id="training-log">
+      {browserState.returnTo && (
+        <Link href={browserState.returnTo} className="inline-flex items-center text-sm font-medium text-primary hover:underline">
+          {t('trainingLog.returnToDashboard')}
+        </Link>
+      )}
+      <WorkspacePageHeader
+        title={t('trainingLog.title')}
+        description={<>{t('trainingLog.subtitle')}<span className="mt-2 block max-w-3xl text-sm leading-6">{m.logHint}</span></>}
+        icon={<FileDown />}
+        actions={<>
+          <Button type="button" variant="outline" onClick={resetFilters}>{t('trainingLog.filters.reset')}</Button>
+          <Button type="button" onClick={exportCsv} disabled={loading || total === 0}>{t('trainingLog.export.csv')}</Button>
+          {isMethodologist && selectedEvidenceIds.size > 0 && <>
+            <Button type="button" variant="outline" disabled={exportingKey !== null} onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'pdf', 'group-pdf')}>
+              <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('trainingLog.evidence.groupPdf')}
+            </Button>
+            <Button type="button" variant="outline" disabled={exportingKey !== null} onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'zip', 'group-zip')}>
+              <Package className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('trainingLog.evidence.groupZip')}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShareEventIds(Array.from(selectedEvidenceIds))}>
+              <Link2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('trainingLog.evidence.shareButton')}
+            </Button>
+          </>}
+        </>}
+      />
 
-      <p className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-6 text-muted-foreground">{m.exportScope}</p>
+      <p className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-6 text-foreground">{m.exportScope}</p>
 
       {filters.enrollment_id && (
         <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
@@ -527,7 +503,7 @@ export default function AdminTrainingLogPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
         <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? null} selected={!filters.status} onClick={() => updateFilters(({ status: _status, ...rest }) => rest)} />
         <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? null} selected={filters.status === 'assigned'} onClick={() => updateFilters((current) => ({ ...current, status: 'assigned' }))} />
         <SummaryCard label={t('trainingLog.filter.status.inProgress')} value={summary?.in_progress ?? null} selected={filters.status === 'in_progress'} onClick={() => updateFilters((current) => ({ ...current, status: 'in_progress' }))} />
@@ -537,11 +513,8 @@ export default function AdminTrainingLogPage() {
       <p className="text-xs text-muted-foreground">{summary ? m.summaryScope : m.summaryUnavailable}</p>
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('trainingLog.filters.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <WorkspacePanel title={t('trainingLog.filters.title')}>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-4">
           <label className="flex items-center gap-2 text-sm md:col-span-3 lg:col-span-4">
             <input type="checkbox" checked={includeHistory} onChange={(event) => { updateFilters((current) => ({ ...current, history: event.target.checked || undefined })); setOffset(0); }} />
             {t('trainingLog.history.include')}
@@ -602,13 +575,23 @@ export default function AdminTrainingLogPage() {
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </WorkspacePanel>
 
       {canInspectLearning && (
         <>
           <div id="learning-action-center" className="scroll-mt-6">
-            <LearningActionCenter courseId={filters.course_id} focus={browserState.action_focus} issueType={browserState.issue_type} onClearFocus={clearActionFocus} />
+            <LearningActionCenter
+              courseId={filters.course_id}
+              focus={browserState.action_focus}
+              issueType={browserState.issue_type}
+              onClearFocus={clearActionFocus}
+              courseCatalog={visibleCourseCatalog}
+              courseCatalogLoading={courseCatalogLoading}
+              courseCatalogError={courseCatalogError}
+              courseCatalogTruncated={courseCatalogTruncated}
+              onSelectCourse={(courseId) => updateFilters((current) => ({ ...current, course_id: courseId }))}
+            />
           </div>
           <LearningInsightsPanel
             courseId={filters.course_id}
@@ -932,7 +915,7 @@ export default function AdminTrainingLogPage() {
         onClose={() => setShareEventIds(null)}
       />
       <LearnerAnswers enrollmentId={selectedEnrollmentId} onClose={() => setSelectedEnrollmentId(null)} />
-    </div>
+    </WorkspacePage>
   );
 }
 

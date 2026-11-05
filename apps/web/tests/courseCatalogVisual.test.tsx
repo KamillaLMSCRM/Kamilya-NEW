@@ -6,6 +6,11 @@ import en from '@/i18n/locales/en.json';
 
 const apiMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), delete: vi.fn() }));
 const confirmMock = vi.hoisted(() => vi.fn());
+const navigation = vi.hoisted(() => ({
+  replace: vi.fn(),
+  push: vi.fn(),
+  searchParams: new URLSearchParams(),
+}));
 const context = vi.hoisted(() => ({
   lang: 'ru',
   epoch: 1,
@@ -14,6 +19,10 @@ const context = vi.hoisted(() => ({
   } | null,
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: navigation.replace, push: navigation.push }),
+  useSearchParams: () => navigation.searchParams,
+}));
 vi.mock('@/lib/api', () => ({ api: apiMock }));
 vi.mock('@/store/authStore', () => ({
   useAuthStore: () => ({ user: context.user, sessionEpoch: context.epoch }),
@@ -77,7 +86,25 @@ describe('production course catalogue presentation', () => {
     context.lang = 'ru';
     context.epoch = 1;
     context.user = { user_id: 'author-1', tenant_id: 'tenant-1', role: 'methodologist' };
+    navigation.replace.mockReset();
+    navigation.push.mockReset();
+    navigation.searchParams = new URLSearchParams();
     mockLists();
+  });
+
+  it('initializes the catalogue from a supported status deep link and keeps it in the URL', async () => {
+    navigation.searchParams = new URLSearchParams('status=published');
+    mockLists([published]);
+    render(<CoursesPage />);
+
+    expect(await screen.findByRole('heading', { name: published.title })).toBeInTheDocument();
+    expect(screen.getByLabelText('Статус')).toHaveValue('published');
+    expect(apiMock.get).toHaveBeenCalledWith(expect.stringContaining('/v1/courses?status=published'));
+
+    fireEvent.change(screen.getByLabelText('Статус'), { target: { value: 'draft' } });
+    expect(navigation.push).toHaveBeenCalledWith('/courses?status=draft', { scroll: false });
+    expect(apiMock.post).not.toHaveBeenCalled();
+    expect(apiMock.delete).not.toHaveBeenCalled();
   });
 
   it('puts visible compact owned cards before a closed blueprint disclosure', async () => {
@@ -177,13 +204,13 @@ describe('production course catalogue presentation', () => {
     expect(await screen.findByRole('heading', { name: draft.title })).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Поиск' })).toHaveValue('');
     expect(screen.getByLabelText(ru.courses.status)).toHaveValue('');
-    expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?');
+    expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?per_page=100');
   });
 
   it.each(['success', 'error'])('does not restore an obsolete query %s after the current list loads', async (outcome) => {
     const oldRead = deferred<{ data: unknown[] }>();
     apiMock.get.mockImplementation((url: string) => {
-      if (url === '/v1/courses?') return oldRead.promise;
+      if (url === '/v1/courses?per_page=100') return oldRead.promise;
       return Promise.resolve({ data: url.startsWith('/v1/courses?') ? [{ ...draft, id: 'current', title: 'Current query' }] : [] });
     });
     const { container } = render(<CoursesPage />);
@@ -212,7 +239,7 @@ describe('production course catalogue presentation', () => {
 
   it.each(['user', 'tenant', 'role', 'session'])('isolates delayed reads and open creation on a %s transition', async (transition) => {
     const oldRead = deferred<{ data: unknown[] }>();
-    apiMock.get.mockImplementation((url: string) => url === '/v1/courses?' ? oldRead.promise : Promise.resolve({ data: [] }));
+    apiMock.get.mockImplementation((url: string) => url === '/v1/courses?per_page=100' ? oldRead.promise : Promise.resolve({ data: [] }));
     const { rerender, container } = render(<CoursesPage />);
     fireEvent.click(screen.getByRole('button', { name: /Создать курс/ }));
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Old actor form' } });

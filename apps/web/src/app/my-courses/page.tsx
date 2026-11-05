@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, Button, Badge } from '@/components/ui';
+import { Button, Badge } from '@/components/ui';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { CheckCircle2 } from 'lucide-react';
@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { useLanguageStore } from '@/store/languageStore';
 import { safeResumeHref, studentDailyLearningCopy, type LearnerAssignment } from '@/features/student-daily-learning/nextAssignment';
 import { AssignmentDetails } from '@/features/student-daily-learning/AssignmentDetails';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 
 interface EnrolledCourse extends LearnerAssignment {
   description: string;
@@ -74,25 +75,26 @@ function ScopedMyCourses() {
     return true;
   });
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loading) return <WorkspacePage id="my-courses"><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
   if (loadError) return (
-    <div className="space-y-3 p-6" role="alert">
+    <WorkspacePage id="my-courses" title={t('student.enrolledCourses')}><WorkspacePanel bodyClassName="space-y-3" role="alert">
       <p>{t('common.loadFailed')}</p>
       <Button type="button" onClick={() => setRetryNonce((value) => value + 1)}>{t('common.retry')}</Button>
-    </div>
+    </WorkspacePanel></WorkspacePage>
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <h1 className="min-w-0 text-2xl font-bold">{t('student.enrolledCourses')}</h1>
+    <WorkspacePage id="my-courses">
+      <header className="flex min-w-0 flex-wrap items-start justify-between gap-5">
+        <h1 className="min-w-0 break-words text-3xl font-semibold leading-tight tracking-tight">{t('student.enrolledCourses')}</h1>
+      <WorkspaceToolbar aria-label={t('student.enrolledCourses')}>
         <div className="flex min-w-0 flex-wrap gap-2">
           {(['all', 'active', 'completed'] as const).map((f) => (
             <button
               key={f}
               aria-pressed={filter === f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              className={`min-h-11 px-4 py-2 text-sm rounded-xl transition-colors ${
                 filter === f
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/70'
@@ -102,25 +104,21 @@ function ScopedMyCourses() {
             </button>
           ))}
         </div>
-      </div>
+      </WorkspaceToolbar>
+      </header>
 
       {filteredCourses.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {filter === 'all'
+        <WorkspaceEmpty title={filter === 'all'
               ? t('student.noCourses')
               : filter === 'active'
               ? t('student.inProgress') + ' — ' + t('common.none')
-              : t('student.completed') + ' — ' + t('common.none')}
-          </CardContent>
-        </Card>
+               : t('student.completed') + ' — ' + t('common.none')} />
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCourses.map((course, index) => (
-            <Card key={course.enrollment_id || `${course.course_id}:${index}`} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
+            <WorkspacePanel key={course.enrollment_id || `${course.course_id}:${index}`} className="transition-shadow hover:shadow-md" bodyClassName="flex h-full flex-col">
                 <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium line-clamp-2">{course.title}</h3>
+                  <h2 className="break-words font-semibold">{course.title}</h2>
                   {course.enrollment_status === 'completed' && (
                     <Badge className="flex items-center gap-1 bg-success/15 text-success">
                       <CheckCircle2 className="w-3 h-3" />
@@ -146,7 +144,7 @@ function ScopedMyCourses() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-border pt-4 [&_button]:h-auto [&_button]:min-h-11 [&_button]:py-2 [&_button]:whitespace-normal">
                   {course.can_resume === false ? <p role="status" className="text-sm text-muted-foreground">{copy.assignmentAccessRequired}</p> : <Link href={safeResumeHref(course)} className="flex-1">
                     <Button variant="outline" className="w-full" size="sm">
                       {course.enrollment_status === 'completed' ? t('courses.viewResult') : course.progress_percent === 0 ? t('courses.startCourse') : t('courses.continueCourse')}
@@ -158,11 +156,11 @@ function ScopedMyCourses() {
                     </Link>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+            </WorkspacePanel>
           ))}
         </div>
-            )}
+      )}
 
-    </div>
-  );}
+    </WorkspacePage>
+  );
+}

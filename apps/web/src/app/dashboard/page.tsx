@@ -14,7 +14,7 @@ export default function DashboardPage() {
 
   return <div className="space-y-6">
     {isMethodologist ? <><MethodologistDashboard /><OnboardingChecklist /></> : <><OnboardingChecklist /><section className="space-y-5">
-      <div><h1 className="text-2xl font-bold text-foreground font-display">{t('dashboard.title')}</h1><p className="mt-1 text-sm text-muted-foreground">{t('onboarding.adminSubtitle')}</p></div>
+      <div><h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('dashboard.title')}</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('onboarding.adminSubtitle')}</p></div>
       <div className="grid gap-4 md:grid-cols-3">
         <AdminLink href="/staff" label={t('nav.userManagement')} icon={Users} />
         <AdminLink href="/staff" label={t('nav.staffTree')} icon={Building2} />

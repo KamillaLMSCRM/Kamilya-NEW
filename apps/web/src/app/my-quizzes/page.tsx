@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, Badge, Button } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { CheckCircle2, Clock, Play, BookOpen, Lock } from 'lucide-react';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceStat, WorkspaceToolbar } from '@/features/workspace-design';
 
 interface EnrolledQuiz {
   quiz_id: string;
@@ -53,55 +54,42 @@ export default function MyQuizzesPage() {
   const pending = quizzes.filter((q) => !q.passed);
   const completed = quizzes.filter((q) => q.passed);
 
-  if (loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (loading) return <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')}><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
   if (loadError) return (
-    <div className="space-y-3 p-6" role="alert">
+    <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')}><WorkspacePanel role="alert" bodyClassName="space-y-3">
       <p>{t('common.loadFailed')}</p>
       <Button type="button" onClick={() => setRetryNonce((value) => value + 1)}>{t('common.retry')}</Button>
-    </div>
+    </WorkspacePanel></WorkspacePage>
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-foreground font-display">{t('student.myQuizzes')}</h1>
+    <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')} icon={<BookOpen />}>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-foreground">{quizzes.length}</div>
-            <div className="text-xs text-muted-foreground">{t('student.totalQuizzes')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-warning">{pending.length}</div>
-            <div className="text-xs text-muted-foreground">{t('student.pendingQuizzes')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-success">{completed.length}</div>
-            <div className="text-xs text-muted-foreground">{t('student.passedQuizzes')}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <WorkspaceStat label={t('student.totalQuizzes')} value={quizzes.length} />
+        <WorkspaceStat label={t('student.pendingQuizzes')} value={pending.length} tone="warning" />
+        <WorkspaceStat label={t('student.passedQuizzes')} value={completed.length} tone="success" />
       </div>
+
+      {quizzes.length > 0 && <WorkspaceToolbar aria-label={t('student.myQuizzes')}>
+        {pending.length > 0 && <a className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-medium hover:bg-muted" href="#pending-quizzes">{t('student.toComplete')}</a>}
+        {completed.length > 0 && <a className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-medium hover:bg-muted" href="#completed-quizzes">{t('student.completedQuizzes')}</a>}
+      </WorkspaceToolbar>}
 
       {/* Pending */}
       {pending.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">{t('student.toComplete')}</h2>
+        <WorkspacePanel id="pending-quizzes" title={t('student.toComplete')} padded={false} bodyClassName="divide-y divide-border">
           {pending.map((q) => (
-            <Card key={q.quiz_id}>
-              <CardContent className="p-4 flex items-center gap-4">
+            <article key={q.quiz_id} className="flex min-w-0 flex-wrap items-start gap-4 p-5 sm:items-center sm:p-6">
                 {q.is_expired ? (
                   <Lock className="w-5 h-5 text-destructive" aria-hidden="true" />
                 ) : (
                   <Clock className="w-5 h-5 text-warning" aria-hidden="true" />
                 )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-foreground truncate">{q.quiz_title}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                <div className="min-w-0 basis-full sm:basis-0 sm:flex-1">
+                  <h3 className="break-words font-semibold text-foreground">{q.quiz_title}</h3>
+                  <div className="mt-2 flex items-start gap-1 text-xs leading-5 text-muted-foreground">
                     <BookOpen className="w-3 h-3" aria-hidden="true" />
                     {q.module_title} → {q.lesson_title}
                   </div>
@@ -141,22 +129,19 @@ export default function MyQuizzesPage() {
                     </Button>
                   </a>
                 )}
-              </CardContent>
-            </Card>
+            </article>
           ))}
-        </div>
+        </WorkspacePanel>
       )}
 
       {/* Completed */}
       {completed.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">{t('student.completedQuizzes')}</h2>
+        <WorkspacePanel id="completed-quizzes" title={t('student.completedQuizzes')} padded={false} bodyClassName="divide-y divide-border">
           {completed.map((q) => (
-            <Card key={q.quiz_id}>
-              <CardContent className="p-4 flex items-center gap-4">
+            <article key={q.quiz_id} className="flex min-w-0 flex-wrap items-center gap-4 p-5 sm:p-6">
                 <CheckCircle2 className="w-5 h-5 text-success" aria-hidden="true" />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-foreground truncate">{q.quiz_title}</div>
+                  <h3 className="break-words font-semibold text-foreground">{q.quiz_title}</h3>
                   <div className="text-xs text-muted-foreground">
                     {q.module_title} → {q.lesson_title}
                   </div>
@@ -165,23 +150,19 @@ export default function MyQuizzesPage() {
                     {q.attempts_count > 0 && ` · ${t('quiz.attempts')}: ${q.attempts_count}`}
                   </div>
                 </div>
-                <Badge variant="default">{q.score_percent}%</Badge>
-              </CardContent>
-            </Card>
+                <Badge variant="default">{q.score_percent == null ? '—' : `${q.score_percent}%`}</Badge>
+            </article>
           ))}
-        </div>
+        </WorkspacePanel>
       )}
 
       {quizzes.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            <p>{t('student.noQuizzes') || 'У вас пока нет тестов.'}</p>
+        <WorkspaceEmpty title={t('student.noQuizzes') || 'У вас пока нет тестов.'} icon={<BookOpen />} action={
             <Link href="/my-courses" className="text-primary hover:underline text-sm mt-2 inline-block">
               {t('student.browseCourses')}
             </Link>
-          </CardContent>
-        </Card>
+        } />
       )}
-    </div>
+    </WorkspacePage>
   );
 }

@@ -5,7 +5,8 @@ import { Mail, Plus, Send } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
-import { Button, Card, CardContent, Input } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 import { toast } from '@/components/ui/Toast';
 
 type Announcement = { id: string; title: string; body: string; course_id: string | null; status: string; recipients_count: number; sent_count: number; failed_count: number; created_at: string };
@@ -21,10 +22,15 @@ export default function AnnouncementsPage() {
   const [body, setBody] = useState('');
   const [courseId, setCourseId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
     try { const [announcements, courseList] = await Promise.all([api.get<Announcement[]>('/v1/announcements'), api.get<any[]>('/v1/courses')]); setItems(announcements.data); setCourses(courseList.data.map((course) => ({ id: course.id, title: course.title }))); }
-    catch (error: any) { toast.error(t('announcements.loadFailed'), { description: error?.response?.data?.detail || error?.message }); }
+    catch (error: any) { setLoadError(true); toast.error(t('announcements.loadFailed'), { description: error?.response?.data?.detail || error?.message }); }
+    finally { setLoading(false); }
   }, [t]);
   useEffect(() => { if (allowed) load(); }, [allowed, load]);
 
@@ -44,5 +50,26 @@ export default function AnnouncementsPage() {
   };
 
   if (!allowed) return <div className="p-8 text-center text-muted-foreground">{t('announcements.forbidden')}</div>;
-  return <div className="mx-auto max-w-6xl space-y-6 p-6"><div><h1 className="text-2xl font-bold">{t('announcements.title')}</h1><p className="text-muted-foreground">{t('announcements.subtitle')}</p></div><Card><CardContent className="space-y-4 p-6"><div className="grid gap-4 md:grid-cols-2"><label className="space-y-2 text-sm font-medium">{t('announcements.subject')}<Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('announcements.subjectPlaceholder')} /></label><label className="space-y-2 text-sm font-medium">{t('announcements.course')}<select value={courseId} onChange={(event) => setCourseId(event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"><option value="">{t('announcements.allCourses')}</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label></div><label className="space-y-2 text-sm font-medium">{t('announcements.message')}<textarea value={body} onChange={(event) => setBody(event.target.value)} rows={5} placeholder={t('announcements.messagePlaceholder')} className="w-full rounded-md border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></label><div className="flex justify-end"><Button onClick={create} disabled={saving || !title.trim() || !body.trim()} className="gap-2"><Plus className="h-4 w-4" />{t('announcements.create')}</Button></div></CardContent></Card><div className="space-y-3">{items.map((item) => <Card key={item.id}><CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /><h2 className="truncate font-semibold">{item.title}</h2></div><p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{item.body}</p><p className="mt-2 text-xs text-muted-foreground">{item.status === 'draft' ? t('announcements.draft') : t('announcements.delivery', { sent: item.sent_count, total: item.recipients_count })}</p></div>{item.status === 'draft' && <Button variant="outline" onClick={() => send(item.id)} disabled={saving} className="shrink-0 gap-2"><Send className="h-4 w-4" />{t('announcements.send')}</Button>}</CardContent></Card>)}{!items.length && <Card><CardContent className="p-8 text-center text-muted-foreground">{t('announcements.empty')}</CardContent></Card>}</div></div>;
+  return (
+    <WorkspacePage id="announcements" title={t('announcements.title')} description={t('announcements.subtitle')} icon={<Mail />} className="mx-auto max-w-6xl">
+      <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <WorkspacePanel title={t('announcements.create')} bodyClassName="space-y-5">
+          <div className="space-y-4">
+            <label className="block min-w-0 space-y-2 text-sm font-medium">{t('announcements.subject')}<Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t('announcements.subjectPlaceholder')} /></label>
+            <label className="block min-w-0 space-y-2 text-sm font-medium">{t('announcements.course')}<select value={courseId} onChange={(event) => setCourseId(event.target.value)} className="min-h-10 w-full min-w-0 rounded-md border border-border bg-background px-3 py-2 text-sm"><option value="">{t('announcements.allCourses')}</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></label>
+          </div>
+          <label className="block space-y-2 text-sm font-medium">{t('announcements.message')}<textarea value={body} onChange={(event) => setBody(event.target.value)} rows={6} placeholder={t('announcements.messagePlaceholder')} className="w-full rounded-md border border-border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-primary" /></label>
+          <div className="flex flex-wrap justify-end border-t border-border pt-4"><Button onClick={create} disabled={saving || !title.trim() || !body.trim()} className="gap-2"><Plus className="h-4 w-4" aria-hidden="true" />{t('announcements.create')}</Button></div>
+        </WorkspacePanel>
+        <div className="min-w-0 space-y-4">
+          {loading ? <WorkspacePanel><p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p></WorkspacePanel> : loadError ? <WorkspacePanel><div role="alert" className="space-y-3 text-sm text-destructive"><p>{t('announcements.loadFailed')}</p><Button variant="outline" onClick={() => void load()}>{t('common.retry')}</Button></div></WorkspacePanel> : items.length ? items.map((item) => (
+            <WorkspacePanel key={item.id} title={item.title} description={item.status === 'draft' ? t('announcements.draft') : undefined} bodyClassName="space-y-4" actions={item.status === 'draft' && <Button variant="outline" onClick={() => send(item.id)} disabled={saving} className="gap-2"><Send className="h-4 w-4" aria-hidden="true" />{t('announcements.send')}</Button>}>
+              <p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{item.body}</p>
+              {item.status !== 'draft' && <WorkspaceToolbar className="border-0 bg-muted/30"><p className="text-sm font-medium tabular-nums">{t('announcements.delivery', { sent: item.sent_count, total: item.recipients_count })}</p></WorkspaceToolbar>}
+            </WorkspacePanel>
+          )) : <WorkspaceEmpty title={t('announcements.empty')} />}
+        </div>
+      </div>
+    </WorkspacePage>
+  );
 }

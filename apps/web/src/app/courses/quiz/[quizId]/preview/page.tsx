@@ -10,6 +10,7 @@ import { useT } from '@/i18n/useT';
 import { isSingleAnswerQuestionType } from '@/lib/quizChoice';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
+import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 
 interface QuizChoice {
   id: string;
@@ -176,36 +177,28 @@ export default function QuizMethodologistPreviewPage() {
     setResult(null);
   };
 
-  if (!initialized || loading) return <div className="p-6">{t('common.loading')}</div>;
+  if (!initialized || loading) return <WorkspacePage id="quiz-preview" title={t('quiz.previewTitle')}><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
 
   if (!canPreview) {
     return (
-      <div className="mx-auto max-w-2xl p-6">
-        <Card>
-          <CardContent className="space-y-4 p-6">
-            <h1 className="text-xl font-semibold">{t('quiz.previewAccessDeniedTitle')}</h1>
+      <WorkspacePage id="quiz-preview" className="mx-auto max-w-2xl" title={t('quiz.previewAccessDeniedTitle')}>
+        <WorkspacePanel bodyClassName="space-y-4">
             <p className="text-sm text-muted-foreground">{t('quiz.previewAccessDenied')}</p>
             <Button onClick={() => router.replace(getRoleHome(user?.role))}>{t('nav.dashboard')}</Button>
-          </CardContent>
-        </Card>
-      </div>
+        </WorkspacePanel>
+      </WorkspacePage>
     );
   }
 
-  if (!quiz) return <div className="p-6">{t('quiz.previewLoadFailed')}</div>;
+  if (!quiz) return <WorkspacePage id="quiz-preview" title={t('quiz.previewTitle')}><WorkspaceEmpty title={t('quiz.previewLoadFailed')} action={<Button onClick={() => void fetchQuiz()}>{t('common.retry')}</Button>} /></WorkspacePage>;
 
   return (
-    <main className="min-h-screen bg-muted">
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <div className="rounded-lg border border-primary/30 bg-primary/10 p-4" role="status">
-          <h1 className="font-semibold">{t('quiz.previewTitle')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t('quiz.previewNotice')}</p>
-        </div>
+    <WorkspacePage id="quiz-preview" className="mx-auto max-w-4xl" title={t('quiz.previewTitle')} description={t('quiz.previewNotice')}>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-bold">{quiz.title}</h2>
+        <WorkspaceToolbar className="items-center justify-between">
+          <h2 className="min-w-0 break-words text-lg font-semibold">{quiz.title}</h2>
           <Link href={courseHref}><Button variant="outline">{t(courseId ? 'courses.backToCourse' : 'nav.dashboard')}</Button></Link>
-        </div>
+        </WorkspaceToolbar>
 
         {result && (
           <Card className={result.passed ? 'border-success bg-success/10' : 'border-destructive bg-destructive/10'}>
@@ -230,18 +223,17 @@ export default function QuizMethodologistPreviewPage() {
           </Card>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {quiz.questions.map((question, questionIndex) => {
             const graded = gradedByQuestion.get(question.id);
             return (
-              <Card key={question.id}>
-                <CardContent className="space-y-4 p-6">
-                  <div className="flex items-start justify-between gap-3">
+              <WorkspacePanel key={question.id} bodyClassName="space-y-5 sm:p-8">
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-5">
                     <div>
                       <p className="text-xs text-muted-foreground">
                         {t('quiz.questionNumber', { current: questionIndex + 1, total: quiz.questions.length })}
                       </p>
-                      <h3 className="mt-1 font-medium">{question.text}</h3>
+                      <h3 className="mt-2 break-words text-lg font-semibold leading-7">{question.text}</h3>
                     </div>
                     {graded && (
                       <Badge variant={graded.is_correct ? 'default' : 'destructive'}>
@@ -257,7 +249,7 @@ export default function QuizMethodologistPreviewPage() {
                       return (
                         <label
                           key={choice.id}
-                          className={`flex items-start gap-3 rounded-lg border p-3 ${getChoiceClassName(
+                          className={`flex min-h-12 flex-wrap items-start gap-3 rounded-xl border p-4 ${getChoiceClassName(
                             selected,
                             correct,
                             Boolean(graded),
@@ -271,7 +263,7 @@ export default function QuizMethodologistPreviewPage() {
                             onChange={() => handleSelect(question, choice.id)}
                             className="mt-1 shrink-0"
                           />
-                          <span className="flex-1">
+                          <span className="min-w-0 flex-1 break-words text-sm leading-6">
                             {choice.text}
                           </span>
                           {graded && selected && <Badge variant="outline">{t('quiz.selectedAnswer')}</Badge>}
@@ -293,20 +285,18 @@ export default function QuizMethodologistPreviewPage() {
                       <span className="font-medium">{t('quiz.explanation')}:</span> {question.explanation}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+              </WorkspacePanel>
             );
           })}
         </div>
 
         {!result && (
-          <div className="flex justify-end">
+          <WorkspaceToolbar className="justify-end">
             <Button onClick={handleSubmit} disabled={submitting || quiz.questions.length === 0}>
               {submitting ? t('quiz.submitting') : t('quiz.previewFinish')}
             </Button>
-          </div>
+          </WorkspaceToolbar>
         )}
-      </div>
-    </main>
+    </WorkspacePage>
   );
 }
