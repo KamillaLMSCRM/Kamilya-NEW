@@ -1,3 +1,27 @@
+# P31 ordinary route reconciled in DEV; canonical recovery P32 LOCAL — 2026-11-05
+
+- result: Exact DEV c4a65ae460bed54bc0bda19788b33c23b6bc47a6 reconciled,
+  CI42069963377, API dep-dbmbev8u01pc738u8tsg, Vercel
+  dpl_ELFsDN1RC9mRHYPD3rJPYbPv8WT5, VM126 sole worker 7b9d361a. No new inference.
+- changed: New P32 admission pins canonical prompt JSON for fresh native and
+  managed editorial jobs; stored P31 and older request bytes remain unchanged.
+  Fresh editorial generation uses one author, one editor, at most one scoped
+  revision and one blind answer review; legacy per-lesson repair cascade is
+  excluded. Structural/source/ownership/durable recovery gates remain.
+- verified: ENG-026: P31 raw DB replay failed first editor request hash; schema
+  order reconstruction restored all 12 original hashes and three exact final
+  courses. P32 offline simulation returned 12 order-independent request hashes
+  and the same three final courses, 0 provider/DB calls. Local unit suite
+  6766 passed/1 skipped, quality baseline ruff1008/mypy2174. Evidence under
+  .release-evidence/p31-ordinary-dev-20261105/.
+- blockers: P32 still local; offline replay does not prove interrupted worker
+  recovery in DEV. Ordinary DeepSeek fixture permission remains pending; no
+  launch against customer data or repeat of the three completed Luna calls.
+- next: Validate exact P32 release in DEV, compatible worker before API
+  admission. Do not downgrade to a P31-only worker while admitted P32 jobs
+  still need it. Then one authorized ordinary native DeepSeek run and protected
+  release with live synthetic acceptance. Prod and customer data unchanged.
+
 # P31 three native DEV drafts checked; ordinary-route candidate — 2026-11-05
 
 - result: Three complete native Luna6/HIGH P31 courses,12received calls464972tokens.

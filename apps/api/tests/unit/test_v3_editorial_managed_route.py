@@ -16,6 +16,7 @@ from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownErro
 from app.modules.ai.v3.practical_editorial_contract import editorial_review_format
 from app.modules.ai.v3.qa_luna_pending_policy import KEY, MANAGED_POLICY, admission_marker
 from app.modules.ai.v3.revision_policy import (
+    CANONICAL_EDITORIAL_REVIEW_POLICY,
     EDITORIAL_MANAGED_QA_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EDITORIAL_QA_KEY,
@@ -65,7 +66,7 @@ def test_managed_p31_selector_and_worker_fences():
 
 
 @pytest.mark.asyncio
-async def test_real_managed_admission_stamps_p31_server_side(monkeypatch):
+async def test_real_managed_admission_stamps_canonical_editorial_policy_server_side(monkeypatch):
     settings = config('render-development')
     user = SimpleNamespace(id=uuid4(), tenant_id=QA_TENANT)
     analysis = SimpleNamespace(status='compatible', score=1.0, requires_decision=False, clusters=[])
@@ -83,7 +84,7 @@ async def test_real_managed_admission_stamps_p31_server_side(monkeypatch):
     assert error.value.status_code == 429
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored[KEY] == MANAGED_POLICY
-    assert stored['v3_review_policy'] == EDITORIAL_PRACTICAL_REVIEW_POLICY
+    assert stored['v3_review_policy'] == CANONICAL_EDITORIAL_REVIEW_POLICY
     assert stored[EDITORIAL_QA_KEY] == EDITORIAL_MANAGED_QA_MARKER
 
 
@@ -114,9 +115,9 @@ async def test_managed_final_uses_owned_source_and_both_markers(monkeypatch, dri
     cfg = config('vm-development-worker')
     monkeypatch.setattr('app.core.config.get_settings', lambda: cfg)
     state.source_analysis.update({KEY: MANAGED_POLICY, EDITORIAL_QA_KEY: EDITORIAL_MANAGED_QA_MARKER,
-                                  'v3_review_policy': EDITORIAL_PRACTICAL_REVIEW_POLICY})
+                                  'v3_review_policy': CANONICAL_EDITORIAL_REVIEW_POLICY})
     job.params['source_analysis'].update({KEY: MANAGED_POLICY, EDITORIAL_QA_KEY: EDITORIAL_MANAGED_QA_MARKER,
-                                          'v3_review_policy': EDITORIAL_PRACTICAL_REVIEW_POLICY})
+                                          'v3_review_policy': CANONICAL_EDITORIAL_REVIEW_POLICY})
     job.course_id = None
     verify = AsyncMock(return_value=drift != 'source')
     monkeypatch.setattr(state.owned_v3_source_context, 'verify_locked', verify)
@@ -129,7 +130,7 @@ async def test_managed_final_uses_owned_source_and_both_markers(monkeypatch, dri
     elif drift == 'state_transport':
         state.source_analysis[KEY] = 'forged'
     elif drift == 'policy':
-        job.params['source_analysis']['v3_review_policy'] = 'v3-practical-source-review-v29'
+        job.params['source_analysis']['v3_review_policy'] = EDITORIAL_PRACTICAL_REVIEW_POLICY
     elif drift == 'actor':
         state.owned_v3_source_context.user_id = uuid4()
     elif drift == 'route':

@@ -22,6 +22,7 @@ from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
 from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 from app.modules.ai.v3.revision_policy import (
+    CANONICAL_EDITORIAL_REVIEW_POLICY,
     EDITORIAL_ORDINARY_KEY,
     EDITORIAL_ORDINARY_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
@@ -52,7 +53,7 @@ def test_closed_policy_and_worker_route_fences():
     assert is_practical_policy(EDITORIAL_PRACTICAL_REVIEW_POLICY)
     assert read_review_policy({'v3_review_policy': EDITORIAL_PRACTICAL_REVIEW_POLICY}) == EDITORIAL_PRACTICAL_REVIEW_POLICY
     with pytest.raises(ValueError):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v32'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v33'})
     base = {'settings': settings('vm-development-worker'), 'tenant_id': QA_TENANT, 'user_id': uuid4(),
             'course_id': None, 'stored': EDITORIAL_QA_MARKER, 'dispatched': EDITORIAL_QA_MARKER}
     assert editorial_qa_worker_valid(**base)
@@ -124,8 +125,9 @@ async def test_editorial_dispatch_progress_accepts_whole_course_repair(case, mon
     corpus, _, _ = case
     observed = []
     sentinel = object()
-    async def fake_cycle(packet, received_corpus, intent, reference_decisions, stage):
+    async def fake_cycle(packet, received_corpus, intent, reference_decisions, stage, *, canonical_json):
         assert received_corpus is corpus
+        assert canonical_json is True
         for name, group in [('lesson', 'practical:author:editorial:v31'),
                             ('review', 'practical:editorial:review:v31:x'),
                             ('repair', 'practical:editorial:revision:v31:x'),
@@ -137,18 +139,18 @@ async def test_editorial_dispatch_progress_accepts_whole_course_repair(case, mon
     async def report(*args):
         observed.append(args)
     monkeypatch.setattr(cycle, 'run_editorial_cycle', fake_cycle)
-    monkeypatch.setattr(service, 'practical_artifacts', lambda result, *_args: result)
+    monkeypatch.setattr(service, 'practical_artifacts', lambda result, *_args, **_kwargs: result)
     actual = await generate_practical_course(corpus, intent=CourseIntent(), invoke=invoke,
         source_sha256='a' * 64, journal=None, route_fingerprint='b' * 64,
-        review_policy=EDITORIAL_PRACTICAL_REVIEW_POLICY, progress_callback=report)
+        review_policy=CANONICAL_EDITORIAL_REVIEW_POLICY, progress_callback=report)
     assert actual is sentinel and [row[1:3] for row in observed] == [(1, 4), (2, 4), (3, 4), (4, 4)]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('tenant,environment,destination,expected', [
-    (QA_TENANT, 'render-development', None, EDITORIAL_PRACTICAL_REVIEW_POLICY),
+    (QA_TENANT, 'render-development', None, CANONICAL_EDITORIAL_REVIEW_POLICY),
     (QA_TENANT, 'production', None, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY),
-    (uuid4(), 'render-development', None, EDITORIAL_PRACTICAL_REVIEW_POLICY),
+    (uuid4(), 'render-development', None, CANONICAL_EDITORIAL_REVIEW_POLICY),
 ])
 async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, tenant, environment, destination, expected):
     request = AIGenerateRequest(documents=[uuid4()], course_id=destination)
@@ -175,8 +177,8 @@ async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, te
         await router.generate_course(request, db=_lenient_db(), user=SimpleNamespace(id=uuid4(), tenant_id=tenant))
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored['v3_review_policy'] == expected
-    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
-    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_MARKER if tenant != QA_TENANT and expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_MARKER if tenant != QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
 
 
 @pytest.mark.asyncio

@@ -29,9 +29,9 @@ def test_fresh_policy_is_closed_and_preserves_saved_materiality_policy():
         assert read_review_policy({'v3_review_policy': policy}) == policy
     assert SOURCE_CORE_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v30'
     assert EDITORIAL_PRACTICAL_REVIEW_POLICY == 'v3-practical-source-review-v31'
-    assert not is_practical_policy('v3-practical-source-review-v32')
+    assert not is_practical_policy('v3-practical-source-review-v33')
     with pytest.raises(ValueError, match='v3_review_policy_invalid'):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v32'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v33'})
 
 
 @pytest.mark.asyncio

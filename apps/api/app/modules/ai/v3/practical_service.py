@@ -34,6 +34,7 @@ from app.modules.ai.v3.practical_source_reader import (
 from app.modules.ai.v3.revision_policy import (
     ARBITRATED_PRACTICAL_REVIEW_POLICY,
     ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
+    CANONICAL_EDITORIAL_REVIEW_POLICY,
     CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
     CONCISE_PRACTICAL_REVIEW_POLICY,
     CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
@@ -54,13 +55,15 @@ from app.modules.ai.v3.revision_policy import (
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
     TYPED_PRACTICAL_REVIEW_POLICY,
+    is_editorial_policy,
     is_practical_policy,
 )
 from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
 
 
 def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus,
-                        packet: PracticalSourcePacket, source_sha256: str) -> GenerationArtifacts:
+                        packet: PracticalSourcePacket, source_sha256: str, *,
+                        editorial_policy: str = EDITORIAL_PRACTICAL_REVIEW_POLICY) -> GenerationArtifacts:
     """Quotes are exact contiguous spans; source IDs are never retold or guessed by the model."""
     blocks = {block.block_id: block for block in packet.blocks}
     documents = {doc.doc_id: doc for doc in corpus.documents}
@@ -69,7 +72,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (EDITORIAL_PRACTICAL_REVIEW_POLICY if result.editorial_review else
+    review_policy = (editorial_policy if result.editorial_review else
                      SOURCE_CORE_PRACTICAL_REVIEW_POLICY if result.source_core else
                      SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY if result.separate_domains else
                      SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY if result.source_scope_complete else
@@ -227,7 +230,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                        CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
                        MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY,
                        SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY}
-    parts = () if review_policy in lesson_policies or review_policy in {SOURCE_CORE_PRACTICAL_REVIEW_POLICY, EDITORIAL_PRACTICAL_REVIEW_POLICY} else source_reader_parts(packet)
+    editorial = is_editorial_policy(review_policy)
+    parts = () if editorial or review_policy in lesson_policies or review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
     estimated_lessons = 0
@@ -250,7 +254,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         completed += 1
         if progress_callback:
             # Author + two checks per candidate + at most four scoped repairs.
-            if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
+            if editorial:
                 await progress_callback('realization', completed, 4, None, 1)
             elif review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
                 await progress_callback('realization', completed, 5, None, 1)
@@ -275,9 +279,10 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
+    if editorial:
         from app.modules.ai.v3.practical_editorial_cycle import run_editorial_cycle
-        result = await run_editorial_cycle(packet, corpus, intent, reference_decisions, stage)
+        result = await run_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
+            canonical_json=review_policy == CANONICAL_EDITORIAL_REVIEW_POLICY)
     elif review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
         from app.modules.ai.v3.practical_source_core_cycle import run_source_core_cycle
         result = await run_source_core_cycle(packet, corpus, intent, reference_decisions, stage)
@@ -312,4 +317,6 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                                            concise_review=review_policy == CONCISE_PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
+    if review_policy == CANONICAL_EDITORIAL_REVIEW_POLICY:
+        return practical_artifacts(result, corpus, packet, source_sha256, editorial_policy=review_policy)
     return practical_artifacts(result, corpus, packet, source_sha256)

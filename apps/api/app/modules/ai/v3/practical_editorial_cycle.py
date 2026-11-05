@@ -102,21 +102,26 @@ REVIEW_SYSTEM += (_SOURCE_GUIDE + CASE_STATUS_REVIEW_GUIDE
 EDIT_SYSTEM += _SOURCE_GUIDE + EXPLICIT_CASE_GUIDE
 
 
-def _context(packet: Any, corpus: Any, view: PracticalModelView) -> str:
+def _context(packet: Any, corpus: Any, view: PracticalModelView, *, canonical_json: bool) -> str:
     notes = [{'document_id': doc.doc_id, 'source_revision': doc.source_revision, 'text': row['text']}
              for doc in corpus.documents for row in doc.review_only_source_context]
     return (source_model_text(packet, aliases=view.canonical_to_alias)
-        + '\nUNVERIFIED_SOURCE_REVIEW_CONTEXT_JSON\n' + json.dumps(notes, ensure_ascii=False))
+        + '\nUNVERIFIED_SOURCE_REVIEW_CONTEXT_JSON\n' + json.dumps(notes, ensure_ascii=False, sort_keys=canonical_json))
 
 
 async def run_editorial_cycle(packet: Any, corpus: Any, intent: Any, reference_decisions: tuple[Any, ...],
-                               stage: Any) -> PracticalCycleResult:
+                               stage: Any, *, canonical_json: bool = False) -> PracticalCycleResult:
     from app.modules.ai.v3.practical_contract import build_practical_source_packet
 
     if build_practical_source_packet(corpus, reference_decisions) != packet:
         raise ValueError('editorial_source_custody_mismatch')
     view = PracticalModelView(packet)
-    context = _context(packet, corpus, view)
+    # JSONB can reorder model-returned objects between stages. Canonicalize the
+    # JSON embedded in prompt strings, while keeping arrays and old request bytes.
+    def prompt_json(value: Any) -> str:
+        return json.dumps(value, ensure_ascii=False, sort_keys=canonical_json)
+
+    context = _context(packet, corpus, view, canonical_json=canonical_json)
     planning = [{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups]
 
     async def call(name: str, group: str, messages: list[dict[str, str]], fmt: dict[str, Any], validate: Any) -> dict[str, Any]:
@@ -133,13 +138,13 @@ async def run_editorial_cycle(packet: Any, corpus: Any, intent: Any, reference_d
 
     authored = await call('lesson', 'practical:author:editorial:v31', [
         {'role': 'system', 'content': AUTHOR_SYSTEM}, {'role': 'user', 'content': context
-            + '\nSOURCE_LOGICAL_UNITS_JSON\n' + json.dumps(view.encode(planning), ensure_ascii=False)
-            + '\nCOURSE_INTENT_JSON\n' + json.dumps(asdict(intent), ensure_ascii=False)}],
+            + '\nSOURCE_LOGICAL_UNITS_JSON\n' + prompt_json(view.encode(planning))
+            + '\nCOURSE_INTENT_JSON\n' + prompt_json(asdict(intent))}],
         course_response_format(packet), valid_author)
     original = validate_practical_course(authored, packet)
     review_raw = await call('review', 'practical:editorial:review:v31:' + _digest(original), [
         {'role': 'system', 'content': REVIEW_SYSTEM}, {'role': 'user', 'content': context
-            + '\nFULL_COURSE_WITH_KEYS_AND_EXPLANATIONS_JSON\n' + json.dumps(view.encode(original), ensure_ascii=False)}],
+            + '\nFULL_COURSE_WITH_KEYS_AND_EXPLANATIONS_JSON\n' + prompt_json(view.encode(original))}],
         editorial_review_format(packet, original), lambda value: compile_editorial_review(value, packet, original))
     review = compile_editorial_review(review_raw, packet, original)
     editable = [row for row in review['findings'] if row['severity'] == 'material'
@@ -150,8 +155,8 @@ async def run_editorial_cycle(packet: Any, corpus: Any, intent: Any, reference_d
     if editable:
         revision_raw = await call('repair', 'practical:editorial:revision:v31:' + _digest(original), [
             {'role': 'system', 'content': EDIT_SYSTEM}, {'role': 'user', 'content': context
-                + '\nCURRENT_COURSE_JSON\n' + json.dumps(view.encode(original), ensure_ascii=False)
-                + '\nEDITORIAL_FINDINGS_UNVERIFIED_JSON\n' + json.dumps(view.encode(editable), ensure_ascii=False)}],
+                + '\nCURRENT_COURSE_JSON\n' + prompt_json(view.encode(original))
+                + '\nEDITORIAL_FINDINGS_UNVERIFIED_JSON\n' + prompt_json(view.encode(editable))}],
             editorial_revision_format(packet, original),
             lambda value: compile_editorial_revision(value, packet, original, review))
         candidate, revision_meta = compile_editorial_revision(revision_raw, packet, original, review)

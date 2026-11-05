@@ -118,9 +118,10 @@ async def test_rewritten_prose_does_not_inherit_original_review_source_ownership
 
 
 @pytest.mark.asyncio
-async def test_real_stage_journal_recovers_after_received_revision_without_repeating_calls(case):
+@pytest.mark.parametrize('roundtrip', [False, True], ids=['historical-v31', 'jsonb-v32'])
+async def test_real_stage_journal_recovers_after_received_revision_without_repeating_calls(case, roundtrip):
     from app.modules.ai.v3.practical_service import generate_practical_course
-    from app.modules.ai.v3.revision_policy import EDITORIAL_PRACTICAL_REVIEW_POLICY
+    from app.modules.ai.v3.revision_policy import CANONICAL_EDITORIAL_REVIEW_POLICY, EDITORIAL_PRACTICAL_REVIEW_POLICY
     from tests.unit.test_v3_partitioned_extraction import Journal
 
     corpus, packet, original = case
@@ -153,19 +154,30 @@ async def test_real_stage_journal_recovers_after_received_revision_without_repea
         return view.encode(value)
 
     journal = InterruptedJournal()
+    policy = CANONICAL_EDITORIAL_REVIEW_POLICY if roundtrip else EDITORIAL_PRACTICAL_REVIEW_POLICY
 
     async def generate():
         return await generate_practical_course(corpus, intent=CourseIntent(purpose='Training', audience='Staff'),
             invoke=invoke, source_sha256='a' * 64, journal=journal, route_fingerprint='b' * 64,
-            review_policy=EDITORIAL_PRACTICAL_REVIEW_POLICY)
+            review_policy=policy)
 
     with pytest.raises(RuntimeError, match='simulated process interruption'):
         await generate()
     assert len(calls) == 3 and sum(key.startswith('v3-stage-result:') for key in journal.values) == 3
+    if roundtrip:
+        # JSONB does not preserve provider object insertion order; arrays are unchanged.
+        def jsonb_order(value):
+            if isinstance(value, dict):
+                return {k: jsonb_order(value[k]) for k in sorted(value, key=lambda k: (len(k.encode()), k.encode()))}
+            if isinstance(value, list):
+                return [jsonb_order(item) for item in value]
+            return value
+        journal.values = jsonb_order(journal.values)
     artifacts = await generate()
     assert len(calls) == 4  # Only the missing final blind check is dispatched.
     assert artifacts.diagnostics['practical_course'] == candidate
     assert artifacts.diagnostics['draft_review']['human_review_required'] is True
     assert artifacts.diagnostics['quality_verdict'] == 'needs_review'
+    assert artifacts.diagnostics['v3_review_policy'] == policy
     await generate()
     assert len(calls) == 4

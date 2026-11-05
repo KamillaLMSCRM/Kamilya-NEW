@@ -434,3 +434,26 @@ raw не является новым вызовом. Unknown dispatch не по�
   If improving this review, use the saved before/after as a bounded witness,
   keeping previous P31 request bytes and recovery valid. No repeated full-course
   runs just to remove known human-review findings.
+
+## ENG-026 — JSONB changes the byte identity of a resumed editorial request
+
+- Date: 2026-11-05. Class: deterministic request serialization defect, separate
+  from lesson quality, provider behavior and validation. Exact offline replay of
+  Standards found the author checkpoint, then failed to match the completed
+  editor checkpoint on request_sha256 alone. The JSONB response digest remained
+  valid: object order in prompt strings was significant, unlike the stored JSON.
+- Cause verified on all three native courses: restoring provider schema order
+  recovered all 12 original request hashes and all three original course
+  snapshots. This is a diagnostic reconstruction, not a historical data edit
+  or proof of a live interrupted resume.
+- Fix: new server-stamped editorial policy 32 uses canonical object key order
+  in embedded prompt JSON; arrays, prompt instructions and the four-stage
+  editorial flow are unchanged. Stored P31 retains its original request bytes;
+  no fallback claim, historical rewrite or additional review/inference.
+  Source, actor, model route and policy checks remain in place at save.
+- Verified locally: stage-journal interruption regression with simulated JSONB
+  ordering resumes only the missing stage. Three sets of stored native responses
+  yield the same 12 canonical request hashes before and after object reordering
+  and the same original courses. Zero provider/DB calls in the replay. Evidence:
+  .release-evidence/p31-ordinary-dev-20261105/native-p32-canonical-replay.json.
+  Live DEV P32 recovery and provider acceptance are separate, still open.

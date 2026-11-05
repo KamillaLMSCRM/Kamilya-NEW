@@ -612,10 +612,10 @@ async def _run_v3_generation(
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
     from app.modules.ai.v3.revision_policy import (
-        EDITORIAL_PRACTICAL_REVIEW_POLICY,
         EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
         editorial_route_worker_valid,
+        is_editorial_policy,
         is_practical_policy,
         read_review_policy,
     )
@@ -624,7 +624,7 @@ async def _run_v3_generation(
         state.job_id, tenant_id, user_id, list(corpus.document_ids))
         if revision_policy == PROFILE_REVISION_POLICY else None)
     review_policy = read_review_policy(stored_analysis) if revision_policy == PROFILE_REVISION_POLICY else None
-    if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
+    if is_editorial_policy(review_policy):
         if (not isinstance(stored_analysis, dict) or state.source_analysis.get('v3_review_policy') != review_policy
                 or not editorial_route_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                     course_id=state.course_id, stored=stored_analysis.get(EDITORIAL_QA_KEY),
@@ -673,7 +673,7 @@ async def _run_v3_generation(
                 return (isinstance(current, dict) and policy_matches(current, revision_policy)
                         and read_review_policy(current) == review_policy
                         and current.get(QA_PENDING_KEY) == stored
-                        and (review_policy != EDITORIAL_PRACTICAL_REVIEW_POLICY or
+                        and (not is_editorial_policy(review_policy) or
                              editorial_route_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                                  course_id=job.course_id, stored=current.get(EDITORIAL_QA_KEY),
                                  dispatched=state.source_analysis.get(EDITORIAL_QA_KEY),
@@ -711,7 +711,7 @@ async def _run_v3_generation(
                 analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
                 return (policy_matches(analysis, revision_policy)
                         and read_review_policy(analysis) == review_policy
-                        and (review_policy != EDITORIAL_PRACTICAL_REVIEW_POLICY or
+                        and (not is_editorial_policy(review_policy) or
                              (isinstance(analysis, dict) and analysis.get(QA_PENDING_KEY) is None
                               and editorial_route_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                                   course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
@@ -907,10 +907,10 @@ async def _verify_fresh_v3_final_source(
     from app.modules.ai.v3.pending_stage_transactions import has_pending
     from app.modules.ai.v3.qa_luna_pending_policy import KEY, OWNED_POLICIES
     from app.modules.ai.v3.revision_policy import (
-        EDITORIAL_PRACTICAL_REVIEW_POLICY,
         EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
         editorial_route_worker_valid,
+        is_editorial_policy,
     )
 
     params = job.params if isinstance(job.params, dict) else {}
@@ -921,7 +921,7 @@ async def _verify_fresh_v3_final_source(
         return
     stored_review = analysis.get('v3_review_policy') if isinstance(analysis, dict) else None
     state_review = state.source_analysis.get('v3_review_policy')
-    if EDITORIAL_PRACTICAL_REVIEW_POLICY in (stored_review, state_review):
+    if is_editorial_policy(stored_review) or is_editorial_policy(state_review):
         if (not isinstance(analysis, dict) or stored_review != state_review
                 or not editorial_route_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                     course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
@@ -977,11 +977,11 @@ async def _verify_native_practical_final_source(
     from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
     from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
     from app.modules.ai.v3.revision_policy import (
-        EDITORIAL_PRACTICAL_REVIEW_POLICY,
         EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
         POLICY,
         editorial_route_worker_valid,
+        is_editorial_policy,
         is_practical_policy,
         read_policy,
         read_review_policy,
@@ -995,8 +995,8 @@ async def _verify_native_practical_final_source(
     stored_marker = analysis.get(QA_KEY) if isinstance(analysis, dict) else None
     if (tenant_id == QA_TENANT and state_marker in OWNED_POLICIES
             and state_marker == stored_marker
-            and (stored_review != EDITORIAL_PRACTICAL_REVIEW_POLICY and state_review != EDITORIAL_PRACTICAL_REVIEW_POLICY
-                 or stored_review == state_review == EDITORIAL_PRACTICAL_REVIEW_POLICY
+            and (not is_editorial_policy(stored_review) and not is_editorial_policy(state_review)
+                 or stored_review == state_review and is_editorial_policy(state_review)
                  and isinstance(analysis, dict)
                  and editorial_route_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                      course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
@@ -1018,7 +1018,7 @@ async def _verify_native_practical_final_source(
                  and tuple(context.corpus.document_ids) == context.selection
                  and isinstance(analysis, dict) and read_policy(analysis) == POLICY
                  and is_practical_policy(state_review) and read_review_policy(analysis) == state_review
-                 and (state_review != EDITORIAL_PRACTICAL_REVIEW_POLICY or
+                 and (not is_editorial_policy(state_review) or
                       editorial_route_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                           course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
                           dispatched=state.source_analysis.get(EDITORIAL_QA_KEY),

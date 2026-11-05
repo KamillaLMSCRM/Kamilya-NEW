@@ -6,6 +6,7 @@ from app.modules.ai import pipeline
 from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 from app.modules.ai.v3.revision_policy import (
+    CANONICAL_EDITORIAL_REVIEW_POLICY,
     EDITORIAL_ORDINARY_KEY,
     EDITORIAL_ORDINARY_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
@@ -28,10 +29,11 @@ def test_ordinary_route_rejects_mixed_or_mismatched_markers():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('drift', ['none', 'stored', 'dispatched', 'qa', 'source', 'owner', 'profile', 'pending'])
-async def test_ordinary_p31_final_save_keeps_all_fences(monkeypatch, drift):
+@pytest.mark.parametrize('review_policy', [EDITORIAL_PRACTICAL_REVIEW_POLICY, CANONICAL_EDITORIAL_REVIEW_POLICY])
+@pytest.mark.parametrize('drift', ['none', 'stored', 'dispatched', 'policy', 'qa', 'source', 'owner', 'profile', 'pending'])
+async def test_ordinary_editorial_final_save_keeps_all_fences(monkeypatch, drift, review_policy):
     monkeypatch.setattr("app.core.config.get_settings", lambda: None)
-    state, job, document = native_fixture(EDITORIAL_PRACTICAL_REVIEW_POLICY)
+    state, job, document = native_fixture(review_policy)
     monkeypatch.setattr("app.modules.ai.qa_luna_dev_route.QA_TENANT", uuid4())
     state.source_analysis[EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_MARKER
     job.params['source_analysis'][EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_MARKER
@@ -40,6 +42,10 @@ async def test_ordinary_p31_final_save_keeps_all_fences(monkeypatch, drift):
         job.params['source_analysis'][EDITORIAL_ORDINARY_KEY] = 'forged'
     elif drift == 'dispatched':
         state.source_analysis[EDITORIAL_ORDINARY_KEY] = 'forged'
+    elif drift == 'policy':
+        job.params['source_analysis']['v3_review_policy'] = (
+            CANONICAL_EDITORIAL_REVIEW_POLICY if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY
+            else EDITORIAL_PRACTICAL_REVIEW_POLICY)
     elif drift == 'qa':
         state.source_analysis[QA_KEY] = 'unknown'
     elif drift == 'source':
