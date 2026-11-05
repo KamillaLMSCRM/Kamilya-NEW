@@ -39,6 +39,7 @@ from app.modules.ai.v3.revision_policy import (
     CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
     DOMAIN_PRACTICAL_REVIEW_POLICY,
+    EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
@@ -68,7 +69,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
              for b in packet.blocks]
     narrative = result.review['narrative_sources']
     displayed = scoped_course_view(packet, result.course, legacy_source_rule_scope=result.legacy_source_rule_scope)
-    review_policy = (SOURCE_CORE_PRACTICAL_REVIEW_POLICY if result.source_core else
+    review_policy = (EDITORIAL_PRACTICAL_REVIEW_POLICY if result.editorial_review else
+                     SOURCE_CORE_PRACTICAL_REVIEW_POLICY if result.source_core else
                      SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY if result.separate_domains else
                      SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY if result.source_scope_complete else
                      DOMAIN_PRACTICAL_REVIEW_POLICY if result.review_domains else
@@ -90,9 +92,10 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
     lessons = []
     provenance_holds = []
     prose_provenance_holds = []
+    revised_prose = set(result.history[0].get('unverified_revised_prose', [])) if result.editorial_review and result.history else set()
     for lesson in displayed['lessons']:
         covered = list(narrative[lesson['id']])
-        if result.standalone_review and not covered:
+        if result.standalone_review and (not covered or lesson['id'] in revised_prose):
             prose_provenance_holds.append(lesson['id'])
         questions = []
         for q in lesson['questions']:
@@ -147,7 +150,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       document_sha256=source_sha256, lessons=tuple(lessons),
                       # Source verification is independent of publication. The
                       # ordinary persistence layer still creates a draft course.
-                      quality_verdict='verified' if accepted and source_verified and not result.source_core else 'needs_review',
+                      quality_verdict='verified' if accepted and source_verified and not (result.source_core or result.editorial_review) else 'needs_review',
                       validation_report=report)
     assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY} and source_verified
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
@@ -181,10 +184,11 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
                                     else 'authored_question_scope_v2'),
     })
-    if result.source_core:
+    if result.source_core or result.editorial_review:
         from app.modules.ai.v3.practical_draft_review import editorial_manifest
 
         artifacts.diagnostics['draft_review'] = editorial_manifest(result, packet, issues)
+    if result.source_core:
         artifacts.diagnostics['practical_source_core_unresolved_cases'] = list(result.source_core_unresolved_cases)
         artifacts.diagnostics['practical_source_core_source_review_pending'] = result.source_core_source_review_pending
         artifacts.diagnostics['practical_unverified_source_proposals'] = [
@@ -223,7 +227,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                        CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
                        MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY,
                        SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY}
-    parts = () if review_policy in lesson_policies or review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY else source_reader_parts(packet)
+    parts = () if review_policy in lesson_policies or review_policy in {SOURCE_CORE_PRACTICAL_REVIEW_POLICY, EDITORIAL_PRACTICAL_REVIEW_POLICY} else source_reader_parts(packet)
     view = PracticalModelView(packet)
     completed = 0
     estimated_lessons = 0
@@ -246,7 +250,9 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         completed += 1
         if progress_callback:
             # Author + two checks per candidate + at most four scoped repairs.
-            if review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
+            if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
+                await progress_callback('realization', completed, 4, None, 1)
+            elif review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
                 await progress_callback('realization', completed, 5, None, 1)
             elif review_policy in lesson_policies:
                 if stage == 'lesson' and group == 'practical:author:v1':
@@ -269,7 +275,10 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
+    if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
+        from app.modules.ai.v3.practical_editorial_cycle import run_editorial_cycle
+        result = await run_editorial_cycle(packet, corpus, intent, reference_decisions, stage)
+    elif review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
         from app.modules.ai.v3.practical_source_core_cycle import run_source_core_cycle
         result = await run_source_core_cycle(packet, corpus, intent, reference_decisions, stage)
     elif review_policy in lesson_policies:

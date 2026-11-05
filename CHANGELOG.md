@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Add an opt-in DEV V3 editorial workflow: coherent course authoring, full-course
+  source and assessment review, one addressed revision and blind answer checking.
+  Preserve complete editable drafts and version-bound findings for human review.
+- Retain protected lesson/question content during partial revisions; revised
+  prose carries new source-reference proposals without inheriting old validation.
+
+### Changed
 - Separate lesson-prose coverage, independent answer validity and explanation
   correctness inside existing V3 review phases. Preserve historical checkpoints
   and restrict each confirmed correction to its owned question or lesson.

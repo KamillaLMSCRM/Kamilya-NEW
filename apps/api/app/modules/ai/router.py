@@ -544,13 +544,15 @@ async def submit_course_generation(
     if qa_pending_marker is not None:
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
     from app.modules.ai.v3.revision_policy import (
-        SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_QA_KEY,
+        EDITORIAL_QA_MARKER,
         SOURCE_CORE_QA_KEY,
-        SOURCE_CORE_QA_MARKER,
         practical_qa_admission,
         source_core_qa_admission,
     )
     analysis_payload.pop(SOURCE_CORE_QA_KEY, None)
+    analysis_payload.pop(EDITORIAL_QA_KEY, None)
     if ((qa_pending_marker is None and req.course_id is None) or practical_qa_admission(
             settings=get_settings(), marker=qa_pending_marker,
             tenant_id=tenant_id, course_id=req.course_id)):
@@ -561,8 +563,8 @@ async def submit_course_generation(
         analysis_payload = stamp_policy(analysis_payload, practical=True)
         if source_core_qa_admission(settings=get_settings(), marker=qa_pending_marker,
                                     tenant_id=tenant_id, user_id=user.id, course_id=req.course_id):
-            analysis_payload['v3_review_policy'] = SOURCE_CORE_PRACTICAL_REVIEW_POLICY
-            analysis_payload[SOURCE_CORE_QA_KEY] = SOURCE_CORE_QA_MARKER
+            analysis_payload['v3_review_policy'] = EDITORIAL_PRACTICAL_REVIEW_POLICY
+            analysis_payload[EDITORIAL_QA_KEY] = EDITORIAL_QA_MARKER
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,
                 detail="completed_extraction_reuse_not_supported_for_practical_policy")

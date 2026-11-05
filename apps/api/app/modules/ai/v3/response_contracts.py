@@ -24,6 +24,12 @@ from app.modules.ai.v3.practical_curriculum import (
     matches_curriculum,
     matches_curriculum_bank,
 )
+from app.modules.ai.v3.practical_editorial_contract import (
+    is_editorial_review_format,
+    is_editorial_revision_format,
+    matches_editorial_review,
+    matches_editorial_revision,
+)
 from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
 from app.modules.ai.v3.practical_question_context import is_context_format, matches_context_response
 from app.modules.ai.v3.practical_review import is_practical_review_format, matches_practical_review
@@ -35,6 +41,10 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_editorial_review_format(value):
+        return "practical_editorial_review"
+    if is_editorial_revision_format(value):
+        return "practical_editorial_revision"
     if is_source_core_editor_format(value):
         return "practical_source_core_editor"
     if is_source_core_format(value):
@@ -83,6 +93,10 @@ def response_contract_hash(value: dict[str, Any]) -> str:
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "practical_editorial_review":
+        return matches_editorial_review(value, response_format)
+    if kind == "practical_editorial_revision":
+        return matches_editorial_revision(value, response_format)
     if kind == "practical_source_core_editor":
         return matches_source_core_editor(value, response_format)
     if kind == "practical_source_core":

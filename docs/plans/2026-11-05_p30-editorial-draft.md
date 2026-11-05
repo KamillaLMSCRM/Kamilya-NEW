@@ -59,3 +59,43 @@ Local implementation completed 2026-11-05:
 - Still pending: owner lifts ASUS/model pause; fresh native/real DB concurrency,
   three full DEV courses, semantic/time/token acceptance, DeepSeek and release.
   No deployment or production acceptance is claimed by this local stage.
+
+## Follow-on: P31 editorial integration, owner authorized 2026-11-05
+
+- Preserve stored policies through30 and ordinary29 default. Fresh matched native
+  DEV QA selects31 with a distinct server-owned marker and worker/final-save fences.
+- Coherent teaching author → full keyed editor → one optional addressed revision →
+  existing physically blind answer check. No source planner or new critic cascade.
+- Review domain is independent of typed target. New source/lesson/question/course
+  targets have closed IDs; source and course fingerprints bind every response.
+- Material findings remain for human resolution; advisory findings do not authorize
+  automatic rewriting. Missing/unrequested siblings are retained and visible.
+- Revision returns new lesson-source proposals in the same response. Initial review
+  links remain historical; changed prose is explicitly unverified even with links.
+- Replay received Standards review/revision using a labelled deterministic legacy
+  projection, not fresh-wire or native acceptance. Preserve all source holds.
+- Focused tests include full service/checkpoint crash after durable revision,
+  cold replay with no repeated calls, unknown outcomes, protected questions,
+  source A→B, codec roundtrip, QA-only and native final save. FullAPI7889PASS,
+  baseline1004/2174PASS, independent bounded source GO before fresh Luna control.
+- Fresh Luna6/HIGH through actual application service + local durable journal now
+  running on Standards. This is not PG/nativeDEV acceptance. Then independent
+  matrix/reference comparison; extend to Fire/Microcredit on this frozen source
+  if the common mechanism holds, before protected deployment/live gates.
+
+P31 implementation checkpoint, 2026-11-05:
+- Actual service controls completed on all three documents before shared-source
+  guide restoration: Standards5L16Q/4calls, Fire7L21Q/3calls, Microcredit10L29Q/4calls.
+  Independent audits found material source omissions; model-clean is not content GO.
+- Shared applicability/fidelity/logic/case instructions were restored to the new
+  roles without changing historical policies. Guided Fire6L18Q/4calls301.656s;
+  guided Standards4L12Q/3calls165.469s. Microcredit guided is the sole active run.
+- Fire independently fixes three prior issue classes but retains implementation-duty
+  omission and one answer-revealing stem. Usable draft preserved, human review held.
+- FullAPI7889PASS544skipped before prompt restoration;58focused and baseline
+  Ruff1004/Mypy2174PASS afterward. Crash/cold-replay and unknown-outcome tests PASS.
+- Navigation frozen: CodeGraph2351files; Graphify27790nodes/82889edges/2384sources,
+  excluded-path auditPASS, AST-only. Source integration reviewed independently.
+- Owner's Narrow A design5fb9dcff accepted for integration; full five-commit range
+  overlaps P30 editor and generation recovery. Integrate in a clean linked checkout,
+  preserve source-review controls and run combined UI tests. No release claim yet.

@@ -45,7 +45,14 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str]) ->
         if not refs and question:
             refs = list(question.get('source_refs', []))
         options = case.get('possible_options') or evidence.get('possible_options') or []
-        explanation = {'unverified': True, 'observation': case.get('case_description') or evidence.get('reason') or '',
+        observation = case.get('case_description') or evidence.get('reason') or evidence.get('basis') or ''
+        if evidence.get('status') == 'EDITED_UNVERIFIED':
+            observation = 'Адресная правка внесена; её результат ещё требует проверки.\n' + observation
+        elif evidence.get('status') == 'SOURCE_UNRESOLVED':
+            observation = 'Замечание к исходному документу не закрывается автоматической правкой курса.\n' + observation
+        if evidence.get('correction'):
+            observation += '\nПредложение редактора: ' + evidence['correction']
+        explanation = {'unverified': True, 'observation': observation,
             'missing_condition': case.get('unstated_condition') or '',
             'possible_answers': [question['choices'][i] for i in options
                                  if question and type(i) is int and 0 <= i < len(question['choices'])],
@@ -55,10 +62,13 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str]) ->
                    if problem == 'option_answerability_unresolved' else problem)
         add('finding', target, message, refs, target_title=title, evidence=explanation,
             issue_id=finding['issue_id'])
+    structured_summaries = {row['scope'] + ':' + row['id'] for row in result.decision.feedback}
     for issue in integrity_issues:
-        if issue != 'source_core_source_review_pending' and not issue.startswith(
+        if issue not in structured_summaries and issue != 'source_core_source_review_pending' and not issue.startswith(
                 ('source_core_case_unresolved:', 'curriculum_coverage_unresolved:', 'question_context_unresolved:')):
-            add('integrity', '', issue, [])
+            message = ('Проверьте актуальные привязки переработанных объяснений к источникам.'
+                       if issue == 'practical_lesson_prose_provenance_requires_review' else issue)
+            add('integrity', '', message, [])
     for case in result.source_core_unresolved_cases:
         add('case_review', case, 'Автоматическая правка этой учебной ситуации не подтверждена: ' + case, [])
     for goal in result.unresolved_curriculum_goals:
@@ -84,6 +94,18 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str]) ->
         summary = bank.get('source_review')
         if isinstance(summary, str) and summary.strip():
             add('self_review_summary', stage, summary, [], blocking=False)
+    editorial = history.get('editorial_review', {})
+    for row in editorial.get('findings', []):
+        if row['severity'] == 'advisory':
+            add('editorial_suggestion', row['target']['id'], row['problem'], row['source_refs'], blocking=False,
+                evidence={'unverified': True, 'observation': row['basis'] + '\n' + row['correction']})
+    if editorial.get('summary'):
+        add('self_review_summary', 'editorial', editorial['summary'], [], blocking=False)
+    revision = history.get('editorial_revision', {})
+    for target in revision.get('ignored_unrequested_changes', []):
+        add('protected_content', target, 'Незапрошенная правка не применена; исходная часть сохранена.', [], blocking=False)
+    for target in revision.get('retained_missing_targets', []):
+        add('retained_content', target, 'Часть не возвращена редактором; сохранена исходная версия для проверки.', [], blocking=False)
     # A clean machine result still needs a real methodologist's sign-off.
     add('editorial_review', '', 'Проверьте содержание уроков, ключи тестов и соответствие источникам.', [])
     return {'version': DRAFT_REVIEW_VERSION, 'generation_status': 'draft_prepared',

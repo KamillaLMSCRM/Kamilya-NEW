@@ -47,6 +47,10 @@ class PracticalModelView:
             return [mapping[item] for item in items]
         def walk(node: Any) -> None:
             if isinstance(node, dict):
+                if set(node) == {'kind', 'id'} and node.get('kind') == 'source':
+                    if type(node['id']) is not str or node['id'] not in mapping:
+                        raise ValueError('practical_model_source_ref_invalid')
+                    node['id'] = mapping[node['id']]
                 if 'source_refs' in node:
                     node['source_refs'] = refs(node['source_refs'])
                 for basis in ('narrative_sources', 'question_sources'):

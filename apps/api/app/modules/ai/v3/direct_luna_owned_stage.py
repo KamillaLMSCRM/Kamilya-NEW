@@ -81,6 +81,10 @@ async def run_direct_owned_stage(
                 and str(plan.get("group_id", "")).startswith("practical:source-core:author:"))
             or (kind == "practical_source_core_editor" and plan.get("stage") == "review"
                 and str(plan.get("group_id", "")).startswith("practical:source-core:editor:"))
+            or (kind == "practical_editorial_review" and plan.get("stage") == "review"
+                and str(plan.get("group_id", "")).startswith("practical:editorial:review:v31:"))
+            or (kind == "practical_editorial_revision" and plan.get("stage") == "repair"
+                and str(plan.get("group_id", "")).startswith("practical:editorial:revision:v31:"))
             or (kind == "practical_arbitration" and plan.get("stage") == "review"
                 and str(plan.get("group_id", "")).startswith("practical:arbitrate:"))
             or (kind == "practical_question_context" and plan.get("stage") == "review"

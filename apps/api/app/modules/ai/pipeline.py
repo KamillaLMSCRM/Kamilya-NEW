@@ -611,11 +611,25 @@ async def _run_v3_generation(
     owned_source_context: Any = None
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
+    from app.modules.ai.v3.revision_policy import (
+        EDITORIAL_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_QA_KEY,
+        editorial_qa_worker_valid,
+        is_practical_policy,
+        read_review_policy,
+    )
     from app.modules.ai.v3.revision_policy import POLICY as PROFILE_REVISION_POLICY
-    from app.modules.ai.v3.revision_policy import is_practical_policy, read_review_policy
-    review_policy = (read_review_policy(await _load_owned_generation_analysis(
-        state.job_id, tenant_id, user_id, list(corpus.document_ids)))
+    stored_analysis = (await _load_owned_generation_analysis(
+        state.job_id, tenant_id, user_id, list(corpus.document_ids))
         if revision_policy == PROFILE_REVISION_POLICY else None)
+    review_policy = read_review_policy(stored_analysis) if revision_policy == PROFILE_REVISION_POLICY else None
+    if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
+        if (not isinstance(stored_analysis, dict) or state.source_analysis.get('v3_review_policy') != review_policy
+                or stored_analysis.get(QA_PENDING_KEY) is not None or state.source_analysis.get(QA_PENDING_KEY) is not None
+                or not editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                    course_id=state.course_id, stored=stored_analysis.get(EDITORIAL_QA_KEY),
+                    dispatched=state.source_analysis.get(EDITORIAL_QA_KEY))):
+            raise ExtractionOutcomeUnknownError('v3_editorial_qa_route_unverified')
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -687,6 +701,11 @@ async def _run_v3_generation(
                 analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
                 return (policy_matches(analysis, revision_policy)
                         and read_review_policy(analysis) == review_policy
+                        and (review_policy != EDITORIAL_PRACTICAL_REVIEW_POLICY or
+                             (isinstance(analysis, dict) and analysis.get(QA_PENDING_KEY) is None
+                              and editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                                  course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
+                                  dispatched=state.source_analysis.get(EDITORIAL_QA_KEY))))
                         and await journal.expected_revision_source.verify_locked(session, job, plan) is True)
             journal.verify_source = verify_native_source
     if revision_policy == PROFILE_REVISION_POLICY:
@@ -919,13 +938,22 @@ async def _verify_native_practical_final_source(
     session: Any, job: Any, state: GenerationState, tenant_id: UUID, user_id: UUID,
 ) -> None:
     """Recheck the native practical source and profile under the final save lock."""
+    from app.core.config import get_settings
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
-    from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY, POLICY_ID as PROFILE_POLICY
+    from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY
+    from app.modules.ai.v3.native_profile_binding import POLICY_ID as PROFILE_POLICY
     from app.modules.ai.v3.owned_source_context import OwnedSourceContext
     from app.modules.ai.v3.pending_stage_transactions import has_pending
-    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY, OWNED_POLICIES
+    from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
+    from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
     from app.modules.ai.v3.revision_policy import (
-        POLICY, is_practical_policy, read_policy, read_review_policy,
+        EDITORIAL_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_QA_KEY,
+        POLICY,
+        editorial_qa_worker_valid,
+        is_practical_policy,
+        read_policy,
+        read_review_policy,
     )
 
     params = job.params if isinstance(job.params, dict) else {}
@@ -935,7 +963,8 @@ async def _verify_native_practical_final_source(
     state_marker = state.source_analysis.get(QA_KEY)
     stored_marker = analysis.get(QA_KEY) if isinstance(analysis, dict) else None
     if (tenant_id == QA_TENANT and state_marker in OWNED_POLICIES
-            and state_marker == stored_marker
+            and state_marker == stored_marker and stored_review != EDITORIAL_PRACTICAL_REVIEW_POLICY
+            and state_review != EDITORIAL_PRACTICAL_REVIEW_POLICY
             or not is_practical_policy(stored_review) and not is_practical_policy(state_review)):
         return
     guard = state.native_practical_final
@@ -951,6 +980,10 @@ async def _verify_native_practical_final_source(
                  and tuple(context.corpus.document_ids) == context.selection
                  and isinstance(analysis, dict) and read_policy(analysis) == POLICY
                  and is_practical_policy(state_review) and read_review_policy(analysis) == state_review
+                 and (state_review != EDITORIAL_PRACTICAL_REVIEW_POLICY or
+                      editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                          course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
+                          dispatched=state.source_analysis.get(EDITORIAL_QA_KEY)))
                  and analysis.get(QA_KEY) is None
                  and state_marker is None
                  and context.journal.expected_revision_policy == POLICY

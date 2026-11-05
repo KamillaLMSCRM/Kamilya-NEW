@@ -206,6 +206,7 @@ class PracticalCycleResult:
     source_core: bool = False
     source_core_unresolved_cases: tuple[str, ...] = ()
     source_core_source_review_pending: bool = False
+    editorial_review: bool = False
 
 
 def practical_patch_messages(packet: PracticalSourcePacket, course: dict[str, Any],

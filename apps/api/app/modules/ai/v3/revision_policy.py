@@ -30,6 +30,7 @@ DOMAIN_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v27"
 SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v28"
 SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v29"
 SOURCE_CORE_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v30"
+EDITORIAL_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v31"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
@@ -38,7 +39,7 @@ def is_scoped_policy(value: object) -> bool:
 
 
 def is_practical_policy(value: object) -> bool:
-    return type(value) is str and value in {PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY, TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY, EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY, OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY, SOURCE_CORE_PRACTICAL_REVIEW_POLICY}
+    return type(value) is str and value in {PREVIOUS_PRACTICAL_REVIEW_POLICY, SCOPED_PRACTICAL_REVIEW_POLICY, CONCISE_PRACTICAL_REVIEW_POLICY, PRACTICAL_REVIEW_POLICY, ARBITRATED_PRACTICAL_REVIEW_POLICY, STANDALONE_PRACTICAL_REVIEW_POLICY, TYPED_PRACTICAL_REVIEW_POLICY, COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY, EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY, QUESTION_BANK_PRACTICAL_REVIEW_POLICY, OWNED_AUDIT_PRACTICAL_REVIEW_POLICY, EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY, CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY, ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY, MATERIALITY_PRACTICAL_REVIEW_POLICY, CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY, SOURCE_CORE_PRACTICAL_REVIEW_POLICY, EDITORIAL_PRACTICAL_REVIEW_POLICY}
 
 
 def stamp_policy(analysis: dict[str, Any], *, practical: bool = False) -> dict[str, Any]:
@@ -61,6 +62,8 @@ def practical_qa_admission(*, settings: Any, marker: str | None, tenant_id: Any,
 
 SOURCE_CORE_QA_MARKER = 'native-source-core-qa-v1'
 SOURCE_CORE_QA_KEY = 'v3_source_core_qa_marker'
+EDITORIAL_QA_MARKER = 'native-editorial-qa-v1'
+EDITORIAL_QA_KEY = 'v3_editorial_qa_marker'
 
 
 def source_core_qa_admission(*, settings: Any, marker: str | None, tenant_id: Any,
@@ -71,6 +74,20 @@ def source_core_qa_admission(*, settings: Any, marker: str | None, tenant_id: An
 
     return (marker is None and isinstance(user_id, UUID) and tenant_id == QA_TENANT
             and practical_qa_admission(settings=settings, marker=marker, tenant_id=tenant_id, course_id=course_id))
+
+
+def editorial_qa_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, course_id: Any,
+                              stored: Any, dispatched: Any) -> bool:
+    from uuid import UUID
+
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+
+    return (tenant_id == QA_TENANT and isinstance(user_id, UUID) and course_id is None
+            and stored == dispatched == EDITORIAL_QA_MARKER
+            and getattr(settings, 'DEPLOYMENT_ENVIRONMENT', None) in {'render-development-worker', 'vm-development-worker'}
+            and all(getattr(settings, name, None) is False for name in (
+                'AI_QA_LUNA_DEV_ENABLED', 'AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED',
+                'AI_DIRECT_LUNA_QA_DEV_ENABLED', 'AI_MANAGED_LUNA_QA_DEV_ENABLED')))
 
 
 def read_review_policy(analysis: Any) -> str | None:
@@ -97,6 +114,7 @@ def read_review_policy(analysis: Any) -> str | None:
         SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
         SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
         SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_PRACTICAL_REVIEW_POLICY,
     }:
         raise ValueError("v3_review_policy_invalid")
     return str(analysis[REVIEW_KEY])
