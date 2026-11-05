@@ -115,9 +115,9 @@ async def test_native_admission_binds_policy_to_actual_destination(monkeypatch, 
         await router.generate_course(request, db=_lenient_db(), user=user)
     assert error.value.status_code == 429
     expected = (REVIEW_POLICY if destination == 'existing' else
-                EDITORIAL_PRACTICAL_REVIEW_POLICY if tenant_kind == 'qa' and environment == 'render-development'
+                EDITORIAL_PRACTICAL_REVIEW_POLICY if tenant_kind == 'normal' or environment == 'render-development'
                 else SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY)
     assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
     marker = submit.await_args.kwargs['params']['source_analysis'].get(EDITORIAL_QA_KEY)
-    assert marker == (EDITORIAL_QA_MARKER if expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
+    assert marker == (EDITORIAL_QA_MARKER if tenant_kind == 'qa' and expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
     assert submit.await_args.kwargs['course_id'] == (course if destination == 'existing' else None)

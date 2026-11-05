@@ -1,3 +1,22 @@
+## DEV P31 retained-stage and mobile readback — 2026-11-05
+
+Current exact DEV12d335771a29f23e16d17733271a8b805eeb9b9b API/frontend/soleVM126
+worker RELEASE_OK/RECONCILED, REL-DEV-P31-RETAINED-12D33577-20261105. CI42059258101,
+build42060483400 SUCCESS; attested7fafb4d00fd9, worker1fdea926 ready0restarts/
+1CPU/1GiB/unless-stopped. Warm predecessor fec762b1 retained rollbackc450f1af;
+all six production containers unchanged. Actual DEV browser ordinary methodologist
+shows source-review draft, one approval control,390px full width/no overflow in
+fresh and resized states, drawer opens/closes. No business writes in browser.
+Normal oldMicroP24f0692f27 terminal quarantine verified with pending/result,
+11checkpoints, known rejected response and prior reservation unchanged. Current
+newMicroP31b41487fe completed11L30Q/4calls/857.6s/263654tokens and saved/read back;
+after three lesson/two question human fixes, draft/pending/source holds preserved.
+No oldcall replay. Native factory current rev9
+still DeepSeek first/thinking enabled/low/120s; balance read only, no native
+inference yet. Use existing approved QA only; no role/account/tier changes.
+Ordinary fresh P31 route pending local candidate, not live. PROD66/native70,
+customer courses and provider settings unchanged. Evidence/handoff as below.
+
 ## DEV P31 + design actual state — 2026-11-05
 
 DEV exact API/frontend/sole VM126 worker c450f1af16c3887185a84bddf3d8d410007e2d6e,

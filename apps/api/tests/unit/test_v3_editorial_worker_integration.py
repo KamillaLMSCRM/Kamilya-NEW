@@ -22,6 +22,8 @@ from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
 from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 from app.modules.ai.v3.revision_policy import (
+    EDITORIAL_ORDINARY_KEY,
+    EDITORIAL_ORDINARY_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EDITORIAL_QA_KEY,
     EDITORIAL_QA_MARKER,
@@ -146,12 +148,15 @@ async def test_editorial_dispatch_progress_accepts_whole_course_repair(case, mon
 @pytest.mark.parametrize('tenant,environment,destination,expected', [
     (QA_TENANT, 'render-development', None, EDITORIAL_PRACTICAL_REVIEW_POLICY),
     (QA_TENANT, 'production', None, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY),
-    (uuid4(), 'render-development', None, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY),
+    (uuid4(), 'render-development', None, EDITORIAL_PRACTICAL_REVIEW_POLICY),
 ])
 async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, tenant, environment, destination, expected):
     request = AIGenerateRequest(documents=[uuid4()], course_id=destination)
     analysis = SimpleNamespace(status='compatible', score=1.0, requires_decision=False, clusters=[])
     monkeypatch.setattr('app.modules.ai.source_analysis.analyze_document_set', AsyncMock(return_value=analysis))
+    monkeypatch.setattr(router, '_compatibility_response', lambda _value: SimpleNamespace(
+        model_dump=lambda **_kwargs: {'v3_review_policy': 'forged',
+                                     EDITORIAL_ORDINARY_KEY: 'forged', EDITORIAL_QA_KEY: 'forged'}))
     monkeypatch.setattr('app.modules.ai.source_analysis.document_chunk_totals', AsyncMock(return_value={}))
     monkeypatch.setattr('app.modules.ai.source_analysis.document_script_languages', AsyncMock(return_value={}))
     monkeypatch.setattr('app.modules.ai.v3.qa_luna_pending_policy.admission_marker', lambda **_kwargs: None)
@@ -170,7 +175,8 @@ async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, te
         await router.generate_course(request, db=_lenient_db(), user=SimpleNamespace(id=uuid4(), tenant_id=tenant))
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored['v3_review_policy'] == expected
-    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_MARKER if tenant != QA_TENANT and expected == EDITORIAL_PRACTICAL_REVIEW_POLICY else None)
 
 
 @pytest.mark.asyncio

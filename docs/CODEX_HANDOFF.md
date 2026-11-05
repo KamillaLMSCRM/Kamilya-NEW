@@ -1,3 +1,73 @@
+# P31 three native DEV drafts checked; ordinary-route candidate — 2026-11-05
+
+- result: Three complete native Luna6/HIGH P31 courses,12received calls464972tokens.
+  Standards5L18Q486.9s94899tokens;Fire6L18Q459.9s106419tokens;Micro11L30Q857.6s263654.
+  All saved via штатный worker/final checkpoint; ordinary API equals original
+  snapshots. Independent source+assessment review against67families/16boundaries.
+  Actual drafts are usable for human review after narrow edits; not auto-clean.
+- changed: Micro b41487fe/courseac858d80, original30/30 literal quotes,8issues/
+  2observations. Omitted D30 assignment and D31 bureau procedures were in source
+  (native question quotes prove custody) but not taught. L1 spouse/L2 refusal
+  conflicts and under-specified L6Q1 handled through exact reviewed edits:
+ 3lesson PATCH +2question PUT, other8lessons/28Q unchanged,0modelcalls.
+  Original snapshot preserved; 2 revised question quotes intentionally cleared;
+  draft/pending/source holds retained, hash87351880→46f8a7a5. Source questions
+  added only to existing separate Sandyk clarifications document in cabinet
+  checkout; no original/client source change. Source/assessment proposals
+  independently reviewed, saved scope verified, source-after CONTENT GO.
+- verified: Actual currentDEV12d33577 API/frontend/soleVM126worker reconciled;
+  oldMicro quarantine retained11checkpoints/usage/reservation; mobile390 actual
+  visual/geometry readback PASS. No active model/DEV job from these runs remains.
+  New ordinary marker native-editorial-ordinary-v1 disjoins legacy/QA routes,
+  uses existing profile/source/journal/locked final fences;103focused/6755units/
+  baseline1009/2174PASS and independent source GO. No new semantic cascade.
+- blockers: New ordinary route not live. Do not expose its new admission to old
+  worker: build/verify exact candidate first, then install compatible worker
+  before changing auto-deploy DEV API. Current managed permanentQA is excluded
+  from ordinary non-QA marker by design; no separate approved fixture found.
+  Native DeepSeek factory first/thinkingON/low/120s and current balance verified
+  read only, no native inference. Owner remaining upper1.0652904USD, no increase.
+- next: Freeze exact ordinary source, guarded worker-first DEV release; qualify
+  real native DeepSeek on an authorized synthetic scope without changing existing
+  rights/plans or masquerading as managed Luna. Then protected production and full
+  synthetic live journey. Actual three P31 draft artifacts and old audit receipts
+  under .release-evidence/p31-{managed-route,retained-stage-dev}-20261105/. Current
+  prod66/native70, all customer records/ASUS/reserve/tiers unchanged.
+
+# P31 retained-stage DEV accepted; third native course ACTIVE — 2026-11-05
+
+- result: ExactDEV12d335771a29f23e16d17733271a8b805eeb9b9b RELEASE_OK/RECONCILED,
+  REL-DEV-P31-RETAINED-12D33577-20261105. CI42059258101/image42060483400 SUCCESS;
+  attested7fafb4d00fd98082117b0f11890c3381784d65c7e4a8211f80e8fc1d16aaa666.
+  API dep-dbmajmjm8hqs73f70qdg, Vercel dpl_CMCb1jcyECpGHQBkR2KwSsvRpvg6.
+- changed: SoleVM126worker1fdea92619dd9031931334cb1a4433a4afb37ca5a742c8dee1be6bff1b17605d,
+  env a575e358f2821a5024a35b0e7fd3f14c7beff39df7f0abbf4bea20bb6291b3bc,111source
+  hashes,45env keys,1CPU/1GiB,0restarts/unless-stopped. Oldfec762b1 warm-stopped
+  and retained rollback-c450f1af; six production containers unchanged. Mobile
+  breakpoint fix deployed; real geometry browser PASS fresh/resize390, client/
+  scroll/main390, left0, railhidden, draweropen/close, no business writes.
+- verified: CI PostgreSQL non-bypass/RLS tests both actually executed and passed;
+  observed pg_blocking_pids, stale CAS rejected, previous history preserved.
+  One normal API quarantine of oldP24f0692f27 verified: old response known
+  received-rejected SHA d796e2c6...d11d7/83622tokens, original11checkpoint rows,
+  pending result, parameters other than disposition, reservation and source
+  unchanged. No repeat/cancel of provider request, refund or response-outcome claim.
+- active: New Micro P31 b41487fe-1c5b-4b0f-abed-75f8cb913170 admitted16:12:21UTC,
+  source23a77278/1fb8408c...355f, actual stored31 + managed pair independently
+  verified. No duplicate/restart while pending. Controller, old quarantine and
+  run evidence .release-evidence/p31-retained-stage-dev-20261105/; native receipt
+  .release-evidence/p31-design-integration/native-qa-microcredit-12d33577-result.json.
+- next: Complete Micro saved/semantic39-family/7-boundary review. Prior Standards
+  and Fire native courses after one human edit each are CONTENT GO for human review,
+  not automatic clean/approval/publication. Ordinary fresh P31 route patch is local
+  uncommitted, independently source-reviewed/103focused/6755unitPASS1skip;
+  keep historical ≤30 and QA fences. Native factory rev9 exactworker read-only
+  DeepSeek-first/thinkingON/low/120s, balance available,0inference; approved
+  non-QA disposable fixture not identified, do not impersonate managed QA.
+  Do not deploy while current Micro is active. Native DeepSeek remaining approved
+  upper1.0652904USD needs current ledger/balance and exact route; protected prod
+  and live complete synthetic journey OPEN. Prod/client/plans/resources unchanged.
+
 # P31 two native DEV courses; retained-stage correction LOCAL — 2026-11-05
 
 - result: Standards5L18Q/486.9s/4calls94899tokens and Fire6L18Q/459.9s/4calls106419

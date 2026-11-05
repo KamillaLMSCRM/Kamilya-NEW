@@ -6030,3 +6030,53 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
   briefly kept margin240/scroll441; below768 disable shell/rail transitions.
   Built synthetic browser3PASS fresh+resize/menu+desktopcollapse, Vitest25PASS,
   type/lint/build67pagesPASS, screenshots visually inspected. Live fix not deployed.
+
+## RUN-20261105-P31-RETAINED-STAGE-DEV-LIVE
+
+- DEV12d33577 RELEASE_OK/RECONCILED,CI42059258101/image42060483400 SUCCESS,
+  attested7fafb4d00fd9,111image source hashes,45envkeys. RenderAPI dep-dbmajmjm8hqs73f70qdg,
+  Vercel dpl_CMCb1jcyECpGHQBkR2KwSsvRpvg6; soleVM126worker1fdea926 ready0restarts,
+  1CPU/1GiB/unless-stopped. Oldfec762b1 retained rollbackc450f1af; all6production
+  containers unchanged. No tier/billing/ASUS/customer mutation.
+- CI backend127356041161 actually executed both PostgreSQL/RLS quarantine tests
+  (file output `..`); contention proof uses pg_blocking_pids, stale timestamp,
+  owned/foreign scope and unchanged history. No local PostgreSQL tests claimed.
+- HistoricalMicroP24f0692f27 normal owned quarantine executed once on actual API;
+  scoped before/after DB READ ONLY lms_app:no-super/no-bypass. Original11checkpoints,
+  pending/result, source, errors, existing params/reservation unchanged; received-
+  rejected bodyd796e2c6...d11d7/83622tokens retained;0inference/0replay/refund.
+- NewMicro native P31 b41487fe admitted16:12:21UTC, exact source1fb8408c and managed
+  marker pair independently read back. Running with pending stage; do not duplicate.
+  No final course/semantic/DeepSeek/prod claim from this receipt.
+- Evidence:.release-evidence/p31-retained-stage-dev-20261105/ plus native admission
+  custody in .release-evidence/p31-design-integration/. Mobile fix actual DEV
+  ordinarylogin/read-only browser PASS: fresh+resize390client/scroll/main390,
+  left0, hiddenrail, draweropen/close, oneapprovalcontrol, visiblehumanreview,
+  0businesswrites/foreignrequests; visual inspected. Not full learner journey.
+- Read-only native factory exactworker revision9: DeepSeek-v4-flash first,
+  thinking enabled/low/120s/max16384; balance available,0inference. This does not
+  prove ordinary P31 admission or native DeepSeek generation. Ordinary route
+  patch local independent GO,103focused/6755unitPASS1skip7warnings89.03s.
+
+## RUN-20261105-P31-THREE-NATIVE-DRAFTS
+
+- Actual Micro b41487fe-1c5b-4b0f-abed-75f8cb913170 completed857.553s on exact
+  DEV12d33577, courseac858d80-9094-497b-8e35-6529c01365d5,11L30Q24476chars,
+  4unique Luna6/HIGH responses229863in33791out263654, no pending. Final snapshot
+  080fe607c25b matched ordinary API;11source-needs-review,8issues2observations,
+  original30/30literal quotes. Prior native Standards+Fire on c450 same editorial
+  algorithm; combined22lessons66questions,12calls464972tokens. No USD inferred.
+- Independent D01–D39/A01–A07 and all30 assessment readback: two omitted lender
+  workflows (D30/31), real refusal/spouse source conflict, one insufficient quiz
+  premise. Exact human plan2af8b681 reviewed;3lesson/2question edits saved via
+  normal API; other8lessons/28questions and original snapshot preserved, no model
+  rerun, hash87351880→46f8a7a5. After-edit source CONTENT GO for human review;
+  question replacements independently checked pre-save and exact readback matches.
+  Source holds remain active; not approval/publication/learner acceptance.
+- All3 P31 courses saved/reviewed; two small sources each one human correction,
+  larger source five scoped edits. Separate owner questions recorded in existing
+  Sandyk source-clarification document, no original/client data edited.
+- Ordinary fresh P31 default candidate adds only distinct server route binding
+  (historical≤30 and bothQA pairs preserved), independently reviewed103focused/
+ 6755unitPASS, baseline1009/2174. Needs worker-first DEV and actual nativeDeepSeek
+  on authorized synthetic scope; no new native inference or production claim.

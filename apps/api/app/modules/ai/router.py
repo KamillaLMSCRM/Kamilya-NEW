@@ -550,6 +550,8 @@ async def submit_course_generation(
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
     from app.modules.ai.v3.revision_policy import (
         EDITORIAL_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_ORDINARY_KEY,
+        EDITORIAL_ORDINARY_MARKER,
         EDITORIAL_QA_KEY,
         SOURCE_CORE_QA_KEY,
         editorial_qa_admission_marker,
@@ -557,6 +559,7 @@ async def submit_course_generation(
     )
     analysis_payload.pop(SOURCE_CORE_QA_KEY, None)
     analysis_payload.pop(EDITORIAL_QA_KEY, None)
+    analysis_payload.pop(EDITORIAL_ORDINARY_KEY, None)
     if ((qa_pending_marker is None and req.course_id is None) or practical_qa_admission(
             settings=get_settings(), marker=qa_pending_marker,
             tenant_id=tenant_id, course_id=req.course_id)):
@@ -570,6 +573,12 @@ async def submit_course_generation(
         if editorial_marker is not None:
             analysis_payload['v3_review_policy'] = EDITORIAL_PRACTICAL_REVIEW_POLICY
             analysis_payload[EDITORIAL_QA_KEY] = editorial_marker
+        elif qa_pending_marker is None and req.course_id is None:
+            from app.modules.ai.qa_luna_dev_route import QA_TENANT
+
+            if tenant_id != QA_TENANT and isinstance(user.id, UUID):
+                analysis_payload['v3_review_policy'] = EDITORIAL_PRACTICAL_REVIEW_POLICY
+                analysis_payload[EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_MARKER
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,
                 detail="completed_extraction_reuse_not_supported_for_practical_policy")

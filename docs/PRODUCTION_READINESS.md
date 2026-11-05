@@ -1,3 +1,20 @@
+## P31 three native DEV drafts verified; production NOT accepted — 2026-11-05
+
+Current exact DEV12d33577 RELEASE_OK/RECONCILED, CI42059258101/image42060483400,
+sole VM126worker1fdea926/0restarts, c450 predecessor warm rollback. Full design
+and real mobile390/desktop→390/drawer/source-review visible readback PASS.
+Three actual managed P31 Luna6/HIGH drafts independently reviewed: Standards
+5L18Q486.9s94899tokens, Fire6L18Q459.9s106419, Micro11L30Q857.6s263654, total
+12calls464972tokens. After1question/1lesson/3lessons+2questions respectively,
+saved draft content GO for human review, original snapshots/sources preserved,
+source ambiguities and provenance holds active. No automatic clean, approval or
+publication claim. Actual retained P24 quarantine verified11original checkpoints
+and prior usage/reservation state, CI real PG contention tests PASS.
+Fresh ordinary31 local source GO/6755unitPASS; deploy worker before new API
+admission. Authorized ordinary synthetic fixture/native DeepSeek inference and
+full protected production/live user journey OPEN. No existing customer/roles/
+plans/reserve/ASUS change. See current CODEX_HANDOFF/ledger.
+
 ## P31 native DEV evidence; production NOT accepted — 2026-11-05
 
 DEVc450f1af exact API/frontend/sole VM126 worker RELEASE_OK/RECONCILED,

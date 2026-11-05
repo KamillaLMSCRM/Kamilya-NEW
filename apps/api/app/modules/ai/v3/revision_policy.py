@@ -119,6 +119,29 @@ def editorial_qa_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, co
                 'AI_DIRECT_LUNA_QA_DEV_ENABLED', 'AI_MANAGED_LUNA_QA_DEV_ENABLED')))
 
 
+
+EDITORIAL_ORDINARY_KEY = 'v3_editorial_ordinary_marker'
+EDITORIAL_ORDINARY_MARKER = 'native-editorial-ordinary-v1'
+
+
+def editorial_route_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, course_id: Any,
+                                 stored: Any, dispatched: Any, qa_stored: Any = None,
+                                 qa_dispatched: Any = None, ordinary_stored: Any = None,
+                                 ordinary_dispatched: Any = None) -> bool:
+    """Validate an existing QA pair or the separately stamped ordinary native route."""
+    from uuid import UUID
+
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+
+    if ordinary_stored is None and ordinary_dispatched is None:
+        return editorial_qa_worker_valid(settings=settings, tenant_id=tenant_id, user_id=user_id,
+                                         course_id=course_id, stored=stored, dispatched=dispatched,
+                                         qa_stored=qa_stored, qa_dispatched=qa_dispatched)
+    return (isinstance(tenant_id, UUID) and tenant_id != QA_TENANT and isinstance(user_id, UUID)
+            and course_id is None and stored is None and dispatched is None
+            and qa_stored is None and qa_dispatched is None
+            and ordinary_stored == ordinary_dispatched == EDITORIAL_ORDINARY_MARKER)
+
 def read_review_policy(analysis: Any) -> str | None:
     if not isinstance(analysis, dict):
         raise ValueError("v3_review_analysis_invalid")

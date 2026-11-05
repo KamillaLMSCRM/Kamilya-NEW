@@ -385,6 +385,11 @@ raw не является новым вызовом. Unknown dispatch не по�
   Independent reviewer requested truthful reservation:unchanged response, fixed.
 - Status: LOCAL VERIFIED, NOT DEPLOYED/NOT EXECUTED. Do not relabel original
   response as unknown/accepted or claim successful live quarantine before readback.
+  Update LIVE VERIFIED on DEV12d33577: CI42059258101 both real PG contention/
+  isolation tests PASS; one owned normal quarantine f0692f27 read back unchanged
+ 11checkpoint rows, original pending result/source/prior parameters/reservation.
+  No received-rejected response/cost truth overwritten. New P31 admission b41487fe
+  succeeded on the same source without replaying any historical request.
 
 ## ENG-024 — dropped permission qualifier in a generated exception
 
@@ -400,3 +405,32 @@ raw не является новым вызовом. Unknown dispatch не по�
   devices. Genuine parenthetical source-scope ambiguity remains held.
 - Status: HUMAN QA CORRECTION SAVED; independent after-edit review next. Model
   generation4replies91298in15121out106419tokens, no model call for the manual edit.
+  Update: independent after-edit CONTENT GO for human review; existing source/
+  provenance holds remain. No approval or publication.
+
+## ENG-025 — a long course can cite a rule without teaching its workflow
+
+- Date:2026-11-05. Class: recurring author/editor coverage omission in dense
+  source, distinct from conversion/data loss. Micro D30 assignment notices and
+  D31 bureau/property reporting missing from both guided local and native P31
+  lesson narratives. In native immutable output both exact source passages are
+  still present in assessment source_quote fields. Citation/quiz presence is
+  therefore no proof of instruction. Source not removed or rewritten by parser.
+- Native Micro b41487fe:11L30Q24,476chars;4Luna6HIGH responses857.6s,
+  229863in33791out263654tokens,30/30literal quotes, no pending. Independent
+ 39-family/7-boundary lesson and separate30-question review found D30/D31,
+  refusal and spouse source conflicts, and L6Q1 insufficient conditions.
+- Correction in owned QA draft: L10 restores both workflows with recipient,
+  trigger, channels and deadlines; L1/L2 retain both conflicting source provisions
+  and ask for source-owner clarification; L1Q2 uses explicitly married applicant,
+  L6Q1 gives actual whole/complete precious-metal-and-stone conditions.3lesson/
+ 2question ordinary edits,8lessons/28questions unchanged,0new modelcalls.
+  All prior raw responses/snapshot kept; revised question quotes cleared, source
+  holds/pending retained. Original source conflicts recorded separately, not
+  silently resolved. No new prompt/heuristic claimed to prevent recurrence.
+- Status: HUMAN QA CORRECTION VERIFIED, model coverage limitation remains.
+  Existing one editor should check meaningful source workflows against teaching
+  passages; do not add per-point retry loops or count attached quotes as coverage.
+  If improving this review, use the saved before/after as a bounded witness,
+  keeping previous P31 request bytes and recovery valid. No repeated full-course
+  runs just to remove known human-review findings.
