@@ -13,6 +13,7 @@ from app.modules.ai.job_service import AIJobAdmissionLimitReachedError
 from app.modules.ai.qa_luna_dev_route import QA_TENANT
 from app.modules.ai.schemas import AIGenerateRequest
 from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
+from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.practical_cycle import PracticalCycleResult
 from app.modules.ai.v3.practical_editorial_contract import editorial_review_format, editorial_revision_format
 from app.modules.ai.v3.practical_review import PracticalReviewDecision
@@ -197,6 +198,6 @@ async def test_final_atomic_save_checks_exact_editorial_qa_marker(monkeypatch, d
         await pipeline._save_generation_to_db(state, job.tenant_id, job.user_id)
         assert added and job.course_id is not None
     else:
-        with pytest.raises((ValueError, DeliveryOwnershipLostError)):
+        with pytest.raises((ValueError, DeliveryOwnershipLostError, ExtractionOutcomeUnknownError)):
             await pipeline._save_generation_to_db(state, job.tenant_id, job.user_id)
         assert not added and job.course_id is None

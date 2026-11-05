@@ -5971,3 +5971,16 @@ Rejected all-child assessment/signoff prototype archived, no edit executed. Atom
   read back; no new DEV or production deployment claimed by that receipt.
 - Evidence: .release-evidence/p31-design-integration/ in integration checkout and
   .release-evidence/p31-editorial-integration-20261105/ in source checkout.
+
+
+## RUN-20261105-P31-MANAGED-ROUTE-CORRECTION-LOCAL
+
+Actual DEV0a95 API/worker/frontend RELEASE_OK/RECONCILED, CI42036949532 and image
+42037994093PASS, attestation8c7891d2;source111hashesPASS,CPU1/MEM1GiB,no tier change.
+First own native43e64c49 read backP29/no editorial marker/managed transport:
+notP31acceptance. Independent typed source guards originally tested strict-native
+flagsfalse, while actual DEV uses managed flags. ENG-021 fixes fresh managed
+admission and worker source/journal/final fences with distinct paired markers.
+82focusedPASS;full unit6731PASS1skipped7warnings99.04s;baselineRuff1004/Mypy2174PASS;
+independent sourceGO. No new model call or existing job mutation during correction.
+Live new selection/stage/save and pending old-job reconciliation remain open.

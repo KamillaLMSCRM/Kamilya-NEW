@@ -1,3 +1,27 @@
+# Actual DEV rollout accepted; managed P31 route correction LOCAL — 2026-11-05
+
+- result: DEV0a95a0e265f7158141771dead443013ba70264ff exact API/worker/frontend
+  RELEASE_OK + RECONCILED; CI42036949532/image42037994093/attested8c7891d2.
+  New design is deployed. First native job43e64c49-c769-463a-9f46-c5a94c80e634
+  independently proved managed route still selectedP29: this is NOT P31 acceptance.
+- changed: Local ENG-021 fix selects server-owned managed-editorial-qa-v1 paired
+  with qa-managed-luna-diversity-v1; source/actor/route/final-save fences retained.
+  Strict native route and historical stored policies/default29 remain separate.
+- verified:82focusedPASS,full unit6731PASS1skip7warnings99.04s,baseline1004/2174PASS,
+  independent sourceGO. Prior coherent localP31 controls:Standards CONTENT GO;
+  Fire/Micro editable drafts with material source/workflow holds. No model reruns
+  for this deterministic routing defect. Frontend1675PASS + post-fix53editor/
+ 67pagebuild/editor2/draft2browserPASS; broader NarrowA21+wholeLMS19 also passed.
+- blockers: New managed fix needs exact CI/image/DEV rollout and a NEW admission.
+  Current old43e64c49 had running/realization32/pending stage at last read; do not
+  duplicate, rewrite policy, clear pending or force-kill. No new native generation
+  until active/pending custody is reconciled. Root source benchmark calls ended.
+- next: Commit/push exact managed correction; complete guarded DEV rollout after
+  existing work drains, then independently verify storedP31+actual stage/save/draft
+  review. Current worker d60bea548c3280a84bb1c474c652fec8d85b6582001ea12e61a6880f3330257b,
+ 1CPU/1GiB/unless-stopped,old52466039 retainedrollback906b. No prod/client/billing/
+  provider-plan/ASUS change. All proof/scripts in .release-evidence/p31-design-integration/.
+
 # P31 + design LOCAL gates closed; DEV integration next — 2026-11-05
 
 - result: New coherent author → full keyed editor → optional addressed revision →

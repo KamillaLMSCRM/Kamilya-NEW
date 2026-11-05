@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Select the editorial V3 workflow on the authenticated managed DEV Luna route,
+  retaining historical jobs and paired source/transport checks through final save.
+
 ### Changed
 - Integrate the whole-LMS visual and Narrow A workspace improvements with the
   editorial draft workflow, retaining source review and generation recovery.

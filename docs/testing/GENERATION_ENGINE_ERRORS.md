@@ -305,3 +305,32 @@ raw не является новым вызовом. Unknown dispatch не по�
 - These are source/model completeness limits, not a new deterministic parser
   failure. Keep editable drafts and typed human review, without another automatic
   generator rerun. Native DEV persistence and combined UI are separate gates.
+
+## ENG-021 — fresh managed DEV admission still selected the old review workflow
+
+- Class: deterministic integration defect, not a semantic model failure.
+- Evidence: actual owned native job43e64c49-c769-463a-9f46-c5a94c80e634 on exact
+  DEV0a95a0e2 stored v3-practical-source-review-v29, no editorial marker and
+  qa-managed-luna-diversity-v1 transport. Readback is tenant/actor-bound READ ONLY
+  lms_app without superuser/BYPASSRLS. The course is NOT a P31 acceptance run.
+- Cause: router reused source_core_qa_admission, which requires marker=None and
+  disabled transport flags. Actual DEV uses the authenticated managed Luna path;
+  its practical fallback still stamped29. Worker/final fences also assumed only
+  the strict native transport. Focused tests used that narrower settings fixture.
+- Correction: in progress; a distinct server-owned managed-editorial marker must
+  pair with the existing authenticated managed transport, source/journal/profile
+  and final-save checks. Do not turn off actual provider flags or rewrite old jobs.
+- Verification required: actual managed settings across admission→worker→stage→
+  atomic save, drift/forgery/foreign-scope negatives, then a NEW native admission.
+  Existing P29 job/replies remain historical; unknown pending requests are not
+  cleared or forcibly restarted. No new full generation while this is unfixed.
+- Status: LIVE REPRODUCED / FIX IN PROGRESS. Evidence: native-standards-routing-
+  diagnostic*.json in .release-evidence/p31-design-integration/.
+
+  Local correction verified: server selects managed-editorial-qa-v1 only paired
+  with qa-managed-luna-diversity-v1 under actual managed DEV flags; strict native
+  marker remains distinct. Startup, owned source/journal verification and managed
+  final transaction fence require the pair, actor, source and route.82focusedPASS,
+  full unit6731PASS1skip7warnings99.04s;baseline1004/2174PASS;independent sourceGO.
+  Native selection/stage/save proof on a new deployment remains required. Existing
+  43e64c49 stays P29 and is not rewritten or restarted.

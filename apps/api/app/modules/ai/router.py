@@ -546,10 +546,9 @@ async def submit_course_generation(
     from app.modules.ai.v3.revision_policy import (
         EDITORIAL_PRACTICAL_REVIEW_POLICY,
         EDITORIAL_QA_KEY,
-        EDITORIAL_QA_MARKER,
         SOURCE_CORE_QA_KEY,
+        editorial_qa_admission_marker,
         practical_qa_admission,
-        source_core_qa_admission,
     )
     analysis_payload.pop(SOURCE_CORE_QA_KEY, None)
     analysis_payload.pop(EDITORIAL_QA_KEY, None)
@@ -561,10 +560,11 @@ async def submit_course_generation(
         # Existing jobs retain their stored policy and exact checkpoints; older
         # QA transport markers keep their supported historical review contract.
         analysis_payload = stamp_policy(analysis_payload, practical=True)
-        if source_core_qa_admission(settings=get_settings(), marker=qa_pending_marker,
-                                    tenant_id=tenant_id, user_id=user.id, course_id=req.course_id):
+        editorial_marker = editorial_qa_admission_marker(settings=get_settings(), marker=qa_pending_marker,
+                                                        tenant_id=tenant_id, user_id=user.id, course_id=req.course_id)
+        if editorial_marker is not None:
             analysis_payload['v3_review_policy'] = EDITORIAL_PRACTICAL_REVIEW_POLICY
-            analysis_payload[EDITORIAL_QA_KEY] = EDITORIAL_QA_MARKER
+            analysis_payload[EDITORIAL_QA_KEY] = editorial_marker
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,
                 detail="completed_extraction_reuse_not_supported_for_practical_policy")

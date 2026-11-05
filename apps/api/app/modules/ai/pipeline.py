@@ -625,10 +625,10 @@ async def _run_v3_generation(
     review_policy = read_review_policy(stored_analysis) if revision_policy == PROFILE_REVISION_POLICY else None
     if review_policy == EDITORIAL_PRACTICAL_REVIEW_POLICY:
         if (not isinstance(stored_analysis, dict) or state.source_analysis.get('v3_review_policy') != review_policy
-                or stored_analysis.get(QA_PENDING_KEY) is not None or state.source_analysis.get(QA_PENDING_KEY) is not None
                 or not editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
                     course_id=state.course_id, stored=stored_analysis.get(EDITORIAL_QA_KEY),
-                    dispatched=state.source_analysis.get(EDITORIAL_QA_KEY))):
+                    dispatched=state.source_analysis.get(EDITORIAL_QA_KEY), qa_stored=stored_analysis.get(QA_PENDING_KEY),
+                    qa_dispatched=state.source_analysis.get(QA_PENDING_KEY))):
             raise ExtractionOutcomeUnknownError('v3_editorial_qa_route_unverified')
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
@@ -670,6 +670,11 @@ async def _run_v3_generation(
                 return (isinstance(current, dict) and policy_matches(current, revision_policy)
                         and read_review_policy(current) == review_policy
                         and current.get(QA_PENDING_KEY) == stored
+                        and (review_policy != EDITORIAL_PRACTICAL_REVIEW_POLICY or
+                             editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                                 course_id=job.course_id, stored=current.get(EDITORIAL_QA_KEY),
+                                 dispatched=state.source_analysis.get(EDITORIAL_QA_KEY),
+                                 qa_stored=current.get(QA_PENDING_KEY), qa_dispatched=state.source_analysis.get(QA_PENDING_KEY)))
                         and route_valid
                         and read_parent_marker(job.params, stored) == journal.completed_extraction_parent_job_id
                         and await context.verify_locked(session, job, plan) is True)
@@ -884,6 +889,7 @@ async def _verify_fresh_v3_final_source(
     *, final_intent: dict[str, Any] | None = None,
 ) -> None:
     """Fence fresh direct-QA completion inside its owned save transaction."""
+    from app.core.config import get_settings
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
     from app.modules.ai.v3.final_save_contract import FENCE_POLICY, INTENT_KEY
     from app.modules.ai.v3.owned_route_binding import KEY as ROUTE_KEY
@@ -892,6 +898,11 @@ async def _verify_fresh_v3_final_source(
     from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
     from app.modules.ai.v3.pending_stage_transactions import has_pending
     from app.modules.ai.v3.qa_luna_pending_policy import KEY, OWNED_POLICIES
+    from app.modules.ai.v3.revision_policy import (
+        EDITORIAL_PRACTICAL_REVIEW_POLICY,
+        EDITORIAL_QA_KEY,
+        editorial_qa_worker_valid,
+    )
 
     params = job.params if isinstance(job.params, dict) else {}
     analysis = params.get("source_analysis")
@@ -899,6 +910,14 @@ async def _verify_fresh_v3_final_source(
     dispatched = state.source_analysis.get(KEY)
     if stored not in OWNED_POLICIES and dispatched not in OWNED_POLICIES and state.owned_v3_source_context is None:
         return
+    stored_review = analysis.get('v3_review_policy') if isinstance(analysis, dict) else None
+    state_review = state.source_analysis.get('v3_review_policy')
+    if EDITORIAL_PRACTICAL_REVIEW_POLICY in (stored_review, state_review):
+        if (not isinstance(analysis, dict) or stored_review != state_review
+                or not editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                    course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
+                    dispatched=state.source_analysis.get(EDITORIAL_QA_KEY), qa_stored=stored, qa_dispatched=dispatched)):
+            raise ExtractionOutcomeUnknownError('v3_final_source_unverified')
     if delivery_id.get() is None:
         raise DeliveryOwnershipLostError("generation_delivery_ownership_lost")
     context = state.owned_v3_source_context
@@ -963,8 +982,14 @@ async def _verify_native_practical_final_source(
     state_marker = state.source_analysis.get(QA_KEY)
     stored_marker = analysis.get(QA_KEY) if isinstance(analysis, dict) else None
     if (tenant_id == QA_TENANT and state_marker in OWNED_POLICIES
-            and state_marker == stored_marker and stored_review != EDITORIAL_PRACTICAL_REVIEW_POLICY
-            and state_review != EDITORIAL_PRACTICAL_REVIEW_POLICY
+            and state_marker == stored_marker
+            and (stored_review != EDITORIAL_PRACTICAL_REVIEW_POLICY and state_review != EDITORIAL_PRACTICAL_REVIEW_POLICY
+                 or stored_review == state_review == EDITORIAL_PRACTICAL_REVIEW_POLICY
+                 and isinstance(analysis, dict)
+                 and editorial_qa_worker_valid(settings=get_settings(), tenant_id=tenant_id, user_id=user_id,
+                     course_id=job.course_id, stored=analysis.get(EDITORIAL_QA_KEY),
+                     dispatched=state.source_analysis.get(EDITORIAL_QA_KEY), qa_stored=stored_marker,
+                     qa_dispatched=state_marker))
             or not is_practical_policy(stored_review) and not is_practical_policy(state_review)):
         return
     guard = state.native_practical_final

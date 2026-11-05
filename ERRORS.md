@@ -10237,3 +10237,22 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   Narrow A21, whole-LMS19 and draft-review2 browser scenarios passed afterward.
 - Prevention: run the documented harness with complete environment and exact cwd;
   classify pre-dispatch setup separately from inference/runtime outcomes.
+
+## AGENT-INTEGRATION-002 — deployed source identity was mistaken for selected workflow
+
+- Date:2026-11-05.
+- Symptom: root described P31 as connected after exact DEV API/worker/frontend
+  rollout; first actual owned job independently read back as P29.
+- Cause: source/CI/runtime identity and strict-native fixture tests were accepted
+  without verifying selection under the actual managed-provider flags/marker.
+- Fix: retract the premature behavior claim, preserve the misrouted P29 job and
+  pending receipts, correct the managed route under ENG-021, add actual-settings
+  admission/worker/final-save regressions and require owned stored/applied proof.
+- Verification: native-standards-routing-diagnostic.json proves the mismatch;
+  product fix and new native verification are still pending.
+- Prevention: exact SHA proves deployed code, not chosen execution policy. Read
+  back stored policy and actual stage groups before claiming the new workflow.
+- Related harness corrections: ai_jobs.id is String (no UUID cast); match the
+  exact remote correlation header and documented300s image-pull outer timeout.
+  Failed checks were preserved; cached image/no active pull/unchanged predecessor
+  were reconciled before repeating only the idempotent readiness check.

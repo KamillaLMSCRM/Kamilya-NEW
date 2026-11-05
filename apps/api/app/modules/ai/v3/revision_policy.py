@@ -63,6 +63,7 @@ def practical_qa_admission(*, settings: Any, marker: str | None, tenant_id: Any,
 SOURCE_CORE_QA_MARKER = 'native-source-core-qa-v1'
 SOURCE_CORE_QA_KEY = 'v3_source_core_qa_marker'
 EDITORIAL_QA_MARKER = 'native-editorial-qa-v1'
+EDITORIAL_MANAGED_QA_MARKER = 'managed-editorial-qa-v1'
 EDITORIAL_QA_KEY = 'v3_editorial_qa_marker'
 
 
@@ -76,14 +77,42 @@ def source_core_qa_admission(*, settings: Any, marker: str | None, tenant_id: An
             and practical_qa_admission(settings=settings, marker=marker, tenant_id=tenant_id, course_id=course_id))
 
 
-def editorial_qa_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, course_id: Any,
-                              stored: Any, dispatched: Any) -> bool:
+def editorial_qa_admission_marker(*, settings: Any, marker: str | None, tenant_id: Any,
+                                  user_id: Any, course_id: Any) -> str | None:
     from uuid import UUID
 
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
+
+    if source_core_qa_admission(settings=settings, marker=marker, tenant_id=tenant_id,
+                                user_id=user_id, course_id=course_id):
+        return EDITORIAL_QA_MARKER
+    if (tenant_id == QA_TENANT and isinstance(user_id, UUID) and course_id is None and marker == MANAGED_POLICY
+            and getattr(settings, 'DEPLOYMENT_ENVIRONMENT', None) == 'render-development'
+            and getattr(settings, 'AI_QA_LUNA_DEV_ENABLED', None) is True
+            and getattr(settings, 'AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED', None) is True
+            and getattr(settings, 'AI_MANAGED_LUNA_QA_DEV_ENABLED', None) is True
+            and getattr(settings, 'AI_DIRECT_LUNA_QA_DEV_ENABLED', None) is False):
+        return EDITORIAL_MANAGED_QA_MARKER
+    return None
+
+
+def editorial_qa_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, course_id: Any,
+                              stored: Any, dispatched: Any, qa_stored: Any = None, qa_dispatched: Any = None) -> bool:
+    from uuid import UUID
+
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY, check_worker_marker
+
+    if stored == dispatched == EDITORIAL_MANAGED_QA_MARKER and qa_stored == qa_dispatched == MANAGED_POLICY:
+        try:
+            return check_worker_marker(settings=settings, tenant_id=tenant_id, user_id=user_id,
+                                       stored=qa_stored, dispatched=qa_dispatched, course_id=course_id)
+        except ValueError:
+            return False
 
     return (tenant_id == QA_TENANT and isinstance(user_id, UUID) and course_id is None
-            and stored == dispatched == EDITORIAL_QA_MARKER
+            and stored == dispatched == EDITORIAL_QA_MARKER and qa_stored is None and qa_dispatched is None
             and getattr(settings, 'DEPLOYMENT_ENVIRONMENT', None) in {'render-development-worker', 'vm-development-worker'}
             and all(getattr(settings, name, None) is False for name in (
                 'AI_QA_LUNA_DEV_ENABLED', 'AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED',
