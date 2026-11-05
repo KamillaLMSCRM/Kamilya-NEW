@@ -62,6 +62,10 @@
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
 
+- Owner clarification2026-11-05: new engine generation/processing defects belong
+  in docs/testing/GENERATION_ENGINE_ERRORS.md. This journal records agent execution
+  errors and recurrence prevention. Earlier entries below are historical evidence.
+
 - Fix candidate2026-11-05/P29: separate existing review domains rather than add
   a per-sentence quiz inventory. Keep unconditional authored-explanation checks
   in QUESTION_EXPLANATIONS_JSON, distinct from LESSON_PROSE_JSON. New typed

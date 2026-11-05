@@ -32,6 +32,74 @@ from tests.unit.test_v3_practical_source_core import author_value
 pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 
+@pytest.mark.asyncio
+async def test_owned_coverage_gap_reaches_final_review_without_answer_scope_failure(case):
+    corpus, packet, _ = case
+    view = PracticalModelView(packet)
+    plan = validate_curriculum(plan_value(packet), packet)
+    author = author_value(packet, plan)
+    course, _ = compile_source_core(packet, plan, author, course_title='Source course')
+    cases = _case_inventory(author)
+    bank_count = 0
+    calls = []
+
+    async def stage(name, group, messages, fmt, validate):
+        nonlocal bank_count
+        calls.append(group)
+        props = fmt['json_schema']['schema']['properties']
+        if 'source-curriculum' in group:
+            value = view.encode(plan)
+        elif 'source-core:author' in group:
+            value = view.encode(copy.deepcopy(author))
+            value['blueprint_fingerprint'] = props['blueprint_fingerprint']['enum'][0]
+        elif 'source-core:editor' in group:
+            piece = props['evidence']['items']['properties']['piece_ids']['items']['enum'][0]
+            targets = props['replacements']['items']['properties']['case_id']['enum']
+            value = {'source_fingerprint': props['source_fingerprint']['enum'][0],
+                'editor_fingerprint': props['editor_fingerprint']['enum'][0],
+                'author_fingerprint': props['author_fingerprint']['enum'][0],
+                'replacements': [{'case_id': key, 'question': view.encode(cases[key])} for key in targets],
+                'evidence': [{'case_id': key, 'piece_ids': [piece]} for key in cases]}
+        else:
+            bank_count += 1
+            value = bank_response(packet, _review_projection(course, cases), plan)
+            for row in value['goal_checks']:
+                row['question_ids'] = ['L1Q1']
+            if bank_count == 1:
+                value['goal_checks'][0].update(status='MISSING', assessment_lesson_id='L1')
+            else:
+                assert 'issue_checks' not in props  # Coverage has its own goal checks.
+            value = view.encode(value)
+        validate(value)
+        return value
+
+    result = await run_source_core_cycle(packet, corpus, CourseIntent(purpose='Practice', audience='Workers'), (), stage)
+    assert bank_count == 2 and len(calls) == 5
+    assert len(result.course['lessons'][0]['questions']) == 3
+    assert any(row['scope'] == 'assessment' for row in result.decision.feedback)
+    assert not result.decision.accepted  # No-op editing cannot erase the original gap.
+    assert any(row['evidence'].get('goal_id') == 'G1' for row in result.decision.feedback)
+
+
+@pytest.mark.parametrize('status,witnesses,changed,cleared', [
+    ('NOT_REQUIRED', ['L1Q1'], {'L1Q2'}, False),
+    ('INVALID_GOAL', [], {'L1Q2'}, False),
+    ('MISSING', ['L1Q2'], {'L1Q2'}, False),
+    ('COVERED', ['L1Q1'], {'L1Q2'}, False),
+    ('COVERED', ['L1P1'], {'L1P1'}, False),
+    ('COVERED', ['L1Q2'], {'L1Q2'}, True),
+])
+def test_original_goal_needs_its_own_changed_reviewed_witness(status, witnesses, changed, cleared):
+    finding = {'scope': 'assessment', 'id': 'L1', 'issue_id': 'gap1', 'evidence': {'goal_id': 'G1'}}
+    owners = {'L1Q1': 'L1', 'L1Q2': 'L1', 'L1P1': 'L1'}
+    goals = {'G1': {'status': status, 'question_ids': witnesses}}
+    result = _retain_unverified((finding,), (), changed, owners, goals)
+    assert (result == []) is cleared
+    if cleared:
+        conflict = {'scope': 'question', 'id': 'L1Q2', 'issue_id': 'answer1', 'evidence': {}}
+        assert finding in _retain_unverified((finding,), (conflict,), changed, owners, goals)
+
+
 def test_assessment_scope_does_not_require_edits_and_source_holds_never_clear():
     cases = {'L1P1': {}, 'L1Q1': {}, 'L1Q2': {}, 'L2Q1': {}}
     owners = {key: key[:2] for key in cases}

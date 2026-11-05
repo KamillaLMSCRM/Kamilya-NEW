@@ -81,10 +81,10 @@ def test_author_contract_fails_closed(case, mutation):
         compile_source_core(packet, plan, value, course_title='Source course')
 
 
-def test_duplicate_or_excluded_units_and_foreign_tenant_reject(case):
+def test_duplicate_within_section_or_excluded_units_and_foreign_tenant_reject(case):
     _, packet, _ = case
     raw = plan_value(packet)
-    raw['sections'].append(copy.deepcopy(raw['sections'][0]))
+    raw['sections'][0]['source_units'].append(raw['sections'][0]['source_units'][0])
     with pytest.raises(ValueError):
         source_core_blueprint(packet, validate_curriculum(raw, packet), course_title='Source course')
     raw = plan_value(packet)

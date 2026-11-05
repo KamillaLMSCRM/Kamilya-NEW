@@ -32,7 +32,10 @@ def _review_projection(course: dict[str, Any], cases: dict[str, Any]) -> dict[st
 
 def _review_bank(value: dict[str, Any], packet: Any, course: dict[str, Any], plan: dict[str, Any],
                  previous: tuple[dict[str, Any], ...]) -> tuple[PracticalReviewDecision, tuple[str, ...]]:
-    findings, unowned = compile_curriculum_findings(value, packet, course, plan, previous)
+    # Goal coverage is checked by goal_checks, not the answer-validity contract.
+    # The complete original registry remains with the cycle for retention/history.
+    previous = tuple(row for row in previous if row['scope'] != 'assessment')
+    findings, unowned = compile_curriculum_findings(value, packet, course, plan, previous, include_goal_identity=True)
     base = {key: item for key, item in value.items() if key not in {'goal_checks', 'curriculum_fingerprint'}}
     decision = interpret_practical_review(base, packet, course, previous, concise=True, strict_targets=True,
         standalone=True, typed_findings=True, counterexamples=True, question_batch=True)
@@ -54,18 +57,27 @@ def _finding_targets(findings: tuple[dict[str, Any], ...], cases: dict[str, Any]
         ids = ([target] if scope == 'question' and target in cases else
                [key for key, owner in owners.items() if owner == target and 'Q' in key] if scope == 'assessment' else [])
         for key in ids:
-            evidence = view.encode(finding['evidence']) if view is not None else finding['evidence']
+            evidence = copy.deepcopy(finding['evidence'])
+            evidence.pop('goal_id', None)  # Server-only retention identity, not new editor guidance.
+            evidence = view.encode(evidence) if view is not None else evidence
             targets.setdefault(key, []).append(json.dumps(evidence, ensure_ascii=False, sort_keys=True))
     return targets
 
 
 def _retain_unverified(initial: tuple[dict[str, Any], ...], final: tuple[dict[str, Any], ...],
-                       changed: set[str], owners: dict[str, str]) -> list[dict[str, Any]]:
+                       changed: set[str], owners: dict[str, str],
+                       goal_checks: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     retained = list(final)
     final_ids = {row['issue_id'] for row in retained}
     final_question_issues = {row['id'] for row in final if row['scope'] == 'question'}
     for row in initial:
         if row['issue_id'] in final_ids:
+            continue
+        if row['scope'] == 'assessment' and goal_checks is not None:
+            goal = goal_checks.get(row['evidence'].get('goal_id'))
+            witnesses = set(goal['question_ids']) & changed - final_question_issues if goal else set()
+            if not goal or goal['status'] != 'COVERED' or not any(not key.endswith('P1') for key in witnesses):
+                retained.append(row)
             continue
         relevant = ({row['id']} if row['scope'] == 'question' else
                     {key for key, owner in owners.items() if row['scope'] == 'assessment' and owner == row['id']
@@ -117,11 +129,12 @@ async def run_source_core_cycle(packet: Any, corpus: Any, intent: Any, reference
     async def bank(candidate: dict[str, Any], checked_cases: dict[str, Any], prior: tuple[dict[str, Any], ...], label: str
                    ) -> tuple[dict[str, Any], PracticalReviewDecision, tuple[str, ...]]:
         projected = _review_projection(candidate, checked_cases)
-        messages = curriculum_bank_messages(packet, projected, plan, prior, model_view=view, family_coverage=True)
+        answer_prior = tuple(row for row in prior if row['scope'] != 'assessment')
+        messages = curriculum_bank_messages(packet, projected, plan, answer_prior, model_view=view, family_coverage=True)
         messages[0]['content'] += ('\nУчебные примеры с ID P1 проверяй на однозначность отдельно; '
                                   'не считай их вопросами итоговой оценки и не используй для goal_checks COVERED.')
         messages[1]['content'] += '\nPRACTICE_CASE_IDS_JSON\n' + json.dumps([k for k in checked_cases if k.endswith('P1')])
-        wire_fmt = view.schema(curriculum_bank_format(packet, projected, plan, prior))
+        wire_fmt = view.schema(curriculum_bank_format(packet, projected, plan, answer_prior))
         def validate(value: dict[str, Any]) -> None:
             _review_bank(view.decode(value), packet, projected, plan, prior)
         raw = await call('review', 'practical:review:bank:v30:' + label + ':' + _digest(projected), messages, wire_fmt, validate)
@@ -147,9 +160,9 @@ async def run_source_core_cycle(packet: Any, corpus: Any, intent: Any, reference
     changed = {key for key in cases if any(cases[key][field] != final_cases[key][field]
                                           for field in ('prompt', 'choices', 'correct_index'))}
     final_raw, final, final_unresolved = await bank(updated, final_cases, initial.feedback, 'final')
-    retained = _retain_unverified(initial.feedback, final.feedback, changed, case_owner)
-    final_question_issues = {row['id'] for row in final.feedback if row['scope'] == 'question'}
     final_goals = {row['goal_id']: row for row in final_raw['goal_checks']}
+    retained = _retain_unverified(initial.feedback, final.feedback, changed, case_owner, final_goals)
+    final_question_issues = {row['id'] for row in final.feedback if row['scope'] == 'question'}
     for goal in initial_unresolved:
         row = final_goals[goal]
         reviewed = set(row['question_ids']) & changed - final_question_issues

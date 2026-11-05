@@ -82,6 +82,32 @@ def test_initial_only_observation_is_preserved_without_becoming_a_blocking_issue
     assert not any(row["message"] == note["note"] for row in manifest["issues"])
 
 
+def test_one_source_paragraph_can_support_several_lessons_without_losing_owners(case):
+    import copy
+
+    corpus, packet, _ = case
+    raw = plan_value(packet)
+    first, second = raw['sections'][0]['source_units']
+    base = raw['sections'][0]
+    raw['sections'] = [
+        {**copy.deepcopy(base), 'title': 'Telephone decision', 'source_units': [first]},
+        {**copy.deepcopy(base), 'title': 'Signature decision', 'source_units': [second]},
+        {**copy.deepcopy(base), 'title': 'System record decision', 'source_units': [second]},
+    ]
+    plan = validate_curriculum(raw, packet)
+    blueprint = source_core_blueprint(packet, plan, course_title='Source course')
+    value = author_value(packet, plan)
+    ref = blueprint['lessons'][1]['source_refs'][0]
+    value['lessons'][0]['assessment'][0]['source_refs'].append(ref)
+    course, custody = compile_source_core(packet, plan, value, course_title='Source course')
+    assert len(course['lessons']) == 3
+    assert packet.blocks[1].text in course['lessons'][1]['content']
+    assert packet.blocks[1].text in course['lessons'][2]['content']
+    assert custody['unverified_discovered_dependencies'][0]['owner_lesson_ids'] == ['L2', 'L3']
+    assert {ref for row in custody['source_custody'] for ref in row['source_blocks']} == {
+        block.block_id for block in packet.blocks}
+
+
 @pytest.mark.parametrize("target", ["L1Q1", "L1P1"])
 def test_counterexamples_are_locatable_and_distinct_even_for_the_same_target(case, target):
     corpus, packet, result = prepared(case)

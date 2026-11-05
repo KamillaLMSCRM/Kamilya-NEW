@@ -69,7 +69,7 @@ def source_core_blueprint(packet: PracticalSourcePacket, plan: dict[str, Any], *
     sections = plan['sections']
     allocated = [unit for section in sections for unit in section['source_units']]
     auxiliary = plan['non_teaching_units']
-    if (len(allocated) != len(set(allocated)) or set(allocated) & set(auxiliary)
+    if (set(allocated) & set(auxiliary)
             or set(allocated) | set(auxiliary) != set(source_units)):
         raise ValueError('source_core_unit_ownership_invalid')
     # Include whitespace-only blocks without dropping or modifying any source byte.
@@ -96,7 +96,11 @@ def source_core_blueprint(packet: PracticalSourcePacket, plan: dict[str, Any], *
             if [b.block_id for b in selected if b.text.strip()] != list(refs):
                 raise ValueError('source_core_unit_blocks_invalid')
             units[unit] = [b.block_id for b in selected]
-    owner = {unit: f'L{i}' for i, section in enumerate(sections, 1) for unit in section['source_units']}
+    owners = {unit: [f'L{i}' for i, section in enumerate(sections, 1) if unit in section['source_units']]
+              for unit in dict.fromkeys(allocated)}
+    # A source paragraph can teach several decisions. Allocation is many-to-many;
+    # the first placement below only anchors otherwise unallocated auxiliary bytes.
+    owner = {unit: lesson_ids[0] for unit, lesson_ids in owners.items()}
     # An unverified plan may classify a cover/glossary as auxiliary. Preserve it
     # as source context, adjacent to an owned unit; never silently drop its bytes.
     position = {unit: i for i, unit in enumerate(source_units)}
@@ -105,7 +109,8 @@ def source_core_blueprint(packet: PracticalSourcePacket, plan: dict[str, Any], *
         candidates = [u for u in allocated if by_id[units[u][0]].doc_id == doc] or allocated
         nearest = min(candidates, key=lambda u: (abs(position[u] - position[unit]), position[u]))
         owner[unit] = owner[nearest]
-    block_owner = {ref: owner[unit] for unit, refs in units.items() for ref in refs}
+        owners[unit] = [owner[unit]]
+    block_owners = {ref: owners[unit] for unit, refs in units.items() for ref in refs}
     order = {unit: i for i, unit in enumerate(source_units)}
     lessons = []
     for i, section in enumerate(sections, 1):
@@ -114,15 +119,17 @@ def source_core_blueprint(packet: PracticalSourcePacket, plan: dict[str, Any], *
         deps = list(dict.fromkeys(section['depends_on_units']))
         lessons.append({'id': f'L{i}', 'title': section['title'],
             'objectives': [g['decision'] for g in section['goals']], 'units': owned,
-            'dependencies': deps, 'related_lessons': list(dict.fromkeys(owner[u] for u in deps if owner[u] != f'L{i}')),
+            'dependencies': deps, 'related_lessons': list(dict.fromkeys(
+                lesson_id for u in deps for lesson_id in owners[u] if lesson_id != f'L{i}')),
             **({'auxiliary_units': context} if context else {}),
             'source_refs': [ref for unit in owned for ref in units[unit] if by_id[ref].text.strip()],
             'allowed_refs': [b.block_id for b in packet.blocks if b.text.strip()
                              and any(b.block_id in units[u] for u in [*owned, *deps])]})
     notes = []
     for decision in reference_decisions:
-        owned = list(dict.fromkeys(block_owner[b.block_id] for b in packet.blocks
-            if b.doc_id == decision.document_id and b.start < decision.reference_end and b.end > decision.reference_start))
+        owned = list(dict.fromkeys(lesson_id for b in packet.blocks
+            if b.doc_id == decision.document_id and b.start < decision.reference_end and b.end > decision.reference_start
+            for lesson_id in block_owners[b.block_id]))
         if not owned:
             raise ValueError('source_core_reference_owner_invalid')
         notes.append({'lesson_ids': owned, 'reference_exact': decision.reference_exact, 'target_exact': decision.target_exact})
@@ -253,7 +260,8 @@ def compile_source_core(packet: PracticalSourcePacket, plan: dict[str, Any], val
         raise ValueError('source_core_author_response_invalid')
     blocks = {b.block_id: b for b in packet.blocks}
     response = {row['lesson_id']: row for row in value['lessons']}
-    owner_by_ref = {ref: lesson['id'] for lesson in blueprint['lessons'] for ref in lesson['source_refs']}
+    owners_by_ref = {ref: [lesson['id'] for lesson in blueprint['lessons'] if ref in lesson['source_refs']]
+                     for ref in blocks}
     discovered: list[dict[str, Any]] = []
     practices: list[str] = []
     exams: list[str] = []
@@ -271,7 +279,7 @@ def compile_source_core(packet: PracticalSourcePacket, plan: dict[str, Any], val
                 extra_refs.extend(outside)
                 discovered.append({'lesson_id': lesson['id'], 'case_kind': 'practice' if index == 0 else 'assessment',
                     'case_index': index, 'source_refs': outside,
-                    'owner_lesson_ids': list(dict.fromkeys(owner_by_ref[ref] for ref in outside)),
+                    'owner_lesson_ids': list(dict.fromkeys(owner for ref in outside for owner in owners_by_ref[ref])),
                     'status': 'UNVERIFIED'})
         practice = row['practice']
         practices.append(_digest([practice['prompt'], sorted(practice['choices'])]))
@@ -292,7 +300,7 @@ def compile_source_core(packet: PracticalSourcePacket, plan: dict[str, Any], val
                              if note['document_id'] in visible_documents)
         note_text = ''.join('\n\nПодтверждённое уточнение для указанной ссылки: «' + note['reference_exact']
                             + '» относится к фрагменту «' + note['target_exact'] + '».' for note in reference_notes)
-        extra_owners = {owner_by_ref[ref] for ref in extra_refs} - {lesson['id'], *lesson['related_lessons']}
+        extra_owners = {owner for ref in extra_refs for owner in owners_by_ref[ref]} - {lesson['id'], *lesson['related_lessons']}
         extra_titles = [x['title'] for x in blueprint['lessons'] if x['id'] in extra_owners]
         extra_navigation = ('\n\nДополнительные связи источника (требуют проверки): '
                             + ', '.join(extra_titles) + '.' if extra_titles else '')

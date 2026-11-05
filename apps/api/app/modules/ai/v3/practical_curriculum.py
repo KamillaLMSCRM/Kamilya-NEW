@@ -287,7 +287,8 @@ def curriculum_bank_messages(packet: PracticalSourcePacket, course: dict[str, An
 
 
 def compile_curriculum_findings(value: Any, packet: PracticalSourcePacket, course: dict[str, Any],
-                                plan: dict[str, Any], previous: tuple[dict[str, Any], ...] = ()
+                                plan: dict[str, Any], previous: tuple[dict[str, Any], ...] = (), *,
+                                include_goal_identity: bool = False,
                                 ) -> tuple[list[dict[str, Any]], tuple[str, ...]]:
     fmt = curriculum_bank_format(packet, course, plan, previous)
     if not matches_curriculum_bank(value, fmt):
@@ -304,6 +305,7 @@ def compile_curriculum_findings(value: Any, packet: PracticalSourcePacket, cours
             unresolved.append(row['goal_id'])
             continue
         findings.append({'scope': 'assessment', 'target_id': row['assessment_lesson_id'],
+                         **({'goal_id': row['goal_id']} if include_goal_identity else {}),
                          'problem': row['goal_id'] + ': ' + row['reason'],
                          'source_refs': list(row['source_refs']),
                          'expected_rule': goals[row['goal_id']]['decision'], 'correction': row['reason']})
