@@ -454,6 +454,60 @@ async def abandon_unknown_generation(
     return "abandoned"
 
 
+def is_quarantined_generation(job: Any) -> bool:
+    params = job.params if isinstance(getattr(job, "params", None), dict) else {}
+    prior = params.get("generation_quarantine")
+    digest = _abandon_marker_digest(job)
+    return bool(digest and isinstance(prior, dict) and prior.get("policy") == "retained-pending-stop-v1"
+        and prior.get("actor_id") == str(getattr(job, "user_id", None)) and prior.get("acknowledged") is True
+        and prior.get("pending_marker_sha256") == digest and isinstance(prior.get("observed_updated_at"), str)
+        and job.status == "failed" and job.stage == "quarantined" and getattr(job, "course_id", None) is None)
+
+
+async def quarantine_generation(
+    db: AsyncSession, *, job_id: str, tenant_id: UUID, user_id: UUID, expected_updated_at: datetime,
+) -> str:
+    """Fence an interrupted unaccepted stage; retain all evidence and its reservation.
+
+    Unlike unknown-outcome abandonment, this action makes no statement about
+    whether a provider replied, whether a reply was valid, or what it cost.
+    It neither cancels an in-flight provider request nor permits its late save.
+    """
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext('ai_generation_admission' || :tenant_id))"),
+                     {"tenant_id": str(tenant_id)})
+    await _lock_tenant_row(db, tenant_id)
+    job = await get_ai_job(db, job_id, tenant_id=str(tenant_id), for_update=True)
+    if job is None or job.user_id != user_id:
+        return "not_found"
+    if expected_updated_at.tzinfo is None:
+        return "conflict"
+    observed = expected_updated_at.astimezone(UTC).isoformat()
+    params: dict[str, Any] = dict(job.params) if isinstance(job.params, dict) else {}
+    if "generation_quarantine" in params:
+        prior = params["generation_quarantine"]
+        return "quarantined" if (is_quarantined_generation(job) and isinstance(prior, dict)
+            and prior.get("observed_updated_at") == observed) else "conflict"
+    if (job.status != "interrupted" or job.course_id is not None
+            or "generation_abandonment" in params or not isinstance(job.updated_at, datetime)
+            or job.updated_at.tzinfo is None or job.updated_at.astimezone(UTC) != expected_updated_at.astimezone(UTC)):
+        return "conflict"
+    marker_digest = _abandon_marker_digest(job)
+    if marker_digest is None:
+        return "conflict"
+    now = datetime.now(UTC)
+    params["generation_quarantine"] = {"policy": "retained-pending-stop-v1", "actor_id": str(user_id),
+        "acknowledged": True, "recorded_at": now.isoformat(), "observed_updated_at": observed,
+        "pending_marker_sha256": marker_digest}
+    job.params = params
+    job.status = "failed"
+    job.stage = "quarantined"
+    job.message = "Задача остановлена без повтора вызова. Состояние, журнал и резерв сохранены для проверки."
+    job.completed_at = now
+    job.updated_at = now
+    await db.commit()
+    return "quarantined"
+
+
 async def release_generation_reservation_once(
     db: AsyncSession,
     *,

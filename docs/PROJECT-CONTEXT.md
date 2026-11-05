@@ -1,3 +1,18 @@
+## DEV P31 + design actual state — 2026-11-05
+
+DEV exact API/frontend/sole VM126 worker c450f1af16c3887185a84bddf3d8d410007e2d6e,
+REL-DEV-P31-MANAGED-C450F1AF-20261105 RELEASE_OK/RECONCILED;
+CI42043304070/image42044258750 PASS. Image digest306d28634b33edaf15d3d9f5a7b68eeb15978855209072c31cc31377f5b902eb;
+workerfec762b19507a021896e1a41164e20b7bc8bf22690be857b219f42bfc4f21122,
+1CPU/1GiB/0restarts, oldd60 retainedrollback0a95. Full owner design96a76b8f..5fb9dcff
+is integrated, source-review/recovery safeguards retained. Real native managedP31
+Standards5L18Q saved in486.9s/4calls/94899tokens; one human QA correction, real browser
+and API readback. Source holds remain; no approval/publication. Mobile resize layout
+is under investigation, not accepted. Three-course content/DeepSeek/production not
+closed; ordinary default29 unchanged. Production/client/billing/ASUS unaffected.
+Canonical current detail: docs/CODEX_HANDOFF.md and task evidence
+.release-evidence/p31-managed-route-20261105/. Existing credentials/tiers unchanged.
+
 ## Журнал дефектов движка — 2026-11-05
 
 По прямому указанию владельца: [GENERATION_ENGINE_ERRORS.md](testing/GENERATION_ENGINE_ERRORS.md)

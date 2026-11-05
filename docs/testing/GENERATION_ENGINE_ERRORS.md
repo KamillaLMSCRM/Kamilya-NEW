@@ -334,3 +334,69 @@ raw не является новым вызовом. Unknown dispatch не по�
   full unit6731PASS1skip7warnings99.04s;baseline1004/2174PASS;independent sourceGO.
   Native selection/stage/save proof on a new deployment remains required. Existing
   43e64c49 stays P29 and is not rewritten or restarted.
+
+  LIVE correction verified2026-11-05: DEVc450f1af, new nativede6b22ce stored31,
+  exact managed marker pair; actual4stage replies, final durable snapshot and
+  ordinary persisted API readback match. Job completed486.9s/5L18Q/94899tokens.
+  Status: FIX VERIFIED FOR MANAGED QA ROUTE. This does not close semantic/all3/prod
+  acceptance. Historical43e64c49 settled and normally cancelled, no course.
+
+## ENG-022 — source ambiguity was turned into an impossible assessment premise
+
+- Date:2026-11-05. Class: contextual author/editor model error, not deterministic
+  parser/validator defect. Native P31 Standards q1-3 states one sum falls into both
+  disjoint category ranges; the key asks to recognize ambiguity. The source's own
+  awkward conjunction does not make this a useful feasible employee decision.
+- Evidence: owned nativede6b22ce/course9c6dbda2, initial final snapshot preserved;
+  independent16-family review in native-standards-independent-review.json/.md.
+  q4-4 was already fixed in the current course; its historical finding is retained
+  for human review and must not be counted as a new active prose/question defect.
+- Correction: one human QA edit through normal question PUT, using feasible
+  2x400000 Karaganda same-client/day/branch aggregate in category I. Preserve all
+  other17questions and5lesson texts; no full-course regeneration or lexical guard.
+- Verified: ordinary API readback exact proposal/key/choices/explanation;18question
+  IDs retained; source-uncertainty content hash00ca8f5d→702dc6aa. Initial18literal
+  source quotes belong to the immutable pre-edit version. PUT clears revised
+  question source_quote intentionally; do not restore it by DB or claim it verified.
+- Status: QA HUMAN CORRECTION VERIFIED / SOURCE REVIEW STILL REQUIRED. Independent
+  post-edit CONTENT GO for human review, not automatic clean generation, source
+  resolution, approval or publication. Actual model editor did not catch this item;
+  do not claim the deterministic code can prevent every future semantic variation.
+
+## ENG-023 — received rejected reply and unreceived outcome share a legacy pending state
+
+- Date:2026-11-05. Class: lifecycle/operational contract limitation, independent of
+  course semantics. Old P24 Micro f0692f27 retains pending after a fully received
+  HTTP200 reply was rejected by the old93-judgment validator. Original body SHA
+  d796e2c6...d11d7 and83622received tokens are recorded; no final course. It must
+  never be resumed/reset/replayed/promoted or refunded as an unmade request.
+- Effect: normal source-set admission correctly blocks another job. Existing
+  abandon-unknown would falsely assert an unknown provider response for this case.
+  Removing pending guards or duplicating the source is not a safe correction.
+- Correction LOCAL: normal owned POST/jobs/{id}/quarantine acknowledges retaining
+  the stage, not provider outcome/cost. Interrupted-only/no course/valid pending/
+  no final-save intent; expected_updated_at compared under advisory→tenant→job
+  locks. Terminal failed/quarantined metadata fingerprints pending; original
+  params/result/journal/reservation state remain unchanged. No provider request
+  is dispatched or cancelled. Late-save/rerun guards remain; no refund.
+- Verification:52focusedPASS;6746unitPASS1skip7warnings89.83s before final visible
+  error projection adjustment, final52PASS after; baseline1005/2174PASS. Added two
+  real PostgreSQL/RLS concurrency tests, locally SKIPPED as expected, CI pending.
+  Independent reviewer requested truthful reservation:unchanged response, fixed.
+- Status: LOCAL VERIFIED, NOT DEPLOYED/NOT EXECUTED. Do not relabel original
+  response as unknown/accepted or claim successful live quarantine before readback.
+
+## ENG-024 — dropped permission qualifier in a generated exception
+
+- Date:2026-11-05. Class: contextual author/editor model omission. Native P31 Fire
+ 75991580/6L18Q L6 described continuous-operation devices without retaining that
+  they must be permitted devices; source6.2 includes that qualification.
+- Correction: one independently reviewed human lesson PATCH, keeping existing
+  five other lessons and all18question objects unchanged. No global regex,
+  full-course regeneration or additional model critic. Prior automatic draft stays
+  in immutable native snapshot, metadata still requires source/human review.
+- Verified: normal API readback manual-fire-l6-result.json, content snapshot
+  6b09a997→47f2e5fc; current phrase explicitly includes permitted continuous-operation
+  devices. Genuine parenthetical source-scope ambiguity remains held.
+- Status: HUMAN QA CORRECTION SAVED; independent after-edit review next. Model
+  generation4replies91298in15121out106419tokens, no model call for the manual edit.

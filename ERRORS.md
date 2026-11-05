@@ -10250,6 +10250,10 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   admission/worker/final-save regressions and require owned stored/applied proof.
 - Verification: native-standards-routing-diagnostic.json proves the mismatch;
   product fix and new native verification are still pending.
+  Update2026-11-05: c450f1af CI42043304070 and new native de6b22ce independently
+  verify stored31/managed paired markers, all4actual stages, final snapshot/API
+  persistence; ENG-021 fixed for actual managed QA route. Old43e64c49 preserved,
+  settled then ordinary cancellation200. Semantic/all3/prod remain separate gates.
 - Prevention: exact SHA proves deployed code, not chosen execution policy. Read
   back stored policy and actual stage groups before claiming the new workflow.
 - Related harness corrections: ai_jobs.id is String (no UUID cast); match the

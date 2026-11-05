@@ -5984,3 +5984,49 @@ admission and worker source/journal/final fences with distinct paired markers.
 82focusedPASS;full unit6731PASS1skipped7warnings99.04s;baselineRuff1004/Mypy2174PASS;
 independent sourceGO. No new model call or existing job mutation during correction.
 Live new selection/stage/save and pending old-job reconciliation remain open.
+
+## RUN-20261105-P31-MANAGED-NATIVE-STANDARDS
+
+- ActualDEVc450f1af controllerRELEASE_OK/RECONCILED, CI42043304070/image42044258750
+  attested306d28634b33 PASS; API/frontend/worker exact match, fec762b1 sole DEV worker.
+- New nativede6b22ce-cf68-461b-9c87-37edb592f8fc completed486.9s,5L18Q6922chars,
+  4unique Luna6/HIGH replies76779in18120out=94899tokens; no pending stage. Stored31,
+  managed-editorial-qa-v1 + qa-managed-luna-diversity-v1. No USD inferred from tokens.
+- Durable final snapshot7b95e167 matched ordinary API; QA course9c6dbda2 saved draft/
+  pending,5source-needs-review,4issues3observations. Actual deployed browser ordinary
+  login/actor/tenant/editor/source-panel PASS,0business writes/foreignrequests.
+  Desktop visually checked. Mobile resize screenshot revealed layout issue;
+  DOM/network PASS does not establish mobile visual acceptance, writer investigating.
+- Independent complete16-family audit found1materialq1-3 impossible premise; normal
+  one-question human PUT saved/read back,5lesson texts and17other questions unchanged,
+ 18question IDs retained, original snapshot preserved. Source quote correctly cleared,
+  content hash00ca8f5d→702dc6aa, human-required/pending retained. Independent after-edit
+  CONTENT GO for human review with source holds, not model auto-clean or publication.
+- Fire attempt409 before new inference: oldP29interrupt2e3fcc36 remained, active-only
+  helper counted0 but normal source-set guard correctly refused duplicate. Scoped
+  read no pending/course; ordinarycancel200 verified. Receipt retained; not repeated
+  as unknown request. Worker/prod/client/plans unchanged. Full3/DeepSeek/prod OPEN.
+- Evidence:.release-evidence/p31-managed-route-20261105/ plus prior-folder native
+  admission receipts. Historical agent and model defect categories remain separate.
+
+## RUN-20261105-P31-NATIVE-FIRE-AND-RETAINED-STAGE-LOCAL
+
+- Fire75991580-d2c4-4ff9-8bb3-ffffda405d8f completed on actual DEVc450f1af,
+  policy31/managed pair;6L18Q9930chars,4Luna6HIGH replies91298in15121out106419tokens,
+  no pending; final snapshot3c33694f matched ordinary API/course2e84a2d7,18literal
+  quotes, source-needs-review6,3issues1observation. Independent12family audit found
+  only one proven teaching-condition error: L6 omitted permitted-device qualifier.
+  One normal human lesson PATCH saved/readback, other5lessons/all18Q unchanged;
+  content hash6b09a997→47f2e5fc, draft/pending retained. Not auto-clean generation.
+- OldMicroP24f0692f27 remains quarantined/pending: complete rejected HTTP200 reply
+  is known, unlike an unreceived response. No false unknown-outcome acknowledgement,
+  resume/clear/refund/duplicate source. New truthful retained-stage endpoint LOCAL:
+  strictack/observedtimestamp/owner/orderedlocks/interrupted/no course/final fences;
+  keeps result/params exceptdisposition/journal/reservationstate unchanged.
+- Red missing-contract import then52focusedPASS;6746unitPASS1skip7warnings89.83s;
+  final projection/response wording52PASS,2PostgreSQL/RLS tests locallySKIPPED,
+  baseline1005/2174PASS. Real concurrency requires CI; not inferred from units.
+- Mobile CSS transition fix from writer: fresh390 already correct; desktop→390
+  briefly kept margin240/scroll441; below768 disable shell/rail transitions.
+  Built synthetic browser3PASS fresh+resize/menu+desktopcollapse, Vitest25PASS,
+  type/lint/build67pagesPASS, screenshots visually inspected. Live fix not deployed.

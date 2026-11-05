@@ -1,3 +1,18 @@
+## P31 native DEV evidence; production NOT accepted — 2026-11-05
+
+DEVc450f1af exact API/frontend/sole VM126 worker RELEASE_OK/RECONCILED,
+CI42043304070/image42044258750 PASS. New full owner design integrated; local mobile
+resize transition correction awaits next DEV release. Native31 managed route
+proved actual author/editor/optionaledit/blindanswer stages and final API persistence.
+Standards5L18Q486.9s4calls94899tokens;Fire6L18Q459.9s4calls106419tokens. Each needed
+one human correction; independent post-edit CONTENT GO for human review with source
+holds, not automatic clean generation/approval/publication. Micro legacy received-
+rejected24 remains held; truthful retained-stage quarantine LOCAL52focused/6746unit/
+baseline1005/2174PASS;2real DB concurrency tests await CI. Third native course,
+recovery/human-review/business acceptance, fresh normal-route31 promotion, DeepSeek
+and protected production/full synthetic live remain OPEN. Ordinarydefault29 and
+production66/native70/customer courses unchanged. See current CODEX_HANDOFF/ledger.
+
 ## P29 candidate72 LOCAL only — 2026-11-05 02:49UTC
 
 Fresh29 separates source/prose, explanation correctness and representative

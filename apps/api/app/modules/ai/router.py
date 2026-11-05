@@ -47,6 +47,7 @@ from app.modules.ai.job_service import (
     build_ai_job_queue_metadata,
     get_ai_job,
     is_resumable_generation_job,
+    quarantine_generation,
     release_generation_reservation_once,
     resolve_tenant_ai_active_limit,
     resume_interrupted_ai_job,
@@ -56,6 +57,7 @@ from app.modules.ai.job_service import (
 from app.modules.ai.llm_client import ResilientLLMClient
 from app.modules.ai.schemas import (
     AbandonUnknownGenerationRequest,
+    QuarantineGenerationRequest,
     AIChatRequest,
     AIChatResponse,
     AIGenerateRequest,
@@ -357,9 +359,10 @@ def _job_progress_detail(job: AIJob) -> dict[str, int | str]:
 
 
 def _visible_job_errors(job: AIJob) -> list[str] | None:
+    from app.modules.ai.job_service import is_quarantined_generation
     from app.modules.ai.v3.pending_stage_transactions import has_pending
 
-    if job.status == "running" or not has_pending(getattr(job, "result", None)):
+    if job.status == "running" or is_quarantined_generation(job) or not has_pending(getattr(job, "result", None)):
         return cast(list[str] | None, job.errors)
     errors = list(job.errors or [])
     code = "source_first_commit_pending_or_unknown"
@@ -369,11 +372,13 @@ def _visible_job_errors(job: AIJob) -> list[str] | None:
 
 
 def _visible_job_status_message(job: AIJob) -> tuple[str, str]:
-    from app.modules.ai.job_service import is_abandoned_unknown
+    from app.modules.ai.job_service import is_abandoned_unknown, is_quarantined_generation
     from app.modules.ai.v3.pending_stage_transactions import has_pending
 
     if is_abandoned_unknown(job):
         return "abandoned", str(job.message or "")
+    if is_quarantined_generation(job):
+        return "failed", str(job.message or "")
     if job.status != "running" and has_pending(getattr(job, "result", None)):
         return ("reconciliation_required",
                 "Генерация выполняется или требует проверки. Обновите статус; если он не изменится, обратитесь к администратору. Не запускайте генерацию повторно.")
@@ -842,6 +847,25 @@ async def abandon_unknown_job(
     if result != "abandoned":
         raise HTTPException(status_code=409, detail={"code": "unknown_outcome_abandon_unavailable"})
     return {"status": "abandoned", "provider_outcome": "unknown", "cost": "unknown"}
+
+
+@router.post("/jobs/{job_id}/quarantine")
+async def quarantine_job(
+    job_id: str, payload: QuarantineGenerationRequest,
+    db: AsyncSession = Depends(get_db), user: User = Depends(require_ai_job_access),  # noqa: B008
+) -> dict[str, str]:
+    """Terminally retain an owned interrupted stage without an outcome/cost claim."""
+    if payload.acknowledge_retained_stage is not True:
+        raise HTTPException(status_code=409, detail={"code": "retained_stage_ack_required"})
+    if not isinstance(user.id, UUID) or not isinstance(user.tenant_id, UUID):
+        raise HTTPException(status_code=404, detail="Job not found")
+    result = await quarantine_generation(db, job_id=job_id, tenant_id=user.tenant_id, user_id=user.id,
+        expected_updated_at=payload.expected_updated_at)
+    if result == "not_found":
+        raise HTTPException(status_code=404, detail="Job not found")
+    if result != "quarantined":
+        raise HTTPException(status_code=409, detail={"code": "retained_stage_quarantine_conflict"})
+    return {"status": "quarantined", "pending_stage": "retained", "reservation": "unchanged"}
 
 
 @router.post("/jobs/{job_id}/cancel")

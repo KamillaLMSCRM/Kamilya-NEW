@@ -16,6 +16,13 @@ class AbandonUnknownGenerationRequest(BaseModel):
     acknowledge_outcome_and_cost_unknown: bool = Field(strict=True)
 
 
+class QuarantineGenerationRequest(BaseModel):
+    """Stop an interrupted job without classifying the provider's response or cost."""
+    model_config = ConfigDict(extra="forbid")
+    acknowledge_retained_stage: bool = Field(strict=True)
+    expected_updated_at: datetime
+
+
 class SourceReferenceDecisionInput(BaseModel):
     """An explicit human interpretation, verified again against the source by the worker."""
     model_config = ConfigDict(extra="forbid")

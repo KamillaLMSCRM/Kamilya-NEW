@@ -1,3 +1,66 @@
+# P31 two native DEV courses; retained-stage correction LOCAL — 2026-11-05
+
+- result: Standards5L18Q/486.9s/4calls94899tokens and Fire6L18Q/459.9s/4calls106419
+  completed on actual DEVc450f1af. Ordinary API matches immutable snapshots;
+  source-first independent16+12family reviews found one contextual error each.
+  Each human edit saved/read back without regeneration, original snapshots retained.
+  Both CONTENT GO for human review after edit; active source/provenance holds remain.
+- changed: LOCAL truthful retained-stage quarantine for historical MicroP24f0692f27;
+  source errorENG-023. It checks observedtimestamp under ordered locks, owner,
+  interrupted/no course/valid pending/no final intent, retains original result/
+  journal/reservationstate, asserts no provider response/cost. Not yet deployed or used.
+  Existing abandon-unknown route unchanged. Do not falsely acknowledge unknown reply
+  or resume/clear/promote/repeat the received-rejected old response.
+- verified:52focusedPASS;6746unitPASS1skip7warnings89.83s before tiny final error
+  projection; final52PASS, baseline1005/2174PASS. Two real PostgreSQL/RLS concurrency
+  tests added, locallySKIPPED; one observes actual pg_blocking_pids before releasing
+  held row. CI must pass; units do not establish real DB serialization. Independent
+  source review corrected reservation wording to unchanged. Mobile resize fixLOCAL:
+  disable cross-breakpoint shell/rail transition;3builtbrowser25unit/type/lint/buildPASS.
+- blockers: Micro fresh31 requires terminally fencing old received-rejected job
+  without losing evidence. No active new generation remains; Fire75991580 completed,
+  course2e84a2d7, native immutable18literalquotes; humanL6 edit hash47f2e5fc keeps18Q.
+  Three-native-course/DeepSeek/prod gates OPEN; ordinary default29 remains unchanged.
+- next: Commit exact local safety/design correction, canonical DEV CI/image/worker
+  rollout. Then one owned oldMicro quarantine via normal new API with readback of
+  unchanged pending/checkpoints/cost/reservation; one new Micro31 generation. Review
+  source path/acceptance before enabling31 for fresh ordinary/production jobs.
+  Task evidence .release-evidence/p31-managed-route-20261105/. No production/client/
+  provider-plan/ASUS/billing change. Never deploy local loopback web build.
+
+# P31 native DEV completed; design integrated; full acceptance in progress — 2026-11-05
+
+- result: Exact DEV API/frontend/sole VM126 worker are c450f1af16c3887185a84bddf3d8d410007e2d6e.
+  Controller REL-DEV-P31-MANAGED-C450F1AF-20261105 is RELEASE_OK/RECONCILED;
+  CI42043304070/image42044258750 PASS, attested image306d28634b33. No production rollout.
+- changed: Managed route ENG-021 is fixed and VERIFIED in a new native admission:
+  stored31, managed-editorial-qa-v1 + qa-managed-luna-diversity-v1, actual author/
+  keyed-editor/addressed-revision/blind-answer stages, final snapshot and ordinary API match.
+  Historical P29 job43e64c49 was settled then normally cancelled; never relabeled/resumed.
+- verified: Standards native jobde6b22ce-cf68-461b-9c87-37edb592f8fc completed in486.9s:
+  5lessons18questions,4unique Luna6/HIGH replies,76779in18120out=94899tokens.
+  QA course9c6dbda2-f53b-4ceb-8d76-2c3f0fc912c5 saved draft/pending; prepared review
+  and sources visible in the real deployed browser, ordinary UI login, no mocked API.
+  Initial18quotes literal; one impossible q1-3 was manually replaced via ordinary
+  API after independent review. Five lesson texts/17other questions unchanged;
+  original snapshot preserved. Edited question quote intentionally invalidated;
+  hash changed00ca8f5d→702dc6aa. Independent post-edit CONTENT GO for human review,
+  genuine source ambiguities remain, no approval/publication. This is not auto-clean.
+- blockers: Mobile visual inspection found narrow main-content/sidebar after resize;
+  DOM/network browser PASS does NOT establish mobile usability. Frontend writer
+  investigating without changing backend. Three native courses/DeepSeek/prod gates
+  remain open. Fire initial new admission was rejected409 before inference because
+  historical P29 interrupted2e3fcc36 remained. Owned/source-bound read proved no
+  pending/course; ordinary cancellation200 verified. No blind repeat or status rewrite.
+- next: One new Fire admission after settled-control receipt, then Micro sequentially;
+  independent67-family/16-boundary audit, persisted API checks and human review.
+  Never restart a model request whose response is pending/unknown. Evidence/scripts:
+  .release-evidence/p31-managed-route-20261105/; native admission receipts additionally
+  .release-evidence/p31-design-integration/. Workerfec762b1,1CPU/1GiB,0restarts,
+  oldd60 retainedrollback0a95; all six production containers/client courses unchanged.
+  P31 remains scoped QA acceptance, ordinary default29 unchanged. Main source checkout
+  v3-source-reviewed-dev-20261104 has unrelated dirty evidence/docs: do not stage it.
+
 # Actual DEV rollout accepted; managed P31 route correction LOCAL — 2026-11-05
 
 - result: DEV0a95a0e265f7158141771dead443013ba70264ff exact API/worker/frontend

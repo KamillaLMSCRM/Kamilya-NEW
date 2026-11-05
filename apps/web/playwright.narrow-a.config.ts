@@ -4,7 +4,7 @@ import base from './playwright.config';
 /** Isolated synthetic acceptance for the Narrow A candidate on loopback3027. */
 export default defineConfig({
   ...base,
-  testMatch: /narrow-a-visual\.spec\.ts$/,
+  testMatch: /(narrow-a-visual|sidebar-responsive)\.spec\.ts$/,
   workers: 1,
   webServer: undefined,
   use: {
