@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.72] - 2026-11-05
+
 ### Fixed
+- Resume editorial generation using the same request identity after stored JSON
+  is read back. Previously admitted jobs retain their original protocol.
 - Select the editorial V3 workflow on the authenticated managed DEV Luna route,
   retaining historical jobs and paired source/transport checks through final save.
 
@@ -18,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   responses, and keep one approval-policy control in the course editor.
 
 ### Changed
-- Add an opt-in DEV V3 editorial workflow: coherent course authoring, full-course
+- Use the V3 editorial workflow for new courses: coherent course authoring, full-course
   source and assessment review, one addressed revision and blind answer checking.
   Preserve complete editable drafts and version-bound findings for human review.
 - Retain protected lesson/question content during partial revisions; revised
