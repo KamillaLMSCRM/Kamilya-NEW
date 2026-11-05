@@ -178,6 +178,20 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('hosts source review in the real AI editor and disables it while lesson changes are unsaved', async () => {
+    useAuthStore.setState({ user: { user_id: 'author-1', tenant_id: 'tenant-1', tenant: null,
+      role: 'methodologist', full_name: 'Author', email: null, telegram_id: '' } });
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    const inspect = screen.getByRole('button', { name: 'Открыть замечания и источники' });
+    expect(inspect).toBeEnabled();
+    openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'A changed source-bound lesson.' } });
+    expect(inspect).toBeDisabled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/source-uncertainty'))).toBe(false);
+  });
+
   it('preserves an unsaved lesson through same-actor token rotation and uses the latest token to save', async () => {
     setupFetch(); render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Keep dirty lesson on refresh' } });

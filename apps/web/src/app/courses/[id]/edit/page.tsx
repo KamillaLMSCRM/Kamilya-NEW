@@ -31,6 +31,7 @@ import { coursePublicationError } from '@/lib/coursePublicationError';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
 import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
+import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
 import { currentAuthorSession, sameAuthorSession } from '@/features/course-authoring/authorSession';
 import LessonCorrectionPanel, { type LessonCorrectionPanelHandle } from '@/features/methodologist-workbench/LessonCorrectionPanel';
@@ -740,6 +741,9 @@ export default function CourseEditPage() {
       </div>
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
+      {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
+        courseId={course.id} lang={lang} disabled={readinessUnavailable || lessonDirty || Boolean(releaseAction)}
+        onResolved={() => { void fetchData(); }} />}
       <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={lessonDirty}
         requiresReview={requiresCourseReview} reviewStatus={course.review_status} unavailable={readinessUnavailable} />
       <nav aria-label={copy.readiness} className="flex flex-wrap gap-4 text-sm font-medium text-primary">

@@ -53,12 +53,20 @@ def _question_snapshot_payload(question: Question, choices: list[QuizChoice]) ->
 
 async def touch_course(db: AsyncSession, course_id: object, tenant_id: object) -> None:
     """Updates parent Course updated_at timestamp to synchronize content versioning and locking."""
-    from sqlalchemy import update
+    from sqlalchemy import case, update
+
+    from app.modules.courses.draft_review import DRAFT_REVIEW_VERSION
+
+    editorial_draft = Course.source_analysis['evidence_v3']['draft_review']['version'].astext == DRAFT_REVIEW_VERSION
     if course_id is not None and tenant_id is not None:
         await db.execute(
             update(Course)
             .where(Course.id == course_id, Course.tenant_id == tenant_id)
-            .values(updated_at=func.now())
+            .values(updated_at=func.now(),
+                    review_status=case((editorial_draft, 'pending'), else_=Course.review_status),
+                    reviewed_by=case((editorial_draft, None), else_=Course.reviewed_by),
+                    reviewed_at=case((editorial_draft, None), else_=Course.reviewed_at),
+                    review_comment=case((editorial_draft, None), else_=Course.review_comment))
         )
 
 

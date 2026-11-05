@@ -96,6 +96,10 @@ class SourceDocumentRevisionInfo(BaseModel):
 class CourseSourceUncertaintyDefectInfo(BaseModel):
     defect_id: str
     description: str
+    target_id: str = ''
+    target_title: str = ''
+    source_refs: list[str] = Field(default_factory=list)
+    evidence: dict[str, Any] = Field(default_factory=dict)
 
 
 class CourseSourceUncertaintyDetailsResponse(BaseModel):
@@ -107,6 +111,7 @@ class CourseSourceUncertaintyDetailsResponse(BaseModel):
     source_documents: list[SourceDocumentRevisionInfo]
     active_defects: list[CourseSourceUncertaintyDefectInfo]
     resolutions_history: list[dict[str, Any]]
+    draft_review: dict[str, Any] | None = None
 
 
 class CoursePreviewSourceDocument(BaseModel):

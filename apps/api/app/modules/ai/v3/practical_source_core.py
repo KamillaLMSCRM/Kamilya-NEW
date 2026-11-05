@@ -68,8 +68,9 @@ def source_core_blueprint(packet: PracticalSourcePacket, plan: dict[str, Any], *
     source_units = [key for key, _ in groups]
     sections = plan['sections']
     allocated = [unit for section in sections for unit in section['source_units']]
-    if (plan['non_teaching_units'] or len(allocated) != len(set(allocated))
-            or set(allocated) != set(source_units)):
+    auxiliary = plan['non_teaching_units']
+    if (len(allocated) != len(set(allocated)) or set(allocated) & set(auxiliary)
+            or set(allocated) | set(auxiliary) != set(source_units)):
         raise ValueError('source_core_unit_ownership_invalid')
     # Include whitespace-only blocks without dropping or modifying any source byte.
     groups_by_doc: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
@@ -96,15 +97,25 @@ def source_core_blueprint(packet: PracticalSourcePacket, plan: dict[str, Any], *
                 raise ValueError('source_core_unit_blocks_invalid')
             units[unit] = [b.block_id for b in selected]
     owner = {unit: f'L{i}' for i, section in enumerate(sections, 1) for unit in section['source_units']}
+    # An unverified plan may classify a cover/glossary as auxiliary. Preserve it
+    # as source context, adjacent to an owned unit; never silently drop its bytes.
+    position = {unit: i for i, unit in enumerate(source_units)}
+    for unit in auxiliary:
+        doc = by_id[units[unit][0]].doc_id
+        candidates = [u for u in allocated if by_id[units[u][0]].doc_id == doc] or allocated
+        nearest = min(candidates, key=lambda u: (abs(position[u] - position[unit]), position[u]))
+        owner[unit] = owner[nearest]
     block_owner = {ref: owner[unit] for unit, refs in units.items() for ref in refs}
     order = {unit: i for i, unit in enumerate(source_units)}
     lessons = []
     for i, section in enumerate(sections, 1):
-        owned = sorted(section['source_units'], key=order.__getitem__)
+        context = [unit for unit in auxiliary if owner[unit] == f'L{i}']
+        owned = sorted([*section['source_units'], *context], key=order.__getitem__)
         deps = list(dict.fromkeys(section['depends_on_units']))
         lessons.append({'id': f'L{i}', 'title': section['title'],
             'objectives': [g['decision'] for g in section['goals']], 'units': owned,
             'dependencies': deps, 'related_lessons': list(dict.fromkeys(owner[u] for u in deps if owner[u] != f'L{i}')),
+            **({'auxiliary_units': context} if context else {}),
             'source_refs': [ref for unit in owned for ref in units[unit] if by_id[ref].text.strip()],
             'allowed_refs': [b.block_id for b in packet.blocks if b.text.strip()
                              and any(b.block_id in units[u] for u in [*owned, *deps])]})
@@ -303,6 +314,7 @@ def compile_source_core(packet: PracticalSourcePacket, plan: dict[str, Any], val
         'unverified_discovered_dependencies': discovered,
         'plan_source_uncertainties_unverified': copy.deepcopy(plan['source_uncertainties']),
         'global_source_proposals_unverified': copy.deepcopy(blueprint.get('global_review_notes', [])),
+        **({'auxiliary_units_unverified': copy.deepcopy(plan['non_teaching_units'])} if plan['non_teaching_units'] else {}),
         'source_readiness': 'UNVERIFIED', 'answer_validity': 'UNVERIFIED', 'automatic_approval': False}
 
 

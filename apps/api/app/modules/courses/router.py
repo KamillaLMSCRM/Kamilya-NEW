@@ -351,7 +351,7 @@ async def review_course(
 
     qa_source_guard = req.review_status == "approved" and qa_source_holds_enabled(user.tenant_id)
     query = select(Course).where(Course.id == course_id, Course.tenant_id == user.tenant_id)
-    if req.review_status == "approved" and is_qa_source_tenant(user.tenant_id):
+    if req.review_status == "approved":
         query = query.with_for_update().execution_options(populate_existing=True)
     result = await db.execute(query)
     course = result.scalar_one_or_none()
@@ -359,6 +359,9 @@ async def review_course(
         raise HTTPException(status_code=404, detail="Course not found")
 
     if req.review_status == "approved":
+        from app.modules.courses.source_uncertainty import require_current_draft_review
+
+        await require_current_draft_review(db, course)
         from app.modules.courses.source_uncertainty import (
             require_persisted_source_hold_clear,
             require_source_uncertainty_clear,
@@ -525,7 +528,7 @@ async def _extract_course_source_revisions(
             .order_by(Document.id)
         )
         if for_update:
-            docs_stmt = docs_stmt.with_for_update()
+            docs_stmt = docs_stmt.with_for_update().execution_options(populate_existing=True)
         docs_res = await db.execute(docs_stmt)
         found_docs: dict[UUID, Document] = {cast(UUID, doc.id): doc for doc in docs_res.scalars().all()}
 
@@ -670,10 +673,15 @@ async def get_course_source_uncertainty_details(
 
     sa: dict[str, Any] = course.source_analysis if isinstance(course.source_analysis, dict) else {}
     has_hold = SOURCE_UNCERTAINTY_KEY in sa
+    from app.modules.courses.draft_review import read_draft_review, resolution_is_current
+
+    manifest = read_draft_review(sa)
+    if manifest is not None:
+        has_hold = has_hold or not resolution_is_current(sa, content_hash)
 
     raw_defects = get_active_source_defects(sa)
     active_defects = [
-        CourseSourceUncertaintyDefectInfo(defect_id=d["defect_id"], description=d["description"])
+        CourseSourceUncertaintyDefectInfo(**d)
         for d in raw_defects
     ]
     history: list[dict[str, Any]] = list(sa.get("resolutions_history") or [])
@@ -684,8 +692,9 @@ async def get_course_source_uncertainty_details(
         content_snapshot_hash=content_hash,
         available_revisions=avail_revs,
         source_documents=docs_info,
-        active_defects=active_defects,
+        active_defects=active_defects if has_hold or manifest is None else [],
         resolutions_history=history,
+        draft_review=manifest,
     )
 
 
@@ -803,6 +812,14 @@ async def update_course(
         raise HTTPException(status_code=404, detail="Course not found")
     for field, value in req.model_dump(exclude_unset=True).items():
         setattr(course, field, value)
+    from app.modules.courses.draft_review import read_draft_review
+
+    if read_draft_review(course.source_analysis) is not None:
+        editable = cast(Any, course)
+        editable.review_status = 'pending'
+        editable.reviewed_by = None
+        editable.reviewed_at = None
+        editable.review_comment = None
     # A mutable edit invalidates all approval artifacts.  Reviewers must never
     # approve a snapshot that no longer matches the course being published.
     from app.modules.course_approval.service import supersede_course_approvals
@@ -865,9 +882,12 @@ async def publish_course(
     from app.modules.courses.source_uncertainty import (
         is_qa_source_tenant,
         qa_source_holds_enabled,
+        require_current_draft_review,
         require_persisted_source_hold_clear,
         require_source_uncertainty_clear,
     )
+
+    await require_current_draft_review(db, course)
 
     if is_qa_source_tenant(user.tenant_id):
         require_persisted_source_hold_clear(course.source_analysis)

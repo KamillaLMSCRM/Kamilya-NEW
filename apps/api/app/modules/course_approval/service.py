@@ -384,6 +384,9 @@ async def decide(db: AsyncSession, *, attempt: CourseReviewAttempt, revision: Co
         if course is None:
             raise HTTPException(status_code=404, detail="Course not found")
         require_persisted_source_hold_clear(course.source_analysis)
+        from app.modules.courses.source_uncertainty import require_current_draft_review
+
+        await require_current_draft_review(db, course)
         if qa_source_guard:
             require_source_uncertainty_clear(course.source_analysis)
     locked_revision = await db.scalar(select(CourseApprovalRevision).where(

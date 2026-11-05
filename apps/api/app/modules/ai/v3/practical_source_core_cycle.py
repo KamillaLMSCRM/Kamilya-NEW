@@ -77,6 +77,24 @@ def _retain_unverified(initial: tuple[dict[str, Any], ...], final: tuple[dict[st
     return retained
 
 
+def _finding_case_context(initial: tuple[dict[str, Any], ...], final: tuple[dict[str, Any], ...],
+                          initial_cases: dict[str, Any], final_cases: dict[str, Any],
+                          owners: dict[str, str], lessons: list[dict[str, Any]]) -> dict[str, Any]:
+    """Option indices belong to the exact case version seen by that reviewer."""
+    titles = {lesson['id']: lesson['title'] for lesson in lessons}
+    result = {}
+    for round_name, findings, cases in (('initial', initial, initial_cases), ('final', final, final_cases)):
+        for finding in findings:
+            key = finding['id']
+            if key in cases and finding['issue_id'] not in result:
+                row = cases[key]
+                result[finding['issue_id']] = {'lesson_title': titles[owners[key]],
+                    'prompt': row['prompt'], 'choices': copy.deepcopy(row['choices']),
+                    'source_refs': copy.deepcopy(row['source_refs']), 'review_round': round_name,
+                    'case_fingerprint': _digest([row['prompt'], row['choices'], row['source_refs']])}
+    return result
+
+
 async def run_source_core_cycle(packet: Any, corpus: Any, intent: Any, reference_decisions: tuple[Any, ...],
                                 stage: Any) -> PracticalCycleResult:
     view = PracticalModelView(packet)
@@ -137,17 +155,26 @@ async def run_source_core_cycle(packet: Any, corpus: Any, intent: Any, reference
         reviewed = set(row['question_ids']) & changed - final_question_issues
         if row['status'] != 'COVERED' or not any(not key.endswith('P1') for key in reviewed):
             final_unresolved = tuple(dict.fromkeys((*final_unresolved, goal)))
-    source_review_pending = bool(plan['source_uncertainties'] or core_meta['global_source_proposals_unverified'])
+    source_review_pending = bool(plan['source_uncertainties'] or edit_meta['global_source_proposals_unverified']
+                                 or edit_meta['unverified_discovered_dependencies'])
     decision = PracticalReviewDecision(not retained and not final_unresolved and not edit_meta['unresolved_cases']
         and not source_review_pending,
         any(x['scope'] == 'source' for x in retained),
         (), (), False, tuple(retained))
     blueprint = source_core_blueprint(packet, plan, course_title=title, corpus=corpus, reference_decisions=reference_decisions)
-    review = {'source_notes': final_raw['source_notes'],
+    observed_notes = {_digest(row): row for raw in (initial_raw, final_raw) for row in raw['source_notes']}
+    review = {'source_notes': list(observed_notes.values()),
               'narrative_sources': {lesson['id']: lesson['source_refs'] for lesson in blueprint['lessons']}}
     history = ({'initial_bank': initial_raw, 'initial_findings': list(initial.feedback), 'initial_unresolved_goals': initial_unresolved,
                 'final_bank': final_raw, 'editor_raw_response': edit_wire,
                 'editor_custody': edit_meta, 'source_core_custody': core_meta,
+                'finding_case_context': _finding_case_context(initial.feedback, final.feedback, cases,
+                                                               final_cases, case_owner, updated['lessons']),
+                'case_context': {key: {'lesson_title': next(lesson['title'] for lesson in updated['lessons']
+                                                          if lesson['id'] == case_owner[key]),
+                                       'prompt': row['prompt'], 'choices': copy.deepcopy(row['choices']),
+                                       'source_refs': copy.deepcopy(row['source_refs'])}
+                                 for key, row in final_cases.items()},
                 'changed_case_ids': sorted(changed)},)
     return PracticalCycleResult(updated, review, decision, history, 'reviewed' if decision.accepted else 'needs_review',
         standalone_review=True, question_bank_review=True, curriculum_plan=plan,

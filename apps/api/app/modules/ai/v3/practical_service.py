@@ -147,7 +147,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       document_sha256=source_sha256, lessons=tuple(lessons),
                       # Source verification is independent of publication. The
                       # ordinary persistence layer still creates a draft course.
-                      quality_verdict='verified' if accepted and source_verified else 'needs_review',
+                      quality_verdict='verified' if accepted and source_verified and not result.source_core else 'needs_review',
                       validation_report=report)
     assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY} and source_verified
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
@@ -182,6 +182,9 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                                     else 'authored_question_scope_v2'),
     })
     if result.source_core:
+        from app.modules.ai.v3.practical_draft_review import editorial_manifest
+
+        artifacts.diagnostics['draft_review'] = editorial_manifest(result, packet, issues)
         artifacts.diagnostics['practical_source_core_unresolved_cases'] = list(result.source_core_unresolved_cases)
         artifacts.diagnostics['practical_source_core_source_review_pending'] = result.source_core_source_review_pending
         artifacts.diagnostics['practical_unverified_source_proposals'] = [

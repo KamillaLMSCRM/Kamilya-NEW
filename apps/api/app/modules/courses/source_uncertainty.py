@@ -1,7 +1,7 @@
 """Fail-closed guard for server-owned unresolved source uncertainty.
 
-No resolution API is provided. Any presence of the reserved marker blocks approval
-and publication, including malformed values; a missing marker retains legacy behavior.
+Human resolution is revision-bound. Reserved markers block approval/publication;
+P30 also binds resolution to current learning content, preserving legacy behavior.
 """
 from copy import deepcopy
 from datetime import UTC
@@ -123,7 +123,29 @@ async def compute_course_content_snapshot_hash(db: Any, course: Any) -> str:
         cleaned_sa.pop("resolutions_history", None)
         c_data["source_analysis"] = cleaned_sa
 
-    return canonical_json_sha256(snapshot)
+    from app.modules.courses.draft_review import learning_content_snapshot
+
+    return canonical_json_sha256(learning_content_snapshot(snapshot))
+
+
+async def require_current_draft_review(db: Any, course: Any) -> None:
+    """A prior P30 review never approves changed content or source revisions."""
+    from app.modules.courses.draft_review import read_draft_review, resolution_is_current
+
+    try:
+        if read_draft_review(course.source_analysis) is None:
+            return
+        # Same lock order as explicit resolution: Course, then sorted owned
+        # Document rows. A concurrent source update cannot slip between checks.
+        from app.modules.courses.router import _extract_course_source_revisions
+
+        await _extract_course_source_revisions(db, course, for_update=True)
+        actual = await compute_course_content_snapshot_hash(db, course)
+        if resolution_is_current(course.source_analysis, actual):
+            return
+    except (ValueError, TypeError, KeyError):
+        pass
+    raise HTTPException(status_code=409, detail={'code': 'source_uncertainty_review_required'})
 
 
 def get_active_source_violations(source_analysis: dict[str, Any] | None) -> list[str]:
@@ -154,9 +176,17 @@ def get_active_source_violations(source_analysis: dict[str, Any] | None) -> list
     return list(dict.fromkeys(v.strip() for v in violations if v and v.strip()))
 
 
-def get_active_source_defects(source_analysis: dict[str, Any] | None) -> list[dict[str, str]]:
+def get_active_source_defects(source_analysis: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Returns list of active defects with stable deterministic IDs and descriptions."""
     import hashlib
+
+    from app.modules.courses.draft_review import read_draft_review
+
+    manifest = read_draft_review(source_analysis)
+    if manifest is not None:
+        return [{'defect_id': row['id'], 'description': row['message'],
+                 'target_id': row.get('target_id', ''), 'target_title': row.get('target_title', ''),
+                 'source_refs': row['source_refs'], 'evidence': row.get('evidence', {})} for row in manifest['issues']]
 
     raw_violations = get_active_source_violations(source_analysis)
     defects: list[dict[str, str]] = []
@@ -198,7 +228,10 @@ def resolve_source_uncertainty(
         raise ValueError("reason must be a non-empty string of at least 10 characters")
 
     result = deepcopy(source_analysis or {})
-    if SOURCE_UNCERTAINTY_KEY not in result:
+    from app.modules.courses.draft_review import read_draft_review
+
+    draft_manifest = read_draft_review(result)
+    if SOURCE_UNCERTAINTY_KEY not in result and draft_manifest is None:
         raise ValueError("У курса отсутствует активная блокировка неопределенности первоисточника (unresolved_source_uncertainty)")
 
     # 1. Content hash verification (protects against concurrent edits or stale reviews)
@@ -254,6 +287,10 @@ def resolve_source_uncertainty(
                 f"Методолог должен явно предоставить решения по каждому дефекту (defect_resolutions): {req_defects}"
             )
         res_by_id = {str(r.get("defect_id", "")).strip(): r for r in resolutions_list if isinstance(r, dict)}
+        if draft_manifest is not None and (
+                len(res_by_id) != len(resolutions_list)
+                or set(res_by_id) != {d['defect_id'] for d in active_defects}):
+            raise ValueError('draft_review_resolution_identity_mismatch')
         missing = []
         for d in active_defects:
             did = d["defect_id"]
