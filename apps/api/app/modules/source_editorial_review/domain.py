@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_TEXT = 1_000_000
 POLICY = "human-source-editorial-review-v1"
+SOURCE_PINS = "source_editorial_snapshots"
 
 
 def text_hash(text: str) -> str:

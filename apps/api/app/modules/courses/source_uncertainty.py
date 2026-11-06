@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from app.modules.source_editorial_review.service import SOURCE_PINS
+from app.modules.source_editorial_review.domain import SOURCE_PINS
 
 SOURCE_UNCERTAINTY_KEY = "unresolved_source_uncertainty"
 

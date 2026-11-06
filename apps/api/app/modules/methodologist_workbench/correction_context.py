@@ -120,7 +120,7 @@ async def resolve_lesson_correction(
         async with asyncio.timeout(90):
             from app.modules.source_editorial_review.service import SOURCE_PINS, resolve_pins
 
-            analysis = course.source_analysis
+            analysis = getattr(course, "source_analysis", None)
             if isinstance(analysis, dict) and SOURCE_PINS in analysis:
                 all_ids = [str(value) for value in course.source_document_ids]
                 approved = await resolve_pins(db, actor.tenant_id, all_ids, analysis[SOURCE_PINS])

@@ -20,9 +20,9 @@ from app.modules.source_editorial_review.domain import (
     ReviewState,
     text_hash,
 )
+from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PINS
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
 
-SOURCE_PINS = "source_editorial_snapshots"
 _SHA = re.compile(r"[0-9a-f]{64}")
 _ANALYSIS_STALE_AFTER = timedelta(minutes=20)
 
