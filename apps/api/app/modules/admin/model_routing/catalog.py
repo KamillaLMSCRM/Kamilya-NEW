@@ -53,6 +53,14 @@ GENERATION_MODEL_CATALOG = {
     ),
 }
 
+PRODUCTION_GENERATION_MODEL_IDS = frozenset({DEEPSEEK_ROUTE_ID, CHATGPT_RESERVE_ROUTE_ID})
+
+
+def allowed_generation_model_ids(deployment_environment: str) -> frozenset[str]:
+    if deployment_environment == "kz-production":
+        return PRODUCTION_GENERATION_MODEL_IDS
+    return frozenset(GENERATION_MODEL_CATALOG)
+
 
 def validate_generation_model_order(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
     """Return a validated immutable route or raise a stable error code."""

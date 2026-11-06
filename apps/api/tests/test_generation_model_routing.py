@@ -14,6 +14,7 @@ from app.modules.admin.model_routing.catalog import (
 from app.modules.admin.model_routing.schemas import GenerationModelRoutingUpdate
 from app.modules.admin.model_routing.service import (
     GenerationModelRoutingService,
+    RoutingModelNotAllowedError,
     RoutingPrimaryNotConfiguredError,
     RoutingRevisionConflictError,
 )
@@ -51,6 +52,36 @@ def test_route_validation_requires_deepseek_first_and_unique_approved_ids():
         validate_generation_model_order(["deepseek", "deepseek"])
     with pytest.raises(ValueError, match="unknown"):
         validate_generation_model_order(["deepseek", "arbitrary_remote_model"])
+
+
+@pytest.mark.asyncio
+async def test_production_hides_and_rejects_local_generation_models(monkeypatch):
+    from app.core.config import Settings
+
+    row = _routing_row()
+    row.ordered_model_ids.insert(2, "chatgpt_reserve")
+    db = _FakeSession()
+
+    async def get_routing(session, *, for_update=False):
+        assert not for_update, "disabled models must be rejected before a write"
+        return row
+
+    monkeypatch.setattr(service_module.repo, "get_routing", get_routing)
+    monkeypatch.setattr(service_module, "get_settings", lambda: Settings(
+        DEPLOYMENT_ENVIRONMENT="kz-production",
+        DEEPSEEK_API_KEY="configured",
+    ))
+
+    service = GenerationModelRoutingService(db)
+    response = await service.get()
+    assert [(item.id, item.position) for item in response.models] == [("deepseek", 1), ("chatgpt_reserve", 2)]
+    for model in ("glm53_flash", "qwen38_flash_next"):
+        with pytest.raises(RoutingModelNotAllowedError):
+            await service.update(
+                GenerationModelRoutingUpdate(revision=1, ordered_model_ids=["deepseek", model]),
+                user_id=uuid.uuid4(),
+            )
+    assert db.commits == 0
 
 
 @pytest.mark.asyncio

@@ -307,6 +307,12 @@ class Settings(BaseSettings):
                     raise ValueError("SCORM_CONTENT_ORIGIN must be a separate origin from PUBLIC_URL")
         return self
 
+    @model_validator(mode="after")
+    def remove_development_generation_endpoint_from_production(self) -> "Settings":
+        if self.DEPLOYMENT_ENVIRONMENT == "kz-production":
+            self.GLM53_FLASH_URL = ""
+        return self
+
     # Celery
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"

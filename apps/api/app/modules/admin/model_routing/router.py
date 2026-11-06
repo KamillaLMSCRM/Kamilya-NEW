@@ -19,6 +19,7 @@ from app.modules.admin.model_routing.schemas import (
 from app.modules.admin.model_routing.service import (
     GenerationModelRoutingService,
     RoutingConfigurationMissingError,
+    RoutingModelNotAllowedError,
     RoutingPrimaryNotConfiguredError,
     RoutingReserveNotReadyError,
     RoutingRevisionConflictError,
@@ -64,6 +65,8 @@ async def update_generation_model_routing(
         return await svc.update(payload, user_id=cast(uuid.UUID, user.id))
     except RoutingRevisionConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except RoutingModelNotAllowedError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except RoutingReserveNotReadyError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except RoutingPrimaryNotConfiguredError as exc:

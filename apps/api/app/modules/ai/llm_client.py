@@ -52,6 +52,7 @@ from app.modules.admin.model_routing.catalog import (
     DEFAULT_GENERATION_MODEL_ORDER,
     GLM53_ROUTE_ID,
     QWEN38_ROUTE_ID,
+    allowed_generation_model_ids,
 )
 from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
 from app.modules.admin.model_routing.runtime import resolve_runtime_generation_model_order
@@ -339,8 +340,12 @@ def _generation_fallback_providers(
         QWEN38_ROUTE_ID: _qwen38_flash_llm_provider,
         GLM53_ROUTE_ID: _glm53_flash_llm_provider,
     }
+    settings = get_settings()
+    allowed = allowed_generation_model_ids(getattr(settings, "DEPLOYMENT_ENVIRONMENT", "local"))
     providers: list[LLMProviderConfig] = []
     for route_id in route_ids:
+        if route_id not in allowed:
+            continue
         if route_id in factories:
             providers.append(factories[route_id]())
         elif route_id == CHATGPT_RESERVE_ROUTE_ID:
@@ -1058,22 +1063,20 @@ class ResilientLLMClient:
         max_tokens: int = 8192,
         max_retries_per_provider: int = 2,
     ) -> ResilientLLMClient:
-        """Build the production chain from env-only settings.
+        """Build the legacy environment-only chain.
 
-        DeepSeek is primary when configured. The environment-only fallback
-        route is Qwen 3.8 Flash Next followed by GLM 5.3 Flash. The legacy
-        public Qwen is not part of the user-facing generation chain.
-
-        Does NOT consult the provider_keys table — used by tests and
-        legacy callers that don't pass a DB session. Production code
-        should use `from_settings_async()` to also pick up keys stored
-        in the superadmin-managed provider_keys table.
+        In KZ production this can only use DeepSeek: Luna activation and
+        encrypted keys must be read with `from_settings_async()`.
         """
         providers: list[LLMProviderConfig] = []
         deepseek = _deepseek_llm_provider()
         if deepseek is not None:
             providers.append(deepseek)
-        providers.extend(_generation_fallback_providers(DEFAULT_GENERATION_MODEL_ORDER))
+        settings = get_settings()
+        if getattr(settings, "DEPLOYMENT_ENVIRONMENT", "local") != "kz-production":
+            providers.extend(_generation_fallback_providers(DEFAULT_GENERATION_MODEL_ORDER))
+        if not providers:
+            raise AllProvidersFailedError("No configured generation provider is available")
         return cls(
             providers,
             temperature=temperature,
@@ -1119,11 +1122,14 @@ class ResilientLLMClient:
                 )
 
         s = get_settings()
+        allowed = allowed_generation_model_ids(getattr(s, "DEPLOYMENT_ENVIRONMENT", "local"))
         route_ids = await resolve_runtime_generation_model_order()
         policy = await resolve_runtime_settings()
         providers: list[LLMProviderConfig] = []
 
         for route_id in route_ids:
+            if route_id not in allowed:
+                continue
             if route_id == DEEPSEEK_ROUTE_ID:
                 deepseek_key = await _resolve_db_key("deepseek", s.DEEPSEEK_API_KEY)
                 if not deepseek_key:
@@ -1144,6 +1150,9 @@ class ResilientLLMClient:
                 providers.append(cfg)
             else:
                 providers.extend(_generation_fallback_providers((route_id,)))
+
+        if not providers:
+            raise AllProvidersFailedError("No configured generation provider is available")
 
         # Only managed global providers: BYOK returned above, and endpoint,
         # credentials, activation order, options and retry policy are untouched.

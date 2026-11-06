@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.77] - 2026-11-06
+
+### Fixed
+
+- Use the saved DeepSeek and Luna routing when checking course source documents in production.
+- Remove local generation providers from production routing and from its model selection.
+
 ## [0.11.76] - 2026-11-06
 
 ### Changed

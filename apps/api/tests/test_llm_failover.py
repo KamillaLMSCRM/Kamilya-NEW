@@ -337,6 +337,40 @@ async def test_async_settings_chain_prefers_db_deepseek_key(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_production_generation_excludes_local_models_from_all_managed_factories(monkeypatch):
+    from app.core.config import Settings
+
+    settings = Settings(DEPLOYMENT_ENVIRONMENT="kz-production", GLM53_FLASH_URL="http://glm.test/v1")
+    assert settings.GLM53_FLASH_URL == ""
+    monkeypatch.setattr(llm_client, "get_settings", lambda: settings)
+
+    deepseek = LLMProviderConfig(name="deepseek", base_url="https://deepseek.test", api_key="unused", model="flash")
+    luna = LLMProviderConfig(name="chatgpt-reserve", base_url="http://luna.test", api_key="unused", model="luna")
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: deepseek)
+
+    def only_luna(route_ids):
+        assert route_ids == ("chatgpt_reserve",)
+        return [luna]
+
+    async def resolve_order():
+        return ("deepseek", "glm53_flash", "chatgpt_reserve", "qwen38_flash_next")
+
+    async def resolve_key(provider, env_key):
+        return "db-deepseek-key"
+
+    monkeypatch.setattr(llm_client, "_generation_fallback_providers", only_luna)
+    monkeypatch.setattr(llm_client, "resolve_runtime_generation_model_order", resolve_order)
+    monkeypatch.setattr(llm_client, "_resolve_db_key", resolve_key)
+
+    assert ResilientLLMClient.from_settings().provider_names == ["deepseek"]
+    assert (await ResilientLLMClient.from_settings_async()).provider_names == ["deepseek", "chatgpt-reserve"]
+
+    monkeypatch.setattr(llm_client, "_deepseek_llm_provider", lambda: None)
+    with pytest.raises(llm_client.AllProvidersFailedError):
+        ResilientLLMClient.from_settings()
+
+
+@pytest.mark.asyncio
 async def test_async_settings_chain_without_deepseek_starts_with_qwen38(monkeypatch):
     qwen = LLMProviderConfig(
         name="custom:qwen38-flash-next",

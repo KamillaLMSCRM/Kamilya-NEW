@@ -16,6 +16,7 @@ from app.modules.admin.model_routing.catalog import (
     GENERATION_MODEL_CATALOG,
     GLM53_ROUTE_ID,
     QWEN38_ROUTE_ID,
+    allowed_generation_model_ids,
     validate_generation_model_order,
 )
 from app.modules.admin.model_routing.chatgpt_reserve import check_readiness, configuration_blocker
@@ -47,6 +48,10 @@ class RoutingReserveNotReadyError(Exception):
     """The optional reserve cannot be explicitly enabled yet."""
 
 
+class RoutingModelNotAllowedError(Exception):
+    """This environment does not allow one of the requested models."""
+
+
 class GenerationModelRoutingService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -64,6 +69,9 @@ class GenerationModelRoutingService:
         user_id: uuid.UUID,
     ) -> GenerationModelRoutingResponse:
         order = validate_generation_model_order(payload.ordered_model_ids)
+        allowed = allowed_generation_model_ids(getattr(get_settings(), "DEPLOYMENT_ENVIRONMENT", "local"))
+        if not set(order) <= allowed:
+            raise RoutingModelNotAllowedError("generation_model_not_allowed_in_environment")
         row = await repo.get_routing(self.db, for_update=True)
         if row is None:
             raise RoutingConfigurationMissingError("generation_model_routing_missing")
@@ -105,7 +113,8 @@ class GenerationModelRoutingService:
         settings = get_settings()
         policy = await resolve_runtime_settings(self.db)
         order = validate_generation_model_order(row.ordered_model_ids)
-        positions = {route_id: index + 1 for index, route_id in enumerate(order)}
+        allowed = allowed_generation_model_ids(getattr(settings, "DEPLOYMENT_ENVIRONMENT", "local"))
+        positions = {route_id: index + 1 for index, route_id in enumerate(value for value in order if value in allowed)}
         reserve_blocker = configuration_blocker(settings)
         configured = {
             CHATGPT_RESERVE_ROUTE_ID: reserve_blocker is None,
@@ -132,6 +141,7 @@ class GenerationModelRoutingService:
                 activation_blocker=(reserve_blocker if entry.id == CHATGPT_RESERVE_ROUTE_ID else None),
             )
             for entry in GENERATION_MODEL_CATALOG.values()
+            if entry.id in allowed
         ]
         models.sort(key=lambda item: item.position or 999)
         return GenerationModelRoutingResponse(

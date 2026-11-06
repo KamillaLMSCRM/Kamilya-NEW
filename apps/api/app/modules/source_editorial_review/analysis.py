@@ -10,12 +10,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import async_session_factory
 from app.modules.ai.direct_source import DirectSourceError, load_direct_source_corpus
+from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
 from app.modules.source_editorial_review.service import add_event, history, owned_document, read_state, review_enabled
@@ -232,7 +233,6 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             if source.review_only_source_unresolved:
                 raise ReviewConflictError("source_review_extraction_incomplete")
             from app.modules.ai.direct_luna_responses_factory import create_managed_qa_client
-            from app.modules.ai.llm_client import create_llm
             from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
             settings = get_settings()
@@ -240,7 +240,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             if tenant_id == QA_TENANT and settings.AI_MANAGED_LUNA_QA_DEV_ENABLED:
                 managed = await create_managed_qa_client(settings=settings, tenant_id=tenant_id,
                     user_id=claim.actor_id, job_id=str(claim.id), profile="luna6")
-            llm = create_llm(temperature=0.1, max_tokens=16_384) if managed is None else None
+            llm = await ResilientLLMClient.from_settings_async(
+                temperature=0.1, max_tokens=16_384,
+            ) if managed is None else None
             usage: list[dict[str, Any]] = []
 
             async def complete(messages: list[dict[str, str]]) -> object:
@@ -253,7 +255,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     return reply.content
                 if llm is None or not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
-                standard = await llm.ainvoke(messages, response_format={"type": "json_object"})
+                standard = await llm.ainvoke(
+                    messages, response_format={"type": "json_object"}, request_profile="course_generation",
+                )
                 return json.loads(standard.content)
 
             try:
@@ -267,9 +271,18 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             payload["fidelity"] = asdict(source.conversion_fidelity)
             kind = "analyzed"
     except Exception as error:
-        code = error.code if isinstance(error, DirectSourceError) else (
-            str(error) if isinstance(error, ReviewConflictError) else "source_review_analysis_failed"
-        )
+        if isinstance(error, DirectSourceError):
+            code = error.code
+        elif isinstance(error, ReviewConflictError):
+            code = str(error)
+        elif isinstance(error, AllProvidersFailedError):
+            code = "source_review_provider_unavailable"
+        elif isinstance(error, TimeoutError):
+            code = "source_review_timeout"
+        elif isinstance(error, json.JSONDecodeError | ValidationError):
+            code = "source_review_invalid_response"
+        else:
+            code = "source_review_analysis_failed"
         logger.warning("Source review analysis failed (%s)", type(error).__name__)
         payload, kind = {"code": code}, "failed"
     async with async_session_factory() as db:
