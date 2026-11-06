@@ -1031,12 +1031,11 @@ export function StaffWorkspace({
                   <p className="mt-1 text-xs text-muted-foreground">В выбранном составе: {localCount}. Во всей компании при текущем фильтре доступа: {position.employee_count}.</p>
                   {sharedAcrossUnits && <p className="mt-1 text-xs font-medium text-amber-700">Общая должность используется в нескольких подразделениях. Изменение её учебных правил может затронуть не только выбранное место.</p>}
                 </div>
-              )) : <p className="py-4 text-sm text-muted-foreground">Для этого места должности не указаны.</p>}
+              )) : <p className="py-4 text-sm text-muted-foreground">Нет должностей.</p>}
             </div>
           )}
           {detailView === 'training' && (
             <div className="space-y-3 text-sm">
-              <p>Правила обучения показывают обязательные курсы для компании, подразделения и должности. Откройте правила, чтобы изменить требования, или назначения, чтобы проверить обучение сотрудников.</p>
               <div className="flex flex-wrap gap-2">
                 <Link href="/training-rules" className="inline-flex min-h-10 items-center rounded-md border border-input px-3 font-medium hover:bg-accent">
                   <BookOpenCheck className="mr-2 h-4 w-4" aria-hidden="true" />Правила обучения
@@ -1057,7 +1056,7 @@ export function StaffWorkspace({
             <Button type="button" variant="ghost" size="sm" onClick={() => onArchiveUnit(selectedUnit.id, selectedUnit.name)}>Архивировать подразделение</Button>
           )}
         </div>
-        {selectedUnit?.hr_managed && <p className="mt-4 text-xs text-muted-foreground">Подразделение управляется кадровой системой. Ручное перемещение недоступно, чтобы не перезаписать кадровые данные.</p>}
+        {selectedUnit?.hr_managed && <p className="mt-4 text-xs text-muted-foreground">Ручное перемещение недоступно: данные поступают из кадровой системы.</p>}
       </CardContent>
     </Card>
   ) : null;
@@ -1168,7 +1167,7 @@ export function StaffWorkspace({
       <div id="staff-workspace-panel" role="tabpanel" className={location.view === 'schema' && isMethodologist ? 'methodologist-split' : `grid min-w-0 items-start gap-5 ${detailPanel ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]' : ''}`}>
         {location.view === 'schema' && isMethodologist && <MethodologistUnitTree units={overview.units} selected={location.unit} total={overview.total} unplaced={overview.unplaced_count} onSelect={selectUnit} add={undefined} />}
         {location.view === 'schema' ? (
-          <WorkspacePanel title="Схема подразделений" description="Линия вложенности показывает место в структуре, а не личную подчинённость." actions={selectedUnit?.parent_id !== undefined && selectedUnit ? (
+          <WorkspacePanel title="Схема подразделений" actions={selectedUnit?.parent_id !== undefined && selectedUnit ? (
                 <Button type="button" variant="ghost" size="sm" onClick={() => selectUnit(selectedUnit.parent_id || 'all')}>↑ К родителю</Button>
               ) : undefined}>
               <div className="mx-auto max-w-lg rounded-xl border-2 border-primary bg-primary/5 p-5 text-center">
@@ -1306,7 +1305,7 @@ export function StaffWorkspace({
           <div className="space-y-4">
             <div className="rounded-lg bg-muted/50 p-3 text-sm">
               <strong>{changeDraft.kind === 'unit' ? (changeDraft.target as StaffWorkspaceUnit).name : (changeDraft.target as StaffWorkspaceEmployee).full_name}</strong>
-              <p className="mt-1 text-xs text-muted-foreground">Проверьте последствия изменения, затем подтвердите его отдельным действием. До подтверждения данные не изменятся.</p>
+              <p className="mt-1 text-xs text-muted-foreground">Проверьте изменения перед подтверждением.</p>
             </div>
             {!receipt && (
               <>

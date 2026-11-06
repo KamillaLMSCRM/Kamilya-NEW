@@ -22,9 +22,9 @@ type TaskGroup = {
 };
 
 const messages = {
-  ru: { queue: 'Рабочие задачи', details: 'Детали задачи', choose: 'Выберите задачу, чтобы увидеть детали и следующее действие.', empty: 'Нет доступных задач для просмотра.', next: 'Следующее действие', back: 'К выбранной задаче' },
-  kk: { queue: 'Жұмыс тапсырмалары', details: 'Тапсырма мәліметтері', choose: 'Мәліметтер мен келесі әрекетті көру үшін тапсырманы таңдаңыз.', empty: 'Көруге қолжетімді тапсырмалар жоқ.', next: 'Келесі әрекет', back: 'Таңдалған тапсырмаға' },
-  en: { queue: 'Work queue', details: 'Task details', choose: 'Select a task to see its details and next action.', empty: 'No tasks are available to view.', next: 'Next action', back: 'Back to selected task' },
+  ru: { queue: 'Рабочие задачи', details: 'Детали задачи', choose: 'Выберите задачу из списка.', empty: 'Нет доступных задач для просмотра.', next: 'Следующее действие', back: 'К выбранной задаче' },
+  kk: { queue: 'Жұмыс тапсырмалары', details: 'Тапсырма мәліметтері', choose: 'Тізімнен тапсырманы таңдаңыз.', empty: 'Көруге қолжетімді тапсырмалар жоқ.', next: 'Келесі әрекет', back: 'Таңдалған тапсырмаға' },
+  en: { queue: 'Work queue', details: 'Task details', choose: 'Select a task from the list.', empty: 'No tasks are available to view.', next: 'Next action', back: 'Back to selected task' },
 } as const;
 
 export function DashboardTaskQueue({ groups, lang }: { groups: TaskGroup[]; lang: string }) {

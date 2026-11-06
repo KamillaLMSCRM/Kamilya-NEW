@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.76] - 2026-11-06
+
+### Changed
+
+- Simplify headings and labels across the five methodologist sections.
+- Give employee import its own screen and return to the roster or the selected unit.
+
 ## [0.11.75] - 2026-11-06
 
 ### Changed

@@ -12,7 +12,7 @@ vi.mock('@/i18n/useT', () => {
     'staffPage.manualNewPosition': 'Создать новую должность',
     'staffPage.manualDepartmentName': 'Название нового отдела',
     'staffPage.manualPositionName': 'Название новой должности',
-    'authenticatedUi.adminStaff.import.title': 'Адаптивная загрузка штатки',
+    'authenticatedUi.adminStaff.import.title': 'Импорт из Excel или CSV',
     'authenticatedUi.adminStaff.import.chooseFileAria': 'Выбрать файл штатного расписания для анализа',
     'authenticatedUi.adminStaff.import.startAnalysis': 'Запустить анализ файла',
     'authenticatedUi.adminStaff.import.mappingNeeded': 'Нужно сопоставить колонки',
@@ -229,7 +229,7 @@ describe('adaptive staff import interactions', () => {
   it('does not expose the retired legacy import fallback', async () => {
     renderImportPage();
 
-    expect(await screen.findByText(/Адаптивная загрузка штатки/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Импорт из Excel или CSV/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /старый импорт/i })).not.toBeInTheDocument();
   });
 

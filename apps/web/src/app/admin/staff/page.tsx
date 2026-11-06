@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, UserPlus, Users, X } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Modal } from "@/components/ui";
+import { ArrowLeft, BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, Button, Modal } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
 import { useT, type TranslationKey } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
@@ -549,8 +549,10 @@ export default function AdminStaffPage() {
     ? positionOptions
     : positionOptions;
 
+  const isImportPage = STAFF_WORKSPACE_ENABLED && isStaffOwnersRole && tab === "import";
+
   return (
-    <WorkspacePage id="staff" title={t("staffPage.title")} description={t("staffPage.subtitle")} icon={<Users />} className="mx-auto max-w-7xl" actions={isStaffOwnersRole ? (
+    <WorkspacePage id="staff" title={t(isImportPage ? "staffPage.importTitle" : "staffPage.title")} icon={isImportPage ? <Upload /> : <Users />} className="mx-auto max-w-7xl" actions={isStaffOwnersRole ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Link
           href="/invitations"
@@ -559,7 +561,12 @@ export default function AdminStaffPage() {
           <UserPlus className="h-4 w-4" aria-hidden="true" />
           {t("invitations.navLabel")}
         </Link>
-        {STAFF_WORKSPACE_ENABLED && <Button type="button" variant="outline" onClick={() => selectTab(tab === "import" ? "structure" : "import")}><Upload className="mr-2 h-4 w-4" aria-hidden="true" />{t(tab === "import" ? "staffPage.tabs.structure" : "staffPage.tabs.import")}</Button>}
+        {STAFF_WORKSPACE_ENABLED && (
+          <Button type="button" variant="outline" onClick={() => selectTab(isImportPage ? "structure" : "import")}>
+            {isImportPage ? <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> : <Upload className="mr-2 h-4 w-4" aria-hidden="true" />}
+            {t(isImportPage ? "staffPage.backToEmployees" : "staffPage.tabs.import")}
+          </Button>
+        )}
         <Button type="button" onClick={() => { resetManualForm(); setManualOpen(true); }}>{ui("authenticatedUi.adminStaff.manual.addEmployee")}</Button>
       </div>
     ) : undefined}>
@@ -737,7 +744,7 @@ export default function AdminStaffPage() {
           )}
 
           {/* ADR-0011 + ADR-0012: import and structure are one URL-backed workspace. */}
-          {(!STAFF_WORKSPACE_ENABLED || tab === "import") && <WorkspaceToolbar className="items-center justify-between">
+          {!STAFF_WORKSPACE_ENABLED && <WorkspaceToolbar className="items-center justify-between">
           <div role="tablist" className="flex min-w-0 flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
             <button
               role="tab"
@@ -764,7 +771,7 @@ export default function AdminStaffPage() {
               <Network className="h-4 w-4" aria-hidden="true" />{t("staffPage.tabs.structure")}
             </button>
           </div>
-          {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && <p className="max-w-lg text-xs leading-5 text-muted-foreground">{ui("authenticatedUi.adminStaff.manual.intro")}</p>}
+          <p className="max-w-lg text-xs leading-5 text-muted-foreground">{ui("authenticatedUi.adminStaff.manual.intro")}</p>
           </WorkspaceToolbar>}
 
           {applyTaskId && <ApplyRulesProgress taskId={applyTaskId} />}
@@ -962,7 +969,7 @@ function AdaptiveImportFlow({
   };
 
   return (
-    <WorkspacePanel data-testid="adaptive-import-flow" title={ui("authenticatedUi.adminStaff.import.title")} description={ui("authenticatedUi.adminStaff.import.description")} actions={<Badge variant="secondary">{ui("authenticatedUi.adminStaff.import.safeFlowBadge")}</Badge>} bodyClassName="space-y-6">
+    <WorkspacePanel data-testid="adaptive-import-flow" title={ui("authenticatedUi.adminStaff.import.title")} bodyClassName="space-y-6">
         <ol className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-5" aria-label={ui("authenticatedUi.adminStaff.import.stepsAria")}>
           {steps.map((label, index) => (
             <li key={label} className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-3 ${step >= index + 1 ? "border-primary/30 bg-primary/5 text-primary" : "border-border text-muted-foreground"}`}>
@@ -987,7 +994,8 @@ function AdaptiveImportFlow({
               <Button type="button" variant="outline" onClick={() => inputRef.current?.click()}>
                 {ui("authenticatedUi.adminStaff.import.chooseFile")}
               </Button>
-               <span className="break-all text-sm text-muted-foreground">{file?.name || ui("authenticatedUi.adminStaff.import.noFileSelected")}</span>
+              <span className="break-all text-sm text-muted-foreground">{file?.name || ui("authenticatedUi.adminStaff.import.noFileSelected")}</span>
+              <p className="text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.import.description")}</p>
             </div>
             <div className="grid gap-3">
               <label className="space-y-1 text-sm">

@@ -380,7 +380,7 @@ describe('production course catalogue presentation', () => {
     mockLists([]);
     render(<CoursesPage />);
     expect(await screen.findByText(courseCatalogCopy[locale].emptyHint)).toBeInTheDocument();
-    expect(screen.getByText(courseCatalogCopy[locale].subtitle)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: courseCatalogCopy[locale].ownCourses })).toBeInTheDocument();
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'none' } });
     expect(await screen.findByRole('heading', { name: courseCatalogCopy[locale].filteredEmpty })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: courseCatalogCopy[locale].resetFilters })).toBeInTheDocument();

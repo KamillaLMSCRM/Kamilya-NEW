@@ -19,32 +19,28 @@ import { loadMethodologistDashboard } from './api';
 import type { MethodologistDashboardModel } from './model';
 import { DashboardTaskQueue, type DashboardTask } from './DashboardTaskQueue';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
-import { WorkspacePage, WorkspaceToolbar } from '@/features/workspace-design';
+import { WorkspacePage } from '@/features/workspace-design';
 import { buildTrainingLogBrowserHref, type TrainingLogFilters } from '@/app/admin/training-log/query';
 
 const copy = {
   ru: {
     title: 'Задачи',
-    subtitle: 'Приоритеты, ход обучения и контент, который требует действий.',
     newCourse: 'Создать курс',
-    loading: 'Собираем актуальную картину обучения…',
-    unavailable: 'Сводка обучения временно недоступна. Данные не заменены нулями — повторите позже.',
+    loading: 'Загрузка задач…',
+    unavailable: 'Сводка обучения временно недоступна.',
     attention: 'Требует внимания',
-    attentionHint: 'Сначала разберите просрочки, неудачные попытки и остановившееся обучение.',
     trainingIssues: 'Проблемных назначений',
     weakQuestions: 'Слабых вопросов',
-    weakQuestionsHint: 'Здесь показаны вопросы, вызывающие трудности у обучающихся. Для разбора откройте центр действий и выберите курс.',
     openActions: 'Действий открыто',
     overdueActions: 'Из них просрочено',
     missingAssignments: 'Без назначения',
     staleAssignments: 'Требует сверки',
     noIssues: 'Сейчас нет выявленных проблем по обучению.',
-    priorityPeople: 'Кому уделить внимание',
+    priorityPeople: 'Проблемные назначения',
     allActions: 'Открыть центр действий',
     progress: 'прогресс {value}%',
-    moreItems: 'Показаны первые ситуации. Полный список доступен в центре действий.',
+    moreItems: 'Показана часть назначений.',
     health: 'Состояние обучения',
-    healthHint: 'Текущие назначения без отменённой и заменённой истории.',
     completion: 'Завершено',
     notStarted: 'Не начали',
     inProgress: 'В процессе',
@@ -52,7 +48,6 @@ const copy = {
     failed: 'Тест не пройден',
     exhausted: 'Попытки исчерпаны',
     content: 'Контент в работе',
-    contentHint: 'Курсы и незавершённые генерации — вторичный рабочий контур.',
     allCourses: 'Все курсы',
     published: 'Опубликовано',
     drafts: 'Черновики',
@@ -60,7 +55,7 @@ const copy = {
     generationAttention: 'Генераций с проблемой',
     contentUnavailable: 'Часть данных о контенте недоступна.',
     coursesTruncated: 'Загружены первые 100 курсов. Общие итоги по курсам неизвестны и показаны как «—».',
-    jobsScope: 'Счётчики генераций относятся к загруженным заданиям. В списке показано не более пяти.',
+    jobsScope: 'Показано до пяти заданий.',
     noJobs: 'Активных или проблемных генераций нет.',
     jobsUnavailable: 'Данные о генерациях недоступны. Список не заменён нулём.',
     running: 'В работе',
@@ -82,26 +77,22 @@ const copy = {
   },
   en: {
     title: 'Tasks',
-    subtitle: 'Priorities, training progress, and content that needs action.',
     newCourse: 'Create course',
-    loading: 'Building the current learning picture…',
-    unavailable: 'The learning summary is temporarily unavailable. Missing data is not shown as zero.',
+    loading: 'Loading tasks…',
+    unavailable: 'The learning summary is temporarily unavailable.',
     attention: 'Needs attention',
-    attentionHint: 'Start with overdue, failed, and stalled learning.',
     trainingIssues: 'Problem assignments',
     weakQuestions: 'Weak questions',
-    weakQuestionsHint: 'These questions cause difficulties for learners. Open the action center and select a course to investigate.',
     openActions: 'Open actions',
     overdueActions: 'Overdue actions',
     missingAssignments: 'Missing assignments',
     staleAssignments: 'Needs review',
     noIssues: 'No learning issues are currently detected.',
-    priorityPeople: 'People to focus on',
+    priorityPeople: 'Assignments needing attention',
     allActions: 'Open action center',
     progress: '{value}% progress',
     moreItems: 'The first situations are shown. The full list is available in the action center.',
     health: 'Training health',
-    healthHint: 'Current assignments, excluding cancelled and superseded history.',
     completion: 'Completed',
     notStarted: 'Not started',
     inProgress: 'In progress',
@@ -109,7 +100,6 @@ const copy = {
     failed: 'Quiz failed',
     exhausted: 'Attempts exhausted',
     content: 'Content in progress',
-    contentHint: 'Courses and unfinished generations are a secondary workstream.',
     allCourses: 'All courses',
     published: 'Published',
     drafts: 'Drafts',
@@ -117,7 +107,7 @@ const copy = {
     generationAttention: 'Generations with issues',
     contentUnavailable: 'Some content data is unavailable.',
     coursesTruncated: 'The first 100 courses are loaded. Course totals are unknown and shown as “—”.',
-    jobsScope: 'Generation counts cover loaded jobs. The list shows at most five.',
+    jobsScope: 'Up to five jobs are shown.',
     noJobs: 'There are no active or problematic generations.',
     jobsUnavailable: 'Generation data is unavailable. The list is not shown as zero.',
     running: 'In progress',
@@ -139,26 +129,22 @@ const copy = {
   },
   kk: {
     title: 'Тапсырмалар',
-    subtitle: 'Басымдықтар, оқу барысы және әрекетті қажет ететін контент.',
     newCourse: 'Курс жасау',
-    loading: 'Оқудың өзекті көрінісін жинап жатырмыз…',
-    unavailable: 'Оқу қорытындысы уақытша қолжетімсіз. Жоқ дерек нөлмен ауыстырылмайды.',
+    loading: 'Тапсырмалар жүктелуде…',
+    unavailable: 'Оқу қорытындысы уақытша қолжетімсіз.',
     attention: 'Назар аудару қажет',
-    attentionHint: 'Алдымен мерзімі өткен, сәтсіз және тоқтап қалған оқуды қараңыз.',
     trainingIssues: 'Мәселелі тағайындау',
     weakQuestions: 'Әлсіз сұрақ',
-    weakQuestionsHint: 'Мұнда оқушыларға қиындық туғызатын сұрақтар көрсетіледі. Талдау үшін әрекеттер орталығын ашып, курсты таңдаңыз.',
     openActions: 'Ашық әрекет',
     overdueActions: 'Мерзімі өткен әрекет',
     missingAssignments: 'Тағайындау жоқ',
     staleAssignments: 'Тексеру қажет',
     noIssues: 'Қазір оқу бойынша анықталған мәселе жоқ.',
-    priorityPeople: 'Кімге назар аудару керек',
+    priorityPeople: 'Назар аударуды қажет ететін тағайындаулар',
     allActions: 'Әрекет орталығын ашу',
     progress: 'прогресс {value}%',
     moreItems: 'Алғашқы жағдайлар көрсетілді. Толық тізім әрекет орталығында.',
     health: 'Оқу жағдайы',
-    healthHint: 'Жойылған және ауыстырылған тарихсыз ағымдағы тағайындаулар.',
     completion: 'Аяқталды',
     notStarted: 'Бастамады',
     inProgress: 'Орындалуда',
@@ -166,7 +152,6 @@ const copy = {
     failed: 'Тест өтпеді',
     exhausted: 'Талпыныс таусылды',
     content: 'Жұмыстағы контент',
-    contentHint: 'Курстар мен аяқталмаған генерациялар — екінші жұмыс контуры.',
     allCourses: 'Барлық курс',
     published: 'Жарияланды',
     drafts: 'Жобалар',
@@ -174,7 +159,7 @@ const copy = {
     generationAttention: 'Мәселелі генерация',
     contentUnavailable: 'Контент деректерінің бір бөлігі қолжетімсіз.',
     coursesTruncated: 'Алғашқы 100 курс жүктелді. Курстардың жалпы саны белгісіз және «—» түрінде көрсетілген.',
-    jobsScope: 'Генерация сандары жүктелген тапсырмаларға қатысты. Тізімде ең көбі бес тапсырма көрсетіледі.',
+    jobsScope: 'Ең көбі бес тапсырма көрсетіледі.',
     noJobs: 'Белсенді немесе мәселелі генерация жоқ.',
     jobsUnavailable: 'Генерация деректері қолжетімсіз. Тізім нөлмен ауыстырылмаған.',
     running: 'Орындалуда',
@@ -316,19 +301,15 @@ function DashboardContent() {
   };
 
   return (
-    <WorkspacePage id="dashboard" data-testid="methodologist-dashboard" title={m.title} description={m.subtitle} icon={<ListChecks />} actions={
+    <WorkspacePage id="dashboard" data-testid="methodologist-dashboard" title={m.title} icon={<ListChecks />} actions={
       <Link href="/ai/generate" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"><FilePlus2 className="h-4 w-4" />{m.newCourse}</Link>
     }>
 
-      <WorkspaceToolbar className="items-center justify-between" aria-label={w.queueTitle}>
-        <div className="min-w-0 flex-1 basis-72"><h2 className="text-base font-semibold tracking-tight text-foreground">{w.queueTitle}</h2>
-        <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{w.queueHint}</p></div>
-        <nav className="flex flex-wrap gap-2" aria-label={w.allWork}>
-          {([['all', w.allWork], ['training', w.trainingWork], ['content', taskCopy.jobs], ['review', review]] as const).map(([value, label]) => (
-            <button key={value} type="button" aria-pressed={workView === value} onClick={() => setWorkView(value)} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${workView === value ? 'border-primary/30 bg-card text-primary' : 'border-transparent text-muted-foreground hover:bg-card/70'}`}>{label}</button>
-          ))}
-        </nav>
-      </WorkspaceToolbar>
+      <nav className="flex flex-wrap gap-2" aria-label={w.taskFilters}>
+        {([['all', w.allWork], ['training', w.trainingWork], ['content', taskCopy.jobs], ['review', review]] as const).map(([value, label]) => (
+          <button key={value} type="button" aria-pressed={workView === value} onClick={() => setWorkView(value)} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${workView === value ? 'border-primary/30 bg-card text-primary' : 'border-transparent text-muted-foreground hover:bg-card/70'}`}>{label}</button>
+        ))}
+      </nav>
 
       {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 motion-safe:animate-spin" />{m.loading}</div>}
       {model && !model.learningAvailable && <div role="status" className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" /><p className="min-w-0 flex-1 basis-64">{m.unavailable}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="min-h-10 rounded-lg border border-current/20 px-3 py-2 text-sm font-medium">{w.retry}</button></div>}
@@ -342,7 +323,7 @@ function DashboardContent() {
         ...((workView === 'all' || workView === 'content') ? [{
           id: 'generation', title: taskCopy.jobs, tasks: generationTasks,
           empty: model.content.jobsAvailable ? m.noJobs : m.jobsUnavailable,
-          notice: model.content.jobsAvailable ? m.jobsScope : undefined,
+          notice: generationTasks.length >= 5 ? m.jobsScope : undefined,
         }] : []),
         ...(workView === 'all' || workView === 'review' ? [{
           id: 'review', title: review, tasks: reviewTasks,
@@ -354,7 +335,7 @@ function DashboardContent() {
 
       {(workView === 'all' || workView === 'training') && model?.training && model.attention && <div className="flex min-w-0 flex-col gap-6">
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
-          <SectionHeading id="attention-title" title={m.attention} hint={m.attentionHint} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
+          <SectionHeading id="attention-title" title={m.attention} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
           <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             <Metric label={m.trainingIssues} value={model.attention.trainingIssues} testId="training-issues" href={actionFocusHref('training')} />
             <Metric label={m.weakQuestions} value={model.attention.weakQuestions} href={actionFocusHref('weak_questions')} />
@@ -367,12 +348,11 @@ function DashboardContent() {
               <Metric label={m.missingAssignments} value="—" testId="mandatory-missing-unavailable" />
               <Metric label={m.staleAssignments} value="—" testId="mandatory-stale-unavailable" />
             </>}
-            <p className="text-xs leading-5 text-muted-foreground sm:col-span-2 xl:col-span-3">{m.weakQuestionsHint}</p>
           </div>
         </section>
 
         <section className="grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5 sm:p-6 xl:grid-cols-[minmax(220px,1fr)_minmax(200px,0.7fr)_minmax(0,2fr)] xl:items-center" aria-labelledby="health-title">
-          <SectionHeading id="health-title" title={m.health} hint={m.healthHint} icon={<ListChecks className="h-5 w-5" />} tone="primary" />
+          <SectionHeading id="health-title" title={m.health} icon={<ListChecks className="h-5 w-5" />} tone="primary" />
           <div><Link href={trainingLogHref({ status: 'completed' })} className="flex items-end justify-between gap-3 rounded-xl transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`${m.completion}: ${model.training.completed}`}><div><div className="text-3xl font-semibold tracking-tight text-foreground">{model.training.completionPercent}%</div><div className="mt-1 text-xs text-muted-foreground">{m.completion}: {model.training.completed} / {model.training.total}</div></div><CheckCircle2 className="h-6 w-6 shrink-0 text-success" /></Link>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={m.completion} aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.training.completionPercent}><div className="h-full rounded-full bg-success" style={{ width: `${model.training.completionPercent}%` }} /></div></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:border-l xl:border-border xl:pl-4"><MetricCompact label={m.notStarted} value={model.training.notStarted} href={trainingLogHref({ status: 'assigned' })} /><MetricCompact label={m.inProgress} value={model.training.inProgress} href={trainingLogHref({ status: 'in_progress' })} /><MetricCompact label={m.overdue} value={model.training.overdue} testId="training-overdue" danger={model.training.overdue > 0} href={trainingLogHref({ status: 'overdue' })} /><MetricCompact label={m.failed} value={model.training.failed} danger={model.training.failed > 0} href={trainingLogHref({ assessment_status: 'failed' })} /><MetricCompact label={m.exhausted} value={model.training.exhausted} danger={model.training.exhausted > 0} href={trainingLogHref({ assessment_status: 'exhausted' })} /></div>
@@ -380,7 +360,7 @@ function DashboardContent() {
       </div>}
 
       {(workView === 'all' || workView === 'content') && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
-        <SectionHeading id="content-title" title={m.content} hint={m.contentHint} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
+        <SectionHeading id="content-title" title={m.content} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
         {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         {model.content.coursesTruncated && <p className="mt-2 text-xs leading-5 text-muted-foreground">{m.coursesTruncated}</p>}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} href="/courses" /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} href="/courses?status=published" /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} href="/courses?status=draft" /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></div>
@@ -390,9 +370,9 @@ function DashboardContent() {
   );
 }
 
-function SectionHeading({ id, title, hint, icon, tone }: { id: string; title: string; hint: string; icon: ReactNode; tone: 'amber' | 'primary' | 'blue' }) {
+function SectionHeading({ id, title, icon, tone }: { id: string; title: string; icon: ReactNode; tone: 'amber' | 'primary' | 'blue' }) {
   const colors = tone === 'amber' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : tone === 'blue' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-primary/10 text-primary';
-  return <div className="flex min-w-0 items-start gap-3"><div className={`shrink-0 rounded-xl p-2.5 ${colors}`}>{icon}</div><div className="min-w-0"><h2 id={id} className="text-lg font-bold text-foreground">{title}</h2><p className="mt-1 break-words text-sm text-muted-foreground">{hint}</p></div></div>;
+  return <div className="flex min-w-0 items-start gap-3"><div className={`shrink-0 rounded-xl p-2.5 ${colors}`}>{icon}</div><div className="min-w-0"><h2 id={id} className="text-lg font-bold text-foreground">{title}</h2></div></div>;
 }
 
 function Metric({ label, value, tone = 'default', testId, href }: { label: string; value: number | string; tone?: 'default' | 'danger'; testId?: string; href?: string }) {

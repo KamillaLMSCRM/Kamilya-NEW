@@ -522,11 +522,10 @@ export default function AdminTrainingLogPage() {
       )}
       <WorkspacePageHeader
         title={t('trainingLog.title')}
-        description={<>{t('trainingLog.subtitle')}<span className="mt-2 block max-w-3xl text-sm leading-6">{m.logHint}</span></>}
         icon={<FileDown />}
         actions={<>
           <Button type="button" variant="outline" onClick={resetFilters}>{t('trainingLog.filters.reset')}</Button>
-          <Button type="button" onClick={exportCsv} disabled={loading || total === 0}>{t('trainingLog.export.csv')}</Button>
+          <Button type="button" onClick={exportCsv} title={m.exportScope} disabled={loading || total === 0}>{t('trainingLog.export.csv')}</Button>
           {isMethodologist && selectedEvidenceIds.size > 0 && <>
             <Button type="button" variant="outline" disabled={exportingKey !== null} onClick={() => void exportEvidence(Array.from(selectedEvidenceIds), 'pdf', 'group-pdf')}>
               <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -543,8 +542,6 @@ export default function AdminTrainingLogPage() {
           </>}
         </>}
       />
-
-      <p className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs leading-6 text-foreground">{m.exportScope}</p>
 
       {filters.enrollment_id && (
         <div role="status" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
@@ -574,7 +571,7 @@ export default function AdminTrainingLogPage() {
         <SummaryCard label={t('trainingLog.filter.status.completed')} value={summary?.completed ?? null} selected={filters.status === 'completed'} onClick={() => updateFilters((current) => ({ ...current, status: 'completed' }))} />
         <SummaryCard label={t('trainingLog.filter.status.overdue')} value={summary?.overdue ?? null} selected={filters.status === 'overdue'} onClick={() => updateFilters((current) => ({ ...current, status: 'overdue' }))} />
       </div>
-      <p className="text-xs text-muted-foreground">{summary ? m.summaryScope : m.summaryUnavailable}</p>
+      {!summary && <p className="text-xs text-muted-foreground">{m.summaryUnavailable}</p>}
 
       {/* Filters */}
       <WorkspacePanel title={t('trainingLog.filters.title')}>

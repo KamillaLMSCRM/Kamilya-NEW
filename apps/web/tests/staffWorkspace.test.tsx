@@ -208,7 +208,7 @@ describe('StaffWorkspace', () => {
     render(<StaffWorkspace {...defaultProps} />);
     fireEvent.click(await screen.findByRole('button', { name: /Перевести/ }));
     const dialog = await screen.findByRole('dialog', { name: 'Безопасный перевод сотрудника' });
-    expect(within(dialog).getByText(/Проверьте последствия изменения, затем подтвердите его отдельным действием/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Проверьте изменения перед подтверждением/)).toBeInTheDocument();
     expect(within(dialog).queryByText(/идентификатор|снимок сервера/i)).not.toBeInTheDocument();
     fireEvent.change(within(dialog).getByLabelText('Новое подразделение'), { target: { value: '' } });
     fireEvent.change(within(dialog).getByLabelText('Причина изменения'), { target: { value: 'Смена команды' } });
@@ -407,14 +407,13 @@ describe('StaffWorkspace', () => {
     expect(screen.getByText(/Общая должность используется в нескольких подразделениях/)).toBeInTheDocument();
   });
 
-  it('explains where methodologists manage training requirements and assignments', async () => {
+  it('links to training requirements and assignments from unit details', async () => {
     window.history.replaceState({}, '', '/admin/staff?tab=structure&staff_view=schema&staff_unit=unit-1&staff_scope=direct&staff_access=active&staff_page=1');
 
     render(<StaffWorkspace {...defaultProps} />);
     const detailTabs = await screen.findByRole('tablist', { name: 'Содержимое подразделения' });
     fireEvent.click(within(detailTabs).getByRole('tab', { name: 'Обучение' }));
 
-    expect(screen.getByText(/Откройте правила, чтобы изменить требования, или назначения, чтобы проверить обучение сотрудников/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Правила обучения/ })).toHaveAttribute('href', '/training-rules');
     expect(screen.getByRole('link', { name: /Назначения/ })).toHaveAttribute('href', '/assignments');
   });

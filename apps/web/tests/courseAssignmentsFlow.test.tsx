@@ -426,7 +426,7 @@ describe('contextual course assignment flow', () => {
     render(<CourseAssignmentsPage />);
 
     expect(await screen.findByText('Повторное обучение')).toBeInTheDocument();
-    expect(screen.getByText(/Каждый запуск создаёт отдельный период/)).toBeInTheDocument();
+    expect(screen.getByText(/У каждого повторного назначения свой срок и результат/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Запустить' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Сохранить черновик' })).toBeDisabled();
     expect(screen.getByText(/уже проходил этот курс/)).toBeInTheDocument();

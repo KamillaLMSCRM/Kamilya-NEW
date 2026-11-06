@@ -89,6 +89,8 @@ async function installNarrowAFixtures(workspace: SyntheticWorkspace) {
   workspace.get('/v1/youtube/limits', { enabled: false });
   workspace.get('/v1/admin/source-actuality', { items: [] });
   workspace.get('/v1/admin/staff/import/mappings', []);
+  workspace.get('/v1/organization-units/workspace', { units: [], positions: [], total: 0, unplaced_count: 0 });
+  workspace.get('/v1/organization-units/employees', { items: [], total: 0, page: 1, page_size: 20 });
   workspace.get('/v1/organization-units/tree', { roots: [] });
   workspace.get('/v1/users', { users: [], total: 0 });
   workspace.get('/v1/candidate-assessments', [campaign]);
@@ -134,6 +136,35 @@ async function seriousAxeViolations(page: Page) {
 for (const width of [390, 768, 1270, 1440] as const) {
   test.describe(`Narrow A responsive matrix at ${width}px`, () => {
     test.use({ viewport: { width, height: 1000 } });
+
+    test('cabinet copy and import return use the current workspace', async ({ page, context }, info) => {
+      test.skip(process.env.NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED !== 'true', 'Requires the current staff workspace');
+      const workspace = await openWorkspace(context);
+      await installNarrowAFixtures(workspace);
+
+      await page.goto('/dashboard');
+      await expect(page.getByRole('heading', { level: 1, name: 'Задачи' })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'Фильтры задач' })).toBeVisible();
+      await expect(page.getByText('Сначала внимание. Затем остальная работа.')).toHaveCount(0);
+      await expect(page.getByText('Приоритеты, ход обучения и контент, который требует действий.')).toHaveCount(0);
+      await noPageOverflow(page);
+      await shot(page, info, 'tasks');
+
+      await page.goto('/staff');
+      await page.getByRole('tab', { name: 'Структура' }).click();
+      await expect(page.getByRole('button', { name: 'Добавить подразделение' })).toBeVisible();
+      await page.getByRole('button', { name: 'Импорт', exact: true }).click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Импорт сотрудников' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Импорт из Excel или CSV' })).toBeVisible();
+      await expect(page.getByRole('tab', { name: 'Структура' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Структура', exact: true })).toHaveCount(0);
+      await noPageOverflow(page);
+      await shot(page, info, 'import');
+      await page.getByRole('button', { name: 'К сотрудникам' }).click();
+      await expect(page.getByRole('tab', { name: 'Структура' })).toHaveAttribute('aria-selected', 'true');
+      expect(workspace.unexpectedMutations).toEqual([]);
+      expect(workspace.pageErrors).toEqual([]);
+    });
 
     test('changed surfaces keep hierarchy, focus and overflow', async ({ page, context }, info) => {
       const workspace = await openWorkspace(context);

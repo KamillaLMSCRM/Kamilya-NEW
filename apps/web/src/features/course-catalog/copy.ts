@@ -1,5 +1,4 @@
 const ru = {
-  subtitle: 'Создавайте, проверяйте и назначайте обучение в одном рабочем каталоге.',
   ownCourses: 'Ваши курсы',
   loadedList: 'В текущем списке',
   first100: 'Показаны первые 100 курсов. Уточните фильтры, чтобы найти остальные.',
@@ -13,13 +12,11 @@ const ru = {
   nativeCourse: 'Учебный курс',
   openCourse: 'Открыть курс',
   selectedFile: 'Выбран файл',
-  blueprintHint: 'Дополнительный способ начать новый курс — адаптировать отраслевую основу.',
 };
 
 type CatalogCopy = { [Key in keyof typeof ru]: string };
 
 const kk: CatalogCopy = {
-  subtitle: 'Оқуды бір жұмыс каталогында жасаңыз, тексеріңіз және тағайындаңыз.',
   ownCourses: 'Сіздің курстарыңыз',
   loadedList: 'Ағымдағы тізімде',
   first100: 'Алғашқы 100 курс көрсетілді. Қалғандарын табу үшін сүзгілерді нақтылаңыз.',
@@ -33,11 +30,9 @@ const kk: CatalogCopy = {
   nativeCourse: 'Оқу курсы',
   openCourse: 'Курсты ашу',
   selectedFile: 'Таңдалған файл',
-  blueprintHint: 'Жаңа курсты бастаудың қосымша жолы — салалық негізді бейімдеу.',
 };
 
 const en: CatalogCopy = {
-  subtitle: 'Create, review and assign learning from one working catalogue.',
   ownCourses: 'Your courses',
   loadedList: 'In the current list',
   first100: 'The first 100 courses are shown. Narrow the filters to find the rest.',
@@ -51,7 +46,6 @@ const en: CatalogCopy = {
   nativeCourse: 'Learning course',
   openCourse: 'Open course',
   selectedFile: 'Selected file',
-  blueprintHint: 'Another way to start a new course: adapt an industry blueprint.',
 };
 
 export const courseCatalogCopy = { ru, kk, en };

@@ -1115,7 +1115,7 @@ function AssignmentsContent() {
   if (loading) return <WorkspacePage id="assignments" title={t('courseAssignments.title')}><p role="status">{t('common.loading')}</p></WorkspacePage>;
 
   return (
-    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />} description={<>{t('courseAssignments.description')}<p>{t('courseAssignments.testsDescription')}</p></>}>
+    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />}>
 
       {accessLinks.length > 0 && (
         <WorkspacePanel className="border-primary/30" bodyClassName="space-y-3" aria-label={t('courseAssignments.ui.activationTitle')}>

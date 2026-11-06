@@ -159,8 +159,8 @@ describe('staff workspace page integration', () => {
     expect(getMock).not.toHaveBeenCalledWith('/v1/organization-units/tree');
     expect(getMock).not.toHaveBeenCalledWith('/v1/users?per_page=500&role=methodologist&is_active=true');
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 1, name: 'Сотрудники и структура' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 2, name: 'Сотрудники и структура' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Сотрудники' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: 'Сотрудники' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Добавить сотрудника/ })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Добавить подразделение' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Импорт/i })).toBeInTheDocument();
@@ -202,15 +202,25 @@ describe('staff workspace page integration', () => {
     expect(post).toHaveBeenCalledWith('/v1/organization-units', { name: 'Команда', unit_type: 'team', parent_id: 'branch-created' });
   });
 
-  it('preserves the canonical page header and manual employee action on the import tab', async () => {
-    window.history.replaceState({}, '', '/staff?tab=import');
+  it('returns from the dedicated import screen to the selected structure view', async () => {
+    window.history.replaceState({}, '', '/staff?tab=structure&staff_view=schema&staff_unit=unit-root');
 
-    render(<AdminStaffPage />);
+    const { rerender } = render(<AdminStaffPage />);
+    await screen.findByRole('button', { name: 'Добавить подразделение' });
+    fireEvent.click(screen.getByRole('button', { name: 'Импорт' }));
+    rerender(<AdminStaffPage />);
 
-    expect(await screen.findByRole('tab', { name: /Импорт/i })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /Добавить сотрудника/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Импорт сотрудников' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Структура' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Структура' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Добавить подразделение' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Добавить сотрудника/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'К сотрудникам' }));
+    rerender(<AdminStaffPage />);
+
+    expect(await screen.findByRole('tab', { name: 'Структура' })).toHaveAttribute('aria-selected', 'true');
+    expect(new URLSearchParams(window.location.search).get('staff_unit')).toBe('unit-root');
   });
 
   it('keeps /staff as the canonical re-export of the actual admin staff page', () => {

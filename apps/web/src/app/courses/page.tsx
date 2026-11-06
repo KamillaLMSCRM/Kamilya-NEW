@@ -399,7 +399,6 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-display">{t('courses.title')}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{copy.subtitle}</p>
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2 xl:max-w-xl xl:justify-end">
@@ -559,7 +558,6 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 rounded-2xl p-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
             <span className="min-w-0">
               <span className="block text-base font-semibold text-foreground">{t('courses.blueprint.catalogTitle')}</span>
-              <span className="mt-1 block text-sm leading-6 text-muted-foreground">{copy.blueprintHint}</span>
             </span>
             <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open/blueprints:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
           </summary>
