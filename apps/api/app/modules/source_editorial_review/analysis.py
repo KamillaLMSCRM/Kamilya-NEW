@@ -158,8 +158,13 @@ async def analyze(
                     raise ReviewConflictError("source_review_independent_proposal_changed")
                 return independent.model_dump(exclude={"source_questions"})
             authored = await complete_json(messages)
-            if isinstance(authored, Mapping):
-                candidate_questions = authored.get("unresolved", [])
+            if (isinstance(authored, Mapping) and set(authored) == {"patches", "unresolved"}
+                    and isinstance(authored["unresolved"], list) and len(authored["unresolved"]) <= 256):
+                # Source policy clues (e.g. conflicting deadlines) are not
+                # cosmetic edits. The independent reviewer receives them, but
+                # the editor's strict patch compiler sees only proposed edits.
+                candidate_questions = authored["unresolved"]
+                return {"patches": authored["patches"], "unresolved": []}
             return authored
 
         result = await prepare_source_working_edition(local, source_id=source_id,

@@ -144,6 +144,28 @@ async def test_typo_uncertainty_does_not_require_a_human_policy_decision():
     assert not result["issues"] and not result["automatic"] and result["original"] == ORIGINAL
 
 
+@pytest.mark.asyncio
+async def test_author_semantic_clue_reaches_independent_review_without_becoming_an_edit():
+    quote = "Submit the return form within 24 hours."
+    original = f"## First slide\n{quote}\n\n## Second slide\nSubmit the same return form within 72 hours."
+    clue = {"alias": "Deadline", "excerpt": quote, "category": "conflict", "reason": "Which deadline applies?"}
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": [clue]}
+        assert incoming["author_candidate_uncertainties"] == [clue]
+        assert incoming["patches"] == []
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": [
+            {"excerpt": quote, "category": "conflict", "reason": "Which deadline applies?"},
+        ]}
+
+    result = await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert result["model_calls"] == 2 and result["original"] == original and not result["automatic"]
+    issue, = result["issues"]
+    assert issue["category"] == "conflict" and original[issue["start"]:issue["end"]] == quote
+
+
 def test_manual_edit_uses_same_history_and_cannot_override_existing_question():
     state = prepared()
     with pytest.raises(ReviewConflictError, match="overlapping_or_stale_edit"):
