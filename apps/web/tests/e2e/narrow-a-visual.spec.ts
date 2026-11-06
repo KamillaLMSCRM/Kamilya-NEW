@@ -141,7 +141,8 @@ for (const width of [390, 768, 1270, 1440] as const) {
 
       await page.goto('/dashboard');
       await expect(page.getByRole('heading', { name: 'Требует внимания' })).toBeVisible();
-      await expect(page.getByRole('link', { name: /заявка job-fail/ })).toBeVisible();
+      const failedRow = page.getByRole('button', { name: /заявка job-fail/ });
+      await expect(failedRow).toBeVisible();
       await expect(page.getByRole('link', { name: 'Опубликовано: 1' })).toHaveAttribute('href', '/courses?status=published');
       await noPageOverflow(page);
       await page.locator('a[href="/courses?status=published"]').first().focus();
@@ -149,6 +150,32 @@ for (const width of [390, 768, 1270, 1440] as const) {
       await page.keyboard.press('Tab');
       await expect(page.locator(':focus')).not.toHaveCount(0);
       await shot(page, info, `${width}-dashboard`);
+      const details = page.getByRole('region', { name: 'Детали задачи' });
+      await expect(details.getByRole('link')).toHaveCount(0);
+      await failedRow.focus();
+      await page.keyboard.press('Enter');
+      await expect(failedRow).toHaveAttribute('aria-pressed', 'true');
+      await expect(details.getByRole('link', { name: 'Открыть задание генерации' })).toHaveAttribute('href', '/ai/generate?job_id=job-failed');
+      await expect(page).toHaveURL(/\/dashboard$/);
+      const queueBox = await page.getByRole('region', { name: 'Рабочие задачи' }).boundingBox();
+      const detailsBox = await details.boundingBox();
+      expect(queueBox).not.toBeNull();
+      expect(detailsBox).not.toBeNull();
+      if (width >= 1024) {
+        expect(detailsBox!.x).toBeGreaterThanOrEqual(queueBox!.x + queueBox!.width);
+        await expect(failedRow).toBeFocused();
+      } else {
+        expect(detailsBox!.y).toBeGreaterThanOrEqual(queueBox!.y + queueBox!.height);
+        await expect(details).toBeFocused();
+        await details.getByRole('button', { name: 'К выбранной задаче' }).press('Enter');
+        await expect(failedRow).toBeFocused();
+      }
+      await page.getByRole('button', { name: /Synthetic Learner/ }).click();
+      await expect(details.getByRole('link', { name: 'Открыть запись в журнале' })).toHaveAttribute('href', new RegExp(`enrollment_id=${ids.enrollment}`));
+      expect(workspace.matching('POST', '/v1/ai/jobs/generate-course')).toHaveLength(0);
+      await noPageOverflow(page);
+      await details.scrollIntoViewIfNeeded();
+      await shot(page, info, `${width}-dashboard-task-panel`);
 
       await page.goto('/courses?status=published');
       await expect(page.getByLabel('Статус')).toHaveValue('published');
@@ -246,7 +273,10 @@ test.describe('Narrow A deep links and contextual flows', () => {
   test('failed generation opens its exact job context without starting generation', async ({ page, context }, info) => {
     const workspace = await openWorkspace(context);
     await installNarrowAFixtures(workspace);
-    await page.goto('/ai/generate?job_id=job-failed');
+    await page.goto('/dashboard');
+    await page.getByRole('button', { name: /заявка job-fail/ }).click();
+    await page.getByRole('link', { name: 'Открыть задание генерации' }).click();
+    await expect(page).toHaveURL(/\/ai\/generate\?job_id=job-failed$/);
 
     await expect(page.locator('[data-generation-workspace]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Создать новый курс' })).toBeVisible();
@@ -376,6 +406,7 @@ test.describe('automated accessibility on changed surfaces', () => {
     await installNarrowAFixtures(workspace);
     await page.goto('/dashboard');
     await expect(page.getByRole('heading', { name: 'Требует внимания' })).toBeVisible();
+    await page.getByRole('button', { name: /заявка job-fail/ }).click();
     expect(await seriousAxeViolations(page)).toEqual([]);
     await shot(page, info, '1440-dashboard-axe');
 

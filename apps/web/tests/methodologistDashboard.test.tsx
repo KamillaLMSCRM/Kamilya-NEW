@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MethodologistDashboard } from '@/features/dashboard/MethodologistDashboard';
@@ -165,7 +165,8 @@ describe('methodologist operations dashboard', () => {
     expect(screen.getByText('Этап: проверка качества · заявка 0228597d')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Без назначения: 2' })).toHaveAttribute('href', '/mandatory-training?action_required=materialize');
     expect(screen.getByRole('link', { name: 'Требует сверки: 1' })).toHaveAttribute('href', '/mandatory-training?action_required=review_stale');
-    expect(screen.getByRole('link', { name: /заявка 0228597d/ })).toHaveAttribute(
+    fireEvent.click(screen.getByRole('button', { name: /заявка 0228597d/ }));
+    expect(within(screen.getByRole('region', { name: 'Детали задачи' })).getByRole('link', { name: 'Открыть задание генерации' })).toHaveAttribute(
       'href',
       '/ai/generate?job_id=0228597d-1111-4111-8111-111111111111',
     );
@@ -189,7 +190,8 @@ describe('methodologist operations dashboard', () => {
     render(<MethodologistDashboard />);
 
     const expectedReturn = 'return_to=%2Fdashboard';
-    expect(await screen.findByRole('link', { name: /Сотрудник с риском/ })).toHaveAttribute(
+    fireEvent.click(await screen.findByRole('button', { name: /Сотрудник с риском/ }));
+    expect(within(screen.getByRole('region', { name: 'Детали задачи' })).getByRole('link', { name: 'Открыть запись в журнале' })).toHaveAttribute(
       'href',
       `/training-log?enrollment_id=11111111-1111-4111-8111-111111111111&course_id=22222222-2222-4222-8222-222222222222&${expectedReturn}`,
     );
@@ -223,6 +225,32 @@ describe('methodologist operations dashboard', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Сводка обучения временно недоступна');
     expect(screen.queryByText('0%')).not.toBeInTheDocument();
     expect(screen.queryByTestId('training-overdue')).not.toBeInTheDocument();
+  });
+
+  it('updates one detail panel in place and does not retain selection across filters or tenants', async () => {
+    render(<MethodologistDashboard />);
+    const employee = await screen.findByRole('button', { name: /Сотрудник с риском/ });
+    const job = screen.getByRole('button', { name: /заявка 0228597d/ });
+    const panel = within(screen.getByRole('region', { name: 'Детали задачи' }));
+    expect(panel.queryByRole('link')).not.toBeInTheDocument();
+    const initialReads = apiMock.get.mock.calls.length;
+    fireEvent.click(employee);
+    expect(employee).toHaveAttribute('aria-pressed', 'true');
+    expect(panel.getByText('25%')).toBeVisible();
+    fireEvent.click(job);
+    expect(employee).toHaveAttribute('aria-pressed', 'false');
+    expect(job).toHaveAttribute('aria-pressed', 'true');
+    expect(panel.queryByText('25%')).not.toBeInTheDocument();
+    expect(panel.getByRole('link')).toHaveAttribute('href', '/ai/generate?job_id=0228597d-1111-4111-8111-111111111111');
+    fireEvent.click(screen.getByRole('button', { name: 'Обучение сотрудников' }));
+    expect(within(screen.getByRole('region', { name: 'Детали задачи' })).queryByRole('link')).not.toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledTimes(initialReads);
+    fireEvent.click(screen.getByRole('button', { name: /Сотрудник с риском/ }));
+    const user = useAuthStore.getState().user!;
+    apiMock.get.mockImplementation(() => new Promise(() => {}));
+    act(() => useAuthStore.setState({ user: { ...user, tenant_id: 'tenant-2' } }));
+    expect(screen.queryByText('Сотрудник с риском')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Детали задачи' })).not.toBeInTheDocument();
   });
 
   it('does not present unavailable generation or mandatory data as confirmed zero', async () => {
