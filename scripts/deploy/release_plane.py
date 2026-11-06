@@ -225,7 +225,7 @@ class ReleaseManifest:
             if schema == 3 and version < (0, 11, 63):
                 raise ReleasePlaneError("staff_protocol_requires_version63")
             if version >= (0, 11, 71) and manifest.migration.mode == "exact" and (
-                manifest.migration.from_revision != "0183" or manifest.migration.to_revision != "0184"
+                (manifest.migration.from_revision, manifest.migration.to_revision) != manifest.correction_revisions
             ):
                 raise ReleasePlaneError("v3_migration_revision_invalid")
             if manifest.feature_flags and manifest.feature_flags["lesson_correction"]:
@@ -268,6 +268,8 @@ class ReleaseManifest:
         if self.product_version is None:
             raise ReleasePlaneError("correction_requires_product_version")
         version = tuple(int(part) for part in self.product_version.split("."))
+        if version >= (0, 11, 74):
+            return "0184", "0185"
         if version >= (0, 11, 71):
             return "0183", "0184"
         if version >= (0, 11, 63):

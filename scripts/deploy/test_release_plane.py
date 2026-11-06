@@ -48,6 +48,36 @@ def test_version70_retains_previous_staff_and_correction_epoch():
     assert release_plane.ReleaseManifest.parse(data).correction_revisions == ('0181', '0183')
 
 
+@pytest.mark.parametrize('flags', [True, False])
+def test_source_editorial_epoch_admits_only_0184_to_0185(flags):
+    data = epoch_manifest('0.11.74', migration=True, flags=flags)
+    data['migration'].update(from_revision='0184', to_revision='0185')
+    parsed = release_plane.ReleaseManifest.parse(data)
+    assert parsed.correction_revisions == ('0184', '0185') and parsed.migration.rollback_compatible
+    for source, target in [('0183', '0184'), ('0183', '0185'), ('0184', '0186'), ('0185', '0184')]:
+        data['migration'].update(from_revision=source, to_revision=target)
+        with pytest.raises(release_plane.ReleasePlaneError, match='v3_migration_revision_invalid'):
+            release_plane.ReleaseManifest.parse(data)
+
+
+@pytest.mark.parametrize('revision, accepted', [('0184 (head)', False), ('0185 (head)', True)])
+def test_source_editorial_no_migration_rechecks_exact_head(tmp_path, monkeypatch, revision, accepted):
+    parsed = release_plane.ReleaseManifest.parse(epoch_manifest('0.11.74', migration=False, flags=False))
+    cfg = config(tmp_path)
+    Path(cfg.state_file).write_text(json.dumps({'schema_version': 1, 'active_slot': 'green',
+        'release_sha': NEW_SHA, 'image': NEW_IMAGE}), encoding='utf-8')
+    runner = FakeRunner(initial_revision=revision)
+    controller = release_plane.ReleasePlane(parsed, cfg, runner, FakeHealth())
+    monkeypatch.setattr(controller, '_verify_services', lambda *args, **kwargs: None)
+    monkeypatch.setattr(controller, '_wait_health', lambda *args, **kwargs: None)
+    if accepted:
+        assert controller.execute(parsed.release_id)['status'] == 'ALREADY_DEPLOYED'
+    else:
+        with pytest.raises(release_plane.ReleasePlaneError, match='correction_schema_revision_mismatch'):
+            controller.execute(parsed.release_id)
+    assert not any('upgrade' in call or 'up' in call or 'stop' in call for call, _ in runner.calls)
+
+
 def test_version71_requires_versioned_four_flag_manifest():
     assert release_plane.feature_manifest_fields('', '', '0.11.70') == {'schema_version': 1}
     with pytest.raises(release_plane.ReleasePlaneError, match='v3_feature_flags_required'):
