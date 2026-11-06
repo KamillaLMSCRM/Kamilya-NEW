@@ -457,3 +457,31 @@ raw не является новым вызовом. Unknown dispatch не по�
   and the same original courses. Zero provider/DB calls in the replay. Evidence:
   .release-evidence/p31-ordinary-dev-20261105/native-p32-canonical-replay.json.
   Live DEV P32 recovery and provider acceptance are separate, still open.
+
+## ENG-027 — Source review lost a semantic finding while handling cosmetic edits
+
+- Date: 2026-11-06. Three separate failure modes were observed/reproduced. The
+  first author could mark a material `conflict` under `unresolved` while the
+  cosmetic compiler accepted only edit categories. Replay stopped at
+  `source_editorial_invalid_unresolved_category` before the independent review.
+  Route material clues to the reviewer; keep the strict compiler for patches.
+- Exact DEV `76b199bf` passed the two-deadline PPTX case end to end with two
+  Luna 6 calls and grounded findings, and TXT independently reached the same
+  result. DOCX extracted both competing deadlines twice, but the second real
+  response had no findings. XLSX stopped in `independent_review_response` with
+  `source_review_overlapping_or_stale_edit`. No earlier generic error was
+  assigned a precise cause without runtime evidence.
+- Reproduced the XLSX failure code locally with a safe two-spaces-to-one
+  automatic edit. Allow whitespace-only replacements only when the exact
+  original span is also all whitespace. Empty replacements and erasing words
+  with whitespace still fail. The unresolved policy finding survives.
+- Source analysis v3 begins with comparing original instructions across sections
+  and table rows; the cosmetic verdict contract is included only when edits
+  exist. A material author clue must receive an explicit decision tied to an
+  original quote. No additional provider calls and no auto-resolution of a
+  substantive source conflict. The omitted-clue regression fails closed.
+- Evidence: `.release-evidence/course-ux-docx-synthetic-review-evidence.json`,
+  `.release-evidence/course-ux-dev-clue-fix-pptx.json`, and
+  `.release-evidence/course-ux-dev-clue-fix-remaining.json` in the
+  `course-creation-ux-20261106` worktree. All used DEV fixtures verified absent.
+  Latest local corrections still require exact live DOCX/XLSX acceptance.

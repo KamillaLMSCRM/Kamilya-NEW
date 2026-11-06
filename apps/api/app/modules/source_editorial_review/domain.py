@@ -238,13 +238,16 @@ def render_text(original: str, edits: list[dict[str, Any]]) -> tuple[str, list[d
 
     for row in sorted(edits, key=lambda x: x["start"]):
         start, end = row["start"], row["end"]
+        before, after = row["before"], row["after"]
         if not (type(start) is int and type(end) is int and position <= start < end <= len(original)
-                and original[start:end] == row["before"] and isinstance(row["after"], str)
-                and row["after"].strip() and "\x00" not in row["after"]):
+                and isinstance(before, str) and original[start:end] == before and isinstance(after, str)
+                # The automatic compiler can narrow a valid layout edit to
+                # just its whitespace span. It cannot erase any source words.
+                and (after.strip() or (before.isspace() and after.isspace())) and "\x00" not in after):
             raise ReviewConflictError("source_review_overlapping_or_stale_edit")
         if position < start:
             add(position, start, original[position:start], None)
-        add(start, end, row["after"], row["id"])
+        add(start, end, after, row["id"])
         position = end
     if position < len(original):
         add(position, len(original), original[position:], None)

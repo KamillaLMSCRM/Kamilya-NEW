@@ -17,6 +17,7 @@ from app.modules.source_editorial_review.domain import (
     ReviewCommand,
     ReviewConflictError,
     ReviewState,
+    render_text,
     text_hash,
 )
 from app.modules.source_editorial_review.service import apply_command, pin_reviews
@@ -155,15 +156,84 @@ async def test_author_semantic_clue_reaches_independent_review_without_becoming_
         if "proposal_sha256" not in incoming:
             return {"patches": [], "unresolved": [clue]}
         assert incoming["author_candidate_uncertainties"] == [clue]
+        assert incoming["material_clue_ids"] == [0]
         assert incoming["patches"] == []
         return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": [
             {"excerpt": quote, "category": "conflict", "reason": "Which deadline applies?"},
-        ]}
+        ], "source_clue_dispositions": [{"clue_id": 0, "disposition": "confirmed", "question_index": 0}]}
 
     result = await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
     assert result["model_calls"] == 2 and result["original"] == original and not result["automatic"]
     issue, = result["issues"]
     assert issue["category"] == "conflict" and original[issue["start"]:issue["end"]] == quote
+
+
+@pytest.mark.asyncio
+async def test_approved_layout_edit_cannot_hide_an_unresolved_source_question():
+    quote = "Submit within 24 hours."
+    before = "Keep the  receipt."
+    after = "Keep the receipt."
+    original = f"{quote} Submit the same form within 72 hours. {before}"
+    positives = {key: True for key in (
+        "digits_preserved", "numeric_values_preserved", "units_preserved", "operators_preserved",
+        "negation_modality_preserved", "coordination_logic_preserved", "actors_preserved", "content_complete",
+        "no_inferred_list_logic",
+    )}
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [{"alias": "Spacing", "before": before, "after": after, "category": "layout",
+                "reason": "Remove one repeated space.", "supporting_original_context_quotes": [before]}], "unresolved": []}
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [
+            {"patch_alias": "Spacing", "relation": "preserved", "reason": "The words are unchanged.", **positives}],
+            "source_questions": [{"excerpt": quote, "category": "conflict", "reason": "24 or 72 hours?"}]}
+
+    result = await analyze(original, source_id="document:" + "d" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert result["issues"][0]["quote"] == quote
+    assert render_text(original, result["automatic"])[0].endswith(after)
+    with pytest.raises(ReviewConflictError, match="overlapping_or_stale_edit"):
+        render_text(original, [{"id": "blank", "start": 0, "end": len(quote), "before": quote, "after": " "}])
+
+
+@pytest.mark.asyncio
+async def test_source_only_review_rejects_a_silently_omitted_material_clue():
+    first = "The employee must submit the form within 24 hours."
+    second = "The same employee must submit the same form within 72 hours."
+    original = f"# First section\n\n{first}\n\n# Second section\n\n{second}"
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": [{"alias": "Deadline", "excerpt": first,
+                "category": "conflict", "reason": "24 and 72 hours for the same action."}]}
+        assert "Compare instructions for the same action across headings" in messages[0]["content"]
+        assert "For EACH patch" not in messages[0]["content"]
+        # Captured DEV shape: analysis completed with no issues despite two
+        # competing rules present verbatim in the recognized document.
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": []}
+
+    with pytest.raises(ReviewConflictError, match="source_review_clue_disposition_missing"):
+        await analyze(original, source_id="document:" + "d" * 64, document_id=str(uuid4()), complete_json=answer)
+
+
+@pytest.mark.asyncio
+async def test_source_clue_can_be_dismissed_only_with_original_evidence():
+    quote = "The routine return form is due the same day."
+    exception = "The longer deadline applies only to emergency shutdowns."
+    original = f"{quote} {exception}"
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": [{"alias": "Timing", "excerpt": quote,
+                "category": "conflict", "reason": "The form has two deadlines."}]}
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": [],
+                "source_clue_dispositions": [{"clue_id": 0, "disposition": "dismissed",
+                    "evidence_excerpt": exception, "reason": "The source explicitly defines a different scope."}]}
+
+    result = await analyze(original, source_id="document:" + "e" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert result["issues"] == [] and result["automatic"] == [] and result["original"] == original
 
 
 def test_manual_edit_uses_same_history_and_cannot_override_existing_question():

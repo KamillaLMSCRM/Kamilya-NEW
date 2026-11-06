@@ -169,7 +169,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     : review?.error === 'source_review_provider_unavailable' ? copy.providerFailure
     : review?.error === 'source_review_provider_outcome_unknown' ? copy.providerOutcomeUnknown
     : review?.error === 'source_review_timeout' ? copy.timeoutFailure
-    : review?.error === 'source_review_invalid_response' ? copy.responseFailure
+    : review?.error === 'source_review_invalid_response' || review?.error?.startsWith('source_review_clue_disposition_') ? copy.responseFailure
     : review?.error?.startsWith('direct_source_') || review?.error === 'source_review_extraction_incomplete' ? copy.protected
     : review?.error === 'source_review_analysis_failed' ? copy.analysisFailure : copy.recovery;
 

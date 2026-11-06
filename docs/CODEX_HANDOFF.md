@@ -1,3 +1,26 @@
+# General document review and PowerPoint intake — 2026-11-06
+
+- result: `feat/course-creation-ux-20261106` / PR 35. Existing DEV `76b199bf`
+  verified PPTX and TXT review, actual source quotes, and unavailable new SCORM
+  import. Earlier exact DEV `5a56115d` passed the selected scanned PDF, range
+  error and retry. Production unchanged; no customer source modified.
+- changed: Shared file picker supports PDF, DOC, DOCX, PPTX, TXT, MD, CSV, XLS
+  and XLSX. Native PPTX preserves slide order, text, tables and speaker notes.
+  Only PDF offers a page range. New SCORM intake is hidden and returns 404;
+  the existing SCORM player remains. Source analysis separates semantic clues
+  from cosmetic patches and requires explicit quote-based clue decisions.
+- verified: Exact `76b199bf` PPTX live 136 seconds including cleanup, two Luna 6
+  calls, 20,933 input / 914 output tokens, correct deadline conflict anchored to
+  original. Production web/API not switched. All disposable DEV sources removed.
+- blockers: `76b199bf` missed the actual DOCX conflict and XLSX failed on an
+  automatic edit. Fixes and local regressions are in the latest feature head;
+  see ENG-027 and `.release-evidence/format-r3/STATUS.md`. MD/CSV/DOC/XLS live
+  verification and a complete disposable course journey are still outstanding.
+- next: Use the latest exact candidate, verify the two prior failures first in
+  DEV, then finish the format matrix and one disposable document-to-course run.
+  Only after success use the protected no-migration production release and
+  preserve both currently working frontend/rollback artifacts.
+
 # P31 ordinary route reconciled in DEV; canonical recovery P32 LOCAL — 2026-11-05
 
 - result: Exact DEV c4a65ae460bed54bc0bda19788b33c23b6bc47a6 reconciled,
