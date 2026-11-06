@@ -44,6 +44,8 @@ from app.modules.ai.v3.cooperative_budget import PreclaimYieldError
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.writer_schema import CourseContent
 from app.modules.courses.source_uncertainty import preserve_generated_source_uncertainty
+from app.modules.source_editorial_review.domain import ApprovedEditorialDocument, ReviewConflictError
+from app.modules.source_editorial_review.service import SOURCE_PINS, resolve_pins
 
 logger = logging.getLogger(__name__)
 
@@ -1160,6 +1162,9 @@ async def _save_generation_to_db_transaction(
         if job.status != "running":
             raise RuntimeError(f"Generation job is not active: {job.status}")
         _validate_generation_source_selection(job.params, state.source_document_ids)
+        stored_analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
+        if (stored_analysis.get(SOURCE_PINS) if isinstance(stored_analysis, dict) else None) != state.source_analysis.get(SOURCE_PINS):
+            raise DirectSourceError("direct_source_editorial_unproved")
         if not state.course_id:
             course = Course(
                 id=uuid4(),
@@ -1496,7 +1501,7 @@ class OwnedGenerationCancelledError(asyncio.CancelledError):
 
 async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: list[str],
                                        user_id: UUID | None, expected_engine: str | None = None,
-                                       expected_qa_marker: Any = None) -> None:
+                                       expected_qa_marker: Any = None, *, expected_source_pins: Any = None) -> None:
     """Check the live job selection; this is not an atomic source snapshot."""
     from sqlalchemy import text
 
@@ -1521,6 +1526,8 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
             stored_engine = analysis.get("generation_engine") if isinstance(analysis, dict) else None
             if stored_engine != expected_engine:
                 raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+            if (analysis.get(SOURCE_PINS) if isinstance(analysis, dict) else None) != expected_source_pins:
+                raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
             if expected_engine == "evidence_v3":
                 from app.modules.ai.v3.qa_luna_pending_policy import (
                     DIRECT_POLICY,
@@ -1534,6 +1541,18 @@ async def _check_generation_source_job(job_id: str, tenant_id: UUID, documents: 
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
                 if (analysis.get(KEY) if isinstance(analysis, dict) else None) != expected_qa_marker:
                     raise GenerationJobOwnerMismatchError("generation_source_job_mismatch")
+
+
+async def _approved_generation_documents(tenant_id: UUID, documents: list[str],
+                                         pins: object) -> dict[str, ApprovedEditorialDocument]:
+    from sqlalchemy import text
+
+    async with async_session_factory() as session:
+        await session.execute(text("SELECT set_current_tenant(:tid)"), {"tid": str(tenant_id)})
+        try:
+            return await resolve_pins(session, tenant_id, documents, pins)
+        except ReviewConflictError as error:
+            raise DirectSourceError("direct_source_editorial_unproved") from error
 
 
 async def _run_generation_pipeline_inner(
@@ -1568,6 +1587,8 @@ async def _run_generation_pipeline_inner(
     reservation_required = course_id is None
     initial_identity_checked = False
     timeout_boundary = "initial_owner_check"
+    source_pin_check = ({"expected_source_pins": state.source_analysis[SOURCE_PINS]}
+                        if SOURCE_PINS in state.source_analysis else {})
 
     try:
         # Before identity and selection are checked, this caller has no authority
@@ -1590,7 +1611,7 @@ async def _run_generation_pipeline_inner(
                 raise DirectSourceError("tenant_id_required")
             await _check_generation_source_job(job_id, tenant_id, documents, user_id,
                                                str(state.source_analysis.get("generation_engine", "")),
-                                               state.source_analysis.get("qa_luna_pending_journal_policy"))
+                                               state.source_analysis.get("qa_luna_pending_journal_policy"), **source_pin_check)
             initial_identity_checked = True
             if re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", str(job_id)):
                 timeout_context.job_id.set(str(job_id))
@@ -1625,17 +1646,20 @@ async def _run_generation_pipeline_inner(
         timeout_boundary = "source_owner_db"
         await _check_generation_source_job(job_id, tenant_id, documents, user_id,
                                                str(state.source_analysis.get("generation_engine", "")),
-                                               state.source_analysis.get("qa_luna_pending_journal_policy"))
+                                               state.source_analysis.get("qa_luna_pending_journal_policy"), **source_pin_check)
         timeout_boundary = "direct_source"
+        approved = (await _approved_generation_documents(tenant_id, documents, state.source_analysis[SOURCE_PINS])
+                    if SOURCE_PINS in state.source_analysis else None)
         corpus = await load_direct_source_corpus(
             documents,
             tenant_id=tenant_id,
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
+            **({"approved_documents": approved} if approved is not None else {}),
         )
         timeout_boundary = "source_owner_db"
         await _check_generation_source_job(job_id, tenant_id, documents, user_id,
                                                str(state.source_analysis.get("generation_engine", "")),
-                                               state.source_analysis.get("qa_luna_pending_journal_policy"))
+                                               state.source_analysis.get("qa_luna_pending_journal_policy"), **source_pin_check)
         timeout_boundary = "generation_execution"
         engine_name = str(state.source_analysis.get("generation_engine", ""))
         if engine_name in ("evidence_v3", "v3_cogen") or not engine_name:

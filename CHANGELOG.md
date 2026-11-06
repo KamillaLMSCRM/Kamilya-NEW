@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.74] - 2026-11-06
+
+### Added
+
+- Review ambiguities in a document before starting course generation.
+- Keep the original, the approved working edition, and the history of automatic and human edits.
+
 ## [0.11.73] - 2026-11-06
 
 ### Changed

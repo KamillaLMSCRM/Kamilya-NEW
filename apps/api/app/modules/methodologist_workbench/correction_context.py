@@ -118,7 +118,16 @@ async def resolve_lesson_correction(
     sources = await resolve_document_sources(db, actor, ids)
     try:
         async with asyncio.timeout(90):
-            corpus = await build_direct_source_corpus(documents, tenant_id=actor.tenant_id)
+            from app.modules.source_editorial_review.service import SOURCE_PINS, resolve_pins
+
+            analysis = course.source_analysis
+            if isinstance(analysis, dict) and SOURCE_PINS in analysis:
+                all_ids = [str(value) for value in course.source_document_ids]
+                approved = await resolve_pins(db, actor.tenant_id, all_ids, analysis[SOURCE_PINS])
+                corpus = await build_direct_source_corpus(documents, tenant_id=actor.tenant_id,
+                    approved_documents={str(doc.id): approved[str(doc.id)] for doc in documents})
+            else:
+                corpus = await build_direct_source_corpus(documents, tenant_id=actor.tenant_id)
         facts = build_evidence_source(corpus).generation_facts if any("kind" not in ref for ref in references) else ()
     except Exception:
         raise CorrectionError("lesson_source_unavailable") from None

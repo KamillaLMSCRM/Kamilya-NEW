@@ -38,6 +38,7 @@ import { ReviewBadge, CoursePreviewTree } from './components/CoursePreview';
 import { GenerationProgressPanel } from '@/features/ai-generation/GenerationProgressPanel';
 import { useGenerationWorkflow } from '@/features/ai-generation/useGenerationWorkflow';
 import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
+import { SourceReviewChecklist, useSourceReviewStatuses } from '@/features/source-editorial-review/SourceReviewChecklist';
 import {
   SourceReuseDialog,
   type ReusedSourceCourse,
@@ -402,11 +403,23 @@ export default function AIGeneratePage() {
   }, [currentJob?.course_id, programId]);
 
   const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
+  const { status: sourceReviewStatus, refresh: refreshSourceReviews } = useSourceReviewStatuses(selectedDocIds, actorSignature);
+  const [sourceReviewRejected, setSourceReviewRejected] = useState(false);
+  const sourceReturnDocument = useRef<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('document_id');
+    if (!id || sourceReturnDocument.current === id || !documents.some(doc => doc.id === id)) return;
+    sourceReturnDocument.current = id;
+    setSelectedDocIds([id]);
+  }, [documents]);
+  const sourceReviewBlocked = sourceReviewStatus?.required === true
+    && selectedDocIds.some(id => sourceReviewStatus.documents[id] !== 'approved');
   const selectedNotReadyCount = selectedDocIds.length - selectedDocuments.length;
   const failedDocumentsCount = documents.filter((doc) => doc.index_status === 'failed').length;
   const hasResolvedSourceDecision = !compatibility?.requires_decision
     || (sourceStrategy === 'intentional_combination' && combinationGoal.trim().length >= 20);
   const canGenerate = selectedDocIds.length > 0
+    && !sourceReviewBlocked
     && selectedNotReadyCount === 0
     && !compatibilityLoading
     && !!compatibility
@@ -706,6 +719,11 @@ export default function AIGeneratePage() {
     } catch (e: any) {
       if (!generationPageMountedRef.current || scopeKeyRef.current !== requestScopeKey || scopeRevisionRef.current !== requestScopeRevision) return;
       const detail = e?.response?.data?.details ?? e?.response?.data?.detail;
+      if (e?.response?.status === 409 && detail?.code === 'source_editorial_review_required') {
+        setSourceReviewRejected(true);
+        refreshSourceReviews();
+        return;
+      }
       if (e?.response?.status === 429 && detail?.code === 'tenant_ai_job_limit_reached') {
         setAdmissionError(true);
         setAdmissionRetryAfter(parseRetryAfterSeconds(e));
@@ -1645,6 +1663,8 @@ export default function AIGeneratePage() {
             </details>
           </WorkspacePanel>
 
+          <SourceReviewChecklist documents={selectedDocuments} status={sourceReviewStatus}
+            requireReview={sourceReviewRejected && !sourceReviewStatus?.required} />
           <button
             onClick={() => void handleGenerate()}
             disabled={!canGenerate || generationSubmitting}

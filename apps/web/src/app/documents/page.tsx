@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { sourceReviewHref } from '@/features/source-editorial-review/contract';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
@@ -1024,6 +1026,7 @@ function DocumentRow({
 }) {
   const usage = document.usages_summary;
   const isActive = document.lifecycle_status === 'active';
+  const { lang } = useT();
   return (
     <div className="grid min-w-0 grid-cols-2 gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/20 sm:px-5 2xl:grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] 2xl:items-center">
       <div className="col-span-2 flex min-w-0 items-start gap-3 2xl:col-span-1">
@@ -1079,6 +1082,9 @@ function DocumentRow({
         </button>
         {isActive && (
           <>
+            <Link href={sourceReviewHref(document.id)} className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+              {sourceReviewCopy(lang).short}
+            </Link>
             {document.index.error_code !== 'source_blob_missing' && (
               <button
                 type="button"

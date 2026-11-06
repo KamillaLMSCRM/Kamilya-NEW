@@ -311,6 +311,12 @@ try:
         logger.info(f"Document ingested: {result['doc_id']} ({result['chunks']} chunks)")
         return result
 
+    @celery_app.task(name="documents.editorial_review", soft_time_limit=820, time_limit=850)  # type: ignore[untyped-decorator]
+    def document_editorial_review_task(tenant_id: str, document_id: str, event_id: str) -> str:
+        from app.modules.source_editorial_review.analysis import run_analysis
+
+        return _run_async(run_analysis(UUID(tenant_id), UUID(document_id), UUID(event_id)))
+
     @celery_app.task(bind=True, name="documents.cleanup", max_retries=5)
     def document_cleanup_task(self, job_id: str, document_id: str, tenant_id: str):
         """Remove a tombstoned document and all of its persisted artifacts."""

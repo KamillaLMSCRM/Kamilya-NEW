@@ -38,12 +38,14 @@ from app.modules.documents.service import (
     list_catalog,
     list_document_usages,
 )
+from app.modules.source_editorial_review.router import router as editorial_review_router
 
 router = APIRouter(
     prefix="/documents",
     tags=["documents"],
     dependencies=[Depends(require_tenant_user())],
 )
+router.include_router(editorial_review_router)
 
 SUMMARIES_DIR = "./summaries"
 

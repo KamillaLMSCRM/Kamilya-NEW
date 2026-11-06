@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>Kamilya LMS · Согласование исходника</title>
+  <style>
+    :root { color-scheme:light; --ink:#172744; --muted:#50627a; --blue:#174bd5; --line:#dce4ef; --card:#fff; --canvas:#f3f6fa; --warm:#fff5df; --warning:#794200; --mint:#eaf8f0; --green:#166043; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--canvas); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    button,input,textarea { font:inherit; color:inherit; }
+    button { cursor:pointer; }
+    button:focus-visible,textarea:focus-visible,input:focus-visible,[tabindex]:focus-visible { outline:3px solid #5584ef; outline-offset:3px; }
+    button:disabled { cursor:default; }
+    h1,h2,h3,p,blockquote { margin:0; }
+    h1 { font-size:clamp(27px,4vw,38px); line-height:1.15; letter-spacing:-.035em; }
+    h2 { font-size:21px; line-height:1.28; }
+    h3 { font-size:16px; line-height:1.35; }
+    small,.muted { color:var(--muted); }
+    .header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px max(16px,calc((100vw - 1220px)/2)); border-bottom:1px solid var(--line); background:var(--card); }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:700; white-space:nowrap; }
+    .logo { display:grid; place-items:center; width:32px; height:32px; background:linear-gradient(135deg,#25457d,#174bd5); color:white; border-radius:9px; }
+    .badge { display:inline-flex; align-items:center; width:max-content; max-width:100%; border-radius:999px; padding:4px 10px; background:#eaf0f9; color:#365475; font-size:12px; font-weight:650; }
+    .badge.warn { background:var(--warm); color:var(--warning); }
+    .badge.good { background:var(--mint); color:var(--green); }
+    main { width:min(1220px,calc(100% - 32px)); margin:24px auto 44px; }
+    .crumb { color:var(--muted); font-size:13px; margin-bottom:12px; }
+    .intro { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:20px; }
+    .intro p { margin-top:8px; color:var(--muted); }
+    .stage { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0 0 16px; padding:0; list-style:none; }
+    .stage li { min-width:0; display:flex; gap:8px; align-items:center; padding:9px 10px; border:1px solid var(--line); border-radius:11px; background:var(--card); font-size:13px; }
+    .stage .current { background:#eaf1ff; border-color:#b8ccff; font-weight:700; color:#163e9e; }
+    .number { flex:none; display:grid; place-items:center; width:23px; height:23px; border-radius:50%; background:#e9eef6; font-size:12px; }
+    .current .number { background:var(--blue); color:white; }
+    .tabs { display:flex; flex-wrap:wrap; gap:6px; padding:7px; border:1px solid var(--line); border-radius:12px; margin-bottom:14px; background:var(--card); }
+    .tab { padding:8px 12px; min-height:42px; border:0; border-radius:8px; background:transparent; text-align:left; }
+    .tab[aria-pressed="true"] { background:#eaf1ff; color:#163e9e; font-weight:700; }
+    .grid { display:grid; grid-template-columns:minmax(242px,.82fr) minmax(0,2fr); gap:14px; align-items:start; }
+    .panel { min-width:0; padding:20px; border:1px solid var(--line); border-radius:14px; background:var(--card); box-shadow:0 2px 7px #13234e0a; }
+    .panel h2+p,.panel h3+p { margin-top:6px; }
+    .stack { display:grid; gap:14px; }
+    .question-list { display:grid; gap:8px; margin:14px 0 0; }
+    .question { display:flex; flex-direction:column; gap:5px; width:100%; min-width:0; padding:11px 12px; text-align:left; border:1px solid var(--line); background:#fbfcff; border-radius:10px; }
+    .question[aria-pressed="true"] { border-color:#6387eb; background:#edf3ff; }
+    .question span { font-size:12px; }
+    .spread { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:9px; }
+    .citation { margin:13px 0; border-left:4px solid #7091e4; border-radius:0 9px 9px 0; background:#f4f7fe; padding:12px 14px; overflow-wrap:anywhere; }
+    .citation small { display:block; font-weight:650; margin-bottom:5px; }
+    details { padding:9px 12px; border:1px solid var(--line); border-radius:9px; }
+    summary { cursor:pointer; font-weight:650; }
+    details p { margin-top:7px; }
+    fieldset { margin:0; padding:0; border:0; min-width:0; }
+    legend { margin-bottom:7px; font-weight:700; }
+    .choice { display:flex; align-items:flex-start; gap:9px; margin-top:7px; padding:10px; border:1px solid var(--line); border-radius:9px; }
+    .choice:has(:checked) { border-color:#6387eb; background:#eff4ff; }
+    .choice small { display:block; margin-top:3px; }
+    input { flex:none; margin-top:5px; accent-color:var(--blue); }
+    textarea { display:block; resize:vertical; margin-top:5px; padding:9px; min-height:67px; width:100%; border:1px solid #aabbd1; border-radius:8px; background:#fbfcff; }
+    .btn { padding:9px 13px; min-height:44px; border-radius:9px; border:1px solid #c6d4e7; background:white; text-align:center; font-weight:650; }
+    .btn.primary { background:var(--blue); border-color:var(--blue); color:white; }
+    .btn.primary:disabled { background:#e6edf6; color:#52627b; border-color:#d6e1f0; }
+    .btn-row { display:flex; flex-wrap:wrap; gap:8px; }
+    .message { min-height:1.5em; color:#26497f; }
+    .hint { padding:9px 11px; background:#f0f4fc; border-radius:8px; overflow-wrap:anywhere; }
+    .footer { margin-top:14px; }
+    .footer p { margin-top:4px; }
+    .comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .comparison p { padding:10px; border-radius:8px; background:#f3f6fc; overflow-wrap:anywhere; }
+    .comparison strong { display:block; margin-bottom:4px; }
+    .history { margin:0; padding:0; list-style:none; }
+    .history li { border-top:1px solid var(--line); padding:11px 0; overflow-wrap:anywhere; }
+    [hidden] { display:none !important; }
+    @media (max-width:780px) {
+      main { width:calc(100% - 24px); margin-top:16px; }
+      .intro { flex-direction:column; gap:10px; }
+      .grid,.comparison { grid-template-columns:1fr; }
+      .panel { padding:14px; }
+      .tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .stage li { align-items:flex-start; flex-direction:column; line-height:1.25; }
+      .footer .btn-row { width:100%; }
+      .footer .btn { flex:1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="brand"><span class="logo" aria-hidden="true">K</span>Kamilya LMS</div>
+    <span class="badge">Макет · тестовые данные</span>
+  </header>
+  <main>
+    <p class="crumb">Документы / Учебный регламент выдачи</p>
+    <div class="intro">
+      <div>
+        <h1>Согласование исходника</h1>
+        <p>Проверьте места, где от трактовки зависит действие сотрудника.</p>
+      </div>
+      <span id="revision" class="badge">Оригинал v1 · рабочая v2</span>
+    </div>
+    <ol class="stage" aria-label="Этапы">
+      <li><span class="number">✓</span>Документ прочитан</li>
+      <li class="current" id="stage-review" aria-current="step"><span class="number">2</span>Проверка источника</li>
+      <li id="stage-generate"><span class="number">3</span>Генерация курса</li>
+    </ol>
+    <nav class="tabs" aria-label="Разделы проверки">
+      <button class="tab" type="button" data-view="questions" aria-pressed="true">Вопросы к источнику <span id="count-tab"></span></button>
+      <button class="tab" type="button" data-view="corrections" aria-pressed="false">Автоправки</button>
+      <button class="tab" type="button" data-view="history" aria-pressed="false">Журнал</button>
+      <button class="tab" type="button" data-view="edition" aria-pressed="false">Рабочая редакция</button>
+    </nav>
+    <div class="grid" id="questions">
+      <section class="panel" aria-labelledby="questions-heading">
+        <div class="spread">
+          <h2 id="questions-heading">Нужны решения</h2>
+          <span class="badge warn" id="open-count"></span>
+        </div>
+        <div id="question-list" class="question-list"></div>
+      </section>
+      <section class="panel stack" id="detail" tabindex="-1" aria-label="Детали вопроса"></section>
+    </div>
+    <section class="panel stack" id="corrections" hidden aria-labelledby="corrections-heading">
+      <div class="spread"><h2 id="corrections-heading">Автоправки</h2><span id="auto-state" class="badge good"></span></div>
+      <p class="muted">Смысл не меняется. Исправление и его отмена отражаются в журнале.</p>
+      <div class="comparison"><p><strong>Оригинал · § 1, строка 3</strong>Запишите номер в учётной каротчке.</p><p><strong>Рабочая редакция</strong><span id="auto-after"></span></p></div>
+      <p>Основание — опечатка. Слово «карточке» подтверждается заголовком и соседними строками.</p>
+      <div class="btn-row"><button class="btn" type="button" id="undo-auto">Отменить автоправку</button></div>
+    </section>
+    <section class="panel stack" id="history" hidden aria-labelledby="history-heading">
+      <div><h2 id="history-heading">Журнал изменений</h2><p class="muted">События по рабочей редакции. Оригинал доступен в каждом сравнении.</p></div>
+      <ol class="history" id="history-list"></ol>
+    </section>
+    <section class="panel stack" id="edition" hidden aria-labelledby="edition-heading">
+      <div><h2 id="edition-heading">Рабочая редакция</h2><p id="edition-hint" class="muted"></p></div>
+      <div id="edition-list" class="stack"></div>
+      <div id="seal-block" class="stack" hidden>
+        <label><input type="checkbox" id="seal-confirm"> Я сверил рабочую редакцию и подтверждаю её для генерации.</label>
+        <div class="btn-row"><button class="btn primary" type="button" id="seal" disabled>Утвердить эту редакцию</button></div>
+      </div>
+    </section>
+    <section class="panel footer" aria-label="Готовность исходника">
+      <div class="spread">
+        <div><h3 id="footer-title"></h3><p id="footer-note" class="muted"></p></div>
+        <div class="btn-row"><button class="btn primary" type="button" id="continue"></button></div>
+      </div>
+      <p id="message" class="message" role="status"></p>
+    </section>
+  </main>
+  <script>
+    const questions = [
+      {
+        id:'reference', location:'§ 2, строка 8', kind:'Неоднозначная отсылка', title:'К какому пункту относится «по п. 2»?',
+        original:'После согласования действовать по п. 2.',
+        context:'В разделе 2 есть и общий порядок, и внутренний пункт 2 о подписи и записи в системе.',
+        options:[
+          ['Внутренний пункт 2 раздела 2', 'Оформить подпись и запись после согласования.', 'После согласования выполнить действия из пункта 2 раздела 2: оформить подпись и запись в системе.'],
+          ['Раздел 2 целиком', 'Повторить все шаги общего порядка.', 'После согласования выполнить общий порядок, указанный в разделе 2.']
+        ],
+        suggestion:'Если автор имел в виду подпись и запись, укажите оба действия и полный адрес пункта.'
+      },
+      {
+        id:'threshold', location:'§ 3, строки 1–2', kind:'Граница условия', title:'Как обработать сумму ровно 45 единиц?',
+        original:'До 45 единиц применяется порядок А. Свыше 45 — порядок Б.',
+        context:'Во фрагменте два режима. Случай равенства не назван явно.',
+        options:[
+          ['Ровно 45 входит в порядок А', 'На границе применяется порядок А.', 'При сумме не более 45 единиц применяется порядок А. При сумме свыше 45 применяется порядок Б.'],
+          ['Ровно 45 входит в порядок Б', 'На границе применяется порядок Б.', 'При сумме менее 45 единиц применяется порядок А. При сумме от 45 единиц применяется порядок Б.']
+        ],
+        suggestion:'После уточнения у владельца запишите границы как «не более / свыше» либо «менее / от».'
+      },
+      {
+        id:'term', location:'§ 4, строка 2', kind:'Неясный термин', title:'Какой документ нужно приложить?',
+        original:'К записи приложить копию расходных сопротивлений.',
+        context:'Соседние положения не называют документ. Нужен ответ владельца регламента или подтверждённый словарь.',
+        options:[],
+        suggestion:'Уточните точное название и единственное или множественное число. Для ответа приложите пункт регламента или ссылку на решение владельца.'
+      }
+    ];
+    const sections = ['questions','corrections','history','edition'];
+    const decisions = new Map();
+    const drafts = new Map();
+    const events = [{ title:'Применена автоправка', text:'§ 1, строка 3 · «каротчке» → «карточке» · однозначная опечатка', author:'Автоматика', from:1, to:2 }];
+    const state = { view:'questions', selected:questions[0].id, revision:2, auto:true, approved:false };
+    const element = id => document.getElementById(id);
+    const escapeText = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[char]);
+    const notice = message => { element('message').textContent = message; };
+    const isMobile = () => matchMedia('(max-width:780px)').matches;
+    function event(title,text,changesEdition=true) {
+      const from=state.revision;
+      if (changesEdition) state.revision++;
+      events.push({ title,text,author:'Методист',from,to:state.revision });
+    }
+    function chooseView(name) {
+      state.view=name;
+      sections.forEach(id => { element(id).hidden=id!==name; });
+      document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view===name)));
+      if (name==='history') renderHistory();
+      if (name==='edition') renderEdition();
+    }
+    function renderQuestions() {
+      element('question-list').innerHTML=questions.map(q => {
+        const closed=decisions.has(q.id);
+        return `<button class="question" type="button" data-question="${q.id}" aria-pressed="${q.id===state.selected}">
+          <strong>${q.title}</strong><span class="muted">${q.kind} · ${q.location}</span>
+          <span class="badge ${closed?'good':'warn'}">${closed?'Решено':'Блокирует утверждение'}</span></button>`;
+      }).join('');
+      const q=questions.find(item => item.id===state.selected);
+      const saved=decisions.get(q.id);
+      const draft=drafts.get(q.id) || { option:saved?.option ?? '', manual:saved?.manual ?? '', reason:saved?.reason ?? '' };
+      const options=q.options.map(([title,impact],index) => `<label class="choice"><input type="radio" name="resolution" value="${index}" ${String(index)===draft.option?'checked':''}><span><strong>${title}</strong><small>${impact}</small></span></label>`).join('');
+      element('detail').innerHTML=`<div class="spread"><span class="badge">${q.kind}</span><span class="badge ${saved?'good':'warn'}">${saved?'Решение сохранено':'Требуется решение'}</span></div>
+        <div><h2>${q.title}</h2><blockquote class="citation"><small>Оригинал v1 · ${q.location}</small>${q.original}</blockquote>
+        <details><summary>Связанные фрагменты и контекст</summary><p>${q.context}</p></details></div>
+        ${state.approved ? `<p class="hint">${escapeText(saved?.text)}</p>` : `<fieldset><legend>Решение методиста</legend>${options}
+          <label class="choice"><input type="radio" name="resolution" value="manual" ${draft.option==='manual'?'checked':''}><strong>Своя формулировка</strong></label>
+          <label id="manual-label" ${draft.option==='manual'?'':'hidden'}>Новый текст фрагмента<textarea id="manual" maxlength="1000">${escapeText(draft.manual)}</textarea></label>
+        </fieldset><label>Основание решения<textarea id="reason" maxlength="1000" placeholder="Например, подтверждено владельцем регламента">${escapeText(draft.reason)}</textarea></label>
+        <div class="btn-row"><button class="btn primary" id="save" type="button" disabled>Сохранить решение</button><button class="btn" id="defer" type="button">Оставить открытым</button><button class="btn" id="assist" type="button" aria-expanded="false">Помощь ИИ</button></div>
+        <p class="hint" id="suggestion" hidden><strong>Пример подсказки ИИ.</strong> ${q.suggestion} Сверьте её с оригиналом, затем сохраните своё решение.</p>`}`;
+      if (!state.approved) {
+        const read=() => {
+          const option=element('detail').querySelector('input[name="resolution"]:checked')?.value ?? '';
+          const values={ option, manual:element('manual').value, reason:element('reason').value };
+          drafts.set(q.id,values);
+          element('manual-label').hidden=option!=='manual';
+          element('save').disabled=!option || values.reason.trim().length<5 || (option==='manual' && !values.manual.trim());
+          return values;
+        };
+        element('detail').querySelectorAll('input,textarea').forEach(input => input.addEventListener('input',read));
+        element('save').onclick=() => {
+          if (element('save').disabled) return;
+          const values=read();
+          const next=values.option==='manual' ? values.manual.trim() : q.options[Number(values.option)][2];
+          const before=decisions.get(q.id)?.text ?? q.original;
+          decisions.set(q.id,{ ...values,text:next });
+          event('Решён вопрос',`${q.location} · ${before} → ${next} · ${values.reason.trim()}`);
+          render(); notice('Решение сохранено в рабочей редакции.');
+          element('detail').focus();
+        };
+        element('defer').onclick=() => {
+          if (decisions.delete(q.id)) event('Вопрос снова открыт',`${q.location} · потребуется уточнение`);
+          else event('Отложено до уточнения',`${q.location} · ${q.title}`,false);
+          render(); notice('Вопрос остаётся открытым. Утверждение пока недоступно.');
+          element('detail').focus();
+        };
+        element('assist').onclick=() => {
+          const suggestion=element('suggestion');
+          suggestion.hidden=!suggestion.hidden;
+          element('assist').setAttribute('aria-expanded',String(!suggestion.hidden));
+        };
+        read();
+      }
+    }
+    function renderHistory() {
+      element('history-list').innerHTML=[...events].reverse().map(row => `<li><strong>${escapeText(row.title)}</strong><p>${escapeText(row.text)}</p><small>${row.author} · v${row.from} → v${row.to}</small></li>`).join('');
+    }
+    function renderEdition() {
+      element('edition-hint').textContent=state.approved ? `Утверждена v${state.revision}. Снимок доступен для генерации.` : 'Сверьте рабочие формулировки с оригиналом и решениями.';
+      const autoText=state.auto?'Запишите номер в учётной карточке.':'Запишите номер в учётной каротчке.';
+      element('edition-list').innerHTML=`<div class="comparison">
+        <p><strong>Оригинал · § 1, строка 3</strong>Запишите номер в учётной каротчке.</p>
+        <p><strong>${state.auto?'Автоправка':'Автоправка отменена'}</strong>${autoText}</p>
+        </div>`+questions.map(q => `<div class="comparison">
+        <p><strong>Оригинал · ${q.location}</strong>${q.original}</p>
+        <p><strong>${decisions.has(q.id)?'Рабочий текст':'Ожидает решения'}</strong>${escapeText(decisions.get(q.id)?.text ?? q.original)}</p>
+        </div>`).join('');
+      element('seal-block').hidden=state.approved || decisions.size!==questions.length;
+      element('seal-confirm').checked=false;
+      element('seal').disabled=true;
+    }
+    function render() {
+      const count=questions.length-decisions.size;
+      element('revision').textContent=`Оригинал v1 · рабочая v${state.revision}`;
+      element('count-tab').textContent=`(${count})`;
+      element('open-count').textContent=`Открыто: ${count}`;
+      element('open-count').className=`badge ${count?'warn':'good'}`;
+      element('auto-state').textContent=state.auto?'1 применена':'Отменена';
+      element('auto-after').textContent=state.auto?'Запишите номер в учётной карточке.':'Запишите номер в учётной каротчке.';
+      element('undo-auto').textContent=state.auto?'Отменить автоправку':'Применить автоправку снова';
+      element('undo-auto').disabled=state.approved;
+      element('footer-title').textContent=state.approved?'Рабочая редакция утверждена':count?'Остались вопросы к источнику':'Рабочая редакция готова к утверждению';
+      element('footer-note').textContent=state.approved?`Для запуска будет использована v${state.revision}.`:count?`Открыто: ${count} из ${questions.length}. Генерация доступна после утверждения.`:'Откройте рабочую редакцию и подтвердите её.';
+      element('continue').textContent=state.approved?'Перейти к генерации':'К утверждению редакции';
+      element('continue').disabled=Boolean(count);
+      renderQuestions();
+      chooseView(state.view);
+    }
+    document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click',() => chooseView(button.dataset.view)));
+    element('question-list').onclick=event => {
+      const button=event.target.closest('[data-question]');
+      if (!button) return;
+      state.selected=button.dataset.question;
+      renderQuestions();
+      if (isMobile()) element('detail').focus();
+      else element('question-list').querySelector('[aria-pressed="true"]').focus();
+    };
+    element('undo-auto').onclick=() => {
+      state.auto=!state.auto;
+      event(state.auto?'Автоправка снова применена':'Автоправка отменена',state.auto?'«каротчке» → «карточке»':'«карточке» → «каротчке»');
+      render(); notice('Изменение добавлено в журнал.');
+    };
+    element('seal-confirm').onchange=event => { element('seal').disabled=!event.target.checked; };
+    element('seal').onclick=() => {
+      if (element('seal').disabled || decisions.size!==questions.length) return;
+      state.approved=true;
+      event('Рабочая редакция утверждена',`Зафиксирован снимок v${state.revision}.`,false);
+      render(); notice('Утверждённая редакция зафиксирована. Доступен переход к генерации.');
+      element('continue').focus();
+    };
+    element('continue').onclick=() => {
+      if (state.approved) {
+        element('stage-review').classList.remove('current');
+        element('stage-review').removeAttribute('aria-current');
+        element('stage-generate').classList.add('current');
+        element('stage-generate').setAttribute('aria-current','step');
+        notice(`Макет · генерация использует утверждённую редакцию v${state.revision}.`);
+        return;
+      }
+      chooseView('edition');
+      element('seal-confirm').focus();
+    };
+    render();
+  </script>
+</body>
+</html>

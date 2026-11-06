@@ -475,6 +475,7 @@ async def submit_course_generation(
         recommend_course_structure,
     )
     from app.modules.ai.v3.source_reference_decisions import admit_reference_decisions
+    from app.modules.source_editorial_review.service import SOURCE_PINS, pin_reviews, review_enabled
 
     if len(req.documents) > MULTI_DOCUMENT_MAX_SOURCES:
         raise HTTPException(
@@ -498,6 +499,9 @@ async def submit_course_generation(
         analysis_mode="direct_source",
         inspect_content=False,
     )
+    source_pins = await pin_reviews(db, tenant_id, req.documents) if review_enabled() else None
+    if source_pins and confirmed_reference_records:
+        raise HTTPException(status_code=409, detail={"code": "use_approved_source_editorial_decisions"})
     # Aggregate source budget for multi-document submissions only. The legacy
     # single-document path keeps its original behavior and limits.
     direct_mode = getattr(analysis, "analysis_mode", "semantic") == "direct_source"
@@ -525,6 +529,8 @@ async def submit_course_generation(
             },
         )
     analysis_payload = _compatibility_response(analysis).model_dump(mode="json")
+    if source_pins is not None:
+        analysis_payload[SOURCE_PINS] = source_pins
     from app.modules.ai.v3.revision_policy import stamp_policy
 
     analysis_payload = stamp_policy(analysis_payload)

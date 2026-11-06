@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # revisions and audit history for rollback/forensics.
     COURSE_APPROVAL_WORKFLOW_ENABLED: bool = True
     METHODOLOGIST_WORKBENCH_ENABLED: bool = False
+    SOURCE_EDITORIAL_REVIEW_ENABLED: bool | None = None
     METHODOLOGIST_DOCUMENT_DRAFT_ENABLED: bool = False
     METHODOLOGIST_LESSON_CORRECTION_ENABLED: bool = False
     AI_LESSON_CYCLE_DEV_ENABLED: bool = False

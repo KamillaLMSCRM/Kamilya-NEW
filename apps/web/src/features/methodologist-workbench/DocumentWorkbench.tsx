@@ -6,6 +6,8 @@ import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
 import { Button, Modal } from '@/components/ui';
 import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
+import { SourceReviewChecklist, useSourceReviewStatuses } from '@/features/source-editorial-review/SourceReviewChecklist';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import type { DocumentCatalogItem, DocumentCatalogResponse } from '@/lib/documentCatalog';
 import {
@@ -94,6 +96,11 @@ function DocumentWorkbenchInner() {
   const [languageConfirmed, setLanguageConfirmed] = useState(false);
   const [reuseReason, setReuseReason] = useState<AIGenerateRequest['reuse_reason']>(null);
   const [plan, setPlan] = useState<DocumentPlan | null>(null);
+  const sourceIds = plan?.state === 'preview_ready' ? plan.generation.documents : selected;
+  const { status: sourceReviewStatus, refresh: refreshSourceReview } = useSourceReviewStatuses(sourceIds, 'document-workbench');
+  const [sourceReviewRejected, setSourceReviewRejected] = useState(false);
+  const sourceReviewBlocked = sourceReviewStatus?.required === true
+    && sourceIds.some(id => sourceReviewStatus.documents[id] !== 'approved');
   const [dialogue, setDialogue] = useState<DocumentDialogueTask | null>(null);
   const [dialogueMessage, setDialogueMessage] = useState('');
   const [dialogueMode, setDialogueMode] = useState<'question' | 'preparation'>('question');
@@ -464,13 +471,20 @@ function DocumentWorkbenchInner() {
   };
 
   const confirm = async () => {
-    if (!plan || plan.state !== 'preview_ready' || pending || confirmRecoveryRequired || planRecoveryRequired) return;
+    if (!plan || plan.state !== 'preview_ready' || pending || confirmRecoveryRequired || planRecoveryRequired || sourceReviewBlocked) return;
     const current = ++epoch.current; setPending(true); setError(null);
     try {
       const result = await confirmDocumentPlan(plan);
       if (mounted.current && current === epoch.current) { setPlan(result); setJob(result.job); }
     } catch (cause: any) { if (mounted.current && current === epoch.current) {
       const status = cause?.response?.status;
+      const detail = cause?.response?.data?.details ?? cause?.response?.data?.detail;
+      if (status === 409 && detail?.code === 'source_editorial_review_required') {
+        setSourceReviewRejected(true);
+        refreshSourceReview();
+        setError(sourceReviewCopy(locale).beforeGeneration);
+        return;
+      }
       if (status === undefined || status >= 500) setConfirmRecoveryRequired(true);
       setError(status === 409 ? uiRef.current.stalePlan : uiRef.current.confirmError);
     } }
@@ -545,7 +559,9 @@ function DocumentWorkbenchInner() {
       </WorkspacePanel>
       <WorkspaceToolbar><Button type="button" variant="outline" onClick={() => void interpret()} disabled={pending || Boolean(dialogue) || !instruction.trim()}>{ui.interpret}</Button><Button type="button" onClick={() => void preview()} disabled={pending || Boolean(dialogue) || !instruction.trim() || !candidate.course_intent.trim() || selected.length < 1}>{ui.prepare}</Button></WorkspaceToolbar>
       {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</p>}
-      {plan?.state === 'preview_ready' && <PreviewCard preview={plan} pending={pending || confirmRecoveryRequired || planRecoveryRequired} onConfirm={() => void confirm()} ui={ui} locale={locale} />}
+      <SourceReviewChecklist documents={sourceIds.map(id => ({ id, title: documents.find(doc => doc.id === id)?.title ?? id }))}
+        status={sourceReviewStatus} requireReview={sourceReviewRejected && !sourceReviewStatus?.required} />
+      {plan?.state === 'preview_ready' && <PreviewCard preview={plan} pending={pending || confirmRecoveryRequired || planRecoveryRequired || sourceReviewBlocked} onConfirm={() => void confirm()} ui={ui} locale={locale} />}
       {job && <JobCard job={job} ui={ui} />}
   </WorkspacePage>;
 }

@@ -9,6 +9,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from app.modules.source_editorial_review.service import SOURCE_PINS
+
 SOURCE_UNCERTAINTY_KEY = "unresolved_source_uncertainty"
 
 
@@ -33,9 +35,10 @@ def preserve_source_uncertainty(old: object, new: dict[str, Any] | None) -> dict
     """Never allow a source-analysis replacement to remove an existing hold."""
     result = dict(new or {})
     # Replacement content is not authorized to create or clear this server-owned key.
-    result.pop(SOURCE_UNCERTAINTY_KEY, None)
-    if isinstance(old, dict) and SOURCE_UNCERTAINTY_KEY in old:
-        result[SOURCE_UNCERTAINTY_KEY] = deepcopy(old[SOURCE_UNCERTAINTY_KEY])
+    for key in (SOURCE_UNCERTAINTY_KEY, SOURCE_PINS):
+        result.pop(key, None)
+        if isinstance(old, dict) and key in old:
+            result[key] = deepcopy(old[key])
     return result
 
 
@@ -67,6 +70,8 @@ def preserve_generated_source_uncertainty(
     if type(source_review_required) is not bool:
         raise TypeError("source_review_required must be a bool")
     result = preserve_source_uncertainty(old, new)
+    if new is not None and SOURCE_PINS in new:
+        result[SOURCE_PINS] = deepcopy(new[SOURCE_PINS])
     if source_review_required and SOURCE_UNCERTAINTY_KEY not in result:
         result[SOURCE_UNCERTAINTY_KEY] = {"status": "review_required", "origin": "generation"}
     return result

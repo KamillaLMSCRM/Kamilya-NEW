@@ -10,6 +10,7 @@ from app.modules.ai.direct_source import DirectSourceCorpus, load_direct_source_
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.owned_source_verifier import build_owned_source_verifier
 from app.modules.ai.v3.pending_stage_transactions import _locked_job
+from app.modules.source_editorial_review.service import SOURCE_PINS, resolve_pins
 
 
 def _selection(job: Any) -> tuple[str, ...]:
@@ -65,7 +66,13 @@ async def load_owned_source_context(*, journal: Any, tenant_id: UUID, user_id: U
         async with journal.sessions() as session:
             job = await _locked_job(session, journal, user_id)
             selected = _selection(job)
-        corpus = await load_direct_source_corpus(list(selected), tenant_id=tenant_id)
+            analysis = job.params.get("source_analysis")
+            approved = (await resolve_pins(session, tenant_id, selected, analysis[SOURCE_PINS])
+                        if isinstance(analysis, dict) and SOURCE_PINS in analysis else None)
+        if approved is None:
+            corpus = await load_direct_source_corpus(list(selected), tenant_id=tenant_id)
+        else:
+            corpus = await load_direct_source_corpus(list(selected), tenant_id=tenant_id, approved_documents=approved)
         context = OwnedSourceContext(corpus, journal, tenant_id, user_id, job_id, selected)
         text = "\n\n".join(item.source_text for item in corpus.documents if item.source_text)
         plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": str(tenant_id), "job_id": job_id,

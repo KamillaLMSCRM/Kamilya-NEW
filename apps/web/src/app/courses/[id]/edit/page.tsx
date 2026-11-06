@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { sourceReviewHref, sourceReviewPins } from '@/features/source-editorial-review/contract';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 
 import { useState, useEffect, useCallback, useMemo, useRef, type MouseEvent as ReactMouseEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -62,7 +64,7 @@ interface Course {
   review_status: 'pending' | 'approved' | 'needs_changes';
   requires_approval?: boolean;
   source_instruction_id?: string | null;
-  source_analysis?: { blueprint?: Record<string, unknown> | null } | null;
+  source_analysis?: { blueprint?: Record<string, unknown> | null; source_editorial_snapshots?: unknown } | null;
 }
 
 export default function CourseEditPage() {
@@ -690,6 +692,8 @@ export default function CourseEditPage() {
   if (!course) return <WorkspacePage id="course-editor"><div role="alert" className="space-y-3 rounded-2xl border border-border bg-card p-6"><p>{copy.loadFailed}</p><Button onClick={() => void fetchData()}>{copy.retry}</Button></div></WorkspacePage>;
 
   const hasBlueprintMarker = Boolean(course.source_analysis?.blueprint && Object.keys(course.source_analysis.blueprint).length > 0);
+  const approvedSources = sourceReviewPins(course.source_analysis?.source_editorial_snapshots);
+  const sourceCopy = sourceReviewCopy(lang);
   const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
   const published = course.status === 'published';
   const approved = course.review_status === 'approved';
@@ -802,6 +806,14 @@ export default function CourseEditPage() {
         </section>
       )}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
+      {approvedSources.length > 0 && <section className="space-y-2 rounded-xl border border-border p-4" aria-label={sourceCopy.status}>
+        <h2 className="text-sm font-semibold">{sourceCopy.status}</h2>
+        <ul className="space-y-1">{approvedSources.map((source, index) => <li key={source.approval_id}>
+          <Link className="text-sm text-primary underline" href={sourceReviewHref(source.document_id, source.approval_id)}>
+            {sourceCopy.preview} {approvedSources.length > 1 ? index + 1 : ''} · {sourceCopy.revision} {source.revision}
+          </Link>
+        </li>)}</ul>
+      </section>}
       <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={workspaceDirty}
         requiresReview={requiresCourseReview} reviewStatus={course.review_status} unavailable={readinessUnavailable} />
       <WorkspaceToolbar className="py-2">

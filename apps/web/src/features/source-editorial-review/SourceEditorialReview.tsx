@@ -1,0 +1,262 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
+import { useT } from '@/i18n/useT';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
+import { sourceReviewHref, type ReviewCommand, type SourceReview } from './contract';
+import { sourceReviewCopy } from './copy';
+
+const field = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const code = 'whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/30 p-3 text-sm [overflow-wrap:anywhere]';
+type Action = Omit<ReviewCommand, 'expected_revision' | 'request_id'>;
+type Notice = 'conflict' | 'unknown' | 'error';
+
+function responseStatus(error: unknown): number | undefined {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const response = error.response;
+    if (response && typeof response === 'object' && 'status' in response && typeof response.status === 'number') return response.status;
+  }
+}
+
+export default function SourceEditorialReview() {
+  const { id, approvalId } = useParams<{ id: string; approvalId?: string }>();
+  const actor = useAuthStore((state) => state.user);
+  const sessionEpoch = useAuthStore((state) => state.sessionEpoch);
+  if (actor?.role !== 'methodologist') return null;
+  return <ReviewWorkspace key={[sessionEpoch, actor.user_id, actor.tenant_id, id, approvalId].join(':')}
+    id={id} approvalId={approvalId} />;
+}
+
+function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }) {
+  const { lang } = useT();
+  const copy = sourceReviewCopy(lang);
+  const endpoint = '/v1' + sourceReviewHref(id);
+  const [review, setReview] = useState<SourceReview | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [selected, select] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [pending, setPending] = useState<ReviewCommand | null>(null);
+  const [conflictInput, setConflictInput] = useState<Action | null>(null);
+  const [reason, setReason] = useState('');
+  const [replacement, setReplacement] = useState('');
+  const [anchor, setAnchor] = useState('');
+  const [decision, setDecision] = useState<'replace' | 'keep'>('replace');
+  const [undoItem, setUndoItem] = useState<string | null>(null);
+  const [undoReason, setUndoReason] = useState('');
+  const detail = useRef<HTMLHeadingElement>(null);
+  const commandLock = useRef(false);
+  const version = useRef(0);
+  const requestVersion = useRef(0);
+
+  const accept = useCallback((data: SourceReview) => {
+    if (data.document_id !== id || data.revision < version.current) return;
+    version.current = data.revision;
+    setReview(data);
+    setLoadError(false);
+  }, [id]);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    const attempt = ++requestVersion.current;
+    try {
+      const response = await api.get<SourceReview>(approvalId ? endpoint + '/' + encodeURIComponent(approvalId) : endpoint, { signal });
+      if (!signal?.aborted && attempt === requestVersion.current) accept(response.data);
+    } catch {
+      if (!signal?.aborted && attempt === requestVersion.current) setLoadError(true);
+    }
+  }, [accept, endpoint, approvalId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  useEffect(() => {
+    if (approvalId || !review || !['queued', 'running'].includes(review.status)) return;
+    const controller = new AbortController();
+    const timer = window.setInterval(() => void load(controller.signal), 4500);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [approvalId, load, review]);
+
+  const submit = async (body: ReviewCommand) => {
+    if (commandLock.current || approvalId) return false;
+    commandLock.current = true;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const result = await api.post<SourceReview>(endpoint, body);
+      accept(result.data);
+      setPending(null);
+      setConflictInput(null);
+      return true;
+    } catch (error) {
+      const status = responseStatus(error);
+      if (status === 409) {
+        setNotice('conflict');
+        if (body.reason || body.replacement) setConflictInput(body);
+        setPending(null);
+        await load();
+      } else if (!status || status >= 500) {
+        setNotice('unknown');
+        setPending(body);
+      } else {
+        setNotice('error');
+        setPending(null);
+      }
+      return false;
+    } finally {
+      commandLock.current = false;
+      setSaving(false);
+    }
+  };
+
+  const action = (args: Action) => review && !pending
+    ? submit({ ...args, expected_revision: review.revision, request_id: crypto.randomUUID() })
+    : Promise.resolve(false);
+  const question = review?.questions.find((item) => item.id === selected) ?? review?.questions.find((item) => !item.resolution)
+    ?? review?.questions[0];
+  const open = review?.questions.filter((item) => !item.resolution).length ?? 0;
+  const readOnly = Boolean(approvalId) || review?.status !== 'in_review';
+  const disabled = saving || Boolean(pending);
+  const showQuestion = (item: string) => {
+    if (question?.id !== item) {
+      select(item);
+      setReason('');
+      setReplacement('');
+      setAnchor('');
+      setDecision('replace');
+    }
+    requestAnimationFrame(() => detail.current?.focus());
+  };
+  const stamp = (value: string) => new Date(value).toLocaleString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU');
+  const recovery = review?.error?.startsWith('direct_source_') || review?.error === 'source_review_extraction_incomplete';
+
+  return <WorkspacePage id="source-editorial-review" title={copy.title} description={copy.intro}>
+    <Link className="inline-flex text-sm text-primary underline underline-offset-4" href="/documents">{copy.documents}</Link>
+    {loadError && <WorkspacePanel bodyClassName="space-y-3" role="alert">
+      <p>{copy.loadError}</p><Button variant="outline" onClick={() => void load()}>{copy.readAgain}</Button>
+    </WorkspacePanel>}
+    {!review && !loadError && <p role="status">{copy.loading}</p>}
+    {review && <>
+      <WorkspacePanel bodyClassName="space-y-3">
+        <h2 className="break-words text-lg font-semibold">{review.title}</h2>
+        <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
+        <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
+        {['not_started', 'failed', 'interrupted'].includes(review.status) && !approvalId && <>
+          <p className="text-sm">{review.status === 'not_started' ? copy.startHint : recovery ? copy.protected : copy.recovery}</p>
+          <Button disabled={disabled} onClick={() => void action({ action: 'start' })}>{review.status === 'not_started' ? copy.check : copy.retry}</Button>
+        </>}
+        {['queued', 'running'].includes(review.status) && <p className="text-sm text-muted-foreground">{copy.startHint}</p>}
+        {review.approval && <div className="flex flex-wrap items-center gap-3">
+          <p className="w-full text-sm">{copy.approved} · {stamp(review.approval.created_at)}. {copy.afterApproval}</p>
+          {!approvalId && <>
+            <Link className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href={`/ai/generate?document_id=${encodeURIComponent(id)}`}>{copy.generate}</Link>
+            <Link className="text-sm text-primary underline" href={sourceReviewHref(id, review.approval.approval_id)}>{copy.preview}</Link>
+            <Button variant="outline" disabled={disabled} onClick={() => void action({ action: 'reopen' })}>{copy.reopen}</Button>
+          </>}
+        </div>}
+      </WorkspacePanel>
+      {notice && <WorkspacePanel role="alert" bodyClassName="space-y-2">
+        <p>{copy[notice]}</p>
+        {conflictInput && <details open><summary>{copy.savedDraft}</summary>
+          <p className={code}>{[conflictInput.replacement, conflictInput.quote, conflictInput.reason].filter(Boolean).join('\n')}</p>
+        </details>}
+        {pending && <Button variant="outline" disabled={saving} onClick={() => void submit(pending)}>{copy.repeatCommand}</Button>}
+      </WorkspacePanel>}
+      {review.original_text && <>
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <WorkspacePanel bodyClassName="space-y-3">
+            <h2 className="font-semibold">{copy.list}</h2>
+            <p className="text-sm text-muted-foreground">{copy.openCount}: {open}</p>
+            {review.questions.length === 0 ? <p className="text-sm">{copy.noQuestions}</p> :
+              <ol className="space-y-2">{review.questions.map((item, index) => <li key={item.id}>
+                <button type="button" onClick={() => showQuestion(item.id)} aria-current={item.id === question?.id}
+                  className={`w-full break-words rounded-lg border px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring ${item.id === question?.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'}`}>
+                  <span className="block font-medium">{index + 1}. {item.quote.length > 120 ? item.quote.slice(0, 120) + '…' : item.quote}</span>
+                  <span className="text-xs text-muted-foreground">{item.resolution ? copy.closed : copy.open}</span>
+                </button>
+              </li>)}</ol>}
+          </WorkspacePanel>
+          {question && <WorkspacePanel bodyClassName="space-y-4">
+            <h2 ref={detail} tabIndex={-1} className="font-semibold focus-visible:ring-2 focus-visible:ring-ring">{copy.question}</h2>
+            <p className="whitespace-pre-wrap break-words text-sm">{question.reason}</p>
+            <div><p className="mb-1 text-xs font-medium text-muted-foreground">{question.start == null ? copy.unbound : copy.quote}</p>
+              <blockquote className={code}>{question.quote}</blockquote></div>
+            {question.resolution && <div className="space-y-2 text-sm">
+              <p className="font-medium">{copy.closed}</p>
+              <p className={code}>{question.resolution.after}</p>
+              <p>{question.resolution.reason}</p>
+            </div>}
+            {!readOnly && <form className="space-y-3" onSubmit={async (event) => {
+              event.preventDefault();
+              const args: Action = question.resolution
+                ? { action: 'reopen_issue', item_id: question.id, reason }
+                : { action: 'resolve', item_id: question.id, reason, decision,
+                    ...(decision === 'replace' ? { replacement, ...(question.start == null ? { quote: anchor } : {}) } : {}) };
+              if (await action(args)) { setReason(''); setReplacement(''); setAnchor(''); }
+            }}>
+              {!question.resolution && <>
+                <fieldset className="flex flex-wrap gap-4 text-sm">
+                  <label className="flex gap-2"><input type="radio" checked={decision === 'replace'} onChange={() => setDecision('replace')} />{copy.replace}</label>
+                  <label className="flex gap-2"><input type="radio" checked={decision === 'keep'} onChange={() => setDecision('keep')} />{copy.keep}</label>
+                </fieldset>
+                {decision === 'replace' && <>
+                  {question.start == null && <label className="block space-y-1 text-sm"><span>{copy.anchor}</span>
+                    <textarea className={field} value={anchor} onChange={(e) => setAnchor(e.target.value)} required maxLength={5000} /></label>}
+                  <label className="block space-y-1 text-sm"><span>{copy.replacement}</span>
+                    <textarea className={field} value={replacement} onChange={(e) => setReplacement(e.target.value)} required maxLength={5000} rows={4} /></label>
+                </>}
+              </>}
+              <label className="block space-y-1 text-sm"><span>{copy.reason}</span>
+                <textarea className={field} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={1500} rows={2} placeholder={copy.reasonHint} />
+              </label>
+              <Button type="submit" disabled={disabled}>{question.resolution ? copy.reopenIssue : copy.save}</Button>
+            </form>}
+          </WorkspacePanel>}
+        </div>
+        <WorkspacePanel bodyClassName="space-y-3">
+          <h2 className="font-semibold">{copy.automatic}</h2>
+          {review.automatic.length === 0 && <p className="text-sm text-muted-foreground">{copy.noEdits}</p>}
+          {review.automatic.map((change) => <details key={change.id} className="rounded-lg border border-border p-3">
+            <summary className="cursor-pointer break-words text-sm">{change.before} → {change.after} {change.undone ? ` · ${copy.undone}` : ''}</summary>
+            <p className="mt-2 text-sm">{change.reason}</p>
+            {!readOnly && !change.undone && (undoItem === change.id
+              ? <form className="mt-2 space-y-2" onSubmit={async (e) => {
+                e.preventDefault();
+                if (await action({ action: 'undo_auto', item_id: change.id, reason: undoReason })) setUndoItem(null);
+              }}><label className="block text-sm">{copy.reason}<textarea className={field} value={undoReason} onChange={(e) => setUndoReason(e.target.value)} minLength={3} maxLength={1500} required /></label>
+                <Button type="submit" disabled={disabled}>{copy.undo}</Button></form>
+              : <Button className="mt-2" variant="outline" disabled={disabled} onClick={() => { setUndoReason(''); setUndoItem(change.id); }}>{copy.undo}</Button>)}
+          </details>)}
+        </WorkspacePanel>
+        <WorkspacePanel bodyClassName="space-y-3">
+          <details open={Boolean(approvalId)}><summary className="cursor-pointer font-semibold">{copy.working}</summary>
+            <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.working_text}</pre></details>
+          <details><summary className="cursor-pointer font-semibold">{copy.original}</summary>
+            <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.original_text}</pre></details>
+          {!readOnly && <div className="space-y-2"><Button disabled={disabled || open > 0} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
+            {open > 0 && <p className="text-sm text-muted-foreground">{copy.blocking}</p>}</div>}
+        </WorkspacePanel>
+        <WorkspacePanel bodyClassName="space-y-3">
+          <h2 className="font-semibold">{copy.history}</h2>
+          {review.journal.length === 0 ? <p className="text-sm">{copy.noEdits}</p> : <ol className="space-y-2">
+            {[...review.journal].reverse().map((entry) => <li key={entry.id + ':' + (entry.item_id ?? '')}>
+              <details className="rounded-lg border border-border p-3">
+                <summary className="cursor-pointer text-sm">{copy.eventLabels[entry.kind as keyof typeof copy.eventLabels] ?? entry.kind} · {copy.revision} {entry.revision} · {stamp(entry.created_at)}</summary>
+                <p className="mt-2 break-words text-xs text-muted-foreground">{entry.actor_id ? copy.reviewer + ': ' + entry.actor_id : copy.automated}</p>
+                {entry.before && <p className={`mt-2 ${code}`}>{copy.before}: {entry.before}{'\n'}{copy.after}: {entry.after}</p>}
+                {entry.reason && <p className="mt-2 break-words text-sm">{entry.reason}</p>}
+              </details>
+            </li>)}
+          </ol>}
+        </WorkspacePanel>
+      </>}
+    </>}
+  </WorkspacePage>;
+}

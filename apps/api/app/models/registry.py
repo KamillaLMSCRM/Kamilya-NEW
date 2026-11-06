@@ -58,6 +58,7 @@ MODEL_MODULES = (
     "app.modules.quizzes.models",
     "app.modules.scorm.models",
     "app.modules.source_actuality.models",
+    "app.modules.source_editorial_review.models",
     "app.modules.staff_sync.models",
     "app.modules.surveys.models",
     "app.modules.support.models",

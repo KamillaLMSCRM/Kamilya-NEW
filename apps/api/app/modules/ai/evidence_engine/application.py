@@ -66,7 +66,7 @@ from app.modules.ai.lesson_surface_review import (
     restore_lesson_surface_review,
 )
 from app.modules.ai.llm_client import AllProvidersFailedError, ValidatedCallFailureReason
-from app.modules.ai.source_editorial_document import source_editorial_document_valid
+from app.modules.ai.source_editorial_document import SourceEditorialDocument, source_editorial_document_valid
 from app.modules.ai.source_layout import SourceMarker, parse_source_marker, verified_docling_semantic_view
 from app.modules.ai.source_response_projection import (
     LiteralExpansion,
@@ -80,6 +80,7 @@ from app.modules.ai.source_response_projection import (
 )
 from app.modules.ai.source_tables import markdown_table_cells, markdown_tables
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
+from app.modules.source_editorial_review.domain import ApprovedEditorialDocument
 
 from .engine import EvidenceCourseEngine, admit_document_facts
 from .models import (
@@ -1574,8 +1575,11 @@ def build_evidence_source(corpus: DirectSourceCorpus) -> EvidenceSourceBundle:
         editorial = document.editorial_document
         if editorial is None:
             continue
-        if (not source_editorial_document_valid(editorial, document_id=document.doc_id,
-                source_revision=document.source_revision)
+        valid = (editorial.valid(document_id=document.doc_id, source_revision=document.source_revision)
+                 if isinstance(editorial, ApprovedEditorialDocument) else
+                 source_editorial_document_valid(editorial, document_id=document.doc_id,
+                                                source_revision=document.source_revision))
+        if (not valid
                 or document.chunks != direct_source_chunks(editorial.working_text, document_id=document.doc_id,
                     filename=document.filename, title=document.title, source_revision=document.source_revision)):
             raise ValueError("evidence_source_editorial_document_unproved:" + document.doc_id)
@@ -3568,7 +3572,9 @@ async def generate_evidence_course(
 
 def _editorial_document_needs_review(document: Any) -> bool:
     editorial = getattr(document, "editorial_document", None)
-    return editorial is not None and bool(editorial.result.edition.gaps or editorial.result.unbound_diagnostics)
+    return isinstance(editorial, SourceEditorialDocument) and bool(
+        editorial.result.edition.gaps or editorial.result.unbound_diagnostics
+    )
 
 
 def _editorial_lesson_needs_review(references: list[dict[str, Any]], document_ids: set[str],

@@ -56,6 +56,7 @@ from app.modules.ai.source_topic_map import (
 )
 from app.modules.ai.structure_quality import course_structure_quality_issues
 from app.modules.ai.writer_schema import CourseContent, LessonContent, ModuleContent
+from app.modules.source_editorial_review.domain import ApprovedEditorialDocument
 
 _timeout_log = logging.getLogger(__name__)
 _TimeoutResult = TypeVar("_TimeoutResult")
@@ -753,7 +754,7 @@ class DirectSourceDocument:
     source_revision: str
     chunks: tuple[DirectSourceChunk, ...]
     conversion_fidelity: ConversionFidelity = field(default_factory=ConversionFidelity.unverified)
-    editorial_document: SourceEditorialDocument | None = None
+    editorial_document: SourceEditorialDocument | ApprovedEditorialDocument | None = None
     review_only_source_context: tuple[dict[str, str], ...] = ()
     review_only_source_unresolved: bool = False
     # Exact converted working text before chunk overlap. None denotes an older
@@ -819,6 +820,7 @@ async def build_direct_source_corpus(
     storage: _Storage | None = None,
     converter: _Converter | None = None,
     editorial_results: Mapping[str, SourceEditorialResult] | None = None,
+    approved_documents: Mapping[str, ApprovedEditorialDocument] | None = None,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     max_source_bytes: int = MAX_DIRECT_SOURCE_BYTES,
     max_document_chars: int = MAX_DIRECT_SOURCE_DOCUMENT_CHARS,
@@ -835,6 +837,9 @@ async def build_direct_source_corpus(
     if editorial_results is not None and (
             not isinstance(editorial_results, Mapping)
             or not set(editorial_results) <= {str(document.id) for document in documents}):
+        raise DirectSourceError("direct_source_editorial_selection_invalid")
+    if approved_documents is not None and (
+            editorial_results is not None or set(approved_documents) != {str(doc.id) for doc in documents}):
         raise DirectSourceError("direct_source_editorial_selection_invalid")
     if storage is None:
         from app.core.storage import get_storage
@@ -856,6 +861,31 @@ async def build_direct_source_corpus(
         expected_sha = str(document.content_sha256 or "")
         if not _SHA256_RE.fullmatch(expected_sha):
             raise DirectSourceError("direct_source_sha_missing", (document_id,))
+        if approved_documents is not None:
+            approved = approved_documents[document_id]
+            source_revision = f"document:{expected_sha}"
+            if not approved.valid(document_id=document_id, source_revision=source_revision):
+                raise DirectSourceError("direct_source_editorial_unproved", (document_id,))
+            fidelity_fields = dict(approved.fidelity)
+            fidelity_fields["warnings"] = tuple(fidelity_fields.get("warnings", ()))
+            fidelity = ConversionFidelity(**fidelity_fields)
+            if fidelity.admission_blocked or len(approved.working_text) > max_document_chars:
+                raise DirectSourceError("direct_source_editorial_unproved", (document_id,))
+            chunks = direct_source_chunks(approved.working_text, document_id=document_id,
+                filename=str(document.filename), title=str(document.title), source_revision=source_revision)
+            if not chunks:
+                raise DirectSourceError("direct_source_empty", (document_id,))
+            total_chars += len(approved.working_text)
+            total_chunks += len(chunks)
+            if total_chars > max_total_chars or total_chunks > max_total_chunks:
+                raise DirectSourceError("direct_source_budget_exceeded", (document_id,))
+            converted_documents.append(DirectSourceDocument(
+                doc_id=document_id, title=str(document.title), filename=str(document.filename),
+                category=str(document.category or "general"), source_revision=source_revision,
+                chunks=chunks, source_text=approved.working_text, conversion_fidelity=fidelity,
+                editorial_document=approved,
+            ))
+            continue
         storage_key = str(document.s3_key or "")
         if not storage_key:
             raise DirectSourceError("direct_source_blob_missing", (document_id,))
@@ -972,6 +1002,7 @@ async def load_direct_source_corpus(
     tenant_id: UUID | str,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     editorial_results: Mapping[str, SourceEditorialResult] | None = None,
+    approved_documents: Mapping[str, ApprovedEditorialDocument] | None = None,
 ) -> DirectSourceCorpus:
     """Load active documents through tenant context, then verify originals."""
 
@@ -1016,6 +1047,7 @@ async def load_direct_source_corpus(
         tenant_id=parsed_tenant,
         check_cancelled=check_cancelled,
         editorial_results=editorial_results,
+        approved_documents=approved_documents,
     )
 
 
