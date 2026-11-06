@@ -109,6 +109,20 @@ describe('source editorial review', () => {
     expect(await screen.findByText('Выбранные страницы: 3–9')).toBeInTheDocument();
   });
 
+  it('starts a whole-document check for an uploaded Word file', async () => {
+    const document: SourceReview = { ...fixture(), title: 'Регламент.docx', pdf: false,
+      status: 'not_started', original_text: null, working_text: null, questions: [] };
+    mocks.get.mockResolvedValue({ data: document });
+    mocks.post.mockResolvedValue({ data: { ...document, revision: 4, status: 'queued' } });
+    render(<SourceEditorialReview />);
+    const start = await screen.findByRole('button', { name: 'Проверить документ' });
+    expect(screen.queryByRole('group', { name: 'Страницы для проверки' })).not.toBeInTheDocument();
+    fireEvent.click(start);
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
+    expect(mocks.post.mock.calls[0][1]).toMatchObject({ action: 'start', expected_revision: 3 });
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('pages');
+  });
+
   it('does not fetch document text for an inactive role', () => {
     mocks.role = 'student';
     render(<SourceEditorialReview />);

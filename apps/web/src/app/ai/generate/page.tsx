@@ -6,6 +6,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { coursePublicationError } from '@/lib/coursePublicationError';
+import { DOCUMENT_UPLOAD_ACCEPT, documentUploadFile } from '@/lib/documentUpload';
 import {
   type DocumentCatalogResponse,
   type DocumentIndexStatus,
@@ -604,12 +605,19 @@ export default function AIGeneratePage() {
   };
 
   const uploadFile = useCallback(async (file: File) => {
+    const accepted = documentUploadFile(file);
+    if (!accepted) {
+      const message = t('documents.allowedTypes');
+      setUploadError(message);
+      toast.error(t('aiGeneration.errors.uploadTitle'), { description: message });
+      return;
+    }
     setUploadingCount((count) => count + 1);
     setUploadingFiles((files) => [...files, file.name]);
     setUploadError('');
     setDuplicateDocument(null);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', accepted);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
     try {
       const response = await api.post<{
@@ -1352,7 +1360,7 @@ export default function AIGeneratePage() {
           >
             <input ref={fileRef} type="file" multiple onChange={(e) => {
               void handleFileInputChange(e);
-            }} className="hidden" accept=".pdf,.doc,.docx,.txt,.md,.pptx,.xlsx,.csv" />
+            }} className="hidden" accept={DOCUMENT_UPLOAD_ACCEPT} />
             <div className="text-2xl mb-2 text-muted-foreground">
               {uploading ? <Loader2 className="w-8 h-8 mx-auto animate-spin" /> : <FolderOpen className="w-8 h-8 mx-auto" />}
             </div>

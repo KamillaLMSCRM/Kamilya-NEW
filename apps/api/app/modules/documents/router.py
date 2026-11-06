@@ -564,7 +564,7 @@ async def upload_document(
     if content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{content_type}' not allowed. Supported: PDF, DOCX, DOC, TXT, CSV, XLS, XLSX",
+            detail=f"File type '{content_type}' not allowed. Supported: PDF, DOC, DOCX, TXT, MD, CSV, XLS, XLSX",
         )
 
     # Magic bytes validation

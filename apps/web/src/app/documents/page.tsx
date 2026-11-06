@@ -33,6 +33,7 @@ import {
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { documentProcessingErrorMessage } from '@/lib/documentProcessingErrors';
+import { DOCUMENT_UPLOAD_ACCEPT, documentUploadFile } from '@/lib/documentUpload';
 import { useDebounce } from '@/lib/useDebounce';
 import { useAuthStore } from '@/store/authStore';
 import { SourceActualityPanel } from '@/features/source-actuality/SourceActualityPanel';
@@ -247,7 +248,12 @@ function ScopedDocumentsPage() {
   const chooseFile = (file?: File) => {
     if (!file) return;
     setDuplicateConflict(null);
-    setSelectedFile(file);
+    const accepted = documentUploadFile(file);
+    setSelectedFile(accepted);
+    if (!accepted) {
+      toast.error(t('documents.uploadFailed'), { description: t('documents.allowedTypes') });
+      return;
+    }
     setTitle((current) => current || file.name.replace(/\.[^/.]+$/, ''));
   };
 
@@ -848,7 +854,7 @@ function ScopedDocumentsPage() {
                 ref={fileRef}
                 type="file"
                 className="hidden"
-                accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.csv"
+                accept={DOCUMENT_UPLOAD_ACCEPT}
                 onChange={(event) => chooseFile(event.target.files?.[0])}
               />
               {selectedFile ? (
