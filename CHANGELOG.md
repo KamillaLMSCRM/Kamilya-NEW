@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.73] - 2026-11-06
+
+### Changed
+
+- Guide methodologists from source review to the course's tests, approval, publication and assignment.
+- Put course completion and the certificate together. Show documentary confirmation in a separate panel.
+- Collapse the optional personal-link deadline fields and display the current values in the assignment form.
+
 ## [0.11.72] - 2026-11-05
 
 ### Fixed

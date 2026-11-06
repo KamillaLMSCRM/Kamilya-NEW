@@ -125,6 +125,7 @@ export default function CourseEditPage() {
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [savingLesson, setSavingLesson] = useState(false);
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
+  const [programGenerationJob, setProgramGenerationJob] = useState<string | null>(null);
   const [correctionBusy, setCorrectionBusy] = useState(false);
   const correctionBusyRef = useRef(false);
   const correctionPanelRef = useRef<LessonCorrectionPanelHandle>(null);
@@ -150,6 +151,9 @@ export default function CourseEditPage() {
   const moduleDirty = Boolean(editingModuleId)
     && editModuleTitle !== modules.find((module) => module.id === editingModuleId)?.title;
   const workspaceDirty = lessonDirty || moduleDirty;
+  useEffect(() => {
+    setProgramGenerationJob(new URLSearchParams(window.location.search).get('programGenerationJob'));
+  }, [courseId]);
   const editorSnapshot = useRef({ courseId, editingLessonId, token, editLessonTitle, savedLessonTitle, editLessonContent, savedLessonContent, savingLesson, loadingLessonId });
   editorSnapshot.current = { courseId, editingLessonId, token, editLessonTitle, savedLessonTitle, editLessonContent, savedLessonContent, savingLesson, loadingLessonId };
   const onCorrectionApplied = (receipt: CorrectionApplicationReceipt, content: string, before: string) => {
@@ -687,6 +691,27 @@ export default function CourseEditPage() {
 
   const hasBlueprintMarker = Boolean(course.source_analysis?.blueprint && Object.keys(course.source_analysis.blueprint).length > 0);
   const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
+  const published = course.status === 'published';
+  const approved = course.review_status === 'approved';
+  const courseQuery = encodeURIComponent(course.id);
+  const nextAfterPublication = programGenerationJob
+    ? `/ai/generate?job_id=${encodeURIComponent(programGenerationJob)}`
+    : `/assignments?courseId=${courseQuery}`;
+  const nextActionLabel = programGenerationJob ? t('ai.programAttach.attach') : t('releaseSteps.assign');
+  const approvalButton = (
+    <Button type="button" size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
+      <CheckCircle2 className="mr-1.5 h-4 w-4" />
+      {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
+    </Button>
+  );
+  const publicationButton = (
+    <Button type="button" size="sm" onClick={handlePublish} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
+      <Rocket className="mr-1.5 h-4 w-4" />
+      {releaseAction === 'publish' ? t('authenticatedUi.editor.publishing') : course.source_instruction_id
+        ? t('authenticatedUi.editor.publishAndAssign') : t('authenticatedUi.editor.publish')}
+    </Button>
+  );
+  const workflowLinkClass = 'inline-flex min-h-10 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring';
 
   return (
     <WorkspacePage id="course-editor" className="mx-auto max-w-[1800px]">
@@ -717,22 +742,8 @@ export default function CourseEditPage() {
           </div>
       } actions={
         <div className="flex max-w-full flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal">
-          {course.status !== 'published' && requiresCourseReview && course.review_status !== 'approved' && (
-            <Button size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
-              <CheckCircle2 className="mr-1.5 h-4 w-4" />
-              {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
-            </Button>
-          )}
-          {course.status !== 'published' && (!requiresCourseReview || course.review_status === 'approved') && (
-            <Button size="sm" onClick={handlePublish} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
-              <Rocket className="mr-1.5 h-4 w-4" />
-              {releaseAction === 'publish'
-                ? t('authenticatedUi.editor.publishing')
-                : course.source_instruction_id
-                  ? t('authenticatedUi.editor.publishAndAssign')
-                  : t('authenticatedUi.editor.publish')}
-            </Button>
-          )}
+          {!course.ai_generated && !published && requiresCourseReview && !approved && approvalButton}
+          {!course.ai_generated && !published && (!requiresCourseReview || approved) && publicationButton}
           <Button
             variant="outline"
             size="sm"
@@ -757,10 +768,40 @@ export default function CourseEditPage() {
         </div>
       } />
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
+      {course.ai_generated && (
+        <section id="course-release" aria-labelledby="course-release-heading" className="scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5">
+          <h2 id="course-release-heading" className="font-semibold">{t('releaseSteps.title')}</h2>
+          <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm marker:font-semibold">
+            <li>
+              <p className="mb-2 pl-2 font-medium">{t('releaseSteps.source')}</p>
+              <SourceReviewPanel key={`${course.id}:${session.generation}`}
+                courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
+                onResolved={() => { void fetchData(); }} />
+            </li>
+            <li>
+              <Link className={workflowLinkClass} href={`/quizzes?courseId=${courseQuery}${programGenerationJob ? `&programGenerationJob=${encodeURIComponent(programGenerationJob)}` : ''}`}>{t('releaseSteps.quizzes')}</Link>
+              {!published && <p className="px-2 text-muted-foreground">{t('releaseSteps.quizzesHint')}</p>}
+            </li>
+            <li className="pl-2">
+              {approved || published
+                ? <span className="font-medium">{t('releaseSteps.approve')} · {t('releaseSteps.done')}</span>
+                : approvalButton}
+            </li>
+            <li className="pl-2">
+              {published
+                ? <span className="font-medium">{t('releaseSteps.publish')} · {t('releaseSteps.done')}</span>
+                : approved ? publicationButton : <span>{t('releaseSteps.publish')} · {t('releaseSteps.afterApproval')}</span>}
+              {!published && <p className="mt-1 text-muted-foreground">{t('releaseSteps.approvalHint')}</p>}
+            </li>
+            {!course.source_instruction_id && <li>
+              {published
+                ? <Link className={workflowLinkClass} href={nextAfterPublication}>{nextActionLabel}</Link>
+                : <span className="pl-2">{nextActionLabel} · {t('releaseSteps.afterPublication')}</span>}
+            </li>}
+          </ol>
+        </section>
+      )}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
-      {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
-        courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
-        onResolved={() => { void fetchData(); }} />}
       <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={workspaceDirty}
         requiresReview={requiresCourseReview} reviewStatus={course.review_status} unavailable={readinessUnavailable} />
       <WorkspaceToolbar className="py-2">
@@ -773,15 +814,9 @@ export default function CourseEditPage() {
             `/admin/course-approvals?courseId=${encodeURIComponent(course.id)}`,
           )}
         >{copy.approvalLink}</Link>
-        <Link className="inline-flex min-h-10 items-center" href="/quizzes">{copy.quizzesLink}</Link>
+        {!course.ai_generated && <Link className="inline-flex min-h-10 items-center" href={`/quizzes?courseId=${courseQuery}`}>{copy.quizzesLink}</Link>}
       </nav>
       </WorkspaceToolbar>
-      {course.status !== 'published' && course.ai_generated && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          {t('authenticatedUi.editor.quizReviewHint')}
-        </div>
-      )}
-
       {course.status !== 'published' && course.source_instruction_id && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
           {t('authenticatedUi.editor.draftVisibilityHint')}

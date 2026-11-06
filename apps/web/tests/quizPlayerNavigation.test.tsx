@@ -19,7 +19,7 @@ vi.mock('@/i18n/useT', () => ({
       'common.back': 'Назад',
       'courses.nextLesson': 'Следующий урок',
       'quiz.assignmentTimeLeft': 'Оставшееся время на курс и тест',
-      'quiz.returnAndComplete': 'Вернуться в курс и завершить',
+      'completionUx.goToCompletion': 'Перейти к завершению курса',
     }[key] || key),
     tp: (key: string, count: number) => `${count} ${key}`,
   }),
@@ -282,10 +282,10 @@ describe('learner quiz result navigation', () => {
     fireEvent.click(screen.getByRole('radio'));
     fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
 
-    const finishButton = await screen.findByRole('button', { name: 'Вернуться в курс и завершить' });
+    const finishButton = await screen.findByRole('button', { name: 'Перейти к завершению курса' });
     fireEvent.click(finishButton);
 
-    expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-1');
+    expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-1#finish-course');
   });
 
   it('rotates MCQ choices between attempts while keeping their ids selectable', async () => {

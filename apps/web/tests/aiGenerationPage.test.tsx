@@ -348,7 +348,8 @@ describe('/ai/generate job workflow parity', () => {
     expect(apiMock.post).not.toHaveBeenCalledWith('/v1/ai/generate-course', expect.anything());
   });
 
-  it('maps an approval-required publish conflict before the raw API detail', async () => {
+  it('maps an approval-required publish conflict in the linked-program flow', async () => {
+    localStorage.setItem('ai_generation_workflow_context', JSON.stringify({ job_id: activeJob.id, program_id: 'program-1' }));
     const completedJob = { ...activeJob, status: 'completed', stage: 'completed', progress: 100 };
     let jobReads = 0;
     apiMock.get.mockImplementation(async (url: string) => {

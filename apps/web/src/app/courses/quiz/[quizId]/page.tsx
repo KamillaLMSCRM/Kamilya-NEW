@@ -417,6 +417,9 @@ function ScopedQuizPlayer() {
   const nextLessonHref = parentCourseId && nextLesson
     ? `/courses/${parentCourseId}?lessonId=${encodeURIComponent(nextLesson.id)}`
     : null;
+  const finishCourseHref = result?.passed && courseHref && currentLessonIndex >= 0 && !nextLesson && !assignmentBlocked
+    ? `${courseHref}#finish-course`
+    : null;
   const choiceRotation = currentQ?.type === 'MCQ' && currentQ.choices.length > 1
     ? attemptsUsed % currentQ.choices.length
     : 0;
@@ -496,11 +499,14 @@ function ScopedQuizPlayer() {
                 {downloadingAttemptId === result.attempt.id ? copy.preparing : copy.download}
               </Button>
               {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
+              {finishCourseHref && <p className="mt-4 text-sm text-muted-foreground">{t('completionUx.finishHint')}</p>}
               <div className="mt-6 flex flex-wrap justify-center gap-3 border-t border-border pt-5">
                 {canAttempt && !assignmentBlocked && !result.passed && (
                   <Button onClick={handleRetry}>{t('quiz.tryAgain')}</Button>
                 )}
-                {courseHref ? (
+                {finishCourseHref ? (
+                  <Button onClick={() => router.push(finishCourseHref)}>{t('completionUx.goToCompletion')}</Button>
+                ) : courseHref ? (
                   <Link href={courseHref}>
                     <Button variant="outline">{t('courses.backToCourse')}</Button>
                   </Link>
@@ -529,17 +535,6 @@ function ScopedQuizPlayer() {
             activityTitle={quiz.title}
             activityKind="quiz"
           />
-        )}
-
-        {result?.passed && !nextLessonHref && (
-          <WorkspacePanel title={t('quiz.nextStepsTitle')} bodyClassName="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {t('quiz.nextStepsDescription')}
-              </p>
-              <Button onClick={() => router.push(nextLessonHref || courseHref || getRoleHome(user?.role))}>
-                {t('quiz.returnAndComplete')}
-              </Button>
-          </WorkspacePanel>
         )}
 
         {/* Question Navigation */}

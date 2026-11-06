@@ -248,6 +248,10 @@ function ScopedEvidenceConfirmationPanel({
   const statusText = notRequired ? m.confirmationNotRequired : confirmed
     ? t('evidenceConfirmation.status.confirmed')
     : t('evidenceConfirmation.status.pending');
+  const panelTitle = notRequired ? m.confirmationNotRequired
+    : activityKind === 'course' ? t('completionUx.documentary') : t('evidenceConfirmation.title');
+  const panelDescription = notRequired ? m.noConfirmationHint : activityKind === 'course'
+    ? t('completionUx.documentaryHint') : confirmed ? t('evidenceConfirmation.status.confirmed') : t('evidenceConfirmation.subtitle');
 
   const actionButtons = useMemo(() => (
     <div className="flex flex-wrap gap-2">
@@ -290,8 +294,8 @@ function ScopedEvidenceConfirmationPanel({
 
   return (
     <WorkspacePanel className={confirmed ? 'border-success/40' : 'border-primary/30'}
-      title={<span className="flex items-start gap-3"><span className="rounded-xl bg-primary/10 p-2 text-primary" aria-hidden="true">{confirmed ? <CheckCircle2 className="h-5 w-5 text-success" /> : <ShieldCheck className="h-5 w-5" />}</span><span className="min-w-0 break-words pt-1">{notRequired ? m.confirmationNotRequired : t('evidenceConfirmation.title')}</span></span>}
-      description={notRequired ? m.noConfirmationHint : confirmed ? t('evidenceConfirmation.status.confirmed') : t('evidenceConfirmation.subtitle')}
+      title={<span className="flex items-start gap-3"><span className="rounded-xl bg-primary/10 p-2 text-primary" aria-hidden="true">{confirmed ? <CheckCircle2 className="h-5 w-5 text-success" /> : <ShieldCheck className="h-5 w-5" />}</span><span className="min-w-0 break-words pt-1">{panelTitle}</span></span>}
+      description={panelDescription}
       bodyClassName="space-y-6 [&_button]:h-auto [&_button]:min-h-11 [&_button]:py-2 [&_button]:whitespace-normal">
         <dl className="grid gap-5 rounded-xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2 sm:p-5">
           <div>

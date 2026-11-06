@@ -93,7 +93,7 @@ describe('EvidenceConfirmationPanel', () => {
     );
 
     await waitFor(() => expect(apiMock.get).toHaveBeenCalled());
-    await waitFor(() => expect(document.body.textContent).toContain('evidenceConfirmation.title'));
+    await waitFor(() => expect(document.body.textContent).toContain('completionUx.documentary'));
     expect(apiMock.get).toHaveBeenCalledWith('/v1/training-evidence/events/mine/event-1');
     expect(apiMock.get).toHaveBeenCalledWith('/v1/training-evidence/events/mine/event-1/signed-scans');
 

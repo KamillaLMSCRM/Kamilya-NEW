@@ -1305,8 +1305,20 @@ function AssignmentsContent() {
                 <span><b>{t('courseAssignments.ui.personalLink')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.personalLinkHint')}</span></span>
               </label>
               {deliveryMode === 'personal_link' && (
-                <div data-testid="personal-link-settings-grid" className="grid gap-3 sm:grid-cols-3">
-                  <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
+                <details className="rounded-md border border-border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    <span>{t('courseAssignments.deadlineOptions.title')}</span>
+                    <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                      {t('courseAssignments.deadlineOptions.validity', { days: linkValidityDays })}
+                      {' · '}
+                      {completionWindowMinutes
+                        ? t('courseAssignments.deadlineOptions.window', { minutes: completionWindowMinutes })
+                        : t('courseAssignments.deadlineOptions.noWindow')}
+                      {dueAt && ` · ${t('courseAssignments.ui.dueDateAria')} ${new Date(dueAt).toLocaleString()}`}
+                    </span>
+                  </summary>
+                  <div data-testid="personal-link-settings-grid" className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label data-testid="personal-link-field" className="grid min-w-0 content-start gap-y-1 text-sm">
                     <span className="leading-5">{t('courseAssignments.ui.completionWindowLabel')}</span>
                     <Input
                       className="h-10"
@@ -1320,7 +1332,7 @@ function AssignmentsContent() {
                     />
                     <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.completionWindowHint')}</span>
                   </label>
-                  <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
+                  <label data-testid="personal-link-field" className="grid min-w-0 content-start gap-y-1 text-sm">
                     <span className="leading-5">{t('courseAssignments.ui.linkValidityLabel')}</span>
                     <Input
                       className="h-10"
@@ -1333,7 +1345,7 @@ function AssignmentsContent() {
                     />
                     <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.linkValidityHint')}</span>
                   </label>
-                  <label data-testid="personal-link-field" className="grid grid-rows-[2.5rem_2.5rem_auto] gap-y-1 text-sm">
+                  <label data-testid="personal-link-field" className="grid min-w-0 gap-y-1 text-sm sm:col-span-2">
                     <span className="leading-5">{t('courseAssignments.ui.dueDateLabel')}</span>
                     <Input
                       className="h-10"
@@ -1344,7 +1356,8 @@ function AssignmentsContent() {
                     />
                     <span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.dueDateHint')}</span>
                   </label>
-                </div>
+                  </div>
+                </details>
               )}
               {deliveryMode === 'personal_link' && selectedUsers.size > 1 && (
                 <p className="text-sm text-warning" role="alert">

@@ -622,6 +622,7 @@ describe('contextual course assignment flow', () => {
     render(<CourseAssignmentsPage />);
     expect(await screen.findByRole('checkbox')).toBeChecked();
     fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    fireEvent.click(screen.getByText('Дополнительные настройки сроков'));
     fireEvent.change(screen.getByLabelText('Время на прохождение после первого входа, минут'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Назначить (1)' }));
 
@@ -730,7 +731,7 @@ describe('contextual course assignment flow', () => {
     expect(fetchMock.mock.calls.filter(([url, init]) => String(url).includes('/access-policy/revoke') && init?.method === 'POST')).toHaveLength(0);
   });
 
-  it('keeps enrollment controls and personal-link settings on shared visual rows', async () => {
+  it('keeps enrollment controls aligned and discloses personal-link deadlines on demand', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
@@ -751,11 +752,16 @@ describe('contextual course assignment flow', () => {
     });
 
     fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
-    expect(screen.getByTestId('personal-link-settings-grid')).toHaveClass('sm:grid-cols-3');
+    const settings = screen.getByText('Дополнительные настройки сроков');
+    expect(settings.closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByText(/Ссылка действует 7 дн/)).toBeVisible();
+    fireEvent.click(settings);
+    expect(settings.closest('details')).toHaveAttribute('open');
+    expect(screen.getByTestId('personal-link-settings-grid')).toHaveClass('sm:grid-cols-2');
     const fields = screen.getAllByTestId('personal-link-field');
     expect(fields).toHaveLength(3);
     fields.forEach((field) => {
-      expect(field).toHaveClass('grid-rows-[2.5rem_2.5rem_auto]');
+      expect(field).toHaveClass('min-w-0');
       expect(field.querySelector('input')).toHaveClass('h-10');
     });
   });

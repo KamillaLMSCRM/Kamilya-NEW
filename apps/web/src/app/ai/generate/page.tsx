@@ -1720,12 +1720,18 @@ export default function AIGeneratePage() {
             <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">
               <CheckCircle2 className="mt-1 h-6 w-6 shrink-0 text-primary" />
             <div>
-            <h3 className="text-base font-semibold text-foreground">{t('aiGeneration.result.success')}</h3>
+            <h3 className="text-base font-semibold text-foreground">{courseMeta?.status === 'published' ? t('authenticatedUi.editor.published') : t('generationDraft.title')}</h3>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {t('aiGeneration.result.successHint')}
+              {courseMeta?.status === 'published' ? t('aiGeneration.result.publishedHint') : t('generationDraft.hint')}
             </p>
             </div>
             </div>
+            {courseMeta?.status !== 'published' && (
+              <button type="button" onClick={() => router.push(`/courses/${currentJob.course_id}/edit${programId ? `?programGenerationJob=${encodeURIComponent(currentJob.id)}` : ''}#course-release`)}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                {t('generationDraft.review')} <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
               onClick={createNewCourse}
@@ -1783,15 +1789,6 @@ export default function AIGeneratePage() {
               {/* Approval actions */}
               {courseMeta.review_status !== 'approved' && (
                 <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setReviewDialog({ open: true, status: 'approved', comment: '' })}
-                    disabled={reviewSubmitting}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-success px-3 py-2 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                     {t('aiGeneration.result.approveAsMethodologist')}
-                  </button>
                   <button
                     type="button"
                     onClick={() => setReviewDialog({ open: true, status: 'needs_changes', comment: '' })}
@@ -1991,7 +1988,7 @@ export default function AIGeneratePage() {
                 </div>
               </div>
             )}
-            {courseMeta?.review_status === 'approved' && courseMeta?.status !== 'published' && (
+            {programId && courseMeta?.review_status === 'approved' && courseMeta?.status !== 'published' && (
               <button
                 onClick={publishCourse}
                 disabled={publishSubmitting}
@@ -2003,18 +2000,18 @@ export default function AIGeneratePage() {
             )}
             {courseMeta?.status === 'published' && !programId && (
               <button
-                onClick={() => router.push('/assignments')}
+                onClick={() => router.push(`/assignments?courseId=${encodeURIComponent(currentJob.course_id!)}`)}
                 className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors"
               >
                  {t('aiGeneration.result.assign')} <ChevronRight className="w-4 h-4" />
               </button>
             )}
-            <button
+            {courseMeta?.status === 'published' && <button
               onClick={() => router.push(`/courses/${currentJob.course_id}/edit`)}
               className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
                {t('aiGeneration.result.edit')} <ChevronRight className="w-4 h-4" />
-            </button>
+            </button>}
             <button
               onClick={() => router.push('/courses')}
               className="rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground hover:bg-muted transition-colors"

@@ -258,7 +258,11 @@ describe('course player role modes', () => {
       expect.stringContaining('/v1/courses/course-1/complete'),
       expect.objectContaining({ method: 'POST' }),
     ));
-    if (!hasEvidence) await waitFor(() => expect(routerPush).toHaveBeenCalledWith('/my-courses'));
+    expect(await screen.findByRole('heading', { name: 'completionUx.training' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'courses.viewCertificate' })).toHaveAttribute('href', '/certificates');
+    if (hasEvidence) expect(screen.getByTestId('completion-evidence-event')).toHaveTextContent('event-1');
+    else expect(screen.queryByTestId('completion-evidence-event')).not.toBeInTheDocument();
+    expect(routerPush).not.toHaveBeenCalledWith('/my-courses');
   });
 
   it('persists outline navigation in the URL and restores that lesson on reload', async () => {

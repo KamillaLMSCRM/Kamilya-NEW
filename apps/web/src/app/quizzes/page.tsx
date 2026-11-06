@@ -172,6 +172,8 @@ export default function QuizzesAdminPage() {
   const [grouped, setGrouped] = useState<QuizGroupedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [reviewQuery, setReviewQuery] = useState({ courseId: '', programGenerationJob: '' });
+  const requestedCourseId = reviewQuery.courseId;
   const initialLessonRef = useRef<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const selectedQuizRef = useRef(selectedQuiz);
@@ -269,6 +271,8 @@ export default function QuizzesAdminPage() {
   const initialize = useAuthStore((s) => s.initialize);
   useEffect(() => {
     initialize();
+    const params = new URLSearchParams(window.location.search);
+    setReviewQuery({ courseId: params.get('courseId') ?? '', programGenerationJob: params.get('programGenerationJob') ?? '' });
   }, [initialize]);
   // Single request fetches the entire cascade tree (course → module →
   // lesson → quiz) plus orphans. Replaces the previous two-request flow
@@ -353,19 +357,6 @@ export default function QuizzesAdminPage() {
     }
     return null;
   }, [grouped, selectedQuiz]);
-
-  // Flat list of every quiz, regardless of placement in the tree. Used
-  // by the "Тесты" badge count and by the orphan-less delete handler
-  // (e.g. handleDeleteQuiz just needs `flatQuizzes.find(...)`). With the
-  // server-provided tree this is a pure projection — no N+1, no merging.
-  const flatQuizzes = useMemo(() => {
-    if (!grouped) return [];
-    return grouped.courses.flatMap((c) =>
-      c.modules.flatMap((m) =>
-        m.lessons.flatMap((l) => (l.quiz ? [l.quiz] : []))
-      )
-    );
-  }, [grouped]);
 
   // Resolve the course currently selected in the create-quiz cascade
   // from the server-provided tree. Replaces the old `previews[course_id]`
@@ -785,12 +776,27 @@ export default function QuizzesAdminPage() {
 
   if (editorOwnerRef.current !== draftScope) return <WorkspacePage id="quiz-authoring"><WorkspacePanel><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
 
+  const visibleCourses = grouped?.courses.filter((course) => !requestedCourseId || course.id === requestedCourseId) ?? [];
+  const visibleOrphans = requestedCourseId ? [] : grouped?.orphans ?? [];
+  const visibleQuizCount = visibleCourses.reduce((count, course) => count + course.modules.reduce(
+    (moduleCount, module) => moduleCount + module.lessons.filter((lesson) => lesson.quiz).length, 0), visibleOrphans.length);
+  const scopedCourse = requestedCourseId ? visibleCourses[0] : undefined;
+
   return (
     <WorkspacePage id="quiz-authoring" className="mx-auto max-w-[1560px]" title={t('authenticatedUi.quizUi.title')} description={t('authenticatedUi.quizUi.description')} icon={<CheckCircle2 />} actions={
         <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)} className="h-11 px-5">
           {t('quiz.create')}
         </Button>
       }>
+
+      {requestedCourseId && <WorkspaceToolbar className="items-center gap-3">
+        {scopedCourse && <>
+          <span className="break-words text-sm font-medium">{scopedCourse.title}</span>
+          <Link className="inline-flex min-h-10 items-center text-sm text-primary hover:underline"
+            href={`/courses/${encodeURIComponent(scopedCourse.id)}/edit${reviewQuery.programGenerationJob ? `?programGenerationJob=${encodeURIComponent(reviewQuery.programGenerationJob)}` : ''}#course-release`}>{t('releaseSteps.back')}</Link>
+        </>}
+        <a href="/quizzes" className="inline-flex min-h-10 items-center text-sm text-primary hover:underline">{t('releaseSteps.allQuizzes')}</a>
+      </WorkspaceToolbar>}
 
       {recoveredDraftRef.current && (draftRecoveryUnavailable || questionConflict) && <div role="alert" className="space-y-3 rounded-lg border border-amber-300 p-4 text-sm">
         <p>{questionConflict ? copy.draftConflict : copy.draftRecoveryUnavailable}</p>
@@ -1150,20 +1156,20 @@ export default function QuizzesAdminPage() {
         <WorkspacePanel padded={false} className="overflow-hidden lg:sticky lg:top-4">
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.quizUi.tests')}</h3>
-              <Badge variant="secondary" className="bg-muted text-foreground">{!grouped && (loading || loadError) ? '—' : flatQuizzes.length + (grouped?.orphans.length ?? 0)}</Badge>
+              <Badge variant="secondary" className="bg-muted text-foreground">{!grouped && (loading || loadError) ? '—' : visibleQuizCount}</Badge>
             </div>
             {loading ? (
               <p className="px-4 py-5 text-sm text-muted-foreground">{t('authenticatedUi.quizUi.loading')}</p>
             ) : loadError ? (
               <div role="alert" className="space-y-3 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchGrouped()}>{copy.retry}</Button></div>
-            ) : grouped && grouped.courses.every((c) => c.modules.every((m) => m.lessons.every((l) => !l.quiz))) && grouped.orphans.length === 0 ? (
+            ) : grouped && visibleQuizCount === 0 ? (
               <p className="px-4 py-5 text-sm leading-6 text-muted-foreground">
                 {t('authenticatedUi.quizUi.empty')}
               </p>
             ) : (
               <div className="max-h-[65dvh] space-y-2 overflow-y-auto p-3 lg:max-h-[calc(100dvh-7rem)]">
-                {grouped?.courses.map((course) => {
-                  const isOpen = openCourses[course.id] ?? false;
+                {visibleCourses.map((course) => {
+                  const isOpen = openCourses[course.id] ?? (requestedCourseId === course.id);
                   const moduleRows = course.modules
                     .map((m) => ({
                       module: m,
@@ -1207,6 +1213,7 @@ export default function QuizzesAdminPage() {
                                     <div className="flex items-center gap-2">
                                       <Circle size={9} className="shrink-0 text-muted-foreground" />
                                       <span className="min-w-0 flex-1 truncate">{l.title}</span>
+                                      {scopedCourse && quiz.review_status === 'needs_review' && <Badge variant="outline" className="whitespace-normal">{t('authenticatedUi.editor.needsReview')}</Badge>}
                                       <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">{quiz.questions.length}</Badge>
                                     </div>
                                   </button>
@@ -1219,12 +1226,12 @@ export default function QuizzesAdminPage() {
                     </div>
                   );
                 })}
-                {grouped && grouped.orphans.length > 0 && (
+                {visibleOrphans.length > 0 && (
                   <div className="mt-2 rounded-md border border-dashed border-border/70 bg-background">
                     <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {t('authenticatedUi.quizUi.noLesson')}
                     </div>
-                    {grouped.orphans.map(({ quiz }) => (
+                    {visibleOrphans.map(({ quiz }) => (
                       <button
                         type="button"
                         key={quiz.id}

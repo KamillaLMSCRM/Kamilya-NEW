@@ -116,6 +116,7 @@ export default function CoursePlayerPage() {
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [courseCompleted, setCourseCompleted] = useState(false);
   const [completionEvidenceEventId, setCompletionEvidenceEventId] = useState<string | null>(null);
+  const [completionEvidenceUnavailable, setCompletionEvidenceUnavailable] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [quizLoadState, setQuizLoadState] = useState<QuizLoadState | null>(null);
   const [scormLaunchSession, setScormLaunchSession] = useState<ScormLaunchSession | null>(null);
@@ -167,6 +168,7 @@ export default function CoursePlayerPage() {
       setOccurrenceUnavailable(false);
       setCourseCompleted(false);
       setCompletionEvidenceEventId(null);
+      setCompletionEvidenceUnavailable(false);
       setEnrolling(false);
       setQuizLoadState(null);
       setScormLaunchSession(null);
@@ -488,22 +490,26 @@ export default function CoursePlayerPage() {
           setEnrolled(Boolean(enrolledCourse));
           const isCompleted = enrolledCourse?.enrollment_status === 'completed';
           setCourseCompleted(isCompleted);
+          setCompletionEvidenceEventId(null);
+          setCompletionEvidenceUnavailable(false);
           if (isCompleted && enrolledCourse?.enrollment_id) {
             const evidenceParams = new URLSearchParams({
               enrollment_id: enrolledCourse.enrollment_id,
               procedure_type: 'training',
               limit: '1',
             });
-            const evidenceRes = await fetch(
-              `${API_URL}/v1/training-evidence/events/mine?${evidenceParams.toString()}`,
-              { headers },
-            );
-            if (!isCurrentRequest()) return;
-            if (!evidenceRes.ok) throw new Error('completion_evidence_unavailable');
-            if (evidenceRes.ok) {
+            try {
+              const evidenceRes = await fetch(
+                `${API_URL}/v1/training-evidence/events/mine?${evidenceParams.toString()}`,
+                { headers },
+              );
+              if (!evidenceRes.ok) throw new Error('completion_evidence_unavailable');
               const evidenceEvents: Array<{ id: string }> = await evidenceRes.json();
               if (!isCurrentRequest()) return;
               setCompletionEvidenceEventId(evidenceEvents[0]?.id || null);
+            } catch {
+              if (!isCurrentRequest()) return;
+              setCompletionEvidenceUnavailable(true);
             }
           }
         } else {
@@ -696,8 +702,9 @@ export default function CoursePlayerPage() {
           },
         });
       }
-      if (data.training_evidence_event_id) {
-        setCompletionEvidenceEventId(data.training_evidence_event_id);
+      if (data.status === 'completed' || data.training_evidence_event_id || data.certificate_id) {
+        setCompletionEvidenceEventId(data.training_evidence_event_id ?? null);
+        setCompletionEvidenceUnavailable(false);
         setCourseCompleted(true);
       } else {
         router.push(courseListHref);
@@ -753,6 +760,12 @@ export default function CoursePlayerPage() {
     || assignmentAccessPolicy?.state === 'revoked'
     || assignmentRemainingSeconds === 0;
 
+  useEffect(() => {
+    if (window.location.hash !== '#finish-course') return;
+    const button = document.getElementById('finish-course');
+    if (button instanceof HTMLButtonElement && !button.disabled) button.focus();
+  }, [loading, quizLoadState, completedLessons, assignmentAccessBlocked]);
+
   if (loading) return <WorkspacePage id="course-reader" title={t('courses.title')}><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
   if (loadError) return <WorkspacePage id="course-reader" title={t('courses.title')}><WorkspacePanel role="alert" bodyClassName="space-y-3"><p>{t('common.loadFailed')}</p><Button onClick={() => void fetchData()}>{t('common.retry')}</Button></WorkspacePanel></WorkspacePage>;
   if (!course && assignmentAccessBlocked) return <AssignmentAccessExpired />;
@@ -786,29 +799,29 @@ export default function CoursePlayerPage() {
   if (courseCompleted) {
     return (
       <WorkspacePage id="course-reader" className="mx-auto max-w-3xl py-6" title={course.title}>
-        <WorkspacePanel bodyClassName="space-y-5">
-          <CheckCircle2 className="w-16 h-16 text-success mx-auto mb-4" aria-hidden="true" />
-          <div className="text-center">
-            <p className="text-muted-foreground">{t('courses.courseComplete')}</p>
+        <WorkspacePanel title={t('completionUx.training')} bodyClassName="space-y-4">
+          <p className="flex items-center gap-2 text-success">
+            <CheckCircle2 className="h-6 w-6 shrink-0" aria-hidden="true" />
+            {t('courses.courseComplete')}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {user?.role === 'student' && <Link href="/certificates" className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              {t('courses.viewCertificate')}
+            </Link>}
+            <Link href={courseListHref} className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 py-2 text-sm font-medium hover:bg-muted">
+              {t('courses.backToCourses')}
+            </Link>
           </div>
-          {completionEvidenceEventId ? (
-            <LearnerEvidenceConfirmation
-              eventId={completionEvidenceEventId}
-              activityTitle={course.title}
-              activityKind="course"
-              continueHref={courseListHref}
-              continueLabel={t('courses.backToCourses')}
-              resultHref="/certificates"
-              resultLabel={t('courses.viewCertificate')}
-            />
-          ) : (
-            <div className="text-center">
-              <Link href={courseListHref} className="bg-primary text-primary-foreground px-6 py-2 rounded hover:bg-primary inline-block">
-                {t('courses.backToCourses')}
-              </Link>
-            </div>
-          )}
         </WorkspacePanel>
+        {completionEvidenceEventId && <LearnerEvidenceConfirmation
+          eventId={completionEvidenceEventId}
+          activityTitle={course.title}
+          activityKind="course"
+        />}
+        {completionEvidenceUnavailable && <WorkspacePanel title={t('completionUx.documentary')} bodyClassName="space-y-3">
+          <p role="alert">{t('evidenceConfirmation.errors.load')}</p>
+          <Button variant="outline" onClick={() => void fetchData()}>{t('common.retry')}</Button>
+        </WorkspacePanel>}
       </WorkspacePage>
     );
   }
@@ -1038,6 +1051,8 @@ export default function CoursePlayerPage() {
               {quizStatus === 'none' ? (
                 <div className="flex items-center gap-3">
                   <Button
+                    id={findNextLesson(selectedLesson.id) ? undefined : 'finish-course'}
+                    className="scroll-mt-28"
                     onClick={() => void handleNextLesson()}
                     disabled={assignmentAccessBlocked}
                   >
@@ -1053,6 +1068,8 @@ export default function CoursePlayerPage() {
                     <CheckCircle2 className="w-5 h-5" aria-hidden="true" /> {t('quiz.passed')}
                   </span>
                   <Button
+                    id={findNextLesson(selectedLesson.id) ? undefined : 'finish-course'}
+                    className="scroll-mt-28"
                     variant="outline"
                     onClick={findNextLesson(selectedLesson.id) ? handleNextLesson : () => void finalizeCourseCompletion()}
                     disabled={assignmentAccessBlocked}
