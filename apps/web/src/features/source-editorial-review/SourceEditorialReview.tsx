@@ -165,6 +165,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const validPages = !usePages || (Number.isInteger(firstPage) && Number.isInteger(lastPage)
     && firstPage >= 1 && lastPage >= firstPage && lastPage <= 10000);
   const failureMessage = review?.error === 'direct_source_pdf_range_invalid' ? copy.rangeFailure
+    : review?.error === 'direct_source_pptx_ocr_required' ? copy.presentationOcrRequired
     : review?.error === 'source_review_provider_unavailable' ? copy.providerFailure
     : review?.error === 'source_review_timeout' ? copy.timeoutFailure
     : review?.error === 'source_review_invalid_response' ? copy.responseFailure

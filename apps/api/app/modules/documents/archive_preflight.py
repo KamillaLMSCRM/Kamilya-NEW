@@ -32,6 +32,7 @@ class ArchiveSummary:
 _REQUIRED_PARTS = {
     ".docx": "word/document.xml",
     ".xlsx": "xl/workbook.xml",
+    ".pptx": "ppt/presentation.xml",
 }
 _EOCD_SIGNATURE = b"PK\x05\x06"
 _EOCD_SIZE = 22
@@ -112,7 +113,10 @@ def preflight_ooxml(
                 raise ArchivePreflightError("OOXML entry exceeds the uncompressed size limit")
             if entry.file_size and entry.file_size / max(entry.compress_size, 1) > limits.max_compression_ratio:
                 raise ArchivePreflightError("OOXML entry exceeds the compression ratio limit")
-            names.add(entry.filename.rstrip("/"))
+            name = entry.filename.rstrip("/")
+            if normalized_suffix == ".pptx" and name in names:
+                raise ArchivePreflightError("OOXML archive contains a duplicate path")
+            names.add(name)
             total_uncompressed += entry.file_size
             total_compressed += entry.compress_size
             if total_uncompressed > limits.max_total_uncompressed_bytes:

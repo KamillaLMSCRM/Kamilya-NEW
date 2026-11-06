@@ -30,6 +30,15 @@ from uuid import uuid4
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def legacy_intake_for_runtime_fixture(client, monkeypatch):
+    # Runtime tests must still seed legacy packages without reopening public intake.
+    from app.main import app
+    from app.modules.scorm.router import require_scorm_import_available
+
+    monkeypatch.setitem(app.dependency_overrides, require_scorm_import_available, lambda: None)
+
+
 def _scorm12_zip(*, resource_href: str = "index.html", title: str = "QA course") -> bytes:
     """Build a minimal SCORM 1.2 ZIP.
 

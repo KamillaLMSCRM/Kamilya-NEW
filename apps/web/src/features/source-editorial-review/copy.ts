@@ -1,5 +1,6 @@
 const ru = {
   title: 'Проверка документа', short: 'Проверить документ',
+  presentationOcrRequired: 'В презентации есть слайды без доступного текста. Добавьте текст на слайды или загрузите PDF для распознавания.',
   approveSource: 'Согласовать документ', viewProgress: 'Открыть проверку', reviewProblem: 'Посмотреть ошибку проверки',
   pagesTitle: 'Страницы для проверки', firstPage: 'С', lastPage: 'По', downloadOriginal: 'Скачать оригинал',
   pagesHint: 'Укажите первую и последнюю страницы для проверки. Чтобы проверить весь PDF, оставьте оба поля пустыми.',
@@ -52,6 +53,7 @@ const ru = {
 
 const en: typeof ru = {
   title: 'Document review', short: 'Review document',
+  presentationOcrRequired: 'Some slides have no extractable text. Add slide text or upload a PDF for text recognition.',
   approveSource: 'Approve document', viewProgress: 'Open review', reviewProblem: 'View review error',
   pagesTitle: 'Pages to review', firstPage: 'From', lastPage: 'To', downloadOriginal: 'Download original',
   pagesHint: 'Enter the first and last pages to review. To review the whole PDF, leave both fields blank.',
@@ -101,6 +103,7 @@ const en: typeof ru = {
 
 const kk: typeof ru = {
   title: 'Құжатты тексеру', short: 'Құжатты тексеру',
+  presentationOcrRequired: 'Кейбір слайдтардан мәтін алынбайды. Слайдтарға мәтін қосыңыз немесе мәтінді тану үшін PDF жүктеңіз.',
   approveSource: 'Құжатты келісу', viewProgress: 'Тексеруді ашу', reviewProblem: 'Тексеру қатесін көру',
   pagesTitle: 'Тексерілетін беттер', firstPage: 'Бастапқы бет', lastPage: 'Соңғы бет', downloadOriginal: 'Түпнұсқаны жүктеу',
   pagesHint: 'Тексерілетін бірінші және соңғы бетті көрсетіңіз. PDF файлын толық тексеру үшін екі өрісті де бос қалдырыңыз.',

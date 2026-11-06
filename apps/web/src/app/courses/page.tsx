@@ -84,13 +84,8 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const { confirm, dialog } = useConfirm();
   const [courseResult, setCourseResult] = useState<CourseResult>({ query: '', phase: 'loading', courses: [] });
   const [showCreate, setShowCreate] = useState(false);
-  const [showScormImport, setShowScormImport] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [scormTitle, setScormTitle] = useState('');
-  const [scormStatus, setScormStatus] = useState('draft');
-  const [scormFile, setScormFile] = useState<File | null>(null);
-  const [scormImporting, setScormImporting] = useState(false);
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState(() => readCourseStatusFilter(searchParams.get('status')));
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -224,37 +219,6 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
       toast.error(t('common.saveFailed'), {
         description: apiErrorMessage(err, t('common.saveFailed')),
       });
-    }
-  };
-
-  const handleScormImport = async () => {
-    if (!scormFile) {
-      toast.warning(t('authenticatedUi.scorm.selectZip'));
-      return;
-    }
-    const form = new FormData();
-    form.append('file', scormFile);
-    form.append('status', scormStatus);
-    if (scormTitle.trim()) form.append('title', scormTitle.trim());
-    setScormImporting(true);
-    try {
-      await api.post('/v1/scorm/packages/import', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      if (!mounted.current) return;
-      toast.success(t('authenticatedUi.scorm.imported'));
-      setShowScormImport(false);
-      setScormTitle('');
-      setScormStatus('draft');
-      setScormFile(null);
-      void refreshCourses.current();
-    } catch (err: any) {
-      if (!mounted.current) return;
-      toast.error(t('authenticatedUi.scorm.importFailed'), {
-        description: err?.response?.data?.detail || err?.message,
-      });
-    } finally {
-      if (mounted.current) setScormImporting(false);
     }
   };
 
@@ -406,10 +370,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
               <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               {copy.generationJobs}
             </Link>
-            <Button variant="outline" className="min-h-11" aria-expanded={showScormImport} aria-controls="course-scorm-import" onClick={() => { setShowScormImport(!showScormImport); setShowCreate(false); }}>
-              {showScormImport ? t('common.cancel') : t('courses.importScorm')}
-            </Button>
-            <Button variant="outline" className="min-h-11" aria-expanded={showCreate} aria-controls="course-create" onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
+            <Button variant="outline" className="min-h-11" aria-expanded={showCreate} aria-controls="course-create" onClick={() => setShowCreate(!showCreate)}>
               {showCreate ? t('common.cancel') : copy.manualCreate}
             </Button>
             <Link href="/ai/generate?new=1" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
@@ -444,59 +405,6 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           <div className="flex gap-2">
             <Button onClick={handleCreate} disabled={!title.trim()}>{t('common.create')}</Button>
             <Button variant="outline" onClick={() => setShowCreate(false)}>
-              {t('common.cancel')}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {canManage && showScormImport && (
-        <div id="course-scorm-import" className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sm:p-6">
-          <div>
-            <h3 className="font-bold text-foreground font-display">{t('authenticatedUi.scorm.title')}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t('authenticatedUi.scorm.description')}
-            </p>
-          </div>
-          <label htmlFor="scorm-course-title" className="block text-sm font-medium text-foreground">{t('authenticatedUi.scorm.titlePlaceholder')}</label>
-          <Input
-            id="scorm-course-title"
-            placeholder={t('authenticatedUi.scorm.titlePlaceholder')}
-            value={scormTitle}
-            onChange={(e) => setScormTitle(e.target.value)}
-          />
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <label className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm">
-              <span className="block text-xs font-medium text-muted-foreground mb-1">SCORM ZIP</span>
-              <input
-                type="file"
-                accept=".zip,application/zip"
-                onChange={(e) => setScormFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm"
-              />
-            </label>
-            <label className="w-full sm:w-56">
-              <span className="block text-xs font-medium text-muted-foreground mb-1">{t('authenticatedUi.scorm.statusAfterImport')}</span>
-              <select
-                value={scormStatus}
-                onChange={(e) => setScormStatus(e.target.value)}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none focus:border-primary transition-colors"
-              >
-                <option value="draft">{t('courses.draft')}</option>
-                <option value="published">{t('courses.published')}</option>
-              </select>
-            </label>
-          </div>
-          {scormFile && (
-            <p className="text-xs text-muted-foreground">
-              {copy.selectedFile}: {scormFile.name} ({Math.round(scormFile.size / 1024)} KB)
-            </p>
-          )}
-          <div className="flex gap-2">
-            <Button onClick={handleScormImport} disabled={scormImporting}>
-              {scormImporting ? t('authenticatedUi.scorm.importing') : t('authenticatedUi.scorm.import')}
-            </Button>
-            <Button variant="outline" onClick={() => setShowScormImport(false)} disabled={scormImporting}>
               {t('common.cancel')}
             </Button>
           </div>

@@ -34,6 +34,7 @@ from app.modules.ai.document_passport import (
 from app.modules.ai.ingestion import (
     DocumentChunker,
     DocumentConverter,
+    DocumentOCRRequiredError,
     EmbeddingsProvider,
     VectorStore,
 )
@@ -950,6 +951,9 @@ async def build_direct_source_corpus(
                 converted = await _observe_timeout(source_converter.convert(temp_path), "source_converter")
         except DirectSourceError:
             raise
+        except DocumentOCRRequiredError as exc:
+            code = "direct_source_pptx_ocr_required" if suffix == ".pptx" else "direct_source_ocr_required"
+            raise DirectSourceError(code, (document_id,)) from exc
         except Exception as exc:
             raise DirectSourceError("direct_source_unreadable", (document_id,)) from exc
         finally:

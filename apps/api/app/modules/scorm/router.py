@@ -365,7 +365,13 @@ def _is_scorm_completed(cmi: dict[str, Any]) -> bool:
     return str(status).lower() in {"completed", "passed"}
 
 
-@router.post("/packages/import", response_model=ScormImportResponse, status_code=201)
+def require_scorm_import_available() -> None:
+    # Existing packages still have their runtime routes. New package intake is paused.
+    raise HTTPException(status_code=404, detail={"code": "scorm_import_unavailable"})
+
+
+@router.post("/packages/import", response_model=ScormImportResponse, status_code=201,
+             dependencies=[Depends(require_scorm_import_available)], include_in_schema=False)
 async def import_scorm_package(
     request: Request,
     file: UploadFile = File(...),

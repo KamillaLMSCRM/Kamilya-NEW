@@ -80,7 +80,7 @@ class DocumentConverter:
         # Plain text formats are already markdown-compatible. Sending them
         # through remote Docling adds minutes of latency and can make the
         # browser abort otherwise tiny uploads.
-        if ext in (".txt", ".md", ".csv", ".xlsx"):
+        if ext in (".txt", ".md", ".csv", ".xlsx", ".pptx"):
             return await _local_convert(file_path)
 
         # Try remote Docling first, but only when operators configured it.
@@ -282,6 +282,15 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
         content = "\n\n".join(blocks)
         tables = len(worksheets)
         engine = "openpyxl"
+    elif ext == ".pptx":
+        from app.modules.ai.pptx_source import PresentationNeedsTextError, read_presentation
+
+        try:
+            presentation = await asyncio.to_thread(read_presentation, file_path)
+        except PresentationNeedsTextError as exc:
+            raise DocumentOCRRequiredError(str(exc)) from exc
+        content, pages, tables = presentation.markdown, presentation.slides, presentation.tables
+        engine = "native-pptx"
     elif ext == ".pdf":
         from pypdf import PdfReader
 
@@ -301,7 +310,7 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
         "tables": tables,
         "engine": engine,
         "engine_version": None,
-        "fallback_used": ext not in (".txt", ".md", ".csv", ".xlsx"),
+        "fallback_used": ext not in (".txt", ".md", ".csv", ".xlsx", ".pptx"),
         "warnings": [],
     }
     if ext == ".xlsx":

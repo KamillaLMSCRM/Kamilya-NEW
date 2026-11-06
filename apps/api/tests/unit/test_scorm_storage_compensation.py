@@ -127,3 +127,22 @@ async def test_scorm_import_deletes_uploaded_object_when_database_work_fails():
     assert storage.put_key is not None
     assert storage.deleted_key == storage.put_key
     db.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_public_scorm_import_is_paused_before_package_intake(monkeypatch):
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from app.modules.scorm import router as module
+
+    application = FastAPI()
+    application.include_router(module.router)
+    intake = AsyncMock()
+    monkeypatch.setattr(module._SCORM_PACKAGE_INTAKE, 'inspect', intake)
+    async with AsyncClient(transport=ASGITransport(app=application), base_url='http://test') as client:
+        response = await client.post('/scorm/packages/import', files={'file': ('course.zip', _scorm12_zip(), 'application/zip')})
+    assert response.status_code == 404
+    assert response.json()['detail']['code'] == 'scorm_import_unavailable'
+    intake.assert_not_awaited()
+    assert '/scorm/packages/import' not in application.openapi()['paths']

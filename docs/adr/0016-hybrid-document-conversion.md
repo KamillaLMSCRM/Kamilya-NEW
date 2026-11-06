@@ -41,5 +41,8 @@ embeddings.
   VPS; excess work remains in the durable document queue.
 - Operations can identify the actual engine from the indexing job result.
 - The public endpoint and API-key contract remain backward compatible.
-- PPTX, HTML and EPUB are not exposed by the product upload contract until
-  format-specific quality and security acceptance tests exist.
+- PPTX uses the local native PowerPoint reader after the same bounded OOXML
+  preflight used for other Office documents. The reader preserves slide order,
+  text, native tables and speaker notes. It does not fetch external links,
+  execute embedded content, or read pixels. A visual-only slide requires a
+  text-bearing source or PDF OCR. HTML and EPUB remain outside the upload contract.

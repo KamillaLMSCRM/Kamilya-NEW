@@ -973,7 +973,7 @@
     "uploading": "Жүктелуде...",
     "uploadedAt": "Жүктелді",
     "dragDropHint": "Файлды осында сүйреңіз немесе таңдау үшін басыңыз",
-    "allowedTypes": "PDF, DOC, DOCX, TXT, MD, CSV, XLS, XLSX",
+    "allowedTypes": "PDF, DOC, DOCX, PPTX, TXT, MD, CSV, XLS, XLSX",
     "maxSize": "Макс. {size} МБ",
     "alreadyUploaded": "Файл жүктелген",
     "subtitle": "Курстар мен лауазымдық нұсқаулықтарға арналған бірыңғай дереккөздер кітапханасы",

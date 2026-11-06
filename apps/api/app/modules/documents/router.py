@@ -98,6 +98,7 @@ ALLOWED_MIME_TYPES = {
     "text/csv": b"TEXT_HEURISTIC",
     "application/vnd.ms-excel": b"\xd0\xcf\x11\xe0",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": b"PK",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": b"PK",
 }
 
 # Scanned policies and instructions routinely exceed 10 MB. Keep the limit
@@ -564,7 +565,7 @@ async def upload_document(
     if content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{content_type}' not allowed. Supported: PDF, DOC, DOCX, TXT, MD, CSV, XLS, XLSX",
+            detail=f"File type '{content_type}' not allowed. Supported: PDF, DOC, DOCX, PPTX, TXT, MD, CSV, XLS, XLSX",
         )
 
     # Magic bytes validation
@@ -575,6 +576,7 @@ async def upload_document(
     ooxml_suffix = {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
     }.get(content_type)
     if ooxml_suffix:
         if ext != ooxml_suffix:

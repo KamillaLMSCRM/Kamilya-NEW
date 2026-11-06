@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Open a new course from the course catalog and keep existing generation jobs accessible separately.
 - Search documents and keep the selected sources visible while browsing search results.
-- Explain when a source review is required, offer recovery from review failures, and allow a page range for composite PDFs.
+- Explain when document review is required, offer recovery from review failures, and allow optional PDF page selection.
+- Support PowerPoint PPTX as a course source, including slide text, tables and speaker notes.
+- Pause new SCORM imports while retaining access to previously imported courses.
 
 ## [0.11.77] - 2026-11-06
 

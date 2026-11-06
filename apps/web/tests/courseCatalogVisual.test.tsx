@@ -298,7 +298,7 @@ describe('production course catalogue presentation', () => {
     expect(toast.success).not.toHaveBeenCalled();
   });
 
-  it('uses the existing create and SCORM payloads only after explicit actions', async () => {
+  it('creates a manual course on explicit action and keeps new SCORM imports unavailable', async () => {
     apiMock.post.mockResolvedValue({ data: {} });
     render(<CoursesPage />);
     await screen.findByRole('heading', { name: draft.title });
@@ -311,21 +311,8 @@ describe('production course catalogue presentation', () => {
     fireEvent.click(screen.getByRole('button', { name: ru.common.create }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/courses', { title: 'Manual title', description: 'Description' }));
     await waitFor(() => expect(screen.queryByLabelText(ru.courses.courseTitle)).not.toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: ru.courses.importScorm }));
-    const file = new File(['synthetic archive'], 'course.zip', { type: 'application/zip' });
-    fireEvent.change(screen.getByLabelText('SCORM ZIP'), { target: { files: [file] } });
-    fireEvent.change(screen.getByLabelText(ru.authenticatedUi.scorm.titlePlaceholder), { target: { value: 'Imported title' } });
-    fireEvent.change(screen.getByLabelText(ru.authenticatedUi.scorm.statusAfterImport), { target: { value: 'published' } });
+    expect(screen.queryByRole('button', { name: ru.courses.importScorm })).not.toBeInTheDocument();
     expect(apiMock.post).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: ru.authenticatedUi.scorm.import }));
-    await waitFor(() => expect(apiMock.post).toHaveBeenCalledTimes(2));
-    const [url, body, options] = apiMock.post.mock.calls[1];
-    expect(url).toBe('/v1/scorm/packages/import');
-    expect(body).toBeInstanceOf(FormData);
-    expect(body.get('file')).toBe(file);
-    expect(body.get('title')).toBe('Imported title');
-    expect(body.get('status')).toBe('published');
-    expect(options).toEqual({ headers: { 'Content-Type': 'multipart/form-data' } });
   });
 
   it('retains explicit unpublish and draft delete actions separately from archive', async () => {

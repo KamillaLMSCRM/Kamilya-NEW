@@ -11,10 +11,9 @@ const ru = {
   resetFilters: 'Сбросить фильтры',
   filteredEmpty: 'По выбранным условиям курсы не найдены',
   filteredEmptyHint: 'Измените запрос или сбросьте фильтры, чтобы вернуться к списку.',
-  emptyHint: 'Создайте курс вручную, импортируйте SCORM или начните с AI.',
+  emptyHint: 'Создайте курс из документов или вручную.',
   nativeCourse: 'Учебный курс',
   openCourse: 'Открыть курс',
-  selectedFile: 'Выбран файл',
 };
 
 type CatalogCopy = { [Key in keyof typeof ru]: string };
@@ -32,10 +31,9 @@ const kk: CatalogCopy = {
   resetFilters: 'Сүзгілерді қалпына келтіру',
   filteredEmpty: 'Таңдалған шарттар бойынша курстар табылмады',
   filteredEmptyHint: 'Сұрауды өзгертіңіз немесе тізімге оралу үшін сүзгілерді қалпына келтіріңіз.',
-  emptyHint: 'Курсты қолмен жасаңыз, SCORM импорттаңыз немесе AI арқылы бастаңыз.',
+  emptyHint: 'Курсты құжаттардан немесе қолмен жасаңыз.',
   nativeCourse: 'Оқу курсы',
   openCourse: 'Курсты ашу',
-  selectedFile: 'Таңдалған файл',
 };
 
 const en: CatalogCopy = {
@@ -51,10 +49,9 @@ const en: CatalogCopy = {
   resetFilters: 'Reset filters',
   filteredEmpty: 'No courses match these filters',
   filteredEmptyHint: 'Change your search or reset the filters to return to the list.',
-  emptyHint: 'Create a course manually, import SCORM or start with AI.',
+  emptyHint: 'Create a course from documents or manually.',
   nativeCourse: 'Learning course',
   openCourse: 'Open course',
-  selectedFile: 'Selected file',
 };
 
 export const courseCatalogCopy = { ru, kk, en };
