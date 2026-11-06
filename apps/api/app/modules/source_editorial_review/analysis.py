@@ -10,29 +10,56 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import async_session_factory
 from app.modules.ai.direct_source import DirectSourceError, load_direct_source_corpus
-from app.modules.ai.source_editorial_model import prepare_source_working_edition
+from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
 from app.modules.source_editorial_review.service import add_event, history, owned_document, read_state, review_enabled
 
 logger = logging.getLogger(__name__)
 _BLOCK_CHARS = 36_000
 _OUTLINE_LINE = re.compile(r"^\s*(?:#{1,6}\s|\d+(?:\.\d+)*(?:[.)]|\s)\s*)\S")
+_ANALYSIS_POLICY = "human-source-editorial-analysis-v2"
 _SEMANTIC_REVIEW = """
-Also act as the policy owner's source reviewer. Report only ambiguities that can
-change actions or learning: conflicting rules and deadlines, unassigned roles,
-several plausible clause targets, a gap/overlap at numeric boundaries, missing
-exceptions or unreadable terms. Put them in unresolved with an exact local
-quote. Explain the question and plausible readings in the original language
-within the existing reason field. Do not turn any such interpretation into a
-patch. Do not invent a resolution, external standard, or missing fact.
-If an outline is present, use it only to check related sections and references.
-Do not report a distant line as a quote unless it is literally in original.
+You also own an independent pre-publication check of the ORIGINAL rules, even
+when there are no proposed text edits. Your output has exactly three top-level keys:
+proposal_sha256, rows, source_questions. The first two keep the edit-review contract.
+Before checking the edits, trace each decision whose outcome affects what a
+learner should do. Test each boundary at the exact value and check conditions,
+exceptions, responsible roles, referenced clauses, conflicting deadlines and
+unreadable terms. For example, two rules saying "below/up to N" and "above N"
+without explicitly saying what applies at N require an owner question if the
+wording can reasonably leave that value out. Do not assume an inclusive reading.
+If the original explicitly settles the boundary elsewhere, do not report it.
+Use the outline only as context for cross-references; quote from the local original.
+The author's candidate uncertainties are clues to check, not established facts.
+Do not ask the owner to fix spelling, formatting, or an unapproved cosmetic
+edit. Ask only where the original cannot establish what a learner should do.
+
+Each source_questions row has only excerpt (a unique exact original quotation,
+up to 2000 characters), category (boundary|conflict|reference|responsibility|
+exception|unclear), and reason (a concrete question and relevant interpretations
+in the original language, up to 700 characters). Include a separate row per
+material finding. Do not manufacture findings or resolve them yourself. If no
+human decision is needed, explicitly return an empty source_questions array.
 """
+
+class _SourceQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    excerpt: str = Field(min_length=1, max_length=2000)
+    category: str = Field(pattern=r"^(boundary|conflict|reference|responsibility|exception|unclear)$")
+    reason: str = Field(min_length=3, max_length=700)
+
+
+class _IndependentReview(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    proposal_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rows: list[dict[str, Any]] = Field(max_length=256)
+    source_questions: list[_SourceQuestion] = Field(max_length=256)
 
 
 def blocks(original: str) -> Iterator[tuple[int, str]]:
@@ -69,7 +96,7 @@ async def analyze(
     questions: list[dict[str, Any]] = []
     auto: list[dict[str, Any]] = []
     calls = 0
-    basis = text_hash(POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text))
+    basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text))
     for index, (offset, local) in enumerate(bounded_blocks):
         if not local.strip():
             continue
@@ -80,36 +107,57 @@ async def analyze(
             auto.extend(saved["automatic"])
             continue
 
+        independent: _IndependentReview | None = None
+        block_calls = 0
+        candidate_questions: object = []
+
         async def invoke(messages: list[dict[str, str]]) -> object:
-            if messages[0]["content"].startswith("You are a conservative source-document editor"):
-                payload = json.loads(messages[1]["content"])
+            nonlocal independent, block_calls, candidate_questions
+            block_calls += 1
+            payload = json.loads(messages[1]["content"])
+            if "proposal_sha256" in payload:
                 if outline_text:
                     payload["related_source_outline"] = outline_text
-                messages = [
-                    {"role": "system", "content": messages[0]["content"] + _SEMANTIC_REVIEW},
+                if candidate_questions:
+                    payload["author_candidate_uncertainties"] = candidate_questions
+                patch_contract = messages[0]["content"].replace(
+                    'Output exactly {"proposal_sha256": supplied value, "rows": [...]}.', ""
+                )
+                independent = _IndependentReview.model_validate(await complete_json([
+                    {"role": "system", "content": patch_contract + _SEMANTIC_REVIEW},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-                ]
-            return await complete_json(messages)
+                ]))
+                if independent.proposal_sha256 != payload["proposal_sha256"]:
+                    raise ReviewConflictError("source_review_independent_proposal_changed")
+                return independent.model_dump(exclude={"source_questions"})
+            authored = await complete_json(messages)
+            if isinstance(authored, Mapping):
+                candidate_questions = authored.get("unresolved", [])
+            return authored
 
         result = await prepare_source_working_edition(local, source_id=source_id,
             chunk_id=f"editorial-doc:{document_id}:{index}", complete_json=invoke)
-        calls += result.model_calls
-        block_questions = []
+        if independent is None:
+            wire = await invoke(editorial_review_messages(local, result.proposal))
+            if wire != result.review_wire or independent is None:
+                raise ReviewConflictError("source_review_independent_proposal_changed")
+        calls += block_calls
+        block_questions: list[dict[str, Any]] = []
         block_auto = []
-        for gap in result.edition.gaps:
-            block_questions.append({"id": f"q{index}-{gap.alias}", "start": offset + gap.start,
-                "end": offset + gap.end, "quote": local[gap.start:gap.end],
-                "category": gap.category, "reason": gap.reason})
-        for diagnostic in result.unbound_diagnostics:
-            block_questions.append({"id": f"u{index}-{diagnostic.alias}", "start": None, "end": None,
-                "quote": diagnostic.reported_excerpt, "category": diagnostic.category, "reason": diagnostic.reason})
+        for n, finding in enumerate(independent.source_questions):
+            start = local.index(finding.excerpt) if local.count(finding.excerpt) == 1 else None
+            block_questions.append({"id": f"s{index}-{n}", "start": None if start is None else offset + start,
+                "end": None if start is None else offset + start + len(finding.excerpt),
+                "quote": finding.excerpt, "category": finding.category, "reason": finding.reason})
+        # Failed cosmetic proposals keep their original text. They are not
+        # human blockers; only the independent policy questions are shown.
         for patch in result.proposal.patches:
             if patch.alias in result.edition.applied_patch_aliases:
                 block_auto.append({"id": f"a{index}-{patch.alias}", "start": offset + patch.start,
                     "end": offset + patch.end, "before": patch.before, "after": patch.after,
                     "reason": patch.reason, "category": patch.category})
         if checkpoint is not None:
-            await checkpoint(key, {"questions": block_questions, "automatic": block_auto, "calls": result.model_calls})
+            await checkpoint(key, {"questions": block_questions, "automatic": block_auto, "calls": block_calls})
         questions.extend(block_questions)
         auto.extend(block_auto)
 
@@ -131,7 +179,7 @@ async def analyze(
     )]
     render_text(original, auto)
     return {"original": original, "issues": [*grouped, *(q for q in questions if q["start"] is None)],
-            "automatic": auto, "model_calls": calls, "policy": POLICY}
+            "automatic": auto, "model_calls": calls, "policy": POLICY, "analysis_policy": _ANALYSIS_POLICY}
 
 
 async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> str:

@@ -45,7 +45,7 @@ export interface SourceReview {
 export interface ReviewCommand {
   expected_revision: number;
   request_id: string;
-  action: 'start' | 'resolve' | 'reopen_issue' | 'undo_auto' | 'approve' | 'reopen';
+  action: 'start' | 'resolve' | 'reopen_issue' | 'undo_auto' | 'approve' | 'reopen' | 'add_edit';
   item_id?: string;
   decision?: 'replace' | 'keep';
   replacement?: string;

@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -85,15 +86,57 @@ def test_unbound_finding_requires_unique_original_quote_to_replace():
 
 @pytest.mark.asyncio
 async def test_source_model_flags_numeric_gap_with_original_quote_and_no_invented_rewrite():
-    complete = AsyncMock(return_value={"patches": [], "unresolved": [
-        {"alias": "Boundary", "excerpt": QUOTE, "category": "numbering", "reason": "Какой порядок при 45 МРП?"}
-    ]})
+    # Actual DEV failure: the first editor returned no ambiguity. The independent
+    # check is mandatory even when a document has no proposed text corrections.
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": []}
+        assert "Test each boundary at the exact value" in messages[0]["content"]
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": [
+            {"excerpt": QUOTE, "category": "boundary", "reason": "Какой порядок при 45 МРП?"},
+            {"excerpt": "Несуществующая цитата", "category": "reference", "reason": "Какой пункт имеется в виду?"},
+        ]}
+
+    complete = AsyncMock(side_effect=answer)
     result = await analyze(ORIGINAL, source_id="document:" + "b" * 64, document_id=str(uuid4()),
                            complete_json=complete)
-    assert complete.await_count == 1
-    assert "gap/overlap at numeric boundaries" in complete.await_args.args[0][0]["content"]
+    assert complete.await_count == result["model_calls"] == 2
     assert result["issues"][0]["quote"] == QUOTE and result["issues"][0]["start"] == 0
+    assert result["issues"][1]["start"] is None
     assert not result["automatic"] and result["original"] == ORIGINAL
+
+
+@pytest.mark.asyncio
+async def test_typo_uncertainty_does_not_require_a_human_policy_decision():
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": [
+                {"alias": "Typo", "excerpt": "операотр", "category": "typo", "reason": "Ошибка написания."}]}
+        assert incoming["author_candidate_uncertainties"][0]["excerpt"] == "операотр"
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": []}
+
+    result = await analyze(ORIGINAL, source_id="document:" + "b" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert not result["issues"] and not result["automatic"] and result["original"] == ORIGINAL
+
+
+def test_manual_edit_uses_same_history_and_cannot_override_existing_question():
+    state = prepared()
+    with pytest.raises(ReviewConflictError, match="overlapping_or_stale_edit"):
+        enact(state, "add_edit", quote=QUOTE, replacement=REPLACEMENT, reason="Ответ владельца")
+    with pytest.raises(ReviewConflictError, match="quote_not_unique"):
+        enact(state, "add_edit", quote="Неверная цитата", replacement=REPLACEMENT, reason="Ответ владельца")
+    quote = "Свыше 45 МРП действует второй."
+    edit = enact(state, "add_edit", quote=quote, replacement="При сумме свыше 45 МРП применяется второй порядок.",
+                 reason="Владелец подтвердил название порядка")
+    assert state.issues[edit["id"]]["category"] == "manual" and state.decisions[edit["id"]] == edit
+    enact(state, "resolve", item_id="boundary", decision="keep", reason="Владелец оставил текст")
+    approved = enact(state, "approve")
+    assert "применяется второй порядок" in approved["working"] and state.original == ORIGINAL
+    enact(state, "reopen")
+    enact(state, "reopen_issue", item_id=edit["id"], reason="Уточнён ответ владельца")
+    assert quote in state.working()[0] and "применяется второй порядок" in approved["working"]
 
 
 def test_long_source_blocks_preserve_tail_and_all_original_coordinates():
@@ -109,19 +152,28 @@ async def test_retry_reuses_exact_completed_source_block(monkeypatch):
     monkeypatch.setattr("app.modules.source_editorial_review.analysis._BLOCK_CHARS", 80)
     original = "Первый раздел с порядком проверки.\n\n" * 4 + "Последнее исключение."
     completed: dict = {}
-    first = AsyncMock(side_effect=[{"patches": [], "unresolved": []}, TimeoutError()])
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" in incoming:
+            return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": []}
+        return {"patches": [], "unresolved": []}
+
+    async def first_attempt(messages):
+        if completed:
+            raise TimeoutError()
+        return await answer(messages)
 
     async def record(key, result):
         completed[key] = result
 
     args = {"source_id": "document:" + "d" * 64, "document_id": str(uuid4())}
     with pytest.raises(TimeoutError):
-        await analyze(original, complete_json=first, checkpoint=record, **args)
+        await analyze(original, complete_json=first_attempt, checkpoint=record, **args)
     assert len(completed) == 1
-    retry = AsyncMock(return_value={"patches": [], "unresolved": []})
+    retry = AsyncMock(side_effect=answer)
     result = await analyze(original, complete_json=retry, retained=completed, **args)
     assert result["original"] == original
-    assert retry.await_count == len(list(blocks(original))) - 1
+    assert retry.await_count == 2 * (len(list(blocks(original))) - 1)
 
 
 @pytest.mark.asyncio

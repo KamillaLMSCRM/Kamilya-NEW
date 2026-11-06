@@ -14,13 +14,18 @@ import { sourceReviewCopy } from './copy';
 const field = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const code = 'whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/30 p-3 text-sm [overflow-wrap:anywhere]';
 type Action = Omit<ReviewCommand, 'expected_revision' | 'request_id'>;
-type Notice = 'conflict' | 'unknown' | 'error';
+type Notice = 'conflict' | 'unknown' | 'error' | 'invalidAnchor' | 'overlapping';
 
 function responseStatus(error: unknown): number | undefined {
   if (error && typeof error === 'object' && 'response' in error) {
     const response = error.response;
     if (response && typeof response === 'object' && 'status' in response && typeof response.status === 'number') return response.status;
   }
+}
+
+function reviewErrorCode(error: unknown): string | undefined {
+  const data = (error as { response?: { data?: { details?: { code?: string }; detail?: { code?: string } } } } | null)?.response?.data;
+  return data?.details?.code ?? data?.detail?.code;
 }
 
 export default function SourceEditorialReview() {
@@ -49,6 +54,8 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const [decision, setDecision] = useState<'replace' | 'keep'>('replace');
   const [undoItem, setUndoItem] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manual, setManual] = useState({ quote: '', replacement: '', reason: '' });
   const detail = useRef<HTMLHeadingElement>(null);
   const commandLock = useRef(false);
   const version = useRef(0);
@@ -98,8 +105,11 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     } catch (error) {
       const status = responseStatus(error);
       if (status === 409) {
-        setNotice('conflict');
-        if (body.reason || body.replacement) setConflictInput(body);
+        const code = reviewErrorCode(error);
+        const invalidAnchor = code === 'source_review_quote_not_unique';
+        const overlapping = code === 'source_review_overlapping_or_stale_edit';
+        setNotice(invalidAnchor ? 'invalidAnchor' : overlapping ? 'overlapping' : 'conflict');
+        if (!invalidAnchor && !overlapping && (body.reason || body.replacement)) setConflictInput(body);
         setPending(null);
         await load();
       } else if (!status || status >= 500) {
@@ -220,6 +230,31 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             </form>}
           </WorkspacePanel>}
         </div>
+        {!readOnly && <WorkspacePanel bodyClassName="space-y-3">
+          <h2 className="font-semibold">{copy.manualTitle}</h2>
+          <p className="text-sm text-muted-foreground">{copy.manualHint}</p>
+          {manualOpen ? <form className="space-y-3" onSubmit={async (event) => {
+            event.preventDefault();
+            if (await action({ action: 'add_edit', ...manual })) {
+              setManual({ quote: '', replacement: '', reason: '' });
+              setManualOpen(false);
+            }
+          }}>
+            <label className="block space-y-1 text-sm"><span>{copy.anchor}</span>
+              <textarea className={field} value={manual.quote} onChange={(e) => setManual({ ...manual, quote: e.target.value })} required maxLength={5000} rows={2} /></label>
+            <label className="block space-y-1 text-sm"><span>{copy.replacement}</span>
+              <textarea className={field} value={manual.replacement} onChange={(e) => setManual({ ...manual, replacement: e.target.value })} required maxLength={5000} rows={3} /></label>
+            <label className="block space-y-1 text-sm"><span>{copy.reason}</span>
+              <textarea className={field} value={manual.reason} onChange={(e) => setManual({ ...manual, reason: e.target.value })} required minLength={3} maxLength={1500} rows={2} /></label>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={disabled}>{copy.saveManual}</Button>
+              <Button type="button" variant="outline" disabled={disabled} onClick={() => {
+                setManual({ quote: '', replacement: '', reason: '' });
+                setManualOpen(false);
+              }}>{copy.hideManual}</Button>
+            </div>
+          </form> : <Button variant="outline" disabled={disabled} onClick={() => setManualOpen(true)}>{copy.addManual}</Button>}
+        </WorkspacePanel>}
         <WorkspacePanel bodyClassName="space-y-3">
           <h2 className="font-semibold">{copy.automatic}</h2>
           {review.automatic.length === 0 && <p className="text-sm text-muted-foreground">{copy.noEdits}</p>}
@@ -240,8 +275,9 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.working_text}</pre></details>
           <details><summary className="cursor-pointer font-semibold">{copy.original}</summary>
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.original_text}</pre></details>
-          {!readOnly && <div className="space-y-2"><Button disabled={disabled || open > 0} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
-            {open > 0 && <p className="text-sm text-muted-foreground">{copy.blocking}</p>}</div>}
+          {!readOnly && <div className="space-y-2"><Button disabled={disabled || open > 0 || Boolean(manual.quote || manual.replacement || manual.reason)} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
+            {open > 0 && <p className="text-sm text-muted-foreground">{copy.blocking}</p>}
+            {(manual.quote || manual.replacement || manual.reason) && <p className="text-sm text-muted-foreground">{copy.unsavedManual}</p>}</div>}
         </WorkspacePanel>
         <WorkspacePanel bodyClassName="space-y-3">
           <h2 className="font-semibold">{copy.history}</h2>

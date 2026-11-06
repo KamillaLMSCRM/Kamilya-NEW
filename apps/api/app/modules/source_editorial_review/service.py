@@ -86,12 +86,13 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
     analysis = None
     for row in rows:
         if row.kind == "analyzed":
-            analysis = {key: row.payload.get(key) for key in ("model_calls", "usage", "policy")}
+            analysis = {key: row.payload.get(key) for key in ("model_calls", "usage", "policy", "analysis_policy")}
             journal.extend({**public_event(row), **change, "kind": "automatic", "item_id": change["id"],
                             "actor_id": None, "policy": row.payload["policy"]}
                            for change in row.payload["automatic"])
         elif row.kind in {"resolved", "issue_reopened", "auto_undone", "approved", "reopened"}:
-            journal.append({**public_event(row), **{key: row.payload[key] for key in
+            event_kind = "manual_edit" if row.kind == "resolved" and "manual_issue" in row.payload else row.kind
+            journal.append({**public_event(row), "kind": event_kind, **{key: row.payload[key] for key in
                 ("item_id", "start", "end", "before", "after", "reason", "decision", "working_sha256")
                 if key in row.payload}})
     working = state.working()[0] if state.original else None

@@ -57,7 +57,7 @@ class ReviewCommand(BaseModel):
 
     expected_revision: int = Field(ge=0)
     request_id: UUID
-    action: Literal["start", "resolve", "reopen_issue", "undo_auto", "approve", "reopen"]
+    action: Literal["start", "resolve", "reopen_issue", "undo_auto", "approve", "reopen", "add_edit"]
     item_id: str | None = Field(default=None, min_length=1, max_length=80)
     decision: Literal["replace", "keep"] | None = None
     replacement: str | None = Field(default=None, min_length=1, max_length=5000)
@@ -69,12 +69,15 @@ class ReviewCommand(BaseModel):
         if self.action in {"resolve", "reopen_issue", "undo_auto"}:
             if not self.item_id or not self.reason:
                 raise ValueError("item and reason required")
+        elif self.action == "add_edit":
+            if self.item_id is not None or not self.reason or not self.quote or not self.replacement or self.decision:
+                raise ValueError("exact quote, replacement and reason required for a manual edit")
         elif self.item_id is not None or self.reason is not None:
             raise ValueError("unexpected item or reason")
         if self.action == "resolve":
             if self.decision is None or (self.replacement is not None) != (self.decision == "replace"):
                 raise ValueError("an explicit decision and matching replacement are required")
-        elif self.decision is not None or self.replacement is not None or self.quote is not None:
+        elif self.action != "add_edit" and (self.decision is not None or self.replacement is not None or self.quote is not None):
             raise ValueError("unexpected decision")
         if self.replacement and ("\x00" in self.replacement or "\r" in self.replacement):
             raise ValueError("invalid replacement")
@@ -113,6 +116,8 @@ class ReviewState:
             self.disabled_auto.clear()
             self.status, self.error = "in_review", None
         elif kind == "resolved":
+            if "manual_issue" in payload:
+                self.issues[payload["item_id"]] = payload["manual_issue"]
             self.decisions[payload["item_id"]] = payload
         elif kind == "issue_reopened":
             self.decisions.pop(payload["item_id"])
@@ -159,6 +164,24 @@ class ReviewState:
             row = self.decisions[item]
             return "issue_reopened", {"item_id": item, "start": row["start"], "end": row["end"],
                                       "before": row["after"], "after": row["before"], "reason": command.reason}
+        if command.action == "add_edit":
+            quote = command.quote or ""
+            if not quote or self.original.count(quote) != 1:
+                raise ReviewConflictError("source_review_quote_not_unique")
+            if command.replacement == quote:
+                raise ReviewConflictError("source_review_replacement_requires_exact_change")
+            start = self.original.index(quote)
+            end = start + len(quote)
+            if any(row["start"] is not None and start < row["end"] and row["start"] < end
+                   for row in self.issues.values()):
+                raise ReviewConflictError("source_review_overlapping_or_stale_edit")
+            item = f"m-{command.request_id}"
+            payload = {"item_id": item, "id": item, "start": start, "end": end, "before": quote,
+                       "after": command.replacement, "decision": "replace", "reason": command.reason,
+                       "manual_issue": {"id": item, "start": start, "end": end, "quote": quote,
+                                        "category": "manual", "reason": command.reason}}
+            render_text(self.original, [*self.active_edits(), payload])
+            return "resolved", payload
         if command.action != "resolve" or item not in self.issues or item in self.decisions:
             raise ReviewConflictError("source_review_action_not_available")
         issue = self.issues[item]

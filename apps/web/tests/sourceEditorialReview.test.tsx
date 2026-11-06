@@ -71,6 +71,26 @@ describe('source editorial review', () => {
     expect(screen.getByLabelText('Согласованная формулировка')).toHaveValue(updated);
   });
 
+  it('lets the methodologist correct a missed issue and preserves the input when the quote cannot be located', async () => {
+    const current = { ...fixture(), questions: [] };
+    mocks.get.mockResolvedValue({ data: current });
+    mocks.post.mockRejectedValueOnce({ response: { status: 409, data: { details: { code: 'source_review_quote_not_unique' } } } });
+    render(<SourceEditorialReview />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Добавить правку' }));
+    fireEvent.change(screen.getByLabelText('Точная цитата из оригинала'), { target: { value: quote } });
+    fireEvent.change(screen.getByLabelText('Согласованная формулировка'), { target: { value: updated } });
+    fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: reason } });
+    expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить правку' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Скопируйте точный фрагмент');
+    expect(screen.getByLabelText('Согласованная формулировка')).toHaveValue(updated);
+    expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
+      expect.objectContaining({ action: 'add_edit', expected_revision: 3, quote, replacement: updated, reason }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Отменить ввод' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить ввод' }));
+    expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeEnabled();
+  });
+
   it('does not fetch document text for an inactive role', () => {
     mocks.role = 'student';
     render(<SourceEditorialReview />);
