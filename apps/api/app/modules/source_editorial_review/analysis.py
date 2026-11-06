@@ -152,9 +152,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         await db.commit()
 
     def owns(latest: Any) -> bool:
-        return (latest.kind == "running" and latest.id == claim.id) or (
+        return bool((latest.kind == "running" and latest.id == claim.id) or (
             latest.kind == "analysis_block" and latest.payload.get("claim_id") == str(claim.id)
-        )
+        ))
 
     retained = {row.payload["key"]: row.payload["result"] for row in rows if row.kind == "analysis_block"}
 

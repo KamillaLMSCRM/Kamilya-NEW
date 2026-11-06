@@ -40,6 +40,8 @@ const coverage: Record<string, Entry> = {
   'courses/templates/[blueprintId]': { status: 'redesigned' },
   'dashboard': { status: 'alias', owner: 'features/dashboard/MethodologistDashboard.tsx' },
   'documents': { status: 'redesigned' },
+  'documents/[id]/editorial-review': { status: 'alias', owner: 'features/source-editorial-review/SourceEditorialReview.tsx' },
+  'documents/[id]/editorial-review/[approvalId]': { status: 'alias', owner: 'features/source-editorial-review/SourceEditorialReview.tsx' },
   'kiosk/[token]': { status: 'redesigned' },
   'learning-cycles': { status: 'redesigned' },
   'learning-paths': { status: 'redesigned' },
