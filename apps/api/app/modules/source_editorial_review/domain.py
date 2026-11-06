@@ -52,6 +52,19 @@ class ApprovedEditorialDocument:
             return False
 
 
+class ReviewPageRange(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    first_page: int = Field(ge=1, le=10000)
+    last_page: int = Field(ge=1, le=10000)
+
+    @model_validator(mode="after")
+    def ordered(self) -> "ReviewPageRange":
+        if self.last_page < self.first_page:
+            raise ValueError("last page must not precede first page")
+        return self
+
+
 class ReviewCommand(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -63,9 +76,12 @@ class ReviewCommand(BaseModel):
     replacement: str | None = Field(default=None, min_length=1, max_length=5000)
     reason: str | None = Field(default=None, min_length=3, max_length=1500)
     quote: str | None = Field(default=None, min_length=1, max_length=5000)
+    pages: ReviewPageRange | None = None
 
     @model_validator(mode="after")
     def validate_fields(self) -> "ReviewCommand":
+        if self.pages is not None and self.action != "start":
+            raise ValueError("pages are allowed only when starting a review")
         if self.action in {"resolve", "reopen_issue", "undo_auto"}:
             if not self.item_id or not self.reason:
                 raise ValueError("item and reason required")
@@ -96,6 +112,7 @@ class ReviewState:
     approval: dict[str, Any] | None = field(default=None, repr=False)
     fidelity: dict[str, Any] = field(default_factory=dict, repr=False)
     error: str | None = None
+    pages: dict[str, int] | None = None
 
     def apply(self, sequence: int, kind: str, payload: dict[str, Any]) -> None:
         if sequence != self.revision + 1:
@@ -103,6 +120,7 @@ class ReviewState:
         self.revision = sequence
         if kind == "queued":
             self.status, self.error = "queued", None
+            self.pages = payload.get("pages")
         elif kind in {"running", "analysis_block"}:
             self.status = "running"
         elif kind == "failed":
@@ -143,7 +161,7 @@ class ReviewState:
         if command.expected_revision != self.revision:
             raise ReviewConflictError("source_review_revision_conflict")
         if command.action == "start" and self.status in {"not_started", "failed"}:
-            return "queued", {}
+            return "queued", {"pages": command.pages.model_dump()} if command.pages else {}
         if command.action == "reopen" and self.status == "approved":
             return "reopened", {}
         if self.status != "in_review":
@@ -155,7 +173,7 @@ class ReviewState:
             working, spans = self.working()
             return "approved", {"working": working, "working_sha256": text_hash(working),
                                 "original_sha256": text_hash(self.original), "spans": spans,
-                                "policy": POLICY}
+                                "policy": POLICY, **({"pages": self.pages} if self.pages else {})}
         if command.action == "undo_auto" and item in self.automatic and item not in self.disabled_auto:
             row = self.automatic[item]
             return "auto_undone", {"item_id": item, "start": row["start"], "end": row["end"],

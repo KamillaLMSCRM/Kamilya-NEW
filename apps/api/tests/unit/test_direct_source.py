@@ -76,6 +76,39 @@ def test_structure_action_support_accepts_only_same_concept_variants() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pdf_review_converts_only_the_selected_pages_with_original_identity():
+    from io import BytesIO
+
+    from pypdf import PdfReader, PdfWriter
+
+    from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
+
+    full = PdfWriter()
+    for width in (111, 222, 333, 444):
+        full.add_blank_page(width=width, height=600)
+    output = BytesIO()
+    full.write(output)
+    blob = output.getvalue()
+    tenant, doc_id = uuid4(), uuid4()
+    doc = _document(tenant_id=tenant, document_id=doc_id, key="tenant/source", filename="combined.pdf", blob=blob)
+
+    class SelectedPagesConverter:
+        async def convert(self, file_path):
+            reader = PdfReader(file_path)
+            assert [int(page.mediabox.width) for page in reader.pages] == [333, 444]
+            return {"markdown": "Должностная инструкция. Проверьте оборудование перед началом работы.",
+                    "metadata": {"engine": "test-converter"}}
+
+    kwargs = {"tenant_id": tenant, "storage": _Storage({"tenant/source": blob}),
+              "converter": SelectedPagesConverter()}
+    result = await build_direct_source_corpus([doc], pdf_pages={str(doc_id): (3, 4)}, **kwargs)
+    assert result.documents[0].source_revision == f"document:{doc.content_sha256}"
+    assert "Должностная инструкция" in result.documents[0].source_text
+    with pytest.raises(DirectSourceError, match="direct_source_pdf_range_invalid"):
+        await build_direct_source_corpus([doc], pdf_pages={str(doc_id): (3, 5)}, **kwargs)
+
+
+@pytest.mark.asyncio
 async def test_direct_source_converts_every_selected_original_without_embeddings() -> None:
     from app.modules.ai.direct_source import build_direct_source_corpus
 

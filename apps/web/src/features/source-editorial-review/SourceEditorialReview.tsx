@@ -42,6 +42,16 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const copy = sourceReviewCopy(lang);
   const endpoint = '/v1' + sourceReviewHref(id);
   const [review, setReview] = useState<SourceReview | null>(null);
+  const [courseDocuments, setCourseDocuments] = useState<string[]>([]);
+  const [pageInput, setPageInput] = useState<{ first: string; last: string } | null>(null);
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
+  useEffect(() => {
+    const ids = new URLSearchParams(window.location.search).getAll('document_id');
+    if (ids.includes(id)) setCourseDocuments([...new Set(ids)].slice(0, 5));
+  }, [id]);
+  const generationHref = '/ai/generate?' + new URLSearchParams(
+    (courseDocuments.length ? courseDocuments : [id]).map(documentId => ['document_id', documentId])
+  ).toString();
   const [loadError, setLoadError] = useState(false);
   const [selected, select] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -145,10 +155,43 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     requestAnimationFrame(() => detail.current?.focus());
   };
   const stamp = (value: string) => new Date(value).toLocaleString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU');
-  const recovery = review?.error?.startsWith('direct_source_') || review?.error === 'source_review_extraction_incomplete';
+  const range = pageInput ?? {
+    first: review?.pages ? String(review.pages.first_page) : '',
+    last: review?.pages ? String(review.pages.last_page) : '',
+  };
+  const usePages = Boolean(range.first || range.last);
+  const firstPage = Number(range.first);
+  const lastPage = Number(range.last);
+  const validPages = !usePages || (Number.isInteger(firstPage) && Number.isInteger(lastPage)
+    && firstPage >= 1 && lastPage >= firstPage && lastPage <= 10000);
+  const failureMessage = review?.error === 'direct_source_pdf_range_invalid' ? copy.rangeFailure
+    : review?.error === 'source_review_provider_unavailable' ? copy.providerFailure
+    : review?.error === 'source_review_timeout' ? copy.timeoutFailure
+    : review?.error === 'source_review_invalid_response' ? copy.responseFailure
+    : review?.error?.startsWith('direct_source_') || review?.error === 'source_review_extraction_incomplete' ? copy.protected
+    : review?.error === 'source_review_analysis_failed' ? copy.analysisFailure : copy.recovery;
 
-  return <WorkspacePage id="source-editorial-review" title={copy.title} description={copy.intro}>
-    <Link className="inline-flex text-sm text-primary underline underline-offset-4" href="/documents">{copy.documents}</Link>
+  const downloadOriginal = async () => {
+    setDownloadStatus('loading');
+    try {
+      const { data } = await api.get<Blob>(`/v1/documents/${encodeURIComponent(id)}/download`, { responseType: 'blob' });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `document-${id}.pdf`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setDownloadStatus('idle');
+    } catch {
+      setDownloadStatus('failed');
+    }
+  };
+
+  return <WorkspacePage id="source-editorial-review" title={copy.title}>
+    <Link className="inline-flex text-sm text-primary underline underline-offset-4"
+      href={courseDocuments.length ? generationHref : '/documents'}>
+      {courseDocuments.length ? copy.returnToCourse : copy.documents}
+    </Link>
     {loadError && <WorkspacePanel bodyClassName="space-y-3" role="alert">
       <p>{copy.loadError}</p><Button variant="outline" onClick={() => void load()}>{copy.readAgain}</Button>
     </WorkspacePanel>}
@@ -159,14 +202,33 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
         {['not_started', 'failed', 'interrupted'].includes(review.status) && !approvalId && <>
-          <p className="text-sm">{review.status === 'not_started' ? copy.startHint : recovery ? copy.protected : copy.recovery}</p>
-          <Button disabled={disabled} onClick={() => void action({ action: 'start' })}>{review.status === 'not_started' ? copy.check : copy.retry}</Button>
+          <p className="text-sm">{review.status === 'not_started' ? copy.startHint : failureMessage}</p>
+          {review.error && /^[a-z0-9_]{2,100}$/.test(review.error) && <code className="break-all text-xs text-muted-foreground">{review.error}</code>}
+          {review.pdf && <fieldset className="space-y-2 rounded-xl border border-border p-3">
+            <legend className="px-1 text-sm font-medium">{copy.pagesTitle}</legend>
+            <p className="text-xs text-muted-foreground">{copy.pagesHint}</p>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="block text-sm">{copy.firstPage}
+                <input type="number" min={1} max={10000} value={range.first} onChange={event => setPageInput({ ...range, first: event.target.value })}
+                  className={field + ' mt-1 block w-24'} /></label>
+              <label className="block text-sm">{copy.lastPage}
+                <input type="number" min={1} max={10000} value={range.last} onChange={event => setPageInput({ ...range, last: event.target.value })}
+                  className={field + ' mt-1 block w-24'} /></label>
+              <Button variant="outline" disabled={downloadStatus === 'loading'} onClick={() => void downloadOriginal()}>{copy.downloadOriginal}</Button>
+            </div>
+            {!validPages && <p role="status" className="text-sm text-destructive">{copy.pagesInvalid}</p>}
+            {downloadStatus === 'failed' && <p role="alert" className="text-sm text-destructive">{copy.loadError}</p>}
+          </fieldset>}
+          <Button disabled={disabled || !validPages} onClick={() => void action({
+            action: 'start', ...(review.pdf && usePages ? { pages: { first_page: firstPage, last_page: lastPage } } : {}),
+          })}>{review.status === 'not_started' ? copy.check : copy.retry}</Button>
         </>}
+        {review.pages && <p className="text-sm text-muted-foreground">{copy.chosenPages}: {review.pages.first_page}–{review.pages.last_page}</p>}
         {['queued', 'running'].includes(review.status) && <p className="text-sm text-muted-foreground">{copy.startHint}</p>}
         {review.approval && <div className="flex flex-wrap items-center gap-3">
           <p className="w-full text-sm">{copy.approved} · {stamp(review.approval.created_at)}. {copy.afterApproval}</p>
           {!approvalId && <>
-            <Link className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href={`/ai/generate?document_id=${encodeURIComponent(id)}`}>{copy.generate}</Link>
+            <Link className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href={generationHref}>{copy.generate}</Link>
             <Link className="text-sm text-primary underline" href={sourceReviewHref(id, review.approval.approval_id)}>{copy.preview}</Link>
             <Button variant="outline" disabled={disabled} onClick={() => void action({ action: 'reopen' })}>{copy.reopen}</Button>
           </>}

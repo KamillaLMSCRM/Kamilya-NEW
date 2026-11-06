@@ -47,18 +47,28 @@ export function SourceReviewChecklist({ documents, status, requireReview = false
   const { lang } = useT();
   const copy = sourceReviewCopy(lang);
   if (!documents.length || (!status?.required && !requireReview)) return null;
-  const allApproved = !requireReview && documents.every(doc => status?.documents[doc.id] === 'approved');
+  const pending = documents.find(doc => requireReview || status?.documents[doc.id] !== 'approved');
+  const pendingState = pending ? status?.documents[pending.id] ?? 'not_started' : undefined;
+  const action = pendingState === 'failed' || pendingState === 'interrupted' ? copy.reviewProblem
+    : pendingState === 'in_review' ? copy.approveSource
+    : pendingState === 'queued' || pendingState === 'running' ? copy.viewProgress : copy.check;
+  const query = new URLSearchParams(documents.map(doc => ['document_id', doc.id])).toString();
+  const reviewHref = (id: string) => sourceReviewHref(id) + '?' + query;
   return <section className="space-y-2 rounded-xl border border-border bg-muted/20 p-4" aria-label={copy.status}>
     <h3 className="text-sm font-semibold">{copy.status}</h3>
-    {!allApproved && <p className="text-sm text-muted-foreground">{copy.beforeGeneration}</p>}
+    {pending && <p className="text-sm text-muted-foreground">{copy.beforeGeneration}</p>}
     <ul className="space-y-2">
       {documents.map(doc => {
         const item = status?.documents[doc.id] ?? 'not_started';
         return <li className="flex flex-wrap items-baseline justify-between gap-2 text-sm" key={doc.id}>
           <span className="min-w-0 break-words">{doc.title} <span className="text-xs text-muted-foreground">· {copy.statusLabels[item]}</span></span>
-          <Link href={sourceReviewHref(doc.id)} className="shrink-0 text-primary underline underline-offset-4">{copy.short}</Link>
+          {doc.id !== pending?.id && <Link href={reviewHref(doc.id)} className="shrink-0 text-primary underline underline-offset-4">{item === 'approved' ? copy.preview : copy.short}</Link>}
         </li>;
       })}
     </ul>
+    {pending && <Link href={reviewHref(pending.id)}
+      className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+      {action}
+    </Link>}
   </section>;
 }

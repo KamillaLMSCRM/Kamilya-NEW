@@ -813,6 +813,26 @@ def direct_source_chunks(
     )
 
 
+def _select_pdf_pages(blob: bytes, first: int, last: int, document_id: str) -> bytes:
+    from io import BytesIO
+
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.errors import PyPdfError
+
+    try:
+        reader = PdfReader(BytesIO(blob))
+        if reader.is_encrypted or not 1 <= first <= last <= len(reader.pages):
+            raise DirectSourceError("direct_source_pdf_range_invalid", (document_id,))
+        result = BytesIO()
+        writer = PdfWriter()
+        for page in range(first - 1, last):
+            writer.add_page(reader.pages[page])
+        writer.write(result)
+        return result.getvalue()
+    except (PyPdfError, ValueError, IndexError, TypeError, OSError) as exc:
+        raise DirectSourceError("direct_source_pdf_range_invalid", (document_id,)) from exc
+
+
 async def build_direct_source_corpus(
     documents: Sequence[Any],
     *,
@@ -821,6 +841,7 @@ async def build_direct_source_corpus(
     converter: _Converter | None = None,
     editorial_results: Mapping[str, SourceEditorialResult] | None = None,
     approved_documents: Mapping[str, ApprovedEditorialDocument] | None = None,
+    pdf_pages: Mapping[str, tuple[int, int]] | None = None,
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     max_source_bytes: int = MAX_DIRECT_SOURCE_BYTES,
     max_document_chars: int = MAX_DIRECT_SOURCE_DOCUMENT_CHARS,
@@ -841,6 +862,9 @@ async def build_direct_source_corpus(
     if approved_documents is not None and (
             editorial_results is not None or set(approved_documents) != {str(doc.id) for doc in documents}):
         raise DirectSourceError("direct_source_editorial_selection_invalid")
+    if pdf_pages is not None and (approved_documents is not None or editorial_results is not None
+            or not set(pdf_pages) <= {str(doc.id) for doc in documents}):
+        raise DirectSourceError("direct_source_pdf_range_invalid")
     if storage is None:
         from app.core.storage import get_storage
 
@@ -901,6 +925,15 @@ async def build_direct_source_corpus(
             raise DirectSourceError("direct_source_hash_mismatch", (document_id,))
 
         suffix = Path(str(document.filename or "")).suffix.lower()
+        selected_pages = (pdf_pages or {}).get(document_id)
+        conversion_sha = expected_sha
+        if selected_pages is not None:
+            if suffix != ".pdf":
+                raise DirectSourceError("direct_source_pdf_range_invalid", (document_id,))
+            first, last = selected_pages
+            blob = await _observe_timeout(asyncio.to_thread(_select_pdf_pages, blob, first, last, document_id),
+                                          "source_pdf_page_selection")
+            conversion_sha = hashlib.sha256(blob).hexdigest()
         review_document = review_experiment_enabled and suffix == ".pdf"
         temp_path: str | None = None
         try:
@@ -931,9 +964,9 @@ async def build_direct_source_corpus(
         fidelity = ConversionFidelity.from_metadata(metadata)
         from app.modules.ai.source_review_context import extract_review_only_candidates, has_review_only_unresolved
         try:
-            review_only_context = (extract_review_only_candidates(metadata, expected_sha)
+            review_only_context = (extract_review_only_candidates(metadata, conversion_sha)
                                    if review_document else ())
-            review_only_unresolved = (has_review_only_unresolved(metadata, expected_sha)
+            review_only_unresolved = (has_review_only_unresolved(metadata, conversion_sha)
                                       if review_document else False)
         except ValueError as exc:
             raise DirectSourceError("direct_source_review_context_invalid", (document_id,)) from exc
@@ -1003,6 +1036,7 @@ async def load_direct_source_corpus(
     check_cancelled: Callable[[], Awaitable[None] | None] | None = None,
     editorial_results: Mapping[str, SourceEditorialResult] | None = None,
     approved_documents: Mapping[str, ApprovedEditorialDocument] | None = None,
+    pdf_pages: Mapping[str, tuple[int, int]] | None = None,
 ) -> DirectSourceCorpus:
     """Load active documents through tenant context, then verify originals."""
 
@@ -1048,6 +1082,7 @@ async def load_direct_source_corpus(
         check_cancelled=check_cancelled,
         editorial_results=editorial_results,
         approved_documents=approved_documents,
+        pdf_pages=pdf_pages,
     )
 
 

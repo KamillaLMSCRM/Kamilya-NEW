@@ -98,6 +98,8 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
     working = state.working()[0] if state.original else None
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
             "revision": state.revision, "status": latest_status(rows), "error": state.error,
+            "pdf": str(doc.filename or "").lower().endswith(".pdf"),
+            "pages": state.pages,
             "questions": [{**issue, "resolution": state.decisions.get(key)} for key, issue in state.issues.items()],
             "automatic": [{**change, "undone": key in state.disabled_auto}
                           for key, change in state.automatic.items()],

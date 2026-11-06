@@ -50,15 +50,13 @@ export function GenerationProgressPanel({
 
   return <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.65fr)]" data-generation-workspace>
     <div className="min-w-0 space-y-4">
-    {(job.status === 'interrupted' || state === 'stalled' || state === 'failed') && (
+    {job.course_id && retryLabel !== m.openDraft && (job.status === 'interrupted' || state === 'stalled' || state === 'failed') && (
       <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:p-6" aria-label={m.generationTitle}>
         <h3 className="text-lg font-semibold text-foreground">{m.generationTitle}</h3>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-foreground">{m.generationHint}</p>
-        <p className="mt-2 text-xs leading-6 text-foreground">{m.resumeHint}</p>
-        {job.course_id && <div className="mt-4 rounded-xl border border-border bg-card p-4">
+        <div className="mt-3 rounded-xl border border-border bg-card p-4">
           <p className="text-sm text-foreground">{m.savedDraft}</p>
           <Link href={`/courses/${encodeURIComponent(job.course_id)}/edit`} className="mt-3 inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-medium text-primary hover:bg-muted">{m.openDraft}</Link>
-        </div>}
+        </div>
       </section>
     )}
     <AsyncOperationStatus
@@ -92,7 +90,7 @@ export function GenerationProgressPanel({
     </div>}
 
     </div>
-    <WorkspacePanel description={m.stepsHint} bodyClassName="space-y-2">
+    <WorkspacePanel title={m.generationStages} bodyClassName="space-y-2">
       {stages.map((stage, index) => {
         const isAllDone = job.stage === 'completed' || job.status === 'completed';
         const isActive = !isAllDone && job.stage === stage.key;

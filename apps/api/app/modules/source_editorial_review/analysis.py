@@ -226,7 +226,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
 
     try:
         async with asyncio.timeout(750):
-            corpus = await load_direct_source_corpus([str(document_id)], tenant_id=tenant_id)
+            pages = queued.payload.get("pages")
+            selected_pages = {str(document_id): (pages["first_page"], pages["last_page"])} if pages else None
+            corpus = await load_direct_source_corpus([str(document_id)], tenant_id=tenant_id, pdf_pages=selected_pages)
             source = corpus.documents[0]
             if source.source_revision != f"document:{claim.original_blob_sha256}" or not source.source_text:
                 raise ReviewConflictError("source_review_original_changed")

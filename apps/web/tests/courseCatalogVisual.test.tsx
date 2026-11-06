@@ -245,7 +245,7 @@ describe('production course catalogue presentation', () => {
     const oldRead = deferred<{ data: unknown[] }>();
     apiMock.get.mockImplementation((url: string) => url === '/v1/courses?per_page=100' ? oldRead.promise : Promise.resolve({ data: [] }));
     const { rerender, container } = render(<CoursesPage />);
-    fireEvent.click(screen.getByRole('button', { name: /Создать курс/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Old actor form' } });
     if (transition === 'user') context.user!.user_id = 'author-2';
     if (transition === 'tenant') context.user!.tenant_id = 'tenant-2';
@@ -302,10 +302,11 @@ describe('production course catalogue presentation', () => {
     apiMock.post.mockResolvedValue({ data: {} });
     render(<CoursesPage />);
     await screen.findByRole('heading', { name: draft.title });
-    expect(screen.getByRole('link', { name: ru.dashboard.aiGeneration })).toHaveAttribute('href', '/ai/generate');
-    fireEvent.click(screen.getByRole('button', { name: /Создать курс/ }));
+    expect(screen.getByRole('link', { name: 'Задания генерации' })).toHaveAttribute('href', '/ai/generate');
+    fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Manual title' } });
     fireEvent.change(screen.getByLabelText(ru.courses.courseDescription), { target: { value: 'Description' } });
+    expect(screen.getByRole('link', { name: 'Создать из документов' })).toHaveAttribute('href', '/ai/generate?new=1');
     expect(apiMock.post).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: ru.common.create }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/courses', { title: 'Manual title', description: 'Description' }));

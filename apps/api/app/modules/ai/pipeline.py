@@ -10,7 +10,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timezone
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 from uuid import UUID, uuid4
 
 from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
@@ -51,6 +51,11 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from app.models.ai_job import AIJob
+
+
+class _ApprovedSourceKwargs(TypedDict, total=False):
+    approved_documents: dict[str, ApprovedEditorialDocument]
+
 
 GENERATION_FAILURE_CODE = "generation_failed"
 GENERATION_FAILURE_MESSAGE = (
@@ -1650,11 +1655,12 @@ async def _run_generation_pipeline_inner(
         timeout_boundary = "direct_source"
         approved = (await _approved_generation_documents(tenant_id, documents, state.source_analysis[SOURCE_PINS])
                     if SOURCE_PINS in state.source_analysis else None)
+        source_kwargs: _ApprovedSourceKwargs = {"approved_documents": approved} if approved is not None else {}
         corpus = await load_direct_source_corpus(
             documents,
             tenant_id=tenant_id,
             check_cancelled=lambda: _check_cancelled_async(job_id, tenant_id=tenant_id),
-            **({"approved_documents": approved} if approved is not None else {}),
+            **source_kwargs,
         )
         timeout_boundary = "source_owner_db"
         await _check_generation_source_job(job_id, tenant_id, documents, user_id,

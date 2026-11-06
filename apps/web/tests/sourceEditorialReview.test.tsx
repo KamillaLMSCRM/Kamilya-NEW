@@ -91,6 +91,24 @@ describe('source editorial review', () => {
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeEnabled();
   });
 
+  it('explains a provider outage and submits only the selected PDF range', async () => {
+    const failed: SourceReview = { ...fixture(), pdf: true, status: 'failed', original_text: null,
+      working_text: null, questions: [], error: 'source_review_provider_unavailable' };
+    mocks.get.mockResolvedValue({ data: failed });
+    mocks.post.mockResolvedValue({ data: { ...failed, revision: 4, status: 'queued', error: null,
+      pages: { first_page: 3, last_page: 9 } } });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText('Сервис проверки документа недоступен. Повторите проверку позже.')).toBeInTheDocument();
+    const retry = screen.getByRole('button', { name: 'Повторить проверку' });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'С' }), { target: { value: '3' } });
+    expect(retry).toBeDisabled();
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'По' }), { target: { value: '9' } });
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
+      expect.objectContaining({ action: 'start', expected_revision: 3, pages: { first_page: 3, last_page: 9 } })));
+    expect(await screen.findByText('Выбранные страницы: 3–9')).toBeInTheDocument();
+  });
+
   it('does not fetch document text for an inactive role', () => {
     mocks.role = 'student';
     render(<SourceEditorialReview />);

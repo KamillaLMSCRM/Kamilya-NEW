@@ -25,6 +25,8 @@ export interface SourceQuestion {
   resolution: (Change & { decision: 'replace' | 'keep' }) | null;
 }
 
+export type ReviewPages = { first_page: number; last_page: number };
+
 export interface SourceReview {
   document_id: string;
   document_version: number;
@@ -32,6 +34,8 @@ export interface SourceReview {
   revision: number;
   status: SourceReviewStatus;
   error: string | null;
+  pdf?: boolean;
+  pages?: ReviewPages | null;
   questions: SourceQuestion[];
   automatic: Array<Change & { undone: boolean }>;
   original_text: string | null;
@@ -51,6 +55,7 @@ export interface ReviewCommand {
   replacement?: string;
   quote?: string;
   reason?: string;
+  pages?: ReviewPages;
 }
 
 export const sourceReviewHref = (id: string, approvalId?: string) =>

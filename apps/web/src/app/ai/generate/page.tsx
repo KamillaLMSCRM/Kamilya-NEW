@@ -226,7 +226,27 @@ export default function AIGeneratePage() {
     version: number;
   } | null>(null);
   const [documentLoadError, setDocumentLoadError] = useState('');
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [returnSelectionUnavailable, setReturnSelectionUnavailable] = useState(false);
   const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [visibleDocumentCount, setVisibleDocumentCount] = useState(8);
+  const catalogRequest = useRef(0);
+  const chosenDocuments = useRef(new Map<string, Document>());
+  const pickerCopy = {
+    ru: { search: 'Поиск по документам', more: 'Показать ещё', empty: 'Документы не найдены', selected: 'Выбранные документы', remove: 'Убрать', narrow: 'Уточните поиск, чтобы найти остальные документы.', unavailable: 'Не удалось восстановить часть выбранных документов. Найдите и выберите их заново.' },
+    en: { search: 'Search documents', more: 'Show more', empty: 'No documents found', selected: 'Selected documents', remove: 'Remove', narrow: 'Narrow the search to find other documents.', unavailable: 'Some selected documents could not be restored. Search for them and select them again.' },
+    kk: { search: 'Құжаттарды іздеу', more: 'Тағы көрсету', empty: 'Құжаттар табылмады', selected: 'Таңдалған құжаттар', remove: 'Алып тастау', narrow: 'Қалған құжаттарды табу үшін іздеуді нақтылаңыз.', unavailable: 'Таңдалған құжаттардың бір бөлігі қалпына келмеді. Оларды тауып, қайта таңдаңыз.' },
+  }[lang ?? 'ru'];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setCatalogSearch(catalogQuery.trim());
+      setVisibleDocumentCount(8);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [catalogQuery]);
   const [compatibility, setCompatibility] = useState<DocumentCompatibility | null>(null);
   const [compatibilityLoading, setCompatibilityLoading] = useState(false);
   const [compatibilityError, setCompatibilityError] = useState('');
@@ -402,16 +422,13 @@ export default function AIGeneratePage() {
     setProgramAttachState('idle');
   }, [currentJob?.course_id, programId]);
 
-  const selectedDocuments = documents.filter((doc) => selectedDocIds.includes(doc.id));
+  const selectedDocuments = selectedDocIds.flatMap(id => {
+    const doc = documents.find(item => item.id === id) ?? chosenDocuments.current.get(id);
+    return doc ? [doc] : [];
+  });
   const { status: sourceReviewStatus, refresh: refreshSourceReviews } = useSourceReviewStatuses(selectedDocIds, actorSignature);
   const [sourceReviewRejected, setSourceReviewRejected] = useState(false);
-  const sourceReturnDocument = useRef<string | null>(null);
-  useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('document_id');
-    if (!id || sourceReturnDocument.current === id || !documents.some(doc => doc.id === id)) return;
-    sourceReturnDocument.current = id;
-    setSelectedDocIds([id]);
-  }, [documents]);
+
   const sourceReviewBlocked = sourceReviewStatus?.required === true
     && selectedDocIds.some(id => sourceReviewStatus.documents[id] !== 'approved');
   const selectedNotReadyCount = selectedDocIds.length - selectedDocuments.length;
@@ -479,12 +496,13 @@ export default function AIGeneratePage() {
   }, [selectedDocIds, selectedNotReadyCount, courseFormat, manualModules, numModules, t]);
 
   const fetchDocuments = useCallback(async () => {
+    const request = ++catalogRequest.current;
     setDocumentLoadError('');
     try {
-      const res = await api.get<DocumentCatalogResponse>(
-        '/v1/documents/catalog?lifecycle_status=active&limit=100'
-      );
-      setDocuments(res.data.items.map((document) => ({
+      const query = catalogSearch ? '&q=' + encodeURIComponent(catalogSearch) : '';
+      const res = await api.get<DocumentCatalogResponse>('/v1/documents/catalog?lifecycle_status=active&limit=100' + query);
+      if (catalogRequest.current !== request) return;
+      const rows: Document[] = res.data.items.map((document) => ({
         id: document.id,
         title: document.title,
         filename: document.filename,
@@ -498,13 +516,18 @@ export default function AIGeneratePage() {
         short_summary: document.description || null,
         summary_ready: false,
         index_status: document.index.status,
-      })));
+      }));
+      for (const row of rows) {
+        if (chosenDocuments.current.has(row.id)) chosenDocuments.current.set(row.id, row);
+      }
+      setDocuments(rows);
       setCatalogHasMore(res.data.page.has_more);
-    } catch (error) {
-      console.error('Document catalog load failed', error);
-      setDocumentLoadError(t('aiGeneration.errors.documentLoad'));
+    } catch {
+      if (catalogRequest.current === request) setDocumentLoadError(t('aiGeneration.errors.documentLoad'));
+    } finally {
+      if (catalogRequest.current === request) setCatalogLoaded(true);
     }
-  }, [t]);
+  }, [catalogSearch, t]);
 
   const hasProcessingDocuments = documents.some(
     (document) => document.index_status === 'processing'
@@ -512,8 +535,15 @@ export default function AIGeneratePage() {
 
   useEffect(() => {
     void fetchDocuments();
+  }, [fetchDocuments]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const job = params.get('job_id')?.trim();
+    if (job && requestedJobId !== job) return;
+    if (!job && (params.get('new') === '1' || params.has('document_id'))) return;
     void restoreActiveJob();
-  }, [fetchDocuments, restoreActiveJob]);
+  }, [requestedJobId, restoreActiveJob]);
 
   useEffect(() => {
     api.get<{ enabled: boolean }>('/v1/youtube/limits')
@@ -523,14 +553,40 @@ export default function AIGeneratePage() {
 
   const querySelectionApplied = useRef(false);
   useEffect(() => {
-    if (querySelectionApplied.current || documents.length === 0) return;
-    const requestedDocument = new URLSearchParams(window.location.search).get('document_id');
-    if (!requestedDocument) return;
-    const document = documents.find((item) => item.id === requestedDocument);
-    if (!document) return;
-    setSelectedDocIds([requestedDocument]);
+    if (querySelectionApplied.current || !catalogLoaded) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('job_id')?.trim()) return;
+    const requested = [...new Set(params.getAll('document_id'))].slice(0, 5);
+    if (requested.length === 0) return;
     querySelectionApplied.current = true;
-  }, [documents]);
+    const selected = requested.flatMap(id => documents.find(doc => doc.id === id) ?? []);
+    for (const doc of selected) chosenDocuments.current.set(doc.id, doc);
+    setSelectedDocIds(requested);
+    const missing = requested.filter(id => !chosenDocuments.current.has(id));
+    const requestActor = actorSignatureRef.current;
+    if (!missing.length) return;
+
+    void Promise.allSettled(missing.map(async id => {
+      const { data } = await api.get<Omit<Document, 'index_status'> & { lifecycle_status: string }>(
+        '/v1/documents/' + encodeURIComponent(id),
+      );
+      if (data.id !== id || data.lifecycle_status !== 'active') return null;
+      const indexStatus = data.embedding_status === 'success' ? 'ready' : data.embedding_status === 'failed' ? 'failed' : 'processing';
+      const doc: Document = { ...data, index_status: indexStatus };
+      return doc;
+    })).then(results => {
+      if (!generationPageMountedRef.current || actorSignatureRef.current !== requestActor) return;
+      const unavailable = new Set(missing);
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value) {
+          chosenDocuments.current.set(result.value.id, result.value);
+          unavailable.delete(result.value.id);
+        }
+      }
+      setReturnSelectionUnavailable(unavailable.size > 0);
+      setSelectedDocIds(current => current.filter(id => !unavailable.has(id)));
+    });
+  }, [catalogLoaded, documents]);
 
   useEffect(() => {
     if (!hasProcessingDocuments) return;
@@ -664,12 +720,14 @@ export default function AIGeneratePage() {
   };
 
   const toggleDoc = (id: string) => {
-    const doc = documents.find((item) => item.id === id);
+    const doc = documents.find((item) => item.id === id) ?? chosenDocuments.current.get(id);
     if (!doc) return;
     if (!selectedDocIds.includes(id) && selectedDocIds.length >= 5) {
       toast.warning(t('aiGeneration.errors.selectionLimit'));
       return;
     }
+    if (selectedDocIds.includes(id)) chosenDocuments.current.delete(id);
+    else chosenDocuments.current.set(id, doc);
     setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
     setSourceStrategy('single_topic');
     setCombinationGoal('');
@@ -1342,13 +1400,31 @@ export default function AIGeneratePage() {
             </div>
           )}
 
+          <label className="block space-y-1 text-sm font-medium">
+            <span>{pickerCopy.search}</span>
+            <input type="search" value={catalogQuery} maxLength={200} onChange={event => setCatalogQuery(event.target.value)}
+              className="block w-full rounded-xl border border-border bg-background px-3 py-2.5" />
+          </label>
+          {returnSelectionUnavailable && <p role="status" className="text-sm text-muted-foreground">{pickerCopy.unavailable}</p>}
+          {selectedDocuments.length > 0 && <section aria-label={pickerCopy.selected} className="space-y-2">
+            <h3 className="text-sm font-semibold">{pickerCopy.selected} ({selectedDocuments.length})</h3>
+            <ul className="flex flex-wrap gap-2">{selectedDocuments.map(doc => <li key={doc.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/30 px-2 py-1 text-sm">
+              <span className="min-w-0 break-words">{doc.title}</span>
+              <button type="button" aria-label={pickerCopy.remove + ': ' + doc.title} onClick={() => toggleDoc(doc.id)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted">
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </li>)}</ul>
+          </section>}
+          {catalogSearch && documents.length === 0 && !documentLoadError && <p role="status" className="text-sm text-muted-foreground">{pickerCopy.empty}</p>}
+
           {/* Documents list */}
           {documents.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
                 {t('aiGeneration.documents.selected', { count: tp('common.counts.document', selectedDocIds.length) })}
               </div>
-              {documents.map(doc => {
+              {documents.slice(0, visibleDocumentCount).map(doc => {
                 // Catalog is filtered to active sources. Original-file validation,
                 // not embedding availability, determines admission on the server.
                 const isReady = true;
@@ -1450,10 +1526,14 @@ export default function AIGeneratePage() {
                   </button>
                 </div>
               )}
-              {catalogHasMore && (
-                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                  {t('aiGeneration.documents.catalogMore')}
-                </div>
+              {documents.length > visibleDocumentCount && (
+                <button type="button" onClick={() => setVisibleDocumentCount(value => value + 8)}
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium text-primary hover:bg-muted">
+                  {pickerCopy.more}
+                </button>
+              )}
+              {catalogHasMore && documents.length <= visibleDocumentCount && (
+                <p className="text-sm text-muted-foreground">{pickerCopy.narrow}</p>
               )}
             </div>
           )}
@@ -1665,13 +1745,13 @@ export default function AIGeneratePage() {
 
           <SourceReviewChecklist documents={selectedDocuments} status={sourceReviewStatus}
             requireReview={sourceReviewRejected && !sourceReviewStatus?.required} />
-          <button
+          {!(sourceReviewBlocked || (sourceReviewRejected && !sourceReviewStatus?.required)) && <button
             onClick={() => void handleGenerate()}
             disabled={!canGenerate || generationSubmitting}
             className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('aiGeneration.generation.starting')}</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
-          </button>
+          </button>}
           {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
             <div className="text-center text-xs text-warning">
               {t('aiGeneration.generation.notReady')}

@@ -48,6 +48,17 @@ def enact(state: ReviewState, action: str, **kwargs):
     return payload
 
 
+def test_selected_pdf_pages_remain_part_of_the_approved_edition():
+    state = ReviewState()
+    chosen = {"first_page": 3, "last_page": 9}
+    assert enact(state, "start", pages=chosen) == {"pages": chosen}
+    state.apply(2, "running", {})
+    state.apply(3, "analyzed", {"original": ORIGINAL, "issues": [], "automatic": []})
+    approved = enact(state, "approve")
+    assert approved["pages"] == chosen
+    assert approved["working_sha256"] == text_hash(ORIGINAL)
+
+
 def test_boundary_human_decision_automatic_undo_and_historical_snapshot():
     state = prepared()
     with pytest.raises(ReviewConflictError, match="questions_open"):

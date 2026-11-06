@@ -41,7 +41,7 @@ describe('honest source and generation recovery presentation', () => {
     const job: AIGenerationJob = { id: 'job-1', course_id: 'course-1', status: 'interrupted', stage: 'review', created_at: new Date().toISOString(), updated_at: new Date().toISOString(), progress: 60, message: 'Interrupted', queue_position: null, estimated_wait_seconds: null, tenant_active_jobs: null, tenant_active_limit: null };
     render(<GenerationProgressPanel job={job} stages={[]} title="Generation" labels={{ queued: 'Queued', running: 'Running', completed: 'Done', failed: 'Failed', cancelled: 'Cancelled', interrupted: 'Interrupted', stalled: 'Stalled' }} retryLabel="Continue" checkAgainLabel="Check again" cancelLabel="Cancel" cancelQueuedLabel="Cancel queued" queueTitle="Queue" activeJobs="Active" queuePosition="Position" estimatedWait="Wait" queueEstimateHint="Estimate" completedUnitsLabel="Saved" onRetry={retry} onCancel={cancel} lang="en" />);
     expect(screen.getByRole('link', { name: 'Open saved draft' })).toHaveAttribute('href', '/courses/course-1/edit');
-    expect(screen.getByText(/Stages describe job execution, not independent content approval/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Generation stages' })).toBeInTheDocument();
     expect(retry).not.toHaveBeenCalled();
     expect(cancel).not.toHaveBeenCalled();
   });

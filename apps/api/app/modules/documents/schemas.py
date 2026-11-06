@@ -23,6 +23,7 @@ class DocumentResponse(BaseModel):
     category: DocumentCategory = "general"
     embedding_status: Literal["pending", "success", "failed"] = "pending"
     embedding_error: str | None = None
+    lifecycle_status: DocumentLifecycleStatus = "active"
     created_at: datetime
     updated_at: datetime
     # Populated by router._hydrate when educational summary is available.

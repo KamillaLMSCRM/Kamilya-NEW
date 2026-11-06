@@ -32,6 +32,46 @@ beforeEach(() => {
 });
 
 describe('/ai/generate job workflow parity', () => {
+  it('opens a new course without reading or modifying the last generation job', async () => {
+    window.history.replaceState({}, '', '/ai/generate?new=1');
+    try {
+      render(<AIGeneratePage />);
+      expect(await screen.findByRole('searchbox', { name: 'Поиск по документам' })).toBeInTheDocument();
+      await waitFor(() => expect(apiMock.get).toHaveBeenCalledWith('/v1/documents/catalog?lifecycle_status=active&limit=100'));
+      expect(apiMock.get).not.toHaveBeenCalledWith('/v1/ai/jobs/' + activeJob.id);
+      expect(apiMock.post).not.toHaveBeenCalled();
+      expect(localStorage.getItem('ai_active_job_id')).toBe(activeJob.id);
+    } finally {
+      window.history.replaceState({}, '', '/ai/generate');
+    }
+  });
+
+  it('restores an active source outside an empty catalog and removes an unavailable source', async () => {
+    window.history.replaceState({}, '', '/ai/generate?document_id=doc-good&document_id=doc-removed');
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === '/v1/documents/doc-good') return { data: {
+        id: 'doc-good', title: 'Действующий источник', filename: 'source.pdf',
+        lifecycle_status: 'active', embedding_status: 'success',
+      } } as any;
+      if (url === '/v1/documents/doc-removed') return { data: {
+        id: 'doc-removed', title: 'Удаляемый источник', filename: 'old.pdf',
+        lifecycle_status: 'deletion_pending', embedding_status: 'success',
+      } } as any;
+      throw new Error('Unexpected GET ' + url);
+    });
+    try {
+      render(<AIGeneratePage />);
+      const selection = await screen.findByRole('region', { name: 'Выбранные документы' });
+      expect(within(selection).getByText('Действующий источник')).toBeInTheDocument();
+      expect(within(selection).queryByText('Удаляемый источник')).not.toBeInTheDocument();
+      expect(await screen.findByText(/Не удалось восстановить часть выбранных документов/)).toBeInTheDocument();
+      expect(apiMock.get).not.toHaveBeenCalledWith('/v1/ai/jobs/' + activeJob.id);
+    } finally {
+      window.history.replaceState({}, '', '/ai/generate');
+    }
+  });
+
   it('offers unknown-outcome abandonment for an already admitted active job', async () => {
     apiMock.get.mockImplementation(async (url: string) => {
       if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
@@ -439,6 +479,25 @@ function mockCatalogWith(items: any[]) {
 }
 
 describe('/ai/generate multi-document selection contract', () => {
+  it('keeps an already selected source while searching for another document', async () => {
+    localStorage.clear();
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) {
+        const items = url.includes('&q=') ? [readyDocuments[1]] : readyDocuments;
+        return { data: { items, page: { has_more: false } } } as any;
+      }
+      throw new Error('Unexpected GET ' + url);
+    });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Правила ИБ/ }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Поиск по документам' }), { target: { value: 'Охрана' } });
+    await waitFor(() => expect(screen.queryByRole('checkbox', { name: /Правила ИБ/ })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole('checkbox', { name: /Охрана труда/ }));
+    const selection = screen.getByRole('region', { name: 'Выбранные документы' });
+    expect(within(selection).getByText('Правила ИБ')).toBeInTheDocument();
+    expect(within(selection).getByText('Охрана труда')).toBeInTheDocument();
+  });
+
   it('uses an automatic course format and keeps module count as an advanced override', async () => {
     mockCatalogWith(readyDocuments);
     render(<AIGeneratePage />);

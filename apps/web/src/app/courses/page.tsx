@@ -404,21 +404,24 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           <div className="flex flex-wrap items-center gap-2 xl:max-w-xl xl:justify-end">
             <Link href="/ai/generate" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-              {t('dashboard.aiGeneration')}
+              {copy.generationJobs}
             </Link>
             <Button variant="outline" className="min-h-11" aria-expanded={showScormImport} aria-controls="course-scorm-import" onClick={() => { setShowScormImport(!showScormImport); setShowCreate(false); }}>
               {showScormImport ? t('common.cancel') : t('courses.importScorm')}
             </Button>
-            <Button className="min-h-11" aria-expanded={showCreate} aria-controls="course-create" onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
-              {showCreate ? t('common.cancel') : '+ ' + t('courses.createCourse')}
+            <Button variant="outline" className="min-h-11" aria-expanded={showCreate} aria-controls="course-create" onClick={() => { setShowCreate(!showCreate); setShowScormImport(false); }}>
+              {showCreate ? t('common.cancel') : copy.manualCreate}
             </Button>
+            <Link href="/ai/generate?new=1" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />{copy.createFromDocuments}
+            </Link>
           </div>
         )}
       </header>
 
       {canManage && showCreate && (
         <div id="course-create" className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sm:p-6">
-          <h3 className="font-bold text-foreground font-display">{t('courses.createCourse')}</h3>
+          <h3 className="font-bold text-foreground font-display">{copy.manualCreate}</h3>
           <label htmlFor="new-course-title" className="block text-sm font-medium text-foreground">
             {t('courses.courseTitle')}
           </label>

@@ -1,5 +1,8 @@
 const ru = {
   ownCourses: 'Ваши курсы',
+  createFromDocuments: 'Создать из документов',
+  manualCreate: 'Создать вручную',
+  generationJobs: 'Задания генерации',
   loadedList: 'В текущем списке',
   first100: 'Показаны первые 100 курсов. Уточните фильтры, чтобы найти остальные.',
   filters: 'Поиск и фильтры курсов',
@@ -18,6 +21,9 @@ type CatalogCopy = { [Key in keyof typeof ru]: string };
 
 const kk: CatalogCopy = {
   ownCourses: 'Сіздің курстарыңыз',
+  createFromDocuments: 'Құжаттардан жасау',
+  manualCreate: 'Қолмен жасау',
+  generationJobs: 'Генерация тапсырмалары',
   loadedList: 'Ағымдағы тізімде',
   first100: 'Алғашқы 100 курс көрсетілді. Қалғандарын табу үшін сүзгілерді нақтылаңыз.',
   filters: 'Курстарды іздеу және сүзу',
@@ -34,6 +40,9 @@ const kk: CatalogCopy = {
 
 const en: CatalogCopy = {
   ownCourses: 'Your courses',
+  createFromDocuments: 'Create from documents',
+  manualCreate: 'Create manually',
+  generationJobs: 'Generation jobs',
   loadedList: 'In the current list',
   first100: 'The first 100 courses are shown. Narrow the filters to find the rest.',
   filters: 'Course search and filters',
