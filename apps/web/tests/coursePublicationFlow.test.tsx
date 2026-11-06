@@ -75,7 +75,7 @@ describe('course publication flow', () => {
     apiMock.get.mockResolvedValue({ data: [] });
     render(<CoursesPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /courses\.createCourse/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Создать вручную' }));
     expect(screen.getByLabelText('courses.courseTitle')).toBeInTheDocument();
     expect(screen.getByLabelText('courses.courseDescription')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'common.create' })).toBeDisabled();
