@@ -71,6 +71,18 @@ describe('source editorial review', () => {
     expect(screen.getByLabelText('Согласованная формулировка')).toHaveValue(updated);
   });
 
+  it('keeps an unconfirmed finding visible and requires an original quote for replacement', async () => {
+    const review = fixture();
+    review.questions[0] = { ...review.questions[0], start: null, end: null, quote: '',
+      needs_source_verification: true };
+    mocks.get.mockResolvedValue({ data: review });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText('Замечание не удалось подтвердить автоматически. Сверьте его с оригиналом.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
+    expect(screen.getByLabelText('Точная цитата из оригинала')).toBeRequired();
+    expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
+  });
+
   it('lets the methodologist correct a missed issue and preserves the input when the quote cannot be located', async () => {
     const current = { ...fixture(), questions: [] };
     mocks.get.mockResolvedValue({ data: current });

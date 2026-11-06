@@ -22,6 +22,7 @@ export interface SourceQuestion {
   reason: string;
   start: number | null;
   end: number | null;
+  needs_source_verification?: boolean;
   resolution: (Change & { decision: 'replace' | 'keep' }) | null;
 }
 

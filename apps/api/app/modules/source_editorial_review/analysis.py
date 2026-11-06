@@ -26,7 +26,7 @@ from app.modules.source_editorial_review.service import add_event, history, owne
 logger = logging.getLogger(__name__)
 _BLOCK_CHARS = 36_000
 _OUTLINE_LINE = re.compile(r"^\s*(?:#{1,6}\s|\d+(?:\.\d+)*(?:[.)]|\s)\s*)\S")
-_ANALYSIS_POLICY = "human-source-editorial-analysis-v3"
+_ANALYSIS_POLICY = "human-source-editorial-analysis-v4"
 _MATERIAL_CATEGORIES = frozenset({"boundary", "conflict", "reference", "responsibility", "exception", "unclear"})
 _REISSUE_JSON_INSTRUCTION = (
     "\nThe previous response was not a valid JSON object. Complete the same task once more. "
@@ -97,29 +97,43 @@ class _IndependentReview(BaseModel):
     proposal_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     rows: list[dict[str, Any]] = Field(max_length=256)
     source_questions: list[_SourceQuestion] = Field(max_length=256)
-    source_clue_dispositions: list[_ClueDisposition] = Field(default_factory=list, max_length=256)
+    source_clue_dispositions: object = None
 
 
-def _verify_clue_dispositions(review: _IndependentReview, material: dict[int, Any], original: str) -> None:
-    dispositions = review.source_clue_dispositions
-    if len(dispositions) != len(material) or {item.clue_id for item in dispositions} != set(material):
-        raise ReviewConflictError("source_review_clue_disposition_missing")
-    for item in dispositions:
+def _unverified_clues(review: _IndependentReview, material: dict[int, Any], original: str) -> list[int]:
+    """An invalid disposition never dismisses a clue or invalidates other findings."""
+    remaining = set(material)
+    raw = review.source_clue_dispositions
+    if not isinstance(raw, list) or len(raw) > 256:
+        return sorted(remaining)
+    dispositions: dict[int, list[object]] = {}
+    for value in raw:
+        if isinstance(value, dict) and type(value.get("clue_id")) is int and value["clue_id"] in material:
+            dispositions.setdefault(value["clue_id"], []).append(value)
+    for clue_id, values in dispositions.items():
+        if len(values) != 1:
+            continue
+        try:
+            item = _ClueDisposition.model_validate(values[0])
+        except ValidationError:
+            continue
         if item.disposition == "confirmed":
             if (item.question_index is None or item.question_index >= len(review.source_questions)
                     or item.evidence_excerpt is not None or item.reason is not None):
-                raise ReviewConflictError("source_review_clue_disposition_invalid")
+                continue
             question = review.source_questions[item.question_index].excerpt
             if original.count(question) != 1:
-                raise ReviewConflictError("source_review_clue_disposition_invalid")
-            clue = material[item.clue_id]
+                continue
+            clue = material[clue_id]
             if isinstance(clue, str) and clue and original.count(clue) == 1:
                 q_start, clue_start = original.index(question), original.index(clue)
                 if max(q_start, clue_start) >= min(q_start + len(question), clue_start + len(clue)):
-                    raise ReviewConflictError("source_review_clue_disposition_invalid")
+                    continue
         elif (item.question_index is not None or not item.evidence_excerpt or not item.reason
                 or original.count(item.evidence_excerpt) != 1):
-            raise ReviewConflictError("source_review_clue_disposition_invalid")
+            continue
+        remaining.remove(clue_id)
+    return sorted(remaining)
 
 
 def analysis_failure_code(error: Exception) -> str:
@@ -216,9 +230,10 @@ async def analyze(
         independent: _IndependentReview | None = None
         block_calls = 0
         candidate_questions: list[Any] = []
+        unverified: list[int] = []
 
         async def invoke(messages: list[dict[str, str]], source_block: str = local) -> object:
-            nonlocal independent, block_calls, candidate_questions
+            nonlocal independent, block_calls, candidate_questions, unverified
             block_calls += 1
             payload = json.loads(messages[1]["content"])
             if "proposal_sha256" in payload:
@@ -240,7 +255,7 @@ async def analyze(
                 ]))
                 if independent.proposal_sha256 != payload["proposal_sha256"]:
                     raise ReviewConflictError("source_review_independent_proposal_changed")
-                _verify_clue_dispositions(independent, material, source_block)
+                unverified = _unverified_clues(independent, material, source_block)
                 return independent.model_dump(exclude={"source_questions", "source_clue_dispositions"})
             authored = await complete_json([
                 {"role": "system", "content": messages[0]["content"] + _AUTHOR_CLUES}, messages[1],
@@ -268,10 +283,22 @@ async def analyze(
             block_questions.append({"id": f"s{index}-{n}", "start": None if start is None else offset + start,
                 "end": None if start is None else offset + start + len(finding.excerpt),
                 "quote": finding.excerpt, "category": finding.category, "reason": finding.reason})
+        block_has_unbound_clue = False
+        for clue_id in unverified:
+            clue = candidate_questions[clue_id]
+            reported = clue.get("excerpt")
+            explanation = clue.get("reason")
+            quote = reported[:2000] if isinstance(reported, str) else ""
+            start = local.index(quote) if quote == reported and quote.strip() and local.count(quote) == 1 else None
+            block_has_unbound_clue = block_has_unbound_clue or start is None
+            block_questions.append({"id": f"u{index}-{clue_id}", "start": None if start is None else offset + start,
+                "end": None if start is None else offset + start + len(quote), "quote": quote,
+                "category": clue["category"], "reason": explanation[:700] if isinstance(explanation, str) else "",
+                "needs_source_verification": True})
         # Failed cosmetic proposals keep their original text. They are not
         # human blockers; only the independent policy questions are shown.
         for patch in result.proposal.patches:
-            if patch.alias in result.edition.applied_patch_aliases:
+            if not block_has_unbound_clue and patch.alias in result.edition.applied_patch_aliases:
                 block_auto.append({"id": f"a{index}-{patch.alias}", "start": offset + patch.start,
                     "end": offset + patch.end, "before": patch.before, "after": patch.after,
                     "reason": patch.reason, "category": patch.category})
@@ -293,6 +320,8 @@ async def analyze(
             last["quote"] = original[last["start"]:last["end"]]
             if row["reason"] not in last["reason"]:
                 last["reason"] += "\n" + row["reason"]
+            if row.get("needs_source_verification"):
+                last["needs_source_verification"] = True
     auto = [row for row in auto if not any(
         row["start"] < question["end"] and question["start"] < row["end"] for question in grouped
     )]

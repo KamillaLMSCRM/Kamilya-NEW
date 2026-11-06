@@ -247,7 +247,7 @@ async def test_approved_layout_edit_cannot_hide_an_unresolved_source_question():
 
 
 @pytest.mark.asyncio
-async def test_source_only_review_rejects_a_silently_omitted_material_clue():
+async def test_source_only_review_retains_an_omitted_material_clue_for_human_decision():
     first = "The employee must submit the form within 24 hours."
     second = "The same employee must submit the same form within 72 hours."
     original = f"# First section\n\n{first}\n\n# Second section\n\n{second}"
@@ -263,8 +263,40 @@ async def test_source_only_review_rejects_a_silently_omitted_material_clue():
         # competing rules present verbatim in the recognized document.
         return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": []}
 
-    with pytest.raises(ReviewConflictError, match="source_review_clue_disposition_missing"):
-        await analyze(original, source_id="document:" + "d" * 64, document_id=str(uuid4()), complete_json=answer)
+    result = await analyze(original, source_id="document:" + "d" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert result["model_calls"] == 2
+    assert len(result["issues"]) == 1
+    issue = result["issues"][0]
+    assert issue["needs_source_verification"] and original[issue["start"]:issue["end"]] == first
+    state = ReviewState()
+    state.apply(1, "queued", {})
+    state.apply(2, "running", {})
+    state.apply(3, "analyzed", result)
+    with pytest.raises(ReviewConflictError, match="source_review_questions_open"):
+        enact(state, "approve")
+
+
+@pytest.mark.asyncio
+async def test_bad_clue_disposition_does_not_erase_an_independent_question():
+    conflict = "For every return submit the receipt within 24 hours. For every return submit it within 72 hours."
+    owner = "The approved officer signs the receipt."
+    original = f"{conflict}\n\n{owner}"
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": [
+                {"alias": "Responsible", "excerpt": owner, "category": "responsibility", "reason": "Which officer?"},
+            ]}
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [],
+                "source_questions": [{"excerpt": conflict, "category": "conflict", "reason": "Which deadline applies?"}],
+                "source_clue_dispositions": [{"clue_id": 0, "disposition": "confirmed", "question_index": 0}]}
+
+    result = await analyze(original, source_id="document:" + "d" * 64, document_id=str(uuid4()), complete_json=answer)
+    confirmed, unresolved = result["issues"]
+    assert confirmed["quote"] == conflict and not confirmed.get("needs_source_verification")
+    assert unresolved["quote"] == owner and unresolved["needs_source_verification"]
+    assert result["original"] == original and result["automatic"] == []
 
 
 @pytest.mark.asyncio

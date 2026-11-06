@@ -504,3 +504,20 @@ raw не является новым вызовом. Unknown dispatch не по�
   were deleted and verified absent. The remaining matrix stopped before any
   model call. The retry mechanism is covered offline; live release acceptance
   still requires the corrected exact candidate.
+
+## ENG-029 — An invalid clue disposition discarded the rest of source review
+
+- Date: 2026-11-06. Exact DEV `eb6585b1` passed both provider transport stages
+  for the Excel fixture, then failed at `independent_review_response` with
+  `source_review_clue_disposition_invalid`. The exact invalid field is unknown;
+  no raw reply was retained. No extra format review was submitted, and the Excel
+  fixture was removed with verified absence.
+- Analysis v4 isolates a missing, malformed, duplicated or ungrounded decision.
+  The author clue remains open for a human, marked as unconfirmed; already
+  grounded independent findings survive. The original is unchanged, unresolved
+  issues still prevent approval, and a replacement needs an exact original
+  quote. An unbound clue suppresses automatic edits in the same block. There
+  are no extra model calls for this case.
+- Deterministic regressions include a wrong question link alongside a valid
+  independent finding, a missing clue disposition and a correctly evidenced
+  dismissal. DEV evidence: `.release-evidence/course-ux-dev-json-r7-probe.json`.

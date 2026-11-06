@@ -13,10 +13,10 @@
 - verified: Exact `76b199bf` PPTX live 136 seconds including cleanup, two Luna 6
   calls, 20,933 input / 914 output tokens, correct deadline conflict anchored to
   original. Production web/API not switched. All disposable DEV sources removed.
-- blockers: Excel on `54fc6927` failed before editing: the managed provider
-  returned HTTP 200, but its content failed JSON validation. One bounded retry
-  after that specific completed error is implemented locally. See ENG-028.
-  Both DOCX and XLSX DEV fixtures were verified absent.
+- blockers: Exact DEV `eb6585b1` passed transport parsing but Excel stopped at
+  an invalid citation decision from the independent reviewer. The fixture was
+  deleted and verified absent. The latest local correction preserves grounded
+  findings and sends the unconfirmed item to the methodologist. See ENG-028/029.
 - next: Verify XLSX on the latest exact candidate, then finish format acceptance
   and one disposable document-to-course run.
   Only after success use the protected no-migration production release and

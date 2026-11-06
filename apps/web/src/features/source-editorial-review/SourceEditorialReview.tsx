@@ -252,16 +252,17 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
               <ol className="space-y-2">{review.questions.map((item, index) => <li key={item.id}>
                 <button type="button" onClick={() => showQuestion(item.id)} aria-current={item.id === question?.id}
                   className={`w-full break-words rounded-lg border px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring ${item.id === question?.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'}`}>
-                  <span className="block font-medium">{index + 1}. {item.quote.length > 120 ? item.quote.slice(0, 120) + '…' : item.quote}</span>
+                  <span className="block font-medium">{index + 1}. {item.quote.length > 120 ? item.quote.slice(0, 120) + '…' : item.quote || copy.question}</span>
                   <span className="text-xs text-muted-foreground">{item.resolution ? copy.closed : copy.open}</span>
                 </button>
               </li>)}</ol>}
           </WorkspacePanel>
           {question && <WorkspacePanel bodyClassName="space-y-4">
             <h2 ref={detail} tabIndex={-1} className="font-semibold focus-visible:ring-2 focus-visible:ring-ring">{copy.question}</h2>
-            <p className="whitespace-pre-wrap break-words text-sm">{question.reason}</p>
+            {question.needs_source_verification && <p className="text-sm text-muted-foreground">{copy.needsSourceVerification}</p>}
+            {question.reason && <p className="whitespace-pre-wrap break-words text-sm">{question.reason}</p>}
             <div><p className="mb-1 text-xs font-medium text-muted-foreground">{question.start == null ? copy.unbound : copy.quote}</p>
-              <blockquote className={code}>{question.quote}</blockquote></div>
+              {question.quote && <blockquote className={code}>{question.quote}</blockquote>}</div>
             {question.resolution && <div className="space-y-2 text-sm">
               <p className="font-medium">{copy.closed}</p>
               <p className={code}>{question.resolution.after}</p>
