@@ -82,6 +82,22 @@ DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
 DOCKER_AI_WORKER_LOG_CONTAINER_RE = re.compile(
     r"(?:kamilya-runtime|kamilya-(?:blue|green))-worker-ai-1"
 )
+DEV_WORKER_LOG_COMMAND = "sudo -n docker logs --since 15m --tail 200 kamilya-dev-worker"
+DEV_WORKER_LOG_COMMAND_RE = re.compile(
+    rb"(?m)^sudo -n docker logs --since 15m --tail 200 kamilya-dev-worker\s*$"
+)
+DEV_REVIEW_FAILURE_RE = re.compile(
+    r"Source review analysis failed code=(source_review_invalid_response) "
+    r"phase=(editor_request|independent_review_request) "
+    r"class=(ManagedResponseRejectedError|ManagedLunaCompletedJsonError|ManagedLunaError|"
+    r"ValueError|JSONDecodeError|ValidationError)\s*$"
+)
+DEV_MANAGED_FAILURE_RE = re.compile(
+    r"managed_luna phase=failure job_id=[0-9a-f-]{36} stage_sha256=[0-9a-f]{64} "
+    r"status=(\d{3}|None) elapsed_ms=(\d{1,8}|None) "
+    r"category=(envelope|model|choices|message|content_limit|content_json|usage|"
+    r"structured_mode|structured_shape|transport|response_limit) input_tokens=None output_tokens=None\s*$"
+)
 DOCKER_API_LOG_CONTAINER_RE = re.compile(
     r"(?:kamilya-runtime|kamilya-(?:blue|green))-api-1"
 )
@@ -314,8 +330,9 @@ def _assert_read_only(text: str) -> None:
             and argv[:6] == ["docker", "logs", "--since", "15m", "--tail", "200"]
             and DOCKER_API_LOG_CONTAINER_RE.fullmatch(argv[6]) is not None
         )
+        safe_bounded_dev_logs = stripped == DEV_WORKER_LOG_COMMAND
         if SHELL_CONTROL.search(stripped) and not (
-            safe_docker_evidence_format or safe_bounded_ai_worker_logs or safe_bounded_api_logs
+            safe_docker_evidence_format or safe_bounded_ai_worker_logs or safe_bounded_api_logs or safe_bounded_dev_logs
         ):
             raise GateBlocked("read_only_shell_construct_not_allowed")
         if not argv or argv[0] not in READ_ONLY_COMMANDS:
@@ -324,7 +341,7 @@ def _assert_read_only(text: str) -> None:
             len(argv) < 2
             or (
                 argv[1] not in {"ps", "stats", "inspect", "version", "info"}
-                and not (safe_bounded_ai_worker_logs or safe_bounded_api_logs)
+                and not (safe_bounded_ai_worker_logs or safe_bounded_api_logs or safe_bounded_dev_logs)
             )
         ):
             raise GateBlocked("read_only_docker_command_not_allowed")
@@ -534,6 +551,25 @@ def _uses_api_log_sanitizer(payload: bytes) -> bool:
     return API_LOG_COMMAND_RE.search(payload) is not None
 
 
+def dev_worker_log_evidence_lines(output: bytes) -> list[str]:
+    """Project only fixed provider failure fields from bounded DEV worker logs."""
+    try:
+        raw = output.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GateBlocked("remote_evidence_contract_invalid") from exc
+    result = []
+    for line in raw.splitlines():
+        review = DEV_REVIEW_FAILURE_RE.search(line)
+        managed = DEV_MANAGED_FAILURE_RE.search(line)
+        if review:
+            code, stage, failure = review.groups()
+            result.append(f"EVIDENCE|source_review_code={code}|phase={stage}|class={failure}")
+        elif managed:
+            status, elapsed, phase = managed.groups()
+            result.append(f"EVIDENCE|managed_failure={phase}|status={status}|elapsed_ms={elapsed}")
+    return result[-40:] or ["EVIDENCE|dev_worker_failure_records=none"]
+
+
 def _uses_capacity_sanitizer(payload: bytes) -> bool:
     try:
         lines = [line.strip() for line in payload.decode("utf-8").splitlines()
@@ -635,14 +671,15 @@ def execute_stages(
         raise GateBlocked("remote_bash_syntax_failed")
 
     execution = runner(profile.command(timeout, *execution_argv), payload)
+    sanitizer = (
+        capacity_evidence_lines if _uses_capacity_sanitizer(payload)
+        else dev_worker_log_evidence_lines if DEV_WORKER_LOG_COMMAND_RE.search(payload) is not None
+        else api_log_evidence_lines if _uses_api_log_sanitizer(payload)
+        else evidence_lines
+    )
     if execution.exit_code != 0:
         try:
             raw_output = execution.stdout + b"\n" + execution.stderr
-            sanitizer = (
-                capacity_evidence_lines if _uses_capacity_sanitizer(payload)
-                else api_log_evidence_lines if _uses_api_log_sanitizer(payload)
-                else evidence_lines
-            )
             sanitized_evidence = sanitizer(raw_output)
         except GateBlocked:
             sanitized_evidence = []
@@ -654,10 +691,7 @@ def execute_stages(
         "remote_execution_privilege": execution_privilege,
         "server_timeout_seconds": timeout,
         "remote_execution_exit_code": execution.exit_code,
-        "evidence": (
-            capacity_evidence_lines if _uses_capacity_sanitizer(payload)
-            else api_log_evidence_lines if _uses_api_log_sanitizer(payload) else evidence_lines
-        )(execution.stdout + b"\n" + execution.stderr),
+        "evidence": sanitizer(execution.stdout + b"\n" + execution.stderr),
         "stdout_bytes": len(execution.stdout),
         "stdout_sha256": hashlib.sha256(execution.stdout).hexdigest(),
         "stderr_bytes": len(execution.stderr),

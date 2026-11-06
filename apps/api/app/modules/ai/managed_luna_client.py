@@ -51,7 +51,11 @@ def _diagnostic(phase: str, job_id: str, stage_id: str | None, started: float,
 
 
 class ManagedLunaError(RuntimeError):
-    """Sanitized connector failure; after dispatch, the outcome is unknown."""
+    """Sanitized connector failure."""
+
+
+class ManagedLunaCompletedJsonError(ManagedLunaError):
+    """A complete HTTP 200 response had content that was not a valid JSON object."""
 
 
 class ManagedLunaClient:
@@ -152,7 +156,8 @@ class ManagedLunaClient:
         self._closed = True
 
     async def invoke(self, capability: object, *, tenant_id: UUID, user_id: UUID, job_id: str,
-                     ownership_checkpoint: Callable[[], Awaitable[bool]], stage_id: str | None = None) -> ResponsesResult:
+                     ownership_checkpoint: Callable[[], Awaitable[bool]], stage_id: str | None = None,
+                     classify_invalid_json: bool = False) -> ResponsesResult:
         try:
             payload = self._prepared.pop(capability, None)
         except TypeError:
@@ -267,6 +272,8 @@ class ManagedLunaClient:
                 usage=LunaUsage(incoming, outgoing, None, None), _capture=capture)
         except Exception as rejection:
             _diagnostic("failure", job_id, stage_id, started, status, category)
+            if classify_invalid_json and status == 200 and category == "content_json":
+                raise ManagedLunaCompletedJsonError("managed_luna_response_invalid") from None
             if stage_id is not None and self._token.encode("utf-8") not in raw:
                 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
                 try:

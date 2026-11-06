@@ -452,6 +452,33 @@ def test_read_only_allows_bounded_ai_worker_logs_for_sanitized_diagnostics(
     assert manifest.mode == "read-only"
 
 
+def test_dev_worker_logs_allow_only_bounded_sanitized_read(monkeypatch, tmp_path) -> None:
+    _inside_repo(monkeypatch, tmp_path)
+    command = "sudo -n docker logs --since 15m --tail 200 kamilya-dev-worker"
+    path = _script(tmp_path, command)
+    manifest = remote.load_script(path, target="vm126", mode="read-only", correlation_id="", expected_sha256="")
+    assert remote.DEV_WORKER_LOG_COMMAND_RE.search(manifest.payload)
+    path = _script(tmp_path, command.replace("--tail 200", "--tail 201"))
+    with pytest.raises(remote.GateBlocked, match="read_only_docker_command_not_allowed"):
+        remote.load_script(path, target="vm126", mode="read-only", correlation_id="", expected_sha256="")
+
+
+def test_dev_worker_log_projection_excludes_job_ids_payloads_and_arbitrary_fields() -> None:
+    raw = (
+        "EVIDENCE|secret=private\n"
+        f"INFO managed_luna phase=failure job_id=123e4567-e89b-12d3-a456-426614174000 stage_sha256={'a' * 64} "
+        "status=200 elapsed_ms=114000 category=content_json input_tokens=None output_tokens=None\n"
+        "WARNING Source review analysis failed code=source_review_invalid_response "
+        "phase=editor_request class=ManagedResponseRejectedError\n"
+        "WARNING Source review analysis failed code=source_review_invalid_response "
+        "phase=editor_request class=UnreviewedValue\n"
+    ).encode()
+    assert remote.dev_worker_log_evidence_lines(raw) == [
+        "EVIDENCE|managed_failure=content_json|status=200|elapsed_ms=114000",
+        "EVIDENCE|source_review_code=source_review_invalid_response|phase=editor_request|class=ManagedResponseRejectedError",
+    ]
+
+
 @pytest.mark.parametrize("slot", ("blue", "green", "runtime"))
 def test_read_only_allows_bounded_api_logs_for_sanitized_diagnostics(
     monkeypatch, tmp_path, slot

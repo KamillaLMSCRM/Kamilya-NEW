@@ -485,3 +485,22 @@ raw не является новым вызовом. Unknown dispatch не по�
   `.release-evidence/course-ux-dev-clue-fix-remaining.json` in the
   `course-creation-ux-20261106` worktree. All used DEV fixtures verified absent.
   Latest local corrections still require exact live DOCX/XLSX acceptance.
+
+## ENG-028 — Source review stopped on a complete invalid JSON response
+
+- Date: 2026-11-06. Exact DEV `54fc6927`: Word detected and anchored the
+  contradictory 24/72-hour deadlines, two Luna 6 calls, 135 seconds including
+  cleanup. Excel extracted successfully but the editor request stopped after
+  a complete HTTP 200 at the `content_json` parser, confirmed in the sanitized
+  DEV worker log. No raw model reply or client document was captured.
+- The review client now opts in to a distinct error for this completed failure.
+  It can make one corrective JSON request for the entire analysis run; source
+  text and semantics are unchanged, and all independent checks still run.
+  No repeat on a transport-unknown result, timeouts, or other response failures.
+  Failed content is never accepted and existing generation clients keep their
+  rejection behavior. The extra call is counted separately from usable replies.
+- Evidence: `.release-evidence/course-ux-dev-audit-v3-probe.json`,
+  `.release-evidence/format-r6/dev-review-log.json`. Both synthetic documents
+  were deleted and verified absent. The remaining matrix stopped before any
+  model call. The retry mechanism is covered offline; live release acceptance
+  still requires the corrected exact candidate.

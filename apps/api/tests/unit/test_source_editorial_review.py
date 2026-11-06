@@ -7,10 +7,15 @@ import pytest
 from fastapi import HTTPException
 
 from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
-from app.modules.ai.managed_luna_client import ManagedLunaError
+from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, ManagedLunaError
 from app.modules.ai.router import submit_course_generation
 from app.modules.ai.schemas import AIGenerateRequest
-from app.modules.source_editorial_review.analysis import analysis_failure_code, analyze, blocks
+from app.modules.source_editorial_review.analysis import (
+    _ManagedSourceJsonRecovery,
+    analysis_failure_code,
+    analyze,
+    blocks,
+)
 from app.modules.source_editorial_review.domain import (
     POLICY,
     ApprovedEditorialDocument,
@@ -36,6 +41,51 @@ REPLACEMENT = "До 45 МРП включительно действует пер
 ])
 def test_source_review_reports_provider_failure_without_leaking_details(error, expected):
     assert analysis_failure_code(error) == expected
+
+
+@pytest.mark.asyncio
+async def test_invalid_json_recovery_keeps_original_and_reuses_existing_review():
+    calls = []
+
+    async def request(messages):
+        calls.append(messages)
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" in incoming:
+            return {"proposal_sha256": incoming["proposal_sha256"], "rows": [],
+                    "source_questions": [{"excerpt": QUOTE, "category": "boundary", "reason": "Какой порядок при 45 МРП?"}]}
+        if len(calls) == 1:
+            raise ManagedLunaCompletedJsonError("managed_luna_response_invalid")
+        return {"patches": [], "unresolved": []}
+
+    recovery = _ManagedSourceJsonRecovery()
+    result = await analyze(ORIGINAL, source_id="document:" + "a" * 64, document_id=str(uuid4()),
+                           complete_json=lambda messages: recovery.complete(messages, request))
+    assert len(calls) == 3 and recovery.used
+    assert calls[0][1:] == calls[1][1:] and calls[1][0]["content"].startswith(calls[0][0]["content"])
+    assert "not a valid JSON object" in calls[1][0]["content"]
+    assert result["original"] == ORIGINAL and [issue["quote"] for issue in result["issues"]] == [QUOTE]
+
+
+@pytest.mark.asyncio
+async def test_invalid_json_recovery_attempts_only_one_extra_request_per_document():
+    messages = [{"role": "system", "content": "Write one JSON object."}, {"role": "user", "content": "Synthetic"}]
+    invalid = ManagedLunaCompletedJsonError("managed_luna_response_invalid")
+    request = AsyncMock(side_effect=[invalid, {}, invalid])
+    recovery = _ManagedSourceJsonRecovery()
+    assert await recovery.complete(messages, request) == {}
+    with pytest.raises(ManagedLunaCompletedJsonError):
+        await recovery.complete(messages, request)
+    assert request.await_count == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("code", ["managed_luna_outcome_unknown", "managed_luna_response_invalid"])
+async def test_invalid_json_recovery_does_not_repeat_an_unclassified_failure(code):
+    request = AsyncMock(side_effect=ManagedLunaError(code))
+    recovery = _ManagedSourceJsonRecovery()
+    with pytest.raises(ManagedLunaError, match=code):
+        await recovery.complete([], request)
+    assert request.await_count == 1 and not recovery.used
 
 
 def prepared() -> ReviewState:

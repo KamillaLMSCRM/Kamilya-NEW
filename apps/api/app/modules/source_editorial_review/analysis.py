@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.core.db import async_session_factory
 from app.modules.ai.direct_source import DirectSourceError, load_direct_source_corpus
 from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
-from app.modules.ai.managed_luna_client import ManagedLunaError
+from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, ManagedLunaError
 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
@@ -28,6 +28,11 @@ _BLOCK_CHARS = 36_000
 _OUTLINE_LINE = re.compile(r"^\s*(?:#{1,6}\s|\d+(?:\.\d+)*(?:[.)]|\s)\s*)\S")
 _ANALYSIS_POLICY = "human-source-editorial-analysis-v3"
 _MATERIAL_CATEGORIES = frozenset({"boundary", "conflict", "reference", "responsibility", "exception", "unclear"})
+_REISSUE_JSON_INSTRUCTION = (
+    "\nThe previous response was not a valid JSON object. Complete the same task once more. "
+    "Return exactly one JSON object with the requested fields and no markup or surrounding prose. "
+    "Escape line breaks inside quotations as JSON, and keep their original wording."
+)
 _AUTHOR_CLUES = """
 This call also collects possible material issues in the source for a separate reviewer.
 Use boundary, conflict, reference, responsibility, exception, or unclear in unresolved
@@ -139,6 +144,28 @@ def analysis_failure_code(error: Exception) -> str:
             r"source_editorial_(?:author_[a-z_]+|model_[a-z_]+)", error.args[0]):
         return "source_review_invalid_response"
     return "source_review_analysis_failed"
+
+
+class _ManagedSourceJsonRecovery:
+    """One document-wide retry only after a fully received, invalid JSON result."""
+
+    def __init__(self) -> None:
+        self.used = False
+
+    async def complete(
+        self, messages: list[dict[str, str]], request: Callable[[list[dict[str, str]]], Awaitable[object]],
+    ) -> object:
+        try:
+            return await request(messages)
+        except ManagedLunaCompletedJsonError:
+            if self.used:
+                raise
+        self.used = True
+        corrective = [
+            {**messages[0], "content": messages[0]["content"] + _REISSUE_JSON_INSTRUCTION},
+            *messages[1:],
+        ]
+        return await request(corrective)
 
 
 def blocks(original: str) -> Iterator[tuple[int, str]]:
@@ -316,6 +343,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             return bool(events and owns(events[-1]) and current.content_sha256 == claim.original_blob_sha256)
 
     phase = "source_extraction"
+    json_recovery = _ManagedSourceJsonRecovery()
     try:
         async with asyncio.timeout(750):
             pages = queued.payload.get("pages")
@@ -345,13 +373,18 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 stage = "independent_review" if "proposal_sha256" in json.loads(messages[1]["content"]) else "editor"
                 phase = stage + "_request"
                 if managed is not None:
-                    prepared = await managed.prepare(messages, max_output_tokens=16_384, ownership_checkpoint=verify_claim)
-                    reply = await managed.invoke(prepared, tenant_id=tenant_id, user_id=claim.actor_id,
-                        job_id=str(claim.id), ownership_checkpoint=verify_claim,
-                        stage_id=text_hash(json.dumps(messages, ensure_ascii=False, sort_keys=True)))
-                    usage.append({"model": reply.model, **asdict(reply.usage)})
+                    async def request(current: list[dict[str, str]]) -> object:
+                        prepared = await managed.prepare(current, max_output_tokens=16_384, ownership_checkpoint=verify_claim)
+                        reply = await managed.invoke(prepared, tenant_id=tenant_id, user_id=claim.actor_id,
+                            job_id=str(claim.id), ownership_checkpoint=verify_claim,
+                            classify_invalid_json=True,
+                            stage_id=text_hash(json.dumps(current, ensure_ascii=False, sort_keys=True)))
+                        usage.append({"model": reply.model, **asdict(reply.usage)})
+                        return reply.content
+
+                    result = await json_recovery.complete(messages, request)
                     phase = stage + "_response"
-                    return reply.content
+                    return result
                 if llm is None or not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
                 standard = await llm.ainvoke(
@@ -369,12 +402,17 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 if managed is not None:
                     managed.close()
             payload["usage"] = usage
+            if json_recovery.used:
+                payload["completed_json_retries"] = 1
+                payload["model_calls"] += 1
             payload["fidelity"] = asdict(source.conversion_fidelity)
             kind = "analyzed"
     except Exception as error:
         code = analysis_failure_code(error)
         logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
         payload, kind = {"code": code, "phase": phase}, "failed"
+        if json_recovery.used:
+            payload["completed_json_retries"] = 1
     async with async_session_factory() as db:
         await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
         doc = await owned_document(db, tenant_id, document_id, lock=True)

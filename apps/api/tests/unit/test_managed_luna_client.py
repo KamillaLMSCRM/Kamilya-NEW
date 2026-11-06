@@ -9,7 +9,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.modules.ai.managed_luna_client import ManagedLunaClient, ManagedLunaError
+from app.modules.ai.managed_luna_client import ManagedLunaClient, ManagedLunaCompletedJsonError, ManagedLunaError
 
 
 @pytest.fixture(autouse=True)
@@ -190,6 +190,24 @@ async def test_error_diagnostics_allowlist_without_body_or_retry(setup, caplog, 
     assert len(requests) == 1
     assert "category=" + ("http_error" if code == "secret-unrecognized" else code) in caplog.text
     assert "sensitive-source" not in caplog.text and "private-secret" not in caplog.text and "secret-unrecognized" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_completed_invalid_json_is_distinct_from_unknown_transport(setup):
+    client, tenant, user, state, requests = setup
+    state["body"]["choices"][0]["message"]["content"] = '{"patches": ['
+    checkpoint = AsyncMock(return_value=True)
+    messages = [{"role": "user", "content": "Synthetic source"}]
+    token = await client.prepare(messages, max_output_tokens=8, ownership_checkpoint=checkpoint)
+    with pytest.raises(ManagedLunaCompletedJsonError, match="managed_luna_response_invalid"):
+        await client.invoke(token, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=checkpoint,
+                            classify_invalid_json=True)
+    state["status"] = 503
+    token = await client.prepare(messages, max_output_tokens=8, ownership_checkpoint=checkpoint)
+    with pytest.raises(ManagedLunaError, match="managed_luna_outcome_unknown") as failure:
+        await client.invoke(token, tenant_id=tenant, user_id=user, job_id="job", ownership_checkpoint=checkpoint,
+                            classify_invalid_json=True)
+    assert type(failure.value) is ManagedLunaError and len(requests) == 2
 
 
 @pytest.mark.asyncio

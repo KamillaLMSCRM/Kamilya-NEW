@@ -1,8 +1,9 @@
 # General document review and PowerPoint intake — 2026-11-06
 
-- result: `feat/course-creation-ux-20261106` / PR 35. Existing DEV `76b199bf`
-  verified PPTX and TXT review, actual source quotes, and unavailable new SCORM
-  import. Earlier exact DEV `5a56115d` passed the selected scanned PDF, range
+- result: `feat/course-creation-ux-20261106` / PR 35. Exact DEV `54fc6927`
+  passed Word conflict review and confirmed disabled new SCORM import. DEV
+  `76b199bf` passed PPTX and TXT review with original quotes. DEV `5a56115d`
+  passed the selected scanned PDF, range
   error and retry. Production unchanged; no customer source modified.
 - changed: Shared file picker supports PDF, DOC, DOCX, PPTX, TXT, MD, CSV, XLS
   and XLSX. Native PPTX preserves slide order, text, tables and speaker notes.
@@ -12,12 +13,12 @@
 - verified: Exact `76b199bf` PPTX live 136 seconds including cleanup, two Luna 6
   calls, 20,933 input / 914 output tokens, correct deadline conflict anchored to
   original. Production web/API not switched. All disposable DEV sources removed.
-- blockers: `76b199bf` missed the actual DOCX conflict and XLSX failed on an
-  automatic edit. Fixes and local regressions are in the latest feature head;
-  see ENG-027 and `.release-evidence/format-r3/STATUS.md`. MD/CSV/DOC/XLS live
-  verification and a complete disposable course journey are still outstanding.
-- next: Use the latest exact candidate, verify the two prior failures first in
-  DEV, then finish the format matrix and one disposable document-to-course run.
+- blockers: Excel on `54fc6927` failed before editing: the managed provider
+  returned HTTP 200, but its content failed JSON validation. One bounded retry
+  after that specific completed error is implemented locally. See ENG-028.
+  Both DOCX and XLSX DEV fixtures were verified absent.
+- next: Verify XLSX on the latest exact candidate, then finish format acceptance
+  and one disposable document-to-course run.
   Only after success use the protected no-migration production release and
   preserve both currently working frontend/rollback artifacts.
 
