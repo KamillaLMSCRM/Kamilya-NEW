@@ -17,6 +17,8 @@ from app.core.config import get_settings
 from app.core.db import async_session_factory
 from app.modules.ai.direct_source import DirectSourceError, load_direct_source_corpus
 from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
+from app.modules.ai.managed_luna_client import ManagedLunaError
+from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
 from app.modules.source_editorial_review.service import add_event, history, owned_document, read_state, review_enabled
@@ -61,6 +63,30 @@ class _IndependentReview(BaseModel):
     proposal_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     rows: list[dict[str, Any]] = Field(max_length=256)
     source_questions: list[_SourceQuestion] = Field(max_length=256)
+
+
+def analysis_failure_code(error: Exception) -> str:
+    """Project transport/contract failures without copying model or source content."""
+    if isinstance(error, DirectSourceError):
+        return error.code
+    if isinstance(error, ReviewConflictError):
+        return str(error)
+    if isinstance(error, AllProvidersFailedError) or (
+            isinstance(error, ValueError) and error.args == ("managed_qa_luna_unavailable",)):
+        return "source_review_provider_unavailable"
+    if isinstance(error, TimeoutError):
+        return "source_review_timeout"
+    if isinstance(error, ManagedResponseRejectedError | json.JSONDecodeError | ValidationError):
+        return "source_review_invalid_response"
+    if isinstance(error, ManagedLunaError):
+        if error.args == ("managed_luna_outcome_unknown",):
+            return "source_review_provider_outcome_unknown"
+        if error.args == ("managed_luna_response_invalid",):
+            return "source_review_invalid_response"
+    if isinstance(error, ValueError) and len(error.args) == 1 and isinstance(error.args[0], str) and re.fullmatch(
+            r"source_editorial_(?:author_[a-z_]+|model_[a-z_]+)", error.args[0]):
+        return "source_review_invalid_response"
+    return "source_review_analysis_failed"
 
 
 def blocks(original: str) -> Iterator[tuple[int, str]]:
@@ -224,6 +250,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             events = await history(db, tenant_id, document_id)
             return bool(events and owns(events[-1]) and current.content_sha256 == claim.original_blob_sha256)
 
+    phase = "source_extraction"
     try:
         async with asyncio.timeout(750):
             pages = queued.payload.get("pages")
@@ -234,6 +261,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 raise ReviewConflictError("source_review_original_changed")
             if source.review_only_source_unresolved:
                 raise ReviewConflictError("source_review_extraction_incomplete")
+            phase = "provider_readiness"
             from app.modules.ai.direct_luna_responses_factory import create_managed_qa_client
             from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
@@ -248,21 +276,27 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             usage: list[dict[str, Any]] = []
 
             async def complete(messages: list[dict[str, str]]) -> object:
+                nonlocal phase
+                stage = "independent_review" if "proposal_sha256" in json.loads(messages[1]["content"]) else "editor"
+                phase = stage + "_request"
                 if managed is not None:
                     prepared = await managed.prepare(messages, max_output_tokens=16_384, ownership_checkpoint=verify_claim)
                     reply = await managed.invoke(prepared, tenant_id=tenant_id, user_id=claim.actor_id,
                         job_id=str(claim.id), ownership_checkpoint=verify_claim,
                         stage_id=text_hash(json.dumps(messages, ensure_ascii=False, sort_keys=True)))
                     usage.append({"model": reply.model, **asdict(reply.usage)})
+                    phase = stage + "_response"
                     return reply.content
                 if llm is None or not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
                 standard = await llm.ainvoke(
                     messages, response_format={"type": "json_object"}, request_profile="course_generation",
                 )
+                phase = stage + "_response"
                 return json.loads(standard.content)
 
             try:
+                phase = "source_contract"
                 payload = await analyze(source.source_text.strip(), source_id=source.source_revision,
                                         document_id=str(document_id), complete_json=complete, retained=retained,
                                         checkpoint=save_block)
@@ -273,20 +307,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             payload["fidelity"] = asdict(source.conversion_fidelity)
             kind = "analyzed"
     except Exception as error:
-        if isinstance(error, DirectSourceError):
-            code = error.code
-        elif isinstance(error, ReviewConflictError):
-            code = str(error)
-        elif isinstance(error, AllProvidersFailedError):
-            code = "source_review_provider_unavailable"
-        elif isinstance(error, TimeoutError):
-            code = "source_review_timeout"
-        elif isinstance(error, json.JSONDecodeError | ValidationError):
-            code = "source_review_invalid_response"
-        else:
-            code = "source_review_analysis_failed"
-        logger.warning("Source review analysis failed (%s)", type(error).__name__)
-        payload, kind = {"code": code}, "failed"
+        code = analysis_failure_code(error)
+        logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
+        payload, kind = {"code": code, "phase": phase}, "failed"
     async with async_session_factory() as db:
         await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
         doc = await owned_document(db, tenant_id, document_id, lock=True)

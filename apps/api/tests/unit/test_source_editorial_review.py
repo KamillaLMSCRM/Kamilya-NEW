@@ -7,9 +7,10 @@ import pytest
 from fastapi import HTTPException
 
 from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
+from app.modules.ai.managed_luna_client import ManagedLunaError
 from app.modules.ai.router import submit_course_generation
 from app.modules.ai.schemas import AIGenerateRequest
-from app.modules.source_editorial_review.analysis import analyze, blocks
+from app.modules.source_editorial_review.analysis import analysis_failure_code, analyze, blocks
 from app.modules.source_editorial_review.domain import (
     POLICY,
     ApprovedEditorialDocument,
@@ -23,6 +24,17 @@ from app.modules.source_editorial_review.service import apply_command, pin_revie
 ORIGINAL = "До 45 МРП действует первый порядок. Свыше 45 МРП действует второй. Документ оформляет операотр."
 QUOTE = "До 45 МРП действует первый порядок."
 REPLACEMENT = "До 45 МРП включительно действует первый порядок."
+
+
+@pytest.mark.parametrize(("error", "expected"), [
+    (ManagedLunaError("managed_luna_outcome_unknown"), "source_review_provider_outcome_unknown"),
+    (ManagedLunaError("managed_luna_response_invalid"), "source_review_invalid_response"),
+    (ValueError("managed_qa_luna_unavailable"), "source_review_provider_unavailable"),
+    (ValueError("source_editorial_author_inventory"), "source_review_invalid_response"),
+    (RuntimeError("Untrusted diagnostic content"), "source_review_analysis_failed"),
+])
+def test_source_review_reports_provider_failure_without_leaking_details(error, expected):
+    assert analysis_failure_code(error) == expected
 
 
 def prepared() -> ReviewState:

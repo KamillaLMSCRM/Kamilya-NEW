@@ -96,8 +96,13 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
                 ("item_id", "start", "end", "before", "after", "reason", "decision", "working_sha256")
                 if key in row.payload}})
     working = state.working()[0] if state.original else None
+    failure_phase = rows[-1].payload.get("phase") if rows and rows[-1].kind == "failed" else None
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
             "revision": state.revision, "status": latest_status(rows), "error": state.error,
+            "failure_phase": failure_phase if failure_phase in (
+                "source_extraction", "source_contract", "provider_readiness", "editor_request", "editor_response",
+                "independent_review_request", "independent_review_response",
+            ) else None,
             "pdf": str(doc.filename or "").lower().endswith(".pdf"),
             "pages": state.pages,
             "questions": [{**issue, "resolution": state.decisions.get(key)} for key, issue in state.issues.items()],
