@@ -157,9 +157,9 @@ describe('learning insights journal integration', () => {
 
     render(<AdminTrainingLogPage />);
 
-    expect((await screen.findAllByText('Operations')).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('Central office → Operations')).toHaveLength(2);
-    expect(screen.getAllByText('assignmentSources.department.label')).toHaveLength(2);
+    expect(await screen.findByText('Operations')).toBeInTheDocument();
+    expect(screen.getAllByText('Central office → Operations')).toHaveLength(1);
+    expect(screen.getAllByText('assignmentSources.department.label')).toHaveLength(1);
   });
 
   it('keeps superadmin behind the canonical active-methodologist role boundary', async () => {

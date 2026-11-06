@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { coursePublicationError } from '@/lib/coursePublicationError';
 import { Archive, ArrowRight, BookOpen, ChevronDown, GraduationCap, MoreVertical, Search, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
+import { RecordList } from '@/features/workspace-design/RecordList';
 import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
 
 type BlueprintLocale = 'ru' | 'kk';
@@ -319,6 +320,80 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
     }
   };
 
+  const renderCourse = (course: CatalogCourse) => (
+    <article key={course.id} data-course-card className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/40">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+          <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" />
+          {course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
+        </span>
+        <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${course.status === 'published' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+          {course.status === 'published' ? t('courses.published') : course.status === 'draft' ? t('courses.draft') : course.status}
+        </span>
+      </div>
+      <h3 className="mt-4 text-lg font-semibold leading-6 text-foreground [overflow-wrap:anywhere]">
+        <Link href={`/courses/${course.id}`} className="rounded-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{course.title}</Link>
+      </h3>
+      {course.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{course.description}</p>}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {course.ai_generated && <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">AI</span>}
+        {getSourceBlueprintId(course) && <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{t('courses.blueprint.badge')}</span>}
+        {(course.ai_generated || getSourceBlueprintId(course)) && course.status !== 'published' && course.review_status !== 'approved' && <span className="rounded-md bg-warning/10 px-2 py-1 text-xs font-medium text-warning">{t('courses.reviewRequired')}</span>}
+      </div>
+
+      {canManage ? (
+        <div className="mt-auto pt-5">
+          {course.status !== 'published' && getSourceBlueprintId(course) && (
+            <Link href={`/courses/templates/${getSourceBlueprintId(course)}?course_id=${course.id}`} className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {t('courses.blueprint.open')}
+            </Link>
+          )}
+          {course.status === 'published' && (
+            <Link href={`/assignments?course_id=${course.id}`} className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+              <GraduationCap className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {t('authenticatedUi.course.assignEmployees')}
+            </Link>
+          )}
+          <div className="flex flex-wrap items-stretch gap-2">
+            <Link href={`/courses/${course.id}/edit`} className="flex min-h-11 min-w-0 [flex:1_1_7rem] items-center justify-center rounded-xl border border-border px-2 py-2 text-center text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {t('common.edit')}
+            </Link>
+            <div className="grid min-w-0 [flex:1_1_10rem] grid-cols-[minmax(0,1fr)_44px] items-center gap-2">
+              {course.ai_generated && course.status !== 'published' && course.review_status !== 'approved' ? (
+                <Link href={`/courses/${course.id}/edit`} className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-primary/10 px-2 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t('courses.reviewCourse')}</Link>
+              ) : (
+                <button type="button" onClick={() => handlePublish(course.id, course.status)} className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${course.status === 'published' ? 'bg-muted text-foreground hover:bg-muted/80' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
+                  {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
+                </button>
+              )}
+              <details className="group/actions relative">
+                <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden" aria-label={t('common.actionsFor', { title: course.title })} title={t('common.actionsFor', { title: course.title })}>
+                  <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                </summary>
+                <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
+                  {course.current_release_id ? (
+                    <button type="button" onClick={() => handleArchive(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-warning transition-colors hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                      <Archive className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {deletingId === course.id ? '…' : t('courses.archive')}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => handleDelete(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                      <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {deletingId === course.id ? '…' : t('dialogs.delete')}
+                    </button>
+                  )}
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <Link href={`/courses/${course.id}`} className="mt-auto flex min-h-11 items-center gap-2 pt-5 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{copy.openCourse}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
+      )}
+    </article>
+  );
+
   return (
     <div data-catalog-layout="workspace-v1" className="min-w-0 space-y-6">
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -467,81 +542,14 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
               <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">{hasFilters ? copy.filteredEmptyHint : canManage ? copy.emptyHint : null}</p>
             </div>
           ) : (
-            <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">
-              {courses.map((course) => (
-                <article key={course.id} data-course-card className="flex min-w-0 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/40">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                      <BookOpen className="h-4 w-4 text-primary" aria-hidden="true" />
-                      {course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
-                    </span>
-                    <span className={`rounded-md px-2.5 py-1 text-xs font-semibold ${course.status === 'published' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      {course.status === 'published' ? t('courses.published') : course.status === 'draft' ? t('courses.draft') : course.status}
-                    </span>
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold leading-6 text-foreground [overflow-wrap:anywhere]">
-                    <Link href={`/courses/${course.id}`} className="rounded-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{course.title}</Link>
-                  </h3>
-                  {course.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{course.description}</p>}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {course.ai_generated && <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">AI</span>}
-                    {getSourceBlueprintId(course) && <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{t('courses.blueprint.badge')}</span>}
-                    {(course.ai_generated || getSourceBlueprintId(course)) && course.status !== 'published' && course.review_status !== 'approved' && <span className="rounded-md bg-warning/10 px-2 py-1 text-xs font-medium text-warning">{t('courses.reviewRequired')}</span>}
-                  </div>
-
-                  {canManage ? (
-                    <div className="mt-auto pt-5">
-                      {course.status !== 'published' && getSourceBlueprintId(course) && (
-                        <Link href={`/courses/templates/${getSourceBlueprintId(course)}?course_id=${course.id}`} className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-center text-sm font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          {t('courses.blueprint.open')}
-                        </Link>
-                      )}
-                      {course.status === 'published' && (
-                        <Link href={`/assignments?course_id=${course.id}`} className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                          <GraduationCap className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          {t('authenticatedUi.course.assignEmployees')}
-                        </Link>
-                      )}
-                      <div className="flex flex-wrap items-stretch gap-2">
-                        <Link href={`/courses/${course.id}/edit`} className="flex min-h-11 min-w-0 [flex:1_1_7rem] items-center justify-center rounded-xl border border-border px-2 py-2 text-center text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                          {t('common.edit')}
-                        </Link>
-                        <div className="grid min-w-0 [flex:1_1_10rem] grid-cols-[minmax(0,1fr)_44px] items-center gap-2">
-                          {course.ai_generated && course.status !== 'published' && course.review_status !== 'approved' ? (
-                            <Link href={`/courses/${course.id}/edit`} className="flex min-h-11 min-w-0 items-center justify-center rounded-xl bg-primary/10 px-2 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t('courses.reviewCourse')}</Link>
-                          ) : (
-                            <button type="button" onClick={() => handlePublish(course.id, course.status)} className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${course.status === 'published' ? 'bg-muted text-foreground hover:bg-muted/80' : 'bg-primary/10 text-primary hover:bg-primary/20'}`}>
-                              {course.status === 'published' ? t('courses.unpublish') : t('courses.publish')}
-                            </button>
-                          )}
-                          <details className="group/actions relative">
-                            <summary className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden" aria-label={t('common.actionsFor', { title: course.title })} title={t('common.actionsFor', { title: course.title })}>
-                              <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                            </summary>
-                            <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
-                              {course.current_release_id ? (
-                                <button type="button" onClick={() => handleArchive(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-warning transition-colors hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-                                  <Archive className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                  {deletingId === course.id ? '…' : t('courses.archive')}
-                                </button>
-                              ) : (
-                                <button type="button" onClick={() => handleDelete(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-                                  <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                                  {deletingId === course.id ? '…' : t('dialogs.delete')}
-                                </button>
-                              )}
-                            </div>
-                          </details>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <Link href={`/courses/${course.id}`} className="mt-auto flex min-h-11 items-center gap-2 pt-5 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{copy.openCourse}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link>
-                  )}
-                </article>
-              ))}
-            </div>
+            canManage ? (
+              <RecordList records={courses} getId={(course) => course.id} title={(course) => course.title}
+                description={(course) => course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
+                status={(course) => course.status === 'published' ? t('courses.published') : course.status === 'draft' ? t('courses.draft') : course.status}
+                detailsLabel={copy.openCourse} renderDetails={renderCourse} />
+            ) : (
+              <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">{courses.map(renderCourse)}</div>
+            )
           )}
         </div>
       </section>

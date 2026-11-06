@@ -108,7 +108,7 @@ describe('methodologist operations dashboard', () => {
       return Promise.resolve({ data: path === '/v1/courses' ? [] : null });
     });
     render(<MethodologistDashboard />);
-    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: new RegExp(label) })).toBeInTheDocument();
     expect(screen.queryByText(failedLabel)).not.toBeInTheDocument();
   });
   it.each([99, 100])('does not claim complete totals from a full bounded catalogue (%s)', (count) => {
@@ -157,7 +157,7 @@ describe('methodologist operations dashboard', () => {
   it('answers the operational questions from one learning read model', async () => {
     render(<MethodologistDashboard />);
 
-    expect(await screen.findByText('Сотрудник с риском')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Сотрудник с риском/ })).toBeInTheDocument();
     expect(screen.getByText('40%')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Просрочено: 2' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Действий открыто: 2' })).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe('methodologist operations dashboard', () => {
     const employee = await screen.findByRole('button', { name: /Сотрудник с риском/ });
     const job = screen.getByRole('button', { name: /заявка 0228597d/ });
     const panel = within(screen.getByRole('region', { name: 'Детали задачи' }));
-    expect(panel.queryByRole('link')).not.toBeInTheDocument();
+    expect(panel.getByRole('link')).toHaveAttribute('href', expect.stringContaining('/training-log?'));
     const initialReads = apiMock.get.mock.calls.length;
     fireEvent.click(employee);
     expect(employee).toHaveAttribute('aria-pressed', 'true');
@@ -243,7 +243,7 @@ describe('methodologist operations dashboard', () => {
     expect(panel.queryByText('25%')).not.toBeInTheDocument();
     expect(panel.getByRole('link')).toHaveAttribute('href', '/ai/generate?job_id=0228597d-1111-4111-8111-111111111111');
     fireEvent.click(screen.getByRole('button', { name: 'Обучение сотрудников' }));
-    expect(within(screen.getByRole('region', { name: 'Детали задачи' })).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Детали задачи' })).getByRole('link')).toHaveAttribute('href', expect.stringContaining('/training-log?'));
     expect(apiMock.get).toHaveBeenCalledTimes(initialReads);
     fireEvent.click(screen.getByRole('button', { name: /Сотрудник с риском/ }));
     const user = useAuthStore.getState().user!;

@@ -120,6 +120,7 @@ describe('staff workspace page integration', () => {
       return { data: {} } as never;
     });
     render(<AdminStaffPage />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Структура' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Открыть подразделение: QA Архив' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Архивировать подразделение' }));
     let dialog = await screen.findByRole('dialog', { name: 'Архивировать подразделение' });
@@ -141,6 +142,7 @@ describe('staff workspace page integration', () => {
   it('loads the real workspace for a methodologist without legacy structure or bulk owner reads', async () => {
     render(<AdminStaffPage />);
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Структура' }));
     expect(await screen.findByRole('button', { name: 'Открыть подразделение: Головной офис' })).toBeInTheDocument();
     await waitFor(() => {
       expect(getMock).toHaveBeenCalledWith(
@@ -161,8 +163,43 @@ describe('staff workspace page integration', () => {
     expect(screen.queryByRole('heading', { level: 2, name: 'Сотрудники и структура' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Добавить сотрудника/ })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Добавить подразделение' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Импорт/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Импорт/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Структура/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('creates a branch at the top level and a team under the chosen real parent', async () => {
+    let current: Omit<typeof overview, 'units'> & { units: (Omit<(typeof overview.units)[number], 'parent_id'> & { parent_id: string | null })[] } = overview;
+    const post = vi.mocked(api.post);
+    getMock.mockImplementation(async (url: string) => {
+      if (url === '/v1/organization-units/workspace') return { data: current } as never;
+      if (url === '/v1/organization-units/employees') return { data: roster } as never;
+      return { data: [] } as never;
+    });
+    post.mockImplementation(async (_url, body) => {
+      const change = body as { name: string; unit_type: string; parent_id: string | null };
+      const id = change.parent_id ? 'team-created' : 'branch-created';
+      const parent = current.units.find((unit) => unit.id === change.parent_id);
+      const unit = { ...overview.units[0], id, name: change.name, unit_type: change.unit_type,
+        parent_id: change.parent_id, is_head_office: false, breadcrumb: [...(parent?.breadcrumb ?? []), change.name] };
+      current = { ...current, units: [...current.units, unit] };
+      return { data: { id } } as never;
+    });
+    render(<AdminStaffPage />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Структура' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить подразделение' }));
+    let dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByRole('textbox'), { target: { value: 'Филиал Шымкент' } });
+    fireEvent.click(dialog.getByRole('button', { name: /Создать/ }));
+    await waitFor(() => expect(window.location.search).toContain('staff_unit=branch-created'));
+    expect(post).toHaveBeenCalledWith('/v1/organization-units', { name: 'Филиал Шымкент', unit_type: 'branch', parent_id: null });
+    fireEvent.click(screen.getByRole('button', { name: 'Добавить сюда' }));
+    dialog = within(screen.getByRole('dialog'));
+    fireEvent.change(dialog.getByRole('textbox'), { target: { value: 'Команда' } });
+    fireEvent.change(dialog.getAllByRole('combobox')[0], { target: { value: 'team' } });
+    expect(dialog.getAllByRole('combobox')[1]).toHaveValue('branch-created');
+    fireEvent.click(dialog.getByRole('button', { name: /Создать/ }));
+    await waitFor(() => expect(window.location.search).toContain('staff_unit=team-created'));
+    expect(post).toHaveBeenCalledWith('/v1/organization-units', { name: 'Команда', unit_type: 'team', parent_id: 'branch-created' });
   });
 
   it('preserves the canonical page header and manual employee action on the import tab', async () => {

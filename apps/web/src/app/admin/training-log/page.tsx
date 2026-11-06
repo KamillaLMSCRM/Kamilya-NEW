@@ -30,6 +30,7 @@ import {
 } from './query';
 import { TRAINING_LOG_COLUMN_CLASS as columnClass } from './presentation';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
+import { RecordList } from '@/features/workspace-design/RecordList';
 import { downloadGroupEvidence, downloadIndividualEvidence, type EvidenceExportFormat } from '@/features/training-evidence/exportApi';
 import { EvidenceShareDialog } from '@/features/training-evidence/EvidenceShareDialog';
 import { SignedScanControl, useSignedScanLedgers } from '@/features/training-evidence/SignedScanControl';
@@ -163,6 +164,7 @@ export default function AdminTrainingLogPage() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const isMethodologist = user?.role === 'methodologist';
+  const [useTable, setUseTable] = useState(false);
   const restrictedScopeCopy = lang === 'kk'
     ? 'Сізге бекітілген бөлімшелер мен топтардағы қызметкерлер ғана көрсетілген.'
     : lang === 'en'
@@ -449,6 +451,68 @@ export default function AdminTrainingLogPage() {
     />
   );
 
+  const renderJournalRecord = (row: TrainingLogRow, idx = 0) => (
+      <article key={row.enrollment_id || `${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
+        <div>
+          <h2 className="font-medium text-foreground">{row.full_name}</h2>
+          {isMethodologist ? (
+            <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">{row.course_title}</p>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={row.enrollment_status === 'cancelled' || row.enrollment_status === 'superseded' ? 'outline' : row.computed_status === 'completed' ? 'default' : 'secondary'}>
+            {row.enrollment_status === 'cancelled' ? t('trainingLog.history.cancelled') : row.enrollment_status === 'superseded' ? t('trainingLog.history.superseded') : row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
+          </Badge>
+          <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
+          {(row.assignment_due_at || row.cycle_due_at) && (
+            <span className="text-sm text-muted-foreground">
+              {t('trainingLog.table.deadline')}: {formatDate(row.assignment_due_at || row.cycle_due_at as string)}
+            </span>
+          )}
+          <DeadlineStatusBadge row={row} t={t} />
+          {row.certificate_number && (
+            <span className="inline-flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <span>{row.certificate_number}</span>
+              {row.certificate_expires_at && (
+                <span>{t('trainingLog.table.certificateValidUntil')}: {formatDate(row.certificate_expires_at)}</span>
+              )}
+              <CertificateStatusBadge status={row.certificate_status} t={t} />
+            </span>
+          )}
+          {row.latest_evidence_event_id && (
+            <EvidenceStatusBadge row={row} t={t} />
+          )}
+        </div>
+        <AssignmentReasonDetails row={row} t={t} />
+        {isMethodologist && canAttachSignedScan(row) && signedScanControl(row.latest_evidence_event_id as string)}
+        {isMethodologist && canExportEvidence(row) && (
+          <div className="flex flex-wrap gap-2">
+            <EvidenceDownloadButton
+              label={t('trainingLog.evidence.pdf')}
+              icon={<FileDown className="h-4 w-4" aria-hidden="true" />}
+              busy={exportingKey === `${row.latest_evidence_event_id}-pdf`}
+              disabled={exportingKey !== null}
+              onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'pdf', `${row.latest_evidence_event_id}-pdf`)}
+            />
+            <EvidenceDownloadButton
+              label={t('trainingLog.evidence.zip')}
+              icon={<Package className="h-4 w-4" aria-hidden="true" />}
+              busy={exportingKey === `${row.latest_evidence_event_id}-zip`}
+              disabled={exportingKey !== null}
+              onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'zip', `${row.latest_evidence_event_id}-zip`)}
+            />
+          </div>
+        )}
+        {canInspectLearning && (
+          <Button type="button" variant="outline" size="sm" onClick={() => setSelectedEnrollmentId(row.enrollment_id)}>
+            {insightsText('answers')}
+          </Button>
+        )}
+      </article>
+  );
+
   return (
     <WorkspacePage id="training-log">
       {browserState.returnTo && (
@@ -631,7 +695,20 @@ export default function AdminTrainingLogPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {isMethodologist && !error && items.length > 0 && (
+        <Button type="button" variant="outline" aria-pressed={useTable} onClick={() => setUseTable((current) => !current)}>
+          {useTable ? (lang === 'kk' ? 'Карточкалар' : lang === 'en' ? 'Record cards' : 'Карточки записей')
+            : (lang === 'kk' ? 'Толық кесте' : lang === 'en' ? 'Full table' : 'Полная таблица')}
+        </Button>
+      )}
+      {isMethodologist && !useTable && !error && items.length > 0 && (
+        <RecordList records={items} getId={(row) => row.enrollment_id} title={(row) => row.full_name}
+          description={(row) => row.course_title}
+          status={(row) => row.computed_status === 'completed' ? t('trainingLog.badge.completed') : `${row.progress_percent}%`}
+          detailsLabel={t('nav.trainingLog')} renderDetails={renderJournalRecord} />
+      )}
+      {/* Full table keeps group export and comparison controls available. */}
+      {(!isMethodologist || useTable || error || items.length === 0) && <div>
       <Card>
         <CardContent className="p-0">
           {(loading || !page && !error) && !page ? (
@@ -657,69 +734,7 @@ export default function AdminTrainingLogPage() {
           ) : (
             <>
               <div className="divide-y divide-border lg:hidden" data-testid="training-log-mobile-list">
-                {items.map((row, idx) => {
-                  return (
-                  <article key={row.enrollment_id || `${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
-                    <div>
-                      <h2 className="font-medium text-foreground">{row.full_name}</h2>
-                      {isMethodologist ? (
-                        <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
-                      ) : (
-                        <p className="mt-1 text-sm text-muted-foreground">{row.course_title}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={row.enrollment_status === 'cancelled' || row.enrollment_status === 'superseded' ? 'outline' : row.computed_status === 'completed' ? 'default' : 'secondary'}>
-                        {row.enrollment_status === 'cancelled' ? t('trainingLog.history.cancelled') : row.enrollment_status === 'superseded' ? t('trainingLog.history.superseded') : row.computed_status === 'completed' ? t('trainingLog.badge.completed') : row.computed_status === 'in_progress' ? t('trainingLog.badge.inProgress') : t('trainingLog.badge.assigned')}
-                      </Badge>
-                      <span className="text-sm tabular-nums text-muted-foreground">{t('trainingLog.table.progress')}: {row.progress_percent}%</span>
-                      {(row.assignment_due_at || row.cycle_due_at) && (
-                        <span className="text-sm text-muted-foreground">
-                          {t('trainingLog.table.deadline')}: {formatDate(row.assignment_due_at || row.cycle_due_at as string)}
-                        </span>
-                      )}
-                      <DeadlineStatusBadge row={row} t={t} />
-                      {row.certificate_number && (
-                        <span className="inline-flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          <span>{row.certificate_number}</span>
-                          {row.certificate_expires_at && (
-                            <span>{t('trainingLog.table.certificateValidUntil')}: {formatDate(row.certificate_expires_at)}</span>
-                          )}
-                          <CertificateStatusBadge status={row.certificate_status} t={t} />
-                        </span>
-                      )}
-                      {row.latest_evidence_event_id && (
-                        <EvidenceStatusBadge row={row} t={t} />
-                      )}
-                    </div>
-                    <AssignmentReasonDetails row={row} t={t} />
-                    {isMethodologist && canAttachSignedScan(row) && signedScanControl(row.latest_evidence_event_id as string)}
-                    {isMethodologist && canExportEvidence(row) && (
-                      <div className="flex flex-wrap gap-2">
-                        <EvidenceDownloadButton
-                          label={t('trainingLog.evidence.pdf')}
-                          icon={<FileDown className="h-4 w-4" aria-hidden="true" />}
-                          busy={exportingKey === `${row.latest_evidence_event_id}-pdf`}
-                          disabled={exportingKey !== null}
-                          onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'pdf', `${row.latest_evidence_event_id}-pdf`)}
-                        />
-                        <EvidenceDownloadButton
-                          label={t('trainingLog.evidence.zip')}
-                          icon={<Package className="h-4 w-4" aria-hidden="true" />}
-                          busy={exportingKey === `${row.latest_evidence_event_id}-zip`}
-                          disabled={exportingKey !== null}
-                          onClick={() => void exportEvidence([row.latest_evidence_event_id as string], 'zip', `${row.latest_evidence_event_id}-zip`)}
-                        />
-                      </div>
-                    )}
-                    {canInspectLearning && (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setSelectedEnrollmentId(row.enrollment_id)}>
-                        {insightsText('answers')}
-                      </Button>
-                    )}
-                  </article>
-                  );
-                })}
+                {items.map((row, index) => renderJournalRecord(row, index))}
               </div>
               <Table
                 className="training-log-table-scroll hidden max-w-full rounded-none border-0 lg:block"
@@ -909,6 +924,7 @@ export default function AdminTrainingLogPage() {
           )}
         </CardContent>
       </Card>
+      </div>}
       <EvidenceShareDialog
         open={shareEventIds !== null}
         eventIds={shareEventIds || []}

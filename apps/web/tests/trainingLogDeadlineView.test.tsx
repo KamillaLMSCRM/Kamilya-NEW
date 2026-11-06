@@ -116,9 +116,11 @@ describe('training log deadline presentation', () => {
     renderTrainingLog({});
     await screen.findAllByText('Deadline course');
 
+    fireEvent.click(screen.getByRole('button', { name: 'Deadline course' }));
+    fireEvent.click(screen.getByRole('button', { name: /Полная таблица|Full table/ }));
     const courseButtons = screen.getAllByRole('button', { name: 'Deadline course' });
     expect(courseButtons).toHaveLength(2);
-    for (const button of courseButtons) fireEvent.click(button);
+    fireEvent.click(courseButtons[0]);
     expect(navigation.push).toHaveBeenCalledTimes(2);
     expect(navigation.push).toHaveBeenNthCalledWith(1, '/courses/course-1');
     expect(navigation.push).toHaveBeenNthCalledWith(2, '/courses/course-1');
@@ -152,17 +154,17 @@ describe('training log deadline presentation', () => {
 
   it('renders the overdue deadline state', async () => {
     renderTrainingLog({ cycle_due_at: '2026-09-10T00:00:00Z', deadline_status: 'overdue' });
-    expect(await screen.findAllByText('Overdue')).toHaveLength(2);
+    expect(await screen.findAllByText('Overdue')).toHaveLength(1);
   });
 
   it('renders the completed-late deadline state', async () => {
     renderTrainingLog({ cycle_due_at: '2026-09-10T00:00:00Z', deadline_status: 'completed_late' });
-    expect(await screen.findAllByText('Completed late')).toHaveLength(2);
+    expect(await screen.findAllByText('Completed late')).toHaveLength(1);
   });
 
   it('renders the active deadline state only with a complete valid deadline', async () => {
     renderTrainingLog({ cycle_due_at: '2026-09-10T00:00:00Z', deadline_status: 'active' });
-    expect(await screen.findAllByText('On track')).toHaveLength(2);
+    expect(await screen.findAllByText('On track')).toHaveLength(1);
   });
 
   it('prefers the explicit assignment deadline and operational state', async () => {
@@ -172,7 +174,7 @@ describe('training log deadline presentation', () => {
       assignment_due_at: '2026-09-08T00:00:00Z',
       deadline_state: 'overdue',
     });
-    expect(await screen.findAllByText('Overdue')).toHaveLength(2);
+    expect(await screen.findAllByText('Overdue')).toHaveLength(1);
     expect(screen.queryByText('On track')).not.toBeInTheDocument();
   });
 
@@ -183,7 +185,7 @@ describe('training log deadline presentation', () => {
       certificate_expires_at: '2026-10-01T00:00:00Z',
       certificate_status: 'expiring',
     });
-    expect(await screen.findAllByText('Certificate expiring')).toHaveLength(2);
-    expect(screen.getAllByText(/Valid until/)).toHaveLength(2);
+    expect(await screen.findAllByText('Certificate expiring')).toHaveLength(1);
+    expect(screen.getAllByText(/Valid until/)).toHaveLength(1);
   });
 });

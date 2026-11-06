@@ -23,7 +23,7 @@ test.describe('live methodologist dashboard', () => {
     await page.getByRole('button', { name: /Войти|Sign in|Кіру/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard(?:$|[?#])/);
-    await expect(page.getByRole('heading', { name: /Обзор обучения|Learning overview|Оқу шолуы/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Задачи|Tasks|Тапсырмалар/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Требует внимания|Needs attention|Назар аудару қажет/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Состояние обучения|Training health|Оқу жағдайы/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /Контент в работе|Content in progress|Жұмыстағы контент/i })).toBeVisible();
@@ -33,7 +33,7 @@ test.describe('live methodologist dashboard', () => {
     for (const viewport of [{ width: 1024, height: 900 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
       await page.waitForTimeout(400); // Let the sidebar margin transition settle after crossing the mobile breakpoint.
-      await expect(page.getByRole('heading', { name: /Обзор обучения|Learning overview|Оқу шолуы/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Задачи|Tasks|Тапсырмалар/i })).toBeVisible();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (overflow > 1) {
         const offenders = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('body *')]

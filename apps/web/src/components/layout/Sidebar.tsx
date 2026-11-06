@@ -81,7 +81,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClose }: SidebarProps) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,7 +89,17 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
   const logout = useAuthStore((state) => state.logout);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const routes = getNavigationRoutes(user?.role, 'sidebar');
+  const allRoutes = getNavigationRoutes(user?.role, 'sidebar');
+  const isMethodologist = user?.role === 'methodologist';
+  const primaryHrefs = ['/dashboard', '/courses', '/staff', '/assignments', '/training-log'];
+  const primaryRoutes = isMethodologist ? primaryHrefs.flatMap((href) => allRoutes.filter((route) => route.href === href)) : [];
+  const routes = isMethodologist ? allRoutes.filter((route) => !primaryHrefs.includes(route.href)) : allRoutes;
+  const labels = lang === 'kk'
+    ? ['Тапсырмалар', 'Курстар', 'Қызметкерлер', 'Тағайындаулар', 'Оқу журналы', 'Құралдар', 'Жұмыс кеңістігі']
+    : lang === 'en'
+      ? ['Tasks', 'Courses', 'Employees', 'Assignments', 'Training log', 'Tools', 'Workspace']
+      : ['Задачи', 'Курсы', 'Сотрудники', 'Назначения', 'Журнал обучения', 'Инструменты', 'Рабочее пространство'];
+  const toolRouteActive = isMethodologist && routes.some((route) => isNavigationItemActive(route.href, pathname, searchParams));
   const sections = [...new Set(routes.map((route) => route.section).filter(Boolean))] as NavigationSection[];
 
   return (
@@ -108,8 +118,8 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
         </div>
       </div>
 
-      {user?.role === 'methodologist' && (
-        <div className="px-3 pb-1 pt-4">
+      {isMethodologist && (
+        <div className="order-2 px-3 py-2">
           <a
             href="/guides/methodologist.html"
             target="_blank"
@@ -161,7 +171,26 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
       </button>
 
       <nav id="sidebar-nav" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-5" aria-label={t('a11y.mainNavigation')}>
-        {sections.map((section) => {
+        {isMethodologist && <div className="space-y-3">
+          {!collapsed && <p className="px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{labels[6]}</p>}
+          <ul className="space-y-1">
+            {primaryRoutes.map((route) => {
+              const Icon = ICONS[route.icon!];
+              const label = labels[primaryHrefs.indexOf(route.href)];
+              const active = isNavigationItemActive(route.href, pathname, searchParams);
+              return <li key={route.id}><Link href={route.href} onClick={onClose} prefetch={false} aria-current={active ? 'page' : undefined}
+                aria-label={label} title={label} className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold', collapsed && 'justify-center px-0',
+                  active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
+                <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />{!collapsed && label}
+              </Link></li>;
+            })}
+          </ul>
+        </div>}
+        <details className={cn('methodologist-tools', !isMethodologist && 'contents')} open={!isMethodologist || toolRouteActive || undefined}>
+          {isMethodologist && <summary className={cn('cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted', collapsed && 'px-1 text-center text-[10px]')} title={labels[5]}>{labels[5]}</summary>}
+          {!isMethodologist && <summary className="hidden" />}
+          <div className="space-y-5">
+          {sections.map((section) => {
           const sectionRoutes = routes.filter((route) => route.section === section);
           const topLevelRoutes = sectionRoutes.filter(
             (route) => !route.parentId || !sectionRoutes.some((candidate) => candidate.id === route.parentId),
@@ -277,6 +306,8 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
             </div>
           );
         })}
+      </div>
+        </details>
       </nav>
 
       <div className="shrink-0 border-t border-border bg-card p-3">

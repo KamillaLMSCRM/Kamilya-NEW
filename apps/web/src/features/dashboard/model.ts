@@ -5,6 +5,9 @@ export interface DashboardCourse {
   id: string;
   title: string;
   status: string;
+  ai_generated?: boolean;
+  source_analysis?: { blueprint?: { id?: string } };
+  review_status?: string;
 }
 
 export interface DashboardJob {
@@ -56,6 +59,7 @@ export interface MethodologistDashboardModel {
     activeJobs: number | null;
     attentionJobs: number | null;
     jobs: DashboardJob[];
+    reviewCourses: DashboardCourse[];
   };
 }
 
@@ -99,6 +103,10 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
       activeJobs: sources.jobs === null ? null : relevantJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status)).length,
       attentionJobs: sources.jobs === null ? null : relevantJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status)).length,
       jobs: visibleJobs,
+      reviewCourses: (sources.courses ?? []).filter((course) =>
+        course.status === 'draft' && (course.ai_generated || course.source_analysis?.blueprint?.id) &&
+        (course.review_status === 'pending' || course.review_status === 'needs_changes'),
+      ).slice(0, 5),
     },
   };
 }

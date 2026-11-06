@@ -31,7 +31,8 @@ export function DashboardTaskQueue({ groups, lang }: { groups: TaskGroup[]; lang
   const copy = lang === 'kk' ? messages.kk : lang === 'en' ? messages.en : messages.ru;
   const id = useId();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = groups.flatMap((group) => group.tasks).find((task) => task.id === selectedId);
+  const tasks = groups.flatMap((group) => group.tasks);
+  const selected = tasks.find((task) => task.id === selectedId) ?? tasks[0];
   const panel = useRef<HTMLElement>(null);
   const activeRow = useRef<HTMLButtonElement | null>(null);
 
@@ -45,7 +46,7 @@ export function DashboardTaskQueue({ groups, lang }: { groups: TaskGroup[]; lang
   }
 
   return (
-    <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(16rem,1fr)]">
+    <div className="methodologist-split">
       <section aria-labelledby={`${id}-queue`} className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-5">
         <h2 id={`${id}-queue`} className="text-lg font-semibold">{copy.queue}</h2>
         {groups.map((group) => (
@@ -82,7 +83,7 @@ export function DashboardTaskQueue({ groups, lang }: { groups: TaskGroup[]; lang
         {selected ? <>
           <h3 className="mt-3 font-semibold">{selected.title}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{selected.subtitle}</p>
-          <dl className="mt-4 space-y-2 border-t border-border pt-3">
+          <dl className="mt-4 grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
             {selected.details.map(({ label, value }) => <div key={label} className="text-sm">
               <dt className="text-muted-foreground">{label}</dt>
               <dd className="font-medium">{value}</dd>

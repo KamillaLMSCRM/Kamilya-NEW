@@ -30,37 +30,23 @@ describe('methodologist sidebar information hierarchy', () => {
     useLanguageStore.setState({ lang: 'ru' });
   });
 
-  it('uses task language and makes sections and nested items visually distinct', () => {
+  it('puts the five operational areas first and keeps other destinations in tools', () => {
+    navigationState.pathname = '/dashboard';
     const { container } = render(<Sidebar collapsed={false} onToggle={() => {}} />);
-
-    expect(screen.getByRole('link', { name: 'Обзор обучения' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Панель управления' })).not.toBeInTheDocument();
-
-    const contentHeading = screen.getByRole('heading', { name: 'Курсы и материалы' });
-    expect(contentHeading).toHaveClass('text-xs', 'font-semibold', 'text-muted-foreground');
-    expect(contentHeading).not.toHaveClass('text-[10px]');
-    expect(contentHeading).not.toHaveClass('uppercase');
-    expect(contentHeading.closest('[data-sidebar-section]')).toHaveClass('border-t');
-
-    const staffLink = screen.getByRole('link', { name: 'Сотрудники и структура' });
-    expect(staffLink).toHaveClass('text-sm', 'font-medium');
-    expect(staffLink).not.toHaveClass('text-[15px]');
-    const groupToggle = staffLink.parentElement?.querySelector('button');
-    expect(groupToggle).not.toBeNull();
-    fireEvent.click(groupToggle!);
-
-    const positionLink = screen.getByRole('link', { name: 'Должности' });
-    expect(positionLink).toHaveClass('text-sm');
-    const nestedList = positionLink.closest('ul');
-    expect(nestedList).toHaveClass('ml-8', 'border-l-2', 'border-primary/30');
-    expect(container.querySelectorAll('nav h2').length).toBeGreaterThan(2);
+    const primary = Array.from(container.querySelectorAll('#sidebar-nav > div > ul a'));
+    expect(primary.map((link) => link.textContent)).toEqual(['Задачи', 'Курсы', 'Сотрудники', 'Назначения', 'Журнал обучения']);
+    const tools = screen.getByText('Инструменты').closest('details')!;
+    expect(tools).not.toHaveAttribute('open');
+    expect(tools.querySelector('a[href="/positions"]')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Инструменты'));
+    expect(tools).toHaveAttribute('open');
   });
 
-  it('keeps the resource family and staff group open on a child detail route', () => {
+  it('opens the tools when a child detail route is active', () => {
     navigationState.pathname = '/positions/retained-id';
     render(<Sidebar collapsed={false} onToggle={() => {}} />);
     expect(screen.getByRole('link', { name: 'Должности' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Сотрудники и структура' })).toHaveClass('text-foreground');
+    expect(screen.getByRole('link', { name: 'Сотрудники' })).toHaveAttribute('href', '/staff');
   });
 
   it('shows the Russian methodologist guide below the logo and opens it safely in a new tab', () => {

@@ -162,13 +162,13 @@ beforeEach(() => {
 describe('StaffWorkspace employee search', () => {
   it('debounces a lowercase surname fragment into a fresh server query from page one', async () => {
     render(<StaffWorkspace {...defaultProps} />);
-    expect(await screen.findByText(pageEmployee.full_name)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: new RegExp(pageEmployee.full_name) })).toBeInTheDocument();
 
     const search = await openPeopleWorkspace();
     fireEvent.change(search, { target: { value: 'танаб' } });
 
     expect(latestRosterParams()).not.toMatchObject({ q: 'танаб' });
-    expect(await screen.findByText(surnameMatch.full_name, {}, { timeout: 1_500 })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: new RegExp(surnameMatch.full_name) }, { timeout: 1_500 })).toBeInTheDocument();
     expect(latestRosterParams()).toMatchObject({ q: 'танаб', page: 1, page_size: 20 });
     expect(screen.queryByText(pageEmployee.full_name)).not.toBeInTheDocument();
     expect(postMock).not.toHaveBeenCalled();
@@ -176,13 +176,13 @@ describe('StaffWorkspace employee search', () => {
 
   it('submits immediately with the visible Find action without waiting for debounce', async () => {
     render(<StaffWorkspace {...defaultProps} />);
-    await screen.findByText(pageEmployee.full_name);
+    await screen.findByRole('button', { name: new RegExp(pageEmployee.full_name) });
 
     fireEvent.change(await openPeopleWorkspace(), { target: { value: 'танаб' } });
     fireEvent.click(screen.getByRole('button', { name: 'Найти' }));
 
     await waitFor(() => expect(latestRosterParams()).toMatchObject({ q: 'танаб', page: 1 }));
-    expect(await screen.findByText(surnameMatch.full_name)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: new RegExp(surnameMatch.full_name) })).toBeInTheDocument();
     expect(postMock).not.toHaveBeenCalled();
   });
 
@@ -236,7 +236,7 @@ describe('StaffWorkspace employee search', () => {
       '/staff?tab=structure&staff_view=people&staff_unit=unit-sales&staff_scope=direct&staff_access=active&staff_q=%D1%82%D0%B0%D0%BD%D0%B0%D0%B1&staff_position=position-manager&staff_page=1',
     );
     render(<StaffWorkspace {...defaultProps} />);
-    await screen.findByText(surnameMatch.full_name);
+    await screen.findByRole('button', { name: new RegExp(surnameMatch.full_name) });
 
     expect(screen.getByText('Где ищем: Головной офис → Отдел продаж')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Искать среди всех сотрудников' }));
@@ -265,7 +265,7 @@ describe('StaffWorkspace employee search', () => {
     );
     render(<StaffWorkspace {...defaultProps} />);
 
-    await screen.findByText(pageEmployee.full_name);
+    await screen.findByRole('button', { name: new RegExp(pageEmployee.full_name) });
     await waitFor(() => expect(rosterParams().length).toBeGreaterThan(0));
     expect(rosterParams().every((params) => params.position_id !== 'position-deleted')).toBe(true);
     expect(latestRosterParams().position_id).toBeUndefined();
@@ -303,7 +303,7 @@ describe('StaffWorkspace employee search', () => {
     await waitFor(() => expect(screen.getByRole('searchbox', { name: /поиск/i })).toHaveValue(''));
     expect(document.activeElement).toBe(screen.getByRole('searchbox', { name: /поиск/i }));
     expect(new URLSearchParams(window.location.search).get('staff_q')).toBeNull();
-    expect(await screen.findByText(pageEmployee.full_name)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: new RegExp(pageEmployee.full_name) })).toBeInTheDocument();
     expect(postMock).not.toHaveBeenCalled();
   });
 });

@@ -19,6 +19,9 @@ import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
 import { AssignmentSelectionPreview } from '@/features/learning-workspace/AssignmentSelectionPreview';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { authorSessionScope } from '@/features/course-authoring/authorSession';
+import Link from 'next/link';
+import { buildTrainingLogBrowserHref } from '@/app/admin/training-log/query';
+import { RecordList } from '@/features/workspace-design/RecordList';
 import { WorkspacePage, WorkspacePanel, WorkspaceToolbar, WorkspaceEmpty } from '@/features/workspace-design';
 
 interface Course {
@@ -260,6 +263,7 @@ function AssignmentsContent() {
   const dataRequest = useRef(0);
   const recurringRequest = useRef(0);
   const canManageAssignments = userRole === 'methodologist';
+  const [showEnrollmentTable, setShowEnrollmentTable] = useState(false);
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const reminderAuthTokenRef = useRef(token);
   const reminderRequestEpoch = useRef(0);
@@ -410,17 +414,19 @@ function AssignmentsContent() {
   useEffect(() => {
     if (loading || preselectionApplied.current) return;
     const courseId = searchParams.get('courseId') || searchParams.get('course_id') || searchParams.get('course');
-    const userId = searchParams.get('employeeId') || searchParams.get('user_id') || searchParams.get('user');
+    const legacyUser = searchParams.get('employeeId') || searchParams.get('user');
+    const explicitUsers = searchParams.getAll('user_id');
+    const userIds = [...new Set(explicitUsers.length ? explicitUsers : legacyUser ? [legacyUser] : [])].slice(0, 50);
     // Do not mark contextual preselection complete until every referenced
     // entity is present. Fetch effects can commit their collections in
     // separate renders, and an early ref flip would strand an empty picker.
-    if ((courseId && !courses.some((course) => course.id === courseId)) || (userId && !users.some((user) => user.id === userId))) return;
+    if ((courseId && !courses.some((course) => course.id === courseId)) || userIds.some((id) => !users.some((user) => user.id === id))) return;
     if (courseId && courses.some((course) => course.id === courseId)) {
       void fetchEnrollments(courseId);
     }
-    if (userId && users.some((user) => user.id === userId)) {
-      setSelectedUsers(new Set([userId]));
-      const user = users.find((item) => item.id === userId);
+    if (userIds.length) {
+      setSelectedUsers(new Set(userIds));
+      const user = userIds.length === 1 ? users.find((item) => item.id === userIds[0]) : undefined;
       setUserSearch(user ? `${user.first_name} ${user.last_name}`.trim() : '');
     }
     preselectionApplied.current = true;
@@ -978,6 +984,134 @@ function AssignmentsContent() {
     );
   }
 
+  const renderEnrollment = (e: Enrollment, asPanel = false) => {
+    const Row = asPanel ? 'div' : 'tr';
+    const Cell = asPanel ? 'div' : 'td';
+    const u = usersById.get(e.user_id);
+    const sourceInfo = getAssignmentSourceInfo(e.source);
+    return (
+      <Row key={e.id} className={asPanel ? 'grid min-w-0 gap-2 p-4 sm:grid-cols-2' : 'border-t align-top'}>
+        <Cell className="p-2 align-top text-sm [overflow-wrap:anywhere]">
+                {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('users.name')}</p>}
+          {u ? (
+            <>
+              <div className="flex min-h-9 items-center font-medium leading-5">
+                {u.first_name} {u.last_name}
+              </div>
+              {u.position_name && (
+                <div className="text-xs text-muted-foreground">
+                  {u.position_name}
+                  {u.personnel_number &&
+                    ` · ${u.personnel_number}`}
+                </div>
+              )}
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              {e.user_id} ({t('courseAssignments.ui.missingUser')})
+            </span>
+          )}
+        </Cell>
+        <Cell className="p-2 align-top [overflow-wrap:anywhere]">
+                {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('courses.status')}</p>}
+          <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
+            <Badge
+              className="text-sm font-normal leading-5"
+              variant={STATUS_BADGE_VARIANT[e.status] || 'outline'}
+            >
+              {translatedLabel(STATUS_LABEL_KEYS, e.status)}
+            </Badge>
+          </span>
+        </Cell>
+        <Cell className="p-2 align-top [overflow-wrap:anywhere]">
+                {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('courseAssignments.ui.source')}</p>}
+          <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5" title={t(sourceInfo.descriptionKey)}>
+            <Badge className="text-sm font-normal leading-5" variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
+              {t(sourceInfo.labelKey)}
+            </Badge>
+          </span>
+          <p className="mt-1 max-w-56 text-xs text-muted-foreground">
+            {t(sourceInfo.descriptionKey)}
+          </p>
+        </Cell>
+        <Cell className="p-2 align-top [overflow-wrap:anywhere]">
+                {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('courseAssignments.ui.access')}</p>}
+          <div data-testid="assignment-primary-line" className="flex min-h-9 flex-wrap items-center gap-2 text-sm leading-5">
+            {e.status !== 'completed' && (
+              <Button
+                className="h-9 whitespace-nowrap text-sm leading-5"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleAssignmentAccess(e, u)}
+              >
+                {u && !u.email
+                  ? accessStates[e.id]?.state === 'available' ? t('courseAssignments.ui.reissueAccess') : t('courseAssignments.ui.createAccess')
+                  : t('courseAssignments.ui.getLink')}
+              </Button>
+            )}
+            {u && !u.email && accessStates[e.id]?.state === 'available' && (
+              <Button
+                className="h-9 whitespace-nowrap text-sm leading-5"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleRevokeAssignmentAccess(e, u)}
+              >
+                {t('courseAssignments.actions.revokeAccess')}
+              </Button>
+            )}
+            {e.status === 'completed' && accessStates[e.id]?.state !== 'available' && (
+              <span className="text-xs text-muted-foreground">{t('courseAssignments.access.revoked')}</span>
+            )}
+          </div>
+          {u && !u.email && accessStates[e.id]?.state === 'available' && accessStates[e.id]?.expires_at && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t('courseAssignments.ui.activeUntil')} {new Date(accessStates[e.id].expires_at!).toLocaleString()}
+            </p>
+          )}
+        </Cell>
+        <Cell className="p-2 align-top [overflow-wrap:anywhere]">
+                {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('courseAssignments.ui.notification')}</p>}
+          {e.notification_status ? (
+            <div className="space-y-1">
+              <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
+                <Badge className="text-sm font-normal leading-5" variant={e.notification_status === 'delivered' ? 'default' : e.notification_status === 'dead' ? 'outline' : 'secondary'}>
+                  {translatedLabel(NOTIFICATION_STATUS_LABEL_KEYS, e.notification_status)}
+                </Badge>
+              </span>
+              {e.notification_error && <p className="text-xs text-muted-foreground">{e.notification_error}</p>}
+              <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>{t('courseAssignments.ui.resend')}</Button>
+            </div>
+          ) : <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5 text-muted-foreground">{t('courseAssignments.ui.notRequired')}</span>}
+        </Cell>
+        <Cell className="p-2 align-top [overflow-wrap:anywhere]">
+                {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('courseAssignments.ui.action')}</p>}
+          <Button
+            data-testid="assignment-primary-line"
+            className="h-9 whitespace-nowrap text-sm leading-5"
+            variant="outline"
+            size="sm"
+            onClick={() => handleUnenroll(e)}
+            disabled={sourceInfo.managedByRule}
+          >
+            {sourceInfo.managedByRule ? t('assignmentSources.managedByRule') : t('common.delete')}
+          </Button>
+          {canManageAssignments && e.source === 'manual' && e.status !== 'cancelled' && e.status !== 'superseded' && (
+            <div className="mt-2 space-y-2">
+              {repeatTarget === e.id ? (
+                <>
+                  <label className="block text-xs" htmlFor={`repeat-reason-${e.id}`}>{t('courseAssignments.repeat.reason')}</label>
+                  <Input id={`repeat-reason-${e.id}`} value={repeatReasons[e.id] || ''} onChange={(event) => setRepeatReasons((current) => ({ ...current, [e.id]: event.target.value}))} />
+                  <p className="text-xs text-muted-foreground">{t('courseAssignments.repeat.historyPreserved')}</p>
+                  <Button size="sm" disabled={!repeatReasons[e.id]?.trim() || repeating} onClick={() => void repeatEnrollment(e)}>{t('courseAssignments.repeat.confirm')}</Button>
+                </>
+              ) : <Button variant="outline" size="sm" onClick={() => setRepeatTarget(e.id)}>{t('courseAssignments.repeat.action')}</Button>}
+            </div>
+          )}
+        </Cell>
+      </Row>
+    );
+  };
+
   if (loading) return <WorkspacePage id="assignments" title={t('courseAssignments.title')}><p role="status">{t('common.loading')}</p></WorkspacePage>;
 
   return (
@@ -1060,7 +1194,7 @@ function AssignmentsContent() {
               onChange={(e) => {
                 setAccessLinks([]);
                 setEnrollmentFocus(null);
-                void fetchEnrollments(e.target.value);
+                void fetchEnrollments(e.target.value, !selectedCourse);
               }}
               className="w-full min-w-0 max-w-full border rounded-md px-3 py-2 text-sm"
             >
@@ -1113,6 +1247,12 @@ function AssignmentsContent() {
                   </select>
                 </div>
 
+                {canManageAssignments && enrollmentReadState === 'ready' && filteredEnrollments.length > 0 && (
+                  <Button type="button" variant="outline" aria-pressed={showEnrollmentTable} onClick={() => setShowEnrollmentTable((value) => !value)}>
+                    {showEnrollmentTable ? (lang === 'kk' ? 'Карточкалар' : lang === 'en' ? 'Record cards' : 'Карточки записей')
+                      : (lang === 'kk' ? 'Толық кесте' : lang === 'en' ? 'Full table' : 'Полная таблица')}
+                  </Button>
+                )}
                 {/* Search inside the enrolled table — when the
                    course has 50+ enrollees. */}
                 {enrollments.length > 10 && (
@@ -1128,6 +1268,24 @@ function AssignmentsContent() {
                       ? t('courseAssignments.emptyEnrollments')
                       : t('courseAssignments.ui.noFilteredEnrollments')} />
                 ) : (
+                  canManageAssignments && !showEnrollmentTable ? (
+                    <RecordList records={filteredEnrollments} getId={(enrollment) => enrollment.id}
+                      title={(enrollment) => {
+                        const employee = usersById.get(enrollment.user_id);
+                        return employee ? `${employee.first_name} ${employee.last_name}` : t('courseAssignments.ui.missingUser');
+                      }}
+                      status={(enrollment) => translatedLabel(STATUS_LABEL_KEYS, enrollment.status)}
+                      detailsLabel={t('courses.enrollments')}
+                      renderDetails={(enrollment) => <>
+                        {renderEnrollment(enrollment, true)}
+                        <div className="border-t border-border px-5 py-3">
+                          <Link className="text-sm font-semibold text-primary hover:underline"
+                            href={buildTrainingLogBrowserHref({ filters: { enrollment_id: enrollment.id, course_id: enrollment.course_id }, search: '', returnTo: null })}>
+                            {t('nav.trainingLog')}
+                          </Link>
+                        </div>
+                      </>} />
+                  ) : (
                   <Table className="min-w-0 max-w-full">
                     <thead>
                       <tr>
@@ -1140,127 +1298,10 @@ function AssignmentsContent() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredEnrollments.map((e) => {
-                        const u = usersById.get(e.user_id);
-                        const sourceInfo = getAssignmentSourceInfo(e.source);
-                        return (
-                          <tr key={e.id} className="border-t align-top">
-                            <td className="p-2 align-top text-sm">
-                              {u ? (
-                                <>
-                                  <div className="flex min-h-9 items-center font-medium leading-5">
-                                    {u.first_name} {u.last_name}
-                                  </div>
-                                  {u.position_name && (
-                                    <div className="text-xs text-muted-foreground">
-                                      {u.position_name}
-                                      {u.personnel_number &&
-                                        ` · ${u.personnel_number}`}
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  {e.user_id} ({t('courseAssignments.ui.missingUser')})
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-2 align-top">
-                              <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
-                                <Badge
-                                  className="text-sm font-normal leading-5"
-                                  variant={STATUS_BADGE_VARIANT[e.status] || 'outline'}
-                                >
-                                  {translatedLabel(STATUS_LABEL_KEYS, e.status)}
-                                </Badge>
-                              </span>
-                            </td>
-                            <td className="p-2 align-top">
-                              <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5" title={t(sourceInfo.descriptionKey)}>
-                                <Badge className="text-sm font-normal leading-5" variant={sourceInfo.managedByRule ? 'secondary' : 'outline'}>
-                                  {t(sourceInfo.labelKey)}
-                                </Badge>
-                              </span>
-                              <p className="mt-1 max-w-56 text-xs text-muted-foreground">
-                                {t(sourceInfo.descriptionKey)}
-                              </p>
-                            </td>
-                            <td className="p-2 align-top">
-                              <div data-testid="assignment-primary-line" className="flex min-h-9 flex-wrap items-center gap-2 text-sm leading-5">
-                                {e.status !== 'completed' && (
-                                  <Button
-                                    className="h-9 whitespace-nowrap text-sm leading-5"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => void handleAssignmentAccess(e, u)}
-                                  >
-                                    {u && !u.email
-                                      ? accessStates[e.id]?.state === 'available' ? t('courseAssignments.ui.reissueAccess') : t('courseAssignments.ui.createAccess')
-                                      : t('courseAssignments.ui.getLink')}
-                                  </Button>
-                                )}
-                                {u && !u.email && accessStates[e.id]?.state === 'available' && (
-                                  <Button
-                                    className="h-9 whitespace-nowrap text-sm leading-5"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => void handleRevokeAssignmentAccess(e, u)}
-                                  >
-                                    {t('courseAssignments.actions.revokeAccess')}
-                                  </Button>
-                                )}
-                                {e.status === 'completed' && accessStates[e.id]?.state !== 'available' && (
-                                  <span className="text-xs text-muted-foreground">{t('courseAssignments.access.revoked')}</span>
-                                )}
-                              </div>
-                              {u && !u.email && accessStates[e.id]?.state === 'available' && accessStates[e.id]?.expires_at && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {t('courseAssignments.ui.activeUntil')} {new Date(accessStates[e.id].expires_at!).toLocaleString()}
-                                </p>
-                              )}
-                            </td>
-                            <td className="p-2 align-top">
-                              {e.notification_status ? (
-                                <div className="space-y-1">
-                                  <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5">
-                                    <Badge className="text-sm font-normal leading-5" variant={e.notification_status === 'delivered' ? 'default' : e.notification_status === 'dead' ? 'outline' : 'secondary'}>
-                                      {translatedLabel(NOTIFICATION_STATUS_LABEL_KEYS, e.notification_status)}
-                                    </Badge>
-                                  </span>
-                                  {e.notification_error && <p className="text-xs text-muted-foreground">{e.notification_error}</p>}
-                                  <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>{t('courseAssignments.ui.resend')}</Button>
-                                </div>
-                              ) : <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5 text-muted-foreground">{t('courseAssignments.ui.notRequired')}</span>}
-                            </td>
-                            <td className="p-2 align-top">
-                              <Button
-                                data-testid="assignment-primary-line"
-                                className="h-9 whitespace-nowrap text-sm leading-5"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleUnenroll(e)}
-                                disabled={sourceInfo.managedByRule}
-                              >
-                                {sourceInfo.managedByRule ? t('assignmentSources.managedByRule') : t('common.delete')}
-                              </Button>
-                              {canManageAssignments && e.source === 'manual' && e.status !== 'cancelled' && e.status !== 'superseded' && (
-                                <div className="mt-2 space-y-2">
-                                  {repeatTarget === e.id ? (
-                                    <>
-                                      <label className="block text-xs" htmlFor={`repeat-reason-${e.id}`}>{t('courseAssignments.repeat.reason')}</label>
-                                      <Input id={`repeat-reason-${e.id}`} value={repeatReasons[e.id] || ''} onChange={(event) => setRepeatReasons((current) => ({ ...current, [e.id]: event.target.value}))} />
-                                      <p className="text-xs text-muted-foreground">{t('courseAssignments.repeat.historyPreserved')}</p>
-                                      <Button size="sm" disabled={!repeatReasons[e.id]?.trim() || repeating} onClick={() => void repeatEnrollment(e)}>{t('courseAssignments.repeat.confirm')}</Button>
-                                    </>
-                                  ) : <Button variant="outline" size="sm" onClick={() => setRepeatTarget(e.id)}>{t('courseAssignments.repeat.action')}</Button>}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {filteredEnrollments.map((enrollment) => renderEnrollment(enrollment))}
                     </tbody>
                   </Table>
+                  )
                 )}
               </>
             )}

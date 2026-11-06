@@ -2,6 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+:root:not(.dark):has([data-methodologist-workspace="true"]) {
+  --background: 50 27% 96%;
+  --foreground: 218 36% 19%;
+  --primary: 215 53% 41%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 214 38% 95%;
+  --muted-foreground: 216 23% 41%;
+  --border: 214 34% 89%;
+  --ring: 215 53% 41%;
+}
+
+[data-methodologist-workspace] [data-workspace-header] > div:first-child > span[aria-hidden] {
+  display: none;
+}
+
+.methodologist-split {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .methodologist-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
+  }
+}
+
 @layer base {
   :root {
     --background: 36 33% 97%;

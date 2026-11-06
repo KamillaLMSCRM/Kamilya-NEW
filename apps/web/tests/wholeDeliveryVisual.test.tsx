@@ -87,6 +87,7 @@ describe('delivery rendered compositions', () => {
     assignmentReads();
     window.history.replaceState({}, '', '/assignments?courseId=course');
     render(<CourseAssignmentsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: /Полная таблица|Full table/ }));
     const table = await screen.findByRole('table');
     const existing = panel('courses.enrollments');
     const audience = panel('courseAssignments.ui.learners');

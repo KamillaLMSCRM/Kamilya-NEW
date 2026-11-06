@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.75] - 2026-11-06
+
+### Changed
+
+- Group the methodologist workspace around tasks, courses, employees, assignments, and the training log, with details for the selected record.
+- Open staff and training records from the roster, and create branches or nested organizational units with an explicit parent.
+
 ## [0.11.74] - 2026-11-06
 
 ### Added

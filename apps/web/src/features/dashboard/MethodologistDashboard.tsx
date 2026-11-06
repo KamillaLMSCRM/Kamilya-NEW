@@ -24,7 +24,7 @@ import { buildTrainingLogBrowserHref, type TrainingLogFilters } from '@/app/admi
 
 const copy = {
   ru: {
-    title: 'Обзор обучения',
+    title: 'Задачи',
     subtitle: 'Приоритеты, ход обучения и контент, который требует действий.',
     newCourse: 'Создать курс',
     loading: 'Собираем актуальную картину обучения…',
@@ -81,7 +81,7 @@ const copy = {
     notStartedIssue: 'Не приступил',
   },
   en: {
-    title: 'Learning overview',
+    title: 'Tasks',
     subtitle: 'Priorities, training progress, and content that needs action.',
     newCourse: 'Create course',
     loading: 'Building the current learning picture…',
@@ -138,7 +138,7 @@ const copy = {
     notStartedIssue: 'Not started',
   },
   kk: {
-    title: 'Оқу шолуы',
+    title: 'Тапсырмалар',
     subtitle: 'Басымдықтар, оқу барысы және әрекетті қажет ететін контент.',
     newCourse: 'Курс жасау',
     loading: 'Оқудың өзекті көрінісін жинап жатырмыз…',
@@ -213,7 +213,7 @@ function DashboardContent() {
   const m = copy[lang as keyof typeof copy] ?? copy.ru;
   const w = workspaceCopy(lang);
   const [model, setModel] = useState<MethodologistDashboardModel | null>(null);
-  const [workView, setWorkView] = useState<'all' | 'training' | 'content'>('all');
+  const [workView, setWorkView] = useState<'all' | 'training' | 'content' | 'review'>('all');
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -237,6 +237,7 @@ function DashboardContent() {
             activeJobs: null,
             attentionJobs: null,
             jobs: [],
+            reviewCourses: [],
           },
         });
       });
@@ -297,6 +298,19 @@ function DashboardContent() {
       action: taskCopy.job,
     };
   });
+  const review = lang === 'kk' ? 'Тексеру' : lang === 'en' ? 'Review' : 'Проверка';
+  const openReview = lang === 'kk' ? 'Курсты тексеру' : lang === 'en' ? 'Review course' : 'Открыть проверку курса';
+  const reviewTasks: DashboardTask[] = (model?.content.reviewCourses ?? []).map((course) => ({
+    id: `review:${course.id}`,
+    title: course.title,
+    subtitle: review,
+    status: course.review_status === 'needs_changes'
+      ? (lang === 'kk' ? 'Түзету қажет' : lang === 'en' ? 'Changes requested' : 'Нужны правки')
+      : (lang === 'kk' ? 'Тексеруді күтуде' : lang === 'en' ? 'Awaiting review' : 'Ожидает проверки'),
+    details: [],
+    href: `/courses/${course.id}/edit`,
+    action: openReview,
+  }));
   const actionFocusHref = (focus: 'training' | 'weak_questions' | 'open' | 'overdue', issueType?: string) => {
     return `${buildTrainingLogBrowserHref({ filters: {}, search: '', returnTo: '/dashboard', action_focus: focus, issue_type: issueType as 'not_started' | 'stalled' | 'overdue' | 'failed_required_quiz' | undefined })}#learning-action-center`;
   };
@@ -310,7 +324,7 @@ function DashboardContent() {
         <div className="min-w-0 flex-1 basis-72"><h2 className="text-base font-semibold tracking-tight text-foreground">{w.queueTitle}</h2>
         <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">{w.queueHint}</p></div>
         <nav className="flex flex-wrap gap-2" aria-label={w.allWork}>
-          {([['all', w.allWork], ['training', w.trainingWork], ['content', w.contentWork]] as const).map(([value, label]) => (
+          {([['all', w.allWork], ['training', w.trainingWork], ['content', taskCopy.jobs], ['review', review]] as const).map(([value, label]) => (
             <button key={value} type="button" aria-pressed={workView === value} onClick={() => setWorkView(value)} className={`min-h-10 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${workView === value ? 'border-primary/30 bg-card text-primary' : 'border-transparent text-muted-foreground hover:bg-card/70'}`}>{label}</button>
           ))}
         </nav>
@@ -320,19 +334,25 @@ function DashboardContent() {
       {model && !model.learningAvailable && <div role="status" className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" /><p className="min-w-0 flex-1 basis-64">{m.unavailable}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="min-h-10 rounded-lg border border-current/20 px-3 py-2 text-sm font-medium">{w.retry}</button></div>}
 
       {model && <DashboardTaskQueue key={workView} lang={lang} groups={[
-        ...(workView !== 'content' && model.attention ? [{
+        ...((workView === 'all' || workView === 'training') && model.attention ? [{
           id: 'training', title: m.priorityPeople, tasks: trainingTasks, empty: m.noIssues,
           notice: model.attention.truncated ? m.moreItems : undefined,
           link: { href: actionCenterHref, label: m.allActions },
         }] : []),
-        ...(workView !== 'training' ? [{
+        ...((workView === 'all' || workView === 'content') ? [{
           id: 'generation', title: taskCopy.jobs, tasks: generationTasks,
           empty: model.content.jobsAvailable ? m.noJobs : m.jobsUnavailable,
           notice: model.content.jobsAvailable ? m.jobsScope : undefined,
         }] : []),
+        ...(workView === 'all' || workView === 'review' ? [{
+          id: 'review', title: review, tasks: reviewTasks,
+          empty: !model.content.coursesAvailable ? m.contentUnavailable
+            : lang === 'kk' ? 'Тексеруге курс жоқ.' : lang === 'en' ? 'No courses awaiting review.' : 'Нет курсов, ожидающих проверки.',
+          notice: model.content.coursesTruncated ? m.coursesTruncated : undefined,
+        }] : []),
       ]} />}
 
-      {workView !== 'content' && model?.training && model.attention && <div className="flex min-w-0 flex-col gap-6">
+      {(workView === 'all' || workView === 'training') && model?.training && model.attention && <div className="flex min-w-0 flex-col gap-6">
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
           <SectionHeading id="attention-title" title={m.attention} hint={m.attentionHint} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
           <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -359,7 +379,7 @@ function DashboardContent() {
         </section>
       </div>}
 
-      {workView !== 'training' && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
+      {(workView === 'all' || workView === 'content') && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
         <SectionHeading id="content-title" title={m.content} hint={m.contentHint} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
         {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         {model.content.coursesTruncated && <p className="mt-2 text-xs leading-5 text-muted-foreground">{m.coursesTruncated}</p>}

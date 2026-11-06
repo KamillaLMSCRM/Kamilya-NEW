@@ -27,6 +27,9 @@ import { Button, Card, CardContent, CardHeader, CardTitle, Modal } from '@/compo
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { apiErrorMessage } from '@/lib/apiErrorMessage';
 import { useAuthStore } from '@/store/authStore';
+import { EmployeeLearning } from './EmployeeLearning';
+import { MethodologistUnitTree } from './MethodologistUnitTree';
+import { RecordList } from '@/features/workspace-design/RecordList';
 import { WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 
 import {
@@ -76,7 +79,8 @@ export interface StaffWorkspaceProps {
   onAddEmployee: (unitId: string | null) => void;
   onEditEmployee: (employee: EditableEmployee) => void;
   onEditUnit: (unit: OrganizationUnitNode) => void;
-  onAddUnit: (parentId: string | null) => void;
+  onAddUnit: (parentId: string | null, choices?: StaffWorkspaceUnit[]) => void;
+  createdUnitId?: string;
   onArchiveUnit?: (unitId: string, name: string) => void;
   refreshKey: number;
 }
@@ -339,15 +343,24 @@ export function StaffWorkspace({
   onAddUnit,
   onArchiveUnit,
   refreshKey,
+  createdUnitId,
 }: StaffWorkspaceProps) {
   const { t } = useT();
   const copy = (key: string, params?: Record<string, string | number>) =>
     t(`authenticatedUi.staffWorkspaceSearch.${key}` as TranslationKey, params);
   const authUser = useAuthStore((state) => state.user);
+  const isMethodologist = authUser?.role === 'methodologist';
   const confirmationStorageKey = authUser?.tenant_id && authUser.user_id
     ? pendingConfirmationKey(authUser.tenant_id, authUser.user_id)
     : null;
-  const [location, setLocation] = useState<WorkspaceLocation>(readLocation);
+  const [location, setLocation] = useState<WorkspaceLocation>(() => {
+    const initial = readLocation();
+    if (isMethodologist && typeof window !== 'undefined' && !new URLSearchParams(window.location.search).has('staff_view')) {
+      return { ...initial, view: 'people', access: 'all' };
+    }
+    return initial;
+  });
+  const lastCreated = useRef<string>();
   const [overviewResponse, setOverviewResponse] = useState<StaffWorkspaceOverview | null>(null);
   const [overviewAccess, setOverviewAccess] = useState<StaffWorkspaceAccess | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
@@ -358,6 +371,9 @@ export function StaffWorkspace({
   const [reloadNonce, setReloadNonce] = useState(0);
   const [shownChildren, setShownChildren] = useState(CHILD_BATCH_SIZE);
   const [unitVisibility, setUnitVisibility] = useState<UnitVisibility>('active');
+  const previousRosterLocation = useRef<WorkspaceLocation | null>(null);
+  const [pickedEmployees, setPickedEmployees] = useState<string[]>([]);
+  const [employeeTab, setEmployeeTab] = useState<'learning' | 'profile'>('learning');
   const [detailView, setDetailView] = useState<DetailView>('people');
   const [queryDraft, setQueryDraft] = useState(location.query);
   const query = location.query;
@@ -447,6 +463,12 @@ export function StaffWorkspace({
     () => new Map((overview?.units || []).map((unit) => [unit.id, unit])),
     [overview],
   );
+  useEffect(() => {
+    if (!createdUnitId || lastCreated.current === createdUnitId || !unitsById.has(createdUnitId)) return;
+    lastCreated.current = createdUnitId;
+    navigate({ view: 'schema', unit: createdUnitId, scope: 'subtree', page: 1 });
+    window.requestAnimationFrame(() => focusHeading.current?.focus());
+  }, [createdUnitId, unitsById, navigate]);
   const selectedUnit = location.unit === 'all' || location.unit === 'unplaced'
     ? null
     : unitsById.get(location.unit) || null;
@@ -622,6 +644,25 @@ export function StaffWorkspace({
       page: 1,
     });
     window.requestAnimationFrame(() => focusHeading.current?.focus());
+  };
+
+  const showUnitRoster = (scope: StaffWorkspaceScope) => {
+    if (!previousRosterLocation.current) {
+      previousRosterLocation.current = { ...location, view: 'people', unit: 'all', scope: 'subtree' };
+    }
+    setQueryDraft('');
+    navigate({ view: 'people', scope, query: '', position: 'all', page: 1 });
+  };
+  const removeUnitScope = () => {
+    const previous = previousRosterLocation.current;
+    previousRosterLocation.current = null;
+    if (!previous) {
+      changeSearchScope({ unit: 'all', scope: 'subtree' });
+      return;
+    }
+    setQueryDraft(previous.query);
+    returnSearchFocus.current = true;
+    navigate(previous);
   };
 
   const handleTabKey = (event: ReactKeyboardEvent<HTMLButtonElement>, tabs: string[], current: string, select: (value: string) => void, focusPrefix = '') => {
@@ -861,6 +902,47 @@ export function StaffWorkspace({
       );
     }
     const items = compact ? roster.items.slice(0, 4) : roster.items;
+    if (isMethodologist && !compact) return <div className="space-y-3">
+      {pickedEmployees.length > 0 && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-primary/10 p-3 text-sm">
+        <strong>Выбрано: {pickedEmployees.length}</strong>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" size="sm" variant="ghost" onClick={() => setPickedEmployees([])}>Снять выбор</Button>
+          <Link className="inline-flex min-h-9 items-center rounded-lg bg-primary px-3 font-semibold text-primary-foreground"
+            href={`/assignments?${new URLSearchParams(pickedEmployees.map((id) => ['user_id', id]))}`}>Назначить курс</Link>
+        </div>
+      </div>}
+      <RecordList records={items} getId={(employee) => employee.id}
+      title={(employee) => employee.full_name}
+      description={(employee) => [employee.position_name, unitsById.get(employee.effective_unit_id ?? '')?.name].filter(Boolean).join(' · ')}
+      status={(employee) => accountLabel(employee.is_active)} detailsLabel={copy('employeeColumn')}
+      selection={(employee) => <input type="checkbox" className="mx-3 size-4 shrink-0 accent-primary"
+        aria-label={`Выбрать ${employee.full_name} для назначения`} checked={pickedEmployees.includes(employee.id)}
+        disabled={!employee.is_active || pickedEmployees.length >= 50 && !pickedEmployees.includes(employee.id)}
+        onChange={(event) => setPickedEmployees((ids) => event.target.checked ? [...ids, employee.id] : ids.filter((id) => id !== employee.id))} />}
+      renderDetails={(employee) => {
+        const effectiveUnit = unitsById.get(employee.effective_unit_id ?? '');
+        const journalSearch = employee.personnel_number || employee.full_name.split(' ').at(-1) || employee.full_name;
+        return <div className="space-y-4 p-4 sm:p-5">
+          <div><h3 className="text-xl font-semibold [overflow-wrap:anywhere]">{employee.full_name}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{employee.position_name || 'Должность не указана'}</p></div>
+          <div className="flex gap-3 border-b border-border pb-2">
+            <Button type="button" size="sm" variant={employeeTab === 'learning' ? 'default' : 'ghost'} aria-pressed={employeeTab === 'learning'} onClick={() => setEmployeeTab('learning')}>Обучение</Button>
+            <Button type="button" size="sm" variant={employeeTab === 'profile' ? 'default' : 'ghost'} aria-pressed={employeeTab === 'profile'} onClick={() => setEmployeeTab('profile')}>Профиль</Button>
+          </div>
+          {employeeTab === 'learning' ? <EmployeeLearning key={employee.id} employee={employee} /> : <div className="grid gap-3 rounded-xl bg-muted/50 p-3 text-sm sm:grid-cols-2">
+            <div><p className="text-xs text-muted-foreground">Подразделение</p><p>{effectiveUnit ? unitLabel(effectiveUnit) : 'Без подразделения'}</p></div>
+            <div><p className="text-xs text-muted-foreground">Учётная запись</p><p>{accountLabel(employee.is_active)}</p><p className="text-xs [overflow-wrap:anywhere]">{employeeIdentity(employee)}</p></div>
+          </div>}
+          {employee.hr_managed && <p className="text-xs font-medium text-warning">Управляется HR-системой: ручной перевод заблокирован.</p>}
+          <div className="flex flex-wrap gap-2">
+            {employee.is_active && <Link className="inline-flex min-h-10 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground" href={`/assignments?user_id=${encodeURIComponent(employee.id)}`}>Назначить курс</Link>}
+            <Link className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-semibold text-primary" href={`/training-log?search=${encodeURIComponent(journalSearch)}`}>Найти в журнале</Link>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onEditEmployee(employee)}>Изменить</Button>
+            <Button type="button" variant="outline" size="sm" disabled={employee.hr_managed || Boolean(pendingConfirmationId)} onClick={() => openEmployeeChange(employee)}>Перевести</Button>
+          </div>
+        </div>;
+      }} />
+    </div>;
     return (
       <div className={compact ? 'divide-y divide-border' : 'divide-y divide-border px-4'}>
         {!compact && <div className="hidden gap-3 py-3 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_12rem]" aria-hidden="true">
@@ -968,7 +1050,7 @@ export function StaffWorkspace({
         </div>
         <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
           <Button type="button" size="sm" disabled={Boolean(selectedUnit && !selectedUnit.is_active)} onClick={() => onAddEmployee(selectedUnit?.id || null)}><Plus className="mr-1.5 h-4 w-4" aria-hidden="true" />Сотрудник</Button>
-          {selectedUnit && <Button type="button" variant="outline" size="sm" disabled={!selectedUnit.is_active} onClick={() => onAddUnit(selectedUnit.id)}>Подразделение</Button>}
+          {selectedUnit && <Button type="button" variant="outline" size="sm" disabled={!selectedUnit.is_active} onClick={() => onAddUnit(selectedUnit.id, overview?.units)}>Добавить сюда</Button>}
           {selectedUnit && <Button type="button" variant="ghost" size="sm" disabled={!selectedUnit.is_active || selectedUnit.hr_managed} onClick={() => onEditUnit(toOrganizationUnitNode(selectedUnit, overview?.units || [], overview?.positions || []))}>Изменить</Button>}
           {selectedUnit && <Button type="button" variant="outline" size="sm" disabled={selectedUnit.hr_managed || !selectedUnit.is_active || Boolean(pendingConfirmationId)} onClick={() => openUnitChange(selectedUnit)}>Переместить</Button>}
           {selectedUnit && onArchiveUnit && selectedUnit.is_active && !selectedUnit.is_head_office && !selectedUnit.hr_managed && (
@@ -1010,17 +1092,17 @@ export function StaffWorkspace({
 
   return (
     <section id="staff-structure" data-redesign-page="staff-structure" aria-label="Рабочее пространство сотрудников" className="space-y-5">
-      <WorkspaceToolbar className="items-center justify-between">
+      <WorkspaceToolbar className={isMethodologist ? "items-center justify-end" : "items-center justify-between"}>
       <div role="tablist" aria-label="Представление структуры" className="flex flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
-        {(['schema', 'people'] as WorkspaceView[]).map((tab) => (
-          <TabButton key={tab} tabKey={tab} selected={location.view === tab} controls="staff-workspace-panel" onClick={() => navigate({ view: tab, page: 1 })} onKeyDown={(event) => handleTabKey(event, ['schema', 'people'], location.view, (value) => navigate({ view: value as WorkspaceView, page: 1 }))}>
-            {tab === 'schema' ? 'Схема' : 'Сотрудники'}
+        {((isMethodologist ? ['people', 'schema'] : ['schema', 'people']) as WorkspaceView[]).map((tab) => (
+          <TabButton key={tab} tabKey={tab} selected={location.view === tab} controls="staff-workspace-panel" onClick={() => navigate({ view: tab, page: 1 })} onKeyDown={(event) => handleTabKey(event, isMethodologist ? ['people', 'schema'] : ['schema', 'people'], location.view, (value) => navigate({ view: value as WorkspaceView, page: 1 }))}>
+            {isMethodologist ? (tab === 'schema' ? 'Структура' : 'Список') : (tab === 'schema' ? 'Схема' : 'Сотрудники')}
           </TabButton>
         ))}
       </div>
       <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" disabled={Boolean(selectedUnit && !selectedUnit.is_active)} onClick={() => onAddUnit(selectedUnit?.id || null)}><Building2 className="mr-2 h-4 w-4" aria-hidden="true" />Добавить подразделение</Button>
-          <Button type="button" disabled={Boolean(selectedUnit && !selectedUnit.is_active)} onClick={() => onAddEmployee(selectedUnit?.id || null)}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Добавить сотрудника</Button>
+          {(!isMethodologist || location.view === 'schema') && <Button type="button" variant="outline" onClick={() => onAddUnit(null, overview.units)}><Building2 className="mr-2 h-4 w-4" aria-hidden="true" />Добавить подразделение</Button>}
+          {!isMethodologist && <Button type="button" disabled={Boolean(selectedUnit && !selectedUnit.is_active)} onClick={() => onAddEmployee(selectedUnit?.id || null)}><Plus className="mr-2 h-4 w-4" aria-hidden="true" />Добавить сотрудника</Button>}
       </div>
       </WorkspaceToolbar>
 
@@ -1083,7 +1165,8 @@ export function StaffWorkspace({
         {location.unit === 'unplaced' && <><span aria-hidden="true">/</span><span>Без подразделения</span></>}
       </nav>
 
-      <div id="staff-workspace-panel" role="tabpanel" className={`grid min-w-0 items-start gap-5 ${detailPanel ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]' : ''}`}>
+      <div id="staff-workspace-panel" role="tabpanel" className={location.view === 'schema' && isMethodologist ? 'methodologist-split' : `grid min-w-0 items-start gap-5 ${detailPanel ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]' : ''}`}>
+        {location.view === 'schema' && isMethodologist && <MethodologistUnitTree units={overview.units} selected={location.unit} total={overview.total} unplaced={overview.unplaced_count} onSelect={selectUnit} add={undefined} />}
         {location.view === 'schema' ? (
           <WorkspacePanel title="Схема подразделений" description="Линия вложенности показывает место в структуре, а не личную подчинённость." actions={selectedUnit?.parent_id !== undefined && selectedUnit ? (
                 <Button type="button" variant="ghost" size="sm" onClick={() => selectUnit(selectedUnit.parent_id || 'all')}>↑ К родителю</Button>
@@ -1098,6 +1181,10 @@ export function StaffWorkspace({
                   <span><strong className="block text-xl">{children.length}</strong>дочерних</span>
                 </div>
               </div>
+              {isMethodologist && <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" onClick={() => showUnitRoster(location.unit === 'unplaced' ? 'direct' : 'subtree')}>Показать сотрудников{selectedUnit ? ' ветки' : ''}</Button>
+                {selectedUnit && <Button type="button" variant="outline" onClick={() => showUnitRoster('direct')}>Только это подразделение</Button>}
+              </div>}
               {location.unit !== 'unplaced' && (
                 <div className="mt-4 flex flex-wrap justify-center gap-2" role="group" aria-label="Видимость подразделений">
                   <Button
@@ -1179,7 +1266,7 @@ export function StaffWorkspace({
               </div>
               {(query || narrowedScope) && <div className="mt-2 flex flex-wrap gap-2">
                 {query && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removeQuery')} onClick={clearQuery}>{copy('queryChip', { query })}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
-                {location.unit !== 'all' && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removeUnit')} onClick={() => changeSearchScope({ unit: 'all', scope: 'subtree' })}>{searchScope}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
+                {location.unit !== 'all' && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removeUnit')} onClick={removeUnitScope}>{searchScope}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
                 {location.access !== 'all' && <Button type="button" variant="outline" size="sm" aria-label={copy('removeAccess')} onClick={() => changeSearchScope({ access: 'all' })}>{copy(location.access === 'active' ? 'accessActive' : 'accessInactive')}<X className="ml-2 h-3 w-3" aria-hidden="true" /></Button>}
                 {positionFilter !== 'all' && <Button type="button" variant="outline" size="sm" className="h-auto max-w-full whitespace-normal py-1 text-left" aria-label={copy('removePosition')} onClick={() => changeSearchScope({ position: 'all' })}>{positionFilter === 'missing' ? copy('missingPosition') : overview.positions.find((position) => position.id === positionFilter)?.name || copy('position')}<X className="ml-2 h-3 w-3 shrink-0" aria-hidden="true" /></Button>}
               </div>}

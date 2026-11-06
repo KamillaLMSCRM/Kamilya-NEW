@@ -108,12 +108,13 @@ describe('workforce rendered page compositions', () => {
       '/v1/organization-units/employees': { items: [], total: 0, page: 1, page_size: 20 },
     });
     render(<StaffWorkspace refreshKey={0} onAddEmployee={vi.fn()} onEditEmployee={vi.fn()} onEditUnit={vi.fn()} onAddUnit={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Структура' }));
     const open = await screen.findByRole('button', { name: 'Открыть подразделение: Operations' });
-    expect(screen.getByRole('tablist', { name: 'Представление структуры' }).closest('[data-workspace-toolbar]')).toContainElement(screen.getByRole('button', { name: 'Добавить сотрудника' }));
+    expect(screen.getByRole('tablist', { name: 'Представление структуры' }).closest('[data-workspace-toolbar]')).toContainElement(screen.getByRole('button', { name: 'Добавить подразделение' }));
     expect(panelFor('Схема подразделений').getByRole('button', { name: 'Открыть подразделение: Operations' })).toBe(open);
     fireEvent.click(open);
     expect(await screen.findByRole('tablist', { name: 'Содержимое подразделения' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('tab', { name: 'Сотрудники' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Список' }));
     expect(await screen.findByLabelText('authenticatedUi.staffWorkspaceSearch.searchLabel')).toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get('staff_unit')).toBe('unit');
     expect(mocks.api.post).not.toHaveBeenCalled();

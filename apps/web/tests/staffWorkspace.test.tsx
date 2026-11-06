@@ -131,14 +131,14 @@ describe('StaffWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Открыть подразделение: Головной офис' }));
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('staff_unit')).toBe('root-1'));
 
-    const schemaTab = screen.getByRole('tab', { name: 'Схема' });
+    const schemaTab = screen.getByRole('tab', { name: 'Структура' });
     fireEvent.keyDown(schemaTab, { key: 'ArrowRight' });
-    await waitFor(() => expect(screen.getByRole('tab', { name: 'Сотрудники' })).toHaveAttribute('aria-selected', 'true'));
+    await waitFor(() => expect(screen.getByRole('tab', { name: 'Список' })).toHaveAttribute('aria-selected', 'true'));
     expect(screen.getByText(/Фильтр «Доступ к кабинету» показывает, может ли сотрудник войти в систему/)).toBeInTheDocument();
     expect(screen.getByText(/Это не кадровый статус и не признак трудоустройства/)).toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get('staff_view')).toBe('people');
     expect(new URLSearchParams(window.location.search).get('tab')).toBe('structure');
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Сотрудники' })));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Список' })));
 
     window.history.pushState({}, '', '/admin/staff?tab=structure&staff_view=schema&staff_unit=unplaced&staff_scope=direct&staff_access=all&staff_page=1');
     act(() => window.dispatchEvent(new PopStateEvent('popstate')));
@@ -369,14 +369,14 @@ describe('StaffWorkspace', () => {
 
     render(<StaffWorkspace {...defaultProps} />);
     fireEvent.change(await screen.findByRole('combobox', { name: 'Доступ к кабинету' }), { target: { value: 'inactive' } });
-    expect(await screen.findByText('Поздний неактивный сотрудник')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Поздний неактивный сотрудник/ })).toBeInTheDocument();
 
     await act(async () => {
       resolveActive?.({ data: roster });
       await activeResponse;
     });
     expect(screen.queryByText('Айгерим Садыкова')).not.toBeInTheDocument();
-    expect(screen.getByText('Поздний неактивный сотрудник')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Поздний неактивный сотрудник/ })).toBeInTheDocument();
   });
 
   it('shows a shared position from effective unit counts even when its fallback department differs', async () => {
@@ -454,7 +454,7 @@ describe('StaffWorkspace', () => {
 
     render(<StaffWorkspace {...defaultProps} />);
 
-    expect(await screen.findByText('Айгерим Садыкова')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Айгерим Садыкова/ })).toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get('staff_unit')).toBe('all');
     expect(getMock.mock.calls.filter(([url]) => url === '/v1/organization-units/employees')).toHaveLength(1);
   });
@@ -561,7 +561,7 @@ describe('StaffWorkspace', () => {
 
     expect(await screen.findAllByText('Архивное подразделение')).not.toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Сотрудник' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Подразделение' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Добавить сюда' })).toBeDisabled();
     expect(screen.getAllByRole('button', { name: 'Изменить' }).some((button) => button.hasAttribute('disabled'))).toBe(true);
     expect(screen.getAllByRole('button', { name: 'Переместить' }).some((button) => button.hasAttribute('disabled'))).toBe(true);
     expect(screen.queryByRole('button', { name: 'Архивировать подразделение' })).not.toBeInTheDocument();

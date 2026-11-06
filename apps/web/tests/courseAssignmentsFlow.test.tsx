@@ -218,6 +218,7 @@ describe('contextual course assignment flow', () => {
     expect(assignmentGrid?.children[0]).toHaveClass('min-w-0');
     expect(assignmentGrid?.children[1]).toHaveClass('min-w-0');
     expect(courseSelect).toHaveClass('w-full', 'min-w-0', 'max-w-full');
+    fireEvent.click(await screen.findByRole('button', { name: /Полная таблица|Full table/ }));
     await waitFor(() => expect(screen.getAllByText('Алия Садыкова')).toHaveLength(2));
 
     // The staff card may render before the separate enrollment request settles.
@@ -251,7 +252,11 @@ describe('contextual course assignment flow', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: 'Назначить повторно' })).toHaveLength(1));
     expect(fetchMock.mock.calls.every(([, init]) => !init?.method || init.method === 'GET')).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Показать все назначения' }));
-    expect(screen.getAllByRole('button', { name: 'Назначить повторно' })).toHaveLength(2);
+    const rows = screen.getAllByRole('button', { pressed: false }).filter((button) => button.hasAttribute('aria-controls'));
+    expect(rows).toHaveLength(1);
+    fireEvent.click(rows[0]);
+    expect(rows[0]).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Назначить повторно' })).toBeInTheDocument();
     expect(confirmMock).not.toHaveBeenCalled();
   });
 

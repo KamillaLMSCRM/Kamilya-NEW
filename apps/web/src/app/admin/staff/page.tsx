@@ -550,7 +550,7 @@ export default function AdminStaffPage() {
     : positionOptions;
 
   return (
-    <WorkspacePage id="staff" title={t("staffPage.title")} description={t("staffPage.subtitle")} icon={<Users />} className="mx-auto max-w-7xl px-4 py-5 sm:p-6" actions={isStaffOwnersRole ? (
+    <WorkspacePage id="staff" title={t("staffPage.title")} description={t("staffPage.subtitle")} icon={<Users />} className="mx-auto max-w-7xl" actions={isStaffOwnersRole ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Link
           href="/invitations"
@@ -559,7 +559,8 @@ export default function AdminStaffPage() {
           <UserPlus className="h-4 w-4" aria-hidden="true" />
           {t("invitations.navLabel")}
         </Link>
-        {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && <Button type="button" onClick={() => setManualOpen(true)}>{ui("authenticatedUi.adminStaff.manual.addEmployee")}</Button>}
+        {STAFF_WORKSPACE_ENABLED && <Button type="button" variant="outline" onClick={() => selectTab(tab === "import" ? "structure" : "import")}><Upload className="mr-2 h-4 w-4" aria-hidden="true" />{t(tab === "import" ? "staffPage.tabs.structure" : "staffPage.tabs.import")}</Button>}
+        <Button type="button" onClick={() => { resetManualForm(); setManualOpen(true); }}>{ui("authenticatedUi.adminStaff.manual.addEmployee")}</Button>
       </div>
     ) : undefined}>
 
@@ -736,7 +737,7 @@ export default function AdminStaffPage() {
           )}
 
           {/* ADR-0011 + ADR-0012: import and structure are one URL-backed workspace. */}
-          <WorkspaceToolbar className="items-center justify-between">
+          {(!STAFF_WORKSPACE_ENABLED || tab === "import") && <WorkspaceToolbar className="items-center justify-between">
           <div role="tablist" className="flex min-w-0 flex-wrap gap-1 rounded-xl bg-muted/60 p-1">
             <button
               role="tab"
@@ -764,7 +765,7 @@ export default function AdminStaffPage() {
             </button>
           </div>
           {(!STAFF_WORKSPACE_ENABLED || tab !== "structure") && <p className="max-w-lg text-xs leading-5 text-muted-foreground">{ui("authenticatedUi.adminStaff.manual.intro")}</p>}
-          </WorkspaceToolbar>
+          </WorkspaceToolbar>}
 
           {applyTaskId && <ApplyRulesProgress taskId={applyTaskId} />}
 
@@ -1307,10 +1308,12 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
   const [archiveTarget, setArchiveTarget] = useState<{ id: string; name: string } | null>(null);
   const [archivingUnit, setArchivingUnit] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [createdUnitId, setCreatedUnitId] = useState<string>();
   const [unitModal, setUnitModal] = useState<{
     type: string;
     parentId?: string | null;
     parentName?: string;
+    parentChoices?: { id: string; label: string }[];
     unitId?: string;
     originalParentId?: string | null;
     isHeadOffice?: boolean;
@@ -1431,7 +1434,8 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
         };
         if (unitModal.isHeadOffice) body.is_head_office = true;
         if (unitModal.headUserId) body.head_user_id = unitModal.headUserId;
-        await api.post("/v1/organization-units", body);
+        const response = await api.post<{ id: string }>("/v1/organization-units", body);
+        setCreatedUnitId(response.data?.id);
         toast.success(unitModal.type === "branch"
           ? ui("authenticatedUi.adminStaff.structure.branchAdded")
           : unitModal.type === "department"
@@ -1695,7 +1699,13 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
         onAddEmployee={onAddEmployee}
         onEditEmployee={(employee) => { void openEmployeeEditor(employee.id); }}
         onEditUnit={openUnitEditor}
-        onAddUnit={(parentId) => setUnitModal({ type: "department", parentId })}
+        createdUnitId={createdUnitId}
+        onAddUnit={(parentId, units) => {
+          const parentChoices = units?.filter((unit) => unit.is_active)
+            .map((unit) => ({ id: unit.id, label: unit.breadcrumb.join(" / ") || unit.name }));
+          setUnitModal({ type: parentId ? "department" : "branch", parentId, parentChoices,
+            parentName: parentChoices?.find((option) => option.id === parentId)?.label });
+        }}
         onArchiveUnit={archiveUnit}
       />}
       {!STAFF_WORKSPACE_ENABLED && data && <section id="staff-structure" data-redesign-page="staff-structure" className="space-y-5">
@@ -2026,6 +2036,22 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
               </select>
               <span className="block text-xs text-muted-foreground">{ui("authenticatedUi.adminStaff.structure.trainingOwnerHint")}</span>
             </label>}
+            {!unitModal.unitId && unitModal.parentChoices && (
+              <label className="mt-5 block space-y-1 text-sm">
+                <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.parentUnit")}</span>
+                <select value={unitModal.parentId || ""} disabled={unitSaving}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2"
+                  onChange={(event) => {
+                    const parentId = event.target.value || null;
+                    setUnitModal((current) => current ? { ...current, parentId,
+                      parentName: current.parentChoices?.find((option) => option.id === parentId)?.label,
+                      isHeadOffice: parentId ? false : current.isHeadOffice } : current);
+                  }}>
+                  <option value="">{ui("authenticatedUi.adminStaff.structure.rootUnit")}</option>
+                  {unitModal.parentChoices.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+              </label>
+            )}
             {unitModal.unitId && data && (
               <div className="mt-5 space-y-2 text-sm">
                 <span className="font-medium">{ui("authenticatedUi.adminStaff.structure.parentUnit")}</span>

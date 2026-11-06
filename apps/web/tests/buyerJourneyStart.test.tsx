@@ -93,7 +93,7 @@ describe('buyer-journey START presentation', () => {
     render(<DashboardPage />);
 
     expect(await screen.findByText('Контент в работе')).toBeInTheDocument();
-    expect(screen.getByText('Failed course')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Failed course/ })).toBeInTheDocument();
     expect(screen.getByText('Unknown job')).toBeInTheDocument();
     expect(screen.getAllByText('Требует внимания').length).toBeGreaterThan(0);
   });
@@ -112,9 +112,9 @@ describe('buyer-journey START presentation', () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByText('Course being planned')).toBeInTheDocument();
-    expect(screen.getByText('Этап: проектирование структуры · заявка running-')).toBeInTheDocument();
-    expect(screen.getByText('В работе')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Course being planned/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Этап: проектирование структуры · заявка running-/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Course being planned.*В работе/ })).toBeInTheDocument();
   });
 
   it('ignores cancelled course jobs and non-course AI jobs', async () => {

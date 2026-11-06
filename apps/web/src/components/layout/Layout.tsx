@@ -162,7 +162,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <DemoLimitProvider>
       <SidebarContext.Provider value={{ collapsed }}>
-        <div data-app-workspace="v1" className="app-workspace min-h-screen bg-background text-foreground">
+        <div data-app-workspace="v1" data-methodologist-workspace={user?.role === 'methodologist' ? 'true' : undefined} className="app-workspace min-h-screen bg-background text-foreground">
           {(!focusedLearning || mobileSidebarOpen) && <Sidebar
             collapsed={collapsed}
             mobileOpen={mobileSidebarOpen}

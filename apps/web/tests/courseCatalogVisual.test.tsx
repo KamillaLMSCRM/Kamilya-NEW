@@ -136,7 +136,7 @@ describe('production course catalogue presentation', () => {
     const { container } = render(<CoursesPage />);
     await screen.findByRole('heading', { name: published.title });
     const card = results(container).querySelector<HTMLElement>('[data-course-card]')!;
-    expect(card.parentElement).toHaveClass('[grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]');
+    expect(card.closest('[data-methodologist-records]')).toHaveClass('methodologist-split');
     expect(card.parentElement).not.toHaveClass('md:grid-cols-2', 'xl:grid-cols-3');
 
     const edit = within(card).getByRole('link', { name: ru.common.edit });
@@ -164,10 +164,14 @@ describe('production course catalogue presentation', () => {
     await screen.findByRole('heading', { name: published.title });
     const list = within(results(container));
     expect(list.getByRole('link', { name: ru.authenticatedUi.course.assignEmployees })).toHaveAttribute('href', '/assignments?course_id=published-1');
+    fireEvent.click(list.getByRole('button', { name: /AI draft/ }));
     expect(list.getByText('AI')).toBeInTheDocument();
-    expect(list.getByText('SCORM')).toBeInTheDocument();
-    expect(list.getAllByText(ru.courses.reviewRequired)).toHaveLength(2);
+    expect(list.getByText(ru.courses.reviewRequired)).toBeInTheDocument();
     expect(list.getByRole('link', { name: ru.courses.reviewCourse })).toHaveAttribute('href', '/courses/ai-1/edit');
+    fireEvent.click(list.getByRole('button', { name: /SCORM course/ }));
+    expect(within(list.getByRole('region')).getByText('SCORM')).toBeInTheDocument();
+    fireEvent.click(list.getByRole('button', { name: /Адаптируемый курс/ }));
+    expect(list.getByText(ru.courses.reviewRequired)).toBeInTheDocument();
     expect(list.getByRole('link', { name: ru.courses.blueprint.open })).toHaveAttribute('href', `/courses/templates/${blueprint.id}?course_id=blueprint-1`);
     expect(apiMock.post).not.toHaveBeenCalled();
   });
@@ -331,7 +335,7 @@ describe('production course catalogue presentation', () => {
     const { container } = render(<CoursesPage />);
     fireEvent.click(await screen.findByRole('button', { name: ru.courses.unpublish }));
     await waitFor(() => expect(apiMock.post).toHaveBeenCalledWith('/v1/courses/published-1/unpublish'));
-    await screen.findByRole('heading', { name: draft.title });
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(draft.title) }));
     const card = within(results(container)).getByRole('heading', { name: draft.title }).closest('article')!;
     fireEvent.click(card.querySelector('summary')!);
     fireEvent.click(within(card).getByRole('button', { name: ru.dialogs.delete }));
