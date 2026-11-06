@@ -221,7 +221,7 @@ async def test_idempotency_preserves_receipt_and_rejects_key_reuse(monkeypatch):
     submitted = command(ReviewState(), "start")
     stored = SimpleNamespace(kind="queued", sequence=1, original_blob_sha256=doc.content_sha256,
                              payload={}, request_id=submitted.request_id, actor_id=actor,
-                             command_sha256=text_hash(submitted.model_dump_json()))
+                             command_sha256=text_hash(submitted.model_dump_json(exclude={"pages"})))
     monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=[stored]))
     db = SimpleNamespace(add=Mock(), flush=AsyncMock())
     _, _, receipt, _ = await apply_command(db, doc, actor, submitted)
@@ -229,6 +229,11 @@ async def test_idempotency_preserves_receipt_and_rejects_key_reuse(monkeypatch):
     db.add.assert_not_called()
     with pytest.raises(ReviewConflictError, match="request_id_conflict"):
         await apply_command(db, doc, actor, submitted.model_copy(update={"expected_revision": 1}))
+    with pytest.raises(ReviewConflictError, match="request_id_conflict"):
+        await apply_command(db, doc, actor, ReviewCommand(
+            expected_revision=0, action="start", request_id=submitted.request_id,
+            pages={"first_page": 3, "last_page": 9},
+        ))
 
 
 @pytest.mark.asyncio

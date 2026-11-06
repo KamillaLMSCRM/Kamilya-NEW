@@ -109,6 +109,11 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
             "journal": journal, "analysis": analysis, "receipt": public_event(receipt) if receipt else None}
 
 
+def _command_digest(command: ReviewCommand) -> str:
+    # Preserve the identity of requests recorded before page selection existed.
+    return text_hash(command.model_dump_json(exclude={"pages"} if command.pages is None else None))
+
+
 def add_event(
     db: AsyncSession, doc: Document, *, actor_id: UUID, sequence: int, kind: str, payload: dict[str, Any],
     command: ReviewCommand | None = None,
@@ -119,7 +124,7 @@ def add_event(
     row = Event(id=uuid4(), document_id=UUID(str(doc.id)), tenant_id=UUID(str(doc.tenant_id)),
                 actor_id=actor_id, sequence=sequence, kind=kind, original_blob_sha256=blob, payload=payload,
                 request_id=command.request_id if command else None,
-                command_sha256=text_hash(command.model_dump_json()) if command else None)
+                command_sha256=_command_digest(command) if command else None)
     db.add(row)
     return row
 
@@ -131,7 +136,7 @@ async def apply_command(
     state = read_state(rows, doc.content_sha256)
     duplicate = next((row for row in rows if row.request_id == command.request_id), None)
     if duplicate:
-        if duplicate.actor_id != actor_id or duplicate.command_sha256 != text_hash(command.model_dump_json()):
+        if duplicate.actor_id != actor_id or duplicate.command_sha256 != _command_digest(command):
             raise ReviewConflictError("source_review_request_id_conflict")
         return rows, state, duplicate, duplicate.kind == "queued" and state.status == "queued" and rows[-1] is duplicate
     if latest_status(rows) == "interrupted":
