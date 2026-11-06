@@ -59,9 +59,12 @@ from app.modules.admin.runtime_configuration.runtime import resolve_runtime_sett
 from app.modules.ai import timeout_context
 from app.modules.ai.embedding_space import EmbeddingSpace
 
-RequestProfile = Literal["evidence_low", "course_generation"]
-_REQUEST_PROFILES = (None, "evidence_low", "course_generation")
+RequestProfile = Literal["evidence_low", "course_generation", "course_generation_extended"]
+_COURSE_REQUEST_PROFILES = ("course_generation", "course_generation_extended")
+_REQUEST_PROFILES = (None, "evidence_low", *_COURSE_REQUEST_PROFILES)
 COURSE_GENERATION_MAX_TOKENS = 16384
+EXTENDED_COURSE_GENERATION_MAX_TOKENS = 65536
+EXTENDED_COURSE_GENERATION_SECONDS = 240
 
 EmbeddingProviderProgressCallback = Callable[[int, int, str], Awaitable[None]]
 EmbeddingProgressCallback = Callable[[int, int, str, int], Awaitable[None]]
@@ -237,9 +240,16 @@ def _managed_profile_attempt(
     request_profile: RequestProfile,
 ) -> tuple[LLMProviderConfig, int, float]:
     """Return one request-local managed DeepSeek attempt configuration."""
-    deadline = policy.number("provider.deepseek.timeout_seconds" if request_profile == "course_generation"
-                             else f"{request_profile}.deepseek_seconds")
-    transport_timeout = max(config.timeout, deadline) if request_profile == "course_generation" else config.timeout
+    if request_profile == "course_generation_extended":
+        deadline = float(EXTENDED_COURSE_GENERATION_SECONDS)
+        max_tokens = EXTENDED_COURSE_GENERATION_MAX_TOKENS
+    elif request_profile == "course_generation":
+        deadline = policy.number("provider.deepseek.timeout_seconds")
+        max_tokens = COURSE_GENERATION_MAX_TOKENS
+    else:
+        deadline = policy.number(f"{request_profile}.deepseek_seconds")
+        max_tokens = policy.integer(f"{request_profile}.max_tokens")
+    transport_timeout = max(config.timeout, deadline) if request_profile in _COURSE_REQUEST_PROFILES else config.timeout
     return (
         replace(
             config,
@@ -251,7 +261,7 @@ def _managed_profile_attempt(
                 "reasoning_effort": "low",
             },
         ),
-        COURSE_GENERATION_MAX_TOKENS if request_profile == "course_generation" else policy.integer(f"{request_profile}.max_tokens"),
+        max_tokens,
         deadline,
     )
 
@@ -1208,7 +1218,7 @@ class ResilientLLMClient:
                         attempt_config, profile_policy, request_profile,
                     )
                     attempt_deadline = profile_deadline
-                    if request_profile == "course_generation" and client.name in deadline_overrides:
+                    if request_profile in _COURSE_REQUEST_PROFILES and client.name in deadline_overrides:
                         attempt_deadline = min(attempt_deadline, deadline_overrides[client.name])
                 if attempt_deadline is None:
                     return await client.ainvoke(messages, config=config, response_format=provider_response_format)

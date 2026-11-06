@@ -7,6 +7,7 @@ from app.modules.ai.v3.native_profile_binding import KEY as PROFILE_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 from app.modules.ai.v3.revision_policy import (
     CANONICAL_EDITORIAL_REVIEW_POLICY,
+    EDITORIAL_ORDINARY_EXTENDED_MARKER,
     EDITORIAL_ORDINARY_KEY,
     EDITORIAL_ORDINARY_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
@@ -22,8 +23,13 @@ def test_ordinary_route_rejects_mixed_or_mismatched_markers():
                 stored=None, dispatched=None, ordinary_stored=EDITORIAL_ORDINARY_MARKER,
                 ordinary_dispatched=EDITORIAL_ORDINARY_MARKER)
     assert editorial_route_worker_valid(**args)
+    assert editorial_route_worker_valid(**(args | {
+        'ordinary_stored': EDITORIAL_ORDINARY_EXTENDED_MARKER,
+        'ordinary_dispatched': EDITORIAL_ORDINARY_EXTENDED_MARKER,
+    }))
     for change in ({'tenant_id': QA_TENANT}, {'user_id': None}, {'course_id': uuid4()},
                    {'ordinary_stored': None}, {'ordinary_dispatched': 'forged'},
+                   {'ordinary_dispatched': EDITORIAL_ORDINARY_EXTENDED_MARKER},
                    {'stored': 'qa'}, {'qa_dispatched': 'unknown'}, {'qa_stored': 'unknown'}):
         assert not editorial_route_worker_valid(**(args | change))
 

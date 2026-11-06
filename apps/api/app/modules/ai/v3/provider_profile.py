@@ -18,7 +18,13 @@ from uuid import UUID
 
 from app.modules.admin.runtime_configuration.catalog import RuntimeSnapshot
 from app.modules.admin.runtime_configuration.runtime import runtime_settings_scope
-from app.modules.ai.llm_client import COURSE_GENERATION_MAX_TOKENS, ResilientLLMClient
+from app.modules.ai.llm_client import (
+    COURSE_GENERATION_MAX_TOKENS,
+    EXTENDED_COURSE_GENERATION_MAX_TOKENS,
+    EXTENDED_COURSE_GENERATION_SECONDS,
+    RequestProfile,
+    ResilientLLMClient,
+)
 from app.modules.ai.source_first_response import parse_source_first_response
 from app.modules.ai.v3.rejected_artifact import ModelArtifactRejectedError
 from app.modules.ai.v3.stage_checkpoint import _digest
@@ -43,14 +49,19 @@ def _policy_digest(policy: RuntimeSnapshot, values: Mapping[str, object]) -> str
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 
-def _effective_profile_values(policy: RuntimeSnapshot, client: ResilientLLMClient) -> dict[str, object]:
+def _effective_profile_values(
+    policy: RuntimeSnapshot, client: ResilientLLMClient, request_profile: RequestProfile,
+) -> dict[str, object]:
     from app.modules.ai.v3.local_deepseek_dev import (
         GENERATION_SECONDS,
         THINKING_BUDGET,
         is_local_deepseek_dev_client,
     )
     values = _profile_values(policy)
-    if is_local_deepseek_dev_client(client):
+    if request_profile == "course_generation_extended":
+        values.update(deepseek_seconds=EXTENDED_COURSE_GENERATION_SECONDS,
+                      max_tokens=EXTENDED_COURSE_GENERATION_MAX_TOKENS)
+    elif is_local_deepseek_dev_client(client):
         values.update(local_generation_seconds=GENERATION_SECONDS, thinking_budget=THINKING_BUDGET,
                       structured_output_mode='prompt_json')
     return values
@@ -60,20 +71,29 @@ class V3ProfiledClient:
     """Apply the fresh V3 course-generation profile to one resolved client."""
 
     def __init__(self, client: ResilientLLMClient, policy: RuntimeSnapshot, *, job_id: str,
-                 cooperative_deadline: bool = False):
+                 cooperative_deadline: bool = False, extended_output: bool = False):
         if type(client) is not ResilientLLMClient:
             raise TypeError("v3_provider_profile_client_invalid")
         if not isinstance(policy, RuntimeSnapshot):
             raise TypeError("v3_provider_profile_policy_invalid")
         if type(cooperative_deadline) is not bool:
             raise ValueError("v3_provider_cooperative_deadline_invalid")
+        if type(extended_output) is not bool or extended_output and not cooperative_deadline:
+            raise ValueError("v3_provider_extended_output_invalid")
         if cooperative_deadline and type(policy.values.get("provider.deepseek.timeout_seconds")) not in (int, float):
             raise ValueError("v3_provider_cooperative_deadline_invalid")
         self._client = client
         self._policy = policy
         self._job_id = job_id
         self._base_fingerprint = client.cache_fingerprint()
-        self._values = _effective_profile_values(policy, client)
+        managed_deepseek = any(
+            provider.name == "deepseek" and provider.config.managed_evidence_profile
+            for provider in client._clients
+        )
+        self._request_profile: RequestProfile = (
+            "course_generation_extended" if extended_output and managed_deepseek else "course_generation"
+        )
+        self._values = _effective_profile_values(policy, client, self._request_profile)
         seconds = self._values.get('local_generation_seconds', self._values["deepseek_seconds"])
         self._generation_deadline_seconds: float | None = None
         if cooperative_deadline:
@@ -103,7 +123,9 @@ class V3ProfiledClient:
     def _assert_identity(self) -> None:
         if self._client.cache_fingerprint() != self._base_fingerprint:
             raise RuntimeError("v3_provider_profile_route_changed")
-        if _policy_digest(self._policy, _effective_profile_values(self._policy, self._client)) != self._policy_identity:
+        if _policy_digest(self._policy, _effective_profile_values(
+            self._policy, self._client, self._request_profile,
+        )) != self._policy_identity:
             raise RuntimeError("v3_provider_profile_policy_changed")
 
     async def ainvoke(
@@ -117,11 +139,11 @@ class V3ProfiledClient:
             with runtime_settings_scope(self._policy):
                 if self.generation_deadline_seconds is None:
                     response = await self._client.ainvoke(messages, config=config, response_format=response_format,
-                                                          request_profile="course_generation")
+                                                          request_profile=self._request_profile)
                 else:
                     async with asyncio.timeout(self.generation_deadline_seconds):
                         response = await self._client.ainvoke(messages, config=config, response_format=response_format,
-                                                              request_profile="course_generation")
+                                                              request_profile=self._request_profile)
             try:
                 if (getattr(response, "finish_reason", None) in {"length", "content_filter"}
                         or getattr(response, "content_is_reasoning", False)):

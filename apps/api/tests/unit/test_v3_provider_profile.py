@@ -31,7 +31,8 @@ def client() -> llm_client.ResilientLLMClient:
 
 
 @pytest.mark.asyncio
-async def test_profile_enables_reasoning_without_mutating_client(monkeypatch):
+@pytest.mark.parametrize("extended", [False, True])
+async def test_profile_enables_reasoning_without_mutating_client(monkeypatch, extended):
     seen: list[dict] = []
 
     async def request(_client, payload):
@@ -41,12 +42,14 @@ async def test_profile_enables_reasoning_without_mutating_client(monkeypatch):
     monkeypatch.setattr(llm_client.LLMClient, "_request", request)
     raw = client()
     before = [item.config for item in raw._clients]
-    profiled = V3ProfiledClient(raw, policy(), job_id=str(uuid4()))
+    profiled = V3ProfiledClient(raw, policy(), job_id=str(uuid4()), cooperative_deadline=True,
+                                extended_output=extended)
     result = await profiled.ainvoke("synthetic", response_format={"type": "json_object"})
     assert result.content == '{"ok":true}'
     assert seen[0]["thinking"] == {"type": "enabled"}
     assert seen[0]["reasoning_effort"] == "low"
-    assert seen[0]["max_tokens"] == 16384
+    assert seen[0]["max_tokens"] == (65536 if extended else 16384)
+    assert profiled.generation_deadline_seconds == (240 if extended else 120)
     assert [item.config for item in raw._clients] == before
 
 
@@ -116,6 +119,10 @@ def test_profile_fingerprint_binds_effective_policy():
     assert first.cache_fingerprint() != second.cache_fingerprint()
     same_effective = V3ProfiledClient(raw, policy(revision=999, seconds=120), job_id=str(uuid4()))
     assert first.cache_fingerprint() == same_effective.cache_fingerprint()
+    legacy_course = V3ProfiledClient(raw, policy(), job_id=str(uuid4()), cooperative_deadline=True)
+    extended_course = V3ProfiledClient(raw, policy(), job_id=str(uuid4()), cooperative_deadline=True,
+                                       extended_output=True)
+    assert legacy_course.cache_fingerprint() != extended_course.cache_fingerprint()
 
 
 @pytest.mark.asyncio

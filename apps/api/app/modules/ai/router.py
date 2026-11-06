@@ -551,7 +551,7 @@ async def submit_course_generation(
     from app.modules.ai.v3.revision_policy import (
         CANONICAL_EDITORIAL_REVIEW_POLICY,
         EDITORIAL_ORDINARY_KEY,
-        EDITORIAL_ORDINARY_MARKER,
+        EDITORIAL_ORDINARY_EXTENDED_MARKER,
         EDITORIAL_QA_KEY,
         SOURCE_CORE_QA_KEY,
         editorial_qa_admission_marker,
@@ -578,7 +578,7 @@ async def submit_course_generation(
 
             if tenant_id != QA_TENANT and isinstance(user.id, UUID):
                 analysis_payload['v3_review_policy'] = CANONICAL_EDITORIAL_REVIEW_POLICY
-                analysis_payload[EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_MARKER
+                analysis_payload[EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_EXTENDED_MARKER
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,
                 detail="completed_extraction_reuse_not_supported_for_practical_policy")

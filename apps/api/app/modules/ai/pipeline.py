@@ -614,6 +614,7 @@ async def _run_v3_generation(
     from app.modules.ai.v3.revision_policy import (
         EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
+        EDITORIAL_ORDINARY_EXTENDED_MARKER,
         editorial_route_worker_valid,
         is_editorial_policy,
         is_practical_policy,
@@ -782,9 +783,15 @@ async def _run_v3_generation(
             from app.modules.ai.v3.provider_profile import V3ProfiledClient
             from app.modules.ai.v3.revision_policy import REVIEW_POLICY
             cooperative_native = review_policy == REVIEW_POLICY or is_practical_policy(review_policy)
+            extended_output = (
+                is_editorial_policy(review_policy)
+                and isinstance(stored_analysis, dict)
+                and stored_analysis.get(EDITORIAL_ORDINARY_KEY) == EDITORIAL_ORDINARY_EXTENDED_MARKER
+            )
             generation_client = V3ProfiledClient(
                 generation_client, policy, job_id=state.job_id,
                 **({"cooperative_deadline": True} if cooperative_native else {}),
+                **({"extended_output": True} if extended_output else {}),
             )
             if cooperative_native:
                 journal.native_generation_seconds = generation_client.generation_deadline_seconds

@@ -127,6 +127,7 @@ def editorial_qa_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, co
 
 EDITORIAL_ORDINARY_KEY = 'v3_editorial_ordinary_marker'
 EDITORIAL_ORDINARY_MARKER = 'native-editorial-ordinary-v1'
+EDITORIAL_ORDINARY_EXTENDED_MARKER = 'native-editorial-ordinary-v2'
 
 
 def editorial_route_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any, course_id: Any,
@@ -145,7 +146,8 @@ def editorial_route_worker_valid(*, settings: Any, tenant_id: Any, user_id: Any,
     return (isinstance(tenant_id, UUID) and tenant_id != QA_TENANT and isinstance(user_id, UUID)
             and course_id is None and stored is None and dispatched is None
             and qa_stored is None and qa_dispatched is None
-            and ordinary_stored == ordinary_dispatched == EDITORIAL_ORDINARY_MARKER)
+            and ordinary_stored == ordinary_dispatched
+            and ordinary_stored in (EDITORIAL_ORDINARY_MARKER, EDITORIAL_ORDINARY_EXTENDED_MARKER))
 
 def read_review_policy(analysis: Any) -> str | None:
     if not isinstance(analysis, dict):

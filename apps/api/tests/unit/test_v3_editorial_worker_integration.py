@@ -23,8 +23,8 @@ from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
 from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 from app.modules.ai.v3.revision_policy import (
     CANONICAL_EDITORIAL_REVIEW_POLICY,
+    EDITORIAL_ORDINARY_EXTENDED_MARKER,
     EDITORIAL_ORDINARY_KEY,
-    EDITORIAL_ORDINARY_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EDITORIAL_QA_KEY,
     EDITORIAL_QA_MARKER,
@@ -178,7 +178,7 @@ async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, te
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored['v3_review_policy'] == expected
     assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
-    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_MARKER if tenant != QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_EXTENDED_MARKER if tenant != QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
 
 
 @pytest.mark.asyncio
