@@ -6080,3 +6080,32 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
   (historical≤30 and bothQA pairs preserved), independently reviewed103focused/
  6755unitPASS, baseline1009/2174. Needs worker-first DEV and actual nativeDeepSeek
   on authorized synthetic scope; no new native inference or production claim.
+
+## RUN-20261106-COURSE-FORMATS-078
+
+- Exact application `49902a0d45f55a736419acb8e1173d46613f63a8`, version
+  0.11.78. Feature CI 42255322104, DEV 42256812594, master 42262254415,
+  native 42258644993, protected production API/worker 42263254212. No migration.
+- DEV ordinary methodologist: nine formats PDF/DOC/DOCX/PPTX/TXT/MD/CSV/XLS/XLSX
+  passed source review, verified original and cleanup. 18 Luna 6 calls,
+  187,770 input / 5,356 output tokens, 1,093 seconds including cleanup. Scanned
+  owner-selected PDF invalid range + corrected retry independently passed
+  earlier exact 5a56115d. The v4 Excel case displayed one exact and one unbound
+  version of the same issue; it did not silently approve it.
+- DEV exact course smoke: approved PPTX generated 3 lessons/3 quizzes/6
+  questions. Production exact browser used a synthetic methodologist, uploaded
+  PPTX from the new workflow, verified SCORM intake missing and API 404,
+  resolved one ambiguity, verified history and immutable approval, and
+  generated 3 lessons/3 quizzes/9 questions. All rules, answers and literal
+  source quotes reviewed. Original bytes unchanged. Both disposable courses
+  and sources verified absent; no publication, assignment or invitations.
+- Public web/API and production three workers matched exact SHA, prior web
+  d573e656 and API 91f894d7 retained; no customer data changes. CT137 exact
+  obsolete 0.11.74 removed with verified off-host recovery, preserving current,
+  rollback and two explicitly protected releases. Production provider route
+  configuration stayed DeepSeek then Luna; final job did not expose actual
+  provider or generation usage, so neither is inferred.
+- Evidence under course-creation-ux-20261106/.release-evidence/format-r8:
+  format-matrix-summary.json, dev-synthetic-generation.json,
+  prod-synthetic-generation.json, prod-public.json, prod-api-live.json,
+  native-technical.json, and capacity-cleanup.json.

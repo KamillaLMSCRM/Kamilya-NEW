@@ -521,3 +521,9 @@ raw не является новым вызовом. Unknown dispatch не по�
 - Deterministic regressions include a wrong question link alongside a valid
   independent finding, a missing clue disposition and a correctly evidenced
   dismissal. DEV evidence: `.release-evidence/course-ux-dev-json-r7-probe.json`.
+- Exact DEV `49902a0d` passed Excel in 130 seconds with two Luna 6 calls and
+  no retry. It showed the conflict as an anchored open question. An additional
+  finding expressed the same conflict without exact table markers and remained
+  unbound; this is a known duplicate, not a lost or automatically resolved
+  question. No model response was used as a human decision. Exact product
+  proof is in `.release-evidence/format-r8/`.

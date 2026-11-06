@@ -1,4 +1,29 @@
-# General document review and PowerPoint intake — 2026-11-06
+# Course creation and document formats in production — 2026-11-06
+
+- result: 0.11.78, exact `49902a0d45f55a736419acb8e1173d46613f63a8`.
+  Public web, API and three production workers verified on the same release.
+  Master CI 42262254415, protected VM run 42263254212, native build 42258644993.
+- changed: Course creation, manual creation and generation history have separate
+  entry points. File search preserves the selection. Review is shared across
+  file types; only PDF offers optional pages. PPTX imports native slide text,
+  tables and notes. New SCORM imports are unavailable in the UI and API; the
+  existing player was preserved. No migration or customer data changes.
+- verified: All nine exact DEV formats reached review; 18 Luna 6 calls,
+  187,770 input / 5,356 output tokens. The scanned owner-selected PDF and retry
+  were verified separately on 5a56115d. The exact DEV browser and course check
+  saved 3 lessons and 6 questions. Exact production ordinary-role browser
+  accepted PPTX, rejected SCORM import and blocked generation until approval;
+  the approved course persisted 3 lessons, 3 quizzes and 9 checked questions.
+  All original bytes, approved snapshot hashes and literal question quotes
+  matched, and both full-journey fixtures were verified absent afterward.
+- blockers: None for this scoped release. One DEV XLSX conflict appeared twice
+  (one literal source question and one unbound duplicate); no automatic choice
+  was made. This release is not a new general engine quality acceptance.
+- next: Monitor ordinary use. The public rollback web is 0.11.76 d573e656;
+  previous API/worker image 91f894d7 retained. Exact receipts and cleanup are
+  under `.release-evidence/format-r8/`; ledger RUN-20261106-COURSE-FORMATS-078.
+
+# General document review and PowerPoint intake — 2026-11-06 (historical)
 
 - result: `feat/course-creation-ux-20261106` / PR 35. Exact DEV `54fc6927`
   passed Word conflict review and confirmed disabled new SCORM import. DEV
