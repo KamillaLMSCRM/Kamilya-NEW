@@ -6257,3 +6257,28 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
   focused tests, complete suites, isolated settings and read-only runtime receipt.
   No hosted DEV or production acceptance claim. Next: exactCI/image, DEV rollout,
   both real-file source-to-course and figure checks, then protected release.
+
+## RUN-20261107-SOURCE-PREPARATION-STAGED-RECOVERY
+
+- Scope: same owner-authorized two-file source parts/images package, current
+  feature branch. Local candidate is the commit containing this entry, not hosted.
+- Actual DEV debeccea PDFsource81:9images/3parts/pages3–9 selected, original and
+  protected image hashes/browser1440/390 PASS. PDF13completed model calls,
+  85525input/76358output tokens; content audit requires two ordinary source edits
+  and literal preservation of the reporting-line ambiguity before approval.
+- Cashsource85:10images/verified7part manifest durable; failed editor_request at
+  shared750s clock. Eleven completed calls47038input/74198output, plus at least
+  one unknown editor outcome/cost. No completed request or failed receipt relabeled.
+- Local recovery: API broad8090PASS/547SKIP (92.05s, not real DB evidence), web
+  1705PASS (93.99s) before final held-state case; final focused112API/15web PASS,
+  Pythonbaseline1010/2174, typecheck/lint/build PASS. Exact queued handoff, dispatch
+  loss, completed-response cold reuse, unknown fences/ACK and usage lineage tested
+  without providers. Stale legacy claims remain held for reconciliation.
+- Actual isolated Supabase recovery gate first BLOCKED concurrent-ACK assertion;
+  cleanuptrue/publicneutraltrue. Fixed revision precedence; fresh24184 PASS11checks,
+  cleanuptrue/publicneutraltrue/public0186. Existing historical pins/selection/RLS
+  checks also pass. No production or public business rows were written.
+- Graph navigation:2414CodeGraph files, Graphify28376nodes/85432edges/2447files,
+  excluded-path auditPASS, zero model calls. Source/test verification separate.
+- No new model request during recovery implementation. No customer/prod/billing/
+  role/provider setting changed. Hosted two-course and production acceptance open.

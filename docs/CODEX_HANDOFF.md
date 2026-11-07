@@ -1,4 +1,106 @@
-# Source preparation second candidate — 2026-11-07 06:00 UTC
+# Source preparation staged recovery candidate — 2026-11-07
+
+- result: Recovery implementation frozen for exact CI/DEV. Current hosted DEV
+  remains debeccea; production369f82a1 unchanged. Real PDFsource81 is in review;
+  cashsource85 failed after durable10images/verifiedmanifest. No full course yet.
+- changed: Durable per-request intents/results/usage, verified-manifest worker
+  handoff, before-POST budget deferral, exact queued-event redispatch and explicit
+  revision-bound unknown-outcome acknowledgement. Completed replies/images reuse;
+  ordinary retries after known rejection get a distinct bounded attempt. Legacy
+  interrupted running/analysis records remain held, not silently retried.
+- verified: Local broad API8090PASS/547SKIP (not real DB integration), web1705PASS
+  before final held-state case; final focused112API and15web PASS, typecheck/lint/
+  build and Pythonbaseline1010/2174 PASS. Independent Terra cross-review complete.
+  CodeGraph/Graphify prepared, exclusion auditPASS; handoff caller confirmed in
+  source/tests. Actual isolated recovery gate first failed concurrent ACK conflict
+  ordering with cleanup/publicneutraltrue; fixed revision precedence, focused
+  regression passes. Fresh gate24184 PASS11checks, disposable schema removed,
+  publicschema neutral/public0186. No production or public business rows written.
+- blockers: Not deployed/accepted. Unknown old cash editor response/cost remains
+  unknown. Managed non-200 status is not exposed by existing connector, so source
+  custody conservatively holds it; no provider/connector setting changed.
+- next: Exact CI/image/DEV update; use new evidence directory
+  .release-evidence/source-preparation-r3. resume-sources.cjs is PREPARED NOT RUN:
+  explicit ordinary-browser QA acknowledgement/new semantic attempt for failed85,
+  no repeated native image/parts calls; root audits full source before approvals.
+  Adapt complete-courses.cjs to the exact candidate and reviewed cash plan. Two
+  full courses, protected images/learner journey, conditional production0186 and
+  native frontend remain open. Existing failed receipts preserved.
+
+# Source preparation staged recovery LOCAL; DEV debeccea — 2026-11-07 07:10 UTC
+
+- result: Actual file run47280 ENDED FAIL on cash source85 timeout/editor_request;
+  all10images and verified manifest are durable. PDFsource/browser PASS, not yet
+  approved. No full hosted course generated. Production369f82a1 unchanged.
+- changed: Frozen recovery contract
+  docs/product/contract-modules/source-preparation/RECOVERY_ADDENDUM_V2.md.
+  Terra asset_seams writes analysis/custody/continuation; parts_review_seams writes
+  service/domain/UI acknowledgement and exact continuation redispatch. Both LOCAL
+  UNCOMMITTED on top ofdebeccea; no new model calls or repeated file processing.
+- verified: Failure fe07bd07-ea95-427b-8403-8f12116a5e37 has11completedcalls,
+  47038knowninput/74198knownoutput, plus at least1editorrequest with response/cost
+  unknown. Existing source750s shared clock was consumed by preparation; do not
+  blame model or relabel this as accepted. Correct isolated DEV connector itself
+  kamilya-dev-codex-connector-1 has0activeCodexexec/0turn directories; previous raw
+  body unavailable (ephemeral connector). This is idle proof, not response proof.
+- blockers: Blind retry is fenced; future fresh semantic attempt needs the new
+  explicit unknown/cost acknowledgement and distinct durable custody. No automatic
+  acknowledgement. Completed image reads must be reused. Current run-dev-files.py
+  would stop on failed source; do not rerun it without reconciling saved state.
+- next: Finish local synthetic continuation/response/usage/unknown gates and
+  independent cross-review, exact CI/image/DEV update. Then explicit source
+  recovery, audit cash source, apply independently reviewed PDFcorrections via
+  public API/journal, browser approvals and two complete courses/authorized images.
+  complete-courses.cjs/review-decisions.json prepared NOT RUN; cash plan still
+  missing. Conditional protected production/native0186 only after acceptance.
+
+# Source preparation exact debeccea DEV rollout — 2026-11-07 06:29 UTC (historical)
+
+- Live update: controller session90681 completed RELEASE_OK; dev-push
+  CI42346735766 PASS, API Render dep-dbncae3l550s73eqivj0 live, Vercel
+  dpl_5Gs6PaomVXvfKDh5KFQy9jrG1N32 READY/Hobby, sole VMworker exact debeccea.
+  Actual-file run-dev-files.py is ACTIVE unified exec47280, one QA login only.
+  PDF uploaded once dfd0aa40-1eca-413d-b0bb-09508a558226, review started once.
+  Reconcile dev-files-state.json and existing47280 before any login/retry/job.
+  PDF source/browser PASS, revision81/3parts/9images, selectedpages3–9.
+  Cash uploaded once306e08bd-615f-455d-962c-ded49415c5f8, source review now ACTIVE
+  in the same47280. Do not parallel login. No hosted course generation admitted.
+  Independent actual-PDF review found unsafe grammar auto a0-agreement_321
+  (condition reattached from credit to person) and OCR plural in§3.12.1. Root
+  inspected pixels and prepared legitimate undo_auto/add_edit actions plus
+  literal§1.5 keep-without-invented-hierarchy reason in review-decisions.json.
+  Expected working hash ea0b240872b6750fb655ea6f29968cec3c0c5ca8c41764efe05524e69ce4609f,
+  independently reviewed READY. These commands are NOT applied yet. Do not call
+  the uncorrected source approved or the output automatically error-free.
+  complete-courses.cjs is prepared, NOT RUN; requires both prepared sources and
+  explicit reviewed plans, then source actions/browser approval/one generation
+  perfile and complete lesson/quiz/image readback. Add cash plan only after
+  pixel/source audit. Keep failed/raw evidence and classify model variance honestly.
+
+- result: Feature PR36 `debecceabca13bf389ac4e8c4690f0e3d1952520` full
+  CI42346116739 PASS. Canonical feature/dev pushes independently read back and
+  sanitized receipts/memory notes saved. Dev-push CI42346735766 still running.
+- changed: Attested image `ghcr.io/kamillalmscrm/kamilya-api@sha256:4cb36296cfbfbb52241574d408b1791dea67bcf55c84860e6cba550ab163684d`.
+  Sole DEV worker d71f417880fa96218b39294d6d41c087788f3223dcce516b72ab78cf5cbfc3f7
+  ready/0restarts/unless-stopped, exact image/source. Prior606 worker warm-exited0,
+  retained as kamilya-dev-worker-rollback-60681e1e. Production369f82a1 unchanged.
+- verified: Actual isolated DEV lifecycle/concurrency/RLS/legacy-unverified retry
+  gate PASS, temporary schema cleanuptrue/publicneutraltrue/public0186. Fresh
+  CodeGraph/Graphify prepared at exact debeccea, exclusionsPASS/zero modelcalls.
+  Native frontend build-only42346757097 PASS, artifact downloaded/inspected.
+- blockers: No requested file admitted to hosted DEV yet; no course acceptance.
+  DEV controller currently unified exec session90681; reconcile before retry.
+  Evidence `.release-evidence/source-preparation-r2/`; image/readiness/drain/start
+  and restart receipts PASS. Controller execute-dev.py waits for exact DEV CI and
+  provider/runtime agreement. No provider plan or customer tenant changed.
+- next: Observe existing90681 until dev-release.json RELEASE_OK, then run prepared
+  run-dev-files.py ONCE. It persists IDs and unknown intents, validates exact
+  original bytes/native images/semantic page scope and browser1440/390. Review
+  real findings before approval/generation. Then full course/image quality and
+  protected production with0185→0186/updated release-plane/native082/synthetic smoke.
+  This local handoff edit is not runtime release content; deploy only Git objects.
+
+# Source preparation second candidate — 2026-11-07 06:00 UTC (historical)
 
 - Additional compatibility correction after exact d4a6583f CI42345463047 PASS:
   provisional hydration/queued bindings/new approvals require the exact verified

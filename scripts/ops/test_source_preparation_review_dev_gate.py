@@ -57,3 +57,10 @@ def test_entrypoint_is_blocked_without_explicit_execute(monkeypatch, capsys):
     monkeypatch.setattr(gate, "run", lambda: pytest.fail("gate attempted execution"))
     assert gate.main() == 2
     assert '"reason": "execute_required"' in capsys.readouterr().out
+
+
+def test_recovery_coverage_requires_each_locked_transaction_check():
+    checks = sorted(gate.RECOVERY_CHECKS)
+    assert gate.recovery_coverage(checks)
+    for check in checks:
+        assert not gate.recovery_coverage([item for item in checks if item != check])

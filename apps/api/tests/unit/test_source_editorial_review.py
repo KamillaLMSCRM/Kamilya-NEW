@@ -564,7 +564,7 @@ async def test_idempotency_preserves_receipt_and_rejects_key_reuse(monkeypatch):
     submitted = command(ReviewState(), "start")
     stored = SimpleNamespace(kind="queued", sequence=1, original_blob_sha256=doc.content_sha256,
                              payload={}, request_id=submitted.request_id, actor_id=actor,
-                             command_sha256=text_hash(submitted.model_dump_json(exclude={"pages", "selected_part_ids", "preparation_sha256"})))
+                             command_sha256=text_hash(submitted.model_dump_json(exclude={"pages", "selected_part_ids", "preparation_sha256", "acknowledge_outcome_and_cost_unknown"})))
     monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=[stored]))
     db = SimpleNamespace(add=Mock(), flush=AsyncMock())
     _, _, receipt, _ = await apply_command(db, doc, actor, submitted)

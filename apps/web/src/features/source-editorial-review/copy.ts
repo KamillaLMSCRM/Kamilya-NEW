@@ -1,4 +1,8 @@
 const ru = {
+  interruptedOutcomeHeld: 'Результат прерванной проверки и её стоимость неизвестны. Проверка приостановлена. Передайте этот статус в поддержку.',
+  retryUnknownAck: 'Результат предыдущего запроса и его стоимость неизвестны. Повторная попытка может привести к повторному расходу. Я понимаю это и разрешаю новую попытку.',
+  continueReview: 'Продолжить проверку',
+  visualOutcomeHeld: 'Результат распознавания изображения неизвестен. Проверка приостановлена: повторный запрос может создать дополнительный расход. Передайте этот статус в поддержку.',
   preparationStale: 'Выбранные части требуют повторной проверки. Нажмите «Повторить проверку», затем сверьте обновлённый список частей перед утверждением.',
   visualUnsupported: 'В документе есть графические элементы, которые не удалось распознать без потери содержания. Сохраните их как изображения в документе и загрузите новую версию.',
   title: 'Проверка документа', short: 'Проверить документ',
@@ -57,6 +61,10 @@ const ru = {
 };
 
 const en: typeof ru = {
+  interruptedOutcomeHeld: 'The result and cost of the interrupted review are unknown. The review is on hold. Contact support with this status.',
+  retryUnknownAck: 'The previous request outcome and cost are unknown. A new attempt may incur duplicate usage. I understand and authorize a new attempt.',
+  continueReview: 'Continue review',
+  visualOutcomeHeld: 'The image-reading result is unknown. Review is paused because retrying may incur additional cost. Contact support with this status.',
   preparationStale: 'The selected parts need another review. Choose Retry review, then check the updated parts before approving.',
   visualUnsupported: 'Some graphic elements could not be recognized without losing content. Save them as images inside the document and upload a new version.',
   title: 'Document review', short: 'Review document',
@@ -112,6 +120,10 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  interruptedOutcomeHeld: 'Үзілген тексерудің нәтижесі мен құны белгісіз. Тексеру тоқтатылды. Осы мәртебені қолдау қызметіне хабарлаңыз.',
+  retryUnknownAck: 'Алдыңғы сұраудың нәтижесі мен құны белгісіз. Жаңа әрекет қосымша шығынға әкелуі мүмкін. Мұны түсінемін және жаңа әрекетке рұқсат беремін.',
+  continueReview: 'Тексеруді жалғастыру',
+  visualOutcomeHeld: 'Суретті тану нәтижесі белгісіз. Қайта сұрау қосымша шығынға әкелуі мүмкін болғандықтан, тексеру тоқтатылды. Бұл күйді қолдау қызметіне хабарлаңыз.',
   preparationStale: 'Таңдалған бөліктерді қайта тексеру қажет. «Қайта тексеру» түймесін басып, бекіту алдында жаңартылған бөліктерді салыстырыңыз.',
   visualUnsupported: 'Құжаттағы кейбір графикалық элементтерді мазмұнын жоғалтпай тану мүмкін болмады. Оларды құжат ішінде кескін ретінде сақтап, жаңа нұсқаны жүктеңіз.',
   title: 'Құжатты тексеру', short: 'Құжатты тексеру',

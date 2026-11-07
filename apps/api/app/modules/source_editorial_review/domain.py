@@ -94,9 +94,12 @@ class ReviewCommand(BaseModel):
     pages: ReviewPageRange | None = None
     selected_part_ids: list[str] | None = Field(default=None, min_length=1, max_length=5000)
     preparation_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    acknowledge_outcome_and_cost_unknown: bool | None = Field(default=None, strict=True)
 
     @model_validator(mode="after")
     def validate_fields(self) -> "ReviewCommand":
+        if "acknowledge_outcome_and_cost_unknown" in self.model_fields_set and self.action != "start":
+            raise ValueError("acknowledgement only allowed when starting a review")
         if self.action == "select_parts":
             if self.selected_part_ids is None or self.preparation_sha256 is None:
                 raise ValueError("selection and preparation identity required")

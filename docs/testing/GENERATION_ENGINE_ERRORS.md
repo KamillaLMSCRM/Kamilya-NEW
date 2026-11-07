@@ -656,3 +656,39 @@ raw не является новым вызовом. Unknown dispatch не по�
   and new approval; explicit fresh retry is available and historical approved
   snapshots preserved. Local58source-review cases and independent code review
   PASS; integrated hosted source/course acceptance remains pending.
+
+## ENG-035 — Source-model case/attachment errors require editorial rejection
+
+- Actual DEV PDF source81: source editor automatically changed §3.2.1's
+  modifier from the microcredit to the person; the independent model reviewer
+  accepted it. Native page7 OCR also read plural «организуемые» as singular.
+  Root and independent Terra verified original pixels. Safe date spacing retained.
+- This is observed model-output variance, not a proven deterministic code defect.
+  No word-specific guard or extra critic is added. Planned ordinary undo_auto and
+  add_edit actions restore the original meaning, retain original binary and log
+  decisions. The planned corrected edition was independently reviewed, not yet
+  saved/approved. Do not describe the initial automatic result as error-free.
+- Actual custody diagnostic confirmed both author and visual verifier had the
+  same singular OCR reading; do not invent a claim that the verifier introduced it.
+
+## ENG-036 — Preparation consumed the semantic review's shared worker clock
+
+- Actual DEV cash source85 failed source_review_timeout/editor_request after all
+  ten images, their visual verification and the selected manifest were durable.
+  Existing750s analysis/820soft/850hard budgets combined the new preparation and
+  subsequent editor/reviewer calls. PDF completed, so queue/provider timing must
+  not be generalized from the one failure. Cash queue time was77s outside the clock.
+- Eleven completed requests47038input/74198output remain recorded; the last
+  editor request's response/cost is unknown. Correct DEV connector idle observed,
+  ephemeral response unavailable. No automatic retry or success relabeling.
+- Local fix: durable verified-manifest handoff, before-POST budget continuation,
+  per-request response/usage custody and explicit unknown-attempt acknowledgement.
+  Keep existing time caps and strict approvals; completed images must not repeat.
+- Verification: final112focusedAPI cases pass; broad local8090PASS/547SKIP is not
+  DB integration evidence. Independent Terra review caught retry of interrupted
+  legacy claims and fixed it with an explicit hold. Actual isolated recovery gate
+  exposed concurrent ACK conflict precedence; revision check now precedes new
+  command-state checks while duplicate replay stays first. Fresh actual isolated
+  DEV gate PASS11checks/cleanuptrue/publicneutraltrue/public0186, no production writes.
+- Status: LOCAL FIXED, exact CI/DEV recovery pending. Full courses/production
+  still NOT VERIFIED. Conservative stale legacy-worker holds require reconciliation.

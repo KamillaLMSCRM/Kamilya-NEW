@@ -32,6 +32,67 @@ describe('source editorial review', () => {
     mocks.approval = undefined;
   });
 
+  it('requires explicit acknowledgement of unknown outcome and cost before retry', async () => {
+    const data = { ...fixture(), status: 'failed' as const, error: 'source_review_timeout',
+      requires_retry_acknowledgement: true };
+    mocks.get.mockResolvedValue({ data });
+    mocks.post.mockResolvedValue({ data: { ...data, status: 'queued', revision: 4, error: null,
+      requires_retry_acknowledgement: false } });
+    render(<SourceEditorialReview />);
+    const ack = await screen.findByRole('checkbox', { name: /Результат предыдущего запроса и его стоимость неизвестны/ });
+    const retry = screen.getByRole('button', { name: 'Повторить проверку' });
+    expect(retry).toBeDisabled();
+    fireEvent.click(ack);
+    fireEvent.click(retry);
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
+      expect.objectContaining({ action: 'start', expected_revision: 3, acknowledge_outcome_and_cost_unknown: true })));
+  });
+
+  it('keeps an unknown visual call held instead of offering a misleading retry', async () => {
+    mocks.get.mockResolvedValue({ data: { ...fixture(), status: 'failed', error: 'source_review_provider_outcome_unknown',
+      requires_retry_acknowledgement: true, retry_blocked_unknown_visual: true } });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText(/Результат распознавания изображения неизвестен/)).toBeVisible();
+    expect(screen.queryByRole('checkbox', { name: /Результат предыдущего запроса/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Повторить проверку' })).toBeDisabled();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('holds an interrupted worker with an unknown outcome', async () => {
+    mocks.get.mockResolvedValue({ data: { ...fixture(), status: 'interrupted',
+      error: 'source_review_interrupted_outcome_unknown' } });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText(/Результат прерванной проверки и её стоимость неизвестны/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Повторить проверку' })).toBeDisabled();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('requires fresh acknowledgement if a conflict reveals a different failed revision', async () => {
+    const first = { ...fixture(), status: 'failed' as const, error: 'source_review_timeout',
+      requires_retry_acknowledgement: true };
+    mocks.get.mockResolvedValueOnce({ data: first }).mockResolvedValueOnce({ data: { ...first, revision: 4 } });
+    mocks.post.mockRejectedValueOnce({ response: { status: 409 } });
+    render(<SourceEditorialReview />);
+    const ack = await screen.findByRole('checkbox', { name: /Результат предыдущего запроса и его стоимость неизвестны/ });
+    fireEvent.click(ack);
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить проверку' }));
+    await screen.findByText(/Редакция 4/);
+    expect(ack).not.toBeChecked();
+    expect(screen.getByRole('button', { name: 'Повторить проверку' })).toBeDisabled();
+  });
+
+  it('replays the same continuation request after an unconfirmed dispatch', async () => {
+    const data = { ...fixture(), status: 'queued', continuation_pending: true };
+    mocks.get.mockResolvedValue({ data });
+    mocks.post.mockRejectedValueOnce({ response: { status: 503 } }).mockResolvedValueOnce({ data });
+    render(<SourceEditorialReview />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Продолжить проверку' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Проверить сохранение' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(2));
+    expect(mocks.post.mock.calls[0][1]).toEqual(mocks.post.mock.calls[1][1]);
+    expect(mocks.post.mock.calls[0][1]).toEqual(expect.objectContaining({ action: 'start', expected_revision: 3 }));
+  });
+
   it('preserves a part selection on conflict and sends the server manifest identity', async () => {
     const current = { ...fixture(), questions: [], preparation: {
       policy: 'v1', sha256: 'a'.repeat(64), selected_part_ids: ['part-' + '1'.repeat(24)],

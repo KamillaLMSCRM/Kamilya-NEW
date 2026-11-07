@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Read back historical page-range approvals with their original selection intact.
 - Reuse completed image readings after interruption and preserve explicit unknown outcomes without repeating paid visual requests.
+- Hand off verified source preparation to a separate bounded semantic-review turn; durably retain individual responses and usage, and require explicit acknowledgement before a new attempt after an unknown semantic outcome.
 
 ### Changed
 

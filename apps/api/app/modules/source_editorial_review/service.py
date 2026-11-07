@@ -92,6 +92,55 @@ def verified_preparation_binding(rows: Sequence[Event], blob_sha: str, binding: 
     return False
 
 
+def requires_retry_acknowledgement(rows: Sequence[Event]) -> bool:
+    if not rows or rows[-1].kind != "failed":
+        return False
+    payload = rows[-1].payload
+    phase = payload.get("phase")
+    return payload.get("unknown_visual_outcome") is True or payload.get("code") == "source_review_provider_outcome_unknown" or (
+        payload.get("code") == "source_review_timeout" and isinstance(phase, str) and phase.endswith("_request"))
+
+
+def retry_blocked_unknown_visual(rows: Sequence[Event]) -> bool:
+    if not rows or rows[-1].kind != "failed":
+        return False
+    payload = rows[-1].payload
+    return payload.get("unknown_visual_outcome") is True or (
+        payload.get("code") == "source_review_provider_outcome_unknown" and payload.get("phase") == "source_extraction")
+
+
+def continuation_pending(rows: Sequence[Event], blob_sha: str) -> bool:
+    if not rows or rows[-1].kind != "queued":
+        return False
+    current = rows[-1]
+    payload = current.payload
+    try:
+        claim_id = UUID(str(payload.get("continuation_from")))
+    except (ValueError, TypeError, AttributeError):
+        return False
+    if "preparation" in payload and not verified_preparation_binding(rows, blob_sha, payload["preparation"]):
+        return False
+    claim = next((row for row in rows if row.id == claim_id and row.kind == "running"
+                  and row.sequence < current.sequence and row.actor_id == current.actor_id
+                  and row.original_blob_sha256 == blob_sha), None)
+    if claim is None or current.original_blob_sha256 != blob_sha:
+        return False
+    try:
+        parent_id = UUID(str(claim.payload.get("queued_event_id")))
+    except (TypeError, ValueError, AttributeError):
+        return False
+    parent = next((row for row in rows if row.id == parent_id and row.kind == "queued"
+                   and row.sequence == claim.sequence - 1 and row.actor_id == claim.actor_id
+                   and row.original_blob_sha256 == blob_sha), None)
+    if parent is None or parent.payload.get("pages") != payload.get("pages"):
+        return False
+    if parent.payload.get("preparation") is not None and parent.payload["preparation"] != payload.get("preparation"):
+        return False
+    return all(row.kind == "analysis_block" and row.payload.get("claim_id") == str(claim_id)
+               and row.actor_id == claim.actor_id and row.original_blob_sha256 == blob_sha for row in rows
+               if claim.sequence < row.sequence < current.sequence)
+
+
 def latest_status(rows: Sequence[Event]) -> str:
     if not rows:
         return "not_started"
@@ -146,7 +195,8 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
     analysis = None
     for row in rows:
         if row.kind == "analyzed":
-            analysis = {key: row.payload.get(key) for key in ("model_calls", "usage", "policy", "analysis_policy")}
+            analysis = {key: row.payload.get(key) for key in ("model_calls", "usage", "policy", "analysis_policy",
+                                                               "usage_complete", "previous_failed_usage")}
             journal.extend({**public_event(row), **change, "kind": "automatic", "item_id": change["id"],
                             "actor_id": None, "policy": row.payload["policy"]}
                            for change in row.payload["automatic"])
@@ -161,9 +211,15 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
     failure_phase = rows[-1].payload.get("phase") if rows and rows[-1].kind == "failed" else None
     stale_preparation = (state.status == "in_review" and state.preparation is not None
                          and not verified_preparation_binding(rows, str(doc.content_sha256), state.preparation))
+    interrupted_unknown = bool(rows and rows[-1].kind in {"running", "analysis_block"}
+                               and latest_status(rows) == "interrupted")
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
             "revision": state.revision, "status": latest_status(rows),
-            "error": "source_review_preparation_stale" if stale_preparation else state.error,
+            "requires_retry_acknowledgement": requires_retry_acknowledgement(rows),
+            "retry_blocked_unknown_visual": retry_blocked_unknown_visual(rows),
+            "continuation_pending": continuation_pending(rows, str(doc.content_sha256)),
+            "error": ("source_review_interrupted_outcome_unknown" if interrupted_unknown else
+                      "source_review_preparation_stale" if stale_preparation else state.error),
             "failure_phase": failure_phase if failure_phase in (
                 "source_extraction", "source_contract", "provider_readiness", "editor_request", "editor_response",
                 "independent_review_request", "independent_review_response",
@@ -182,7 +238,7 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
 
 def _command_digest(command: ReviewCommand) -> str:
     # Preserve the identity of requests recorded before page selection existed.
-    exclude = {name for name in ("pages", "selected_part_ids", "preparation_sha256")
+    exclude = {name for name in ("pages", "selected_part_ids", "preparation_sha256", "acknowledge_outcome_and_cost_unknown")
                if getattr(command, name) is None}
     return text_hash(command.model_dump_json(exclude=exclude))
 
@@ -212,13 +268,29 @@ async def apply_command(
         if duplicate.actor_id != actor_id or duplicate.command_sha256 != _command_digest(command):
             raise ReviewConflictError("source_review_request_id_conflict")
         return rows, state, duplicate, duplicate.kind == "queued" and state.status == "queued" and rows[-1] is duplicate
+    if command.expected_revision != state.revision:
+        raise ReviewConflictError("source_review_revision_conflict")
+    if command.action == "start" and continuation_pending(rows, str(doc.content_sha256)):
+        if command.acknowledge_outcome_and_cost_unknown is not None or command.pages is not None:
+            raise ReviewConflictError("source_review_action_not_available")
+        return rows, state, rows[-1], True
+    requires_ack = requires_retry_acknowledgement(rows)
+    if requires_ack and command.action in {"start", "select_parts"}:
+        if retry_blocked_unknown_visual(rows):
+            raise ReviewConflictError("source_review_visual_outcome_unknown")
+        if command.action != "start" or command.acknowledge_outcome_and_cost_unknown is not True:
+            raise ReviewConflictError("source_review_retry_ack_required")
+    elif command.acknowledge_outcome_and_cost_unknown is True:
+        raise ReviewConflictError("source_review_action_not_available")
+    if (latest_status(rows) == "interrupted" and rows[-1].kind in {"running", "analysis_block"}
+            and command.action in {"start", "select_parts"}):
+        raise ReviewConflictError("source_review_interrupted_outcome_unknown")
     if latest_status(rows) == "interrupted":
         state.status = "failed"
     stale_in_review = (state.status == "in_review" and state.preparation is not None
                        and not verified_preparation_binding(rows, str(doc.content_sha256), state.preparation))
+    payload: dict[str, Any]
     if stale_in_review and command.action in {"start", "approve"}:
-        if command.expected_revision != state.revision:
-            raise ReviewConflictError("source_review_revision_conflict")
         if command.action == "approve":
             raise ReviewConflictError("source_review_preparation_stale")
         if command.pages is not None and command.pages.model_dump() != state.pages:
@@ -231,6 +303,9 @@ async def apply_command(
         if command.action != "start":
             raise ReviewConflictError("source_review_preparation_stale")
         payload = {"pages": state.pages} if state.pages else {}
+    if kind == "queued" and requires_ack:
+        payload = {**payload, "acknowledged_unknown": {"failure_event_id": str(rows[-1].id),
+                    "request_id": str(command.request_id), "actor_id": str(actor_id)}}
     event = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 1, kind=kind,
                       payload=payload, command=command)
     await db.flush()

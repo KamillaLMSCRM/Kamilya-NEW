@@ -45,6 +45,9 @@ export interface SourceReview {
   revision: number;
   status: SourceReviewStatus;
   error: string | null;
+  requires_retry_acknowledgement?: boolean;
+  retry_blocked_unknown_visual?: boolean;
+  continuation_pending?: boolean;
   pdf?: boolean;
   pages?: ReviewPages | null;
   preparation?: SourcePreparation | null;
@@ -70,6 +73,7 @@ export interface ReviewCommand {
   pages?: ReviewPages;
   selected_part_ids?: string[];
   preparation_sha256?: string;
+  acknowledge_outcome_and_cost_unknown?: boolean;
 }
 
 export const sourceReviewHref = (id: string, approvalId?: string) =>

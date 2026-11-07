@@ -4,7 +4,8 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import Awaitable, Callable, Iterator, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -20,7 +21,17 @@ from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClien
 from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, ManagedLunaError
 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
+from app.modules.source_editorial_review.continuation import handoff, lineage, valid_continuation
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
+from app.modules.source_editorial_review.request_custody import (
+    BeforePostDeferred,
+    CompletedResponseRejected,
+    RequestOutcomeUnknown,
+    RequestRejected,
+    choose_attempt,
+    identity,
+    invoke_once,
+)
 from app.modules.source_editorial_review.service import (
     add_event,
     history,
@@ -92,6 +103,10 @@ class _SourceQuestion(BaseModel):
     excerpt: str = Field(min_length=1, max_length=2000)
     category: str = Field(pattern=r"^(boundary|conflict|reference|responsibility|exception|unclear)$")
     reason: str = Field(min_length=3, max_length=700)
+
+
+class _VisualDeferred(VisualRequestRejected):
+    """Known not sent: image intent may be marked as an explicit rejection."""
 
 
 class _ClueDisposition(BaseModel):
@@ -178,6 +193,8 @@ def analysis_failure_code(error: Exception) -> str:
         return error.code
     if isinstance(error, ReviewConflictError):
         return str(error)
+    if isinstance(error, RequestOutcomeUnknown):
+        return "source_review_provider_outcome_unknown"
     if isinstance(error, VisualRequestRejected):
         return "source_review_provider_unavailable"
     if isinstance(error, ValueError) and error.args == ("source_preparation_visual_response_invalid",):
@@ -197,7 +214,7 @@ def analysis_failure_code(error: Exception) -> str:
         return "source_review_provider_unavailable"
     if isinstance(error, TimeoutError):
         return "source_review_timeout"
-    if isinstance(error, ManagedResponseRejectedError | json.JSONDecodeError | ValidationError):
+    if isinstance(error, CompletedResponseRejected | ManagedResponseRejectedError | json.JSONDecodeError | ValidationError):
         return "source_review_invalid_response"
     if isinstance(error, ManagedLunaError):
         if error.args == ("managed_luna_outcome_unknown",):
@@ -433,8 +450,12 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         if not rows or rows[-1].id != event_id or rows[-1].kind != "queued":
             return "already_claimed"
         queued = rows[-1]
-        if queued.created_at < datetime.now(UTC) - timedelta(minutes=20):
+        continuation = queued.payload.get("continuation_from") is not None
+        if continuation and not valid_continuation(rows, queued, str(doc.content_sha256)):
+            return "invalid_continuation"
+        if not continuation and queued.created_at < datetime.now(UTC) - timedelta(minutes=20):
             return "expired"
+        ancestor_claims, acknowledgement, acknowledged_failure, root_queue = lineage(rows, queued)
         state = read_state(rows, doc.content_sha256)
         filename, storage_key = str(doc.filename or ""), str(doc.s3_key or "")
         claim = add_event(db, doc, actor_id=queued.actor_id, sequence=state.revision + 1,
@@ -458,6 +479,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             add_event(db, doc, actor_id=claim.actor_id, sequence=events[-1].sequence + 1, kind="analysis_block",
                       payload={"claim_id": str(claim.id), "key": key, "result": result})
             await db.commit()
+            retained[key] = result
     async def verify_claim() -> bool:
         async with async_session_factory() as db:
             await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
@@ -468,6 +490,57 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
     phase = "source_extraction"
     json_recovery = _ManagedSourceJsonRecovery()
     usage: list[dict[str, Any]] = []
+    seen_usage: set[str] = set()
+    unknown_request_key: str | None = None
+    visual_in_flight = False
+    binding: dict[str, Any] | None = None
+    pages: object = None
+    deadline = asyncio.get_running_loop().time() + 750
+    usage_incomplete = acknowledgement is not None or (not ancestor_claims and any(
+        key.startswith(("source-preparation-v1:image:", "source-preparation-v1:reviewed-image:"))
+        or re.fullmatch(r"[0-9a-f]{64}", key) is not None and isinstance(value, dict)
+        and {"questions", "automatic", "calls"} <= value.keys()
+        for key, value in retained.items()))
+    for ancestor in ancestor_claims:
+        prior = retained.get("source-review-v2:turn-usage:" + ancestor, {})
+        usage_incomplete = usage_incomplete or prior.get("usage_complete") is False
+        for item in prior.get("usage", []):
+            if isinstance(item, dict) and isinstance(item.get("receipt"), str) and item["receipt"] not in seen_usage:
+                usage.append(item)
+                seen_usage.add(item["receipt"])
+
+    def record_usage(key: str, item: dict[str, Any] | None) -> None:
+        if key not in seen_usage:
+            usage.append({"receipt": key, **(item or {"usage_unknown": True})})
+            seen_usage.add(key)
+
+    def reserve(seconds: float) -> None:
+        if seconds + 30 >= 750:
+            raise ReviewConflictError("source_review_provider_budget_unavailable")
+        if asyncio.get_running_loop().time() + seconds + 30 >= deadline:
+            raise BeforePostDeferred()
+
+    @asynccontextmanager
+    async def locked_document() -> AsyncIterator[tuple[Any, Any]]:
+        async with async_session_factory() as db:
+            await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
+            current = await owned_document(db, tenant_id, document_id, lock=True)
+            yield db, current
+
+    async def continue_later() -> str:
+        await save_block("source-review-v2:turn-usage:" + str(claim.id),
+                         {"usage": usage, "usage_complete": not usage_incomplete})
+        def queue(db: Any, doc: Any, sequence: int, payload: dict[str, Any]) -> Any:
+            return add_event(db, doc, actor_id=claim.actor_id, sequence=sequence, kind="queued", payload=payload)
+
+        def dispatch(event: Any) -> None:
+            from app.core.celery_app import celery_app
+            celery_app.send_task("documents.editorial_review", args=[str(tenant_id), str(document_id), str(event.id)],
+                                 queue="documents", retry=False)
+
+        return await handoff(claim=claim, binding=binding, pages=pages, open_locked=locked_document,
+            read_rows=lambda db: history(db, tenant_id, document_id), add_queued=queue, owns=owns, dispatch=dispatch)
+
     try:
         async with asyncio.timeout(750):
             from app.core.storage import get_storage
@@ -476,6 +549,14 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             runtime = await resolve_runtime_settings()
             pages = queued.payload.get("pages")
             binding = queued.payload.get("preparation")
+            last_analyzed = max((row.sequence for row in rows if row.kind == "analyzed"), default=0)
+            unresolved = next((row for row in reversed(rows) if row.kind == "failed"
+                               and row.sequence > last_analyzed and row.sequence < queued.sequence), None)
+            if (unresolved is not None and acknowledgement is None
+                    and (unresolved.payload.get("code") == "source_review_provider_outcome_unknown"
+                         or unresolved.payload.get("code") == "source_review_timeout"
+                         and str(unresolved.payload.get("phase", "")).endswith("_request"))):
+                raise ReviewConflictError("source_review_provider_outcome_unknown")
             package: PreparedSource | None = None
             fidelity: dict[str, Any]
             if binding is not None:
@@ -520,39 +601,100 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             ) if managed is None else None
 
             async def complete(messages: list[dict[str, str]]) -> object:
-                nonlocal phase
+                nonlocal phase, unknown_request_key
                 request_data = json.loads(messages[1]["content"])
                 stage = ("preparation" if "blocks" in request_data else
                          "independent_review" if "proposal_sha256" in request_data else "editor")
                 phase = stage + "_request"
+
+                async def secured_request(current: list[dict[str, str]], route: str, seconds: float,
+                                          call: Callable[[], Awaitable[tuple[object, dict[str, Any] | None]]]) -> object:
+                    nonlocal unknown_request_key
+                    selected = (text_hash(json.dumps(binding, ensure_ascii=False, sort_keys=True))
+                                if binding is not None else claim.original_blob_sha256)
+                    key = identity(tenant=str(tenant_id), document=str(document_id),
+                        original_sha=claim.original_blob_sha256, selected_sha=selected,
+                        policy=_ANALYSIS_POLICY, route=route, messages=current)
+                    preceding = next((row for row in rows if row.sequence == root_queue.sequence - 1
+                                      and row.kind == "failed"), None)
+                    attempt = choose_attempt(key, retained, acknowledgement, acknowledged_failure, root_queue, preceding)
+                    unknown_request_key = key
+                    try:
+                        result = await invoke_once(key=key, attempt=attempt, retained=retained, save=save_block,
+                            before_post=lambda: reserve(seconds), invoke=call, usage=record_usage)
+                    except (CompletedResponseRejected, ManagedLunaCompletedJsonError, RequestRejected, BeforePostDeferred):
+                        unknown_request_key = None
+                        raise
+                    unknown_request_key = None
+                    return result
+
                 if managed is not None:
                     async def request(current: list[dict[str, str]]) -> object:
                         prepared = await managed.prepare(current, max_output_tokens=16_384, ownership_checkpoint=verify_claim)
-                        reply = await managed.invoke(prepared, tenant_id=tenant_id, user_id=claim.actor_id,
-                            job_id=str(claim.id), ownership_checkpoint=verify_claim,
-                            classify_invalid_json=True,
-                            stage_id=text_hash(json.dumps(current, ensure_ascii=False, sort_keys=True)))
-                        usage.append({"stage": stage, "model": reply.model, **asdict(reply.usage)})
-                        return reply.content
+                        async def call() -> tuple[object, dict[str, Any] | None]:
+                            stage_id = text_hash(json.dumps(current, ensure_ascii=False, sort_keys=True))
+                            try:
+                                reply = await managed.invoke(prepared, tenant_id=tenant_id, user_id=claim.actor_id,
+                                    job_id=str(claim.id), ownership_checkpoint=verify_claim,
+                                    classify_invalid_json=True, stage_id=stage_id)
+                            except ManagedResponseRejectedError as error:
+                                receipt = error.checked_receipt(tenant_id=str(tenant_id), user_id=claim.actor_id,
+                                    job_id=str(claim.id), stage=stage_id, route_fingerprint=managed.cache_fingerprint())
+                                raise CompletedResponseRejected(receipt) from None
+                            return reply.content, {"stage": stage, "model": reply.model, **asdict(reply.usage)}
+
+                        try:
+                            return await secured_request(current, managed.cache_fingerprint(),
+                                                         managed.generation_deadline_seconds, call)
+                        finally:
+                            managed.discard(prepared)
 
                     result = await json_recovery.complete(messages, request)
                     phase = stage + "_response"
                     return result
                 if llm is None or not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
-                standard = await llm.ainvoke(
-                    messages, response_format={"type": "json_object"}, request_profile="course_generation",
-                )
-                usage.append({"stage": stage, "provider": standard.provider_name, "model": standard.model,
-                              "prompt_tokens": standard.prompt_tokens, "completion_tokens": standard.completion_tokens})
-                phase = stage + "_response"
-                return json.loads(standard.content)
+                import httpx
+
+                from app.modules.ai.llm_client import LLMClient, ProviderFailedError, _managed_profile_attempt
+
+                for provider in llm._clients:
+                    config = provider.config
+                    timeout = float(config.timeout)
+                    max_tokens = runtime.integer("source_preparation.max_tokens")
+                    if config.name == "deepseek" and config.managed_evidence_profile:
+                        config, max_tokens, timeout = _managed_profile_attempt(config, runtime, "course_generation")
+                    route = text_hash(json.dumps([config.name, config.model, config.base_url, config.endpoint,
+                                                   timeout, max_tokens, config.extra_body,
+                                                   "source-review-single-attempt-v2"], sort_keys=True))
+                    async def call_provider(*, call_timeout: float = timeout, call_config: Any = config,
+                                            call_max_tokens: int = max_tokens) -> tuple[object, dict[str, Any] | None]:
+                        try:
+                            async with asyncio.timeout(call_timeout):
+                                reply = await LLMClient(call_config, temperature=0.1,
+                                    max_tokens=call_max_tokens, max_retries=0).ainvoke(
+                                        messages, response_format={"type": "json_object"})
+                        except ProviderFailedError as exc:
+                            if (isinstance(exc.last_exc, httpx.HTTPStatusError)
+                                    and exc.last_exc.response.status_code in (400, 401, 403, 404, 413, 422, 429)):
+                                raise RequestRejected("source_review_provider_rejected") from None
+                            raise
+                        return reply.content, {"stage": stage, "provider": reply.provider_name, "model": reply.model,
+                            "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens,
+                            "usage_complete": reply.usage_complete}
+                    try:
+                        raw = await secured_request(messages, route, timeout, call_provider)
+                        phase = stage + "_response"
+                        return json.loads(raw) if isinstance(raw, str) else raw
+                    except RequestRejected:
+                        continue
+                raise ReviewConflictError("source_review_provider_unavailable")
 
             async def preparation_complete(messages: list[dict[str, Any]]) -> object:
                 return await complete(messages)
 
             async def visual_complete(messages: list[dict[str, Any]]) -> object:
-                nonlocal phase
+                nonlocal phase, visual_in_flight
                 phase = "source_extraction"
                 if not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
@@ -569,17 +711,32 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 try:
                     visual_config = replace(clients[0].config, extra_body={**(clients[0].config.extra_body or {}),
                         "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
-                    reply = await LLMClient(visual_config, temperature=0.1,
-                        max_tokens=runtime.integer("source_preparation.max_tokens"), max_retries=0).ainvoke(
-                        messages, response_format={"type": "json_object"})
+                    try:
+                        reserve(float(visual_config.timeout))
+                    except BeforePostDeferred as exc:
+                        raise _VisualDeferred("source_review_turn_deferred") from exc
+                    visual_in_flight = True
+                    async with asyncio.timeout(float(visual_config.timeout)):
+                        reply = await LLMClient(visual_config, temperature=0.1,
+                            max_tokens=runtime.integer("source_preparation.max_tokens"), max_retries=0).ainvoke(
+                            messages, response_format={"type": "json_object"})
                 except ProviderFailedError as exc:
                     if isinstance(exc.last_exc, httpx.HTTPStatusError) and exc.last_exc.response.status_code in (400, 401, 403, 404, 413, 422, 429):
+                        visual_in_flight = False
                         raise VisualRequestRejected("source_visual_request_rejected") from None
                     raise ValueError("source_preparation_visual_outcome_unknown") from None
+                except TimeoutError:
+                    raise ValueError("source_preparation_visual_outcome_unknown") from None
                 visual_stage = "visual_verification" if str(messages[0]["content"]).startswith("[VISUAL_REVIEW_V1]") else "visual_reading"
-                usage.append({"stage": visual_stage, "thinking": "enabled", "reasoning_effort": "low",
+                visual_receipt = f"visual:{claim.id}:{text_hash(json.dumps(messages, sort_keys=True))}"
+                visual_usage = {"stage": visual_stage, "thinking": "enabled", "reasoning_effort": "low",
                               "provider": reply.provider_name, "model": reply.model,
-                              "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens})
+                              "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens,
+                              "usage_complete": reply.usage_complete}
+                await save_block("source-review-v2:visual-usage:" + visual_receipt,
+                                 {"receipt": visual_receipt, "usage": visual_usage})
+                record_usage(visual_receipt, visual_usage)
+                visual_in_flight = False
                 return reply.content
 
             async def persist_asset(asset: NativeAsset) -> str:
@@ -605,6 +762,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                         raise ReviewConflictError("source_preparation_no_learning_content")
                     source_text = package.selected(selected_ids)[0]
                     binding = package.binding(selected_ids)
+                    return await continue_later()
                 if package is not None:
                     fidelity = {"engine": "native-source-preparation", "profile": "visual_and_text",
                                 "fallback_used": False, "warnings": package.warnings,
@@ -626,16 +784,26 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 if managed is not None:
                     managed.close()
             payload["usage"] = usage
-            payload["model_calls"] += sum(item.get("stage") in {"preparation", "visual_reading", "visual_verification"} for item in usage)
+            payload["model_calls"] = len(usage)
+            payload["usage_complete"] = not usage_incomplete and all(
+                not item.get("usage_unknown") and item.get("usage_complete", True) for item in usage)
+            if acknowledged_failure is not None:
+                payload["previous_failed_usage"] = {"failure_event_id": str(acknowledged_failure.id),
+                    "usage": acknowledged_failure.payload.get("usage", []), "usage_complete": False}
             if json_recovery.used:
                 payload["completed_json_retries"] = 1
-                payload["model_calls"] += 1
             payload["fidelity"] = fidelity
             kind = "analyzed"
+    except (_VisualDeferred, BeforePostDeferred):
+        return await continue_later()
     except Exception as error:
         code = analysis_failure_code(error)
         logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
         payload, kind = {"code": code, "phase": phase}, "failed"
+        if unknown_request_key is not None:
+            payload["unknown_request_key"] = unknown_request_key
+        if visual_in_flight or str(error) == "source_preparation_visual_outcome_unknown":
+            payload["unknown_visual_outcome"] = True
         payload["usage"] = usage
         payload["usage_complete"] = False
         if json_recovery.used:

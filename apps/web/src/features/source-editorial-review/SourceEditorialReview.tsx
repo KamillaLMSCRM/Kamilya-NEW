@@ -45,6 +45,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const [review, setReview] = useState<SourceReview | null>(null);
   const [courseDocuments, setCourseDocuments] = useState<string[]>([]);
   const [pageInput, setPageInput] = useState<{ first: string; last: string } | null>(null);
+  const [acknowledgedRevision, setAcknowledgedRevision] = useState<number | null>(null);
   const [selectionDraft, setSelectionDraft] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
   useEffect(() => {
@@ -166,7 +167,9 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const lastPage = Number(range.last);
   const validPages = !usePages || (Number.isInteger(firstPage) && Number.isInteger(lastPage)
     && firstPage >= 1 && lastPage >= firstPage && lastPage <= 10000);
-  const failureMessage = review?.error === 'direct_source_pdf_range_invalid' ? copy.rangeFailure
+  const failureMessage = review?.retry_blocked_unknown_visual ? copy.visualOutcomeHeld
+    : review?.error === 'source_review_interrupted_outcome_unknown' ? copy.interruptedOutcomeHeld
+    : review?.error === 'direct_source_pdf_range_invalid' ? copy.rangeFailure
     : review?.error === 'source_review_preparation_stale' ? copy.preparationStale
     : review?.error === 'source_review_unsupported_visual' ? copy.visualUnsupported
     : review?.error === 'direct_source_pptx_ocr_required' ? copy.presentationOcrRequired
@@ -207,7 +210,9 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         <h2 className="break-words text-lg font-semibold">{review.title}</h2>
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
-        {(['not_started', 'failed', 'interrupted'].includes(review.status) || review.error === 'source_review_preparation_stale') && !approvalId && <>
+        {review.continuation_pending && !approvalId && <Button disabled={disabled}
+          onClick={() => void action({ action: 'start' })}>{copy.continueReview}</Button>}
+        {!review.continuation_pending && (['not_started', 'failed', 'interrupted'].includes(review.status) || review.error === 'source_review_preparation_stale') && !approvalId && <>
           <p className="text-sm">{review.status === 'not_started' ? copy.startHint : failureMessage}</p>
           {review.error && /^[a-z0-9_]{2,100}$/.test(review.error) && <code className="break-all text-xs text-muted-foreground">{review.error}</code>}
           {review.pdf && review.error !== 'source_review_preparation_stale' && <fieldset className="space-y-2 rounded-xl border border-border p-3">
@@ -225,8 +230,13 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             {!validPages && <p role="status" className="text-sm text-destructive">{copy.pagesInvalid}</p>}
             {downloadStatus === 'failed' && <p role="alert" className="text-sm text-destructive">{copy.loadError}</p>}
           </fieldset>}
-          <Button disabled={disabled || !validPages} onClick={() => void action({
+          {review.requires_retry_acknowledgement && !review.retry_blocked_unknown_visual && <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1 shrink-0" checked={acknowledgedRevision === review.revision}
+              onChange={event => setAcknowledgedRevision(event.target.checked ? review.revision : null)} />{copy.retryUnknownAck}
+          </label>}
+          <Button disabled={disabled || !validPages || review.retry_blocked_unknown_visual || review.error === 'source_review_interrupted_outcome_unknown' || (review.requires_retry_acknowledgement && acknowledgedRevision !== review.revision)} onClick={() => void action({
             action: 'start', ...(review.pdf && usePages ? { pages: { first_page: firstPage, last_page: lastPage } } : {}),
+            ...(review.requires_retry_acknowledgement ? { acknowledge_outcome_and_cost_unknown: true } : {}),
           })}>{review.status === 'not_started' ? copy.check : copy.retry}</Button>
         </>}
         {review.pages && <p className="text-sm text-muted-foreground">{copy.chosenPages}: {review.pages.first_page}–{review.pages.last_page}</p>}
@@ -248,7 +258,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         {pending && <Button variant="outline" disabled={saving} onClick={() => void submit(pending)}>{copy.repeatCommand}</Button>}
       </WorkspacePanel>}
       {review.preparation && <SourcePreparationPanel preparation={review.preparation} lang={lang}
-        editable={!approvalId && review.error !== 'source_review_preparation_stale' && (review.status === 'in_review' || review.status === 'failed')} disabled={disabled}
+        editable={!approvalId && !review.requires_retry_acknowledgement && review.error !== 'source_review_preparation_stale' && (review.status === 'in_review' || review.status === 'failed')} disabled={disabled}
         onDraftChange={setSelectionDraft}
         onApply={(ids, sha256) => action({ action: 'select_parts', selected_part_ids: ids, preparation_sha256: sha256 })} />}
       {review.original_text && <>
