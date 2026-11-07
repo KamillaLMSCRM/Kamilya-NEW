@@ -571,8 +571,11 @@ raw не является новым вызовом. Unknown dispatch не по�
   returned one grounded issue with two completed DeepSeek replies, 2,287 input
   and 2,797 output tokens. This does not relabel either ordinary failure.
 - The response contract now permits one corrective request after a completed
-  object fails Pydantic validation. It supplies only safe field paths and error
-  types, keeps the original/proposal identical and runs strict validation again.
+  object fails Pydantic validation. Feedback supplies only safe field paths and
+  error types. The same model receives its rejected JSON as untrusted correction
+  context with an instruction to preserve valid findings. Original/proposal
+  stay identical and the revised reply runs strict validation again. Rejected
+  response bodies are kept out of logs.
   One correction budget is shared by all blocks of an analysis run. A second
   invalid reply fails. Unknown transport outcomes, timeouts and a changed
   proposal identity do not trigger this correction. No findings are discarded

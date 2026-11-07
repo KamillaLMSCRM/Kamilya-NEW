@@ -288,6 +288,10 @@ async def test_review_schema_correction_preserves_source_and_reports_only_safe_f
     result = await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
     assert len(requests) == result["model_calls"] == 3
     assert requests[1][1] == requests[2][1]
+    assert requests[2][2]["role"] == "assistant"
+    rejected = json.loads(requests[2][2]["content"])
+    assert rejected["proposal_sha256"] == json.loads(requests[1][1]["content"])["proposal_sha256"]
+    assert requests[2][3]["role"] == "user" and "Preserve valid findings" in requests[2][3]["content"]
     correction = requests[2][0]["content"]
     assert "response-schema validation" in correction and "private_source_name" not in correction
     assert "Untrusted hidden instructions." not in correction
