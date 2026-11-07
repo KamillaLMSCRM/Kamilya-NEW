@@ -6169,3 +6169,42 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
 - Evidence `.release-evidence/source-echo-v080/` and
   `.release-evidence/prod-v080-matrix-result.json`. Local schema correction
   under ENG-031 passed 40 focused tests and Ruff, release version 0.11.81.
+
+## RUN-20261107-PROD-SOURCE-SCHEMA-081
+
+- Exact 0.11.81 `369f82a16726297ff6fd852aaeaeebc89955806f`, CI42333787858 and
+  protected42334400327 PASS. Attested image
+  `f8523cbbaf193867a83297adf567097f38fdc7d5401752c673f8d574f035c92d` independently
+  verified on API/worker-ai/worker-documents/worker-ops before and after tests,
+  zero restarts, private/public health PASS, prior0.11.80 image local.
+- Ordinary methodologist, production synthetic tenant
+  `83552ce6-8058-4561-abe3-cfbda14e030a`. Final XLSX39s/DOCX20s/PPTX14s/PDF11s/
+  TXT14s/MD14s/CSV19s/DOC14s/XLS14s all passed upload, recognition of both
+  conflicting deadlines, source review, visible original-linked open question,
+  unchanged original download and verified fixture removal. Each final source
+  had one question. PPTX table/notes survived. PDF used the full document.
+- The initial CSV browser attempt stopped with a generic automation error48s
+  before terminal worker-status readback. Its source was removed and verified
+  absent. Exact cause remains unknown. Its original BLOCKED receipt is retained.
+  One fresh browser confirmation then passed, with model_calls3 demonstrating
+  one schema correction in the ordinary production path. Other eight final
+  format checks each used2 completed model stages, total19.
+- Separate XLS14s and XLSX29s passed with one literal-anchored conflict and
+  one visible card each, zero unbound issues. Both exact original blob hashes
+  matched their matrix files and byte-identical post-review downloads. Four
+  completed stages for the pair. Ordinary token usage and actual total HTTP
+  retry count are unavailable, never inferred from the stage count.
+- Source questions remained open for human decisions, original blobs unchanged.
+  All disposable sources verified absent, permanent synthetic tenant retained.
+  SCORM import404. No course, assignment, invitation or customer-data writes in
+  this source-format run. Full historical course-generation evidence is in
+  RUN-20261106-COURSE-FORMATS-078, separately scoped.
+- Runtime saved-case replay tested the original table excerpt, an altered source
+  echo and one invalid schema followed by correction. One anchored open issue,
+  three counted stages with zero provider calls. Local40 focused tests, Ruff,
+  version/release contracts and full CI passed. Provider configuration remained
+  DeepSeek then Luna revision5, explicit GLM keys absent.
+- Evidence `.release-evidence/source-schema-v081/` including
+  `format-acceptance-summary.json`, `prod-api-after-matrix.json` and the exact
+  immutable release manifest. Raw receipts under `.release-evidence/prod-v081-*`
+  preserve the initial matrix failure, CSV confirmation and separate pair.

@@ -592,3 +592,12 @@ raw не является новым вызовом. Unknown dispatch не по�
   Evidence `.release-evidence/prod-v080-*-result.json` and
   `.release-evidence/source-echo-v080/xlsx-corpus-diagnostic.json`. All used
   synthetic sources were removed and verified absent.
+- Final verification 2026-11-07. Exact production0.11.81 `369f82a1`,
+  CI42333787858/protected42334400327 PASS. Ordinary final nine-format checks
+  passed, including CSV with three completed model stages and one open anchored
+  issue. The source and original blob remained unchanged. Separate same-file
+  XLS/XLSX checks passed14s/29s with one deadline question each. Initial CSV
+  browser automation failed before terminal readback, exact cause unknown,
+  original receipt preserved. Runtime saved-case replay independently verified
+  one correction and strict final validation with zero provider calls.
+  Full proof and scope in RUN-20261107-PROD-SOURCE-SCHEMA-081.

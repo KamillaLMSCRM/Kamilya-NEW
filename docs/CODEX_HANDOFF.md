@@ -1,4 +1,30 @@
-# Source-response correction LOCAL 0.11.81 — 2026-11-07
+# Source review 0.11.81 accepted in production — 2026-11-07
+
+- result: Production API and three workers 0.11.81, exact
+  `369f82a16726297ff6fd852aaeaeebc89955806f`. CI 42333787858 and protected
+  workflow 42334400327 PASS. Native frontend 0.11.78 `49902a0d` compatible.
+- changed: Exact table-quote restoration removes the saved duplicate. The
+  reviewer source echo is unused. One completed schema failure can receive
+  field-specific correction with the rejected JSON as untrusted context,
+  preserving valid findings. Strict validation and human source decisions remain.
+- verified: 40 focused tests, full CI, immutable image and four live containers.
+  Nine ordinary production formats accepted with one grounded open 24/72-hour
+  conflict each. CSV needed an explicit browser repeat and used three completed
+  model stages. Separate XLS14s/XLSX29s pair used the exact same original files,
+  one card each, original bytes identical. 19 completed stages for nine final
+  format checks plus4 for the extra pair. Ordinary token usage unavailable.
+- blockers: None for this source-format scope. Acceptance covers upload,
+  recognition, source review, browser findings and original-byte integrity.
+  Historical complete course-generation/learning evidence remains separately
+  identified in the ledger. The initial CSV automation failure and earlier
+  schema failures retain their original failed receipts. No active test remains.
+- next: Monitor ordinary use. All disposable sources verified absent, permanent
+  synthetic tenant retained. Rollback image 0.11.80 `cfd16ff0...` retained.
+  Provider chain stays DeepSeek/Luna revision5, GLM absent. Current evidence
+  `.release-evidence/source-schema-v081/format-acceptance-summary.json`,
+  `prod-v081-*-result.json`, RUN-20261107-PROD-SOURCE-SCHEMA-081, ENG-030/031.
+
+# Source-response correction LOCAL 0.11.81 — 2026-11-07 (historical)
 
 - result: Production API/workers 0.11.80 `81e28c20`, CI 42331754524 and
   protected workflow 42332389011 PASS. Public web stays 0.11.78 `49902a0d`.

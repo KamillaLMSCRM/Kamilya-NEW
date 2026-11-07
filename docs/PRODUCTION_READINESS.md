@@ -1,3 +1,27 @@
+## Source review 0.11.81 production acceptance — 2026-11-07
+
+Exact API and three workers `369f82a16726297ff6fd852aaeaeebc89955806f`,
+CI42333787858/protected42334400327 PASS, immutable image
+`ghcr.io/kamillalmscrm/kamilya-api@sha256:f8523cbbaf193867a83297adf567097f38fdc7d5401752c673f8d574f035c92d`.
+Independent readback before and after acceptance verified four healthy services,
+zero restarts, public/private health, SMTP and retained 0.11.80 rollback image.
+Native frontend remains compatible 0.11.78 `49902a0d`. No migration.
+
+Nine source formats accepted in the dedicated production synthetic tenant.
+Each final PDF/DOC/DOCX/PPTX/TXT/MD/CSV/XLS/XLSX result had one anchored open
+deadline conflict, visible browser card and byte-identical original. Initial CSV
+automation stopped before terminal readback. Its separate confirmation passed
+with one schema correction, original failure receipt preserved. Additional
+same-file XLS/XLSX pair passed14s/29s, one question each. All disposable sources
+verified absent, permanent tenant retained. 40 focused source-review tests and
+full CI passed. 19 completed model stages for nine final format checks plus4
+for the separate pair. Production token counters unavailable.
+
+This acceptance covers document intake and source review. Complete course and
+learning journeys have separately identified ledger evidence. Canonical current
+receipt is RUN-20261107-PROD-SOURCE-SCHEMA-081 and
+`.release-evidence/source-schema-v081/format-acceptance-summary.json`.
+
 ## P31 three native DEV drafts verified; production NOT accepted — 2026-11-05
 
 Current exact DEV12d33577 RELEASE_OK/RECONCILED, CI42059258101/image42060483400,
