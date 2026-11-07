@@ -527,3 +527,11 @@ raw не является новым вызовом. Unknown dispatch не по�
   unbound; this is a known duplicate, not a lost or automatically resolved
   question. No model response was used as a human decision. Exact product
   proof is in `.release-evidence/format-r8/`.
+- 2026-11-07: the saved reviewer excerpt omits the closing Markdown table pipe
+  on its first row. This left the reviewer question unbound while the author
+  clue retained the literal span. The overlap pass saw only one of the two
+  copies. The local correction restores coordinates only if inserting that
+  separator identifies one literal table span. Replaying the saved pair then
+  yields one open issue. Repeated source rows and changed deadlines remain
+  unbound. Production `49902a0d` produced one anchored issue for each Excel
+  fixture in the separate nine-format run.

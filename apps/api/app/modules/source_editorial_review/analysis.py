@@ -100,6 +100,23 @@ class _IndependentReview(BaseModel):
     source_clue_dispositions: object = None
 
 
+def _restore_table_quote_span(original: str, quote: str) -> tuple[int, int] | None:
+    # A quote starting inside a cell can omit the closing delimiter of its
+    # first row. Accept the repair only when it identifies one literal span.
+    first, newline, rest = quote.partition("\n")
+    if not newline or not first or first.endswith("|") or quote in original:
+        return None
+    literal = first + " |" + newline + rest
+    if original.count(literal) != 1:
+        return None
+    start = original.index(literal)
+    row_start = original.rfind("\n", 0, start) + 1
+    row = original[row_start:start + len(first)]
+    if not row.lstrip().startswith("|") or row.count("|") < 2:
+        return None
+    return start, start + len(literal)
+
+
 def _unverified_clues(review: _IndependentReview, material: dict[int, Any], original: str) -> list[int]:
     """An invalid disposition never dismisses a clue or invalidates other findings."""
     remaining = set(material)
@@ -306,6 +323,15 @@ async def analyze(
             await checkpoint(key, {"questions": block_questions, "automatic": block_auto, "calls": block_calls})
         questions.extend(block_questions)
         auto.extend(block_auto)
+
+    # Restore literal coordinates before merging, including for resumed blocks.
+    for question in questions:
+        if question["start"] is not None:
+            continue
+        span = _restore_table_quote_span(original, question["quote"])
+        if span is not None:
+            start, end = span
+            question.update(start=start, end=end, quote=original[start:end])
 
     # Merge overlapping findings so two answers cannot overwrite the same source
     # span. Do not apply even a safe auto edit inside a decision a human must make.

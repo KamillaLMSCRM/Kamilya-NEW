@@ -6109,3 +6109,17 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
   format-matrix-summary.json, dev-synthetic-generation.json,
   prod-synthetic-generation.json, prod-public.json, prod-api-live.json,
   native-technical.json, and capacity-cleanup.json.
+
+## RUN-20261107-PROD-COURSE-FORMATS-078
+
+- Exact production `49902a0d45f55a736419acb8e1173d46613f63a8`. Ordinary
+  methodologist in the dedicated synthetic tenant. PDF, DOC, DOCX, PPTX,
+  TXT, MD, CSV, XLS and XLSX passed upload, byte-identical original download,
+  source review and cleanup. All nine reached `in_review` with one anchored
+  24/72-hour conflict each. PPTX preserved table and speaker notes. PDF review
+  ran without a page range. SCORM import returned 404.
+- 18 review model calls. The production route did not expose token usage in
+  the result. All nine disposable documents were independently verified absent.
+- Full PPTX-to-course evidence remains in RUN-20261106-COURSE-FORMATS-078.
+  This run exercised source review for every supported format. Evidence is in
+  `.release-evidence/prod-course-format-matrix-20261107.json`.

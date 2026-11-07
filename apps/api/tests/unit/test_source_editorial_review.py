@@ -219,6 +219,40 @@ async def test_author_semantic_clue_reaches_independent_review_without_becoming_
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("duplicate_rows, different_deadline", [(False, False), (True, False), (False, True)])
+async def test_spreadsheet_conflict_quote_recovers_only_unique_literal_table_span(duplicate_rows, different_deadline):
+    first = "For a standard return the employee must submit the form within 24 hours."
+    second = "| Section 2 | For the same return the employee must submit the form within 72 hours. |"
+    quoted_rows = f"| Section 1 | {first} |\n\n{second}"
+    original = f"# Return policy\n\n| Section | Rule |\n\n| --- | --- |\n\n{quoted_rows}"
+    if duplicate_rows:
+        original += f"\n\n{quoted_rows}"
+    reviewer_excerpt = f"{first}\n\n{second}"
+    if different_deadline:
+        reviewer_excerpt = reviewer_excerpt.replace("72 hours", "96 hours")
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": [{"alias": "Deadline", "excerpt": quoted_rows,
+                "category": "conflict", "reason": "Two deadlines for the same return."}]}
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "source_questions": [
+            {"excerpt": reviewer_excerpt, "category": "conflict", "reason": "Which deadline applies?"},
+        ], "source_clue_dispositions": [{"clue_id": 0, "disposition": "confirmed", "question_index": 0}]}
+
+    result = await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert result["model_calls"] == 2 and result["original"] == original and not result["automatic"]
+    if duplicate_rows or different_deadline:
+        assert len(result["issues"]) == 2
+        assert any(issue["quote"] == reviewer_excerpt and issue["start"] is None for issue in result["issues"])
+    else:
+        issue, = result["issues"]
+        assert issue["quote"] == original[issue["start"]:issue["end"]] == quoted_rows
+        assert issue["needs_source_verification"] is True
+        assert "Which deadline applies?" in issue["reason"]
+
+
+@pytest.mark.asyncio
 async def test_approved_layout_edit_cannot_hide_an_unresolved_source_question():
     quote = "Submit within 24 hours."
     before = "Keep the  receipt."

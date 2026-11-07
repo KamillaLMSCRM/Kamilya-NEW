@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.79] - 2026-11-07
+
+### Fixed
+
+- Group duplicate source review findings when a table quote is missing only its closing row separator.
+
 ## [0.11.78] - 2026-11-06
 
 ### Changed
