@@ -21,7 +21,14 @@ from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, Ma
 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
-from app.modules.source_editorial_review.service import add_event, history, owned_document, read_state, review_enabled
+from app.modules.source_editorial_review.service import (
+    add_event,
+    history,
+    owned_document,
+    read_state,
+    review_enabled,
+    verified_preparation_binding,
+)
 from app.modules.source_preparation.domain import PreparedSource, validate_binding
 from app.modules.source_preparation.extraction import NativeAsset, NativeBlock, NativeSource, extract_native_source
 from app.modules.source_preparation.preparation import VisualRequestRejected, prepare_native_source
@@ -472,6 +479,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             package: PreparedSource | None = None
             fidelity: dict[str, Any]
             if binding is not None:
+                if not verified_preparation_binding(rows, claim.original_blob_sha256, binding):
+                    raise ReviewConflictError("source_review_preparation_stale")
                 package, selected_ids = validate_binding(binding, claim.original_blob_sha256)
                 source_text = package.selected(selected_ids)[0]
             else:

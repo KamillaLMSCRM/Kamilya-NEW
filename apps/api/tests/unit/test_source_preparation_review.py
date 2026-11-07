@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -18,8 +19,11 @@ from app.modules.source_editorial_review.service import (
     public_preparation,
     read_approval,
     read_state,
+    review_view,
+    verified_preparation_binding,
 )
 from app.modules.source_preparation.domain import PreparedSource, digest
+from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
 
 def manifest():
@@ -55,7 +59,7 @@ def test_first_manifest_survives_failed_analysis_and_supports_human_selection():
     package = manifest()
     rows = [event(1, "queued", {}), event(2, "running", {}),
             event(3, "analysis_block", {"key": "source-preparation-v1:manifest:" + "a" * 64,
-                                        "result": {"manifest": package.model_dump()}}),
+                                        "result": {"manifest": package.model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY}}),
             event(4, "failed", {"code": "provider_failure"})]
     state = read_state(rows, "a" * 64)
     assert state.status == "failed" and state.preparation is not None
@@ -78,7 +82,7 @@ def test_initial_administrative_only_manifest_still_offers_a_selection():
         part["role"] = "administrative"
     rows = [event(1, "queued", {}), event(2, "running", {}),
             event(3, "analysis_block", {"key": "source-preparation-v1:manifest:" + "a" * 64,
-                                        "result": {"manifest": data}}), event(4, "failed", {"code": "no_learning"})]
+                                        "result": {"manifest": data, "visual_review_policy": _VISUAL_REVIEW_POLICY}}), event(4, "failed", {"code": "no_learning"})]
     state = read_state(rows, "a" * 64)
     assert state.preparation["selected_part_ids"] == [package.parts[0].id]
 
@@ -100,6 +104,155 @@ def test_prior_review_and_decisions_survive_pending_manifest_replay():
     state = read_state(rows, "a" * 64)
     assert state.preparation == first and state.pending_preparation == next_binding
     assert state.original == "First teaching material" and state.decisions["issue"] == decision
+
+
+def test_legacy_provisional_manifest_is_not_hydrated_or_verified():
+    package = manifest()
+    checkpoint = event(3, "analysis_block", {"key": "source-preparation-v1:manifest:" + "a" * 64,
+                       "result": {"manifest": package.model_dump()}})
+    rows = [event(1, "queued", {}), event(2, "running", {}), checkpoint,
+            event(4, "failed", {"code": "provider_failure"})]
+    state = read_state(rows, "a" * 64)
+    assert state.preparation is None and not state.original
+    binding = package.binding([package.parts[0].id])
+    assert not verified_preparation_binding(rows, "a" * 64, binding)
+    checkpoint.payload["result"]["visual_review_policy"] = _VISUAL_REVIEW_POLICY
+    assert verified_preparation_binding(rows, "a" * 64, binding)
+    changed = deepcopy(binding)
+    changed["manifest"]["blocks"][0]["text"] = "Changed"
+    assert not verified_preparation_binding(rows, "a" * 64, changed)
+
+
+def test_legacy_analyzed_and_approved_snapshot_stays_readable():
+    package = manifest()
+    binding = package.binding([package.parts[0].id])
+    rows = [event(1, "queued", {}), event(2, "running", {}), event(3, "analysis_block", {
+        "key": "source-preparation-v1:manifest:" + "a" * 64,
+        "result": {"manifest": package.model_dump()}}), event(4, "analyzed", {
+        "original": "First teaching material", "preparation": binding, "issues": [], "automatic": []})]
+    state = read_state(rows, "a" * 64)
+    _, approval = state.plan(command(state, "approve"))
+    rows.append(event(5, "approved", approval))
+    historical = read_state(rows, "a" * 64)
+    assert historical.approval == approval and historical.preparation == binding
+    assert historical.original == "First teaching material"
+
+
+@pytest.mark.asyncio
+async def test_legacy_failed_binding_retry_is_unbound_and_preserves_prior_snapshot(monkeypatch):
+    package = manifest()
+    first = package.binding([package.parts[0].id])
+    pending = package.binding([package.parts[1].id])
+    rows = [event(1, "queued", {}), event(2, "analyzed", {"original": "First teaching material",
+            "preparation": first, "issues": [], "automatic": []}), event(3, "queued", {"preparation": pending}),
+            event(4, "failed", {"code": "source_review_preparation_stale"})]
+    for row in rows:
+        row.request_id = None
+    monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=rows))
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock())
+    doc = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), content_sha256="a" * 64)
+    state = read_state(rows, "a" * 64)
+    with pytest.raises(ReviewConflictError, match="preparation_stale"):
+        await apply_command(db, doc, uuid4(), command(state, "select_parts",
+            selected_part_ids=[package.parts[1].id], preparation_sha256=package.sha256))
+    _, after, queued, dispatch = await apply_command(db, doc, uuid4(), command(state, "start"))
+    assert dispatch and queued.payload == {} and after.pending_preparation is None
+    assert after.preparation == first and after.original == "First teaching material"
+
+
+@pytest.mark.asyncio
+async def test_verified_failed_binding_reselection_remains_bound(monkeypatch):
+    package = manifest()
+    rows = [event(1, "queued", {}), event(2, "running", {}), event(3, "analysis_block", {
+        "key": "source-preparation-v1:manifest:" + "a" * 64,
+        "result": {"manifest": package.model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY}}),
+        event(4, "failed", {"code": "provider_failure"})]
+    for row in rows:
+        row.request_id = None
+    monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=rows))
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock())
+    doc = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), content_sha256="a" * 64)
+    state = read_state(rows, "a" * 64)
+    _, _, queued, dispatch = await apply_command(db, doc, uuid4(), command(state, "select_parts",
+        selected_part_ids=[package.parts[1].id], preparation_sha256=package.sha256))
+    assert dispatch and queued.payload["preparation"]["selected_part_ids"] == [package.parts[1].id]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reopened", [False, True])
+async def test_legacy_in_review_blocks_approval_and_allows_revision_bound_fresh_retry(monkeypatch, reopened):
+    package = manifest()
+    binding = package.binding([package.parts[0].id])
+    rows = [event(1, "queued", {}), event(2, "running", {}), event(3, "analyzed", {
+        "policy": "legacy", "original": "First teaching material", "preparation": binding,
+        "issues": [{"id": "q", "start": 0, "end": 5, "quote": "First", "reason": "Review"}],
+        "automatic": []}), event(4, "resolved", {"item_id": "q", "decision": "keep", "start": 0,
+        "end": 5, "before": "First", "after": "First", "reason": "Checked"})]
+    if reopened:
+        state = read_state(rows, "a" * 64)
+        _, approval = state.plan(command(state, "approve"))
+        rows.extend([event(5, "approved", approval), event(6, "reopened", {})])
+    for row in rows:
+        row.request_id = None
+        row.id, row.actor_id, row.created_at = uuid4(), uuid4(), datetime.now(UTC)
+    monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=rows))
+    doc = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), content_sha256="a" * 64,
+                          title="Synthetic", version=1, filename="source.txt")
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock())
+    state = read_state(rows, doc.content_sha256)
+    assert review_view(doc, rows, state)["error"] == "source_review_preparation_stale"
+    with pytest.raises(ReviewConflictError, match="preparation_stale"):
+        await apply_command(db, doc, uuid4(), command(state, "approve"))
+    with pytest.raises(ReviewConflictError, match="revision_conflict"):
+        await apply_command(db, doc, uuid4(), ReviewCommand(action="start", request_id=uuid4(),
+                                                             expected_revision=state.revision - 1))
+    _, after, queued, dispatch = await apply_command(db, doc, uuid4(), command(state, "start"))
+    assert dispatch and queued.payload == {} and after.preparation == binding
+    assert after.original == "First teaching material" and after.decisions["q"]["decision"] == "keep"
+
+
+def test_verified_in_review_and_legacy_approved_have_no_stale_projection():
+    package = manifest()
+    binding = package.binding([package.parts[0].id])
+    rows = [event(1, "queued", {}), event(2, "analysis_block", {
+        "key": "source-preparation-v1:manifest:" + "a" * 64,
+        "result": {"manifest": package.model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY}}),
+        event(3, "analyzed", {"policy": "current", "original": "First teaching material",
+                               "preparation": binding, "issues": [], "automatic": []})]
+    for row in rows:
+        row.request_id = None
+        row.id, row.actor_id, row.created_at = uuid4(), uuid4(), datetime.now(UTC)
+    doc = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), content_sha256="a" * 64,
+                          title="Synthetic", version=1, filename="source.txt")
+    state = read_state(rows, doc.content_sha256)
+    assert review_view(doc, rows, state)["error"] is None
+    _, approval = state.plan(command(state, "approve"))
+    row = event(4, "approved", approval)
+    row.request_id = None
+    row.id, row.actor_id, row.created_at = uuid4(), uuid4(), datetime.now(UTC)
+    row.document_id = doc.id
+    legacy_rows = [rows[0], event(2, "running", {}), rows[2], row]
+    legacy_rows[1].request_id = None
+    legacy = read_state(legacy_rows, doc.content_sha256)
+    assert review_view(doc, legacy_rows, legacy)["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_verified_in_review_can_approve(monkeypatch):
+    package = manifest()
+    binding = package.binding([package.parts[0].id])
+    rows = [event(1, "queued", {}), event(2, "analysis_block", {
+        "key": "source-preparation-v1:manifest:" + "a" * 64,
+        "result": {"manifest": package.model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY}}),
+        event(3, "analyzed", {"original": "First teaching material", "preparation": binding,
+                               "issues": [], "automatic": []})]
+    for row in rows:
+        row.request_id = None
+    monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=rows))
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock())
+    doc = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), content_sha256="a" * 64)
+    _, after, approved, dispatch = await apply_command(db, doc, uuid4(), command(read_state(rows, "a" * 64), "approve"))
+    assert approved.kind == "approved" and after.status == "approved" and not dispatch
 
 
 def test_selection_is_revision_bound_canonical_and_only_invalidates_after_success():

@@ -1,4 +1,5 @@
 const ru = {
+  preparationStale: 'Выбранные части требуют повторной проверки. Нажмите «Повторить проверку», затем сверьте обновлённый список частей перед утверждением.',
   visualUnsupported: 'В документе есть графические элементы, которые не удалось распознать без потери содержания. Сохраните их как изображения в документе и загрузите новую версию.',
   title: 'Проверка документа', short: 'Проверить документ',
   presentationOcrRequired: 'В презентации есть слайды без доступного текста. Добавьте текст на слайды или загрузите PDF для распознавания.',
@@ -56,6 +57,7 @@ const ru = {
 };
 
 const en: typeof ru = {
+  preparationStale: 'The selected parts need another review. Choose Retry review, then check the updated parts before approving.',
   visualUnsupported: 'Some graphic elements could not be recognized without losing content. Save them as images inside the document and upload a new version.',
   title: 'Document review', short: 'Review document',
   presentationOcrRequired: 'Some slides have no extractable text. Add slide text or upload a PDF for text recognition.',
@@ -110,6 +112,7 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  preparationStale: 'Таңдалған бөліктерді қайта тексеру қажет. «Қайта тексеру» түймесін басып, бекіту алдында жаңартылған бөліктерді салыстырыңыз.',
   visualUnsupported: 'Құжаттағы кейбір графикалық элементтерді мазмұнын жоғалтпай тану мүмкін болмады. Оларды құжат ішінде кескін ретінде сақтап, жаңа нұсқаны жүктеңіз.',
   title: 'Құжатты тексеру', short: 'Құжатты тексеру',
   presentationOcrRequired: 'Кейбір слайдтардан мәтін алынбайды. Слайдтарға мәтін қосыңыз немесе мәтінді тану үшін PDF жүктеңіз.',

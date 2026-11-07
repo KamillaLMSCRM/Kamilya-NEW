@@ -1,5 +1,13 @@
 # Source preparation second candidate — 2026-11-07 06:00 UTC
 
+- Additional compatibility correction after exact d4a6583f CI42345463047 PASS:
+  provisional hydration/queued bindings/new approvals require the exact verified
+  manifest checkpoint. Legacy in-review/reopened editions show an actionable stale
+  message and revision-bound fresh retry; old approved snapshots remain readable.
+  Independent Terra review READY, local58source-review tests/Pythonbaseline and
+  web66tests/typecheck/lint PASS. Isolated DB gate session11410 currently running;
+  do not start a duplicate. This newest change still awaits its exact CI and DEV.
+
 - result: Shared parts/images path implemented; DEV60681e1e technical PASS,
   production369f82a1 unchanged. Updated source candidate is being frozen for CI.
   Hosted real-file source/course acceptance has not started.

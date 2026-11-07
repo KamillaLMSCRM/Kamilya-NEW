@@ -35,3 +35,8 @@ literal visible text and description remain separate. Completed malformed replie
 have one addressed per-image schema correction, preserving valid siblings. Unknown
 requests never repeat; a durable HTTP rejection is reconciled only against the
 same original, exact batch membership and linked per-image intent.
+
+Only an exact current-policy manifest checkpoint permits resumed preparation or
+new approval. Historical immutable approvals remain readable. A legacy pending or
+in-review edition without verification offers a revision-bound fresh check;
+its previous text/decisions remain intact until replacement analysis succeeds.

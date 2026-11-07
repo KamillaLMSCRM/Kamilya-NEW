@@ -24,6 +24,7 @@ from app.modules.source_editorial_review.domain import (
 from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PINS
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
 from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
+from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
 _SHA = re.compile(r"[0-9a-f]{64}")
 _ANALYSIS_STALE_AFTER = timedelta(minutes=20)
@@ -69,8 +70,26 @@ def read_state(rows: Sequence[Event], blob_sha: object) -> ReviewState:
             result = row.payload.get("result")
             if not isinstance(result, dict) or "manifest" not in result:
                 raise ReviewConflictError("source_review_preparation_invalid")
-            state.hydrate_manifest(result["manifest"], str(blob_sha))
+            if result.get("visual_review_policy") == _VISUAL_REVIEW_POLICY:
+                state.hydrate_manifest(result["manifest"], str(blob_sha))
     return state
+
+
+def verified_preparation_binding(rows: Sequence[Event], blob_sha: str, binding: object) -> bool:
+    """Trust only an exact manifest checkpoint that completed visual review."""
+    try:
+        package, _ = validated_preparation(binding, blob_sha)
+    except (TypeError, ValueError, KeyError):
+        return False
+    key = f"{PREPARATION_POLICY}:manifest:{blob_sha}"
+    for row in rows:
+        if row.kind != "analysis_block" or row.original_blob_sha256 != blob_sha or row.payload.get("key") != key:
+            continue
+        result = row.payload.get("result")
+        if (isinstance(result, dict) and result.get("visual_review_policy") == _VISUAL_REVIEW_POLICY
+                and result.get("manifest") == package.model_dump()):
+            return True
+    return False
 
 
 def latest_status(rows: Sequence[Event]) -> str:
@@ -140,8 +159,11 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
             journal.append({**public_event(row), "kind": "selection", "selected_part_ids": row.payload["preparation"]["selected_part_ids"]})
     working = state.working()[0] if state.original else None
     failure_phase = rows[-1].payload.get("phase") if rows and rows[-1].kind == "failed" else None
+    stale_preparation = (state.status == "in_review" and state.preparation is not None
+                         and not verified_preparation_binding(rows, str(doc.content_sha256), state.preparation))
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
-            "revision": state.revision, "status": latest_status(rows), "error": state.error,
+            "revision": state.revision, "status": latest_status(rows),
+            "error": "source_review_preparation_stale" if stale_preparation else state.error,
             "failure_phase": failure_phase if failure_phase in (
                 "source_extraction", "source_contract", "provider_readiness", "editor_request", "editor_response",
                 "independent_review_request", "independent_review_response",
@@ -192,7 +214,23 @@ async def apply_command(
         return rows, state, duplicate, duplicate.kind == "queued" and state.status == "queued" and rows[-1] is duplicate
     if latest_status(rows) == "interrupted":
         state.status = "failed"
-    kind, payload = state.plan(command)
+    stale_in_review = (state.status == "in_review" and state.preparation is not None
+                       and not verified_preparation_binding(rows, str(doc.content_sha256), state.preparation))
+    if stale_in_review and command.action in {"start", "approve"}:
+        if command.expected_revision != state.revision:
+            raise ReviewConflictError("source_review_revision_conflict")
+        if command.action == "approve":
+            raise ReviewConflictError("source_review_preparation_stale")
+        if command.pages is not None and command.pages.model_dump() != state.pages:
+            raise ReviewConflictError("source_review_preparation_changed")
+        kind, payload = "queued", ({"pages": state.pages} if state.pages else {})
+    else:
+        kind, payload = state.plan(command)
+    if kind == "queued" and payload.get("preparation") is not None and not verified_preparation_binding(
+            rows, str(doc.content_sha256), payload["preparation"]):
+        if command.action != "start":
+            raise ReviewConflictError("source_review_preparation_stale")
+        payload = {"pages": state.pages} if state.pages else {}
     event = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 1, kind=kind,
                       payload=payload, command=command)
     await db.flush()

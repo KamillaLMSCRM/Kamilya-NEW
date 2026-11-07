@@ -650,3 +650,9 @@ raw не является новым вызовом. Unknown dispatch не по�
   111905input/108733output reported tokens, including historical failed replies.
   Hosted generated-course/production acceptance pending. Actual returned model
   identity unavailable; configured DeepSeek is not asserted as identity proof.
+- Recovery audit found a legacy-state bypass: provisional old manifests could
+  hydrate after failure or be newly approved after reopen without the new visual
+  review. Exact verified-checkpoint provenance is now required for queued reuse
+  and new approval; explicit fresh retry is available and historical approved
+  snapshots preserved. Local58source-review cases and independent code review
+  PASS; integrated hosted source/course acceptance remains pending.

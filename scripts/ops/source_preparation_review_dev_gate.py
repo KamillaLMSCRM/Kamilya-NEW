@@ -95,6 +95,7 @@ async def run() -> dict[str, object]:
     )
     from app.modules.source_preparation.domain import PreparedSource, digest
     from app.modules.source_preparation.lesson_assets import approved_asset_inventory, bind_lesson_assets
+    from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
     runtime_url = normalize_database_url(values["DATABASE_URL"])
     if ((make_url(runtime_url).username or "").split(".")[0] != "lms_app"
@@ -105,10 +106,11 @@ async def run() -> dict[str, object]:
     owner = create_async_engine(owner_url, poolclass=NullPool, hide_parameters=True)
     runtime = create_async_engine(runtime_url, poolclass=NullPool, hide_parameters=True)
     sessions = async_sessionmaker(runtime, expire_on_commit=False)
-    tenant, other, doc_id, race_resolve, race_approve, foreign_doc, actor = (uuid4() for _ in range(7))
+    tenant, other, doc_id, race_resolve, race_approve, foreign_doc, actor, legacy_doc = (uuid4() for _ in range(8))
     package = synthetic_manifest(tenant, doc_id)
     packages = {doc_id: package, race_resolve: synthetic_manifest(tenant, race_resolve),
-                race_approve: synthetic_manifest(tenant, race_approve), foreign_doc: synthetic_manifest(other, foreign_doc)}
+                race_approve: synthetic_manifest(tenant, race_approve), foreign_doc: synthetic_manifest(other, foreign_doc),
+                legacy_doc: synthetic_manifest(tenant, legacy_doc)}
     learning, administrative = (p.id for p in package.parts)
     checks: list[str] = []
     source_sha = hashlib.sha256(MIGRATION.read_bytes()).hexdigest()
@@ -138,7 +140,7 @@ async def run() -> dict[str, object]:
                 await db.rollback()
                 return str(exc)
 
-    async def mock_complete(document: UUID, binding: dict, *, issues: list | None = None):
+    async def mock_complete(document: UUID, binding: dict, *, issues: list | None = None, seed_manifest: bool = False):
         async with sessions() as db:
             await scope(db, tenant)
             doc = await owned_document(db, tenant, document, lock=True)
@@ -146,8 +148,12 @@ async def run() -> dict[str, object]:
             assert rows[-1].kind == "queued"
             state = read_state(rows, doc.content_sha256)
             add_event(db, doc, actor_id=actor, sequence=state.revision + 1, kind="running", payload={})
+            if seed_manifest:
+                add_event(db, doc, actor_id=actor, sequence=state.revision + 2, kind="analysis_block", payload={
+                    "key": "source-preparation-v1:manifest:" + doc.content_sha256,
+                    "result": {"manifest": packages[document].model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY}})
             source = selected_binding_text(binding, doc.content_sha256)
-            add_event(db, doc, actor_id=actor, sequence=state.revision + 2, kind="analyzed", payload={
+            add_event(db, doc, actor_id=actor, sequence=state.revision + 2 + int(seed_manifest), kind="analyzed", payload={
                 "policy": POLICY, "original": source, "preparation": binding, "issues": issues or [], "automatic": [],
                 "fidelity": {}})
             await db.commit()
@@ -168,7 +174,8 @@ async def run() -> dict[str, object]:
             await db.execute(text(f"INSERT INTO {qualified}.tenants VALUES(:tenant),(:other)"), {"tenant": tenant, "other": other})
             await db.execute(text(f"SET LOCAL search_path={qualified},pg_catalog"))
             await db.run_sync(lambda con: Document.__table__.create(con, checkfirst=False))
-            for did, tid in ((doc_id, tenant), (race_resolve, tenant), (race_approve, tenant), (foreign_doc, other)):
+            for did, tid in ((doc_id, tenant), (race_resolve, tenant), (race_approve, tenant),
+                             (foreign_doc, other), (legacy_doc, tenant)):
                 await db.execute(text(f"""INSERT INTO {qualified}.documents(id,tenant_id,uploaded_by,title,content_type,content_sha256,file_size)
                     VALUES(:doc,:tenant,:actor,'Synthetic preparation gate','text/plain',:sha,100)"""),
                     {"doc": did, "tenant": tid, "actor": actor, "sha": packages[did].original_blob_sha256})
@@ -188,7 +195,8 @@ async def run() -> dict[str, object]:
             doc = await owned_document(db, tenant, doc_id, lock=True)
             for sequence, kind, payload in [(1, "queued", {}), (2, "running", {}), (3, "analysis_block", {
                 "key": "source-preparation-v1:manifest:" + package.original_blob_sha256,
-                "result": {"manifest": package.model_dump()}}), (4, "failed", {"code": "synthetic_failure"})]:
+                "result": {"manifest": package.model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY}}),
+                (4, "failed", {"code": "synthetic_failure"})]:
                 add_event(db, doc, actor_id=actor, sequence=sequence, kind=kind, payload=payload)
             await db.commit()
         async with sessions() as db:
@@ -235,15 +243,34 @@ async def run() -> dict[str, object]:
                 add_event(db, doc, actor_id=actor, sequence=1, kind="queued", payload={})
                 await db.commit()
             issues = [{"id": "q", "start": 0, "end": 8, "quote": "Learning", "reason": "Synthetic question"}] if issue else []
-            await mock_complete(did, binding, issues=issues)
-            selection = ReviewCommand(action="select_parts", expected_revision=3, request_id=uuid4(),
+            await mock_complete(did, binding, issues=issues, seed_manifest=True)
+            selection = ReviewCommand(action="select_parts", expected_revision=4, request_id=uuid4(),
                 selected_part_ids=[race_learning, race_administrative], preparation_sha256=race_package.sha256)
-            competing = (ReviewCommand(action="resolve", expected_revision=3, request_id=uuid4(), item_id="q",
+            competing = (ReviewCommand(action="resolve", expected_revision=4, request_id=uuid4(), item_id="q",
                 decision="keep", reason="Synthetic resolution") if issue else
-                ReviewCommand(action="approve", expected_revision=3, request_id=uuid4()))
+                ReviewCommand(action="approve", expected_revision=4, request_id=uuid4()))
             race = await asyncio.gather(command(did, selection), command(did, competing))
             assert sorted(race) == ["applied", "source_review_revision_conflict"]
         checks.append("selection_vs_decision_row_lock_one_winner")
+        legacy_package = packages[legacy_doc]
+        legacy_binding = legacy_package.binding([legacy_package.parts[0].id])
+        async with sessions() as db:
+            await scope(db, tenant)
+            legacy = await owned_document(db, tenant, legacy_doc, lock=True)
+            for sequence, kind, payload in [(1, "queued", {"preparation": legacy_binding}), (2, "running", {}),
+                (3, "analysis_block", {"key": "source-preparation-v1:manifest:" + legacy_package.original_blob_sha256,
+                                       "result": {"manifest": legacy_package.model_dump()}}),
+                (4, "failed", {"code": "source_review_preparation_stale"})]:
+                add_event(db, legacy, actor_id=actor, sequence=sequence, kind=kind, payload=payload)
+            await db.commit()
+        assert await command(legacy_doc, ReviewCommand(action="start", expected_revision=4, request_id=uuid4())) == "applied"
+        async with sessions() as db:
+            await scope(db, tenant)
+            legacy_rows = await history(db, tenant, legacy_doc)
+            assert legacy_rows[-1].kind == "queued" and legacy_rows[-1].payload == {}
+            legacy_state = read_state(legacy_rows, legacy_package.original_blob_sha256)
+            assert legacy_state.pending_preparation is None and legacy_state.preparation is None
+        checks.append("legacy_unverified_retry_is_unbound")
         stale = ReviewCommand(action="select_parts", expected_revision=3, request_id=uuid4(),
             selected_part_ids=[learning], preparation_sha256=package.sha256)
         assert await command(doc_id, stale) == "source_review_revision_conflict"

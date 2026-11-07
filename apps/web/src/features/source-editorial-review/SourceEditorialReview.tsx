@@ -167,6 +167,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const validPages = !usePages || (Number.isInteger(firstPage) && Number.isInteger(lastPage)
     && firstPage >= 1 && lastPage >= firstPage && lastPage <= 10000);
   const failureMessage = review?.error === 'direct_source_pdf_range_invalid' ? copy.rangeFailure
+    : review?.error === 'source_review_preparation_stale' ? copy.preparationStale
     : review?.error === 'source_review_unsupported_visual' ? copy.visualUnsupported
     : review?.error === 'direct_source_pptx_ocr_required' ? copy.presentationOcrRequired
     : review?.error === 'source_review_provider_unavailable' ? copy.providerFailure
@@ -206,10 +207,10 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         <h2 className="break-words text-lg font-semibold">{review.title}</h2>
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
-        {['not_started', 'failed', 'interrupted'].includes(review.status) && !approvalId && <>
+        {(['not_started', 'failed', 'interrupted'].includes(review.status) || review.error === 'source_review_preparation_stale') && !approvalId && <>
           <p className="text-sm">{review.status === 'not_started' ? copy.startHint : failureMessage}</p>
           {review.error && /^[a-z0-9_]{2,100}$/.test(review.error) && <code className="break-all text-xs text-muted-foreground">{review.error}</code>}
-          {review.pdf && <fieldset className="space-y-2 rounded-xl border border-border p-3">
+          {review.pdf && review.error !== 'source_review_preparation_stale' && <fieldset className="space-y-2 rounded-xl border border-border p-3">
             <legend className="px-1 text-sm font-medium">{copy.pagesTitle}</legend>
             <p className="text-xs text-muted-foreground">{copy.pagesHint}</p>
             <div className="flex flex-wrap items-end gap-2">
@@ -247,7 +248,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         {pending && <Button variant="outline" disabled={saving} onClick={() => void submit(pending)}>{copy.repeatCommand}</Button>}
       </WorkspacePanel>}
       {review.preparation && <SourcePreparationPanel preparation={review.preparation} lang={lang}
-        editable={!approvalId && (review.status === 'in_review' || review.status === 'failed')} disabled={disabled}
+        editable={!approvalId && review.error !== 'source_review_preparation_stale' && (review.status === 'in_review' || review.status === 'failed')} disabled={disabled}
         onDraftChange={setSelectionDraft}
         onApply={(ids, sha256) => action({ action: 'select_parts', selected_part_ids: ids, preparation_sha256: sha256 })} />}
       {review.original_text && <>
@@ -347,7 +348,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.working_text}</pre></details>
           <details><summary className="cursor-pointer font-semibold">{copy.original}</summary>
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.original_text}</pre></details>
-          {!readOnly && <div className="space-y-2"><Button disabled={disabled || selectionDraft || open > 0 || Boolean(manual.quote || manual.replacement || manual.reason)} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
+          {!readOnly && <div className="space-y-2"><Button disabled={disabled || review.error === 'source_review_preparation_stale' || selectionDraft || open > 0 || Boolean(manual.quote || manual.replacement || manual.reason)} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
             {open > 0 && <p className="text-sm text-muted-foreground">{copy.blocking}</p>}
             {(manual.quote || manual.replacement || manual.reason) && <p className="text-sm text-muted-foreground">{copy.unsavedManual}</p>}</div>}
         </WorkspacePanel>

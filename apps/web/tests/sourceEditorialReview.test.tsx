@@ -157,6 +157,23 @@ describe('source editorial review', () => {
     expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('pages');
   });
 
+  it.each(['failed', 'in_review'] as const)('explains stale preparation recovery in %s and prevents applying its old part selection', async status => {
+    const failed: SourceReview = { ...fixture(), status, questions: [], error: 'source_review_preparation_stale',
+      preparation: { policy: 'v1', sha256: 'a'.repeat(64), selected_part_ids: ['part-' + '1'.repeat(24)],
+        parts: [{ id: 'part-' + '1'.repeat(24), title: 'Старая часть', role: 'learning', reason: 'Обучение', block_count: 1 }], assets: [] } };
+    mocks.get.mockResolvedValue({ data: failed });
+    mocks.post.mockResolvedValue({ data: { ...failed, revision: 4, status: 'queued', error: null } });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText(/Выбранные части требуют повторной проверки/)).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: /Старая часть/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Применить выбор' })).not.toBeInTheDocument();
+    if (status === 'in_review') expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить проверку' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
+      expect.objectContaining({ action: 'start', expected_revision: 3 })));
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('selected_part_ids');
+  });
+
   it('does not fetch document text for an inactive role', () => {
     mocks.role = 'student';
     render(<SourceEditorialReview />);
