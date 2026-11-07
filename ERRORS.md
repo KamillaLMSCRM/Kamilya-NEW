@@ -582,7 +582,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-05.
+Current as of: 2026-11-07.
 
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
@@ -10263,15 +10263,20 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 
 ## AGENT-SYNTHETIC-DIAG-003 — diagnostic assertions obscured the actual result
 
-- Date 2026-11-07. The first PDF diagnostic expected a TXT-only QA title marker
-  absent from the actual PDF. A later diagnostic concatenated a nullable model
-  alias into text. The outer assertion suppressed the safe stage readback.
-- Corrected the guard using the inspected PDF's SHA and literal synthetic
+- Date: 2026-11-07.
+- Symptom: two synthetic diagnostics stopped before useful readback. The first
+  expected a TXT-only QA title marker absent from the PDF. The second
+  concatenated a nullable model alias into text.
+- Cause: fixture and nullable metadata assumptions plus an outer assertion
+  suppressed the safe stage readback.
+- Fix: corrected the guard using the inspected PDF's SHA and literal synthetic
   heading. Nullable aliases now remain `unverified`. Only sanitized stage,
   exception location/type and usage are emitted even when the diagnostic fails.
-- Original failed executions are retained as harness failures. Their provider
+- Verification: original failed executions are retained as harness failures. Their provider
   consumption is unknown, never counted as zero or a product failure. The
   final direct-converter diagnostic passed, and the canonical corpus diagnostic
   then reproduced ENG-030. The diagnostic source was deleted and verified 404.
-- Before inference, check exact fixture bytes and nullable response metadata.
+- Prevention: before inference, check exact fixture bytes and nullable response metadata.
   Failed outer diagnostics must preserve bounded stage evidence before returning.
+  Preserve these required journal labels. CI 42331554338 rejected their initial
+  prose-only representation before any production release.
