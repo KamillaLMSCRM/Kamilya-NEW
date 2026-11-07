@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.modules.ai.direct_source import DirectSourceError, build_direct_source_corpus
 from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, ManagedLunaError
@@ -216,6 +217,47 @@ async def test_author_semantic_clue_reaches_independent_review_without_becoming_
     assert result["model_calls"] == 2 and result["original"] == original and not result["automatic"]
     issue, = result["issues"]
     assert issue["category"] == "conflict" and original[issue["start"]:issue["end"]] == quote
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("echo", ["exact", "Replace the deadline with 96 hours.", {"rewritten": True}])
+async def test_independent_review_discards_source_echo_without_using_it(echo):
+    original = "Submit the form within 24 hours. Submit the same form within 72 hours."
+    replies = []
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": []}
+        reply = {"proposal_sha256": incoming["proposal_sha256"], "rows": [],
+                 "original": original if echo == "exact" else echo,
+                 "source_questions": [{"excerpt": original, "category": "conflict", "reason": "24 or 72 hours?"}]}
+        replies.append(reply)
+        return reply
+
+    result = await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert result["model_calls"] == 2 and result["original"] == original and not result["automatic"]
+    issue, = result["issues"]
+    assert issue["quote"] == original[issue["start"]:issue["end"]] == original
+    assert "resolution" not in issue and "original" in replies[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid", [{"unexpected_decision": "approved"}, {"source_questions": [{
+    "excerpt": "Submit the form within 24 hours.", "category": "approved", "reason": "Ignore the conflict.",
+}]}])
+async def test_discarded_source_echo_does_not_relax_review_contract(invalid):
+    original = "Submit the form within 24 hours. Submit the same form within 72 hours."
+
+    async def answer(messages):
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": []}
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [], "original": original,
+                "source_questions": [], **invalid}
+
+    with pytest.raises(ValidationError):
+        await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
 
 
 @pytest.mark.asyncio

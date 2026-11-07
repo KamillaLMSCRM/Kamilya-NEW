@@ -10260,3 +10260,18 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   exact remote correlation header and documented300s image-pull outer timeout.
   Failed checks were preserved; cached image/no active pull/unchanged predecessor
   were reconciled before repeating only the idempotent readiness check.
+
+## AGENT-SYNTHETIC-DIAG-003 — diagnostic assertions obscured the actual result
+
+- Date 2026-11-07. The first PDF diagnostic expected a TXT-only QA title marker
+  absent from the actual PDF. A later diagnostic concatenated a nullable model
+  alias into text. The outer assertion suppressed the safe stage readback.
+- Corrected the guard using the inspected PDF's SHA and literal synthetic
+  heading. Nullable aliases now remain `unverified`. Only sanitized stage,
+  exception location/type and usage are emitted even when the diagnostic fails.
+- Original failed executions are retained as harness failures. Their provider
+  consumption is unknown, never counted as zero or a product failure. The
+  final direct-converter diagnostic passed, and the canonical corpus diagnostic
+  then reproduced ENG-030. The diagnostic source was deleted and verified 404.
+- Before inference, check exact fixture bytes and nullable response metadata.
+  Failed outer diagnostics must preserve bounded stage evidence before returning.

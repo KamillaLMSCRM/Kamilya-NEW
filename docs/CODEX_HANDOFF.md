@@ -1,3 +1,22 @@
+# Table quote correction released, response-echo repair LOCAL — 2026-11-07
+
+- result: Production API/workers 0.11.79 `ebc80e21`, protected workflow
+  42329890544 PASS. Frontend remains 0.11.78 `49902a0d`. Previous image retained.
+- changed: Saved Excel duplicate now restores one exact table span before
+  overlap grouping. Production worker replay and separate XLS/XLSX checks
+  returned one anchored open issue each, original bytes unchanged.
+- verified: Nine-format production matrix passed eight formats. PDF repeatedly
+  failed at independent-review response validation. Canonical synthetic corpus
+  diagnostic reproduced `original / extra_forbidden`, ENG-030. All disposable
+  documents verified absent, no customer changes or active inference remains.
+- blockers: Full current nine-format acceptance is incomplete. Local 0.11.80
+  discards only the unused source echo and retains all semantic, edit and other
+  unexpected-field checks. Its 34 source-review tests and focused Ruff pass.
+  This new candidate still needs exact CI, protected release and live readback.
+- next: Release 0.11.80 with 0.11.79 rollback, repeat all nine formats and the
+  separate XLS/XLSX case on the ordinary synthetic tenant. Preserve v079 failures
+  under `.release-evidence/table-quote-v079/` and `prod-v079-*-result.json`.
+
 # Course creation and document formats in production — 2026-11-06
 
 - result: 0.11.78, exact `49902a0d45f55a736419acb8e1173d46613f63a8`.

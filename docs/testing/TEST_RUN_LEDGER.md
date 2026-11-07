@@ -6123,3 +6123,30 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
 - Full PPTX-to-course evidence remains in RUN-20261106-COURSE-FORMATS-078.
   This run exercised source review for every supported format. Evidence is in
   `.release-evidence/prod-course-format-matrix-20261107.json`.
+
+## RUN-20261107-PROD-TABLE-QUOTE-079
+
+- Backend 0.11.79 `ebc80e21b610c364ce39a4679396d365d68dfb93` released through
+  protected workflow 42329890544 after exact master CI 42329261403. API and all
+  three workers verified on image `4e8a2317ec29c5160ee7fdfcf05d1292e6287cfbd01e8207ad73faa55aca5365`.
+  Frontend remains accepted 0.11.78 `49902a0d`. Previous backend image retained.
+- Saved faulty table response replay in the actual production worker produced
+  exactly one literal anchored open issue, zero provider calls. Ordinary
+  nine-format matrix passed XLSX/DOCX/PPTX/TXT/MD/CSV/DOC/XLS. PDF failed at the
+  response contract. The first extra XLS check failed similarly, XLSX passed.
+  A separate XLS/XLSX pair then passed in 14/34 seconds, one UI question each,
+  byte-identical originals. PDF retry and final ordinary confirmation failed.
+  Thus 8/9 formats passed this release's ordinary matrix. No all-nine claim.
+- Synthetic diagnostic reproduced ENG-030 `original / extra_forbidden` through
+  the canonical source loader. Two received DeepSeek replies measured 1,436
+  input and 988 output tokens. The preceding direct-converter diagnostic passed
+  with 1,434 input / 966 output tokens. Provider identity was DeepSeek, returned
+  model alias did not match the configured alias and remains unverified.
+  Ordinary source-review token usage was unavailable. Two initial diagnostic
+  harness failures are excluded from product results, their cost is unknown.
+- All disposable source records were verified absent. SCORM import remained
+  disabled with HTTP 404. No course generation, assignment, invitations,
+  customer-data edits or configuration changes in this format-only run.
+- Evidence `.release-evidence/table-quote-v079/` and
+  `.release-evidence/prod-v079-*-result.json`. Local ENG-030 correction passed
+  34 source review tests and focused Ruff. Its release acceptance remains open.

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.80] - 2026-11-07
+
+### Fixed
+
+- Discard the independent source reviewer's unused `original` input echo before validating its findings. The recognized original and the strict finding and edit contracts remain authoritative.
+
 ## [0.11.79] - 2026-11-07
 
 ### Fixed

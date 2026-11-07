@@ -74,6 +74,7 @@ exception|unclear), and reason (a concrete question and relevant interpretations
 in the original language, up to 700 characters). Include a separate row per
 material finding. Do not manufacture findings or resolve them yourself. If no
 human decision is needed, explicitly return an empty source_questions array.
+Do not echo original or other request fields in the response.
 """
 
 class _SourceQuestion(BaseModel):
@@ -266,10 +267,15 @@ async def analyze(
                 patch_contract = messages[0]["content"].replace(
                     'Output exactly {"proposal_sha256": supplied value, "rows": [...]}.', ""
                 ) if payload["patches"] else ""
-                independent = _IndependentReview.model_validate(await complete_json([
+                reviewed = await complete_json([
                     {"role": "system", "content": _SEMANTIC_REVIEW + patch_contract},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-                ]))
+                ])
+                # Some JSON-mode replies echo the input. The recognized source
+                # remains authoritative, including when that echo is altered.
+                if isinstance(reviewed, Mapping) and "original" in reviewed:
+                    reviewed = {key: value for key, value in reviewed.items() if key != "original"}
+                independent = _IndependentReview.model_validate(reviewed)
                 if independent.proposal_sha256 != payload["proposal_sha256"]:
                     raise ReviewConflictError("source_review_independent_proposal_changed")
                 unverified = _unverified_clues(independent, material, source_block)

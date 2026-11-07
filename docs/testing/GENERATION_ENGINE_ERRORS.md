@@ -535,3 +535,29 @@ raw не является новым вызовом. Unknown dispatch не по�
   yields one open issue. Repeated source rows and changed deadlines remain
   unbound. Production `49902a0d` produced one anchored issue for each Excel
   fixture in the separate nine-format run.
+
+## ENG-030 — A source echo invalidated the independent review response
+
+- Date 2026-11-07. Released backend 0.11.79 `ebc80e21` removes the saved Excel
+  duplicate. All nine formats were exercised through the production synthetic
+  tenant. Eight formats passed. PDF failed repeatedly, and the first separate
+  XLS check also failed, at `independent_review_response`. Bounded production
+  logs identified Pydantic `ValidationError`. A subsequent separate XLS/XLSX
+  pair passed with exactly one anchored open conflict per original.
+- One bounded diagnostic on the exact uploaded synthetic PDF and the canonical
+  `load_direct_source_corpus` path reproduced `original / extra_forbidden`.
+  Its recognized source SHA was `ee97ac310641ef1bae3d15996d9e5d53147011a2396d8eaa6fbb4b67e036b02a`.
+  The reviewer echoed an input field. Recognition had preserved both deadlines.
+  Raw customer content and model bodies were excluded from diagnostic logs.
+- The response adapter discards only the unused `original` field. It cannot
+  supply or rewrite the recognized source. All other unexpected fields and
+  invalid finding categories still fail. Five regressions cover exact and
+  altered echoes, an object echo, an unknown decision field and an invalid
+  category. The 34-test source review suite and focused Ruff checks passed.
+  The new exact release and ordinary production format acceptance are pending.
+- Evidence under `.release-evidence/table-quote-v079/`, including
+  `review-failure-classes.json`, `pdf-diagnostic-final.json` and
+  `pdf-corpus-diagnostic.json`. Original failed format receipts are preserved.
+  All disposable browser and diagnostic documents were removed with verified
+  absence. CodeGraph readiness reported a missing per-checkout runtime, so this
+  known local response-adapter repair used bounded source inspection.
