@@ -1,5 +1,19 @@
 # Kamilya Test Run Ledger
 
+## RUN-20261107-RETAINED-PRACTICAL-WRAPPER
+
+- Scope: shared candidate/finalization predicate matches actual service-produced
+  author group with supported output cap; reject unsuffixed/review/malformed
+  groups. Original request/body/stage/source/delivery proof remains exact.
+- Verification: canonical focused137PASS; root combined111PASS; baseline1010/2174
+  PASS. Actual isolated Supabase DEV7PASS/cleanuptrue/public0186 unchanged,
+  source5cdcc71130123a91e03a108a506398a0f12a517ce46553f8850fe02bfaf71902.
+  Includes real concurrent resume/delivery, late-write rollback, no-HTTP managed
+  replay, source/request/group drift and one usage/original receipt preservation.
+- Limits: provider/source synthetic, no full public-row equivalence; real old
+  job still held on deployed87. Fresh cashjob316a6f2c is active on87, not duplicated
+  or stopped; final saved-course semantic review is pending. No production writes.
+
 ## RUN-20261107-SOURCE-RETAINED-AUTHOR-LOCAL
 
 - Scope: normalize lesson-local question labels; owned complete-response replay,

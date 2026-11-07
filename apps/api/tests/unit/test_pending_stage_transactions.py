@@ -91,12 +91,13 @@ async def test_multistage_finalize_clears_only_matching_marker():
 
 
 @pytest.mark.asyncio
-async def test_retained_replay_audit_is_atomic_and_bound_to_original_marker():
+@pytest.mark.parametrize("output_cap", [8192, 16384])
+async def test_retained_replay_audit_is_atomic_and_bound_to_original_marker(output_cap):
     from app.modules.ai.v3.managed_rejection_quarantine import KEY as QUARANTINE_KEY
     from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
     journal = TxJournal()
     options = args(journal)
-    options["plan"].update({"stage": "lesson", "group_id": "practical:author:editorial:v31", "route_fingerprint": "e" * 64})
+    options["plan"].update({"stage": "lesson", "group_id": f"practical:author:editorial:v31:output={output_cap}", "route_fingerprint": "e" * 64})
     digest = _digest(options["plan"])
     options["marker"]["identity"] = digest
     options["validate"] = lambda value: value["response"] if value["identity"] == digest else pytest.fail("wrong identity")
@@ -121,6 +122,31 @@ async def test_retained_replay_audit_is_atomic_and_bound_to_original_marker():
     with pytest.raises(ExtractionOutcomeUnknownError):
         await finalize_pending(**options, value=value, replay_audit=audit)
     assert journal.job.result["v3_retained_author_replay_audit"] == audit
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("group", ["practical:author:editorial:v31", "practical:review:editorial:v31:output=16384",
+                                    "practical:author:editorial:v31:output=016384", "practical:author:editorial:v31:output=32768"])
+async def test_retained_audit_rejects_foreign_or_malformed_group(group):
+    from app.modules.ai.v3.managed_rejection_quarantine import KEY as QUARANTINE_KEY
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    journal = TxJournal()
+    options = args(journal)
+    options["plan"].update({"stage": "lesson", "group_id": group, "route_fingerprint": "e" * 64})
+    digest = _digest(options["plan"])
+    options["marker"]["identity"] = digest
+    options["validate"] = lambda value: value["response"]
+    await claim_with_pending(**options)
+    receipt = {"body_sha256": "a" * 64, "wire_request_sha256": "b" * 64, "route_fingerprint": "e" * 64}
+    journal.job.result[QUARANTINE_KEY] = {"entries": {digest: receipt}}
+    journal.job.params[AUTHORIZATION_KEY] = {"policy": AUTHORIZATION_POLICY, "stage": digest,
+        "body_sha256": receipt["body_sha256"], "pending_sha256": _digest(journal.job.result[KEY]), "delivery_id": None}
+    audit = {"policy": AUTHORIZATION_POLICY, "stage_sha256": digest, "body_sha256": receipt["body_sha256"],
+             "wire_request_sha256": receipt["wire_request_sha256"], "model": "gpt-6-luna"}
+    before = deepcopy(journal.job.result)
+    with pytest.raises(ExtractionOutcomeUnknownError):
+        await finalize_pending(**options, value={"identity": digest, "response": {}}, replay_audit=audit)
+    assert journal.job.result == before and has_pending(journal.job.result)
 
 
 @pytest.mark.asyncio

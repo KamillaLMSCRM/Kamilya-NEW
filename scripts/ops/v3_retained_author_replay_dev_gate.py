@@ -18,6 +18,8 @@ from uuid import UUID
 
 ROOT = Path(__file__).resolve().parents[2]
 DEV_REF_SHA256 = "5b535773cb7222384bbb54ad3f8c2e741fa6176bec4ce586abcd82d17ee0062e"
+AUTHOR_OUTPUT_TOKENS = 16384
+AUTHOR_GROUP = f"practical:author:editorial:v31:output={AUTHOR_OUTPUT_TOKENS}"
 ENABLED = False
 _STAGE = "not_started"
 _FAILURE_DIAGNOSTIC: dict[str, str] = {}
@@ -88,7 +90,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
         tenant_id=tenant_a, user_id=actor, job_id=job_a, credential_revision="synthetic", model="gpt-6-luna")
     messages = [{"role": "user", "content": "Synthetic source only."}]
     fmt = _course_format(["SRC1"])
-    plan = stage_plan(journal, stage="lesson", group_id="practical:author:editorial:v31",
+    plan = stage_plan(journal, stage="lesson", group_id=AUTHOR_GROUP,
         source_sha256=source, route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt)
     digest = _digest(plan)
     claim_key, result_key = "v3-stage-claim:" + digest, "v3-stage-result:" + digest
@@ -101,7 +103,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
         return True  # Synthetic fixture only; the actual replay rechecks the journal and source.
 
     _STAGE = "prepare_synthetic_request"
-    capability = await client.prepare(messages, max_output_tokens=8192,
+    capability = await client.prepare(messages, max_output_tokens=AUTHOR_OUTPUT_TOKENS,
                                       ownership_checkpoint=initial_ownership, response_format=fmt)
     wire_hash = hashlib.sha256(client._prepared[capability]).hexdigest()
     client.discard(capability)
@@ -235,7 +237,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
         client.invoke = forbidden
         stage_args = dict(stage="lesson", group_id=plan["group_id"], source_sha256=source,
             route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt,
-            invoke=forbidden, direct_client=client, direct_max_output_tokens=8192)
+            invoke=forbidden, direct_client=client, direct_max_output_tokens=AUTHOR_OUTPUT_TOKENS)
         _STAGE = "replay_and_drift_checks"
         with patch("app.modules.ai.managed_luna_client.httpx.AsyncClient", side_effect=AssertionError("HTTP forbidden")):
             foreign_actor = PendingStageJournal(str(tenant_a), uuid4(), job_a, sessions, verify_source=verify)
@@ -269,6 +271,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
                 if await snapshot() != before:
                     raise AssertionError("drifted_authorization_changed_job")
             for altered in ({"source_sha256": "f" * 64}, {"route_fingerprint": "f" * 64},
+                            {"group_id": "practical:author:editorial:v31"},
                             {"messages": [{"role": "user", "content": "Changed."}]}):
                 try:
                     await stage_once(journal, **(stage_args | altered))

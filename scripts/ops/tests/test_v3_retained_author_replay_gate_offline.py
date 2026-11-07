@@ -27,6 +27,11 @@ def test_partial_execution_contract_is_rejected(gate, monkeypatch):
     assert gate.main(['--execute', '--expected-public-revision', '0186']) == 2
 
 
+def test_fixture_stage_group_matches_configured_output_limit(gate):
+    assert gate.AUTHOR_OUTPUT_TOKENS == 16384
+    assert gate.AUTHOR_GROUP == f'practical:author:editorial:v31:output={gate.AUTHOR_OUTPUT_TOKENS}'
+
+
 @pytest.mark.asyncio
 async def test_exercise_requires_explicit_enable(gate):
     with pytest.raises(RuntimeError, match='gate_not_enabled'):

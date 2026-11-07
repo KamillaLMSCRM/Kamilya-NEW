@@ -16,6 +16,15 @@ AUTHORIZATION_KEY = "v3_retained_author_replay"
 AUTHORIZATION_POLICY = "v3-retained-author-replay-v1"
 
 
+def is_retained_author_group(value: object) -> bool:
+    """Match only practical V31 author IDs with a supported serialized output cap."""
+    from app.modules.ai.v3.revision_policy import PRACTICAL_MAX_OUTPUT_TOKENS
+
+    return isinstance(value, str) and value in {
+        f"practical:author:editorial:v31:output={cap}" for cap in (8192, PRACTICAL_MAX_OUTPUT_TOKENS)
+    }
+
+
 async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
     """Read private checkpoints; caller holds the job lock when authorizing a delivery."""
     try:
@@ -45,7 +54,7 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
                                                         generation_key=journal._owned_key(entry["claim_key"]))
         plan = dict(saved_plan.plan_payload)
         if (_digest(plan) != digest or plan.get("schema") != "v3-stage-checkpoint-v1"
-                or plan.get("stage") != "lesson" or plan.get("group_id") != "practical:author:editorial:v31"
+                or plan.get("stage") != "lesson" or not is_retained_author_group(plan.get("group_id"))
                 or plan.get("tenant_id") != journal.tenant_id or plan.get("job_id") != journal.job_id
                 or plan.get("route_fingerprint") != reference.get("route_fingerprint")):
             return None

@@ -12,10 +12,19 @@ from app.modules.ai.v3.stage_checkpoint import _digest
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mutation", [None, "other_stage", "claim", "body", "reference", "multiple"])
-async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation):
+@pytest.mark.parametrize(("group", "allowed"), [
+    ("practical:author:editorial:v31:output=16384", True),
+    ("practical:author:editorial:v31:output=8192", True),
+    ("practical:author:editorial:v31", False),
+    ("practical:review:editorial:v31:output=16384", False),
+    ("practical:author:editorial:v31:output=016384", False),
+    ("practical:author:editorial:v31:output=32768", False),
+    ("practical:author:editorial:v31:output=16384:other", False),
+])
+async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation, group, allowed):
     tenant, actor, job_id = str(uuid4()), uuid4(), str(uuid4())
     plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": tenant, "job_id": job_id,
-            "stage": "lesson", "group_id": "practical:author:editorial:v31", "route_fingerprint": "a" * 64}
+            "stage": "lesson", "group_id": group, "route_fingerprint": "a" * 64}
     digest = _digest(plan)
     entry = {"claim_key": "v3-stage-claim:" + digest, "result_key": "v3-stage-result:" + digest, "token": "b" * 32}
     raw = b"synthetic"
@@ -49,4 +58,4 @@ async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation)
     if mutation == "multiple":
         job.result["v3_pending_stages"]["entries"]["e" * 64] = deepcopy(entry)
     candidate = await replay.owned_candidate(object(), job)
-    assert (candidate is not None) is (mutation is None)
+    assert (candidate is not None) is (mutation is None and allowed)

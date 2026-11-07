@@ -1,3 +1,42 @@
+# Source preparation87 DEV LIVE; cash course ACTIVE; wrapper correction LOCAL — 2026-11-07
+
+- result: Exact87c423e811ccb7f21a14da5ecfbb5c1ae6eef54b is DEV RELEASE_OK.
+  FeatureCI42357339330 and DEVpushCI42357701746 PASS; attested imagec4087cc2,
+  build42357716079. Render dep-dbnej9c9v7es73cihto0 live, Vercel
+  dpl_EiyWAVCXFMHoT7wc2J5JRxADEmVM READY/Hobby. Sole VMworker
+  eaa45d5771bc7a80bd1e02e25236235bbe57f094901f1e89c492369e0408370d
+  ready/0restarts/unless-stopped, prior ea528 warm-exited0 retainedrollback6ea.
+  Production369f82a1/native49902a0d unchanged; native87 build42357717294 only.
+- changed: R4 complete-courses ended FAIL before any resume or inference: public
+  retained_response_replay_available false. Exact read-only diagnostics r4/
+  retained-availability-v3.json confirm every plan check except group matches;
+  actual group is practical:author:editorial:v31:output=16384. Real wrapper adds
+  output suffix; recovery candidate and finalization guard mistakenly expected
+  unsuffixed group. Shared supported-cap predicate + actual-wrapper regression
+  and updated PG fixture are frozen LOCAL on87; no pending marker/body/history
+  rewritten. Canonical focused137PASS, root111PASS, baseline1010/2174PASS;
+  actual wrapped PG23722 ENDED PASS7checks/cleanuptrue/public0186 unchanged,
+  source5cdcc71130123a91e03a108a506398a0f12a517ce46553f8850fe02bfaf71902.
+  No DB gate remains active. Earlier PG7PASS
+  applies to unsuffixed fixture only, not actual wrapper acceptance.
+- verified: Cash8reviewed edits/7decisions applied through ordinary source journal;
+  approval97abc070-40b1-4136-9dd8-ba65e54a616f, working hash
+  3c73b32ead06cbfe5c89eb70baf207e16511f267f84efeb2a2444f1c36cb1249.
+  Original files rehashed unchanged. Graphs refreshed exact87 (2418CodeGraph,
+  28439nodes/85171edges/2451sourcefiles; exclusionsPASS/no modelcalls).
+- blockers: Old PDFjob30861eb9 stillinterrupted with original7L20Q retained.
+  ONE fresh cashcourse job316a6f2c-35cc-447a-a883-65e84cafbfdd is ACTIVE,
+  session66304/r4/cash-course.py; latest stage realization. Do not create another job, login, consumer,
+  or drain/deploy the worker while it runs. This independently tests fresh
+  generation on accepted87; old recovery-only group fix remains local.
+- next: Commit/push exact narrow wrapper correction, new evidence directory r5.
+  Observe66304 until terminal; audit complete artifact r4/dev-file-2-course.json
+  if saved. Test/freeze wrapper correction, new CI/image/exact DEV update only
+  after worker idle; resume original PDF once with saved response, not a newjob.
+  Both complete semantic reviews precede learner-acceptance.cjs (PREPARED NOT RUN)
+  and conditional protected production0186/native82. Source-only PDF checklist
+  r4/pdf-audit-checklist.json is not course acceptance. No customer writes.
+
 # Source preparation retained author correction LOCAL — 2026-11-07
 
 - result: DEV remains exact6eaeb3efa035469f2836ce1a693d418e26910c05; production

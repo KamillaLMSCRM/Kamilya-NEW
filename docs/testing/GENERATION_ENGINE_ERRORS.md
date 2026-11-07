@@ -39,6 +39,15 @@
   фактическое восстановление в DEV находятся в работе. Локально35 identity,
   159 focused API, полный8119 API/547контурныхSKIP,1710web PASS; исходный ответ
   ещё не восстановлен в DEV. Статус: LOCAL FIXED, не семантическая приёмка.
+- Реальный DEV87 затем показал ложную недоступность восстановления, до POST.
+  Защита ожидала unsuffixed group, тогда как practical_service добавляет
+  `:output=16384`. Все остальные фактические plan bindings совпали. Исправление
+  LOCAL: единый predicate точных поддерживаемых producer group для candidate и
+  finalization; добавлена регрессия через штатную practical-service обёртку.
+  Ранний PG7PASS проверял unsuffixed fixture и не доказывает данный штатный путь.
+  Старая запись/ответ/резерв не изменены. Wrapper focused137PASS, root111PASS;
+  новый фактический PG7PASS/cleanuptrue/public0186 unchanged, source5cdcc711...
+  после исправления fixture. Точный новыйDEV и реальное продолжение ещё требуются.
 
 ## ENG-001 — смешение автоматической проверки и одобрения человеком
 

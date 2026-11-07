@@ -47,6 +47,11 @@ async def test_retained_author_replay_is_one_use_and_never_posts(setup):
         with pytest.raises(ManagedLunaError, match="replay_unverified"):
             await client.replay_completed(await token(), receipt={**receipt, field: value}, tenant_id=tenant,
                 user_id=user, job_id="job", stage_id="a" * 64, ownership_checkpoint=checkpoint)
+    different_cap = await client.prepare([{"role": "user", "content": "synthetic"}], max_output_tokens=9,
+                                         ownership_checkpoint=checkpoint, response_format=fmt)
+    with pytest.raises(ManagedLunaError, match="replay_unverified"):
+        await client.replay_completed(different_cap, receipt=receipt, tenant_id=tenant, user_id=user,
+                                      job_id="job", stage_id="a" * 64, ownership_checkpoint=checkpoint)
     assert not requests
 
 

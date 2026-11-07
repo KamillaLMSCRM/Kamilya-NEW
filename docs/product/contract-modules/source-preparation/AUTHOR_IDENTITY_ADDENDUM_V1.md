@@ -29,6 +29,11 @@ c24faa3715c8355982843e5eb4eaf149d2a7c065a935a9692afa46592c869040.
   Resume records a server-owned digest-bound authorization, retains the original
   pending marker/reservation, and still admits exactly one delivery under locks.
   This job is not counted twice against its own active-job limit.
+- The practical-service producer serializes its output cap in the stored group:
+  `practical:author:editorial:v31:output=<cap>`. Candidate and audit validation
+  share the exact supported-group predicate; unsuffixed helper-only fixtures,
+  review groups, malformed or unsupported caps are not the actual replay path.
+  Test through the practical-service wrapper as well as checkpoint primitives.
 - Worker inspection rechecks exact source, stage/group, original claim marker and
   result/claim keys. Replay consumes a freshly prepared deterministic capability
   and verifies actor/job/stage/route, exact wire-request hash, raw SHA/length,

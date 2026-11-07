@@ -18,6 +18,13 @@
 - Prevention: every DB gate must retain failure and cleanup evidence before
   evaluating its final success contract. Missing evidence never becomes PASS;
   fixture changes require a distinct custody intent and immutable old receipt.
+- Follow-up: the first PG7PASS fixture called stage_plan directly and omitted
+  practical_service's serialized `:output=16384` suffix. Real DEV87 correctly
+  held the mismatched recovery group before any resume/inference. The guard and
+  fixture are corrected locally, with an actual-wrapper integration regression;
+  new wrapped PG7PASS/cleanuptrue/public0186 unchanged, source5cdcc711...
+  previous unsuffixed proof remains limited. Never infer a caller's emitted
+  identity from the callee's sample fixture; exercise the production wrapper.
 
 ## AI-AUDIT-OWNER-001 - Producer allowed a taught source row without a lesson owner
 
