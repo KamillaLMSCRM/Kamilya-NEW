@@ -1,4 +1,61 @@
-## Source review 0.11.81 production acceptance — 2026-11-07
+## Source preparation 0.11.82 production acceptance — 2026-11-07
+
+Exact API, three workers and native CT137 frontend are
+`ae11c4d3a962e35405580d801a01e1e74773a283` / `v0.11.82`.
+Master CI42362271762, protected backend42362952404 and native build42359799533
+passed. Backend image `ghcr.io/kamillalmscrm/kamilya-api@sha256:e1c35ef07712a8e082ded93903db81e5c741b4e37c259e0438fb653a8c0763f0`;
+green API/three workers healthy, zero restarts. Native release controller
+`REL-WEB-SOURCE-PREPARATION-AE11C4D3-20261107` returned RELEASE_OK, independently
+matching public/native identities. Previous backend0.11.81/f8523cbb image and
+native0.11.78/49902a0d retained; additional native0.11.76 and explicit recovery
+releases remain. One verified obsolete0.11.75 was removed under the standing
+capacity procedure, recoverable original archive/manifest retained off-host.
+
+Protected release-plane upgrade42362418679 installed controller27bab7b0...9330c.
+Additive CT125 migration0185→0186 independently verified: existing audited
+runtime_settings catalog extended, both catalog/history FORCE RLS, lms_app neither
+superuser nor BYPASSRLS. Fresh encrypted backup and signed disposable restore
+20261107T100822Z passed (RPO254s/RTO19s/131tables/127FORCE-RLS); temporary database
+and plaintext files independently absent. No business rows changed by migration.
+Watchdog had stale0.11.74 identity; only its two expected identity keys were
+reconciled to82 with byte-identical backup and unchanged other settings. Separate
+readback proves successful oneshot, active watchdog/retention timers and SMTP.
+
+Both owner originals accepted in DEV: compound PDF7lessons/20questions and cash
+DOCX5lessons/17questions/10original illustrations. Administrative order/register
+excluded from teaching selection, useful final instruction page retained.
+Full saved-content independent audits, two addressed human QA corrections and
+actual assigned learner12L37Q completion passed; source/correction/approval history
+retained. Exact source files are unchanged. This is two-file feature acceptance,
+not a new claim of three-course/67-family semantic coverage or legal currency.
+
+Changed-capability production journey passed in permanent synthetic tenant83552ce6:
+sourceaf9a4e2c→approval9c1b0d94→jobdeded416→course
+`8be3d576-bfab-44f8-afb5-31ea2166e139`. Automatic3parts/2learning selections,
+one exact native illustration and original byte hash verified. Two genuine
+underspecifications in the fictional source were explicitly answered in the journal.
+Native job completed2L6Q in101s, three hash-verified completed stage records,
+independent full semantic GO without course correction. Ordinary signoff/publication,
+personal-link assignment, authenticated unassigned404, real learner2L6Q,1440/390px
+image rendering/full-size opening, completion and certificate/evidence IDs PASS.
+No email/OTP requested; documentary confirmation remains NOT_CONFIRMED. Synthetic
+source/course/completed history intentionally retained, no disposable infrastructure.
+
+Production route unchanged: DeepSeek primary/Luna reserve/revision5, no GLM.
+Source review reported5DeepSeek-provider stages/19110tokens; response model names
+and monetary cost were not returned. Native course token counters are unavailable;
+zero managed-client metadata records are not zero native stages or zero cost.
+Native custody separately verifies3complete responses/3claims. DEV course usage:
+PDF135301tokens including reused original author32261, cash103470; source-preparation
+usage and explicitly unknown failed receipts remain separately recorded in r5.
+Native illustration adapters cover DOCX/PDF; other supported formats use the common
+recognized-text part planner. Runtime caps remain in audited DB settings, not new env.
+
+Canonical evidence: `.release-evidence/source-preparation-r5/`,
+`RUN-20261107-SOURCE-PREPARATION-82-TWO-FILES` and the current handoff.
+Customer courses, roles, provider plans, voice and reserve configuration untouched.
+
+## Historical: Source review 0.11.81 production acceptance — 2026-11-07
 
 Exact API and three workers `369f82a16726297ff6fd852aaeaeebc89955806f`,
 CI42333787858/protected42334400327 PASS, immutable image

@@ -1,5 +1,56 @@
 # Kamilya Test Run Ledger
 
+## RUN-20261107-SOURCE-PREPARATION-82-TWO-FILES
+
+- Exact DEV ae11c4d3a962e35405580d801a01e1e74773a283. Both owner originals
+  byte-identical: PDFd3c7cb3e...931cf and DOCXa0f45ea4...8d7e. Source preparation,
+  selected administrative/learning parts,19native source figures, immutable working
+  approvals and corrected source journal verified through ordinary API/browser.
+- Same PDFjob30861eb9 resumed retained bodyc24faa37...9040 with no author POST;
+  actual replay audit and exactly2new HTTP attempts. Course2634c6cf7L20Q;
+  cash316a6f2c→5bd085005L17Q/10illustrations. Luna6/HIGH, PDF135301tokens across
+  3logical stages including oldauthor32261; cash103470/3stages. Job timing290s
+  after resume and328s fresh cash; these are not incident-inclusive end-to-end times.
+- Full saved lesson/question/key/explanation root+independent audits. One RKO
+  paragraph and one liability answer/explanation corrected through native QA
+  editor;0new model calls for correction. Original artifacts retained. Current
+  exact-hash source hold resolution,12quiz approvals, course signoff/publication
+  and personal-link assignments only in permanent DEV QA. No email/OTP.
+- Actual learner browser12L37Q PASS, both completed/certificate/evidence IDs
+  returned; documentary evidence confirmation NOT_CONFIRMED. All10lesson figures
+  authenticated hash/404unassigned checks and1440/390 rendering PASS. Separate
+  author-reader fullsize10/10 PASS; later completed-learner revisit correctly
+  shows completion screen. Failed harness attempts remain in r5, not overwritten.
+- MasterCI42362271762 PASS; protected release-plane upgrade42362418679 PASS;
+  fresh signed0185 restore20261107T100822Z/hash3d4232e2...344a0/RPO254/RTO19,
+  131tables/127FORCE-RLS; independent disposable absence/signature PASS.
+  Backend protected42362952404 PASS: productiongreen API+3workers exact82,
+  imagee1c35ef0...763f0/zero restarts; CT1250186/restricted lms_app/settings RLS
+  independently verified. PrimaryDeepSeek/reserveLuna/routingrev5 unchanged.
+- Native initial capacity gate BLOCKED; one standing-authorized obsolete75/f202
+  removed after original recovery artifact and historical acceptance checks.
+  Current78/rollback76/explicit recovery pair retained; free1462128640 meets
+  required1322530196. Native session48190 ENDED RELEASE_OK, exact82 public/native
+  identities independently verified. Production synthetic documentaf9a4e2c:
+  3parts/2learning/1original image; two explicit fictional-owner clarifications
+  preserved in journal, original unchanged. Native jobdeded416 completed2L6Q/101s,
+  independent all-content audit GO without course correction. Source review5
+  DeepSeek-provider stages19110tokens; native complete responses3/claims3/hash
+  verified, native token/money counters unavailable (not zero).
+- Production course8be3d576-bfab-44f8-afb5-31ea2166e139 signed/published/assigned
+  through normal QA methodologist and personal-link delivery. Actual student2L6Q,
+  frozen attempt release IDs,1440/390 image rendering/full-size and completion
+  passed; certificate13f97596/evidenceb1335e26 returned, confirmation pending.
+  Authenticated unassigned404 before assignment, exact image after completion,
+  wrong-lesson404/unknown-asset404 and immutable source/approval readback PASS.
+- Final four healthy production services/current image, native82, CT1250186,
+  restricted role/settings FORCE RLS/rollback and SMTP PASS. Watchdog stale74
+  identity reconciled only two keys, byte-identical backup and successful
+  oneshot/active timers independently verified. Synthetic history intentionally
+  retained; disposable restore DB/temp absent. No customer/role/billing/voice/
+  reserve mutation, mail/OTP or three-course/legal-current claim. No active run.
+  Evidence `.release-evidence/source-preparation-r5/`.
+
 ## RUN-20261107-RETAINED-PRACTICAL-WRAPPER
 
 - Scope: shared candidate/finalization predicate matches actual service-produced

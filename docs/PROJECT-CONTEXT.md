@@ -1,4 +1,23 @@
-## DEV P31 retained-stage and mobile readback — 2026-11-05
+## Current source preparation82 runtime — 2026-11-07
+
+Production API/three workers/native CT137 and DEV API/frontend/sole VMworker
+are exact `ae11c4d3a962e35405580d801a01e1e74773a283` /0.11.82. Production
+backend imagee1c35ef0...763f0, green slot, CT1250186; DEV image00eb38d3...e0860,
+worker7ff0fca3 with1CPU/1GiB/zero restarts. Native and backend public identities
+were independently read back. Protected release42362952404 and masterCI42362271762
+passed. Production DeepSeek/Luna routingrev5 unchanged; no GLM, roles/plans/voice
+or reserve changes. Authoritative detail and rollback: PRODUCTION_READINESS.md.
+
+Both requested owner files passed DEV full content/learner acceptance (12L37Q,
+10native lesson images). Bounded production synthetic source→parts/image→journal
+approval→native2L6Q→assignment→learner completion passed. Synthetic tenant83552ce6,
+course8be3d576-bfab-44f8-afb5-31ea2166e139 is retained. Confirmation of evidence
+remains separate/NOT_CONFIRMED. No full three-course independent matrix claim.
+Fresh signed0185 restore, independent0186/restricted-role/RLS proof and watchdog82
+identity closeout passed. API81/native78 recovery retained; obsolete native75 only
+was standing-authorized capacity cleanup. Sources and customer courses preserved.
+
+## Historical: DEV P31 retained-stage and mobile readback — 2026-11-05
 
 Current exact DEV12d335771a29f23e16d17733271a8b805eeb9b9b API/frontend/soleVM126
 worker RELEASE_OK/RECONCILED, REL-DEV-P31-RETAINED-12D33577-20261105. CI42059258101,

@@ -1,3 +1,64 @@
+## AGENT-RELEASE-OBSERVABILITY-001 — stale watchdog identity survived prior releases
+
+- Date:2026-11-07. Independent closeout read found EXPECTED_RELEASE/image still
+  on0.11.74 while the actual accepted API was82. This proves stale expectations,
+  not a measured historical outage. A successful protected rollout alone missed
+  the separate existing monitoring closeout required by the deploy skill.
+- Fix: current82/four healthy containers guard, exact old config hash/identity
+  guard, root-only byte-identical backup, atomic update of only EXPECTED_RELEASE
+  and EXPECTED_API_IMAGE. Other settings/thresholds and retention stayed unchanged.
+- Verification: separate readback of expected82/current image, old backup and
+  masked other bytes, successful watchdog oneshot/exit0 and both active timers.
+  No DB writes, retention oneshot, provider/rights/voice/reserve changes.
+- Prevention: include the independent watchdog identity proof in final release
+  evidence. Emit image digest only in EVIDENCE, since @ is outside its closed
+  value grammar; do not relax the serializer. Evidence r5 ops-read-v2,
+  finalize-ops82 and prod-final-readback receipts preserve the whole chain.
+
+## AGENT-ACCEPTANCE-HARNESS-001 — unverified fixture assumptions and lost diagnostics
+
+- Date:2026-11-07. Scope:source-preparation82 acceptance scripts, not a product defect.
+- Cause: API-login alone did not establish browser-session proof; an early tab
+  click could occur before hydration. Reusing a completed learner enrollment
+  incorrectly expected the lesson reader rather than its completion page.
+  Full-size image check then tried fetch from a native blob image document,
+  which failed despite the original1920x1080 image being visibly decoded.
+- Fix: ordinary password-form login, wait for loaded tab/selected state, actor
+  verification and authenticated404; exact submitted question/choice IDs checked.
+  Keep first complete12L37Q proof immutable. Full-size controls separately tested
+  read-only in author reader: authenticated API byte hash, same blob URL and
+  original decoded dimensions, all10images. No CSP/authorization weakening.
+- Evidence: r5 learner-acceptance-report files retain every failure and distinct
+  PASS_WITH_CONFIRMATION_PENDING / PASS_FULLSIZE_AUTHOR_READ_ONLY results.
+  No extra assignments, quiz attempts or model runs were made during follow-up.
+- Prevention: inspect page state and API contracts before a repeated harness;
+  preserve phase/closed diagnostics. Never edit an action script while its process
+  may already have loaded it. Freeze each reviewed mutation before dispatch;
+  pending protected deployment is not runtime acceptance. Gate evaluator returns
+  verdict, not status; its structurally GO result still requires root verification.
+- Follow-up: EnrollmentResponse omits content_release_id. The first production
+  harness stopped after acknowledged assignment without extra attempts. Confirm
+  assignment ID/status through that DTO and verify the exact frozen release via
+  returned QuizAttemptResponse instead; both production quiz attempts matched.
+
+## AGENT-RESTORE-ADAPTER-001 — relocated archive name and sidecar contract
+
+- Date:2026-11-07. First two CT125 drill wrappers stopped before restore because
+  native backup uses a database-specific basename and absolute sidecar path,
+  while the established drill requires kamilya_UTC.dump.gpg and basename sidecar.
+  Original encrypted archive/hash remained correct; production was not restored.
+- Fix: validate original archive/path/digest and copy byte-identical encrypted
+  bytes to a protected temporary canonical basename with the same UTC stamp;
+  write only its verified temporary basename sidecar. Production archive unchanged.
+  Existing installed drill hash/signature procedure retained, no validator changes.
+- Check: source082/185 signed restore20261107T100822Z, RPO254/RTO19,
+  131tables/127FORCE-RLS; independent signature/DB/temp absence readback PASS.
+  Original failed receipts retained. Read-only diagnosis exposed only closed
+  error indexes, hashes and safe phase codes, never secret contents or dump data.
+- Prevention: inspect installed backup/drill filename contracts before copying.
+  Cap metadata inventories before remote evidence serialization. Use canonical
+  agent-tools Python for native SSH helpers, primary APIvenv for dotenv launchers.
+
 ## AGENT-DEV-GATE-005 - Final assertion discarded failed database gate evidence
 
 - Date: 2026-11-07.

@@ -1,4 +1,90 @@
-# Source preparation87 DEV LIVE; cash course ACTIVE; wrapper correction LOCAL — 2026-11-07
+# Source preparation82 COMPLETE: both files DEV and synthetic PROD accepted — 2026-11-07
+
+- result: Both requested capabilities are live in API/three workers/native CT137
+  and accepted DEV at ae11c4d3a962e35405580d801a01e1e74773a283 / v0.11.82.
+  Master CI42362271762, protected backend42362952404, plane upgrade42362418679
+  and native build42359799533 PASS. Native RELEASE_OK and independent final
+  public/private/container/CT125/watchdog readbacks PASS; no rollout/model/browser
+  process remains active. Evidence `.release-evidence/source-preparation-r5/`.
+- changed: Generic source block/part selection and native DOCX/PDF images preserve
+  original bytes, source/working approval IDs, journal, frozen course/image binding
+  and recovery. Same PDF job30861eb9 reused its exact retained author body with
+  only two subsequent HTTP requests. Supporting producer-group correction is live.
+  New adjustable caps extend existing audited runtime_settings, migration0186.
+- verified: Exact owner PDF7L20Q and cash DOCX5L17Q/10lesson images passed complete
+  DEV source/content/signoff/assignment/learner12L37Q acceptance after one addressed
+  course correction each; no new model call for corrections. Production synthetic
+  documentaf9a4e2c (3parts/2learning/1image) → approval9c1b0d94 → jobdeded416
+  → course8be3d576-bfab-44f8-afb5-31ea2166e139 (2L6Q/101s) passed independent
+  semantic review without course edits and real learner completion. Enrollment
+  219fe70a/cert13f97596/evidenceb1335e26 retained. Actual learner image1440/390,
+  full-size, authenticated unassigned404, wrong-lesson404, unknown-asset404 and
+  post-completion original image bytes PASS. Source original and frozen working
+  approval re-read unchanged after journal clarifications. No mail/OTP requested.
+- blockers: None for this two-file feature. Limits: documentary confirmation stays
+  NOT_CONFIRMED, legal currency and a fresh three-course/67-family matrix are not
+  claimed. Native course has3hash-verified completed response stages/3claim records,
+  no managed-client usage metadata; its token/money usage is UNKNOWN, not zero.
+  The old managed-only metrics reader's stages=0 is not native stage count.
+  Source review reported19110tokens/5DeepSeek-provider stages; model names absent.
+  DEV PDF135301tokens (oldauthor32261 included), cash103470; source prep known
+  332842 plus two explicitly unknown failed receipts recorded separately.
+- next: Keep permanent synthetic QA source/course/completion history and all rollback
+  evidence. Production imagee1c35ef0...763f0, API81/f8523cbb and native78/49902a0d
+  recovery retained. Controller27bab7b0...9330c; fresh signed185restore131tables/
+  127FORCE-RLS/RPO254/RTO19 and independent186/RLS/restricted-role proof pass.
+  One standing-authorized obsolete native75 only was removed for capacity; both
+  explicit recovery releases kept. Watchdog stale74 expectations reconciled only
+  two identity keys to82, backup/thresholds/timers/oneshot separately verified.
+  Owner questions12/13 are in existing docs/testing/2026-10-28-sandyk-source-clarifications.md.
+  Customer courses/roles/plans/voice/reserve unchanged. A documentation-only local
+  head may be newer than release82; never deploy it as82 or confuse it with runtime.
+
+# Historical: Source preparation82 API PRODUCTION LIVE; native frontend release ACTIVE — 2026-11-07
+
+- result: Exact ae11c4d3a962e35405580d801a01e1e74773a283 is accepted DEV and
+  production API/three workers. MasterCI42362271762 and protected42362952404 PASS,
+  image e1c35ef07712a8e082ded93903db81e5c741b4e37c259e0438fb653a8c0763f0,
+  green slot, zero restarts, independent public/private/container readback PASS.
+  CT125 independently0186, lms_app restricted, both settings tables FORCE RLS.
+  Native frontend remains49902a0d pending ACTIVE session48190; do not start another
+  frontend controller. Its exact packet/build42359799533 are in r5. Production
+  synthetic changed-capability source-to-course/image journey is still OPEN.
+- changed: General document parts and native DOCX/PDF illustrations, immutable
+  source approval/selection/image membership and durable recovery are in82.
+  Same original PDF job30861eb9 recovered its exact retained author response;
+  original author POST was not repeated. Actual supporting-group guard includes
+  the producer's supported output-cap suffix. Original rejected receipt retained.
+  Source texts/original file bytes/customer courses are preserved.
+- verified: Both exact owner files accepted in permanent DEV QA tenant a7a2c055.
+  PDF course2634c6cf-516f-4eb3-b58e-67eede6c3073:7L20Q; cash
+  5bd08500-2b8d-4970-9dc6-b09364686ae6:5L17Q/10original illustrations.
+  Independent whole-course audits, one addressed RKO paragraph and one liability
+  answer correction, exact-hash ordinary signoff/publication, personal-link
+  assignments and actual browser learner12L37Q/completion/certificate IDs PASS.
+  All10 images authenticated/unassigned404,1440/390 rendering and full-size
+  author-reader opening PASS. Confirmation of training evidence is separate and
+  intentionally NOT_CONFIRMED; no OTP/mail sent. PDF course has no lesson images;
+  its9 original scanned pages remain source preview. Not a three-course matrix claim.
+- blockers: Native initial preflight stopped insufficient CT137 capacity. One
+  standing-authorized obsolete0.11.75/f202ef release and exact staged pair were
+  safely removed after offhost archive/manifest/accepted receipt checks; current78,
+  rollback76 and two explicitly protected recovery releases preserved. Free
+  1462128640>=required1322530196. New preflight+execute session48190 ACTIVE.
+  Release-plane protected upgrade42362418679 PASS, controller27bab7b0...9330c.
+  Fresh signed0185 restore report20261107T100822Z/hash3d4232e2...344a0 PASS,
+  RPO254/RTO19/131tables/127FORCE-RLS; temporary DB/files independently absent.
+- next: Observe48190, reconcile native exact82; never repeat its stage/execute
+  after unknown outcome. Then one bounded synthetic production DOCX with admin
+  cover+learning parts+one figure, ordinary review/approval/generation and complete
+  learner image path; preserve QA history/retention and document actual provider.
+  R5 metrics: PDF3logical stages135301tokens incl old author32261 reused (2new
+  HTTP attempts), resumed job290s; cash3stages103470tokens/328s on prior87worker.
+  Source preparation known332842tokens plus two explicitly unknown receipts;
+  monetary/provider-visual usage unknown, never zero. Evidence r5 includes all
+  failed harness/restore attempts and corrected diagnostics; do not discard them.
+
+# Historical: Source preparation87 DEV LIVE; cash course ACTIVE; wrapper correction LOCAL — 2026-11-07
 
 - result: Exact87c423e811ccb7f21a14da5ecfbb5c1ae6eef54b is DEV RELEASE_OK.
   FeatureCI42357339330 and DEVpushCI42357701746 PASS; attested imagec4087cc2,
