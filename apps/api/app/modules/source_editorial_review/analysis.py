@@ -101,6 +101,14 @@ class _IndependentReview(BaseModel):
     source_clue_dispositions: object = None
 
 
+def _independent_review_reply(value: object) -> _IndependentReview:
+    # The recognized source remains authoritative, including when an input
+    # echo is altered. All findings and other fields retain strict validation.
+    if isinstance(value, Mapping) and "original" in value:
+        value = {key: item for key, item in value.items() if key != "original"}
+    return _IndependentReview.model_validate(value)
+
+
 def _restore_table_quote_span(original: str, quote: str) -> tuple[int, int] | None:
     # A quote starting inside a cell can omit the closing delimiter of its
     # first row. Accept the repair only when it identifies one literal span.
@@ -234,6 +242,7 @@ async def analyze(
     questions: list[dict[str, Any]] = []
     auto: list[dict[str, Any]] = []
     calls = 0
+    schema_reissue_used = False
     basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text))
     for index, (offset, local) in enumerate(bounded_blocks):
         if not local.strip():
@@ -251,7 +260,7 @@ async def analyze(
         unverified: list[int] = []
 
         async def invoke(messages: list[dict[str, str]], source_block: str = local) -> object:
-            nonlocal independent, block_calls, candidate_questions, unverified
+            nonlocal independent, block_calls, candidate_questions, unverified, schema_reissue_used
             block_calls += 1
             payload = json.loads(messages[1]["content"])
             if "proposal_sha256" in payload:
@@ -267,15 +276,34 @@ async def analyze(
                 patch_contract = messages[0]["content"].replace(
                     'Output exactly {"proposal_sha256": supplied value, "rows": [...]}.', ""
                 ) if payload["patches"] else ""
-                reviewed = await complete_json([
+                review_messages = [
                     {"role": "system", "content": _SEMANTIC_REVIEW + patch_contract},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-                ])
-                # Some JSON-mode replies echo the input. The recognized source
-                # remains authoritative, including when that echo is altered.
-                if isinstance(reviewed, Mapping) and "original" in reviewed:
-                    reviewed = {key: value for key, value in reviewed.items() if key != "original"}
-                independent = _IndependentReview.model_validate(reviewed)
+                ]
+                reviewed = await complete_json(review_messages)
+                try:
+                    independent = _independent_review_reply(reviewed)
+                except ValidationError as error:
+                    if schema_reissue_used:
+                        raise
+                    schema_reissue_used = True
+                    block_calls += 1
+                    fields = {"proposal_sha256", "rows", "source_questions", "source_clue_dispositions",
+                              "excerpt", "category", "reason"}
+                    problems = []
+                    for detail in error.errors(include_input=False, include_url=False)[:8]:
+                        path = ".".join(str(part) if type(part) is int or part in fields else "extra_field"
+                                        for part in detail["loc"])
+                        problems.append({"field": path, "error": detail["type"]})
+                    correction = (
+                        "\nThe completed reply failed response-schema validation. Correct the listed fields "
+                        "while completing the same review against the same original. Return only the "
+                        "requested JSON object. The rejected reply has not changed the source. "
+                        "Validation diagnostics follow, with field paths and types only. " + json.dumps(problems)
+                    )
+                    review_messages = [{"role": "system", "content": review_messages[0]["content"] + correction},
+                                       review_messages[1]]
+                    independent = _independent_review_reply(await complete_json(review_messages))
                 if independent.proposal_sha256 != payload["proposal_sha256"]:
                     raise ReviewConflictError("source_review_independent_proposal_changed")
                 unverified = _unverified_clues(independent, material, source_block)

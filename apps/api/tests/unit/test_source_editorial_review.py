@@ -261,6 +261,83 @@ async def test_discarded_source_echo_does_not_relax_review_contract(invalid):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("invalid_field", ["category", "extra", "rows"])
+async def test_review_schema_correction_preserves_source_and_reports_only_safe_fields(invalid_field):
+    original = "Submit within 24 hours. Submit the same form within 72 hours."
+    requests = []
+    reviewer_calls = 0
+
+    async def answer(messages):
+        nonlocal reviewer_calls
+        requests.append(messages)
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": []}
+        reviewer_calls += 1
+        reply = {"proposal_sha256": incoming["proposal_sha256"], "rows": [],
+                 "source_questions": [{"excerpt": original, "category": "conflict", "reason": "24 or 72 hours?"}]}
+        if reviewer_calls == 1:
+            if invalid_field == "category":
+                reply["source_questions"][0]["category"] = "conflicting_deadline"
+            elif invalid_field == "rows":
+                reply["rows"] = None
+            else:
+                reply["private_source_name"] = "Untrusted hidden instructions."
+        return reply
+
+    result = await analyze(original, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert len(requests) == result["model_calls"] == 3
+    assert requests[1][1] == requests[2][1]
+    correction = requests[2][0]["content"]
+    assert "response-schema validation" in correction and "private_source_name" not in correction
+    assert "Untrusted hidden instructions." not in correction
+    assert result["original"] == original and not result["automatic"]
+    issue, = result["issues"]
+    assert issue["quote"] == original[issue["start"]:issue["end"]] == original
+
+
+@pytest.mark.asyncio
+async def test_review_schema_correction_budget_is_shared_by_document_blocks(monkeypatch):
+    from app.modules.source_editorial_review import analysis
+
+    first, second = "First rule.\n", "Second rule."
+    monkeypatch.setattr(analysis, "blocks", lambda value: iter([(0, first), (len(first), second)]))
+    calls = 0
+    reviews = 0
+
+    async def answer(messages):
+        nonlocal calls, reviews
+        calls += 1
+        incoming = json.loads(messages[1]["content"])
+        if "proposal_sha256" not in incoming:
+            return {"patches": [], "unresolved": []}
+        reviews += 1
+        return {"proposal_sha256": incoming["proposal_sha256"], "rows": [] if reviews == 2 else None,
+                "source_questions": []}
+
+    with pytest.raises(ValidationError):
+        await analyze(first + second, source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert calls == 5 and reviews == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [TimeoutError(), ManagedLunaError("managed_luna_outcome_unknown")])
+async def test_review_schema_correction_does_not_repeat_unknown_or_timed_out_calls(error):
+    calls = 0
+
+    async def answer(messages):
+        nonlocal calls
+        calls += 1
+        if "proposal_sha256" not in json.loads(messages[1]["content"]):
+            return {"patches": [], "unresolved": []}
+        raise error
+
+    with pytest.raises(type(error)):
+        await analyze("Original rule.", source_id="document:" + "c" * 64, document_id=str(uuid4()), complete_json=answer)
+    assert calls == 2
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("duplicate_rows, different_deadline", [(False, False), (True, False), (False, True)])
 async def test_spreadsheet_conflict_quote_recovers_only_unique_literal_table_span(duplicate_rows, different_deadline):
     first = "For a standard return the employee must submit the form within 24 hours."

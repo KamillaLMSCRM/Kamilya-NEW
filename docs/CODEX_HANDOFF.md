@@ -1,4 +1,27 @@
-# Table quote correction released, response-echo repair LOCAL — 2026-11-07
+# Source-response correction LOCAL 0.11.81 — 2026-11-07
+
+- result: Production API/workers 0.11.80 `81e28c20`, CI 42331754524 and
+  protected workflow 42332389011 PASS. Public web stays 0.11.78 `49902a0d`.
+- changed: Table duplicate and source input echo fixes verified in actual
+  worker replay. PDF now passes ordinary production review. Runtime provider
+  configuration remains DeepSeek then Luna, revision 5, GLM absent.
+- verified: All nine formats exercised again. PPTX/PDF/TXT/MD/DOC/XLS PASS.
+  XLSX/CSV had independent-response schema failures. Word had one conflict and
+  a separate valid reference issue, rejected by an overly strict test harness.
+  All disposable sources, including one XLSX diagnostic, verified absent.
+- blockers: Full current nine-format acceptance remains open. Local 0.11.81
+  adds one schema-specific correction for a completed invalid independent
+  reply. Same source/proposal and strict checks, safe field-only feedback,
+  one shared budget per analysis run, no unknown/timeout replay. 40 focused
+  tests, Ruff, version and release contracts PASS. No active inference.
+- next: Exact CI and protected 0.11.81 release with retained 0.11.80 image.
+  Repeat the nine ordinary formats and separate XLS/XLSX with the corrected
+  harness counting one deadline conflict while preserving distinct findings.
+  Evidence `.release-evidence/source-echo-v080/`, `prod-v080-matrix-result.json`,
+  ENG-030/031. Preserve failures and distinguish source-format acceptance from
+  the historical complete course-generation/learning journey.
+
+# Table quote correction released, response-echo repair LOCAL — 2026-11-07 (historical)
 
 - result: Production API/workers 0.11.79 `ebc80e21`, protected workflow
   42329890544 PASS. Frontend remains 0.11.78 `49902a0d`. Previous image retained.

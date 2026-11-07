@@ -10280,3 +10280,9 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   Failed outer diagnostics must preserve bounded stage evidence before returning.
   Preserve these required journal labels. CI 42331554338 rejected their initial
   prose-only representation before any production release.
+- Additional fixture correction: the 0.11.80 Word result had one deadline
+  conflict and a separate grounded form/record reference question. Requiring
+  exactly one question of any category was an incorrect acceptance invariant.
+  Count the repeated 24/72-hour conflict separately, retain distinct findings,
+  and still reject two copies of that same conflict. Preserve the failed
+  original harness receipt, never rewrite it as a pass.

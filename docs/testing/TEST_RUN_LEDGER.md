@@ -6150,3 +6150,22 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
 - Evidence `.release-evidence/table-quote-v079/` and
   `.release-evidence/prod-v079-*-result.json`. Local ENG-030 correction passed
   34 source review tests and focused Ruff. Its release acceptance remains open.
+
+## RUN-20261107-PROD-SOURCE-ECHO-080
+
+- Exact backend 0.11.80 `81e28c206ef3eaca40f9c577302d128ef8ba9bef` passed
+  CI 42331754524 and protected workflow 42332389011. API and three workers
+  independently verified image `cfd16ff0b98f82a4d4671d4c5276fc339919459cf15afcf24985137d0dafdea4`,
+  zero restarts, previous 0.11.79 image retained. Native frontend stays 49902a0d.
+- Actual production worker replay combined the saved table-quote duplicate
+  with an altered input echo, yielding one open literal-anchored issue and no
+  provider calls. Ordinary matrix passed PPTX/PDF/TXT/MD/DOC/XLS. XLSX and CSV
+  stopped at independent response validation. Word reached review with one
+  conflict plus a distinct reference question, but the old one-total-question
+  harness stopped before its final readback. No all-nine acceptance claim.
+- A bounded canonical XLSX diagnostic passed separately with one grounded
+  issue. Its evidence does not override the ordinary failed matrix. The
+  diagnostic source and all nine ordinary fixtures were verified absent.
+- Evidence `.release-evidence/source-echo-v080/` and
+  `.release-evidence/prod-v080-matrix-result.json`. Local schema correction
+  under ENG-031 passed 40 focused tests and Ruff, release version 0.11.81.

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.81] - 2026-11-07
+
+### Fixed
+
+- Correct a completed independent source-review reply once when it fails its response schema, supplying safe field-level validation feedback while retaining strict validation and counting the extra call.
+
 ## [0.11.80] - 2026-11-07
 
 ### Fixed

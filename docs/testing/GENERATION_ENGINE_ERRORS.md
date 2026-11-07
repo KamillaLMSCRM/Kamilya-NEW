@@ -561,3 +561,31 @@ raw не является новым вызовом. Unknown dispatch не по�
   All disposable browser and diagnostic documents were removed with verified
   absence. CodeGraph readiness reported a missing per-checkout runtime, so this
   known local response-adapter repair used bounded source inspection.
+
+## ENG-031 — Completed source review replies can violate the response schema
+
+- Date 2026-11-07. Exact production 0.11.80 `81e28c20` accepted PDF through
+  the ordinary browser after ENG-030. XLSX and CSV still failed at independent
+  response validation. Their raw rejected replies were not retained, so their
+  exact offending fields are unknown. A separate canonical XLSX diagnostic
+  returned one grounded issue with two completed DeepSeek replies, 2,287 input
+  and 2,797 output tokens. This does not relabel either ordinary failure.
+- The response contract now permits one corrective request after a completed
+  object fails Pydantic validation. It supplies only safe field paths and error
+  types, keeps the original/proposal identical and runs strict validation again.
+  One correction budget is shared by all blocks of an analysis run. A second
+  invalid reply fails. Unknown transport outcomes, timeouts and a changed
+  proposal identity do not trigger this correction. No findings are discarded
+  or accepted merely to complete processing. Successful corrections add one
+  to the stored model-call count.
+- Six new offline cases cover category, extra-field and list-shape errors,
+  shared multi-block budget, timeout and unknown-outcome negatives. All 40
+  source-review tests and focused Ruff passed. Local correction awaits exact
+  CI, protected production release and ordinary nine-format acceptance.
+- The 0.11.80 Word run also returned a distinct grounded reference question
+  about form versus record. This is separate from the deadline conflict and
+  must remain visible. The acceptance harness must count one deadline conflict,
+  rather than requiring one question of any kind for an entire document.
+  Evidence `.release-evidence/prod-v080-*-result.json` and
+  `.release-evidence/source-echo-v080/xlsx-corpus-diagnostic.json`. All used
+  synthetic sources were removed and verified absent.
