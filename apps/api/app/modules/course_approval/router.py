@@ -10,7 +10,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -541,6 +541,52 @@ async def start_attempt(request_id: UUID, db: AsyncSession = Depends(get_db), us
     await log_action(db, user.tenant_id, "course_approval.attempt_started", "course_review_attempt", attempt.id, user.id, {"revision_id": str(revision.id), "snapshot_sha256": attempt.snapshot_sha256, "active_role": getattr(user, "role", None)})
     await db.commit()
     return {"attempt_id": attempt.id, "revision_id": revision.id, "snapshot_sha256": attempt.snapshot_sha256, "activity_state": attempt.activity_state, "lesson_position": attempt.lesson_position, "next_sequence": int(last_sequence or 0) + 1, "snapshot": learner_safe_review_snapshot(revision.snapshot)}
+
+
+@router.get("/course-review-attempts/{attempt_id}/lessons/{lesson_id}/source-assets/{asset_id}",
+            dependencies=review_workflow_write)
+async def get_review_attempt_asset(attempt_id: UUID, lesson_id: UUID, asset_id: str,
+                                   db: AsyncSession = Depends(get_db), user=Depends(require_review_principal)) -> Response:
+    """Read only an illustration in this reviewer's exact frozen attempt."""
+    from app.modules.source_preparation.assets import _response, _snapshot_descriptor
+
+    def missing() -> HTTPException:
+        return HTTPException(status_code=404, detail="Review image not found")
+
+    attempt = await db.scalar(select(CourseReviewAttempt).where(
+        CourseReviewAttempt.id == attempt_id, CourseReviewAttempt.tenant_id == user.tenant_id,
+        CourseReviewAttempt.reviewer_user_id == user.id,
+    ))
+    if attempt is None or (getattr(user, "review_revision_id", None) is not None
+                           and user.review_revision_id != attempt.revision_id):
+        raise missing()
+    revision = await db.scalar(select(CourseApprovalRevision).where(
+        CourseApprovalRevision.id == attempt.revision_id, CourseApprovalRevision.tenant_id == user.tenant_id,
+    ))
+    if revision is None or attempt.snapshot_sha256 != revision.snapshot_sha256:
+        raise missing()
+    if canonical_json_sha256(revision.snapshot) != revision.snapshot_sha256:
+        raise missing()
+    reviewer_filter = (CourseApprovalReviewer.reviewer_email == user.reviewer_email
+                       if getattr(user, "reviewer_email", None) else CourseApprovalReviewer.reviewer_user_id == user.id)
+    assignment = await db.scalar(select(CourseApprovalReviewer).where(
+        CourseApprovalReviewer.tenant_id == user.tenant_id,
+        CourseApprovalReviewer.revision_id == revision.id, reviewer_filter,
+    ))
+    policy = await db.scalar(select(CourseApprovalPolicy).where(
+        CourseApprovalPolicy.tenant_id == user.tenant_id, CourseApprovalPolicy.course_id == revision.course_id,
+        CourseApprovalPolicy.review_enabled.is_(True),
+    ))
+    request = await db.scalar(select(CourseApprovalRequest).where(
+        CourseApprovalRequest.tenant_id == user.tenant_id, CourseApprovalRequest.revision_id == revision.id,
+    ))
+    if assignment is None or policy is None or request is None or request.outcome in {"cancelled", "superseded"}:
+        raise missing()
+    descriptor = _snapshot_descriptor(revision.snapshot, revision.course_id, lesson_id,
+                                      UUID(str(user.tenant_id)), asset_id)
+    if descriptor is None:
+        raise missing()
+    return _response(descriptor)
 
 
 @router.put("/course-review-attempts/{attempt_id}/progress", dependencies=review_workflow_write)

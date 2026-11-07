@@ -1120,7 +1120,8 @@ async def _save_generation_to_db_transaction(
 
     from app.models.ai_job import AIJob
     from app.modules.courses.models import Course
-    from app.modules.lessons.models import Lesson, Module
+    from app.modules.lessons.models import ContentBlock, Lesson, Module
+    from app.modules.source_preparation.lesson_assets import approved_asset_inventory, bind_lesson_assets
     from app.modules.quizzes.models import Question, Quiz, QuizChoice
 
     _apply_assessment_omission_notices(state)
@@ -1170,6 +1171,10 @@ async def _save_generation_to_db_transaction(
         stored_analysis = job.params.get("source_analysis") if isinstance(job.params, dict) else None
         if (stored_analysis.get(SOURCE_PINS) if isinstance(stored_analysis, dict) else None) != state.source_analysis.get(SOURCE_PINS):
             raise DirectSourceError("direct_source_editorial_unproved")
+        source_pins = state.source_analysis.get(SOURCE_PINS)
+        approved_sources = await resolve_pins(session, tenant_id, state.source_document_ids, source_pins) if source_pins else {}
+        asset_inventory = approved_asset_inventory(approved_sources)
+        placed_assets: set[str] = set()
         if not state.course_id:
             course = Course(
                 id=uuid4(),
@@ -1295,6 +1300,18 @@ async def _save_generation_to_db_transaction(
                     session.add(lesson)
                     await session.flush()
 
+                    image_descriptors: list[dict[str, str]] = []
+                    if asset_inventory or "source-asset:" in str(lesson.content or ""):
+                        bound_content, image_descriptors = bind_lesson_assets(str(lesson.content or ""), asset_inventory,
+                            course_id=UUID(str(course.id)), lesson_id=UUID(str(lesson.id)))
+                        cast(Any, lesson).content = bound_content
+                    for image_index, descriptor in enumerate(image_descriptors):
+                        placed_assets.add(descriptor["id"])
+                        if descriptor["document_id"] not in lesson.source_document_ids:
+                            cast(Any, lesson).source_document_ids = [*lesson.source_document_ids, descriptor["document_id"]]
+                        session.add(ContentBlock(lesson_id=lesson.id, block_type="image", content=None,
+                            order_index=image_index, metadata_={"source_asset": descriptor}))
+
                     # Create quiz from assessment
                     if state.assessment:
                         for saved_assessment in (lesson_assess,):
@@ -1408,6 +1425,14 @@ async def _save_generation_to_db_transaction(
                                                 order_index=c_idx,
                                             ))
                                         q_idx += 1
+
+        missing_images = sorted(asset_inventory.keys() - placed_assets)
+        if missing_images:
+            state.server_source_review_required = True
+            state.source_analysis = {**state.source_analysis, "unplaced_source_assets": missing_images}
+            state.errors.append("Не все иллюстрации исходника включены в уроки. Проверьте курс перед публикацией.")
+            cast(Any, course).source_analysis = preserve_generated_source_uncertainty(course.source_analysis,
+                state.source_analysis, source_review_required=True)
 
         state.status = "completed"
         state.stage = "completed"

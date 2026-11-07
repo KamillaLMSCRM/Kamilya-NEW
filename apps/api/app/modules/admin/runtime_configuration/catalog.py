@@ -27,6 +27,11 @@ class Setting:
 
 
 CATALOG = (
+    Setting("source_preparation.image_max_bytes", "Подготовка источника: размер изображения, байт", "integer", 16_777_216, 65_536, 33_554_432),
+    Setting("source_preparation.image_max_pixels", "Подготовка источника: пиксели изображения", "integer", 24_000_000, 1_000_000, 64_000_000),
+    Setting("source_preparation.vision_batch_size", "Подготовка источника: изображений в запросе", "integer", 2, 1, 4),
+    Setting("source_preparation.max_tokens", "Подготовка источника: токены ответа", "integer", 16_384, 4096, 32_768),
+    Setting("source_preparation.part_preview_chars", "Подготовка источника: символов на блок в плане", "integer", 600, 120, 2000),
     Setting("assignment.total_seconds", "Назначение: общий таймаут, с", "integer", 90, 45, 90),
     Setting("assignment.deepseek_seconds", "Назначение: попытка DeepSeek, с", "integer", 30, 5, 60),
     Setting("assignment.chatgpt_seconds", "Назначение: попытка ChatGPT, с", "integer", 40, 5, 40),

@@ -601,3 +601,34 @@ raw не является новым вызовом. Unknown dispatch не по�
   original receipt preserved. Runtime saved-case replay independently verified
   one correction and strict final validation with zero provider calls.
   Full proof and scope in RUN-20261107-PROD-SOURCE-SCHEMA-081.
+
+## ENG-032 — Text conversion silently omitted embedded instructional images
+
+- Saved reproduction: the supplied cash DOCX contains ten native illustrations.
+  The ordinary local text converter returned13152 characters without image IDs or
+  placements while retaining references such as “as shown in the picture”.
+- Cause: conversion represented the document as text, without a visual-source
+  contract propagated through approval, generation and learner delivery.
+- Local fix: native text/table/image placements, bounded visual readings,
+  source-bound checkpoints, complete semantic partition, selected immutable
+  manifest, approved image markers and snapshot-authorized binary endpoints.
+  Source retention now covers released and approval-revision snapshots.
+- Saved real-file preparation:9PDF page images/42recognized blocks/3parts and
+  10DOCX images/129blocks/7parts. Twelve completed requests,38274input/19380output
+  reported tokens. This is preparation evidence, not generated-course acceptance.
+- Verification: full local API6856PASS/web1696PASS; focused recovery, image
+  authorization, old page approvals and selection tests. Isolated settings
+  upgrade/audit/RLS/cleanup PASS. Hosted DEV and production pending.
+- Status: LOCAL FIXED. Evidence `.release-evidence/source-preparation/`.
+
+## ENG-033 — Selected-page approval failed its immutable readback
+
+- Cause: approval payload included selected pages, while read_approval rebuilt
+  the expected payload without pages. A later generation pin rejected that
+  approved edition instead of using the agreed material.
+- Local fix: reconstruct historical optional page fields and new preparation
+  bindings using their original shapes. Legacy command digests remain unchanged.
+  Selection changes are revision-bound, and previous approved pins remain stable.
+- Verification: saved-payload tests and competing-command gate prepared; hosted
+  worker readback remains part of current DEV acceptance.
+- Status: LOCAL FIXED; no historical failed receipt was relabeled.

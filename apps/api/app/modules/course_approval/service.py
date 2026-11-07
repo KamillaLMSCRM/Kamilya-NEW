@@ -61,6 +61,7 @@ def learner_safe_review_snapshot(snapshot: dict[str, object]) -> dict[str, objec
         "review_status",
         "is_correct",
         "source_quote",
+        "storage_key",
     }
 
     def strip(value: object) -> object:

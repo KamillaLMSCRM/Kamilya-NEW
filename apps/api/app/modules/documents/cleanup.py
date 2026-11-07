@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
@@ -14,9 +16,31 @@ from app.core.storage import get_storage
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.modules.documents.service import list_document_usages
+from app.modules.source_editorial_review.models import DocumentEditorialEvent
 
 logger = logging.getLogger(__name__)
 SUMMARIES_DIR = Path("./summaries")
+
+
+def _source_asset_keys(events: Sequence[DocumentEditorialEvent], tenant_id: UUID, document_id: UUID) -> set[str]:
+    keys: set[str] = set()
+    for event in events:
+        payload = event.payload
+        if not isinstance(payload, dict) or not isinstance(payload.get("key"), str):
+            continue
+        event_key = payload["key"]
+        if not event_key.startswith("source-asset-storage:"):
+            continue
+        sha = event_key.removeprefix("source-asset-storage:")
+        result = payload.get("result")
+        if not re.fullmatch(r"[a-f0-9]{64}", sha) or not isinstance(result, dict) or result.get("sha256") != sha:
+            raise ValueError("invalid_source_asset_storage_intent")
+        key = result.get("storage_key")
+        prefix = f"source-assets/{tenant_id}/{document_id}/{sha}."
+        if key not in (prefix + "png", prefix + "jpg"):
+            raise ValueError("invalid_source_asset_storage_intent")
+        keys.add(key)
+    return keys
 
 
 async def _set_tenant(session, tenant_id: UUID) -> None:
@@ -112,6 +136,13 @@ async def run_document_cleanup(job_id: str, document_id: UUID, tenant_id: UUID) 
             if usages.summary.total:
                 raise RuntimeError("Document acquired a blocking usage before cleanup")
 
+            asset_events = (await session.scalars(select(DocumentEditorialEvent).where(
+                DocumentEditorialEvent.tenant_id == tenant_id,
+                DocumentEditorialEvent.document_id == document_id,
+                DocumentEditorialEvent.kind == "analysis_block",
+            ))).all()
+            asset_keys = _source_asset_keys(asset_events, tenant_id, document_id)
+
             now = datetime.now(UTC)
             document.lifecycle_status = "deletion_pending"
             document.deletion_error_code = None
@@ -134,7 +165,11 @@ async def run_document_cleanup(job_id: str, document_id: UUID, tenant_id: UUID) 
                     "document_id": str(document_id),
                 },
             )
-            get_storage().delete_bytes(document.s3_key)
+            storage = get_storage()
+            for asset_key in sorted(asset_keys):
+                if not storage.delete_bytes(asset_key):
+                    raise RuntimeError("Source image storage cleanup failed")
+            storage.delete_bytes(document.s3_key)
             try:
                 (SUMMARIES_DIR / f"{document_id}.json").unlink()
             except FileNotFoundError:

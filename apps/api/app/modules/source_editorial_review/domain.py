@@ -7,6 +7,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.modules.source_preparation.domain import PreparedSource, validate_binding
+
 MAX_TEXT = 1_000_000
 POLICY = "human-source-editorial-review-v1"
 SOURCE_PINS = "source_editorial_snapshots"
@@ -20,6 +22,14 @@ class ReviewConflictError(ValueError):
     """The requested change does not apply to the current review."""
 
 
+def validated_preparation(value: object, original_blob_sha256: str | None = None,
+                          recognized_text: str | None = None) -> tuple[PreparedSource, list[str]]:
+    manifest, ids = validate_binding(value, original_blob_sha256, recognized_text)
+    if not isinstance(value, dict) or value.get("selected_part_ids") != ids:
+        raise ValueError("source_preparation_selection_order_invalid")
+    return manifest, ids
+
+
 @dataclass(frozen=True, slots=True)
 class ApprovedEditorialDocument:
     document_id: str
@@ -30,6 +40,7 @@ class ApprovedEditorialDocument:
     working_sha256: str
     spans: tuple[dict[str, Any], ...] = field(repr=False)
     fidelity: dict[str, Any] = field(repr=False)
+    preparation: dict[str, Any] | None = field(default=None, repr=False)
 
     @property
     def editorial_revision(self) -> str:
@@ -40,6 +51,10 @@ class ApprovedEditorialDocument:
                 or text_hash(self.working_text) != self.working_sha256):
             return False
         try:
+            if self.preparation is not None:
+                if not source_revision.startswith("document:"):
+                    return False
+                validated_preparation(self.preparation, source_revision.removeprefix("document:"), self.recognized_text)
             edits = [
                 {"start": row["raw_start"], "end": row["raw_end"], "id": row["item_id"],
                  "before": self.recognized_text[row["raw_start"]:row["raw_end"]],
@@ -48,7 +63,7 @@ class ApprovedEditorialDocument:
             ]
             text, spans = render_text(self.recognized_text, edits)
             return text == self.working_text and tuple(spans) == self.spans
-        except (TypeError, KeyError, ReviewConflictError):
+        except (TypeError, KeyError, ValueError):
             return False
 
 
@@ -70,16 +85,23 @@ class ReviewCommand(BaseModel):
 
     expected_revision: int = Field(ge=0)
     request_id: UUID
-    action: Literal["start", "resolve", "reopen_issue", "undo_auto", "approve", "reopen", "add_edit"]
+    action: Literal["start", "resolve", "reopen_issue", "undo_auto", "approve", "reopen", "add_edit", "select_parts"]
     item_id: str | None = Field(default=None, min_length=1, max_length=80)
     decision: Literal["replace", "keep"] | None = None
     replacement: str | None = Field(default=None, min_length=1, max_length=5000)
     reason: str | None = Field(default=None, min_length=3, max_length=1500)
     quote: str | None = Field(default=None, min_length=1, max_length=5000)
     pages: ReviewPageRange | None = None
+    selected_part_ids: list[str] | None = Field(default=None, min_length=1, max_length=5000)
+    preparation_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
     @model_validator(mode="after")
     def validate_fields(self) -> "ReviewCommand":
+        if self.action == "select_parts":
+            if self.selected_part_ids is None or self.preparation_sha256 is None:
+                raise ValueError("selection and preparation identity required")
+        elif self.selected_part_ids is not None or self.preparation_sha256 is not None:
+            raise ValueError("selection only allowed when selecting parts")
         if self.pages is not None and self.action != "start":
             raise ValueError("pages are allowed only when starting a review")
         if self.action in {"resolve", "reopen_issue", "undo_auto"}:
@@ -113,6 +135,26 @@ class ReviewState:
     fidelity: dict[str, Any] = field(default_factory=dict, repr=False)
     error: str | None = None
     pages: dict[str, int] | None = None
+    preparation: dict[str, Any] | None = field(default=None, repr=False)
+    pending_preparation: dict[str, Any] | None = field(default=None, repr=False)
+
+    def hydrate_manifest(self, value: object, blob_sha: str) -> None:
+        """Expose a completed first preparation without declaring editorial analysis complete."""
+        if self.preparation is not None or self.pending_preparation is not None or self.original:
+            return
+        try:
+            package = PreparedSource.model_validate(value)
+            if package.original_blob_sha256 != blob_sha:
+                raise ValueError("source_preparation_binding_changed")
+            ids = [part.id for part in package.parts if part.role == "learning"]
+            if not ids:
+                ids = [part.id for part in package.parts if part.role == "supporting"]
+            if not ids:
+                ids = [package.parts[0].id]
+            self.preparation = package.binding(ids)
+            self.original = package.selected(ids)[0]
+        except (TypeError, ValueError, KeyError, IndexError) as exc:
+            raise ReviewConflictError("source_review_preparation_invalid") from exc
 
     def apply(self, sequence: int, kind: str, payload: dict[str, Any]) -> None:
         if sequence != self.revision + 1:
@@ -121,11 +163,22 @@ class ReviewState:
         if kind == "queued":
             self.status, self.error = "queued", None
             self.pages = payload.get("pages")
+            self.pending_preparation = payload.get("preparation")
         elif kind in {"running", "analysis_block"}:
             self.status = "running"
         elif kind == "failed":
             self.status, self.error = "failed", payload["code"]
         elif kind == "analyzed":
+            preparation = payload.get("preparation")
+            if self.pending_preparation is not None and preparation != self.pending_preparation:
+                raise ReviewConflictError("source_review_preparation_changed")
+            if preparation is not None:
+                try:
+                    validated_preparation(preparation, recognized_text=payload["original"])
+                except (TypeError, ValueError, KeyError) as exc:
+                    raise ReviewConflictError("source_review_preparation_invalid") from exc
+            self.preparation = preparation
+            self.pending_preparation = None
             self.original = payload["original"]
             self.fidelity = payload.get("fidelity", {})
             self.issues = {row["id"]: row for row in payload["issues"]}
@@ -161,9 +214,25 @@ class ReviewState:
         if command.expected_revision != self.revision:
             raise ReviewConflictError("source_review_revision_conflict")
         if command.action == "start" and self.status in {"not_started", "failed"}:
+            binding = self.pending_preparation or (self.preparation if self.status == "failed" else None)
+            if binding is not None:
+                if command.pages is not None and command.pages.model_dump() != self.pages:
+                    raise ReviewConflictError("source_review_preparation_changed")
+                return "queued", {"preparation": binding, **({"pages": self.pages} if self.pages else {})}
             return "queued", {"pages": command.pages.model_dump()} if command.pages else {}
         if command.action == "reopen" and self.status == "approved":
             return "reopened", {}
+        if command.action == "select_parts" and self.status in {"in_review", "failed"}:
+            try:
+                manifest, _ = validated_preparation(self.preparation, recognized_text=self.original)
+                if manifest.sha256 != command.preparation_sha256:
+                    raise ValueError("source_preparation_binding_changed")
+                binding = manifest.binding(command.selected_part_ids or [])
+                if binding == self.preparation and self.status == "in_review":
+                    raise ValueError("source_preparation_selection_unchanged")
+            except (TypeError, KeyError, ValueError) as exc:
+                raise ReviewConflictError("source_review_preparation_invalid") from exc
+            return "queued", {"preparation": binding, **({"pages": self.pages} if self.pages else {})}
         if self.status != "in_review":
             raise ReviewConflictError("source_review_action_not_available")
         item = command.item_id or ""
@@ -173,7 +242,8 @@ class ReviewState:
             working, spans = self.working()
             return "approved", {"working": working, "working_sha256": text_hash(working),
                                 "original_sha256": text_hash(self.original), "spans": spans,
-                                "policy": POLICY, **({"pages": self.pages} if self.pages else {})}
+                                "policy": POLICY, **({"pages": self.pages} if self.pages else {}),
+                                **({"preparation": self.preparation} if self.preparation else {})}
         if command.action == "undo_auto" and item in self.automatic and item not in self.disabled_auto:
             row = self.automatic[item]
             return "auto_undone", {"item_id": item, "start": row["start"], "end": row["end"],

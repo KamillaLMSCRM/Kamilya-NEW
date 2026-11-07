@@ -1,4 +1,7 @@
+'use client';
+
 import { Fragment, type ReactNode } from 'react';
+import { AuthenticatedSourceImage, sourceImageLine } from '@/components/AuthenticatedSourceImage';
 
 type SafeLessonContentProps = {
   text: string;
@@ -80,6 +83,16 @@ export function SafeLessonContent({ text }: SafeLessonContentProps) {
       continue;
     }
 
+    const image = sourceImageLine(line);
+    if (image) {
+      blocks.push(<figure key={`image:${blocks.length}`} className="space-y-1">
+        <AuthenticatedSourceImage url={image.url} alt={image.alt} />
+        {image.alt && <figcaption className="text-sm text-muted-foreground">{image.alt}</figcaption>}
+      </figure>);
+      index += 1;
+      continue;
+    }
+
     const heading = line.match(headingPattern);
     if (heading) {
       const Heading = `h${Math.min(6, heading[1].length + 1)}` as keyof JSX.IntrinsicElements;
@@ -133,7 +146,7 @@ export function SafeLessonContent({ text }: SafeLessonContentProps) {
     }
 
     const paragraph: string[] = [];
-    while (index < lines.length && lines[index].trim() !== '' && !lines[index].trimStart().startsWith('```') && !headingPattern.test(lines[index]) && !isTableStart(lines, index) && !unorderedListPattern.test(lines[index]) && !orderedListPattern.test(lines[index])) {
+    while (index < lines.length && lines[index].trim() !== '' && !lines[index].trimStart().startsWith('```') && !sourceImageLine(lines[index]) && !headingPattern.test(lines[index]) && !isTableStart(lines, index) && !unorderedListPattern.test(lines[index]) && !orderedListPattern.test(lines[index])) {
       paragraph.push(lines[index]);
       index += 1;
     }

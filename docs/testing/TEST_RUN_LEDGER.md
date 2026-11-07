@@ -6208,3 +6208,33 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
   `format-acceptance-summary.json`, `prod-api-after-matrix.json` and the exact
   immutable release manifest. Raw receipts under `.release-evidence/prod-v081-*`
   preserve the initial matrix failure, CSV confirmation and separate pair.
+
+## RUN-20261107-SOURCE-PREPARATION-LOCAL-082
+
+- Scope: owner-authorized semantic document parts and native illustrations;
+  candidate0.11.82 in `feat/source-preparation-20261107`, baseline20a53f9a.
+  Exact candidate is the Git commit containing this entry; hosted acceptance
+  requires a separate exact-SHA entry. Production369f82a1 unchanged.
+- Local: API unit6856PASS/1SKIP; frontend1696PASS; lint, typecheck and buildPASS;
+  Python baselinePASS1010/2174. Subsequent focused selection/recovery/epoch tests
+  pass; old source approval payloads and final-save contracts preserved.
+- Saved real-file preparation: PDF9pages/9assets/42recognized blocks, default
+  instruction pages3–9 excluding page9 administrative registers; DOCX10assets/
+  129blocks, learning sections and administrative parts separated. Both original
+  SHA256 unchanged. Six completed requests per file,60s/47s respectively;
+  total38274input/19380output reported tokens, actual returned model unavailable.
+  No generated-course or semantic quality acceptance inferred from those counts.
+- Isolated Supabase DEV settings gatePASS: fresh/populated0182→0186, settings and
+  audit hashes unchanged by migration, FORCERLS, ordinary write denial, typed
+  new values, stale revisions, guarded downgrade, audited revert and reupgrade.
+  Disposable schema absent/public schema neutral. No public migration or prod action.
+- The first isolated review gate failed in setup due to duplicate synthetic
+  content hashes, retained original BLOCKED receipt; fixture correction preserves
+  application constraints. Its actual concurrency/pin gate remains in progress.
+- Runtime preflight: production4containers remain369f82a1/imagef8523cbb; DEV has
+  one running worker49902a0d, restarts8. Other44labelled DEV containers are stopped
+  history. Host free11.13GB/available7.49GB RAM. No runtime service changed.
+- Evidence `.release-evidence/source-preparation/`: local model manifests and usage,
+  focused tests, complete suites, isolated settings and read-only runtime receipt.
+  No hosted DEV or production acceptance claim. Next: exactCI/image, DEV rollout,
+  both real-file source-to-course and figure checks, then protected release.

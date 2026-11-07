@@ -32,6 +32,28 @@ describe('source editorial review', () => {
     mocks.approval = undefined;
   });
 
+  it('preserves a part selection on conflict and sends the server manifest identity', async () => {
+    const current = { ...fixture(), questions: [], preparation: {
+      policy: 'v1', sha256: 'a'.repeat(64), selected_part_ids: ['part-' + '1'.repeat(24)],
+      parts: [
+        { id: 'part-' + '1'.repeat(24), title: 'First', role: 'learning' as const, reason: 'Relevant', block_count: 1 },
+        { id: 'part-' + '2'.repeat(24), title: 'Second', role: 'supporting' as const, reason: 'Additional', block_count: 1 },
+      ], assets: [],
+    } };
+    mocks.get.mockResolvedValueOnce({ data: current }).mockResolvedValueOnce({ data: { ...current, revision: 4 } });
+    mocks.post.mockRejectedValueOnce({ response: { status: 409 } });
+    render(<SourceEditorialReview />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: /Second/ }));
+    expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Применить выбор' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('checkbox', { name: /Second/ })).toBeChecked();
+    expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review', expect.objectContaining({
+      action: 'select_parts', expected_revision: 3, preparation_sha256: 'a'.repeat(64),
+      selected_part_ids: ['part-' + '1'.repeat(24), 'part-' + '2'.repeat(24)],
+    }));
+  });
+
   it('requires a decision before approval and links to the exact approved version', async () => {
     const current = fixture();
     mocks.get.mockResolvedValue({ data: current });

@@ -28,6 +28,16 @@ export interface SourceQuestion {
 
 export type ReviewPages = { first_page: number; last_page: number };
 
+export interface SourcePreparation {
+  policy: string;
+  sha256: string;
+  selected_part_ids: string[];
+  parts: Array<{ id: string; title: string; role: 'learning' | 'supporting' | 'administrative'; reason: string;
+    page_first?: number | null; page_last?: number | null; block_count: number }>;
+  assets: Array<{ id: string; caption: string; kind: string; status: string; width: number; height: number;
+    part_id?: string | null; preview_url: string }>;
+}
+
 export interface SourceReview {
   document_id: string;
   document_version: number;
@@ -37,6 +47,7 @@ export interface SourceReview {
   error: string | null;
   pdf?: boolean;
   pages?: ReviewPages | null;
+  preparation?: SourcePreparation | null;
   questions: SourceQuestion[];
   automatic: Array<Change & { undone: boolean }>;
   original_text: string | null;
@@ -50,13 +61,15 @@ export interface SourceReview {
 export interface ReviewCommand {
   expected_revision: number;
   request_id: string;
-  action: 'start' | 'resolve' | 'reopen_issue' | 'undo_auto' | 'approve' | 'reopen' | 'add_edit';
+  action: 'start' | 'resolve' | 'reopen_issue' | 'undo_auto' | 'approve' | 'reopen' | 'add_edit' | 'select_parts';
   item_id?: string;
   decision?: 'replace' | 'keep';
   replacement?: string;
   quote?: string;
   reason?: string;
   pages?: ReviewPages;
+  selected_part_ids?: string[];
+  preparation_sha256?: string;
 }
 
 export const sourceReviewHref = (id: string, approvalId?: string) =>

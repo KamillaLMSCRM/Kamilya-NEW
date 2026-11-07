@@ -22,6 +22,9 @@ from app.modules.ai.managed_response_rejection import ManagedResponseRejectedErr
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
 from app.modules.source_editorial_review.service import add_event, history, owned_document, read_state, review_enabled
+from app.modules.source_preparation.domain import PreparedSource, validate_binding
+from app.modules.source_preparation.extraction import NativeAsset, NativeBlock, NativeSource, extract_native_source
+from app.modules.source_preparation.preparation import VisualRequestRejected, prepare_native_source
 
 logger = logging.getLogger(__name__)
 _BLOCK_CHARS = 36_000
@@ -168,6 +171,14 @@ def analysis_failure_code(error: Exception) -> str:
         return error.code
     if isinstance(error, ReviewConflictError):
         return str(error)
+    if isinstance(error, VisualRequestRejected):
+        return "source_review_provider_unavailable"
+    if isinstance(error, ValueError) and error.args == ("source_preparation_visual_response_invalid",):
+        return "source_review_invalid_response"
+    if isinstance(error, ValueError) and error.args == ("source_preparation_visual_outcome_unknown",):
+        return "source_review_provider_outcome_unknown"
+    if isinstance(error, ValueError) and error.args == ("source_preparation_unsupported_pdf_visual",):
+        return "source_review_unsupported_visual"
     if isinstance(error, AllProvidersFailedError) or (
             isinstance(error, ValueError) and error.args == ("managed_qa_luna_unavailable",)):
         return "source_review_provider_unavailable"
@@ -230,6 +241,7 @@ async def analyze(
     complete_json: Callable[[list[dict[str, str]]], Awaitable[object]],
     retained: Mapping[str, dict[str, Any]] | None = None,
     checkpoint: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None,
+    visual_reading_notes: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     render_text(original, [])
     bounded_blocks = list(blocks(original))
@@ -243,7 +255,8 @@ async def analyze(
     auto: list[dict[str, Any]] = []
     calls = 0
     schema_reissue_used = False
-    basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text))
+    basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text)
+        + (":" + text_hash(json.dumps(visual_reading_notes, ensure_ascii=False, sort_keys=True)) if visual_reading_notes else ""))
     for index, (offset, local) in enumerate(bounded_blocks):
         if not local.strip():
             continue
@@ -263,6 +276,9 @@ async def analyze(
             nonlocal independent, block_calls, candidate_questions, unverified, schema_reissue_used
             block_calls += 1
             payload = json.loads(messages[1]["content"])
+            if visual_reading_notes:
+                payload["unverified_visual_reading_notes"] = visual_reading_notes
+                messages = [messages[0], {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}]
             if "proposal_sha256" in payload:
                 if outline_text:
                     payload["related_source_outline"] = outline_text
@@ -407,6 +423,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         if queued.created_at < datetime.now(UTC) - timedelta(minutes=20):
             return "expired"
         state = read_state(rows, doc.content_sha256)
+        filename, storage_key = str(doc.filename or ""), str(doc.s3_key or "")
         claim = add_event(db, doc, actor_id=queued.actor_id, sequence=state.revision + 1,
                           kind="running", payload={"queued_event_id": str(event_id)})
         await db.commit()
@@ -439,14 +456,40 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
     json_recovery = _ManagedSourceJsonRecovery()
     try:
         async with asyncio.timeout(750):
+            from app.core.storage import get_storage
+            from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+
+            runtime = await resolve_runtime_settings()
             pages = queued.payload.get("pages")
-            selected_pages = {str(document_id): (pages["first_page"], pages["last_page"])} if pages else None
-            corpus = await load_direct_source_corpus([str(document_id)], tenant_id=tenant_id, pdf_pages=selected_pages)
-            source = corpus.documents[0]
-            if source.source_revision != f"document:{claim.original_blob_sha256}" or not source.source_text:
-                raise ReviewConflictError("source_review_original_changed")
-            if source.review_only_source_unresolved:
-                raise ReviewConflictError("source_review_extraction_incomplete")
+            binding = queued.payload.get("preparation")
+            package: PreparedSource | None = None
+            fidelity: dict[str, Any]
+            if binding is not None:
+                package, selected_ids = validate_binding(binding, claim.original_blob_sha256)
+                source_text = package.selected(selected_ids)[0]
+            else:
+                blob = await asyncio.to_thread(get_storage().get_bytes, storage_key)
+                if blob is None:
+                    raise ReviewConflictError("source_review_original_unavailable")
+                native = await asyncio.to_thread(extract_native_source, blob, filename, claim.original_blob_sha256,
+                    max_image_bytes=runtime.integer("source_preparation.image_max_bytes"),
+                    max_image_pixels=runtime.integer("source_preparation.image_max_pixels")) if not pages else None
+                if native is None:
+                    selected_pages = {str(document_id): (pages["first_page"], pages["last_page"])} if pages else None
+                    corpus = await load_direct_source_corpus([str(document_id)], tenant_id=tenant_id, pdf_pages=selected_pages)
+                    source = corpus.documents[0]
+                    if source.source_revision != f"document:{claim.original_blob_sha256}" or not source.source_text:
+                        raise ReviewConflictError("source_review_original_changed")
+                    if source.review_only_source_unresolved:
+                        raise ReviewConflictError("source_review_extraction_incomplete")
+                    source_text = source.source_text.strip()
+                    fidelity = asdict(source.conversion_fidelity)
+                    # Page-range approvals predate manifests; preserve that immutable contract.
+                    if not pages:
+                        native = NativeSource(tuple(NativeBlock("block-" + text_hash(
+                            claim.original_blob_sha256 + ":" + str(index))[:24], "text", paragraph, (), None,
+                            {"paragraph": index}) for index, paragraph in enumerate(source_text.split("\n\n"))
+                            if paragraph.strip()), (), None, ())
             phase = "provider_readiness"
             from app.modules.ai.direct_luna_responses_factory import create_managed_qa_client
             from app.modules.ai.qa_luna_dev_route import QA_TENANT
@@ -457,7 +500,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 managed = await create_managed_qa_client(settings=settings, tenant_id=tenant_id,
                     user_id=claim.actor_id, job_id=str(claim.id), profile="luna6")
             llm = await ResilientLLMClient.from_settings_async(
-                temperature=0.1, max_tokens=16_384,
+                temperature=0.1, max_tokens=runtime.integer("source_preparation.max_tokens"),
             ) if managed is None else None
             usage: list[dict[str, Any]] = []
 
@@ -483,14 +526,81 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 standard = await llm.ainvoke(
                     messages, response_format={"type": "json_object"}, request_profile="course_generation",
                 )
+                usage.append({"stage": stage, "provider": standard.provider_name, "model": standard.model,
+                              "prompt_tokens": standard.prompt_tokens, "completion_tokens": standard.completion_tokens})
                 phase = stage + "_response"
                 return json.loads(standard.content)
 
+            async def preparation_complete(messages: list[dict[str, Any]]) -> object:
+                return await complete(messages)
+
+            async def visual_complete(messages: list[dict[str, Any]]) -> object:
+                nonlocal phase
+                phase = "source_extraction"
+                if not await verify_claim():
+                    raise ReviewConflictError("source_review_analysis_claim_changed")
+                # The text-only reserve is not a visual fallback. Never silently discard pixels.
+                visual_chain = llm or await ResilientLLMClient.from_settings_async(
+                    temperature=0.1, max_tokens=runtime.integer("source_preparation.max_tokens"))
+                clients = [client for client in visual_chain._clients if client.config.name == "deepseek"]
+                if len(clients) != 1:
+                    raise ReviewConflictError("source_visual_provider_unavailable")
+                import httpx
+
+                from app.modules.ai.llm_client import LLMClient, ProviderFailedError
+
+                try:
+                    reply = await LLMClient(clients[0].config, temperature=0.1,
+                        max_tokens=runtime.integer("source_preparation.max_tokens"), max_retries=0).ainvoke(
+                        messages, response_format={"type": "json_object"})
+                except ProviderFailedError as exc:
+                    if isinstance(exc.last_exc, httpx.HTTPStatusError) and exc.last_exc.response.status_code in (400, 401, 403, 404, 413, 422, 429):
+                        raise VisualRequestRejected("source_visual_request_rejected") from None
+                    raise ValueError("source_preparation_visual_outcome_unknown") from None
+                usage.append({"stage": "visual_reading", "provider": reply.provider_name, "model": reply.model,
+                              "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens})
+                return reply.content
+
+            async def persist_asset(asset: NativeAsset) -> str:
+                key = f"source-assets/{tenant_id}/{document_id}/{asset.sha256}." + (
+                    "png" if asset.mime_type == "image/png" else "jpg")
+                # Durable custody intent precedes the storage write; retries address the same bytes.
+                await save_block("source-asset-storage:" + asset.sha256,
+                                 {"storage_key": key, "sha256": asset.sha256})
+                await asyncio.to_thread(get_storage().put_bytes, key, asset.data, asset.mime_type)
+                return key
+
             try:
+                if binding is None and native is not None:
+                    package = await prepare_native_source(native, original_sha256=claim.original_blob_sha256,
+                        complete=preparation_complete, visual_complete=visual_complete, checkpoint=save_block,
+                        persist_asset=persist_asset, retained=retained,
+                        vision_batch_size=runtime.integer("source_preparation.vision_batch_size"),
+                        preview_chars=runtime.integer("source_preparation.part_preview_chars"))
+                    selected_ids = [part.id for part in package.parts if part.role == "learning"]
+                    if not selected_ids:
+                        selected_ids = [part.id for part in package.parts if part.role == "supporting"]
+                    if not selected_ids:
+                        raise ReviewConflictError("source_preparation_no_learning_content")
+                    source_text = package.selected(selected_ids)[0]
+                    binding = package.binding(selected_ids)
+                if package is not None:
+                    fidelity = {"engine": "native-source-preparation", "profile": "visual_and_text",
+                                "fallback_used": False, "warnings": package.warnings,
+                                "pages": max((b.page or 0 for b in package.blocks), default=0),
+                                "engine_version": package.policy}
                 phase = "source_contract"
-                payload = await analyze(source.source_text.strip(), source_id=source.source_revision,
+                visual_notes = []
+                if package is not None:
+                    selected_assets = {i for b in package.selected(selected_ids)[2] for i in b.asset_ids}
+                    visual_notes = [{"caption": a.caption, "page": a.locator.get("page"),
+                                     "notes": a.uncertainties} for a in package.assets
+                                    if a.id in selected_assets and a.uncertainties]
+                payload = await analyze(source_text, source_id=f"document:{claim.original_blob_sha256}",
                                         document_id=str(document_id), complete_json=complete, retained=retained,
-                                        checkpoint=save_block)
+                                        checkpoint=save_block, visual_reading_notes=visual_notes)
+                if binding is not None:
+                    payload["preparation"] = binding
             finally:
                 if managed is not None:
                     managed.close()
@@ -498,7 +608,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             if json_recovery.used:
                 payload["completed_json_retries"] = 1
                 payload["model_calls"] += 1
-            payload["fidelity"] = asdict(source.conversion_fidelity)
+            payload["fidelity"] = fidelity
             kind = "analyzed"
     except Exception as error:
         code = analysis_failure_code(error)

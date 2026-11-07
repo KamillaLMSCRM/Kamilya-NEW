@@ -105,7 +105,16 @@ EDIT_SYSTEM += _SOURCE_GUIDE + EXPLICIT_CASE_GUIDE
 def _context(packet: Any, corpus: Any, view: PracticalModelView, *, canonical_json: bool) -> str:
     notes = [{'document_id': doc.doc_id, 'source_revision': doc.source_revision, 'text': row['text']}
              for doc in corpus.documents for row in doc.review_only_source_context]
-    return (source_model_text(packet, aliases=view.canonical_to_alias)
+    source = source_model_text(packet, aliases=view.canonical_to_alias)
+    visual_guide = ('\nSOURCE_ILLUSTRATIONS_GUIDE\n'
+        'Исходник содержит иллюстрации с проверенными маркерами ![подпись](source-asset:asset-...). '
+        'Включи каждую содержательную иллюстрацию отдельной строкой Markdown в тот урок, где объясняется '
+        'показанное действие или форма. Сохрани точный адрес source-asset и понятную подпись; не выдумывай '
+        'новые адреса. Не заменяй скриншот пересказом. Объясни нужные поля и порядок действий рядом с ним. '
+        'Заполненные персональные данные, даты и суммы на образце — пример, не обязательное правило. '
+        'При редактуре сохраняй правильные иллюстрации. Проверь их смысловую привязку вместе с текстом.\n'
+        if 'source-asset:asset-' in source else '')
+    return (source + visual_guide
         + '\nUNVERIFIED_SOURCE_REVIEW_CONTEXT_JSON\n' + json.dumps(notes, ensure_ascii=False, sort_keys=canonical_json))
 
 

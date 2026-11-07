@@ -1,4 +1,5 @@
 const ru = {
+  visualUnsupported: 'В документе есть графические элементы, которые не удалось распознать без потери содержания. Сохраните их как изображения в документе и загрузите новую версию.',
   title: 'Проверка документа', short: 'Проверить документ',
   presentationOcrRequired: 'В презентации есть слайды без доступного текста. Добавьте текст на слайды или загрузите PDF для распознавания.',
   providerOutcomeUnknown: 'Сервис не подтвердил результат проверки. Обновите страницу и проверьте статус, прежде чем повторять проверку.',
@@ -54,6 +55,7 @@ const ru = {
 };
 
 const en: typeof ru = {
+  visualUnsupported: 'Some graphic elements could not be recognized without losing content. Save them as images inside the document and upload a new version.',
   title: 'Document review', short: 'Review document',
   presentationOcrRequired: 'Some slides have no extractable text. Add slide text or upload a PDF for text recognition.',
   providerOutcomeUnknown: 'The service could not confirm the review result. Refresh and check the status before trying again.',
@@ -106,6 +108,7 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  visualUnsupported: 'Құжаттағы кейбір графикалық элементтерді мазмұнын жоғалтпай тану мүмкін болмады. Оларды құжат ішінде кескін ретінде сақтап, жаңа нұсқаны жүктеңіз.',
   title: 'Құжатты тексеру', short: 'Құжатты тексеру',
   presentationOcrRequired: 'Кейбір слайдтардан мәтін алынбайды. Слайдтарға мәтін қосыңыз немесе мәтінді тану үшін PDF жүктеңіз.',
   providerOutcomeUnknown: 'Қызмет тексеру нәтижесін растамады. Қайталап тексермес бұрын бетті жаңартып, күйін тексеріңіз.',

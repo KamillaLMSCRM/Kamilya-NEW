@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.82] - 2026-11-07
+
+### Added
+
+- Prepare source documents as ordered semantic parts, retain their native illustrations and visual readings, and bind the selected material to the existing source-review approval and generation snapshots.
+- Deliver course illustrations through authenticated author, frozen learner-release and reviewer-attempt paths; retain the referenced source versions and image bytes.
+
+### Fixed
+
+- Read back historical page-range approvals with their original selection intact.
+- Reuse completed image readings after interruption and preserve explicit unknown outcomes without repeating paid visual requests.
+
+### Changed
+
+- Extend the existing audited runtime settings catalog through additive migration 0186; no parallel settings or approval tables.
+
 ## [0.11.81] - 2026-11-07
 
 ### Fixed

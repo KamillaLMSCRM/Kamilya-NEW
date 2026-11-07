@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { sourceReviewHref, type ReviewCommand, type SourceReview } from './contract';
 import { sourceReviewCopy } from './copy';
+import { SourcePreparationPanel } from './SourcePreparationPanel';
 
 const field = 'w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const code = 'whitespace-pre-wrap break-words rounded-lg border border-border bg-muted/30 p-3 text-sm [overflow-wrap:anywhere]';
@@ -44,6 +45,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const [review, setReview] = useState<SourceReview | null>(null);
   const [courseDocuments, setCourseDocuments] = useState<string[]>([]);
   const [pageInput, setPageInput] = useState<{ first: string; last: string } | null>(null);
+  const [selectionDraft, setSelectionDraft] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'loading' | 'failed'>('idle');
   useEffect(() => {
     const ids = new URLSearchParams(window.location.search).getAll('document_id');
@@ -165,6 +167,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const validPages = !usePages || (Number.isInteger(firstPage) && Number.isInteger(lastPage)
     && firstPage >= 1 && lastPage >= firstPage && lastPage <= 10000);
   const failureMessage = review?.error === 'direct_source_pdf_range_invalid' ? copy.rangeFailure
+    : review?.error === 'source_review_unsupported_visual' ? copy.visualUnsupported
     : review?.error === 'direct_source_pptx_ocr_required' ? copy.presentationOcrRequired
     : review?.error === 'source_review_provider_unavailable' ? copy.providerFailure
     : review?.error === 'source_review_provider_outcome_unknown' ? copy.providerOutcomeUnknown
@@ -243,6 +246,10 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         </details>}
         {pending && <Button variant="outline" disabled={saving} onClick={() => void submit(pending)}>{copy.repeatCommand}</Button>}
       </WorkspacePanel>}
+      {review.preparation && <SourcePreparationPanel preparation={review.preparation} lang={lang}
+        editable={!approvalId && (review.status === 'in_review' || review.status === 'failed')} disabled={disabled}
+        onDraftChange={setSelectionDraft}
+        onApply={(ids, sha256) => action({ action: 'select_parts', selected_part_ids: ids, preparation_sha256: sha256 })} />}
       {review.original_text && <>
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <WorkspacePanel bodyClassName="space-y-3">
@@ -340,7 +347,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.working_text}</pre></details>
           <details><summary className="cursor-pointer font-semibold">{copy.original}</summary>
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.original_text}</pre></details>
-          {!readOnly && <div className="space-y-2"><Button disabled={disabled || open > 0 || Boolean(manual.quote || manual.replacement || manual.reason)} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
+          {!readOnly && <div className="space-y-2"><Button disabled={disabled || selectionDraft || open > 0 || Boolean(manual.quote || manual.replacement || manual.reason)} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
             {open > 0 && <p className="text-sm text-muted-foreground">{copy.blocking}</p>}
             {(manual.quote || manual.replacement || manual.reason) && <p className="text-sm text-muted-foreground">{copy.unsavedManual}</p>}</div>}
         </WorkspacePanel>

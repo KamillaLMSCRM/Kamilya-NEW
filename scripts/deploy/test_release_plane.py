@@ -78,6 +78,18 @@ def test_source_editorial_no_migration_rechecks_exact_head(tmp_path, monkeypatch
     assert not any('upgrade' in call or 'up' in call or 'stop' in call for call, _ in runner.calls)
 
 
+@pytest.mark.parametrize('flags', [True, False])
+def test_source_preparation_epoch_admits_only_0185_to_0186(flags):
+    data = epoch_manifest('0.11.82', migration=False, flags=flags)
+    assert release_plane.ReleaseManifest.parse(data).correction_revisions == ('0185', '0186')
+    data['migration'].update(mode='exact', from_revision='0185', to_revision='0186', rollback_compatible=True)
+    assert release_plane.ReleaseManifest.parse(data).migration.to_revision == '0186'
+    for source, target in [('0184', '0185'), ('0184', '0186'), ('0185', '0187'), ('0186', '0185')]:
+        data['migration'].update(from_revision=source, to_revision=target)
+        with pytest.raises(release_plane.ReleasePlaneError, match='v3_migration_revision_invalid'):
+            release_plane.ReleaseManifest.parse(data)
+
+
 def test_version71_requires_versioned_four_flag_manifest():
     assert release_plane.feature_manifest_fields('', '', '0.11.70') == {'schema_version': 1}
     with pytest.raises(release_plane.ReleasePlaneError, match='v3_feature_flags_required'):

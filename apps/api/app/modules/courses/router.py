@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +44,15 @@ router = APIRouter(
     tags=["courses"],
     dependencies=[Depends(require_tenant_user())],
 )
+
+
+@router.get("/{course_id}/lessons/{lesson_id}/source-assets/{asset_id}")
+async def get_lesson_source_asset(course_id: UUID, lesson_id: UUID, asset_id: str,
+                                  db: Annotated[AsyncSession, Depends(get_db)],
+                                  user: Annotated[User, Depends(get_current_user)]) -> Response:
+    from app.modules.source_preparation.assets import course_asset
+
+    return await course_asset(db, course_id, lesson_id, asset_id, user)
 
 
 def _preview_source_references(references: list[Any], lesson_source_ids: list[Any],

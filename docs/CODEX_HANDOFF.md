@@ -1,3 +1,29 @@
+# Source preparation parts/images 0.11.82 LOCAL candidate — 2026-11-07
+
+- result: Shared preparation and source/lesson image custody implemented locally.
+  Owner requests both exact Lombard files in DEV then production after acceptance.
+  Production remains 0.11.81 `369f82a1`; DEV remains `49902a0d`. No app push yet.
+- changed: Native DOCX/PDF extraction, source-bound visual caches and explicit
+  unknown outcomes, semantic part selection, existing approval/pin binding,
+  authenticated author/learner/reviewer frozen-image paths and source retention.
+  Additive0186 extends the existing audited runtime catalog only. Exact release
+  controller schema epoch added; old page-range approvals remain readable.
+- verified: Local full unit6856PASS/1SKIP, web1696PASS, lint/type/build and Python
+  baseline; subsequent focused lifecycle/recovery checks recorded in evidence.
+  Real PDF42recognized blocks/9images/3parts in60s; cash DOCX129blocks/10images/
+  7parts in47s. Twelve completed DeepSeek requests total, 38274input/19380output
+  reported tokens; actual returned model identity unavailable. Local preparation
+  is not course quality or hosted DEV acceptance. Isolated0182→0186 gate PASS,
+  preserved rows/history/FORCERLS, cleanuptrue/publicneutraltrue.
+- blockers: Hosted DEV source approval/generation/rendering on both files pending.
+  New isolated preparation gate initially hit a harness duplicate-content SHA
+  constraint; source guards retained, isolated schema absent/public unchanged.
+- next: Correct the harness, exact feature CI/image, safe DEV schema/worker/web
+  rollout, both real-file source-to-course semantic/UI/image/recovery/tenant checks,
+  then protected production/backend/frontend and bounded synthetic smoke.
+  Evidence `.release-evidence/source-preparation/`; shared contract
+  `docs/product/contract-modules/source-preparation/EPIC_V1.md`.
+
 # Source review 0.11.81 accepted in production — 2026-11-07
 
 - result: Production API and three workers 0.11.81, exact

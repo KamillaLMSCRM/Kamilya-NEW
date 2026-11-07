@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button } from '@/components/ui';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
+import { ReviewSourceImageProvider } from '@/components/AuthenticatedSourceImage';
 import { saveReviewProgress, submitReviewTest, type ReviewActivityState, type ReviewDiagnostic, type ReviewSnapshot } from '@/lib/courseApproval';
 import { useT } from '@/i18n/useT';
 import { WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
@@ -116,7 +117,9 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
           <h2 className="break-words text-2xl font-semibold leading-tight">{lesson?.title || snapshot.course.title}</h2>
         </header>
         <article className="min-w-0 break-words [&_table]:block [&_table]:overflow-x-auto">
-          {lesson?.content ? <LessonContent text={lesson.content} omitFirstHeading={lesson.title} className="text-base leading-8" /> : <p className="whitespace-pre-wrap break-words text-sm leading-7">—</p>}
+          {lesson?.content ? <ReviewSourceImageProvider attemptId={attemptId} lessonId={lesson.id} token={token}>
+            <LessonContent text={lesson.content} omitFirstHeading={lesson.title} className="text-base leading-8" />
+          </ReviewSourceImageProvider> : <p className="whitespace-pre-wrap break-words text-sm leading-7">—</p>}
         </article>
         {lesson?.quizzes.map((quiz) => <section key={quiz.id} className="space-y-5 rounded-xl border border-border bg-muted/20 p-4 sm:p-5">
           <h3 className="break-words font-semibold">{quiz.title}</h3>

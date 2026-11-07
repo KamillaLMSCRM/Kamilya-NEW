@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
@@ -51,6 +51,14 @@ async def get_review(doc_id: UUID, db: Database, user: Actor) -> dict[str, Any]:
         return review_view(doc, rows, read_state(rows, doc.content_sha256))
     except ReviewConflictError as error:
         raise _conflict(error) from error
+
+
+@router.get("/{doc_id}/editorial-review/assets/{asset_id}")
+async def get_review_asset(doc_id: UUID, asset_id: str, preparation_sha256: str,
+                           db: Database, user: Actor) -> Response:
+    from app.modules.source_preparation.assets import preview_asset
+
+    return await preview_asset(db, UUID(str(user.tenant_id)), doc_id, asset_id, preparation_sha256)
 
 
 @router.post("/{doc_id}/editorial-review")

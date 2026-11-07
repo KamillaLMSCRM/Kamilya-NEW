@@ -19,9 +19,11 @@ from app.modules.source_editorial_review.domain import (
     ReviewConflictError,
     ReviewState,
     text_hash,
+    validated_preparation,
 )
 from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PINS
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
+from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
 
 _SHA = re.compile(r"[0-9a-f]{64}")
 _ANALYSIS_STALE_AFTER = timedelta(minutes=20)
@@ -56,7 +58,18 @@ def read_state(rows: Sequence[Event], blob_sha: object) -> ReviewState:
     for row in rows:
         if row.original_blob_sha256 != blob_sha:
             raise ReviewConflictError("source_review_original_changed")
+        if row.payload.get("preparation") is not None:
+            try:
+                validated_preparation(row.payload["preparation"], str(blob_sha))
+            except (TypeError, ValueError, KeyError) as exc:
+                raise ReviewConflictError("source_review_preparation_invalid") from exc
         state.apply(row.sequence, row.kind, row.payload)
+        if (row.kind == "analysis_block"
+                and row.payload.get("key") == f"{PREPARATION_POLICY}:manifest:{blob_sha}"):
+            result = row.payload.get("result")
+            if not isinstance(result, dict) or "manifest" not in result:
+                raise ReviewConflictError("source_review_preparation_invalid")
+            state.hydrate_manifest(result["manifest"], str(blob_sha))
     return state
 
 
@@ -81,6 +94,34 @@ def snapshot_identity(row: Event) -> dict[str, Any]:
             "original_blob_sha256": row.original_blob_sha256, "working_sha256": row.payload["working_sha256"]}
 
 
+def public_preparation(doc: Document, state: ReviewState) -> dict[str, Any] | None:
+    if state.preparation is None:
+        return None
+    try:
+        manifest, selected = validated_preparation(state.preparation, str(doc.content_sha256), state.original)
+    except (TypeError, ValueError, KeyError) as exc:
+        raise ReviewConflictError("source_review_preparation_invalid") from exc
+    indices = {block.id: index for index, block in enumerate(manifest.blocks)}
+    parts = []
+    asset_parts: dict[str, str] = {}
+    for part in manifest.parts:
+        blocks = manifest.blocks[indices[part.first_block]:indices[part.last_block] + 1]
+        pages = [block.page for block in blocks if block.page is not None]
+        parts.append({"id": part.id, "title": part.title, "role": part.role, "reason": part.reason,
+                      "page_first": min(pages) if pages else None, "page_last": max(pages) if pages else None,
+                      "block_count": len(blocks)})
+        for block in blocks:
+            for asset_id in block.asset_ids:
+                asset_parts.setdefault(asset_id, part.id)
+    base = f"/v1/documents/{doc.id}/editorial-review/assets"
+    return {"policy": manifest.policy, "sha256": manifest.sha256, "selected_part_ids": selected, "parts": parts,
+            "assets": [{"id": asset.id, "caption": asset.caption, "kind": asset.kind,
+                        "status": "needs_review" if asset.uncertainties else "ready",
+                        "width": asset.width, "height": asset.height, "part_id": asset_parts.get(asset.id),
+                        "preview_url": f"{base}/{asset.id}?preparation_sha256={manifest.sha256}"}
+                       for asset in manifest.assets]}
+
+
 def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receipt: Event | None = None) -> dict[str, Any]:
     journal: list[dict[str, Any]] = []
     analysis = None
@@ -95,6 +136,8 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
             journal.append({**public_event(row), "kind": event_kind, **{key: row.payload[key] for key in
                 ("item_id", "start", "end", "before", "after", "reason", "decision", "working_sha256")
                 if key in row.payload}})
+        elif row.kind == "queued" and row.request_id and row.payload.get("preparation"):
+            journal.append({**public_event(row), "kind": "selection", "selected_part_ids": row.payload["preparation"]["selected_part_ids"]})
     working = state.working()[0] if state.original else None
     failure_phase = rows[-1].payload.get("phase") if rows and rows[-1].kind == "failed" else None
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
@@ -105,6 +148,7 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
             ) else None,
             "pdf": str(doc.filename or "").lower().endswith(".pdf"),
             "pages": state.pages,
+            "preparation": public_preparation(doc, state),
             "questions": [{**issue, "resolution": state.decisions.get(key)} for key, issue in state.issues.items()],
             "automatic": [{**change, "undone": key in state.disabled_auto}
                           for key, change in state.automatic.items()],
@@ -116,7 +160,9 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
 
 def _command_digest(command: ReviewCommand) -> str:
     # Preserve the identity of requests recorded before page selection existed.
-    return text_hash(command.model_dump_json(exclude={"pages"} if command.pages is None else None))
+    exclude = {name for name in ("pages", "selected_part_ids", "preparation_sha256")
+               if getattr(command, name) is None}
+    return text_hash(command.model_dump_json(exclude=exclude))
 
 
 def add_event(
@@ -200,9 +246,13 @@ async def read_approval(db: AsyncSession, tenant_id: UUID, doc: Document, approv
     state = read_state(await history(db, tenant_id, UUID(str(doc.id)), event.sequence), doc.content_sha256)
     expected = {**event.payload}
     working, spans = state.working()
-    if (state.status != "approved" or state.issues.keys() - state.decisions.keys()
-            or expected != {"working": working, "working_sha256": text_hash(working),
-                            "original_sha256": text_hash(state.original), "spans": spans, "policy": POLICY}):
+    rebuilt: dict[str, Any] = {"working": working, "working_sha256": text_hash(working),
+               "original_sha256": text_hash(state.original), "spans": spans, "policy": POLICY}
+    if state.pages:
+        rebuilt["pages"] = state.pages
+    if state.preparation:
+        rebuilt["preparation"] = state.preparation
+    if (state.status != "approved" or state.issues.keys() - state.decisions.keys() or expected != rebuilt):
         raise ReviewConflictError("source_review_snapshot_invalid")
     return event, state
 
@@ -230,6 +280,6 @@ async def resolve_pins(
             document_id=doc_id, source_revision=f"document:{event.original_blob_sha256}",
             approval_id=str(event.id), recognized_text=state.original, working_text=event.payload["working"],
             working_sha256=event.payload["working_sha256"], spans=tuple(event.payload["spans"]),
-            fidelity=state.fidelity,
+            fidelity=state.fidelity, preparation=state.preparation,
         )
     return result

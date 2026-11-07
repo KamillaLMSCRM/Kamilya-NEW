@@ -84,6 +84,9 @@ class ContentBlockResponse(BaseModel):
     @field_validator("metadata", mode="before")
     @classmethod
     def serialize_legacy_metadata(cls, value: Any) -> Any:
+        if isinstance(value, dict) and isinstance(value.get("source_asset"), dict):
+            value = {**value, "source_asset": {key: item for key, item in value["source_asset"].items()
+                                                 if key != "storage_key"}}
         if isinstance(value, dict | list | bool | int | float):
             return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
         return value

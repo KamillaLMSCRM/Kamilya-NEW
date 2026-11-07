@@ -130,6 +130,12 @@ negative test. Tenant write без установленного tenant context �
 - Использовать существующие domain boundaries и parser/API для структурированных
   данных; string hacks допустимы только как проверенное локальное преобразование.
 - Миграции по умолчанию additive/expand-compatible.
+- Настраиваемые runtime-параметры добавлять в существующий каталог
+  `app.modules.admin.runtime_configuration` и хранить через `runtime_settings`
+  с журналом `runtime_settings_history`. Не создавать параллельные таблицы
+  переменных или новые env-переключатели для таких настроек. Секреты остаются
+  в действующем защищённом контуре. Структурные и защитные инварианты протокола
+  сохраняются в коде и не становятся произвольно ослабляемыми настройками.
 - На этой машине не использовать локальный Docker PostgreSQL для Kamilya DB,
   migration или RLS-проверок. Использовать канонический Supabase DEV/test-контур.
   Docker без базы допустим для build/runtime-hardening; CI service containers не

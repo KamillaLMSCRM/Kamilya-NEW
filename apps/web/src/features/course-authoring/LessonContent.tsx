@@ -1,4 +1,7 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import { AuthenticatedSourceImage, sourceImageLine } from '@/components/AuthenticatedSourceImage';
 
 export type LessonContentProps = {
   text: string;
@@ -13,6 +16,7 @@ type Block =
   | { type: 'heading'; level: HeadingLevel; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'quote'; text: string }
+  | { type: 'image'; alt: string; url: string }
   | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'table'; rows: string[][] };
 
@@ -42,6 +46,7 @@ function startsBlock(lines: string[], index: number): boolean {
   const line = lines[index];
   return Boolean(
     line.match(headingPattern)
+      || sourceImageLine(line)
       || line.match(unorderedPattern)
       || line.match(orderedPattern)
       || /^\s*>/.test(line)
@@ -59,6 +64,9 @@ function parseBlocks(text: string): Block[] {
       index += 1;
       continue;
     }
+
+    const image = sourceImageLine(lines[index]);
+    if (image) { blocks.push({ type: 'image', ...image }); index += 1; continue; }
 
     const heading = lines[index].match(headingPattern);
     if (heading) {
@@ -191,6 +199,11 @@ export function LessonContent({ text, className, omitFirstHeading }: LessonConte
     <div className={className}>
       {blocks.map((block, blockIndex) => {
         const key = `block-${blockIndex}`;
+
+        if (block.type === 'image') return <figure key={key}>
+          <AuthenticatedSourceImage url={block.url} alt={block.alt} />
+          {block.alt && <figcaption>{block.alt}</figcaption>}
+        </figure>;
 
         if (block.type === 'heading') {
           return <Heading key={key} level={block.level}>{renderInline(block.text, key)}</Heading>;

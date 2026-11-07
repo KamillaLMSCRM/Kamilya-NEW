@@ -8,7 +8,7 @@ import hmac
 import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import String, and_, cast, exists, func, literal, or_, select, union
@@ -20,7 +20,9 @@ from app.core.config import get_settings
 from app.models.ai_job import AIJob
 from app.models.document import Document
 from app.models.users import User
+from app.modules.course_approval.models import CourseApprovalRevision
 from app.modules.courses.models import Course
+from app.modules.courses.release_models import ContentRelease
 from app.modules.documents.schemas import (
     DocumentCatalogItem,
     DocumentCatalogPage,
@@ -72,6 +74,12 @@ def _jsonb_contains_document(column):
     return column.op("@>")(func.jsonb_build_array(cast(Document.id, String)))
 
 
+def _snapshot_contains_document(snapshot: Any, document_id: Any) -> Any:
+    return snapshot["source_documents"].contains(
+        func.jsonb_build_array(func.jsonb_build_object("id", document_id))
+    )
+
+
 def _usage_expressions(tenant_id: UUID):
     position_usage = exists(
         select(Position.id).where(
@@ -88,6 +96,14 @@ def _usage_expressions(tenant_id: UUID):
             ),
         )
     )
+    historical_usage = exists(select(ContentRelease.id).where(
+        ContentRelease.tenant_id == tenant_id,
+        _snapshot_contains_document(ContentRelease.snapshot, cast(Document.id, String)),
+    ))
+    approval_usage = exists(select(CourseApprovalRevision.id).where(
+        CourseApprovalRevision.tenant_id == tenant_id,
+        _snapshot_contains_document(CourseApprovalRevision.snapshot, cast(Document.id, String)),
+    ))
     lesson_usage = exists(
         select(Lesson.id)
         .join(Module, Module.id == Lesson.module_id)
@@ -108,7 +124,7 @@ def _usage_expressions(tenant_id: UUID):
             ),
         )
     )
-    return position_usage, direct_course_usage, lesson_usage, active_job_usage
+    return position_usage, direct_course_usage, historical_usage, approval_usage, lesson_usage, active_job_usage
 
 
 def _usage_counts(tenant_id: UUID):
@@ -144,7 +160,15 @@ def _usage_counts(tenant_id: UUID):
         )
         .correlate(Document)
     )
-    course_ids = union(direct_courses, lesson_courses).subquery()
+    historical_courses = (select(ContentRelease.course_id.label("course_id"))
+                          .where(ContentRelease.tenant_id == tenant_id,
+                                 _snapshot_contains_document(ContentRelease.snapshot, cast(Document.id, String)))
+                          .correlate(Document))
+    approval_courses = (select(CourseApprovalRevision.course_id.label("course_id"))
+                        .where(CourseApprovalRevision.tenant_id == tenant_id,
+                               _snapshot_contains_document(CourseApprovalRevision.snapshot, cast(Document.id, String)))
+                        .correlate(Document))
+    course_ids = union(direct_courses, lesson_courses, historical_courses, approval_courses).subquery()
     course_count = select(func.count()).select_from(course_ids).scalar_subquery()
     lesson_count = (
         select(func.count(Lesson.id))
@@ -296,6 +320,25 @@ async def list_document_usages(
                     route=f"/courses/{course_id}",
                 )
             )
+
+    historical_courses = (await db.execute(
+        select(Course.id, Course.title, Course.status)
+        .join(ContentRelease, ContentRelease.course_id == Course.id)
+        .where(Course.tenant_id == tenant_id, ContentRelease.tenant_id == tenant_id,
+               _snapshot_contains_document(ContentRelease.snapshot, str(document_id))).distinct()
+    )).all()
+    approval_courses = (await db.execute(
+        select(Course.id, Course.title, Course.status)
+        .join(CourseApprovalRevision, CourseApprovalRevision.course_id == Course.id)
+        .where(Course.tenant_id == tenant_id, CourseApprovalRevision.tenant_id == tenant_id,
+               _snapshot_contains_document(CourseApprovalRevision.snapshot, str(document_id))).distinct()
+    )).all()
+    historical_courses = [*historical_courses, *approval_courses]
+    for course_id, title, status in historical_courses:
+        if str(course_id) not in course_usage_ids:
+            items.append(DocumentUsageItem(type="course_source", id=str(course_id), title=title,
+                                           status=status, route=f"/courses/{course_id}"))
+            course_usage_ids.add(str(course_id))
 
     lesson_rows = (
         await db.execute(

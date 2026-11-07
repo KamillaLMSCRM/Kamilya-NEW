@@ -112,7 +112,14 @@ def test_frozen_sql_catalog_matches_runtime_types_and_bounds():
     spec = importlib.util.spec_from_file_location("runtime_migration_contract", path)
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)
-    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) == set(BY_KEY)
+    path2 = Path(__file__).parents[2] / "alembic/versions/0186_source_preparation_settings.py"
+    spec2 = importlib.util.spec_from_file_location("source_settings_migration_contract", path2)
+    extension = importlib.util.module_from_spec(spec2)
+    spec2.loader.exec_module(extension)
+    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) == set(BY_KEY)
+    for key, (default, minimum, maximum, integer) in extension.NUMBERS.items():
+        item = BY_KEY[key]
+        assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
     for key, (default, minimum, maximum, integer) in migration.NUMBERS.items():
         item = BY_KEY[key]
         assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
@@ -147,7 +154,7 @@ def test_closed_catalog_rejects_unsafe_types_values_and_keys(key, bad):
 
 def test_default_catalog_preserves_existing_policies_and_names():
     snapshot = default_snapshot()
-    assert len(CATALOG) == len(BY_KEY) == 31
+    assert len(CATALOG) == len(BY_KEY) == 36
     assert snapshot.integer("assignment.deepseek_seconds") == 30
     assert snapshot.integer("assignment.chatgpt_seconds") == 40
     assert snapshot.integer("assignment.total_seconds") == 90
