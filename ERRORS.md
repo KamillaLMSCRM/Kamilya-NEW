@@ -10286,3 +10286,17 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   Count the repeated 24/72-hour conflict separately, retain distinct findings,
   and still reject two copies of that same conflict. Preserve the failed
   original harness receipt, never rewrite it as a pass.
+
+## AGENT-SOURCE-AUDIT-004 — reviewer attributed a clause to the wrong paragraph
+
+- Date: 2026-11-07. A first independent review claimed PDF p8 §5.4 omitted an
+  employment contract. The original pixels and both saved transcripts show that
+  §5.4 lists Labour Code/internal norms only; employment contract belongs to §5.1
+  and was already present in the first transcript. Root repeated the unverified
+  finding in commentary, then retracted it after direct pixel comparison.
+- Fix: preserve the false finding and before/after comparison as reviewer-error
+  evidence, not a repaired engine omission. No source or clause was altered to
+  satisfy the false finding. The separate cash image7 description finding is
+  reviewed independently.
+- Prevention: every semantic omission claim must cite the exact visible clause
+  and compare its own sentence before being reported or used to modify code.

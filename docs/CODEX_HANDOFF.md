@@ -1,4 +1,84 @@
-# Source preparation parts/images 0.11.82 LOCAL candidate — 2026-11-07
+# Source preparation second candidate — 2026-11-07 06:00 UTC
+
+- result: Shared parts/images path implemented; DEV60681e1e technical PASS,
+  production369f82a1 unchanged. Updated source candidate is being frozen for CI.
+  Hosted real-file source/course acceptance has not started.
+- changed: Visual author→pixel-editor verification, source/proposal-bound caches,
+  one addressed correction for completed invalid replies, exact rejected-batch
+  reconciliation, bounded static PDF renderer and visible unplaced-image author
+  observation. No source ambiguity is invented from missing lesson illustrations.
+- verified: Both actual files prepared locally, all9/10images retained. PDF3parts
+  preserve pp3–9 substantive clauses and exclude order/registers; cash8parts retain
+  5PKO/4RKO/1cashbook. Local cumulative28completed calls111905input/108733output
+  tokens include initial authoring, verifier schema failures and corrections.
+  Last saved-stage resume160sPDF/235sDOCX; these are not whole-course times.
+  ConfiguredDeepSeek identity only; actual returned model unverified. Focused
+  extraction/recovery47PASS, web64PASS; final exact CI pending.
+- blockers: Cash image4 descriptive overclaim about signatures is a non-normative
+  observation; generic verifier instruction now distinguishes blank lines/printed
+  labels from completed signatures. Hosted source reviewer and generated course
+  must not teach signing as completed from this example. Cash image7 invented
+  basis description corrected; personal-ID tail and sender/recipient examples
+  are not automatically human training ambiguities. Prior PDF§5.4 omission claim
+  was false; both transcripts already match pixels. Recorded AGENT-SOURCE-AUDIT-004.
+- next: Exact updated CI/image/DEV rollout, then one sequential ordinary-worker
+  run of both files, approval/selection, full lessons/tests and authorized images.
+  Preserve original and all failed receipts. Conditional production only after
+  semantic acceptance. No active local model process remains after session10524.
+
+# Source preparation DEV60681e1e technical PASS, semantic NO-GO — 2026-11-07 (historical)
+
+- result: Exact DEV60681e1e API/web/VM worker accepted by the existing controller;
+  DEV CI42342891859 PASS, Supabase0186. Production/master still369f82a1.
+  Neither requested document nor a course has been admitted to hosted DEV yet.
+- changed: Independent visual comparison found material first-pass OCR/description
+  errors: PDFp8§5.4 omitted employment contract; cash image7 description replaced
+  visible basis wording with neighboring procedure text. Root is adding one visual
+  editorial verification against the pixels and proposed reading. Source text and
+  descriptions are explicitly separated; model thinking enabled/low for visual
+  work, existing Luna6/HIGH semantic stages preserved. No whole-course reruns.
+- verified: Saved first readings reused; two verifier responses completed but
+  failed strict flat schema by echoing input wrappers. Responses/usage preserved.
+  Root clarified the output contract; bounded per-image schema correction added
+  with distinct intent/raw checkpoints. Recovery29focused PASS, no unknown repeat.
+- blockers: New changes are LOCAL UNCOMMITTED on top of60681e1e. Do not release606
+  as source-fidelity acceptance. PDF vector fallback to bounded static raster is
+  being completed to preserve ordinary table/border PDF compatibility; exact
+  pypdfium2 5.15.0 added to existing dependency manifests/lock. No provider plan,
+  client tenant or production service changed. Local verifier currently stopped
+  after known schema failures; root will resume saved replies only after writer
+  handoff. Initial probe on mid-edit adapter failed before any model call.
+- next: Finish local visual verifier, independently compare corrected saved
+  outputs, freeze new candidate/CI/image and replace DEV606 safely. Then execute
+  both exact file source→approval→course→image/quality paths and protected release.
+  Preserve `.release-evidence/source-preparation/file-*/manifest-before-visual-review.json`,
+  raw checkpoints and usage; source originals unchanged. No duplicate generation.
+
+# Source preparation 60681e1e DEV rollout — 2026-11-07 05:29 UTC (historical)
+
+- result: Feature PR36 exact `60681e1ed4f6442d30f43b39cdfee3a5952ed377`.
+  Feature CI42341818178 PASS; attested build42342413002/imagebeb1b7af PASS.
+  Canonical feature/dev pushes independently read back with project-account
+  receipts and owner-authorized memory notes. Master/production remain369f82a1.
+- changed: Supabase DEV public0186 applied after both isolated gates PASS.
+  One old idle DEV worker49902a0d warm-stopped/retained, new workerd58e1a1c on
+  exact60681e1e/imagebeb1b7af ready; restart policy verified. No prod services
+  changed. Render worker remains suspended/free, existing VM consumer only.
+- verified: Isolated preparation selection/approval pins and competing decisions
+  PASS with actual lms_app/FORCERLS/tenant denials, cleanuptrue/publicneutraltrue.
+  Source-part default split and native images locally prepared on both files.
+  DEV push CI42342891859 and controller rollout are in progress. Native frontend
+  build-only dispatched for the same source; no native/prod installation yet.
+- blockers: No hosted source-to-course acceptance yet. Do not start another
+  rollout, model generation or source review for these fixtures while this run
+  is active. Root is preparing one sequential actual-file DEV browser run.
+- next: Observe existing `.release-evidence/source-preparation/execute-dev.py`
+  (unified exec session7080), then run `run-dev-files.py` once after
+  `dev-release.json` says RELEASE_OK. Source IDs go into `dev-files-state.json`;
+  reconcile it before any retry. Two Terra auditors are reading cached source
+  outputs only, with no API/DB/model calls. Root continues until accepted release.
+
+# Source preparation parts/images 0.11.82 LOCAL candidate — 2026-11-07 (historical)
 
 - result: Shared preparation and source/lesson image custody implemented locally.
   Owner requests both exact Lombard files in DEV then production after acceptance.

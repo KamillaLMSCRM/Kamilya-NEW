@@ -49,6 +49,7 @@ const ru = {
     failed: 'Проверка не завершена', in_review: 'Ждёт согласования', approved: 'Утверждён', source_changed: 'Исходник изменился',
   },
   eventLabels: {
+    selection: 'Выбор частей документа',
     automatic: 'Автоправка', resolved: 'Решение методиста', manual_edit: 'Ручная правка', issue_reopened: 'Вопрос открыт снова',
     auto_undone: 'Автоправка отменена', approved: 'Редакция утверждена', reopened: 'Редакция открыта для правок',
   },
@@ -102,6 +103,7 @@ const en: typeof ru = {
     failed: 'Review incomplete', in_review: 'Awaiting approval', approved: 'Approved', source_changed: 'Source changed',
   },
   eventLabels: {
+    selection: 'Document part selection',
     automatic: 'Automatic edit', resolved: 'Methodologist decision', manual_edit: 'Manual edit', issue_reopened: 'Question reopened',
     auto_undone: 'Automatic edit undone', approved: 'Edition approved', reopened: 'Edition reopened',
   },
@@ -155,6 +157,7 @@ const kk: typeof ru = {
     failed: 'Тексеру аяқталмады', in_review: 'Келісуді күтуде', approved: 'Бекітілді', source_changed: 'Құжат өзгерді',
   },
   eventLabels: {
+    selection: 'Құжат бөліктерін таңдау',
     automatic: 'Автоматты түзету', resolved: 'Әдіскер шешімі', manual_edit: 'Қолмен түзету', issue_reopened: 'Сұрақ қайта ашылды',
     auto_undone: 'Автоматты түзету болдырылмады', approved: 'Нұсқа бекітілді', reopened: 'Нұсқа өңдеуге ашылды',
   },

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import warnings
 from dataclasses import dataclass
 from pathlib import PurePath
@@ -13,6 +14,44 @@ from typing import Any
 from PIL import Image, UnidentifiedImageError
 
 from app.modules.documents.archive_preflight import preflight_ooxml
+
+
+def _render_pdf_page(blob: bytes, index: int, max_image_pixels: int, max_image_bytes: int) -> bytes:
+    """Render a bounded static page without initializing forms, JavaScript, or callbacks."""
+    import pypdfium2 as pdfium  # type: ignore[import-untyped]  # Upstream ships no typing marker.
+
+    document = page = bitmap = None
+    try:
+        document = pdfium.PdfDocument(blob)
+        page = document.get_page(index)
+        width, height = page.get_width(), page.get_height()
+        if not math.isfinite(width) or not math.isfinite(height) or width <= 0 or height <= 0:
+            raise ValueError("source_preparation_pdf_render_invalid_size")
+        # Keep at least one pixel per canvas unit; downsampling below that level
+        # can make text disappear before the existing visual review sees it.
+        if math.ceil(width) * math.ceil(height) > max_image_pixels:
+            raise ValueError("native_image_pixel_limit")
+        scale = min(2.0, math.sqrt(max_image_pixels / (width * height)))
+        while math.ceil(width * scale) * math.ceil(height * scale) > max_image_pixels:
+            scale *= 0.999
+        bitmap = page.render(scale=scale, draw_annots=True, may_draw_forms=False, limit_image_cache=True)
+        output = io.BytesIO()
+        bitmap.to_pil().save(output, format="PNG")
+        data = output.getvalue()
+        if len(data) > max_image_bytes:
+            raise ValueError("native_image_byte_limit")
+        return data
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError("source_preparation_pdf_render_failed") from exc
+    finally:
+        if bitmap is not None:
+            bitmap.close()
+        if page is not None:
+            page.close()
+        if document is not None:
+            document.close()
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,16 +234,28 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
         return NativeSource(tuple(blocks), tuple(assets), None, ())
 
     from pypdf import PdfReader
-    from pypdf.generic import ContentStream
+    from pypdf.generic import ArrayObject, ContentStream
 
     reader = PdfReader(io.BytesIO(blob))
+    rendered_pages = False
     for index, page in enumerate(reader.pages):
         page_number = index + 1
-        # Native extraction cannot represent painted paths, shading, annotations,
-        # or arbitrary form XObjects. Reject instead of silently losing them.
+        # Render the complete page when native extraction cannot preserve its
+        # visual contents, so text and graphics stay together for OCR review.
+        requires_render = False
         try:
-            if page.get("/Annots"):
-                raise ValueError("source_preparation_unsupported_pdf_visual")
+            annotations = page.get("/Annots")
+            if annotations:
+                requires_render = True
+                annotations = annotations.get_object()
+                if not isinstance(annotations, ArrayObject):
+                    raise ValueError("source_preparation_unsupported_pdf_visual")
+                for ref in annotations:
+                    annotation = ref.get_object()
+                    if annotation.get("/Subtype") == "/Widget":
+                        # PDFium's annotation pass excludes interactive widgets;
+                        # loading a form environment is deliberately forbidden.
+                        raise ValueError("source_preparation_pdf_render_widget_unsupported")
             content = page.get_contents()
             operations = ContentStream(content, reader).operations if content is not None else ()
             resources = page.get("/Resources")
@@ -213,17 +264,24 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
             objects = objects.get_object() if objects is not None else {}
             for operands, operator in operations:
                 if operator in {b"S", b"s", b"f", b"F", b"f*", b"B", b"B*", b"b", b"b*", b"sh"}:
-                    raise ValueError("source_preparation_unsupported_pdf_visual")
+                    requires_render = True
                 if operator == b"Do":
                     if len(operands) != 1 or operands[0] not in objects:
                         raise ValueError("source_preparation_unsupported_pdf_visual")
                     obj = objects[operands[0]].get_object()
                     if obj.get("/Subtype") != "/Image":
-                        raise ValueError("source_preparation_unsupported_pdf_visual")
+                        requires_render = True
         except ValueError:
             raise
         except Exception as exc:
             raise ValueError("source_preparation_unsupported_pdf_visual") from exc
+        if requires_render:
+            locator = {"page": page_number, "rendered_page": True, "original_sha256": document_sha256}
+            png = _render_pdf_page(blob, index, max_image_pixels, max_image_bytes)
+            image_id = add_asset(png, locator)
+            add_block("page", "", (image_id,), page_number, locator)
+            rendered_pages = True
+            continue
         text = page.extract_text() or ""
         ids: list[str] = []
         for image_index, image in enumerate(page.images):
@@ -234,5 +292,7 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
         if text.strip():
             for image_index, asset_id in enumerate(ids):
                 add_block("image", "", (asset_id,), page_number, {"page": page_number, "image": image_index})
-    return NativeSource(tuple(blocks), tuple(assets), len(reader.pages),
-                        ("pdf_figure_placement_is_page_level",) if any(b.kind == "image" for b in blocks) else ())
+    source_warnings = (["pdf_page_rendered_for_visual_review"] if rendered_pages else [])
+    if any(b.kind == "image" for b in blocks):
+        source_warnings.append("pdf_figure_placement_is_page_level")
+    return NativeSource(tuple(blocks), tuple(assets), len(reader.pages), tuple(source_warnings))

@@ -79,6 +79,7 @@ vi.mock('@/components/ui/Toast', () => ({ toast: toastMock }));
 vi.mock('@/components/ai/AIChatPanel', () => ({ AIChatPanel: (props: { onLessonApplied: () => Promise<void> }) => { chatHarness.reload = props.onLessonApplied; return null; } }));
 
 import CourseEditPage from '@/app/courses/[id]/edit/page';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 import { useAuthStore } from '@/store/authStore';
 
 const course = {
@@ -178,6 +179,31 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('shows the creation-time missing illustration count alongside the approved source without blocking publication', async () => {
+    const documentId = '3021ee52-3387-46b2-a6c4-a7bd36136ffa';
+    const approvalId = 'b5b93138-cf8e-4e06-a87b-278e21efe8e2';
+    const asset = `asset-${'a'.repeat(64)}`;
+    setupFetch(200, structure, lesson, { ...course, source_analysis: {
+      unplaced_source_assets: [asset, asset, `asset-${'b'.repeat(64)}`, 'invalid'],
+      source_editorial_snapshots: [{ document_id: documentId, approval_id: approvalId, revision: 3, working_sha256: 'c'.repeat(64) }],
+    } });
+    render(<CourseEditPage />);
+    expect(await screen.findByText(/При создании курса не добавлены иллюстрации: 2/)).toBeVisible();
+    expect(screen.getByRole('link', { name: /Открыть утверждённую редакцию/ })).toHaveAttribute('href', `/documents/${documentId}/editorial-review/${approvalId}`);
+    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeEnabled();
+  });
+
+  it('does not invent a missing illustration warning for legacy or invalid observations', async () => {
+    setupFetch(200, structure, lesson, { ...course, source_analysis: { unplaced_source_assets: ['invalid'] } });
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    expect(screen.queryByText(/При создании курса не добавлены иллюстрации/)).not.toBeInTheDocument();
+  });
+
+  it('localizes part selection journal entries', () => {
+    expect(sourceReviewCopy('en').eventLabels.selection).toBe('Document part selection');
+    expect(sourceReviewCopy('kk').eventLabels.selection).toBe('Құжат бөліктерін таңдау');
+  });
   it('renders exactly one course approval policy control in the real editor', async () => {
     setupFetch();
     render(<CourseEditPage />);

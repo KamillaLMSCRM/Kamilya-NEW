@@ -17,7 +17,7 @@ mechanism. Administrative dates and HR order administration are outside this sco
 
 ## Module map and ownership
 
-`original blob -> native blocks/assets -> cached visual reading -> part plan ->
+`original blob -> native blocks/assets -> cached visual reading/verification -> part plan ->
 selected recognized source -> editorial review/approval -> pinned generation ->
 lesson images -> authorized learner`
 
@@ -27,7 +27,9 @@ lesson images -> authorized learner`
   and PDF, with the ordinary converter providing text for other supported types.
   Unsupported visual content must be explicit, never represented as no images.
 - Preparation owns the full recognized block manifest, image readings and the
-  semantic part plan. One visual reading per original image hash is reused.
+  semantic part plan. A visual author reading and independent pixel-based editorial
+  verification are checkpointed per original image and proposal identity. Completed
+  readings are reused; one addressed correction handles a known invalid response.
   Whole-page scans become recognized page content, not automatic lesson figures.
 - Existing source review owns event history, optimistic revisions, command IDs,
   human decisions and immutable approvals. No parallel approval table is added.
@@ -50,6 +52,10 @@ tuple. IDs are deterministic from original identity, source location and bytes.
 Locators are server-derived JSON with package member/relationship or PDF page.
 None delegates text conversion. Raster image verification is required. No external
 OOXML relationships or arbitrary filesystem paths may be followed.
+
+PDF pages with static vector, form-XObject or annotation content use a bounded
+static raster fallback with the pinned renderer. Native scan bytes remain intact.
+Interactive widgets fail explicitly; no scripts or interactive form actions run.
 
 ## Versioned prepared source contract
 

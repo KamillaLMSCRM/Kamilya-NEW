@@ -1,5 +1,24 @@
 # Kamilya Test Run Ledger
 
+## RUN-20261107-SOURCE-PREPARATION-VISUAL-EDITOR-LOCAL
+
+- Scope: shared native extraction, visual verification/recovery, static PDF
+  fallback, immutable parts/images bindings; local changes after60681e1e.
+- Verification: canonical API extraction/recovery47PASS; web source/editor64PASS.
+  Earlier full606CI42341818178 PASS, DEV42342891859 PASS, imagebeb1b7af, schema0186.
+  Updated exact candidate CI and real hosted file acceptance remain pending.
+- Local real-file output: PDF42blocks/9images/3parts; cash129blocks/10images/8parts.
+  Cumulative28completed modelcalls111905input/108733output, including known schema
+  failures/corrections; no unknown request repeated. Last resume160s/235s.
+  OriginalSHA d3c7cb3ef24bd1f33a53c980da1c96d40a1c18910884831581e7cce4273931cf
+  and a0f45ea44b8f86b252cc1476a02ec3384d1f5398fe33f1bd1ed3677810cc8d7e.
+- Root review: PDF§5.4 omission claim retracted after exact pixel comparison;
+  cash image7 context-substitution corrected; image4 descriptive signature
+  overclaim remains a non-normative observation for hosted acceptance. No course
+  quality, actual returned model identity or production release is claimed.
+- Evidence: ignored `.release-evidence/source-preparation/file-*/` raw replies,
+  usage, original image bytes and before/after manifests. Customer data unchanged.
+
 This append-only ledger stores sanitized, version-controlled evidence from the
 persistent Kamilya Test & Evidence Runner. It is not a replacement for CI,
 provider/runtime readback, `ERRORS.md`, critical-journey contracts, or root review.

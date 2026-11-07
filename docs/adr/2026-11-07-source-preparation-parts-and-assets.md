@@ -24,7 +24,14 @@ public projections omit internal storage keys. Historical snapshots block source
 deletion. Derived cleanup follows committed storage intents and the same locked
 usage guard. No new public object store or infrastructure is introduced.
 
-Initial adapters cover native DOCX/raster PDF and recognized text from existing
-format converters. Significant unsupported PDF vector/form/annotation content
-fails explicitly. This boundary must remain visible until a verified renderer
-adapter replaces it; absence of extracted graphics is not proof of no graphics.
+Initial adapters cover native DOCX/PDF and recognized text from existing format
+converters. Static PDF vector, form-XObject and annotation pages use bounded
+pypdfium2 raster rendering; native scan bytes remain unchanged. Interactive
+widgets fail explicitly. Rendering does not initialize form actions or scripts.
+
+Image reading has an author and a pixel-based editorial verification stage.
+The verifier receives the proposed reading and adjacent prose as untrusted data;
+literal visible text and description remain separate. Completed malformed replies
+have one addressed per-image schema correction, preserving valid siblings. Unknown
+requests never repeat; a durable HTTP rejection is reconciled only against the
+same original, exact batch membership and linked per-image intent.

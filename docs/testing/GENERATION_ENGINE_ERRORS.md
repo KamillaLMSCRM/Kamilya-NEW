@@ -632,3 +632,21 @@ raw не является новым вызовом. Unknown dispatch не по�
 - Verification: saved-payload tests and competing-command gate prepared; hosted
   worker readback remains part of current DEV acceptance.
 - Status: LOCAL FIXED; no historical failed receipt was relabeled.
+
+## ENG-034 — Image description substituted expected context for visible wording
+
+- Source: actual cash instruction image7. First visual author described a basis
+  from neighboring prose rather than the visible dialog. Native pixels and
+  literal text were retained, but interpretation could distort subsequent teaching.
+- Fix: independent pixel-based editorial verification of complete readings;
+  neighboring prose and proposed reading explicitly untrusted, literal text and
+  non-normative descriptions separate. Completed schema errors receive one
+  addressed correction, good siblings preserved, unknown calls never repeated.
+- Saved result: image7's invented basis removed. Ten images preserved under
+  matching PKO/RKO/cashbook parts. Remaining image4 signature-description overclaim
+  is visible in audit and generic role instruction tightened before hosted DEV;
+  it is not proof of completed signing and not a source business-rule change.
+- Scope: local evidence only. Both files cumulatively28completed requests,
+  111905input/108733output reported tokens, including historical failed replies.
+  Hosted generated-course/production acceptance pending. Actual returned model
+  identity unavailable; configured DeepSeek is not asserted as identity proof.

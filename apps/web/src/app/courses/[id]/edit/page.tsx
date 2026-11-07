@@ -64,7 +64,7 @@ interface Course {
   review_status: 'pending' | 'approved' | 'needs_changes';
   requires_approval?: boolean;
   source_instruction_id?: string | null;
-  source_analysis?: { blueprint?: Record<string, unknown> | null; source_editorial_snapshots?: unknown } | null;
+  source_analysis?: { blueprint?: Record<string, unknown> | null; source_editorial_snapshots?: unknown; unplaced_source_assets?: unknown } | null;
 }
 
 export default function CourseEditPage() {
@@ -693,6 +693,9 @@ export default function CourseEditPage() {
 
   const hasBlueprintMarker = Boolean(course.source_analysis?.blueprint && Object.keys(course.source_analysis.blueprint).length > 0);
   const approvedSources = sourceReviewPins(course.source_analysis?.source_editorial_snapshots);
+  const missingAssets = course.source_analysis?.unplaced_source_assets;
+  const unplacedCount = Array.isArray(missingAssets)
+    ? new Set(missingAssets.filter((id): id is string => typeof id === 'string' && /^asset-[a-f0-9]{64}$/.test(id))).size : 0;
   const sourceCopy = sourceReviewCopy(lang);
   const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
   const published = course.status === 'published';
@@ -806,8 +809,9 @@ export default function CourseEditPage() {
         </section>
       )}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
-      {approvedSources.length > 0 && <section className="space-y-2 rounded-xl border border-border p-4" aria-label={sourceCopy.status}>
+      {(approvedSources.length > 0 || (unplacedCount > 0 && !published)) && <section className="space-y-2 rounded-xl border border-border p-4" aria-label={sourceCopy.status}>
         <h2 className="text-sm font-semibold">{sourceCopy.status}</h2>
+        {unplacedCount > 0 && !published && <p className="text-sm" role="status">{copy.unplacedIllustrations.replace('{count}', String(unplacedCount))}</p>}
         <ul className="space-y-1">{approvedSources.map((source, index) => <li key={source.approval_id}>
           <Link className="text-sm text-primary underline" href={sourceReviewHref(source.document_id, source.approval_id)}>
             {sourceCopy.preview} {approvedSources.length > 1 ? index + 1 : ''} · {sourceCopy.revision} {source.revision}

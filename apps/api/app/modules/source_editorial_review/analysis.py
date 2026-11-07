@@ -5,7 +5,7 @@ import json
 import logging
 import re
 from collections.abc import Awaitable, Callable, Iterator, Mapping
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from uuid import UUID
@@ -178,6 +178,12 @@ def analysis_failure_code(error: Exception) -> str:
     if isinstance(error, ValueError) and error.args == ("source_preparation_visual_outcome_unknown",):
         return "source_review_provider_outcome_unknown"
     if isinstance(error, ValueError) and error.args == ("source_preparation_unsupported_pdf_visual",):
+        return "source_review_unsupported_visual"
+    if isinstance(error, ValueError) and error.args in {
+        ("source_preparation_pdf_render_widget_unsupported",), ("source_preparation_pdf_render_failed",),
+        ("source_preparation_pdf_render_invalid_size",),
+        ("native_source_unsupported_visual",), ("native_source_nested_table_unsupported",),
+    }:
         return "source_review_unsupported_visual"
     if isinstance(error, AllProvidersFailedError) or (
             isinstance(error, ValueError) and error.args == ("managed_qa_luna_unavailable",)):
@@ -454,6 +460,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
 
     phase = "source_extraction"
     json_recovery = _ManagedSourceJsonRecovery()
+    usage: list[dict[str, Any]] = []
     try:
         async with asyncio.timeout(750):
             from app.core.storage import get_storage
@@ -502,11 +509,12 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             llm = await ResilientLLMClient.from_settings_async(
                 temperature=0.1, max_tokens=runtime.integer("source_preparation.max_tokens"),
             ) if managed is None else None
-            usage: list[dict[str, Any]] = []
 
             async def complete(messages: list[dict[str, str]]) -> object:
                 nonlocal phase
-                stage = "independent_review" if "proposal_sha256" in json.loads(messages[1]["content"]) else "editor"
+                request_data = json.loads(messages[1]["content"])
+                stage = ("preparation" if "blocks" in request_data else
+                         "independent_review" if "proposal_sha256" in request_data else "editor")
                 phase = stage + "_request"
                 if managed is not None:
                     async def request(current: list[dict[str, str]]) -> object:
@@ -515,7 +523,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                             job_id=str(claim.id), ownership_checkpoint=verify_claim,
                             classify_invalid_json=True,
                             stage_id=text_hash(json.dumps(current, ensure_ascii=False, sort_keys=True)))
-                        usage.append({"model": reply.model, **asdict(reply.usage)})
+                        usage.append({"stage": stage, "model": reply.model, **asdict(reply.usage)})
                         return reply.content
 
                     result = await json_recovery.complete(messages, request)
@@ -550,14 +558,18 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 from app.modules.ai.llm_client import LLMClient, ProviderFailedError
 
                 try:
-                    reply = await LLMClient(clients[0].config, temperature=0.1,
+                    visual_config = replace(clients[0].config, extra_body={**(clients[0].config.extra_body or {}),
+                        "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
+                    reply = await LLMClient(visual_config, temperature=0.1,
                         max_tokens=runtime.integer("source_preparation.max_tokens"), max_retries=0).ainvoke(
                         messages, response_format={"type": "json_object"})
                 except ProviderFailedError as exc:
                     if isinstance(exc.last_exc, httpx.HTTPStatusError) and exc.last_exc.response.status_code in (400, 401, 403, 404, 413, 422, 429):
                         raise VisualRequestRejected("source_visual_request_rejected") from None
                     raise ValueError("source_preparation_visual_outcome_unknown") from None
-                usage.append({"stage": "visual_reading", "provider": reply.provider_name, "model": reply.model,
+                visual_stage = "visual_verification" if str(messages[0]["content"]).startswith("[VISUAL_REVIEW_V1]") else "visual_reading"
+                usage.append({"stage": visual_stage, "thinking": "enabled", "reasoning_effort": "low",
+                              "provider": reply.provider_name, "model": reply.model,
                               "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens})
                 return reply.content
 
@@ -605,6 +617,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 if managed is not None:
                     managed.close()
             payload["usage"] = usage
+            payload["model_calls"] += sum(item.get("stage") in {"preparation", "visual_reading", "visual_verification"} for item in usage)
             if json_recovery.used:
                 payload["completed_json_retries"] = 1
                 payload["model_calls"] += 1
@@ -614,6 +627,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         code = analysis_failure_code(error)
         logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
         payload, kind = {"code": code, "phase": phase}, "failed"
+        payload["usage"] = usage
+        payload["usage_complete"] = False
         if json_recovery.used:
             payload["completed_json_retries"] = 1
     async with async_session_factory() as db:

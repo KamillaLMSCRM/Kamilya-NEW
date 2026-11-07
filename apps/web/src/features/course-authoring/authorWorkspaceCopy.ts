@@ -1,4 +1,5 @@
 const en = {
+  unplacedIllustrations: 'Illustrations not placed during course creation: {count}. Check the source and add them where needed before publication.',
   formatting: 'Text formatting', bold: 'Bold', italic: 'Italic', heading: 'Heading',
   bullets: 'Bulleted list', numbered: 'Numbered list', quote: 'Quote', code: 'Inline code', text: 'text',
   formatHint: 'Markdown text is saved unchanged. Select text, then choose formatting. Check the preview before saving.',
@@ -26,6 +27,7 @@ const en = {
 
 type Copy = { [K in keyof typeof en]: string };
 const ru: Copy = {
+  unplacedIllustrations: 'При создании курса не добавлены иллюстрации: {count}. Проверьте источник и при необходимости добавьте их перед публикацией.',
   formatting: 'Форматирование текста', bold: 'Полужирный', italic: 'Курсив', heading: 'Заголовок',
   bullets: 'Маркированный список', numbered: 'Нумерованный список', quote: 'Цитата', code: 'Код в строке', text: 'текст',
   formatHint: 'Текст сохраняется в Markdown без преобразования. Выделите текст и выберите форматирование. Перед сохранением проверьте предпросмотр.',
@@ -51,6 +53,7 @@ const ru: Copy = {
   draftConflict: 'Сохранённый вопрос изменился после начала редактирования. Ваш черновик сохранён для сверки, но сохранение заблокировано. Повторите загрузку или отмените черновик и откройте текущий вопрос. Автоматической перезаписи не будет.',
 };
 const kk: Copy = {
+  unplacedIllustrations: 'Курс жасалғанда қосылмаған суреттер: {count}. Жарияламас бұрын дереккөзді тексеріп, қажет суреттерді қосыңыз.',
   formatting: 'Мәтінді пішімдеу', bold: 'Қалың', italic: 'Көлбеу', heading: 'Тақырып',
   bullets: 'Маркерленген тізім', numbered: 'Нөмірленген тізім', quote: 'Дәйексөз', code: 'Жол ішіндегі код', text: 'мәтін',
   formatHint: 'Мәтін Markdown пішімінде өзгеріссіз сақталады. Мәтінді белгілеп, пішімдеуді таңдаңыз. Сақтамас бұрын алдын ала қараңыз.',

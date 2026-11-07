@@ -1428,11 +1428,11 @@ async def _save_generation_to_db_transaction(
 
         missing_images = sorted(asset_inventory.keys() - placed_assets)
         if missing_images:
-            state.server_source_review_required = True
             state.source_analysis = {**state.source_analysis, "unplaced_source_assets": missing_images}
             state.errors.append("Не все иллюстрации исходника включены в уроки. Проверьте курс перед публикацией.")
-            cast(Any, course).source_analysis = preserve_generated_source_uncertainty(course.source_analysis,
-                state.source_analysis, source_review_required=True)
+            # This is a visible course-editing observation, not a newly invented
+            # ambiguity in an already approved source. Preserve its source status.
+            cast(Any, course).source_analysis = {**(course.source_analysis or {}), "unplaced_source_assets": missing_images}
 
         state.status = "completed"
         state.stage = "completed"
