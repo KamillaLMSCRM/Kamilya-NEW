@@ -362,7 +362,7 @@ def _visible_job_errors(job: AIJob) -> list[str] | None:
     from app.modules.ai.job_service import is_quarantined_generation
     from app.modules.ai.v3.pending_stage_transactions import has_pending
 
-    if job.status == "running" or is_quarantined_generation(job) or not has_pending(getattr(job, "result", None)):
+    if job.status == "running" or _queued_retained_replay(job) or is_quarantined_generation(job) or not has_pending(getattr(job, "result", None)):
         return cast(list[str] | None, job.errors)
     errors = list(job.errors or [])
     code = "source_first_commit_pending_or_unknown"
@@ -379,10 +379,31 @@ def _visible_job_status_message(job: AIJob) -> tuple[str, str]:
         return "abandoned", str(job.message or "")
     if is_quarantined_generation(job):
         return "failed", str(job.message or "")
-    if job.status != "running" and has_pending(getattr(job, "result", None)):
+    if job.status != "running" and not _queued_retained_replay(job) and has_pending(getattr(job, "result", None)):
         return ("reconciliation_required",
                 "Генерация выполняется или требует проверки. Обновите статус; если он не изменится, обратитесь к администратору. Не запускайте генерацию повторно.")
     return str(job.status), str(job.message or "")
+
+
+def _queued_retained_replay(job: AIJob) -> bool:
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    from app.modules.ai.v3.stage_checkpoint import _digest
+    if job.status != "pending":
+        return False
+    raw_params, raw_result = getattr(job, "params", None), getattr(job, "result", None)
+    params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
+    result: dict[str, Any] = raw_result if isinstance(raw_result, dict) else {}
+    marker = params.get(AUTHORIZATION_KEY)
+    try:
+        return bool(job.status == "pending" and isinstance(marker, dict)
+                    and set(marker) == {"policy", "stage", "body_sha256", "pending_sha256", "delivery_id"}
+                    and marker.get("policy") == AUTHORIZATION_POLICY
+                    and isinstance(marker.get("delivery_id"), str) and bool(marker["delivery_id"])
+                    and marker.get("delivery_id") == result.get("delivery_task_id")
+                    and isinstance(result.get("v3_pending_stages"), dict)
+                    and marker.get("pending_sha256") == _digest(result["v3_pending_stages"]))
+    except (TypeError, ValueError):
+        return False
 
 
 def _viewer_can_abandon_unknown(job: AIJob, viewer_id: object) -> bool:
@@ -416,9 +437,13 @@ async def _job_response(
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
         )
     visible_status, visible_message = _visible_job_status_message(job)
+    from app.modules.ai.job_service import may_resume_retained_author
+    from app.modules.ai.v3.retained_author_replay import owned_candidate
+    replay_available = bool(may_resume_retained_author(job) and await owned_candidate(db, job))
     return AIJobResponse(
         id=job.id,
         status=visible_status,
+        retained_response_replay_available=replay_available,
         abandon_available=_viewer_can_abandon_unknown(job, viewer_id),
         job_type=_job_type(job),
         course_id=_job_course_uuid(job.course_id),
@@ -985,9 +1010,12 @@ async def resume_generation(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     params: dict[str, Any] = job.params if isinstance(job.params, dict) else {}
+    from app.modules.ai.job_service import may_resume_retained_author
     from app.modules.ai.v3.pending_stage_transactions import has_pending
+    from app.modules.ai.v3.retained_author_replay import owned_candidate
 
-    if has_pending(getattr(job, "result", None)):
+    replay_candidate = await owned_candidate(db, job) if may_resume_retained_author(job) else None
+    if has_pending(getattr(job, "result", None)) and replay_candidate is None:
         raise HTTPException(status_code=409, detail={"code": "v3_stage_pending_or_unknown"})
     if not job_uses_current_generation_engine(job):
         raise HTTPException(
@@ -998,7 +1026,7 @@ async def resume_generation(
                 "action": "start_new_generation",
             },
         )
-    if not is_resumable_generation_job(job):
+    if not is_resumable_generation_job(job) and replay_candidate is None:
         raise HTTPException(status_code=409, detail="Job is not resumable")
     documents = params.get("documents")
     course_structure = params.get("course_structure")

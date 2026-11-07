@@ -573,6 +573,16 @@ async def claim_generation_execution(
     if tenant_id is None or not isinstance(delivery_id, str) or not delivery_id:
         raise ValueError("tenant_id and delivery_id are required for worker generation execution")
     await db.execute(text("SELECT set_current_tenant(:tid)"), {"tid": tenant_id})
+    # The server-issued marker is created only after private checkpoint checks
+    # while holding the job lock. Worker inspection rechecks all custody before
+    # replay; this predicate admits only its exact delivery to that inspection.
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    marker = AIJob.params[AUTHORIZATION_KEY]
+    replay_delivery = and_(marker["policy"].as_string() == AUTHORIZATION_POLICY,
+                           marker["delivery_id"].as_string() == delivery_id,
+                           func.length(marker["stage"].as_string()) == 64,
+                           func.length(marker["body_sha256"].as_string()) == 64,
+                           func.length(marker["pending_sha256"].as_string()) == 64)
     predicates = [
         AIJob.id == job_id,
         AIJob.status == "pending",
@@ -581,8 +591,8 @@ async def claim_generation_execution(
         AIJob.params["source_analysis"]["generation_engine"].as_string().in_(SUPPORTED_GENERATION_ENGINES),
         AIJob.params["source_analysis"]["analysis_mode"].as_string()
         == CURRENT_SOURCE_ANALYSIS_MODE,
-        _no_pending_stage(),
     ]
+    predicates.append(or_(_no_pending_stage(), replay_delivery))
     result = await db.execute(
         update(AIJob).where(*predicates).values(
             status="running",
@@ -720,6 +730,13 @@ def is_resumable_generation_job(job: AIJob) -> bool:
                 and not has_pending(getattr(job, "result", None)))
 
 
+def may_resume_retained_author(job: AIJob) -> bool:
+    """Preserve ordinary engine, status and source-review holds for replay."""
+    return bool(job.status == "interrupted" and job_uses_current_generation_engine(job)
+                and not (isinstance(getattr(job, "errors", None), list)
+                         and "source_reference_review_required" in job.errors))
+
+
 async def get_user_jobs(
     db: AsyncSession, tenant_id, user_id, limit: int = 20
 ) -> list[AIJob]:
@@ -759,6 +776,8 @@ async def submit_ai_job(
     """
     params = dict(params)
     if generation:
+        from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY
+        params.pop(AUTHORIZATION_KEY, None)
         params["generation_reservation_required"] = bool(reserve_course_generation)
         params["generation_reservation_released"] = False
         params.pop("generation_budget_month", None)
@@ -865,7 +884,9 @@ async def resume_interrupted_ai_job(
         raise AIJobSubmissionUnavailableError("AI job was not found")
     if not job_uses_current_generation_engine(locked):
         raise AIJobSubmissionUnavailableError(RETIRED_GENERATION_ENGINE_MESSAGE)
-    if not is_resumable_generation_job(locked):
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY, owned_candidate
+    candidate = await owned_candidate(db, locked) if may_resume_retained_author(locked) else None
+    if not is_resumable_generation_job(locked) and candidate is None:
         raise AIJobSubmissionUnavailableError("AI job is not resumable")
     active_count = await count_active_ai_jobs(db, tenant_id)
     if active_count >= active_limit:
@@ -879,6 +900,10 @@ async def resume_interrupted_ai_job(
     resume_count = int(previous_result.get("resume_count", 0) or 0) + 1
     delivery_task_id = str(uuid.uuid4())
     mutable_locked = cast(Any, locked)
+    if candidate is not None:
+        mutable_locked.params = {**dict(locked.params or {}), AUTHORIZATION_KEY: {
+            "policy": AUTHORIZATION_POLICY, "stage": candidate["stage"], "body_sha256": candidate["body_sha256"],
+            "pending_sha256": candidate["pending_sha256"], "delivery_id": delivery_task_id}}
     mutable_locked.status = "pending"
     mutable_locked.stage = "queued"
     mutable_locked.message = "Продолжение генерации поставлено в очередь"

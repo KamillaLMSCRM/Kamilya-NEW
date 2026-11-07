@@ -172,6 +172,7 @@ class DocumentCompatibilityResponse(BaseModel):
 class AIJobResponse(BaseModel):
     id: str
     status: str
+    retained_response_replay_available: bool = False
     abandon_available: bool = False
     job_type: str = "other"
     course_id: UUID | None

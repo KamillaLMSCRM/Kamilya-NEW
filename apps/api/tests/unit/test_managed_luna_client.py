@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import hmac
 import json
@@ -10,6 +11,62 @@ import httpx
 import pytest
 
 from app.modules.ai.managed_luna_client import ManagedLunaClient, ManagedLunaCompletedJsonError, ManagedLunaError
+
+
+@pytest.mark.asyncio
+async def test_retained_author_replay_is_one_use_and_never_posts(setup):
+    from app.modules.ai.v3.practical_contract import _course_format
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+
+    client, tenant, user, _, requests = setup
+    fmt = _course_format(["SRC1"])
+    content = {"title": "Course", "lessons": [{"id": "lesson-1", "title": "Lesson", "content": "Text",
+        "questions": [{"id": "q1", "prompt": "Question?", "choices": ["A", "B", "C"],
+                       "correct_index": 0, "explanation": "Because", "source_refs": ["SRC1"]}]}]}
+    body = {"model": client.model, "structured_output_policy": "typed-json-object-v1",
+            "response_format_sha256": response_contract_hash(fmt),
+            "choices": [{"message": {"content": json.dumps(content)}}],
+            "usage": {"prompt_tokens": 8, "completion_tokens": 2}}
+    raw = json.dumps(body).encode()
+    checkpoint = AsyncMock(return_value=True)
+    async def token():
+        return await client.prepare([{"role": "user", "content": "synthetic"}], max_output_tokens=8,
+                                    ownership_checkpoint=checkpoint, response_format=fmt)
+    cap = await token()
+    receipt = {"policy": "managed-response-quarantine-v1", "accepted": False, "complete_http_response": True,
+        "status": 200, "phase": "structured_shape", "stage_sha256": "a" * 64,
+        "route_fingerprint": client.cache_fingerprint(), "wire_request_sha256": hashlib.sha256(client._prepared[cap]).hexdigest(),
+        "raw_base64": base64.b64encode(raw).decode(), "byte_count": len(raw), "body_sha256": hashlib.sha256(raw).hexdigest()}
+    result = await client.replay_completed(cap, receipt=receipt, tenant_id=tenant, user_id=user, job_id="job",
+                                           stage_id="a" * 64, ownership_checkpoint=checkpoint)
+    assert result.content == content and result.usage.input_tokens == 8 and not requests
+    with pytest.raises(ManagedLunaError):
+        await client.replay_completed(cap, receipt=receipt, tenant_id=tenant, user_id=user, job_id="job",
+                                      stage_id="a" * 64, ownership_checkpoint=checkpoint)
+    for field, value in (("wire_request_sha256", "0" * 64), ("body_sha256", "0" * 64), ("phase", "content_json")):
+        with pytest.raises(ManagedLunaError, match="replay_unverified"):
+            await client.replay_completed(await token(), receipt={**receipt, field: value}, tenant_id=tenant,
+                user_id=user, job_id="job", stage_id="a" * 64, ownership_checkpoint=checkpoint)
+    assert not requests
+
+
+@pytest.mark.asyncio
+async def test_luna6_rejection_receipt_records_actual_configured_model(setup):
+    from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
+    _, tenant, actor, state, _ = setup
+    job_id = str(uuid4())
+    client = ManagedLunaClient(base_url="http://10.77.77.2:18999/v1", api_key="private-secret",
+        tenant_id=tenant, user_id=actor, job_id=job_id, credential_revision="r1", model="gpt-6-luna")
+    state['body'] = {'model': 'gpt-6-luna', 'choices': [], 'usage': {'prompt_tokens': 1, 'completion_tokens': 1}}
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare([{'role': 'user', 'content': 'synthetic'}], max_output_tokens=8,
+                               ownership_checkpoint=checkpoint)
+    with pytest.raises(ManagedResponseRejectedError) as exc:
+        await client.invoke(cap, tenant_id=tenant, user_id=actor, job_id=job_id,
+                            ownership_checkpoint=checkpoint, stage_id='a' * 64)
+    receipt = exc.value.checked_receipt(tenant_id=str(tenant), user_id=actor, job_id=job_id,
+        stage='a' * 64, route_fingerprint=client.cache_fingerprint())
+    assert receipt['configured_model'] == 'gpt-6-luna'
 
 
 @pytest.fixture(autouse=True)

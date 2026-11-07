@@ -2,12 +2,13 @@ import asyncio
 import socket
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
 
 from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
+from app.modules.ai.managed_luna_client import ManagedLunaClient
 from app.modules.ai.v3.cooperative_budget import PreclaimYieldError
 from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
@@ -40,6 +41,82 @@ def setup():
 def options(journal, client, plan, validate):
     return dict(journal=journal, client=client, plan=plan, result_key='result', claim_key='claim',
         validate_value=validate, validate_response=lambda value: value, messages=[{'role':'user','content':'synthetic'}], max_output_tokens=128)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('fail_replay', [False, True])
+async def test_retained_completed_stage_never_falls_through_to_post(monkeypatch, fail_replay):
+    from app.modules.ai.delivery_ownership import delivery_id
+    from app.modules.ai.v3.owned_stage_inspection import StageInspection
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    fake, journal, _, plan, validate = setup()
+    client = ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='synthetic',
+        tenant_id=UUID(journal.tenant_id), user_id=journal.user_id, job_id=journal.job_id, credential_revision='r1')
+    candidate = {'stage': _digest(plan), 'body_sha256': 'a' * 64, 'pending_sha256': 'b' * 64,
+                 'marker': {'identity': _digest(plan), 'claim_token': 'c' * 32},
+                 'receipt': {'wire_request_sha256': 'd' * 64}}
+    fake.job.params[AUTHORIZATION_KEY] = {'policy': AUTHORIZATION_POLICY, 'stage': candidate['stage'],
+        'body_sha256': candidate['body_sha256'], 'pending_sha256': candidate['pending_sha256'], 'delivery_id': 'delivery'}
+    monkeypatch.setattr('app.modules.ai.v3.direct_luna_owned_stage.inspect_owned_stage',
+                        AsyncMock(return_value=StageInspection('replay_completed', candidate)))
+    monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.owned_candidate', AsyncMock(return_value=candidate))
+    monkeypatch.setattr(client, 'prepare', AsyncMock(return_value=object()))
+    replay_mock = AsyncMock(side_effect=ValueError('held') if fail_replay else None,
+        return_value=SimpleNamespace(content={'ok': True}, model=client.model,
+            usage=SimpleNamespace(input_tokens=12, output_tokens=3, cached_input_tokens=None, reasoning_tokens=None)))
+    monkeypatch.setattr(client, 'replay_completed', replay_mock)
+    post = AsyncMock(side_effect=AssertionError('must not post'))
+    monkeypatch.setattr(client, 'invoke', post)
+    finalize = AsyncMock(return_value={'ok': True})
+    monkeypatch.setattr('app.modules.ai.v3.pending_stage_transactions.finalize_pending', finalize)
+    ctx = delivery_id.set('delivery')
+    try:
+        if fail_replay:
+            with pytest.raises(ExtractionOutcomeUnknownError, match='v3_retained_replay_unverified'):
+                await run_direct_owned_stage(**options(journal, client, plan, validate))
+            finalize.assert_not_awaited()
+        else:
+            assert await run_direct_owned_stage(**options(journal, client, plan, validate)) == {'ok': True}
+            assert finalize.await_args.kwargs['marker'] == candidate['marker']
+            assert finalize.await_args.kwargs['replay_audit']['body_sha256'] == candidate['body_sha256']
+        post.assert_not_awaited()
+    finally:
+        delivery_id.reset(ctx)
+
+
+@pytest.mark.asyncio
+async def test_retained_replay_rechecks_source_before_consuming_capability(monkeypatch):
+    from app.modules.ai.delivery_ownership import delivery_id
+    from app.modules.ai.v3.owned_stage_inspection import StageInspection
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    fake, journal, _, plan, validate = setup()
+    client = ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='synthetic',
+        tenant_id=UUID(journal.tenant_id), user_id=journal.user_id, job_id=journal.job_id, credential_revision='r1')
+    candidate = {'stage': _digest(plan), 'body_sha256': 'a' * 64, 'pending_sha256': 'b' * 64,
+                 'marker': {'identity': _digest(plan), 'claim_token': 'c' * 32},
+                 'receipt': {'wire_request_sha256': 'd' * 64}}
+    fake.job.params[AUTHORIZATION_KEY] = {'policy': AUTHORIZATION_POLICY, 'stage': candidate['stage'],
+        'body_sha256': candidate['body_sha256'], 'pending_sha256': candidate['pending_sha256'], 'delivery_id': 'delivery'}
+    monkeypatch.setattr('app.modules.ai.v3.direct_luna_owned_stage.inspect_owned_stage',
+                        AsyncMock(return_value=StageInspection('replay_completed', candidate)))
+    monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.owned_candidate', AsyncMock(return_value=candidate))
+    journal.verify_source = AsyncMock(return_value=False)
+    async def prepare(*_args, ownership_checkpoint, **_kwargs):
+        await ownership_checkpoint()
+        return object()
+    monkeypatch.setattr(client, 'prepare', prepare)
+    replay = AsyncMock()
+    monkeypatch.setattr(client, 'replay_completed', replay)
+    post = AsyncMock()
+    monkeypatch.setattr(client, 'invoke', post)
+    ctx = delivery_id.set('delivery')
+    try:
+        with pytest.raises(ExtractionOutcomeUnknownError):
+            await run_direct_owned_stage(**options(journal, client, plan, validate))
+        replay.assert_not_awaited()
+        post.assert_not_awaited()
+    finally:
+        delivery_id.reset(ctx)
 
 
 @pytest.mark.asyncio

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from uuid import UUID
 
 import pytest
-from sqlalchemy import create_engine, insert
+from sqlalchemy import create_engine, insert, update
 from sqlalchemy.sql.elements import TextClause
 
 from app.models.ai_job import AIJob
@@ -99,6 +99,25 @@ async def test_actual_legacy_retire_and_initial_claim(make_job, monkeypatch):
     db = make_job({"resume_count": 1})
     with db.connect() as conn:
         assert not await job_service.claim_generation_execution(Session(conn), "job", TENANT, "job")
+
+
+@pytest.mark.asyncio
+async def test_retained_replay_delivery_is_claimed_only_once(make_job):
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    result = {"delivery_task_id": "new", "resume_count": 1,
+              "v3_pending_stages": {"policy": "v3-pending-stages-v1", "entries": {"a" * 64: {
+                  "claim_key": "claim", "result_key": "result", "token": "b" * 32}}}}
+    db = make_job(result)
+    with db.begin() as conn:
+        conn.execute(update(AIJob).values(params={"source_analysis": {
+            "generation_engine": CURRENT_GENERATION_ENGINE, "analysis_mode": "direct_source"},
+            AUTHORIZATION_KEY: {"policy": AUTHORIZATION_POLICY, "delivery_id": "new", "stage": "a" * 64,
+                                "body_sha256": "c" * 64, "pending_sha256": "d" * 64}}))
+    with db.connect() as conn:
+        session = Session(conn)
+        assert not await job_service.claim_generation_execution(session, "job", TENANT, "old")
+        assert await job_service.claim_generation_execution(session, "job", TENANT, "new")
+        assert not await job_service.claim_generation_execution(session, "job", TENANT, "new")
 
 
 def test_actual_celery_task_passes_request_id_through_claim_and_retire(monkeypatch):

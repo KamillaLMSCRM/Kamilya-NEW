@@ -11,6 +11,7 @@ from app.modules.ai.v3.practical_audit_units import audit_units
 from app.modules.ai.v3.practical_contract import (
     _digest,
     course_response_format,
+    normalize_author_question_ids,
     source_model_text,
     validate_practical_course,
 )
@@ -143,14 +144,16 @@ async def run_editorial_cycle(packet: Any, corpus: Any, intent: Any, reference_d
 
     def valid_author(value: dict[str, Any]) -> Any:
         view.assert_course_ids_disjoint(value)
-        return validate_practical_course(value, packet)
+        normalized = normalize_author_question_ids(value, set(view.canonical_to_alias))
+        view.assert_course_ids_disjoint(normalized)
+        return validate_practical_course(normalized, packet)
 
     authored = await call('lesson', 'practical:author:editorial:v31', [
         {'role': 'system', 'content': AUTHOR_SYSTEM}, {'role': 'user', 'content': context
             + '\nSOURCE_LOGICAL_UNITS_JSON\n' + prompt_json(view.encode(planning))
             + '\nCOURSE_INTENT_JSON\n' + prompt_json(asdict(intent))}],
         course_response_format(packet), valid_author)
-    original = validate_practical_course(authored, packet)
+    original = valid_author(authored)
     review_raw = await call('review', 'practical:editorial:review:v31:' + _digest(original), [
         {'role': 'system', 'content': REVIEW_SYSTEM}, {'role': 'user', 'content': context
             + '\nFULL_COURSE_WITH_KEYS_AND_EXPLANATIONS_JSON\n' + prompt_json(view.encode(original))}],

@@ -183,7 +183,7 @@ def matches_practical_course_response(value: Any, response_format: Any) -> bool:
         return False
     ids = response_format['json_schema']['schema']['properties']['lessons']['items']['properties']['questions']['items']['properties']['source_refs']['items']['enum']
     try:
-        _validate_course(value, set(ids))
+        _validate_course(normalize_author_question_ids(value, set(ids)), set(ids))
         return True
     except (ValueError, TypeError, KeyError):
         return False
@@ -192,6 +192,38 @@ def matches_practical_course_response(value: Any, response_format: Any) -> bool:
 def validate_practical_course(value: object, packet: PracticalSourcePacket) -> dict[str, Any]:
     course_response_format(packet)
     return _validate_course(value, {block.block_id for block in packet.blocks if block.text.strip()})
+
+
+def normalize_author_question_ids(value: Any, source_ids: set[str]) -> Any:
+    """Namespace repeated lesson-local labels without changing the received artifact."""
+    result = copy.deepcopy(value)
+    if type(result) is not dict or type(result.get('lessons')) is not list:
+        raise ValueError('practical_course_invalid')
+    lessons = result['lessons']
+    if any(type(lesson) is not dict or type(lesson.get('id')) is not str
+           or not lesson['id'].strip() or type(lesson.get('questions')) is not list for lesson in lessons):
+        raise ValueError('practical_course_invalid')
+    lesson_ids = [lesson['id'] for lesson in lessons]
+    if len(set(lesson_ids)) != len(lesson_ids) or set(lesson_ids) & source_ids:
+        raise ValueError('practical_course_invalid')
+    labels: list[str] = []
+    for lesson in lessons:
+        questions = lesson['questions']
+        if any(type(q) is not dict or type(q.get('id')) is not str or not q['id'].strip() for q in questions):
+            raise ValueError('practical_course_invalid')
+        local = [q['id'] for q in questions]
+        if len(set(local)) != len(local):
+            raise ValueError('practical_course_invalid')
+        labels.extend(local)
+    if set(labels) & (set(lesson_ids) | source_ids):
+        raise ValueError('practical_course_invalid')
+    from collections import Counter
+    repeated = {label for label, count in Counter(labels).items() if count > 1}
+    for lesson in lessons:
+        for q in lesson['questions']:
+            if q['id'] in repeated:
+                q['id'] = 'question-' + _digest(['lesson-local-question-id-v1', lesson['id'], q['id']])
+    return result
 
 
 def _validate_course(value: Any, allowed: set[str]) -> dict[str, Any]:

@@ -492,6 +492,31 @@ async def test_resume_endpoint_requeues_same_job_with_persisted_adaptive_scope(m
 
 
 @pytest.mark.asyncio
+async def test_resume_endpoint_requires_owned_retained_candidate_for_pending(monkeypatch):
+    from fastapi import HTTPException
+    tenant, actor, doc = uuid4(), uuid4(), uuid4()
+    job = SimpleNamespace(id='job-1', tenant_id=tenant, user_id=actor, course_id=None, status='interrupted',
+        errors=['generation_interrupted'], result={'v3_pending_stages': {'synthetic': True}}, params={
+            'documents': [str(doc)], 'course_structure': {'lessons_per_module': 1},
+            'source_analysis': {'analysis_mode': 'direct_source', 'generation_engine': 'evidence_v2'}})
+    monkeypatch.setattr(router, 'get_ai_job', AsyncMock(return_value=job))
+    candidate = AsyncMock(return_value=None)
+    monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.owned_candidate', candidate)
+    resumed = AsyncMock(return_value=(job, {}))
+    monkeypatch.setattr(router, 'resume_interrupted_ai_job', resumed)
+    monkeypatch.setattr(router, 'resolve_tenant_ai_active_limit', AsyncMock(return_value=2))
+    monkeypatch.setattr(router, '_job_response', AsyncMock(return_value={'status': 'pending'}))
+    with pytest.raises(HTTPException) as error:
+        await router.resume_generation('job-1', db=SimpleNamespace(), user=SimpleNamespace(id=actor, tenant_id=tenant))
+    assert error.value.status_code == 409
+    resumed.assert_not_awaited()
+    candidate.return_value = {'stage': 'synthetic'}
+    assert (await router.resume_generation('job-1', db=SimpleNamespace(),
+                                           user=SimpleNamespace(id=actor, tenant_id=tenant)))['status'] == 'pending'
+    resumed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_resume_endpoint_rejects_retired_generation_with_restart_action(monkeypatch):
     tenant_id = uuid4()
     user_id = uuid4()

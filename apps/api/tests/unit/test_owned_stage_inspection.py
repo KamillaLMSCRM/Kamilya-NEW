@@ -108,3 +108,39 @@ async def test_pending_other_digest_cannot_be_inspected_as_fresh():
     with pytest.raises(ExtractionOutcomeUnknownError):
         await inspect_owned_stage(**options)
     assert not journal.plans and not journal.values
+
+
+@pytest.mark.asyncio
+async def test_replay_authorization_reuses_only_completed_ancestor_or_exact_pending(monkeypatch):
+    from app.modules.ai.delivery_ownership import delivery_id
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    journal = setup_journal()
+    options = inspect_args(journal)
+    digest = _digest(options['plan'])
+    marker = {'identity': digest, 'claim_token': 'b' * 32}
+    candidate = {'stage': digest, 'body_sha256': 'c' * 64, 'pending_sha256': 'd' * 64,
+                 'plan': options['plan'], 'marker': marker, 'receipt': {}}
+    journal.job.result['v3_pending_stages'] = {'policy': 'v3-pending-stages-v1', 'entries': {
+        digest: {'claim_key': options['claim_key'], 'result_key': options['result_key'], 'token': marker['claim_token']}}}
+    journal.job.params[AUTHORIZATION_KEY] = {'policy': AUTHORIZATION_POLICY, 'stage': digest,
+        'body_sha256': candidate['body_sha256'], 'pending_sha256': candidate['pending_sha256'], 'delivery_id': 'delivery'}
+    async def candidate_read(*_args): return candidate
+    monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.owned_candidate', candidate_read)
+    ctx = delivery_id.set('delivery')
+    try:
+        result = await inspect_owned_stage(**options)
+        assert result.decision == 'replay_completed' and result.result == candidate
+        unrelated = inspect_args(journal)
+        unrelated['plan'] = {**options['plan'], 'stage': 'other'}
+        unrelated['result_key'], unrelated['claim_key'] = 'result-other', 'claim-other'
+        unrelated['validate'] = lambda value: value['response']
+        with pytest.raises(ExtractionOutcomeUnknownError):
+            await inspect_owned_stage(**unrelated)
+        journal.plans[unrelated['result_key']] = unrelated['plan']
+        journal.values[unrelated['result_key']] = {'identity': _digest(unrelated['plan']), 'response': {'ok': True}}
+        assert (await inspect_owned_stage(**unrelated)).decision == 'replay'
+        journal.job.params[AUTHORIZATION_KEY]['delivery_id'] = 'foreign'
+        with pytest.raises(ExtractionOutcomeUnknownError):
+            await inspect_owned_stage(**options)
+    finally:
+        delivery_id.reset(ctx)

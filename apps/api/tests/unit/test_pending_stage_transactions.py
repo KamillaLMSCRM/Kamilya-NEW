@@ -91,6 +91,39 @@ async def test_multistage_finalize_clears_only_matching_marker():
 
 
 @pytest.mark.asyncio
+async def test_retained_replay_audit_is_atomic_and_bound_to_original_marker():
+    from app.modules.ai.v3.managed_rejection_quarantine import KEY as QUARANTINE_KEY
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    journal = TxJournal()
+    options = args(journal)
+    options["plan"].update({"stage": "lesson", "group_id": "practical:author:editorial:v31", "route_fingerprint": "e" * 64})
+    digest = _digest(options["plan"])
+    options["marker"]["identity"] = digest
+    options["validate"] = lambda value: value["response"] if value["identity"] == digest else pytest.fail("wrong identity")
+    await claim_with_pending(**options)
+    receipt = {"body_sha256": "a" * 64, "wire_request_sha256": "b" * 64, "route_fingerprint": "e" * 64}
+    journal.job.result[QUARANTINE_KEY] = {"entries": {digest: receipt}}
+    journal.job.params[AUTHORIZATION_KEY] = {"policy": AUTHORIZATION_POLICY, "stage": digest,
+        "body_sha256": receipt["body_sha256"], "pending_sha256": _digest(journal.job.result[KEY]), "delivery_id": None}
+    audit = {"policy": AUTHORIZATION_POLICY, "stage_sha256": digest, "body_sha256": receipt["body_sha256"],
+             "wire_request_sha256": receipt["wire_request_sha256"], "model": "gpt-6-luna"}
+    value = {"identity": digest, "response": {"ok": True}}
+    before = deepcopy(journal.job.result)
+    for changed in ({**audit, "stage_sha256": "c" * 64}, {**audit, "body_sha256": "d" * 64},
+                    {**audit, "extra": "not allowed"}):
+        with pytest.raises(ExtractionOutcomeUnknownError):
+            await finalize_pending(**options, value=value, replay_audit=changed)
+        assert journal.job.result == before
+    assert await finalize_pending(**options, value=value, replay_audit=audit) == {"ok": True}
+    assert not has_pending(journal.job.result)
+    assert journal.job.result[QUARANTINE_KEY]["entries"][digest] == receipt
+    assert journal.job.result["v3_retained_author_replay_audit"] == audit
+    with pytest.raises(ExtractionOutcomeUnknownError):
+        await finalize_pending(**options, value=value, replay_audit=audit)
+    assert journal.job.result["v3_retained_author_replay_audit"] == audit
+
+
+@pytest.mark.asyncio
 async def test_lost_ack_and_bad_marker_stay_held():
     journal = TxJournal()
     journal.fail_ack = True

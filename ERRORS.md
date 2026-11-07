@@ -1,3 +1,24 @@
+## AGENT-DEV-GATE-005 - Final assertion discarded failed database gate evidence
+
+- Date: 2026-11-07.
+- Symptom: the first isolated retained-author gate returned only BLOCKED after
+  its final assertions, leaving a CREATE_INTENT custody file without the
+  canonical failure and cleanup report. It did not prove a successful transaction.
+- Cause: the adapter raised gate_incomplete before persisting the canonical
+  runner result. The underlying first exercise failure is not established.
+- Fix: exclusively persist and fsync a sanitized result receipt before asserting
+  expected checks; preserve the failed receipt and independently verify cleanup
+  before another run. Initialize model registry/mappers before ORM fixture use.
+- Verification: separate restricted lms_app readback confirms the first temporary
+  schema is absent, public revision0186 unchanged and no business/model writes
+  in that readback. Second canonical report retains ValueError/cleanuptrue and
+  public0186 unchanged. Offline strict asyncpg UUID fixture normalization5PASS;
+  underlying old failure cause remains unproven. Corrected actual gate PASS7
+  checks/cleanuptrue/public0186 unchanged, with first two failed receipts retained.
+- Prevention: every DB gate must retain failure and cleanup evidence before
+  evaluating its final success contract. Missing evidence never becomes PASS;
+  fixture changes require a distinct custody intent and immutable old receipt.
+
 ## AI-AUDIT-OWNER-001 - Producer allowed a taught source row without a lesson owner
 
 - Date: 2026-11-04.

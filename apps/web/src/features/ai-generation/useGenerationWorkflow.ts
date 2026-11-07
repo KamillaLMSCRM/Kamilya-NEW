@@ -17,6 +17,7 @@ const activeJobStorageKey = 'ai_active_job_id';
 const workflowContextStorageKey = 'ai_generation_workflow_context';
 const isActive = (job: AIGenerationJob) => job.status === 'pending' || job.status === 'running' || job.status === 'reconciliation_required';
 const isRestorable = (job: AIGenerationJob) => isActive(job) || job.status === 'interrupted';
+const isResumeHeld = (job: AIGenerationJob) => job.status === 'interrupted' || job.status === 'reconciliation_required';
 
 function readWorkflowContext(): AIGenerationWorkflowContext | null {
   const raw = localStorage.getItem(workflowContextStorageKey);
@@ -234,7 +235,7 @@ export function useGenerationWorkflow(
   }, [state.currentJob]);
 
   const resumeJob = useCallback(async () => {
-    if (!state.currentJob || state.currentJob.status !== 'interrupted') return;
+    if (!state.currentJob) return;
     const jobId = state.currentJob.id;
     const requestKey = getRequestKey?.();
     const epoch = workflowEpoch.current;
@@ -246,13 +247,16 @@ export function useGenerationWorkflow(
       resumePostingRef.current = null;
       resumeRequestKeyRef.current = undefined;
     }
+    if (state.currentJob.status !== 'interrupted'
+        && !(state.currentJob.status === 'reconciliation_required'
+          && (state.currentJob.retained_response_replay_available === true || resumeAttemptRef.current === jobId))) return;
     if (resumePostingRef.current === jobId) return;
     if (resumeAttemptRef.current === jobId) {
       const response = await api.get<AIGenerationJob>(`/v1/ai/jobs/${jobId}`);
       if (response.data.id !== jobId) throw new Error('resume_job_identity_mismatch');
       if (!mountedRef.current || !isCurrentRequest()) return response.data;
       dispatch(actionForPolledJob(response.data));
-      if (response.data.status !== 'interrupted') {
+      if (!isResumeHeld(response.data)) {
         resumeAttemptRef.current = null;
         resumePostingRef.current = null;
         resumeRequestKeyRef.current = undefined;
@@ -270,10 +274,12 @@ export function useGenerationWorkflow(
       localStorage.setItem(activeJobStorageKey, response.data.id);
       persistWorkflowContext(response.data.id, state.programId);
       dispatch({ type: 'job_started', job: response.data, programId: state.programId });
-      setResumeReconciliation(false);
-      resumeAttemptRef.current = null;
       resumePostingRef.current = null;
-      resumeRequestKeyRef.current = undefined;
+      setResumeReconciliation(isResumeHeld(response.data));
+      if (!isResumeHeld(response.data)) {
+        resumeAttemptRef.current = null;
+        resumeRequestKeyRef.current = undefined;
+      }
       return response.data;
     } catch (error: any) {
       if (!mountedRef.current || !isCurrentRequest()) return;
@@ -288,7 +294,7 @@ export function useGenerationWorkflow(
         if (response.data.id !== jobId) throw new Error('resume_job_identity_mismatch');
         if (!mountedRef.current || !isCurrentRequest()) return response.data;
         dispatch(actionForPolledJob(response.data));
-        if (response.data.status !== 'interrupted') {
+        if (!isResumeHeld(response.data)) {
           resumeAttemptRef.current = null;
           resumePostingRef.current = null;
           resumeRequestKeyRef.current = undefined;

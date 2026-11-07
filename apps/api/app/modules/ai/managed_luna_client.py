@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import hmac
 import json
@@ -56,6 +57,12 @@ class ManagedLunaError(RuntimeError):
 
 class ManagedLunaCompletedJsonError(ManagedLunaError):
     """A complete HTTP 200 response had content that was not a valid JSON object."""
+
+
+class _ResponseDecodeError(Exception):
+    def __init__(self, phase: str, original: Exception):
+        self.phase, self.original = phase, original
+        super().__init__(phase)
 
 
 class ManagedLunaClient:
@@ -155,6 +162,86 @@ class ManagedLunaClient:
         self._token = ""
         self._closed = True
 
+    def _decode_response(self, raw: bytes, payload: bytes) -> tuple[ResponsesResult, str]:
+        category = "envelope"
+        try:
+            body = parse_source_first_response(raw.decode("utf-8"))
+            category = "model"
+            if body.get("model") != self._model:
+                raise ValueError
+            category = "structured_mode"
+            requested = json.loads(payload)
+            if "structured_output_policy" in requested:
+                from app.modules.ai.v3.response_contracts import response_contract_hash
+                if (body.get("structured_output_policy") != "typed-json-object-v1"
+                        or body.get("response_format_sha256") != response_contract_hash(requested["response_format"])):
+                    raise ValueError("managed_luna_structured_mode_unverified")
+            elif "structured_output_policy" in body or "response_format_sha256" in body:
+                raise ValueError("managed_luna_unrequested_structured_mode")
+            category = "choices"
+            choices = body.get("choices")
+            if not isinstance(choices, list) or len(choices) != 1:
+                raise ValueError
+            category = "message"
+            message = choices[0].get("message") if isinstance(choices[0], dict) else None
+            if (not isinstance(message, dict) or set(message) not in ({"content"}, {"role", "content"})
+                    or message.get("role", "assistant") != "assistant" or not isinstance(message.get("content"), str)):
+                raise ValueError
+            category = "content_limit"
+            if len(message["content"].encode("utf-8")) > MAX_CONTENT_BYTES:
+                raise ValueError
+            category = "content_json"
+            content = parse_source_first_response(message["content"])
+            if "structured_output_policy" in requested:
+                from app.modules.ai.v3.response_contracts import matches_response_contract
+                category = "structured_shape"
+                if not matches_response_contract(content, requested["response_format"]):
+                    raise ValueError("managed_luna_structured_shape_invalid")
+            category = "usage"
+            usage = body.get("usage")
+            if not isinstance(usage, dict):
+                raise ValueError
+            incoming, outgoing = usage.get("prompt_tokens"), usage.get("completion_tokens")
+            if type(incoming) is not int or incoming < 0 or type(outgoing) is not int or not 0 <= outgoing <= requested["max_tokens"]:
+                raise ValueError
+            return ResponsesResult(content=content, model=self._model, usage=LunaUsage(incoming, outgoing, None, None)), category
+        except Exception as exc:
+            raise _ResponseDecodeError(category, exc) from None
+
+    async def replay_completed(self, capability: object, *, receipt: dict[str, Any], tenant_id: UUID,
+                               user_id: UUID, job_id: str, stage_id: str,
+                               ownership_checkpoint: Callable[[], Awaitable[bool]]) -> ResponsesResult:
+        """Consume an exact retained structured-shape response without a network request."""
+        try:
+            payload = self._prepared.pop(capability, None)
+        except TypeError:
+            payload = None
+        if (payload is None or self._closed or (tenant_id, user_id, job_id) != self._scope
+                or not isinstance(stage_id, str) or not re.fullmatch(r"[0-9a-f]{64}", stage_id)):
+            raise ManagedLunaError("managed_luna_capability_invalid")
+        await self._check(ownership_checkpoint)
+        try:
+            if (self._closed or not isinstance(receipt, dict)
+                    or receipt.get("policy") != "managed-response-quarantine-v1"
+                    or receipt.get("accepted") is not False or receipt.get("complete_http_response") is not True
+                    or type(receipt.get("status")) is not int or receipt["status"] != 200
+                    or receipt.get("phase") != "structured_shape" or receipt.get("stage_sha256") != stage_id
+                    or receipt.get("route_fingerprint") != self.cache_fingerprint()
+                    or receipt.get("wire_request_sha256") != hashlib.sha256(payload).hexdigest()):
+                raise ValueError
+            raw = base64.b64decode(receipt["raw_base64"], validate=True)
+            if (len(raw) > MAX_RESPONSE_BYTES or type(receipt.get("byte_count")) is not int
+                    or receipt["byte_count"] != len(raw) or receipt.get("body_sha256") != hashlib.sha256(raw).hexdigest()):
+                raise ValueError
+            request = json.loads(payload)
+            from app.modules.ai.v3.response_contracts import response_contract
+            if response_contract(request.get("response_format")) != "practical_course":
+                raise ValueError
+            result, _ = self._decode_response(raw, payload)
+            return result
+        except Exception:
+            raise ManagedLunaError("managed_luna_replay_unverified") from None
+
     async def invoke(self, capability: object, *, tenant_id: UUID, user_id: UUID, job_id: str,
                      ownership_checkpoint: Callable[[], Awaitable[bool]], stage_id: str | None = None,
                      classify_invalid_json: bool = False) -> ResponsesResult:
@@ -216,48 +303,9 @@ class ManagedLunaClient:
             _diagnostic("failure", job_id, stage_id, started, status, category)
             raise ManagedLunaError("managed_luna_outcome_unknown")
         _diagnostic("response", job_id, stage_id, started, status, "body_received")
-        category = "envelope"
         try:
-            body = parse_source_first_response(raw.decode("utf-8"))
-            category = "model"
-            if body.get("model") != self._model:
-                raise ValueError
-            category = "structured_mode"
-            requested = json.loads(payload)
-            if "structured_output_policy" in requested:
-                from app.modules.ai.v3.response_contracts import response_contract_hash
-                if (body.get("structured_output_policy") != "typed-json-object-v1"
-                        or body.get("response_format_sha256") != response_contract_hash(requested["response_format"])):
-                    raise ValueError("managed_luna_structured_mode_unverified")
-            elif "structured_output_policy" in body or "response_format_sha256" in body:
-                raise ValueError("managed_luna_unrequested_structured_mode")
-            category = "choices"
-            choices = body.get("choices")
-            if body.get("model") != self._model or not isinstance(choices, list) or len(choices) != 1:
-                raise ValueError
-            category = "message"
-            message = choices[0].get("message") if isinstance(choices[0], dict) else None
-            if (not isinstance(message, dict) or set(message) not in ({"content"}, {"role", "content"})
-                    or message.get("role", "assistant") != "assistant" or not isinstance(message.get("content"), str)):
-                raise ValueError
-            category = "content_limit"
-            if len(message["content"].encode("utf-8")) > MAX_CONTENT_BYTES:
-                raise ValueError
-            category = "content_json"
-            content = parse_source_first_response(message["content"])
-            if "structured_output_policy" in requested:
-                from app.modules.ai.v3.response_contracts import matches_response_contract
-                category = "structured_shape"
-                if not matches_response_contract(content, requested["response_format"]):
-                    raise ValueError("managed_luna_structured_shape_invalid")
-            category = "usage"
-            usage = body.get("usage")
-            if not isinstance(usage, dict):
-                raise ValueError
-            incoming, outgoing = usage.get("prompt_tokens"), usage.get("completion_tokens")
-            limit = json.loads(payload)["max_tokens"]
-            if type(incoming) is not int or incoming < 0 or type(outgoing) is not int or not 0 <= outgoing <= limit:
-                raise ValueError
+            decoded, _ = self._decode_response(bytes(raw), payload)
+            incoming, outgoing = decoded.usage.input_tokens, decoded.usage.output_tokens
             from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError, ManagedResponsesResult
             capture = None
             if stage_id is not None and self._token.encode("utf-8") not in raw:
@@ -265,12 +313,12 @@ class ManagedLunaClient:
                     capture = ManagedResponseRejectedError(raw=bytes(raw), tenant_id=tenant_id, user_id=user_id,
                         job_id=job_id, stage=stage_id, route_fingerprint=self.cache_fingerprint(),
                         wire_request_sha256=hashlib.sha256(payload).hexdigest(), phase="stage_validation",
-                        cause=ValueError("managed_stage_validation_unverified"))
+                        cause=ValueError("managed_stage_validation_unverified"), configured_model=self._model)
                 except (ValueError, TypeError):
                     pass
-            result = ManagedResponsesResult(content=content, model=self._model,
-                usage=LunaUsage(incoming, outgoing, None, None), _capture=capture)
-        except Exception as rejection:
+            result = ManagedResponsesResult(content=decoded.content, model=decoded.model, usage=decoded.usage, _capture=capture)
+        except _ResponseDecodeError as rejection:
+            category = rejection.phase
             _diagnostic("failure", job_id, stage_id, started, status, category)
             if classify_invalid_json and status == 200 and category == "content_json":
                 raise ManagedLunaCompletedJsonError("managed_luna_response_invalid") from None
@@ -279,7 +327,8 @@ class ManagedLunaClient:
                 try:
                     retained = ManagedResponseRejectedError(raw=bytes(raw), tenant_id=tenant_id, user_id=user_id,
                         job_id=job_id, stage=stage_id, route_fingerprint=self.cache_fingerprint(),
-                        wire_request_sha256=hashlib.sha256(payload).hexdigest(), phase=category, cause=rejection)
+                        wire_request_sha256=hashlib.sha256(payload).hexdigest(), phase=category, cause=rejection.original,
+                        configured_model=self._model)
                 except (ValueError, TypeError):
                     pass
                 else:

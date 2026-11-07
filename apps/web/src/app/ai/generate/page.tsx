@@ -1780,6 +1780,13 @@ export default function AIGeneratePage() {
           {currentJob.status === 'reconciliation_required' ? (
             <div role="alert" className="rounded-xl border border-warning/40 bg-warning/10 p-4 text-foreground">
               <p>{currentJob.message}</p>
+              {(currentJob.retained_response_replay_available || resumeReconciliation) && (
+                <button type="button" className="mt-3 mr-4 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90" onClick={() => void resumeJob().catch(() => toast.error(t('common.loadFailed')))}>
+                  {resumeReconciliation
+                    ? (lang === 'ru' ? 'Проверить статус' : lang === 'kk' ? 'Күйін тексеру' : 'Check status')
+                    : (lang === 'ru' ? 'Продолжить с сохранённого ответа' : lang === 'kk' ? 'Сақталған жауаптан жалғастыру' : 'Continue from saved response')}
+                </button>
+              )}
               <button type="button" className="mt-3 underline" onClick={() => void refreshJob().catch((error: any) => toast.error(t('common.loadFailed'), { description: error?.response?.data?.detail || error?.message }))}>
                 {t('asyncOperation.checkAgain')}
               </button>

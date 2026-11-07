@@ -1,5 +1,29 @@
 # Kamilya Test Run Ledger
 
+## RUN-20261107-SOURCE-RETAINED-AUTHOR-LOCAL
+
+- Scope: normalize lesson-local question labels; owned complete-response replay,
+  exact delivery/claim/source/wire checks and explicit same-job UI continuation.
+- Verification: canonical full API8119PASS/547contourSKIP/91.02s after an initial
+  4legacy DTO projection failures were fixed and targeted87PASS. These local
+  skips are not PostgreSQL/RLS acceptance. Web1710PASS/191files/111.27s,
+  focused100PASS, typecheck/lint/build PASS; Python baseline1010/2174 PASS;
+  gate offline3PASS. No author generation/model calls in these checks.
+- Actual isolated gate first BLOCKED and failed to retain its canonical failure
+  result; separate restricted lms_app readback confirms schema absence and public
+  revision0186. First failed receipt preserved. Gate now retains failure/cleanup
+  reports; second run retained ValueError/cleanuptrue/public0186 unchanged.
+  Its exact failure is unproven. Offline reproduction confirms asyncpg UUID
+  subclass violates strict rejection fixture identity; normalized in fixture,
+  production constructors unchanged,5offline tests pass. Third exact-source
+  transaction run PASS7checks/cleanuptrue/public0186 unchanged, source
+  ef2a88c7ed91c6eb5695fe84330ce230c9dd46108f8c24378ffa8b9c0b959abb:
+  one concurrent resume/delivery, foreign denial, late-write rollback, source/
+  route/request/marker holds, no-HTTP replay, one usage and unchanged quarantine.
+  Source verifier/response synthetic; no full public-row equivalence claim.
+- Deployed DEV6ea and production369 remain unchanged. Original PDFjob30861eb9
+  remains held with its complete7L20Q reply; no new generation or marker clearing.
+
 ## RUN-20261107-SOURCE-PREPARATION-VISUAL-EDITOR-LOCAL
 
 - Scope: shared native extraction, visual verification/recovery, static PDF

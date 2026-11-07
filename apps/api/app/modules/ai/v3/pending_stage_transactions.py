@@ -252,7 +252,8 @@ async def claim_with_pending(*, journal: Any, user_id: Any, plan: dict[str, Any]
 async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], result_key: str,
                            claim_key: str, marker: dict[str, str], value: dict[str, Any],
                            validate: Callable[[dict[str, Any]], dict[str, Any]],
-                           verify_source: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None) -> dict[str, Any]:
+                           verify_source: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
+                           replay_audit: dict[str, str] | None = None) -> dict[str, Any]:
     from app.modules.ai.source_assessment_plan import PLAN_POLICY
 
     _owner(plan, journal)
@@ -265,6 +266,30 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
             expected = {"claim_key": claim_key, "result_key": result_key, "token": marker.get("claim_token")}
             if entries.get(digest) != expected or marker.get("identity") != digest:
                 raise ValueError("v3_pending_marker_mismatch")
+            if replay_audit is not None:
+                from app.modules.ai.delivery_ownership import delivery_id
+                from app.modules.ai.v3.managed_rejection_quarantine import KEY as QUARANTINE_KEY
+                from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+                reference = job.result.get(QUARANTINE_KEY, {}).get("entries", {}).get(digest, {})
+                authorization = (job.params or {}).get(AUTHORIZATION_KEY, {})
+                if (not isinstance(replay_audit, dict)
+                        or set(replay_audit) != {"policy", "stage_sha256", "body_sha256", "wire_request_sha256", "model"}
+                        or replay_audit.get("policy") != AUTHORIZATION_POLICY or replay_audit.get("stage_sha256") != digest
+                        or replay_audit.get("body_sha256") != reference.get("body_sha256")
+                        or replay_audit.get("wire_request_sha256") != reference.get("wire_request_sha256")
+                        or replay_audit.get("model") not in {"gpt-5.6-luna", "gpt-6-luna"}
+                        or not isinstance(authorization, dict)
+                        or set(authorization) != {"policy", "stage", "body_sha256", "pending_sha256", "delivery_id"}
+                        or authorization.get("policy") != AUTHORIZATION_POLICY or authorization.get("stage") != digest
+                        or authorization.get("body_sha256") != replay_audit.get("body_sha256")
+                        or authorization.get("pending_sha256") != _digest(job.result[KEY])
+                        or authorization.get("delivery_id") != delivery_id.get()
+                        or reference.get("route_fingerprint") != plan.get("route_fingerprint")
+                        or any(not isinstance(replay_audit.get(k), str)
+                               or re.fullmatch(r"[0-9a-f]{64}", replay_audit[k]) is None
+                               for k in ("body_sha256", "wire_request_sha256"))
+                        or plan.get("stage") != "lesson" or plan.get("group_id") != "practical:author:editorial:v31"):
+                    raise ValueError("v3_pending_replay_audit_invalid")
             verify_repair_slot(job, plan, required=True)
             stored_claim = await journal.read_owned_value_in_session(session, claim_key, plan)
             if stored_claim != marker:
@@ -285,6 +310,11 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
                 raise ValueError("v3_pending_result_unverified")
             del entries[digest]
             updated = dict(job.result)
+            if replay_audit is not None:
+                audit_key = "v3_retained_author_replay_audit"
+                if audit_key in updated and updated[audit_key] != replay_audit:
+                    raise ValueError("v3_pending_replay_audit_conflict")
+                updated[audit_key] = dict(replay_audit)
             if entries:
                 updated[KEY] = {"policy": POLICY, "entries": entries}
             else:

@@ -32,6 +32,24 @@ beforeEach(() => {
 });
 
 describe('/ai/generate job workflow parity', () => {
+  it('offers explicit retained-response continuation and keeps unknown dispatch GET-only', async () => {
+    let hasCapability = true;
+    const held = { ...activeJob, status: 'reconciliation_required', course_id: null, stage: 'interrupted', message: 'Ответ сохранён.' };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url === `/v1/ai/jobs/${activeJob.id}`) return { data: { ...held, retained_response_replay_available: hasCapability } } as any;
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementationOnce(async () => { hasCapability = false; throw new Error('network lost'); });
+    render(<AIGeneratePage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Продолжить с сохранённого ответа' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Проверить статус' }));
+    await waitFor(() => expect(apiMock.get.mock.calls.filter(([url]) => url === `/v1/ai/jobs/${activeJob.id}`).length).toBeGreaterThanOrEqual(3));
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.post).toHaveBeenCalledWith(`/v1/ai/jobs/${activeJob.id}/resume`);
+    expect(screen.queryByRole('button', { name: 'Продолжить с сохранённого ответа' })).not.toBeInTheDocument();
+  });
+
   it('opens a new course without reading or modifying the last generation job', async () => {
     window.history.replaceState({}, '', '/ai/generate?new=1');
     try {

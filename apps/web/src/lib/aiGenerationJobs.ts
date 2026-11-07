@@ -19,6 +19,7 @@ export interface AIGenerationJob {
   tenant_active_jobs: number | null;
   tenant_active_limit: number | null;
   abandon_available?: boolean;
+  retained_response_replay_available?: boolean;
 }
 
 export interface AIGenerationWorkflowContext {

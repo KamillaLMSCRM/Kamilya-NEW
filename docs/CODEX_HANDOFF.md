@@ -1,3 +1,74 @@
+# Source preparation retained author correction LOCAL — 2026-11-07
+
+- result: DEV remains exact6eaeb3efa035469f2836ce1a693d418e26910c05; production
+  exact369f82a1 unchanged. Both source reviews completed; session17008 ended PASS.
+  Full-course session68220 ended FAIL; no generation/login remains active. Original
+  PDFjob30861eb9-79b9-450e-a34b-938df1d8b7a4 is underlying interrupted, publicly
+  reconciliation_required, with one pending marker and three checkpoints.
+- changed: Actual HTTP200 retained reply is complete7L20Q/45847bytes,111956ms,
+  26365input/5896output. Strict validation rejected17 repeated question labels
+  across lessons; transport is known. Raw SHA c24faa3715c8355982843e5eb4eaf149d2a7c065a935a9692afa46592c869040.
+  Local identity normalization and narrow same-job retained-response continuation
+  are in progress under AUTHOR_IDENTITY_ADDENDUM_V1.md. Do not start a new job or
+  clear pending markers. Original rejected receipt remains immutable.
+- verified: PDF source correction/approval saved, working hash
+  ea0b240872b6750fb655ea6f29968cec3c0c5ca8c41764efe05524e69ce4609f.
+  Cash source95 in_review; independent review GO_WITH_OBSERVATION for8 working
+  edits/7decisions, LF working hash3c73b32ead06cbfe5c89eb70baf207e16511f267f84efeb2a2444f1c36cb1249.
+  Cash changes are prepared, NOT yet applied/approved. Both native sources/images
+  and mobile/desktop browser checks passed; this is not course acceptance.
+- blockers: No saved full course yet. Old cash editor request cost/outcome unknown;
+  new source invalid-JSON correction usage also unknown. Known two-source usage
+  332842tokens plus PDFauthor32261; do not report missing usage as zero.
+- next: Local API8119PASS/547contourSKIP, web1710PASS, type/lint/build/baseline
+  PASS. First isolated gate lost failure report; restricted readback confirms
+  cleanup/public0186. Second report preserves ValueError/cleanuptrue; offline
+  strict asyncpg UUID fixture normalization5PASS, underlying old cause unproven.
+  Third actual gate35194 ENDED PASS7checks/cleanuptrue/public0186 unchanged,
+  source ef2a88c7ed91c6eb5695fe84330ce230c9dd46108f8c24378ffa8b9c0b959abb.
+  No active test/model/browser run remains. Synthetic source/provider gate does
+  not prove real content or full public-row equivalence. Preserve first two
+  failed receipts. Proceed exact CI/image/DEV rollout using r4 scripts.
+  Explicitly resume the SAME original PDFjob from retained response without its
+  author POST. Complete editorial/course/semantic/learner/image acceptance; then
+  apply reviewed cash working edits and generate its complete course once.
+  Conditional protected production0186/native82 remains open. Preserve r2/r3
+  failed receipts; use new r4 evidence for the next frozen candidate.
+
+# Source preparation6ea DEV LIVE, file acceptance ACTIVE — 2026-11-07 07:51 UTC
+
+- result: Exact6eaeb3efa035469f2836ce1a693d418e26910c05 featureCI42351726740
+  PASS; feature/dev pushes independently read back with project-account receipts.
+  Production369f82a1 unchanged. DEV controller6842 ended RELEASE_OK; DEVpush
+  CI42352278904 PASS, Render dep-dbndfbgu01pc73cf35u0 live, Vercel
+  dpl_65p4X8H8oVR9yxMrQvS2Wz8osEKg READY/Hobby. Actual file acceptance is
+  ACTIVE session17008 (primary APIvenv launcher). Do not start a second login,
+  review or generation. First ops-venv launcher failed import dotenv before
+  network/login; canonical primary launcher is the only active actual run.
+- changed: Attested image42352293245/digest5afadc7e251748cb05fa64181b6d841b991f43699b602d508b129d8e60d6d78c.
+  Sole DEVworker ea528e61ef985f6ecc7aa1f0f4fc7232cf0197e5610fa45d6fbb5b9616f4bb7a
+  ready/0restarts/unless-stopped; prior d71 clean-warm-exited0, retained rollback
+  kamilya-dev-worker-rollback-debeccea. All6production containers unchanged.
+- verified: Actual isolated source/recovery gate11checksPASS/cleanuptrue/public
+  neutral/public0186. Native build42352294030/download/inspection PASS, archive
+  aa18d1c2db3c1716129cc1136dca91fdd08949be88077625f9e17ca1e392429a,
+  manifest236ccb50b434933260756beb2a0289ea5b71d4f7901345dcd8d06b41ba8f4163.
+  Exact final graphs prepared, exclusionsPASS/zero model calls. Environment
+  payload9e87ddc61e6685a62add2e6699513e658e7c0dfd6081c3c4c19a0a35442b95b6/45keys.
+- blockers: Two full courses not generated/accepted. Legacy cash85 unknown editor
+  outcome remains unknown, no new inference sent. Independent source audit/root
+  pixels confirm image2 basis Подкрепление→misreadПодразделение and image7 Убытие→
+  misreadВыдача; correct working edition through ordinary journal after semantic
+  review, not an invented business contradiction or mutation of original pixels.
+- next: Observe existing17008 and r3/dev-files-state.json before any action.
+  Correct isolated connector idle0exec/0turns verified immediately before run;
+  old response/cost still unknown. resume-sources.py explicitly acknowledges
+  failed85 through ordinary browser checkbox,
+  retains unknown costs and verifies zero image/parts calls. Audit returned source,
+  fill cash review-decisions plan, apply PDF/cash source edits/approve and run
+  complete-courses once for both. Conditional protected production0186/native82
+  only after full semantic/image/learner acceptance. Evidence r2/r3 preserved.
+
 # Source preparation staged recovery candidate — 2026-11-07
 
 - result: Recovery implementation frozen for exact CI/DEV. Current hosted DEV

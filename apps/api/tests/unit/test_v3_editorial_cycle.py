@@ -15,6 +15,32 @@ pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
 
 
 @pytest.mark.asyncio
+async def test_editor_receives_normalized_author_ids_without_changing_wire_response(case):
+    corpus, packet, original = case
+    original = copy.deepcopy(original)
+    second = copy.deepcopy(original['lessons'][0])
+    second['id'] = 'l2'
+    original['lessons'].append(second)
+    view = PracticalModelView(packet)
+    wire = view.encode(original)
+    saved = copy.deepcopy(wire)
+
+    async def stage(name, group, messages, fmt, validate):
+        if name == 'lesson':
+            validate(wire)
+            return wire
+        content = messages[1]['content']
+        received = json.loads(content.split('\nFULL_COURSE_WITH_KEYS_AND_EXPLANATIONS_JSON\n')[1])
+        ids = [q['id'] for lesson in received['lessons'] for q in lesson['questions']]
+        assert len(ids) == len(set(ids))
+        assert wire == saved
+        raise RuntimeError('review reached')
+
+    with pytest.raises(RuntimeError, match='review reached'):
+        await run_editorial_cycle(packet, corpus, CourseIntent(purpose='Training', audience='Staff'), (), stage)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('mode', ['clean', 'material', 'source', 'advisory'])
 async def test_editorial_role_sees_whole_course_blind_check_stays_blind_and_draft_survives(case, mode):
     corpus, packet, original = case

@@ -332,6 +332,31 @@ async def test_interrupted_job_resumes_same_lineage_without_new_charge(monkeypat
 
 
 @pytest.mark.asyncio
+async def test_retained_resume_preserves_pending_and_binds_one_new_delivery(monkeypatch):
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+    tenant_id = uuid4()
+    pending = {"policy": "v3-pending-stages-v1", "entries": {"a" * 64: {
+        "claim_key": "claim", "result_key": "result", "token": "b" * 32}}}
+    job = SimpleNamespace(id="job-1", tenant_id=tenant_id, status="interrupted", course_id=None,
+        stage="interrupted", message="held", errors=["generation_interrupted"], result={"v3_pending_stages": pending},
+        params={"source_analysis": {"analysis_mode": "direct_source", "generation_engine": "evidence_v2"}})
+    candidate = {"stage": "a" * 64, "body_sha256": "c" * 64, "pending_sha256": "d" * 64}
+    monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.owned_candidate', AsyncMock(return_value=candidate))
+    monkeypatch.setattr(job_service, "_lock_tenant_row", AsyncMock())
+    monkeypatch.setattr(job_service, "get_ai_job", AsyncMock(return_value=job))
+    monkeypatch.setattr(job_service, "count_active_ai_jobs", AsyncMock(return_value=0))
+    monkeypatch.setattr(job_service, "build_ai_job_queue_metadata", AsyncMock(return_value={}))
+    dispatcher = job_service.InMemoryAIJobDispatcher()
+    resumed, _ = await job_service.resume_interrupted_ai_job(_CommitSession(), job=job, tenant_id=tenant_id,
+        task_kwargs={"job_id": job.id}, active_limit=1, worker_concurrency=1,
+        historical_estimate_seconds=60, dispatcher=dispatcher)
+    marker = resumed.params[AUTHORIZATION_KEY]
+    assert marker == {"policy": AUTHORIZATION_POLICY, **candidate, "delivery_id": resumed.result["delivery_task_id"]}
+    assert resumed.result["v3_pending_stages"] == pending and resumed.status == "pending"
+    assert len(dispatcher.submissions) == 1 and dispatcher.submissions[0][1] == marker["delivery_id"]
+
+
+@pytest.mark.asyncio
 async def test_resume_rejects_retired_generation_engine_before_queue_admission(monkeypatch):
     tenant_id = uuid4()
     job = SimpleNamespace(

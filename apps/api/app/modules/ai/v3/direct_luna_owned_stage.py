@@ -153,6 +153,55 @@ async def run_direct_owned_stage(
             raise ValueError("direct_owned_replay_invalid")
         return inspection.result
 
+    if inspection.decision == "replay_completed":
+        from app.modules.ai.delivery_ownership import delivery_id
+        from app.modules.ai.v3.direct_usage_metadata import checked_metadata
+        from app.modules.ai.v3.pending_stage_transactions import finalize_pending
+        from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY, owned_candidate
+
+        candidate = inspection.result
+        if type(client) is not ManagedLunaClient or not isinstance(candidate, dict):
+            raise ExtractionOutcomeUnknownError("v3_retained_replay_unverified")
+
+        async def replay_checkpoint() -> bool:
+            async with journal.sessions() as session:
+                job = await _locked_job(session, journal, journal.user_id)
+                current = await owned_candidate(session, job)
+                params = job.params if isinstance(job.params, dict) else {}
+                marker = params.get(AUTHORIZATION_KEY)
+                if (current is None or current != candidate or marker != {
+                        "policy": AUTHORIZATION_POLICY, "stage": candidate["stage"],
+                        "body_sha256": candidate["body_sha256"], "pending_sha256": candidate["pending_sha256"],
+                        "delivery_id": delivery_id.get()}):
+                    raise ExtractionOutcomeUnknownError("v3_retained_replay_unverified")
+                await verify_source_safely(verify_source, session, job, plan)
+            return True
+
+        capability: object | None = None
+        try:
+            capability = await client.prepare(messages, max_output_tokens=max_output_tokens,
+                                              ownership_checkpoint=replay_checkpoint, response_format=response_format)
+            result = await client.replay_completed(capability, receipt=candidate["receipt"],
+                tenant_id=UUID(journal.tenant_id), user_id=journal.user_id, job_id=journal.job_id,
+                stage_id=_digest(plan), ownership_checkpoint=replay_checkpoint)
+            response = validate_response(result.content)
+            replay_metadata = checked_metadata({"model": result.model, "usage": {
+                "input_tokens": result.usage.input_tokens, "output_tokens": result.usage.output_tokens,
+                "cached_input_tokens": result.usage.cached_input_tokens, "reasoning_tokens": result.usage.reasoning_tokens}})
+            value = {"identity": _digest(plan), "response": response, "response_sha256": _digest(response),
+                     "direct_metadata": replay_metadata, "direct_metadata_sha256": _digest(replay_metadata)}
+            audit = {"policy": AUTHORIZATION_POLICY, "stage_sha256": _digest(plan),
+                     "body_sha256": candidate["body_sha256"],
+                     "wire_request_sha256": candidate["receipt"]["wire_request_sha256"], "model": result.model}
+            return await finalize_pending(journal=journal, user_id=journal.user_id, plan=plan,
+                result_key=result_key, claim_key=claim_key, marker=candidate["marker"], value=value,
+                validate=validate_with_metadata, verify_source=verify_source, replay_audit=audit)
+        except Exception:
+            raise ExtractionOutcomeUnknownError("v3_retained_replay_unverified") from None
+        finally:
+            if capability is not None:
+                client.discard(capability)
+
     claimed = False
 
     async def checkpoint() -> bool:

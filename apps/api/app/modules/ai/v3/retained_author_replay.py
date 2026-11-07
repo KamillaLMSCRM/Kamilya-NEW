@@ -1,0 +1,76 @@
+"""Read-only eligibility for the retained, complete V31 author response."""
+from __future__ import annotations
+
+import base64
+import hashlib
+import re
+from typing import Any
+from uuid import UUID
+
+from app.modules.ai.v3.managed_rejection_quarantine import KEY, POLICY, private_key, private_plan
+from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+from app.modules.ai.v3.pending_stage_transactions import checked_entries
+from app.modules.ai.v3.stage_checkpoint import _digest
+
+AUTHORIZATION_KEY = "v3_retained_author_replay"
+AUTHORIZATION_POLICY = "v3-retained-author-replay-v1"
+
+
+async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
+    """Read private checkpoints; caller holds the job lock when authorizing a delivery."""
+    try:
+        if (not isinstance(job.result, dict) or not isinstance(job.user_id, UUID)
+                or job.course_id is not None):
+            return None
+        entries = checked_entries(job.result)
+        if len(entries) != 1:
+            return None
+        digest, entry = next(iter(entries.items()))
+        if entry["claim_key"] != "v3-stage-claim:" + digest or entry["result_key"] != "v3-stage-result:" + digest:
+            return None
+        quarantine = job.result.get(KEY)
+        if (not isinstance(quarantine, dict) or quarantine.get("policy") != POLICY
+                or set(quarantine) != {"policy", "entries"} or not isinstance(quarantine.get("entries"), dict)
+                or set(quarantine["entries"]) != {digest}):
+            return None
+        reference = quarantine["entries"][digest]
+        if (not isinstance(reference, dict) or reference.get("stage_sha256") != digest
+                or reference.get("checkpoint_key") != private_key(digest)
+                or reference.get("phase") != "structured_shape" or reference.get("accepted") is not False
+                or reference.get("complete_http_response") is not True or type(reference.get("status")) is not int
+                or reference.get("status") != 200):
+            return None
+        journal = PendingStageJournal(str(job.tenant_id), job.user_id, str(job.id), None)
+        saved_plan = await journal.repository.load_plan(db, tenant_id=journal.tenant_id,
+                                                        generation_key=journal._owned_key(entry["claim_key"]))
+        plan = dict(saved_plan.plan_payload)
+        if (_digest(plan) != digest or plan.get("schema") != "v3-stage-checkpoint-v1"
+                or plan.get("stage") != "lesson" or plan.get("group_id") != "practical:author:editorial:v31"
+                or plan.get("tenant_id") != journal.tenant_id or plan.get("job_id") != journal.job_id
+                or plan.get("route_fingerprint") != reference.get("route_fingerprint")):
+            return None
+        marker = await journal.read_owned_value_in_session(db, entry["claim_key"], plan)
+        if marker != {"identity": digest, "claim_token": entry["token"]}:
+            return None
+        result_plan = await journal.repository.load_plan(db, tenant_id=journal.tenant_id,
+                                                        generation_key=journal._owned_key(entry["result_key"]))
+        if (result_plan.source_job_id != saved_plan.source_job_id
+                or result_plan.plan_revision != saved_plan.plan_revision or result_plan.lessons != saved_plan.lessons
+                or dict(result_plan.plan_payload) != plan
+                or await journal.read_owned_value_in_session(db, entry["result_key"], plan) is not None):
+            return None
+        receipt = await journal.read_owned_value_in_session(db, private_key(digest), private_plan(plan))
+        if not isinstance(receipt, dict) or {k: v for k, v in receipt.items() if k != "raw_base64"} != {
+                k: v for k, v in reference.items() if k != "checkpoint_key"}:
+            return None
+        raw = base64.b64decode(receipt["raw_base64"], validate=True)
+        if (type(receipt.get("byte_count")) is not int or len(raw) != receipt["byte_count"]
+                or len(raw) > 2097152 or hashlib.sha256(raw).hexdigest() != receipt.get("body_sha256")
+                or not isinstance(receipt.get("wire_request_sha256"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", receipt["wire_request_sha256"]) is None):
+            return None
+        return {"stage": digest, "body_sha256": receipt["body_sha256"],
+                "pending_sha256": _digest(job.result["v3_pending_stages"]), "plan": plan,
+                "marker": marker, "receipt": receipt}
+    except Exception:
+        return None

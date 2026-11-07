@@ -1,3 +1,4 @@
+import copy
 from dataclasses import replace
 
 import pytest
@@ -140,3 +141,63 @@ def test_reference_may_span_blocks():
         "tenant", "doc", "r1", packet.source_documents[0][2], 0, len(text), text, 0, 5, "First", "owner_chat"
     )
     assert contract.build_practical_source_packet(data, (decision,)).reference_context
+
+
+def test_lesson_local_question_labels_normalize_without_mutating_response():
+    packet = contract.build_practical_source_packet(corpus())
+    value = course(packet)
+    template = value['lessons'][0]
+    value['lessons'] = []
+    for index in range(7):
+        lesson = copy.deepcopy(template)
+        lesson['id'] = f'lesson-{index}'
+        lesson['questions'] = []
+        for question in range(2 if index == 6 else 3):
+            item = copy.deepcopy(template['questions'][0])
+            item['id'] = f'q{question + 1}'
+            lesson['questions'].append(item)
+        value['lessons'].append(lesson)
+    before = copy.deepcopy(value)
+    ids = {b.block_id for b in packet.blocks if b.text.strip()}
+    normalized = contract.normalize_author_question_ids(value, ids)
+    assert value == before
+    assert normalized == contract.normalize_author_question_ids(value, ids)
+    assert len({q['id'] for lesson in normalized['lessons'] for q in lesson['questions']}) == 20
+    assert contract.validate_practical_course(normalized, packet) == normalized
+    assert contract.matches_practical_course_response(value, contract.course_response_format(packet))
+    for old, new in zip(value['lessons'], normalized['lessons'], strict=True):
+        for old_q, new_q in zip(old['questions'], new['questions'], strict=True):
+            assert {k: v for k, v in old_q.items() if k != 'id'} == {k: v for k, v in new_q.items() if k != 'id'}
+
+
+@pytest.mark.parametrize('fault', ['within', 'lesson', 'collision', 'source', 'choice', 'index', 'fields', 'blank'])
+def test_local_id_normalization_does_not_accept_invalid_course(fault):
+    packet = contract.build_practical_source_packet(corpus())
+    value = course(packet)
+    other = copy.deepcopy(value['lessons'][0])
+    other['id'] = 'l2'
+    value['lessons'].append(other)
+    q = other['questions'][0]
+    if fault == 'within':
+        other['questions'].append(copy.deepcopy(q))
+    elif fault == 'lesson':
+        other['id'] = 'l1'
+    elif fault == 'collision':
+        q['id'] = 'l1'
+    elif fault == 'source':
+        q['source_refs'] = ['foreign']
+    elif fault == 'choice':
+        q['choices'] = ['a', ' A ', 'c']
+    elif fault == 'index':
+        q['correct_index'] = 9
+    elif fault == 'fields':
+        q['extra'] = 'unexpected'
+    else:
+        q['prompt'] = ' '
+    assert not contract.matches_practical_course_response(value, contract.course_response_format(packet))
+
+
+def test_globally_unique_question_labels_are_unchanged():
+    packet = contract.build_practical_source_packet(corpus())
+    value = course(packet)
+    assert contract.normalize_author_question_ids(value, {b.block_id for b in packet.blocks}) == value

@@ -14,6 +14,51 @@ const activeJob = {
 };
 
 describe('AI generation workflow recovery', () => {
+  it('continues the same held job only when a retained-response capability is present', async () => {
+    const held = { ...activeJob, status: 'reconciliation_required', stage: 'interrupted', course_id: null, retained_response_replay_available: true };
+    const pending = { ...held, status: 'pending', stage: 'queued', retained_response_replay_available: false };
+    apiMock.post.mockResolvedValueOnce({ data: pending });
+    const { result } = renderHook(() => useGenerationWorkflow());
+    act(() => { result.current.startJob({ ...held, retained_response_replay_available: false }); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).not.toHaveBeenCalled();
+    act(() => { result.current.startJob(held); });
+    await act(async () => { await result.current.resumeJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.post).toHaveBeenCalledWith('/v1/ai/jobs/current-tenant-job/resume');
+    expect(result.current.currentJob?.status).toBe('pending');
+  });
+
+  it('keeps an unknown retained-response dispatch fenced after capability disappears', async () => {
+    const held = { ...activeJob, status: 'reconciliation_required', stage: 'interrupted', course_id: null, retained_response_replay_available: true };
+    const unknown = { ...held, retained_response_replay_available: false };
+    apiMock.post.mockRejectedValueOnce(new Error('connection lost'));
+    apiMock.get.mockResolvedValue({ data: unknown });
+    const { result } = renderHook(() => useGenerationWorkflow());
+    act(() => { result.current.startJob(held); });
+    await act(async () => { await result.current.resumeJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.get).toHaveBeenCalledTimes(3);
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/ai/jobs/current-tenant-job');
+    expect(result.current.resumeReconciliation).toBe(true);
+  });
+
+  it('keeps a held HTTP200 resume response fenced until exact status is known', async () => {
+    const held = { ...activeJob, status: 'reconciliation_required', stage: 'interrupted', course_id: null, retained_response_replay_available: true };
+    apiMock.post.mockResolvedValueOnce({ data: held });
+    apiMock.get.mockResolvedValueOnce({ data: held });
+    const { result } = renderHook(() => useGenerationWorkflow());
+    act(() => { result.current.startJob(held); });
+    await act(async () => { await result.current.resumeJob(); });
+    await act(async () => { await result.current.resumeJob(); });
+    expect(apiMock.post).toHaveBeenCalledTimes(1);
+    expect(apiMock.get).toHaveBeenCalledTimes(1);
+    expect(result.current.resumeReconciliation).toBe(true);
+  });
+
   it('ignores an unresolved explicit restore after a new job starts', async () => {
     let resolve!: (value: { data: typeof activeJob }) => void;
     apiMock.get.mockReturnValueOnce(new Promise((yes) => { resolve = yes; }));
