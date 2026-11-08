@@ -1,4 +1,6 @@
 import json
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -31,6 +33,106 @@ from app.modules.source_editorial_review.service import apply_command, pin_revie
 ORIGINAL = "До 45 МРП действует первый порядок. Свыше 45 МРП действует второй. Документ оформляет операотр."
 QUOTE = "До 45 МРП действует первый порядок."
 REPLACEMENT = "До 45 МРП включительно действует первый порядок."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source_cap", [16384, 32768])
+async def test_source_editor_native_managed_profile_keeps_source_token_cap(monkeypatch, source_cap):
+    import asyncio
+
+    from app.modules.source_editorial_review import analysis
+    from app.modules.source_editorial_review.request_custody import POLICY as CUSTODY_POLICY
+    from app.modules.source_editorial_review.request_custody import identity
+    from app.modules.source_preparation.domain import PreparedSource, digest
+    from app.modules.source_preparation.extraction import NativeSource
+    from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
+    from tests.unit.test_source_review_custody import row
+
+    tenant, document, actor = uuid4(), uuid4(), uuid4()
+    source_sha, block_id = "a" * 64, "block-" + "b" * 24
+    part_id = "part-" + digest(source_sha + block_id + block_id)[:24]
+    package = PreparedSource.model_validate({"original_blob_sha256": source_sha,
+        "blocks": [{"id": block_id, "text": "Source", "kind": "text"}],
+        "parts": [{"id": part_id, "title": "Source", "role": "learning", "reason": "Relevant",
+                   "first_block": block_id, "last_block": block_id}]})
+    parent = row("queued", 1, actor, source_sha)
+    parent.created_at = datetime.now(UTC)
+    rows = [parent]
+    doc = SimpleNamespace(id=document, tenant_id=tenant, content_sha256=source_sha,
+                          filename="source.docx", s3_key="fixture")
+    session = SimpleNamespace(execute=AsyncMock(), commit=AsyncMock())
+
+    @asynccontextmanager
+    async def sessions():
+        yield session
+
+    def add_event(_db, _doc, *, actor_id, sequence, kind, payload, **_):
+        event = row(kind, sequence, actor_id, source_sha, payload)
+        event.created_at = datetime.now(UTC)
+        rows.append(event)
+        return event
+
+    async def prepare(_native, *, checkpoint, **_):
+        await checkpoint("source-preparation-v1:manifest:" + source_sha,
+                         {"manifest": package.model_dump(), "visual_review_policy": _VISUAL_REVIEW_POLICY})
+        return package
+
+    async def analyze_fixture(_source, *, complete_json, **_):
+        assert await complete_json([{"role": "system", "content": "review"},
+                                    {"role": "user", "content": "{}"}]) == {"ok": True}
+        return {"original": "Source", "issues": [], "automatic": [], "model_calls": 1}
+
+    initial = SimpleNamespace(name="deepseek", model="synthetic", base_url="local", endpoint="/test",
+                              timeout=5, extra_body={}, managed_evidence_profile=True)
+    profile = SimpleNamespace(name="deepseek", model="synthetic", base_url="local", endpoint="/test",
+                              timeout=41, extra_body={"thinking": {"type": "enabled"}, "reasoning_effort": "low"},
+                              managed_evidence_profile=True)
+    helper = Mock(return_value=(profile, 16384, 41))
+    response = SimpleNamespace(content='{"ok":true}', provider_name="deepseek", model="synthetic",
+                               prompt_tokens=3, completion_tokens=2, usage_complete=True)
+    model_call = AsyncMock(return_value=response)
+    client_factory = Mock(return_value=SimpleNamespace(ainvoke=model_call))
+    timeouts = []
+    original_timeout = asyncio.timeout
+
+    def capture_timeout(seconds):
+        timeouts.append(seconds)
+        return original_timeout(seconds)
+
+    runtime = SimpleNamespace(integer=lambda key: source_cap if key == "source_preparation.max_tokens" else 1000)
+    monkeypatch.setattr(analysis, "async_session_factory", sessions)
+    monkeypatch.setattr(analysis, "owned_document", AsyncMock(return_value=doc))
+    monkeypatch.setattr(analysis, "history", AsyncMock(side_effect=lambda *_: list(rows)))
+    monkeypatch.setattr(analysis, "add_event", add_event)
+    monkeypatch.setattr(analysis, "review_enabled", lambda: True)
+    monkeypatch.setattr(analysis, "get_settings", lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=False))
+    monkeypatch.setattr(analysis, "extract_native_source", lambda *_args, **_kwargs: NativeSource((), (), None, ()))
+    monkeypatch.setattr(analysis, "prepare_native_source", prepare)
+    monkeypatch.setattr(analysis, "analyze", analyze_fixture)
+    monkeypatch.setattr(analysis.ResilientLLMClient, "from_settings_async",
+                        AsyncMock(return_value=SimpleNamespace(_clients=[SimpleNamespace(config=initial)])))
+    monkeypatch.setattr("app.modules.admin.runtime_configuration.runtime.resolve_runtime_settings", AsyncMock(return_value=runtime))
+    monkeypatch.setattr("app.core.storage.get_storage", lambda: SimpleNamespace(get_bytes=lambda _: b"synthetic"))
+    monkeypatch.setattr("app.modules.ai.llm_client._managed_profile_attempt", helper)
+    monkeypatch.setattr("app.modules.ai.llm_client.LLMClient", client_factory)
+    monkeypatch.setattr("app.core.celery_app.celery_app.send_task", Mock())
+    monkeypatch.setattr(asyncio, "timeout", capture_timeout)
+
+    assert await analysis.run_analysis(tenant, document, parent.id) == "continued"
+    queued = rows[-1]
+    assert await analysis.run_analysis(tenant, document, queued.id) == "analyzed"
+    helper.assert_called_once_with(initial, runtime, "course_generation")
+    client_factory.assert_called_once_with(profile, temperature=0.1, max_tokens=source_cap, max_retries=0)
+    assert profile.extra_body == {"thinking": {"type": "enabled"}, "reasoning_effort": "low"}
+    assert 41 in timeouts
+    route = text_hash(json.dumps([profile.name, profile.model, profile.base_url, profile.endpoint, 41,
+                                  source_cap, profile.extra_body, "source-review-single-attempt-v2"], sort_keys=True))
+    selected = text_hash(json.dumps(queued.payload["preparation"], ensure_ascii=False, sort_keys=True))
+    key = identity(tenant=str(tenant), document=str(document), original_sha=source_sha, selected_sha=selected,
+                   policy=analysis._ANALYSIS_POLICY, route=route,
+                   messages=[{"role": "system", "content": "review"}, {"role": "user", "content": "{}"}])
+    assert any(event.payload.get("key") == f"{CUSTODY_POLICY}:{key}:initial:intent" for event in rows)
+    model_call.assert_awaited_once()
 
 
 @pytest.mark.parametrize(("error", "expected"), [

@@ -1,9 +1,11 @@
 ## AGENT-RELEASE-OBSERVABILITY-001 — stale watchdog identity survived prior releases
 
-- Date:2026-11-07. Independent closeout read found EXPECTED_RELEASE/image still
+- Date:2026-11-07.
+- Symptom: independent closeout read found EXPECTED_RELEASE/image still
   on0.11.74 while the actual accepted API was82. This proves stale expectations,
-  not a measured historical outage. A successful protected rollout alone missed
-  the separate existing monitoring closeout required by the deploy skill.
+  not a measured historical outage.
+- Cause: prior release closeout omitted the separate existing monitoring
+  expectation reconciliation required after a successful protected rollout.
 - Fix: current82/four healthy containers guard, exact old config hash/identity
   guard, root-only byte-identical backup, atomic update of only EXPECTED_RELEASE
   and EXPECTED_API_IMAGE. Other settings/thresholds and retention stayed unchanged.
@@ -18,6 +20,8 @@
 ## AGENT-ACCEPTANCE-HARNESS-001 — unverified fixture assumptions and lost diagnostics
 
 - Date:2026-11-07. Scope:source-preparation82 acceptance scripts, not a product defect.
+- Symptom: acceptance harness stopped on fixture/session/image assertions and
+  initially retained insufficient diagnostics to classify them.
 - Cause: API-login alone did not establish browser-session proof; an early tab
   click could occur before hydration. Reusing a completed learner enrollment
   incorrectly expected the lesson reader rather than its completion page.
@@ -28,7 +32,7 @@
   Keep first complete12L37Q proof immutable. Full-size controls separately tested
   read-only in author reader: authenticated API byte hash, same blob URL and
   original decoded dimensions, all10images. No CSP/authorization weakening.
-- Evidence: r5 learner-acceptance-report files retain every failure and distinct
+- Verification: r5 learner-acceptance-report files retain every failure and distinct
   PASS_WITH_CONFIRMATION_PENDING / PASS_FULLSIZE_AUTHOR_READ_ONLY results.
   No extra assignments, quiz attempts or model runs were made during follow-up.
 - Prevention: inspect page state and API contracts before a repeated harness;
@@ -40,10 +44,24 @@
   harness stopped after acknowledged assignment without extra attempts. Confirm
   assignment ID/status through that DTO and verify the exact frozen release via
   returned QuizAttemptResponse instead; both production quiz attempts matched.
+- Follow-up2026-11-08: source turn-usage stores a list while per-request custody
+  stores a usage object. A new read-only diagnostic incorrectly called get on
+  both. Its BLOCKED receipt is retained; a typed reader then verified the empty
+  native editor response and usage without a provider call or business write.
+  Inspect actual metadata shape; unknown counters must not become zero.
+- For platform settings, validate the password-login TokenResponse role/tenant
+  and the platform-only settings endpoint. Tenant users/me is not the platform
+  identity seam; its403 must not be labelled expired credentials. Do not assume
+  TokenResponse.user has the same identity field as UserResponse.
+- Acceptance test paths must come from rg --files and be checked before invoking
+  the canonical wrapper. A guessed continuation filename collected zero tests;
+  the enumerated seven-file source suite subsequently passed147.
 
 ## AGENT-RESTORE-ADAPTER-001 — relocated archive name and sidecar contract
 
-- Date:2026-11-07. First two CT125 drill wrappers stopped before restore because
+- Date:2026-11-07.
+- Symptom: first two CT125 drill wrappers stopped before restore.
+- Cause: the
   native backup uses a database-specific basename and absolute sidecar path,
   while the established drill requires kamilya_UTC.dump.gpg and basename sidecar.
   Original encrypted archive/hash remained correct; production was not restored.
@@ -51,7 +69,7 @@
   bytes to a protected temporary canonical basename with the same UTC stamp;
   write only its verified temporary basename sidecar. Production archive unchanged.
   Existing installed drill hash/signature procedure retained, no validator changes.
-- Check: source082/185 signed restore20261107T100822Z, RPO254/RTO19,
+- Verification: source082/185 signed restore20261107T100822Z, RPO254/RTO19,
   131tables/127FORCE-RLS; independent signature/DB/temp absence readback PASS.
   Original failed receipts retained. Read-only diagnosis exposed only closed
   error indexes, hashes and safe phase codes, never secret contents or dump data.

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.83] - 2026-11-08
+
+### Fixed
+
+- Honor the audited source-preparation response-token setting on native DeepSeek requests while retaining the managed transport timeout, enabled reasoning and completed-response custody. The generic course profile no longer silently substitutes its smaller response limit.
+
 ## [0.11.82] - 2026-11-07
 
 ### Added

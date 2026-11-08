@@ -663,7 +663,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     timeout = float(config.timeout)
                     max_tokens = runtime.integer("source_preparation.max_tokens")
                     if config.name == "deepseek" and config.managed_evidence_profile:
-                        config, max_tokens, timeout = _managed_profile_attempt(config, runtime, "course_generation")
+                        config, _, timeout = _managed_profile_attempt(config, runtime, "course_generation")
                     route = text_hash(json.dumps([config.name, config.model, config.base_url, config.endpoint,
                                                    timeout, max_tokens, config.extra_body,
                                                    "source-review-single-attempt-v2"], sort_keys=True))

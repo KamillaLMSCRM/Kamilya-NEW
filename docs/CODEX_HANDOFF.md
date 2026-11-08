@@ -1,4 +1,43 @@
-# Source preparation82 COMPLETE: both files DEV and synthetic PROD accepted — 2026-11-07
+# Original-file production acceptance IN PROGRESS — 2026-11-08
+
+- result: Owner now requires both exact originals in permanent production QA
+  tenant83552ce6, not yesterday's synthetic source. Customer Lombard courses
+  must remain untouched. API/native frontend still82/ae11c4d3; no active source
+  or course model request remains at this checkpoint. Evidence directory
+  `.release-evidence/source-preparation-prod-originals-20261108/`.
+- changed: Original PDF document6d7e9ffb reused after exact byte-hash verification;
+ 9scans/4parts, substantive pages3–9 selected. One OCR plural restored; literal
+  two-supervisor wording and numbering gap3.3.7 retained with journal decisions.
+  Approved source produced job16fc74f7/course33905f00-cd85-4728-85c1-f4ba0d745deb,
+ 10L39Q. Independent full content audit found3semantic issues; normal QA editor
+  corrected3lesson bodies/3questions, preserved other7lessons/36questions, and
+  deliberately invalidated3old question citations. Independent actual readback GO;
+  three holds explicitly manually verified against frozen source/current hash.
+  Course published/release5c2a4cd5, enrollment5dd839c3. First5lessons/19questions
+  passed real browser, exact release-bound attempts retained. Remaining5pending.
+- verified: New cash DOCX document28048b11, original SHAa0f45e...8d7e verified;
+ 10original embedded images match exact hashes,8parts/five learning selections
+  durably prepared. Source review failed102/editor_response: completed DeepSeek
+  reply101 has empty content,11825input/16384reported output tokens. No blind retry.
+  ENG-039 local fix: source cap was overwritten by generic course profile; one
+  call-site now preserves audited source cap and existing timeout/reasoning.
+ 147source/recovery/preparation tests, baseline1010/2174, version83 and release
+  contract pass. Navigation refreshed2419files/28447nodes/85056edges/zeroLLM.
+- blockers: Source cap setting currently16384/default, production settings rev3;
+  no setting write yet. Local83 needs exact CI/DEV/release before one same-source
+  continuation with audited32768 response ceiling (owner earlier authorized a
+  higher output ceiling; no plan/spend-limit/routing change). Preserve completed
+  visual work and failed receipt. Two browser harness runs stopped before lesson6
+  heading; no sixth attempt exists. Read-only direct lesson6 and six-page sequence
+  both render correctly with noHTTP failures. Exact first harness cause UNKNOWN;
+  resume saved progress rather than repeat passed tests. No customer data writes.
+- next: Complete PDF learner/certificate/journal, move minimal83 through canonical
+  CI/DEV/protected backend release with rollback, then same cash source continuation,
+  explicit editorial review, full generated-course semantic audit and all image/
+  learner/completion/certificate/journal checks. Do not claim both originals passed
+  production until these remaining gates actually finish.
+
+# Historical: Source preparation82 COMPLETE: DEV originals and synthetic PROD — 2026-11-07
 
 - result: Both requested capabilities are live in API/three workers/native CT137
   and accepted DEV at ae11c4d3a962e35405580d801a01e1e74773a283 / v0.11.82.

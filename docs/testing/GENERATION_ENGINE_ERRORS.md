@@ -1,5 +1,26 @@
 # Журнал ошибок движка генерации и обработки курсов
 
+## ENG-039 — source-response cap silently replaced by the course profile
+
+- 08.11.2026, production82/ae11c4d3, permanent QA tenant only. The original cash
+  DOCX preparation retained10 native images and8 semantic parts, then failed at
+  editor_response. Exact completed DeepSeek receipt101 contains empty content,
+  11825input/16384reported output tokens; JSON parsing fails at position0.
+  Failed event102 and all completed preparation checkpoints remain unchanged.
+- Verified code defect: native source review reads the audited
+  source_preparation.max_tokens setting, then overwrites it with the generic
+  course_generation profile's fixed16384. Increasing the source setting would
+  therefore not change this request. The empty response at the old cap is an
+  observed provider result; a higher cap's effectiveness needs a real readback.
+- Local correction preserves the source-specific cap and retains the managed
+  transport timeout, enabled thinking/reasoning, zero retries and custody
+  identity. No global profile, validator, source text or provider order changed.
+  Offline actual worker-path regressions cover16384/32768 and distinct request
+  identity.147source/preparation/recovery tests and Pythonbaseline1010/2174 pass.
+- Hosted exact release, audited setting adjustment and continuation of the same
+  original QA document are pending at this entry. No failed response was accepted
+  or silently rerun. Evidence: source-preparation-prod-originals-20261108.
+
 ## ENG-038 — контекстные редакторские ошибки при двухфайловой приёмке
 
 - 07.11.2026, точный DEV ae11c4d3. Сохранены полные курсы по составному PDF
