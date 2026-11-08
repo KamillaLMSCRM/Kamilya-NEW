@@ -57,6 +57,25 @@
   the canonical wrapper. A guessed continuation filename collected zero tests;
   the enumerated seven-file source suite subsequently passed147.
 
+- Follow-up2026-11-08: copied release-reader assumptions repeated this same
+  mistake: the pure gate returned verdict=GO while an old wrapper read status.
+  Its GO payload was preserved and independently checked before approval.
+  No-migration manifests canonically require null revisions and
+  rollback_compatible=false; that boolean is a DB-migration contract, not image
+  rollback permission. Inspect Migration.parse and evaluator result contracts
+  before adapting a migration-only helper. Existing downloaded immutable
+  artifacts must be read back rather than blindly downloaded over existing files.
+  Local helpers explicitly read/write UTF-8; canonical remote trust uses
+  kz_remote_exec.DEFAULT_ENV_FILE, whereas application QA credentials use the
+  primary repo env. A wrong-path rejection is not a credential failure.
+
+- Follow-up2026-11-08: a local cash harness clone decoded UTF-8 as cp1251,
+  corrupting its Russian password-tab selector. Student login timed out before
+  any student POST. Rebuild from explicit UTF-8 source, preserve the failed
+  script/report and resume acknowledged review/publication; do not relabel it an
+  application outage or repeat completed mutations. All text-source reads use
+  explicit UTF-8; prose writes preserve original Git-blob tails byte-for-byte.
+
 ## AGENT-RESTORE-ADAPTER-001 — relocated archive name and sidecar contract
 
 - Date:2026-11-07.

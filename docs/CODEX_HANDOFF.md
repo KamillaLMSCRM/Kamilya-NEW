@@ -1,41 +1,34 @@
-# Original-file production acceptance IN PROGRESS — 2026-11-08
+# Original-file production acceptance COMPLETE — 2026-11-08
 
-- result: Owner now requires both exact originals in permanent production QA
-  tenant83552ce6, not yesterday's synthetic source. Customer Lombard courses
-  must remain untouched. API/native frontend still82/ae11c4d3; no active source
-  or course model request remains at this checkpoint. Evidence directory
-  `.release-evidence/source-preparation-prod-originals-20261108/`.
-- changed: Original PDF document6d7e9ffb reused after exact byte-hash verification;
- 9scans/4parts, substantive pages3–9 selected. One OCR plural restored; literal
-  two-supervisor wording and numbering gap3.3.7 retained with journal decisions.
-  Approved source produced job16fc74f7/course33905f00-cd85-4728-85c1-f4ba0d745deb,
- 10L39Q. Independent full content audit found3semantic issues; normal QA editor
-  corrected3lesson bodies/3questions, preserved other7lessons/36questions, and
-  deliberately invalidated3old question citations. Independent actual readback GO;
-  three holds explicitly manually verified against frozen source/current hash.
-  Course published/release5c2a4cd5, enrollment5dd839c3. First5lessons/19questions
-  passed real browser, exact release-bound attempts retained. Remaining5pending.
-- verified: New cash DOCX document28048b11, original SHAa0f45e...8d7e verified;
- 10original embedded images match exact hashes,8parts/five learning selections
-  durably prepared. Source review failed102/editor_response: completed DeepSeek
-  reply101 has empty content,11825input/16384reported output tokens. No blind retry.
-  ENG-039 local fix: source cap was overwritten by generic course profile; one
-  call-site now preserves audited source cap and existing timeout/reasoning.
- 147source/recovery/preparation tests, baseline1010/2174, version83 and release
-  contract pass. Navigation refreshed2419files/28447nodes/85056edges/zeroLLM.
-- blockers: Source cap setting currently16384/default, production settings rev3;
-  no setting write yet. Local83 needs exact CI/DEV/release before one same-source
-  continuation with audited32768 response ceiling (owner earlier authorized a
-  higher output ceiling; no plan/spend-limit/routing change). Preserve completed
-  visual work and failed receipt. Two browser harness runs stopped before lesson6
-  heading; no sixth attempt exists. Read-only direct lesson6 and six-page sequence
-  both render correctly with noHTTP failures. Exact first harness cause UNKNOWN;
-  resume saved progress rather than repeat passed tests. No customer data writes.
-- next: Complete PDF learner/certificate/journal, move minimal83 through canonical
-  CI/DEV/protected backend release with rollback, then same cash source continuation,
-  explicit editorial review, full generated-course semantic audit and all image/
-  learner/completion/certificate/journal checks. Do not claim both originals passed
-  production until these remaining gates actually finish.
+- result: Both exact owner originals passed permanent production QA tenant83552ce6
+  full source/content/publication/assignment/real learner/certificate/journal/CSV.
+ 18lessons/70questions,100% both; all10original cash images1440/390/fullsize,
+  authorization negatives and post-completion byte hashes PASS. Original files,
+  frozen approvals and published revisions re-read unchanged. Customer Lombard
+  courses were not mutated. No active QA generation or local acceptance remains.
+- changed: Minimal83/466e0f902b70283cd3d3375cf216163e8d2b2ea5 honors source cap;
+  one audited existing setting16384→32768 revision3→4 only. Cash failed102 retained;
+  same parts/ten images reused, source110→123 approved13310b53. Source journal
+  records one automatic undo/two resolutions/nine manual edits; no owner answer
+  invented. Full course audits addressed PDF3lesson/3question and cash4lesson/
+ 2question issues,0new model calls.5edited citations stay invalidated/manual verified.
+- verified: PDF33905f00/release5c2a4cd5/enrollment5dd839c3/cert804DC4A7ECC6;
+  cashde618fe7/release5d62a33f/enrollment2210d760/cert8535836B40A2. All8cash
+  saved attempts resumed without repetition via ordinary SPA navigation; two
+  refresh200. First hard-navigation failure and selector-encoding error retained.
+  PRCI42452378532, DEV42453950739 RELEASE_OK/RECONCILED, master42454725093,
+  protected42455211137 PASS. API+3workers83/image62ea4c08/blue/restart0; native
+  frontend remains82/ae11. Watchdog83/SMTP/CT125186/RLS/rollback82/e1c PASS;
+  reserve unchanged, DEVfa9324cc/imagee1489e49/restart0. No migration/plan change.
+- blockers: None for this two-original-file acceptance. Explicit limits: owner
+  questions12–15 remain separately open, documentary confirmation NOT_CONFIRMED,
+  no legal-currentness/actual1C/newthree-course-matrix claim. Native course token/
+  money counters UNKNOWN;4retained response stages each are not HTTP-call counts.
+- next: Preserve permanent QA sources/courses/completed history and old receipts.
+  Detailed report: docs/testing/2026-11-08-production-original-documents-acceptance.md;
+  evidence: .release-evidence/source-preparation-prod-originals-20261108/. Broader
+  engine work, if resumed, must use these saved semantic deviations/ethalon and
+  separate source-owner questions; do not regenerate these accepted courses.
 
 # Historical: Source preparation82 COMPLETE: DEV originals and synthetic PROD — 2026-11-07
 

@@ -21,6 +21,20 @@
   original QA document are pending at this entry. No failed response was accepted
   or silently rerun. Evidence: source-preparation-prod-originals-20261108.
 
+- Hosted follow-up08.11: exact83/466e0f90 passed PRCI42452378532,
+  DEV42453950739 RELEASE_OK/RECONCILED, masterCI42454725093 and protected
+  production42455211137; independent API/four-service/DB/watchdog readback PASS.
+  Existing runtime setting revision3→4 changes only source ceiling16384→32768.
+  Same original preparation hash and ten image checkpoints reused; one ordinary
+  start103 reached in_review110, eight automatic edits/two explicit questions.
+  New source turn has two DeepSeek stages: editor11825+16082 tokens and independent
+  review13823+13330; reported new sum55060, model names/money unavailable.
+  Editor now returned valid content; its16082 output is below the old ceiling,
+  so this one stochastic success does not prove that the ceiling alone caused
+  the prior empty reply. The ignored-setting code defect is independently
+  reproduced/fixed. Current source still requires real editorial decisions and
+  full course acceptance; no failed receipt was overwritten.
+
 ## ENG-038 — контекстные редакторские ошибки при двухфайловой приёмке
 
 - 07.11.2026, точный DEV ae11c4d3. Сохранены полные курсы по составному PDF
@@ -53,6 +67,26 @@
   managed-метаданных не означает ноль native стадий/вызовов/расхода. Source review
   отдельно сообщил19110токенов/5DeepSeek-provider стадий, model names не вернул.
 
+
+- Production follow-up08.11, exact originals: saved PDF10L39Q and cash8L31Q
+  drafts required addressed editorial corrections, not another generation.
+  PDF3semantic cases: condition scope, mandatory refusal, qualified/solidary
+  liability; corrected3lesson bodies/3questions. Cash2overlapping-answer cases
+  (cash order versus fiscal receipt; ordinary versus overdue interest flow) and
+  2branch/procedure gaps (client-PKO stamp/sign/file; all-lines preprint check)
+  corrected in4lesson bodies/2questions with paired act wording/source attribution.
+  Class: model semantic drafting/review limitations; no demonstrated storage loss
+  or reason for phrase-specific code guards. Native review did catch/repair two
+  unproven Sum-dialog field claims but did not catch these other semantic cases.
+- Both amended live readbacks accepted by root+independent full audits. Ordinary
+  quote invalidation kept5edited citations null;65others literal; manual holds
+  handled with exact content/source hashes, not relaxed validators.0new model
+  calls for course edits. Real production learner18L70Q/100%,10native images/
+  all sizes/access controls/after-completion hashes, certificates/public check/
+  journal/CSV PASS. Original/frozen sources retained and customer courses untouched.
+  Source questions12–15 remain outside course acceptance; legal currency, actual1C
+  behavior and a new independent three-course matrix are not established here.
+  Evidence and full limitations: production-original-documents-acceptance report.
 
 Владелец ответственности: движок Камили. Создан 05.11.2026 по прямому указанию
 владельца. `ERRORS.md` предназначен для ошибок работы агента и их профилактики.

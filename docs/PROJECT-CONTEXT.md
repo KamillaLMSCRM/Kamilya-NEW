@@ -1,4 +1,26 @@
-## Current source preparation82 runtime — 2026-11-07
+## Current runtime83 and original-file production acceptance — 2026-11-08
+
+Production API/three workers466e0f90/v0.11.83 image62ea4c08...7e393, blue/zero
+restarts; native frontend remains82/ae11. Protected42455211137/master42454725093
+PASS; independent public/private/container/CT125186/RLS/watchdog83 readbacks.
+DEV API/frontend/sole VMworker466 RELEASE_OK/RECONCILED, CI42453950739,
+imagee1489e49/environment9c8c19b0/workerfa9324cc/restart0; Renderworker remains
+suspended/free. Production DeepSeek first/Luna reserve/routing5, noGLM, no plan
+or route change. Audited source ceiling32768 revision4 only; other settings
+unchanged. API rollback82/e1c retained; no migration or native frontend rollout.
+
+Both exact owner originals completed permanent production QA tenant83552ce6:
+PDF33905f00 10L39Q/certificateKML-2026-804DC4A7ECC6; cashde618fe7 8L31Q/
+certificateKML-2026-8535836B40A2. All10original cash illustrations/authorization/
+1440/390/fullsize, full audits,18L70Q/100%, PDFs/public verification/journal/CSV
+PASS. Frozen sources/releases/original bytes unchanged; client courses untouched.
+QA documents, courses, assignments and completed history retained. No active QA
+jobs or local acceptance process. Limits: documentary confirmation pending,
+owner questions12–15 open, native usage/cost unknown, no new three-course claim.
+Full result and evidence links: CODEX_HANDOFF.md, PRODUCTION_READINESS.md and
+docs/testing/2026-11-08-production-original-documents-acceptance.md.
+
+## Historical: Current source preparation82 runtime — 2026-11-07
 
 Production API/three workers/native CT137 and DEV API/frontend/sole VMworker
 are exact `ae11c4d3a962e35405580d801a01e1e74773a283` /0.11.82. Production

@@ -1,4 +1,37 @@
-## Source preparation 0.11.82 production acceptance — 2026-11-07
+## Source budget83 and two-original production acceptance — 2026-11-08
+
+API plus three workers exact466e0f902b70283cd3d3375cf216163e8d2b2ea5/v0.11.83,
+immutable image62ea4c08c7f5bfa3102d076de283acdc3f54d6474c11287715beaf745477e393,
+blue/zero restarts. MasterCI42454725093/protected42455211137 PASS; independent
+private/public/four-container/CT1250186/restricted-role/settingsRLS/watchdog83
+PASS. Native CT137 remains compatible82/ae11; frontend not redeployed in83.
+Prior82/e1c image/config retained for rollback, no executed rollback claim.
+Watchdog two identity keys only, byte-identical backupc26f850f, successful oneshot
+and both active timers. SMTP and reserve containers unchanged. Final host free
+7406366720bytes/available7458592KiB RAM. DEV API/frontend/sole VMworker466 passed
+CI42453950739 RELEASE_OK/RECONCILED, workerfa9324cc/imagee1489e49/restart0;
+Renderworker stays suspended/free. No migration, resource/tier/rights/voice change.
+
+One audited source_preparation.max_tokens16384→32768 setting, revision3→4;
+all other values unchanged. Same cash source continuation after saved failed102
+reused all10images and parts, reached110; explicit journal/approval123 retained.
+Both owner originals now passed actual production QA: PDF10L39Q/cash8L31Q, all
+lesson/option/key/explanation audits, ordinary review/publication/assignment,
+real learner18L70Q/100%, both certificatePDF/public verification/journal/CSV.
+All10cash original pictures1440/390/fullsize, anonymous/unassigned/wrong-lesson/
+unknown404-or-auth denial, completed-learner hashes PASS. Addressed content
+edits used0new model calls, source originals/frozen releases preserved. QA data
+retained; no customer course edits. First harness failures retained; ordinary
+SPA resume preserved existing attempts, two refresh200 and completed successfully.
+
+Explicit limits: owner questions12–15 still open, documentary confirmation
+pending, legal currency/actual1C/new three-course matrix not claimed. Native
+course token/cost counters unavailable, not zero;4completed stages each.
+Signed restore source0185 is mechanism evidence, not a new0186 data RPO claim.
+Detailed report: docs/testing/2026-11-08-production-original-documents-acceptance.md.
+Evidence: .release-evidence/source-preparation-prod-originals-20261108/.
+
+## Historical: Source preparation 0.11.82 production acceptance — 2026-11-07
 
 Exact API, three workers and native CT137 frontend are
 `ae11c4d3a962e35405580d801a01e1e74773a283` / `v0.11.82`.

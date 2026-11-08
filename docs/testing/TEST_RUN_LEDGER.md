@@ -1,5 +1,41 @@
 # Kamilya Test Run Ledger
 
+
+## RUN-20261108-PRODUCTION-TWO-ORIGINALS-83
+
+- PASS_WITH_RECORDED_LIMITS: permanent production QA tenant83552ce6/is_demo=false.
+  Exact original PDFd3c7cb3e...931cf and DOCXa0f45ea4...8d7e; original download,
+  source parts, frozen approvals, journal and final original/source bindings PASS.
+- PDF33905f00 10L39Q, release5c2a4cd5/enrollment5dd839c3/cert804DC4A7ECC6;
+  cashde618fe7 8L31Q, release5d62a33f/enrollment2210d760/cert8535836B40A2.
+  All18lessons/70questions/options/keys/explanations independently reviewed;
+  ordinary addressed edits PDF3L3Q/cash4L2Q,0new model calls,5citations invalidated
+  and manually verified,65literal remaining quotations. Published QA only.
+- Real learner18L70Q/100%, two one-page PDF certificates visually checked,
+  public verification/journal/CSV exact enrollment/release/result/cert PASS.
+  All10original cash figures/hash/1440/390/fullsize/auth negatives and completed
+  learner byte readback PASS. Source scans9PDF retained for audit, not copied as
+  redundant lesson figures. No customer course mutation or QA data deletion.
+- Native generation jobs318s and365s,4saved response stages/4claims each;
+  no native token/cost counters, not0. PDFsource14DeepSeek receipts162213tokens;
+  cash resumed source2receipts55060, no repeat image reading. Old failed editor
+  empty11825input/16384output retained; full old preparation cost not reconciled.
+- ENG-039: source cap ignored by generic course profile; minimal83 routed the
+  source setting correctly.147focused regressions/baseline1010/2174/contracts,
+  PRCI42452378532, DEV42453950739 RELEASE_OK/RECONCILED, master42454725093 and
+  protected42455211137 PASS. API+3workers83/466/image62ea4c08/blue/restart0;
+  compatible native82 remains. Setting16384→32768 revision4 only; no migration.
+  Independent watchdog/CT125186/RLS/rollback82/e1c/SMTP/reserve/resources PASS.
+- Early selector mojibake and rapid hard-navigation harness failures preserved.
+  All8cash attempts retained; ordinary SPA resume used two refresh200, completed
+  without new assignment/quiz attempts. One refresh429 in bounded server logs;
+  limiter/credentials/roles unchanged. No model/browser process or QAjob remains.
+- Owner source questions12–15 separately open; no stamp type, missing duty,
+  hierarchy or sum-entry behavior invented. Documentary confirmation pending,
+  no OTP/email, legal-currentness/actual1C/newthree-course-matrix claim.
+- Full report: docs/testing/2026-11-08-production-original-documents-acceptance.md;
+  immutable evidence .release-evidence/source-preparation-prod-originals-20261108/.
+
 ## RUN-20261107-SOURCE-PREPARATION-82-TWO-FILES
 
 - Exact DEV ae11c4d3a962e35405580d801a01e1e74773a283. Both owner originals
