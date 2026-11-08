@@ -37,6 +37,8 @@ async def test_joint_resolves_mixed_prior_and_fresh_partial_without_losing_custo
             if not proof:
                 assert 'EXCLUSIVE_QUIZ_PROMPT' in messages[1]['content']
                 assert len(listed) == 3
+                assert messages[0]['content'].startswith('Whole current course editor')
+                assert 'LEGACY_ASSESSMENT_SPECIALIST' not in messages[0]['content']
             value['resolutions'] = [{'issue_id': item['issue_id'], 'disposition': 'NOT_MATERIAL',
                 'reason': 'Current source supports dismissal.', 'source_refs': [packet.blocks[0].block_id],
                 'source_quote': 'bad quote' if invalid_proof else packet.blocks[0].text,
@@ -45,8 +47,8 @@ async def test_joint_resolves_mixed_prior_and_fresh_partial_without_losing_custo
         return value
 
     out = await review_editorial_candidate(packet, reading, course, 'ORIGINAL SOURCE', PracticalModelView(packet),
-        call, 'Prose review', max_rules=128, prior=prior, assessment_system='Full review',
-        verification_guide='Verify', joint_editor=True)
+        call, 'Prose review', max_rules=128, prior=prior, assessment_system='LEGACY_ASSESSMENT_SPECIALIST',
+        verification_guide='Verify', joint_editor=True, joint_editor_system='Whole current course editor')
     assert len(out['observations']) == 1 and out['observations'][0]['rule_check_unverified']
     assert len(out['resolutions']) == 3
     assert out['raw_parts'][0]['response']['source_rule_checks'][0]['status'] == 'INCOMPLETE'

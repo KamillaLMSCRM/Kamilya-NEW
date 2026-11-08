@@ -70,6 +70,28 @@ def _current_prior_targets(prior: list[dict[str, Any]], course: dict[str, Any], 
     return result
 
 
+def _current_prior_target_registry(
+    prior: list[dict[str, Any]], course: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Deduplicate owned current snapshots without losing prior findings."""
+    registry: dict[str, Any] = {}
+    findings: list[dict[str, Any]] = []
+    for row in _current_prior_targets(prior, course, prose_only=False):
+        finding = copy.deepcopy(row)
+        if 'current_target_ref' in finding:
+            raise ValueError('editorial_target_registry_reserved_field')
+        snapshot = finding.pop('current_target_snapshot')
+        reference = None
+        if snapshot is not None:
+            reference = 'target-' + _digest([finding['target']['kind'], finding['target']['id']])
+            if reference in registry and registry[reference] != snapshot:
+                raise ValueError('editorial_target_registry_collision')
+            registry[reference] = copy.deepcopy(snapshot)
+        finding['current_target_ref'] = reference
+        findings.append(finding)
+    return findings, registry
+
+
 def _hold_out_of_scope_findings(result: dict[str, Any], lesson_ids: list[str]) -> None:
     """Prose-only observations cannot authorize changes to unseen assessments."""
     for finding in result['review']['findings']:
@@ -117,6 +139,7 @@ async def review_editorial_candidate(
     verification_guide: str,
     prior: list[dict[str, Any]] | None = None,
     joint_editor: bool = False,
+    joint_editor_system: str | None = None,
 ) -> dict[str, Any]:
     if type(joint_editor) is not bool:
         raise ValueError('editorial_joint_policy_invalid')
@@ -320,8 +343,11 @@ async def review_editorial_candidate(
         joint_content = context + '\nFULL_COURSE_WITH_KEYS_AND_EXPLANATIONS_JSON\n' + json.dumps(
             view.encode(course), ensure_ascii=False, sort_keys=True)
         if joint_prior:
+            registry_findings, target_registry = _current_prior_target_registry(joint_prior, course)
+            joint_content += '\nCURRENT_TARGET_REGISTRY_JSON\n' + json.dumps(
+                view.encode(target_registry), ensure_ascii=False, sort_keys=True)
             joint_content += '\nPRIOR_MATERIAL_FINDINGS_JSON\n' + json.dumps(
-                view.encode(_current_prior_targets(joint_prior, course, prose_only=False)), ensure_ascii=False)
+                view.encode(registry_findings), ensure_ascii=False)
             joint_fmt = editorial_verification_format(packet, course, joint_prior)
         else:
             joint_fmt = editorial_review_format(packet, course)
@@ -331,7 +357,15 @@ async def review_editorial_candidate(
                 return compile_editorial_verification(value, packet, course, joint_prior)
             return {'review': compile_editorial_review(value, packet, course), 'resolutions': []}
 
-        joint_system = assessment_system + verification_guide + CURRENT_TARGET_GUIDE + JOINT_EDITOR_GUIDE
+        joint_target_guide = CURRENT_TARGET_GUIDE
+        if joint_prior:
+            joint_target_guide = CURRENT_TARGET_GUIDE.replace(
+                'adjacent current_target_snapshot',
+                'current snapshot in CURRENT_TARGET_REGISTRY_JSON referenced by its current_target_ref',
+            ) + (' For null current_target_ref, use the full current course and source; '
+                 'do not infer a missing snapshot.')
+        joint_system = (joint_editor_system if joint_editor_system is not None else assessment_system)
+        joint_system += verification_guide + joint_target_guide + JOINT_EDITOR_GUIDE
         joint_group = ('practical:editorial:verify:v34:joint:' if joint_prior
                        else 'practical:editorial:review:v34:joint:') + _digest([course, joint_prior, joint_system])
         joint_raw = await call('review', joint_group,

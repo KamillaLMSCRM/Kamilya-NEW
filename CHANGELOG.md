@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Give the v34 joint editor one coherent whole-course role and share current target snapshots without duplicating lesson text for every observation. Preserve all evidence, legacy dispatch and independent checks.
+
 - Consolidate all current source, lesson and assessment observations in the existing final editor stage for new policy v34 jobs; preserve v33 checkpoints and exact-policy acceptance receipts.
 
 - Select the new editorial protocol only for new jobs; retain older policies and checkpoints. Extend the existing audited runtime settings catalog with the editorial revision budget through additive migration 0187.

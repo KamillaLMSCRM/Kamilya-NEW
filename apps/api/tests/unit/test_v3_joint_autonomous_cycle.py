@@ -27,6 +27,11 @@ async def test_joint_observation_decisions_precede_writing(case, monkeypatch, mo
 
     async def review(packet, reading, current, context, view, call, system, *, prior=None, **kwargs):
         assert kwargs.get('joint_editor', False) is (mode != 'legacy')
+        if mode == 'legacy':
+            assert 'joint_editor_system' not in kwargs
+        else:
+            assert kwargs['joint_editor_system'] == cycle.REVIEW_SYSTEM + cycle.EDITORIAL_REASONING_GUIDE
+            assert cycle.ASSESSMENT_REVIEW_GUIDE not in kwargs['joint_editor_system']
         events.append('initial' if prior is None else 'verify')
         new_observations = [finding] if prior is None else ([fresh] if mode == 'fresh' else [])
         rows = (new_observations if prior is None else [*prior, *new_observations])

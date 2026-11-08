@@ -3,6 +3,21 @@
 
 ## ENG-040 — исправленный моделью курс оставался непроверенным, слепые замечания не возвращались редактору
 
+- Follow-up 2026-11-08 23:14 UTC: v34 final joint review inherited the assessment specialist
+  guide, including a claim that prose completeness belonged to another stage.
+  Added explicit whole-course joint role; the driver supplies the same general
+  editor reasoning contract, without the conflicting specialization. No added
+  critic, weaker closure, source truncation or v33 dispatch change.
+- Repeated full current-target snapshots inflated G8/039 by115762duplicate bytes.
+  Shared registry preserves exact findings/current target expansion; raw evidence
+  and proof repair remain unchanged. Offline control saved115435user bytes;
+  provider token/latency savings not established by bytes alone.
+- G8/G9 failed receipts retained; extra fourth round fixed L5 scope but did not
+  remove later precision allegations. Catalog default3 and immutable0187 remain;
+  no runtime_settings/history write or budget relaxation. Corrected native review
+  control active; full7278PASS/1skip/7warnings76.81s, quality1004/2174PASS,
+  independent final delta review noP1/P2. Actual fresh DEV quality still OPEN.
+
 - Follow-up08.11/22:27UTC: confirmed conceptual seam: separate source reviewers
   and narrow keyed QA had no final consolidated view of ALL current course/source
   observations. This allowed stale false allegations and optional source choices

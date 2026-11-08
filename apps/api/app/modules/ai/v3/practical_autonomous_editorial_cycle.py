@@ -272,7 +272,8 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         max_rules_per_review: int = 128, joint_editor: bool = False) -> PracticalCycleResult:
     if type(joint_editor) is not bool:
         raise ValueError('editorial_joint_policy_invalid')
-    joint_options: dict[str, Any] = {'joint_editor': True} if joint_editor else {}
+    joint_options: dict[str, Any] = ({'joint_editor': True,
+        'joint_editor_system': REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE} if joint_editor else {})
     if type(max_revisions) is not int or not 1 <= max_revisions <= 5:
         raise ValueError('editorial_revision_budget_invalid')
     if build_practical_source_packet(corpus, reference_decisions) != packet:

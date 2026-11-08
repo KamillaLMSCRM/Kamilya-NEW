@@ -7878,6 +7878,18 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## DEV-GATE-003 - Acceptance helper omitted the trusted browser Origin
 
+- Recurrence2026-11-08: Root reused Client but omitted the canonical httpx
+  constructor's trusted Origin, causing two403 before credential admission.
+  Corrected to the existing DEV ORIGIN; no auth/config/credential change.
+  The same ignored helper then assumed absent DocumentResponse.tenant_id and
+  changed AIJobResponse.id to a guessed job_id. Exact DTO inspection corrected
+  both assumptions; original source downloads and approved snapshots were already
+  complete and retained. These are HARNESS_FAILURES, not product incidents.
+  New helpers must inspect both canonical client construction AND DTO fields;
+  persist acknowledged phase results before later checks, and do not repeat
+  authentication just to recover a lost report. Native acceptance remains OPEN.
+
+
 - Date: 2026-09-30; persistent DEV QA setup, no customer or production mutation.
 - Symptom: the initial disposable-fixture helper received403 from `/auth/login`
   before any tenant creation. It was not evidence of invalid GitHub credentials.

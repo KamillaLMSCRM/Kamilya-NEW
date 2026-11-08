@@ -1,3 +1,17 @@
+## RUN-20261108-COHERENT-JOINT-ROLE-REGISTRY
+
+- 2026-11-08 23:14 UTC: full7278PASS/1skip/7warnings76.81s; focused84PASS3.72s then
+  role10PASS1.58s; baseline1004/2174PASS. Navigation2465codefiles/28893nodes/
+  85689edges/2498sources/excludedPASS. Independent delta review noP1/P2.
+- v34 final role no longer inherits assessment-only prose limitation. Lossless
+  current-target registry exact expansion PASS. Legacy/proof/unknown preserved.
+- G8/G9 diagnostic outcomes/costs: .release-evidence/autonomous-editorial-review-20261108/g8-g9-outcomes.json.
+  Both NOT_ACCEPTED, no human course repair/source questions; neither native unit cost.
+- Sole current native-review control75544 uses unchanged G9 course/all observations,
+  six exact source-part reuses and one new joint request. No author/edit in control.
+- Catalog default3/DB0187/settings/history unchanged; default4/override4 not selected.
+  Native DEV/API/worker still466; no prod/customer or old accepted QA mutation.
+
 ## RUN-20261108-JOINT-EDITOR-V34
 
 - Full API7276PASS/1skip/7warnings74.70s; quality1004/2174PASS.

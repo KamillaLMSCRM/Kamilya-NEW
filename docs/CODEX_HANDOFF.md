@@ -1,3 +1,86 @@
+# Coherent-role candidate IN PROGRESS — 2026-11-08 23:14 UTC
+
+- Sole inference: coherent-role-control.py --execute2/session75544. Freeze all
+  consumed source/harness/G9 result. Current native review function over unchanged
+  G9 model-only course and ALL actual findings; six source-part requests reused
+  exactly, one new whole-editor request active. No author/writer/manual fix in
+  this control; it is NOT full native generation or production acceptance.
+- Corrected systemic role conflict: v34 final joint review had inherited the
+  assessment-only instruction saying prose completeness was another stage's job.
+  It now gets the coherent whole-course editor role used by the successful bounded
+  diagnostic. Focused source reviews, full source/current course, current proof
+  compilation and blind checking remain. v33 receives no new option/byte change.
+- Current-target registry removes repeated full target snapshots, preserving all
+  findings and owned current evidence; exact offline expansion PASS. No source
+  truncation, new critic, changed semantic guard, reasoning, route or provider.
+- Full7278PASS/1skip/7warnings76.81s; focused84PASS then role10PASS; baseline
+  1004/2174PASS. Navigation2465files/28893nodes/85689edges/2498sources/excludedPASS.
+  Independent bounded final delta review noP1/P2. Commit final exact candidate and
+  build image next; previous2739 image/env remain prepared but NOT activated.
+- G8 NOT_ACCEPTED at3rounds; G9 NOT_ACCEPTED at4 diagnostic rounds. Essential
+  defects and L5 table scope were fixed by model, but later review raised L2/L5
+  precision concerns. No owner questions. Results immutable; no pass inferred.
+  Additional rounds did not solve the role defect. CATALOG DEFAULT REMAINS3.
+  Earlier catalog-default4 / DB override4 proposals are NOT SELECTED; do not alter
+  either. Prepared set-dev-editorial-budget.py now refuses execution. Migration
+  0187, runtime settings/history and provider plans unchanged. Full tests pass.
+- DEV API AND worker still466e0f90; fresh exact Render/public-health readback
+  confirms that Git push/CI/image did not deploy API. Need canonical exact final
+  DEV controller rollout and one worker replacement with retained rollback and
+  normal unless-stopped restart policy restored after independent readback.
+- Next after this bounded control: actual fresh PDF, Cash and standards26 full
+  courses on final DEV Luna/HIGH with normal admission/source pins/save/recovery,
+  independent all-lesson/all-question/image matrix, actual time/tokens. Do NOT
+  start another whole saved-bad-author replay as a substitute for DEV. Then intended
+  DeepSeek, protected prod and full synthetic live acceptance after quality GO.
+  Existing customer and accepted QA courses/history remain untouched.
+
+## Superseded checkpoint
+
+# Current checkpoint — 2026-11-08, 22:54 UTC
+
+- Sole active inference: gsc9.py --execute2/session46096, g9-2. Freeze ALL consumed
+  runtime/harness/fixtures until complete. G8 finished NOT_ACCEPTED at3rounds,
+  source_uncertain=false; model preserved8L31Q/10figures, corrected real issues,
+  and left FOUR observations of ONE real L5 amount-table scope issue. G9 reuses
+  ALL53 exact completed requests then permits ONE fourth addressed round. No
+  manual course/source judgment changes, no UNKNOWN replay. G8 failure retained.
+- Four-round setting is supported but NOT the native default. A trial catalog
+  default3→4 failed frozen migration-catalog parity; root reverted it, without
+  weakening tests/migration. Use existing audited runtime_settings API to capture
+  a DEV override4 AFTER exact API rollout; only that matched policy may prove
+  native acceptance. Do not call G9 a native unit-cost or deployed DEV test.
+- HEAD27391ca97848feae4822acbf9996e0651ddf46a9 feature/dev exact readbacks and
+  sanitized owner-required memory notes present. CI42530219723 and build-only
+  42530861813 SUCCESS; image60a35854c12d9b58464e4a89e58ad9b899454bdb8c50ae51d8b7a97e96907948
+  attested. Protected env813fae19...840a76 installed. Image-readiness-v34 PASS:
+  155source hashes, source caps, no model/DB calls; prod/predecessor unchanged.
+- Fresh Render deployment API and public health STILL466e0f90 (auto-deploy did
+  NOT deploy pushed commits). Worker likewise466/fa932/e148. Provider Free/Free/
+  Hobby confirmed; Render worker suspended/no-auto. Need canonical exact DEV
+  controller/API rollout and single worker replacement; restore unless-stopped
+  AFTER independent exact new-worker readback. No production mutation.
+- Independent byte audit: G8/039 repeats115762bytes of current-target snapshots;
+  messages96.4%, schema3.6% of request bytes. Zero-model registry control restores
+  EVERY prior field exactly, saves115435user bytes. No token-saving claim yet.
+  asset_seams prepared ignored target-registry-proposal/target-registry.patch and
+  tests; NOT applied. Apply only AFTER G9 completes; keep legacy/proof/semantic
+  gates unchanged, then focused/full gates and final exact candidate. No new
+  critic or source truncation. Root has announced cost-aware-llm-pipeline skill.
+- Canonical DEV source originals authenticated/hash-matched; approvals PDF85,
+  Cash108 retained. Readback helper PARTIAL_HARNESS_FAILURE: omitted Origin twice,
+  then DTO assumptions. Fixed assumptions documented DEV-GATE-003. No product
+  outage, credential reset or business-row change. Approved source snapshots and
+  standards26 catalog c2257a1d-b12b-42d7-bed5-7e8c0b9bb411 retained. API health with
+  canonical transport200/466; trust_env=False probe timed out, not an access gate.
+- Current ERRORs.md uncommitted owned recurrence only; runtime source exactly2739.
+  Original accepted QA/customer courses/history remain unchanged. Next: finish
+  G9 model correction, apply lossless registry, finalCI/image/worker/API, actual
+  two originals plus standards26 in DEV Luna/HIGH, intended DeepSeek then protected
+  production/full synthetic live acceptance. Human only unavoidable source choices.
+
+## Superseded checkpoint
+
 # Joint editorial candidate IN PROGRESS — 2026-11-08, 22:27 UTC
 
 - New jobs select policy v34. The existing final keyed-review slot now sees the
