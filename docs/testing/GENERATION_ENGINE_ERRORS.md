@@ -3,6 +3,26 @@
 
 ## ENG-040 — исправленный моделью курс оставался непроверенным, слепые замечания не возвращались редактору
 
+- Follow-up08.11/21:23UTC: G6 cash model-only8L31Q ended NOT_ACCEPTED after3
+  rounds;21actual calls851638in/83525out/1578.906s,26exact reused stages,
+  moneyUNKNOWN. Three different observations produced the SAME confirmed owner
+  question. Exact question/source-ref/current-packet grouping now shows one owner
+  decision and retains all underlying IDs, verified decisions and raw evidence.
+- A literal-proof correction could call the same current covered state
+  ALREADY_COVERED instead of FIXED; the old consumer rejected even this equivalent
+  positive label. Current compiler retains the primary full-review disposition,
+  accepts only that positive equivalence, and still verifies exact current source/
+  target quotes. No negative/source-question/card-status/severity flip gains
+  authority. Independent review also found and closed source-question mutation
+  through compact proof repair; the altered raw response remains unapproved.
+- Both seams reproduced RED and passed focused regressions. ALL47saved g6 stages
+  recompiled with ZERO new inference: same course, owner questions3→1, remaining
+  feedback14→10; original failed result unchanged. This is not course acceptance.
+  Current full7249PASS/1skip/7warnings76.66s/baseline1010/2174PASS.
+  G7 sole diagnostic allows a fourth addressed round on actual remaining model
+  findings, not fresh author generation or a changed native default. DEV d28 CI
+  and image attestation pass; final follow-up source/worker acceptance remain open.
+
 - Follow-up08.11/19:08UTC: matched full124pair no-hints control183.031s,
   35102in9916out found L1Q1 [1,3], one false L3Q2 retained. New blind-stage
   findings are always hypotheses until current full editor confirms NEEDS_REVISION.

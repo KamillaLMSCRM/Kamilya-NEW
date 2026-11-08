@@ -13,6 +13,7 @@ from app.modules.ai.v3.practical_editorial_verification import (
 
 PROOF_ERRORS = frozenset({'source_quote_invalid', 'course_quote_invalid', 'source_refs_invalid', 'reason_missing'})
 PROOF_ELIGIBLE = frozenset({'FIXED', 'ALREADY_COVERED', 'NOT_MATERIAL', 'NEEDS_REVISION', 'SOURCE_AMBIGUITY'})
+POSITIVE_DISPOSITIONS = frozenset({'FIXED', 'ALREADY_COVERED'})
 SYSTEM = (
     'Correct only the literal evidence and reason for the supplied existing resolutions. '
     'Do not change their dispositions, source questions, course, or substantive judgments. '
@@ -20,6 +21,11 @@ SYSTEM = (
     'a contiguous quote from the exact current target. Do not invent a source question. '
     'Other findings or notes are observations of this proof-only call, not edit authority.'
 )
+
+
+def same_proof_disposition(original: str, corrected: str) -> bool:
+    """Two positive labels assert the same current coverage, not the same history."""
+    return original == corrected or original in POSITIVE_DISPOSITIONS and corrected in POSITIVE_DISPOSITIONS
 
 
 async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: list[dict[str, Any]],
@@ -65,10 +71,11 @@ async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: 
         compiled = compile_editorial_verification(value, packet, course, selected_prior)
         for row in compiled['resolutions']:
             old = selected_by_id[row['issue_id']]
-            if row['disposition'] != old['disposition']:
+            if not same_proof_disposition(old['disposition'], row['disposition']):
                 raise ValueError('editorial_proof_disposition_changed')
             if row['disposition'] == 'SOURCE_AMBIGUITY' and row['source_question'] != old['source_question']:
                 raise ValueError('editorial_proof_source_question_changed')
+            row['disposition'] = old['disposition']
         return compiled
 
     group = 'practical:editorial:verify:v33:proof:' + _digest([course, selected_prior, selected])

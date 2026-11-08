@@ -23,7 +23,7 @@ from app.modules.ai.v3.practical_compact_editorial_contract import (
 )
 from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.practical_editorial_contract import compile_editorial_review, editorial_review_format
-from app.modules.ai.v3.practical_editorial_proof_correction import correct_resolution_proofs
+from app.modules.ai.v3.practical_editorial_proof_correction import correct_resolution_proofs, same_proof_disposition
 from app.modules.ai.v3.practical_editorial_verification import (
     compile_editorial_verification,
     editorial_verification_format,
@@ -256,11 +256,13 @@ async def review_editorial_candidate(
             rejected_semantic_changes = []
             for resolution in corrected['resolutions']:
                 old = resolutions_by_id[resolution['issue_id']]
-                if (resolution['disposition'] != old['disposition']
+                if (not same_proof_disposition(old['disposition'], resolution['disposition'])
+                        or old['disposition'] == 'SOURCE_AMBIGUITY'
+                        and resolution['source_question'] != old['source_question']
                         or repair_findings[resolution['issue_id']].get('source_rule_id') in semantic_changes):
                     rejected_semantic_changes.append(resolution['issue_id'])
                     continue  # Literal repair cannot add a semantic confirmation or closure.
-                resolutions_by_id[resolution['issue_id']] = resolution
+                resolutions_by_id[resolution['issue_id']] = {**resolution, 'disposition': old['disposition']}
             result["resolutions"] = list(resolutions_by_id.values())
             receipt['unverified_resolution_changes'] = rejected_semantic_changes
             result["review"]["source_notes"].extend(corrected["review"]["source_notes"])

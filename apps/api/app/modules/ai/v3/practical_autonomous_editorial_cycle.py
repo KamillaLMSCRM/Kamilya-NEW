@@ -184,6 +184,18 @@ ASSESSMENT_REVIEW_GUIDE = (
 )
 
 
+def _owner_source_questions(source_questions: dict[str, dict[str, Any]], source_fingerprint: str) -> list[dict[str, Any]]:
+    """Group the same owner choice; retain every independently verified decision."""
+    groups: dict[str, dict[str, Any]] = {}
+    for issue_id, decision in source_questions.items():
+        key = _digest([source_fingerprint, decision['source_question'], sorted(set(decision['source_refs']))])
+        if key not in groups:
+            groups[key] = {**copy.deepcopy(decision), 'issue_ids': [], 'evidence_decisions': []}
+        groups[key]['issue_ids'].append(issue_id)
+        groups[key]['evidence_decisions'].append(copy.deepcopy(decision))
+    return list(groups.values())
+
+
 def _blind_findings(decision: Any, packet: Any, course: dict[str, Any]) -> list[dict[str, Any]]:
     """Keep the real target and full blind evidence; never turn a bad quiz into a source hold."""
     questions = {q['id']: q for lesson in course['lessons'] for q in lesson['questions']}
@@ -490,16 +502,22 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
             if not actionable_after - actionable_before:
                 stop = 'autonomous_edit_no_progress'
     unresolved = [row for key, row in all_findings.items() if key not in closed]
+    owner_questions = _owner_source_questions(source_questions, packet.fingerprint)
+    owner_by_issue = {issue_id: question for question in owner_questions for issue_id in question['issue_ids']}
     feedback = []
     for row in unresolved:
-        question = source_questions.get(row['issue_id'])
+        question = owner_by_issue.get(row['issue_id'])
+        if question and row['issue_id'] != question['issue_ids'][0]:
+            continue  # One human decision; all model observations remain in history.
         feedback.append({'issue_id': row['issue_id'],
             'scope': 'source' if question else {'course': 'coverage', 'lesson': 'lesson', 'question': 'question', 'source': 'source'}[row['target']['kind']],
             'id': question['source_refs'][0] if question else row['target']['id'],
             'evidence': {**row, 'editorial_finding': True,
                 'status': 'SOURCE_UNRESOLVED' if question else 'AUTOMATIC_REVIEW_UNRESOLVED',
                 **({'source_question': question['source_question'], 'source_refs': question['source_refs'],
-                    'confirmed_source_quote': question['source_quote'], 'original_target': row['target']} if question else {})}})
+                    'confirmed_source_quote': question['source_quote'], 'original_target': row['target'],
+                    'source_issue_ids': question['issue_ids'],
+                    'source_evidence_decisions': question['evidence_decisions']} if question else {})}})
     current_blind_ids = {row['issue_id'] for row in _blind_findings(blind, packet, candidate)}
     blind_adjudicated = bool(current_blind_ids) and current_blind_ids <= closed
     accepted = (not unresolved and (blind.accepted or blind_adjudicated)
@@ -517,7 +535,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         'initial_editorial_review_raw': review_raw, 'initial_blind_review': initial_blind,
         'editorial_observation_history': observation_history,
         'autonomous_rounds': rounds, 'all_material_findings': list(all_findings.values()),
-        'verified_resolutions': resolutions, 'confirmed_source_questions': list(source_questions.values()),
+        'verified_resolutions': resolutions, 'confirmed_source_questions': owner_questions,
         'verified_course_fingerprint': verified_fp, 'final_blind_review': blind_raw,
         'final_blind_input_hash': blind_input_hash,
         'final_blind_adjudicated_issue_ids': sorted(current_blind_ids) if blind_adjudicated else [],

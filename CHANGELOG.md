@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Select the new editorial protocol only for new jobs; retain older policies and checkpoints. Extend the existing audited runtime settings catalog with the editorial revision budget through additive migration 0187.
 - Preserve grammar-corrected source interpretations through additive completeness, pass model-owned corrections to scoped author alignment, and separate compact teaching-prose review from keyed assessment review. IDs establish custody; semantic verdicts remain explicit model decisions.
+- Preserve the full-review decision across equivalent positive evidence labels, reject changed source questions during proof repair, and combine exact duplicate owner questions without dropping their provenance.
 
 
 ## [0.11.83] - 2026-11-08

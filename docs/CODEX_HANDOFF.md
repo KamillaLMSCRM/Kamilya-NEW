@@ -1,4 +1,43 @@
-# Autonomous editorial follow-up IN PROGRESS — 2026-11-08, 20:46 UTC
+# Autonomous editorial follow-up IN PROGRESS — 2026-11-08, 21:23 UTC
+
+- ACTIVE sole model run: gsc7.py --execute2/session10092, g7-2. Freeze all consumed
+  runtime/harness/fixtures. Original bad author only; native current source/review/
+  model edits; exact completed response reuse. Diagnostic max4 allows one additional
+  addressed round for actual g6 final model findings; native default3 unchanged.
+  No manual course repair, held-out finding injection or UNKNOWN replay.
+- G6-2 COMPLETE NOT_ACCEPTED after3rounds;21actual calls851638in/83525out/
+  1578.906s;26exact reuses; moneyUNKNOWN. Full8L31Q retained.14raw open feedback,
+  three byte-identical confirmed source questions (one distinct uncertainty), plus
+  remaining current content and evidence holds. Do NOT call this automatic PASS.
+- Fixed exact owner-question duplicates with all underlying issue IDs/decisions
+  retained. Fixed equivalent positive FIXED/ALREADY_COVERED proof labels while
+  retaining primary full-review decision, exact current quotes and raw correction.
+  Negative/source-question/status/severity flips remain prohibited. Independent
+  review found a compact proof source-question mutation gap; RED then fixed and
+  independently re-reviewed with no remaining bounded P1/P2.
+- ZERO model-call replay of ALL47 g6 completed stages through current code:
+  g6-2-recompiled-current-result.json. Course unchanged; owner questions3→1,
+  feedback14→10,21verified dispositions. Original FAIL receipt remains immutable.
+- Current APIunit7249PASS/1skip/7warnings76.66s; focused12PASS after test-only
+  formatting cleanup; baseline1010/2174PASS. Navigation2461codefiles/28868nodes/
+  85678edges/2494sources/excludedPASS; no semantic proof implied.
+- Exact d28d3cc43a1228768408b57915ba70032eff632e pushed feature and dev through
+  canonical KamillaLMSCRM helper; independent SHA readbacks and sanitized receipts/
+  owner-required memory notes preserved. CI42522963907 SUCCESS. Build-only workflow
+  42523545971 SUCCESS/attested image4b3047db48ad9719c17da67e2a1b102868db0015936911ac51975027a28723a5.
+  New DEV env installed05df6d17...c3aa7, not activated. Small follow-up source delta
+  above is not in d28; prepare final exact candidate before worker replacement.
+- DEV public0187 PASS, settings/history hashes unchanged; no production migration.
+  Worker is still466/fa932/e148, not new84 accepted. Fresh VM inventory confirms
+  prod83/62ea four containers+reserve unchanged/0restarts, free7.34GB/RAM7.58GB.
+  Before worker replacement prove idle/global queues and preserve rollback/private
+  connector/SMTP. No native inference while diagnostic consumer active.
+- LF preparation:17task files were normalized in Git index only during g6, then
+  working copies normalized AFTER g6 completed. AST equality and exact Git/CI bytes
+  verified in index-lf-normalization.json/working-lf-normalization-complete.json.
+  No inference was cancelled or active source mutated. Primary dirty work preserved.
+
+## Superseded checkpoint — 2026-11-08, 20:46 UTC
 
 - ACTIVE sole model run: gsc6.py --execute2/session88495, g6-2. All consumed
   runtime/harness/fixtures frozen. Saved BAD author only; native source reading,

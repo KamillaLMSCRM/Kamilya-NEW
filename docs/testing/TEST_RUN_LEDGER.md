@@ -1,5 +1,22 @@
 # Kamilya Test Run Ledger
 
+## RUN-20261108-AUTONOMOUS-PROOF-CURRENT-CHOICE
+
+- G6 actual21calls/851638in/83525out/1578.906s/26exactreuses; NOT_ACCEPTED,
+  3rounds,3identical source questions. Diagnostic cost, native unit cost NOT_KNOWN.
+- Exact47stage zero-inference replay after root/leaf correction: unchanged
+  course, source questions3→1,14→10feedback,21verified dispositions. Original raw
+  failed result retained. Human-choice provenance/source custody preserved.
+- Dedup RED2owner requests instead of1 then2PASS. Positive-equivalence RED4FAIL/
+  4PASS then focused22PASS; independent compact question-mutation RED then23PASS.
+  Finalfull7249PASS/1skip/7warnings76.66s; formatting-only E702/I001 cleanup then
+  focused12PASS1.44s and quality1010/2174PASS. Bounded independent review no P1/P2.
+- Exact d28d3cc4 feature/dev push receipts and owner-required memory notes present.
+  CI42522963907 SUCCESS; build-only42523545971 SUCCESS/image4b3047db...723a5
+  attestation verified. Protected DEV env05df6d17...c3aa7 installed, NOT activated.
+  Public DEV0187 independent pre/post settings/history hash equality/FORCE-RLS PASS.
+  Prod unchanged83/62ea; worker remains466. G7/session10092 sole active model.
+
 ## RUN-20261108-AUTONOMOUS-CURRENT-TARGET-NATIVE-BUDGETS
 
 - Local84/v33 final API unit suite7237PASS/1skip/7warnings78.97s; current Python
