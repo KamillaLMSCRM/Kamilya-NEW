@@ -1,0 +1,61 @@
+{
+  "origin": {
+    "source_fingerprint": "4214c75ac46a77aced75687001472927939325a17237ce1e7210176fb12aed66",
+    "original_rule_id": "R14",
+    "first_response_sha256": "5c46411a7200d9bfee5df53203be490e4735a5e50a46228554bc50e1218fc83e",
+    "verification_response_sha256": "422bcb687261a43aa1b234d987e83b00dc82be7771c1d782a7016e391378760f",
+    "mapping": "Unit test remaps only source ref and rule id to a one-block corpus; semantic fields copied verbatim"
+  },
+  "reading": {
+    "source_refs": [
+      "SRC54"
+    ],
+    "source_quote": "До предоставления микрокредита физическому лицу, не связанного с осуществлением предпринимательской деятельности, проводить оценку пригодности микрокредита для потребителя финансовых услуг.",
+    "actor": "Эксперт-оценщик",
+    "action": "проводить оценку пригодности микрокредита",
+    "object": "микрокредит для потребителя финансовых услуг",
+    "conditions": [
+      {
+        "applies_to": "оценка пригодности",
+        "expression": "до предоставления микрокредита"
+      },
+      {
+        "applies_to": "физическое лицо, которому предоставляется микрокредит",
+        "expression": "микрокредит не связан с осуществлением предпринимательской деятельности"
+      }
+    ],
+    "modality": "обязан",
+    "alternatives": [],
+    "limits": []
+  },
+  "verification": {
+    "rule_id": "R14",
+    "status": "REVISE",
+    "reason": "In SRC54, “не связанного” is grammatically masculine/neuter genitive and modifies “микрокредита,” not “физическому лицу.” The condition concerns the microcredit’s connection to entrepreneurial activity.",
+    "replacement": [
+      {
+        "source_refs": [
+          "SRC54"
+        ],
+        "source_quote": "До предоставления микрокредита физическому лицу, не связанного с осуществлением предпринимательской деятельности, проводить оценку пригодности микрокредита для потребителя финансовых услуг.",
+        "actor": "Эксперт-оценщик",
+        "action": "проводить оценку пригодности микрокредита для потребителя финансовых услуг",
+        "object": "микрокредит, предоставляемый физическому лицу",
+        "conditions": [
+          {
+            "applies_to": "оценка пригодности",
+            "expression": "проводится до предоставления микрокредита"
+          },
+          {
+            "applies_to": "микрокредит",
+            "expression": "не связан с осуществлением предпринимательской деятельности"
+          }
+        ],
+        "modality": "обязан",
+        "alternatives": [],
+        "limits": []
+      }
+    ],
+    "source_question": ""
+  }
+}

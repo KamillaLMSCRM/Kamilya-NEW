@@ -1820,6 +1820,15 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
             violations.append(f"Урок {final_lesson.lesson_id}: разнообразие вопросов или полнота покрытия требуют проверки")
 
 
+async def _practical_output_budget(review_policy: str | None, direct_client: Any) -> int:
+    from app.modules.ai.managed_luna_client import LUNA6_MODEL, ManagedLunaClient
+    from app.modules.ai.v3.revision_policy import AUTONOMOUS_EDITORIAL_REVIEW_POLICY, PRACTICAL_MAX_OUTPUT_TOKENS
+    if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY and type(direct_client) is ManagedLunaClient and direct_client.model == LUNA6_MODEL:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+        return (await resolve_runtime_settings()).integer("generation.editorial_luna_max_tokens")
+    return PRACTICAL_MAX_OUTPUT_TOKENS
+
+
 async def generate_v3_course_from_corpus(
     corpus: DirectSourceCorpus,
     *,
@@ -1921,7 +1930,7 @@ async def generate_v3_course_from_corpus(
         return await generate_practical_course(corpus, intent=intent, invoke=llm_invoker,
             source_sha256=doc_sha, journal=extraction_journal, route_fingerprint=route_fingerprint,
             reference_decisions=reference_decisions, direct_client=direct_client,
-            direct_max_output_tokens=PRACTICAL_MAX_OUTPUT_TOKENS, cancellation_callback=cancellation_callback,
+            direct_max_output_tokens=await _practical_output_budget(review_policy, direct_client), cancellation_callback=cancellation_callback,
             progress_callback=progress_callback, review_policy=review_policy)
 
     neutral_fresh_quality = scoped_revision and authenticated_qa_policy is None

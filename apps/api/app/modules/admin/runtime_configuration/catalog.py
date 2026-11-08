@@ -27,6 +27,10 @@ class Setting:
 
 
 CATALOG = (
+    Setting("generation.editorial_max_revisions", "Редактура курса: адресных правок", "integer", 3, 1, 5),
+    Setting("generation.editorial_rules_per_review", "Редактура курса: правил в части проверки", "integer", 128, 1, 128),
+    Setting("generation.editorial_luna_max_tokens", "Редактура курса: токены ответа Luna", "integer", 32768, 8192, 32768),
+    Setting("generation.editorial_deepseek_max_tokens", "Редактура курса: токены ответа DeepSeek", "integer", 65536, 16384, 65536),
     Setting("source_preparation.image_max_bytes", "Подготовка источника: размер изображения, байт", "integer", 16_777_216, 65_536, 33_554_432),
     Setting("source_preparation.image_max_pixels", "Подготовка источника: пиксели изображения", "integer", 24_000_000, 1_000_000, 64_000_000),
     Setting("source_preparation.vision_batch_size", "Подготовка источника: изображений в запросе", "integer", 2, 1, 4),

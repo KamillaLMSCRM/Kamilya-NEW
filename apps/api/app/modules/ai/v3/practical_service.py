@@ -34,6 +34,7 @@ from app.modules.ai.v3.practical_source_reader import (
 from app.modules.ai.v3.revision_policy import (
     ARBITRATED_PRACTICAL_REVIEW_POLICY,
     ASSESSMENT_COVERAGE_PRACTICAL_REVIEW_POLICY,
+    AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
     CANONICAL_EDITORIAL_REVIEW_POLICY,
     CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
     CONCISE_PRACTICAL_REVIEW_POLICY,
@@ -153,7 +154,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       document_sha256=source_sha256, lessons=tuple(lessons),
                       # Source verification is independent of publication. The
                       # ordinary persistence layer still creates a draft course.
-                      quality_verdict='verified' if accepted and source_verified and not (result.source_core or result.editorial_review) else 'needs_review',
+                      quality_verdict='verified' if accepted and source_verified and not result.source_core
+                          and (not result.editorial_review or review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY) else 'needs_review',
                       validation_report=report)
     assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY} and source_verified
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
@@ -255,7 +257,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         if progress_callback:
             # Author + two checks per candidate + at most four scoped repairs.
             if editorial:
-                await progress_callback('realization', completed, 4, None, 1)
+                await progress_callback('realization', completed,
+                    max(4, completed + 1) if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else 4, None, 1)
             elif review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
                 await progress_callback('realization', completed, 5, None, 1)
             elif review_policy in lesson_policies:
@@ -279,7 +282,15 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if editorial:
+    if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+        from app.modules.ai.v3.practical_autonomous_editorial_cycle import run_autonomous_editorial_cycle
+
+        policy = await resolve_runtime_settings()
+        result = await run_autonomous_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
+            max_revisions=policy.integer('generation.editorial_max_revisions'),
+            max_rules_per_review=policy.integer('generation.editorial_rules_per_review'))
+    elif editorial:
         from app.modules.ai.v3.practical_editorial_cycle import run_editorial_cycle
         result = await run_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
             canonical_json=review_policy == CANONICAL_EDITORIAL_REVIEW_POLICY)
@@ -317,6 +328,6 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                                            concise_review=review_policy == CONCISE_PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
-    if review_policy == CANONICAL_EDITORIAL_REVIEW_POLICY:
+    if review_policy in (CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY):
         return practical_artifacts(result, corpus, packet, source_sha256, editorial_policy=review_policy)
     return practical_artifacts(result, corpus, packet, source_sha256)

@@ -1,3 +1,353 @@
+# Autonomous editorial follow-up IN PROGRESS — 2026-11-08, 20:46 UTC
+
+- ACTIVE sole model run: gsc6.py --execute2/session88495, g6-2. All consumed
+  runtime/harness/fixtures frozen. Saved BAD author only; native source reading,
+  grammar, completeness, review and model repair; exact completed response cache
+  includes own run. No adapted source verdicts, manual course edits or UNKNOWN
+  repetition. Initial24 stages reused by exact payload/response hashes.
+- Current source/tests: full7237PASS/1skip/7warnings78.97s; baseline1010/2174PASS;
+  ops contracts6PASS1.46s. Navigation2459codefiles/28853nodes/85653edges/2492sources,
+  excluded auditPASS. Graphs are navigation only. New isolated settings gate with
+  ALL four0187 settings10PASS/cleanuptrue/public-schema-neutral; no public migration.
+- g5-2 ended NOT_ACCEPTED after3rounds, source_uncertain=false; model-only final
+  8L31Q/10images independently content-GO. Do not relabel automatic hold as PASS.
+  Current verification had repeated an obsolete one-operation L3Q1 allegation
+  despite current plural stem/combined issuance+prolongation choice. NOT lost merge.
+- Fixed current-target binding: every historical assessment remark now carries
+  actual current question/choices/key; NEEDS_REVISION on a question must cite its
+  current owned text. Unverified latest decision revokes previous repair authority.
+  Current prose checks remain physically quiz-free. New regressions cover these.
+- Fixed native/local cap mismatch through existing audited runtime catalog only:
+  Luna32k/DeepSeek65k v33 budgets, snapshot-bound identities. Existing routes,
+  HIGH managed reasoning and provider settings unchanged. v33 post-dispatch
+  unknowns cannot silently fail over/retry; only proven pre-dispatch/rejection
+  failures may use the existing reserve. Legacy profiles preserved. New profile
+  and unknown-fence tests pass; actual native DEV/provider acceptance still open.
+- DEV public settings migration0186→0187 now PASS through canonical
+  dev_public_schema_gate.py (existing SupabaseDEV only). Independent pre/post
+  readback: all4constraints present, FORCE RLSboth; settings1/history8 exact
+  hashes unchanged. Evidence dev-settings-before/after-0187.json. No production
+  migration or business-row write. Release-contract/version84 local PASS.
+- No commit/push/deploy/customer or prior accepted QA change yet. Preparing exact
+  DEV candidate while the sole local model regression finishes; no native inference
+  or worker replacement may overlap the active diagnostic model consumer.
+
+## Superseded checkpoint — 2026-11-08, 20:02 UTC
+
+- ACTIVE sole model run gsc5.py --execute2/session85547, g5-2; freeze ALL v3
+  runtime and harness. Same-run completed response cache and pre-dispatch duplicate
+  fence active. All source/alignment/initial reviews and initial writers reused by
+  exact bytes; no old UNKNOWN request repeated. First8 predicate lesson units done.
+- New per-complete-lesson native predicate stage retains full original source and
+  independently caches each unit/current-key reinterpretation. 49focusedPASS3.57s,
+  final full7208PASS/1skip/7warnings83.34s, baseline1010/2174PASS. Independent bounded
+  integration review no P1/P2. No source hint/key/prose in blind items.
+- Calibration: withdraw prior MATERIAL L1Q1 finding after source/full-lesson
+  reassessment. PKO formalizes cash intake; fiscal receipt confirms settlement.
+  Coexistence alone does not establish another answer to that taught function.
+  Narrowing remains advisory. Do NOT force a rewrite or owner question to satisfy
+  the earlier oracle. Actual g5/029 NOT_MATERIAL verified, no writer for L1Q1.
+  False L7Q2 also verified NOT_MATERIAL. Retain original judgments/history.
+- Measured real gain: complete lesson L3 predicate015 found L3Q1 supported[0,1]
+  (issuance and prolongation), missed by whole-bank g4/013. Keyed QA also found it.
+  Do not base segmentation efficacy on withdrawn Q1 alone. g5/029 still alleged
+  old one-operation key despite actual current question already containing both;
+  confirmed payload has updated plural prompt/combined choice. This is a model
+  stale-prior error, not lost merge. Scoped writer is revising/clarifying; preserve
+  current good parts. Consider current-target anchors if it prevents completion.
+- Before DEV, FIX CONFIRMED native budget mismatch: local replay32768/HIGH;
+  native v33 managed service hardcodes PRACTICAL_MAX_OUTPUT_TOKENS16384. Factory
+  does select Luna6/HIGH/300. Ordinary DeepSeek uses16384 or owned extended65536;
+  reserve retains8192 default. No observed truncation in recent short units, but
+  local g5 is not native-budget or DeepSeek/reserve proof. Add v33-only audited
+  runtime catalog/profile settings, bind effective per-provider budgets to existing
+  checkpoint identities, preserve old policies/routes/credentials/plans. No app
+  edit while g5 active. Detailed read-only audit from editorial_verification_contract.
+- No commit/push/deploy/public migration/customer or prior accepted QA change.
+
+## Superseded checkpoint — 2026-11-08, 19:44 UTC
+
+- ACTIVE sole call: native-option-lesson-control.py --execute/session19365,
+  complete first lesson3Q/12predicates, same native no-hints source/settings/HIGH.
+  Freeze v3 runtime, no other inference. It is diagnostic, NOT integrated.
+- g4-2/session55012 STOPPED intentionally at next preclaim AFTER response027
+  completed/validated. Only gsc4 harness hash changed to stop; all runtime and
+  original frozen snapshot preserved. No inference cancelled, no UNKNOWN failure.
+  Found harness-only cache bug: it excluded own run directory. Exact-byte audit
+  proves016/024 and017/026 duplicates,73036in8953out168.249s; g3-2 no exact duplicates.
+  Native stage_once already reuses same-job completed receipts. Do not label this
+  diagnostic waste as native per-course cost. See same-run-duplicate-audit.json.
+- gsc5.py prepared with same-run cache and pre-dispatch duplicate fence, NOT RUN.
+  Resume using exact completed response bytes, no adapted source semantics. Its
+  CRCRLF copying artifact was normalized to LF before use. Runtime full7205PASS,
+  baseline1010/2174PASS remain valid; no app file changed after that gate.
+- g4-2/prefix-review-2.json was reconstructed through exact completed native
+  stages with ZERO provider calls: current course43c54b47, nine prior dispositions
+  verified/closed, no source questions. New L4 all-fields hypothesis remains
+  unverified pending another semantic decision. Broad L1Q1 remains unchanged,
+  predicate013 AND023 wrongly accepted the whole bank. Do not release on structural
+  green; final independent semantic audit is mandatory.
+
+## Superseded checkpoint — 2026-11-08, 19:08 UTC
+
+- ACTIVE sole model run: gsc4.py --execute2, session55012/PID18424+20972,
+  autonomous-editorial-review-20261108/g4-2. Freeze ALL v3 runtime and harness.
+  Fresh native source/review/repair from original bad Cash8L31Q; only saved author
+  fixture and byte-identical completed provider response reuse. READ001 reused;
+  no adapted historical source semantics. No duplicate model process.
+- Matched full124pair no-author-hints completed183.031s35102in9916out, correctly
+  found L1Q1 two supported answers [1,3]; still one false L3Q2. This is one matched
+  observation, not proof of universal accuracy. Author hints removed from prompt,
+  retained as custody. Every blind finding now needs full current semantic
+  NEEDS_REVISION before writer; false NOT_MATERIAL closes without editing. Final
+  acceptance requires all current blind IDs closed by actual current resolutions,
+  or a clean blind result; raw disagreements retained with adjudicated IDs.
+- Independent root integration review no P1/P2. Three new RED regressions fixed;
+  full previous7202PASS/3FAIL/1skip76.99s had only old-format mocks; focused8PASS
+  after adapting those without changing semantic assertions. Final fullunit92261
+  completed7205PASS/1skip/7warnings73.85s. Baseline1010/2174PASS.
+  Navigation2456files/28813nodes85817edges2489sources,
+  excluded auditPASS. No commit/push/deployment/public migration/customer edits.
+- g4-2 native source grammar002 confirmed R30 clear issuance core without an owner
+  question (153.469s33792in8295out); completeness003 added15 model proposals.
+  Alignment004 is model-only candidate41a1506e, actual next-request fp matched,
+  8L31Q/all10original image addresses preserved. Intermediate, NOT_ACCEPTED.
+  Initial full keyed assessment012 found L3Q1 two interest-operation answers;
+  predicate013 in flight. No manual finding or course edit injected.
+- Follow-up: predicate013 completed accepted=True despite unchanged broad L1Q1
+  (candidate41a1506e). The source-hint ablation did NOT establish stable detection.
+  Do not accept/release merely because the pipeline turns green; independently
+  inspect the final Q1 and all known material cases. Native writer014 independently
+  corrected L3Q1 from keyed012; writer015 also completed. Verification018/019 done,
+  main session55012 remains ACTIVE/frozen. No new parallel model run is authorized.
+- Prepared ONLY, zero calls: native-option-lesson-control.py --preflight. Same
+  native no-hints contract/source/HIGH/settings, complete first lesson3Q/12pairs
+  instead of31Q/124pairs. Execute at most once AFTER55012 ends, only to measure
+  semantic-unit focus; never add the held-out Q1 allegation to its prompt. Per-lesson
+  runtime integration is NOT implemented/accepted. Earlier best-answer per-lesson
+  prototype failed and stays archived; this predicate control is a different role.
+
+## Superseded checkpoint — 2026-11-08, 18:53 UTC
+
+- ACTIVE: one native whole-bank option-predicate control, session27967,
+  evidence autonomous-editorial-review-20261108/native-option-control.
+  Luna6/HIGH/32768/300s, sole private DEV connector. Freeze v3 runtime; no duplicate.
+- Previous g3-2 completed NOT ACCEPTED:40actual calls,1490452input/125827output,
+  46m10s; cost UNKNOWN. No active gsc3 or old test. Saved model writer independently
+  repaired the all-requisites-before-printing omission but broad Cash L1Q1 still
+  allowed PKO and fiscal receipt; repeated best-answer review missed it.
+- Independent per-option diagnostic identified both supported answers and two
+  correct controls (50.922s24700in2560out), but its free-text quote extraction failed;
+  failed receipt preserved. New native schema uses owned source references with
+  server-retrieved source blocks, not quotes parsed from free-text reasoning.
+  Native predicate stage replaces prior blind stage, no extra per-lesson critic.
+- Independent review fixed hidden-prose cache coupling and uncertainty-only
+  judgments becoming editable allegations. Uncertain review is held for automated
+  adjudication; only actual source ambiguity is a candidate owner question.
+  Predicate12PASS, owned-stage/checkpoint combined36PASS, autonomous22PASS.
+- Local NEEDS_REVISION disposition confirms prior technical hypotheses by separate
+  semantic verification before writer routing; proof-only correction cannot confer
+  semantic authority. Source grammar guidance separates clear core rules from an
+  unspecified extension. These changes need fresh two-file model replay and native DEV.
+- No commit/push/deployment/public migration or customer/prior accepted QA changes.
+
+## Superseded checkpoint — 2026-11-08, 17:23 UTC
+
+- Current authoritative continuation: `gsc3.py --execute 2`, session49800,
+  PID24296/child26000, evidence `autonomous-editorial-review-20261108/g3-2`.
+  Cash8L31Q saved bad author; ALL source READ/GRAMMAR/COMPLETENESS fresh. Actual
+  Luna6/HIGH/32768/300s, sole private DEV connector consumer. Freeze ALL v3 runtime
+  and harness; no duplicate. Full unit regression session73165; graph30112.
+- g2-1 is STOPPED at047 attested503/20byte timeout, output/usage UNKNOWN, no retry.
+  Before that, actual model-only10L39Q intermediate0728c6f3 passed independent
+  content review, whole-course041 found no material errors and blind043 found
+  all39unique/no findings. It is NOT final automatic acceptance. Saved model edits
+  044–046 exist; preserve all prior comments and technical holds. Read-only audit
+  confirms L1/L7 remarks from027 proof correction were retained, not lost.
+- Systemic grouping correction: rules without quiz refs formerly collapsed into
+  one41-rule catchall spanning17 semantic source sections. New groups use verified
+  reading section as NAVIGATION ONLY, stable section-wide lesson attention and
+  all-peer prose/full source. Every rule exactly once; shared dependencies intact.
+  Prior rule_id routes exactly; other remarks prefer actual source-ref overlap,
+  then linked lesson attention. No extra critic, lower cap or validator weakening.
+- Focused40PASS3.67s; exact Ruff and quality1010/2174PASS. Current full suite pending.
+  No Git commit/push/deployment/public migration/customer or prior QA changes.
+  Next: complete Cash model-owned review/edit/verification including10figures,
+  then PDF with current section grouping, native DEV, intended DeepSeek/release.
+
+## Superseded checkpoint — 2026-11-08, 16:21 UTC
+
+- Current authoritative continuation: local `gsc2.py --execute 1` ACTIVE,
+  PID2912/child27304, evidence `autonomous-editorial-review-20261108/g2-1`.
+  Freeze v3 runtime and harness; do not duplicate. Completed exact requests are
+  reused only with matching bytes and response hashes. The earlier gsc-1/026
+  timed out with UNKNOWN output/usage and is not repeated. Its first post-edit
+  request incorrectly routed all lesson remarks into the unmapped catchall.
+- Fixed and focused-tested: prior remarks now prefer their linked lesson group;
+  a proof-card semantic flip cannot erase the earlier substantive allegation;
+  arbitrary new noneditable IDs cannot keep an unchanged-course loop alive.
+  Existing whole-course QA now checks authored claims against source, while the
+  separate prose review checks source coverage. No additional model critic.
+- Actual gsc-1 model writer fixed L8 conflict prevention without human text.
+  Independent complete10L39Q audit found a new L9 shared-condition scope risk;
+  therefore that intermediate candidate is NO_GO. Current g2 tests the general
+  two-direction check, without injecting a manual L9 finding. Source-owner
+  ambiguities remain separate. Q33 optional/mandatory complaint was withdrawn
+  after full source/question reassessment; do not revive it as a material error.
+- Full unit regression7169PASS/1skip/7warnings89.62s; ops contracts6PASS;
+  quality1010/2174PASS. Graph2454codefiles/28777nodes/85732edges/2487sources,
+  excluded auditPASS; bounded query is navigation evidence only. New g2/026
+  scoped review completed142.266s43038in6734out; subsequent reviews ACTIVE.
+  Independent first-round10L39Q content audit now GO. Initial Q5 allegation was
+  withdrawn: hypothetical permission under an undisclosed policy is not another
+  required answer on supplied facts. Earlier rationale retained; no held-out
+  finding or reassessment enters model prompts. L9/Q33 nonblocking precision.
+  Candidate0728c6f3 remains intermediate/NOT_AUTOMATICALLY_ACCEPTED.
+  No commit, push, deployment, public migration or accepted QA/customer edits.
+
+## Superseded checkpoint — 2026-11-08, 15:25 UTC
+
+- Live follow-up15:38UTC: session77149/gsc-1 ACTIVE, completed001–017,018blind
+  request in flight. Runtime011 independently found R90 INCOMPLETE/material/L8,
+  no invented quote for missing action;77.797s33114in3944out. Initial mapped review
+  still reports a few source-faithful minor clarifications as material; don't
+  claim perfect materiality calibration. Two independent RED regressions MUST be
+  fixed after this immutable run: semantic-status flip during card proof repair
+  drops earlier allegation; unchanged-course verification can loop if merely
+  appending fresh noneditable issue IDs (revision budget never increments).
+  Both tests stop safely/deterministically, no provider calls. No model/course
+  manipulation to mask either defect. Preserve all comments and source confirmation.
+
+- result: Local84/v33 remains NOT ACCEPTED/NOT_RELEASED. A controlled source-to-L8
+  model comparison independently identified R90 prevention omission and5covered
+  controls,38.25s/25886in1497out. No manual oracle/finding in prompt. Prior generic
+  whole-course/countercrit/global-pair probes failed detection; not chosen as runtime.
+- changed: Current reviewer groups every source rule once by primary source-linked
+  lesson tuple; unmapped rules remain explicit course_coverage. ALL peer TEACHING
+  prose is visible because quiz refs are navigation, not exhaustive ownership.
+  Quiz/keys/explanations physically separate. Compact v2 requires explicit lesson_ids
+  and short literal current-prose quotes for SUPPORTED, no per-condition boilerplate.
+  Negative missing quote is allowed, missing target is held, never inferred. Actual
+  material edits run per lesson with successive current-course fingerprints and
+  protected merge. Grammar-only alignment retained; completeness additions reviewed
+  before editing. One proof-only correction preserves dispositions/questions/holds.
+- verified: Full API7164PASS/1skip/7warnings74.12s; baseline1010/2174PASS. Grouping9,
+  peer-scope/two-lesson-edit2, compact18, proof18focusedPASS. Owned settings10PASS,
+  service-level acceptance11PASS/public unchanged/cleanup verified; no publicmigration.
+- blockers: ACTIVE local model session77149, grouped-source-comparison-regression.py
+  --execute1, .release-evidence/autonomous-editorial-review-20261108/gsc-1/.
+  Freeze ALL v3 runtime, do not duplicate. 001grammar alignment completed59.875s/
+ 63301in2873out;002first grouped review in flight. Bad10L39Q author unchanged input;
+  all53historical grammar+46omissions explicitly adapted fixtures, not fresh native
+  source-stage proof. Exact completed request-byte cache only; unknown005 not retried.
+  Initial long directory snapshot failed PRETRANSPORT,0calls, partial kept, short gsc-1.
+  Independent review found P2 in evidence-card repair: changed semantic status can
+  erase earlier unverified substantive allegation. Agent adding RED test only.
+  Root MUST fix AFTER current immutable run, retain allegation until separate semantic
+  disposition, then replay exact completed calls with no inference. Do not ship P2.
+- next: Observe77149 first; independent full semantic audit, patch/red→green/replay
+  known P2, then file2 fresh source/8L31Q/10images. Native DEV/DeepSeek/release/newQA
+  remain unmet. No commit/push/deploy/customer or accepted QA change/providerplan action.
+
+## Historical local checkpoint — 2026-11-08, 14:34 UTC
+
+- result: compact-source-aligned-file-1 is NOT ACCEPTED. Model001 correctly repaired
+  L3/Q8 (66.172s75324in2958out), but002 falsely SUPPORTED R90 (lesson only reports
+  conflict, does not teach prevention) and falsely alleges R13 despite whole-lesson
+  refusal-ground wording. Saved native004blind found all39answer keys unique; no
+  owner question, numbering note preserved. This does not establish prose quality.
+- changed: Root intentionally marked harness for stop after current response before
+  further dispatch;005editor was already in flight and returned attested300s timeout
+ 503/body20/hashb3e8d2a5...58be. Output/usage UNKNOWN, no identical retry. All receipts
+  unchanged, runtime code still same as7143PASS/baseline1010/2174. No course hand-edit.
+- verified: Settings0187/default128 ownedSupabaseDEV gate10PASS/cleanuptrue/public
+  schema neutral; no public migration. Graph2449files/28738nodes/85702edges/2482sources,
+  excludedPASS; boundedcompactquery checked in source. Independent reviewer confirms
+  both false-coverage and false-allegation examples from exact saved002 input/output.
+- blockers: Current actual model session65897, review-counterexample-diagnostic.py
+  --execute. Uses exact001candidate+fullprose/source+all99untrusted002judgments and
+  its5materialfindings; no held-out/manual issue in prompt. Generic challenge checks
+  BOTH positive coverage and alleged defects; only challenged findings returned,
+  existing strict per-issue resolution contract. This is ONE saved-response probe,
+  not another course generation or a selected runtime feature yet.
+- next: Inspect65897/result/raw, independently score omission and false-positive
+  handling before integrating. Then model-owned two-file acceptance and ordinary
+  native DEV remain required. Do not repeat005 unknown or edit accepted QA courses.
+
+## Historical local checkpoint — 2026-11-08, 14:23 UTC
+
+- result: Local84/v33 is NOT ACCEPTED/NOT RELEASED. Previous production83 and
+  accepted QA/customer courses/history remain unchanged. Owner requests model-owned
+  checking/targeted corrections on the exact original PDF and cash DOCX.
+- changed: Source READ → GRAMMAR VERIFY → ADDITIVE COMPLETENESS preserves corrected
+  interpretations. Source model's own grammar corrections AND additions now reach
+  the author as explicit alignment goals (not alleged course defects). Partial edit
+  merge preserves omitted good lessons/questions. Current compact source-to-PROSE
+  check physically excludes quizzes; separate keyed assessment and blind bank check
+  remain. Compact rule IDs establish custody only, NOT semantic truth. Individual
+  FIXED/ALREADY_COVERED closures retain strict original/current-target quotes;
+  NOT_MATERIAL remains a reasoned dismissal, not fabricated coverage. Only actual
+  source ambiguities can become owner questions. Prior issue history is lossless.
+- verified: Earlier actual Luna6/HIGH alignment repaired L3/Q8 grammar and two other
+  questions in55.25s/63149in2613out, 8other lessons byte-retained; this was partial
+  evidence only. Latest full API7143PASS/1skip/7warnings80.75s; baseline1010/2174PASS.
+  Independent compact-cycle reviewer found proof-correction scope escape; root
+  guarded both first/corrected prose findings, new red-capable regression passes.
+  Root also found/fixed actual U+FFFD in an untested instruction before dispatch.
+  Owned SupabaseDEV service-level acceptance11PASS, receipt a6340f38ba1b; exact
+  source/content drift and concurrent locks tested, public unchanged/cleanup verified.
+- blockers: Active model process session9793, compact-source-aligned-regression.py
+  --execute1. DO NOT duplicate or mutate frozen apps/api/AI runtime. This uses original
+  bad10L39Q; file1source ALL53historical grammar decisions+46historical omissions are
+  explicitly adapted fixtures, no semantic field hand-edit, not native3stage proof.
+  All course alignment/checks/edits/verification actual current Luna6/HIGH. Current
+  source-alignment request5a57bb30f5db...72e1,369077bytes; all requests/results retained
+  in .release-evidence/autonomous-editorial-review-20261108/compact-source-aligned-file-1/.
+  File2 has NOT run current protocol. Prior verbose positive-card controls timed out
+ 300s; their output/usage UNKNOWN and identical requests must not be repeated.
+- next: Inspect session9793 and all returned content; independent whole-course
+  semantic acceptance, then file2 fresh source path. Recheck owned0187 settings
+  default128 (earlier settings proof used40); refresh Graphify after final source.
+  Ordinary fresh DEV worker, intended DeepSeek and authorized new QA prod cycle
+  remain separate unmet gates. No current commit/push/deploy; no plan/provider changes.
+
+## Historical local checkpoint — 2026-11-08, 12:51 UTC
+
+- result: Local84/v33 remains NOT ACCEPTED/NOT RELEASED; production83/466 and
+  accepted prior QA courses/history/customer data unchanged. Owner asks engine to
+  detect and address defects itself, only actual source ambiguities for humans.
+- changed: Current source flow is READ → GRAMMAR VERIFY → ADDITIVE COMPLETENESS.
+  Completion cannot replace/delete any grammar-verified rule. Canonical source
+  IDs resolve copied-quote custody only, never semantic truth. Course model review
+  → addressed edit → full current verification/explicit per-issue resolutions →
+  blind changed-bank review preserve good content and remarks. Earlier advisory
+  observations now remain historical/unverified, not silently lost/current fact.
+  Existing policies31/32 and normal explicit publication approval remain intact.
+- verified: Root diagnosed its own contaminated experiment: historical grammar
+  model-source-regression-file-1/002 REVISEd R14 condition to credit; later combined
+  source-completeness-file-1/002 SUPPORTED the original person-bound condition.
+  Thus later bad-map controls do NOT prove failure of the corrected map. Both raw
+  receipts retained. Real qualifier/additive preservation/owned-fence tests52PASS;
+  full API7105PASS/1skip/7warnings86.64s; baseline ruff1010/mypy2174PASS. Owned
+  Supabase two-key0187 gate10PASS/cleanup/public-neutral earlier, no public/prod
+  migration. No commit/push in current task. Graph refresh session23728 pending.
+- blockers: Active local model session93189, preserved-source-regression.py
+  --execute1. Source phases reuse ALL53 historical model grammar checks and46
+  historical omission proposals as explicitly ADAPTED FIXTURES, not exact new
+  native wire replay; no semantic fields hand-edited. Bad original author retained.
+  Every course review/edit/verification is a current actual Luna6/HIGH call.
+  Current prompt's effective R14 is independently read back as credit-bound,
+  effective source map fingerprint bdd7782b6217e8b56d669a518b3855606c8c8c2b8115466af74c578f768b9255.
+  Do not mutate frozen runtime until run returns or an intentional safe stop is
+  necessary; do not duplicate the active model. Cash has NOT run this task.
+- next: Inspect session93189/output first; finish model-owned repair and independent
+  full semantic acceptance of both bad saved drafts, then ordinary DEV worker with
+  FRESH native3-stage source path/concurrency and authorized release/full live QA.
+  Raw evidence .release-evidence/autonomous-editorial-review-20261108/. Unproven
+  source-blind teaching extraction prototype removed from runtime, exact code/test
+  snapshot retained under teaching-isolation-control-source/. It is not a chosen
+  feature or acceptance proof. No new human questions/source decisions invented.
+
 # Original-file production acceptance COMPLETE — 2026-11-08
 
 - result: Both exact owner originals passed permanent production QA tenant83552ce6

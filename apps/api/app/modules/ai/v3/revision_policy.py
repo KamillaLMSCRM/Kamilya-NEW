@@ -32,11 +32,12 @@ SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v29"
 SOURCE_CORE_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v30"
 EDITORIAL_PRACTICAL_REVIEW_POLICY = "v3-practical-source-review-v31"
 CANONICAL_EDITORIAL_REVIEW_POLICY = "v3-practical-source-review-v32"
+AUTONOMOUS_EDITORIAL_REVIEW_POLICY = "v3-practical-source-review-v33"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
 def is_editorial_policy(value: object) -> bool:
-    return type(value) is str and value in (EDITORIAL_PRACTICAL_REVIEW_POLICY, CANONICAL_EDITORIAL_REVIEW_POLICY)
+    return type(value) is str and value in (EDITORIAL_PRACTICAL_REVIEW_POLICY, CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY)
 
 
 def is_scoped_policy(value: object) -> bool:
@@ -175,6 +176,7 @@ def read_review_policy(analysis: Any) -> str | None:
         SOURCE_CORE_PRACTICAL_REVIEW_POLICY,
         EDITORIAL_PRACTICAL_REVIEW_POLICY,
         CANONICAL_EDITORIAL_REVIEW_POLICY,
+        AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
     }:
         raise ValueError("v3_review_policy_invalid")
     return str(analysis[REVIEW_KEY])

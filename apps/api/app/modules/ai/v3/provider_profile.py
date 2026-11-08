@@ -58,7 +58,15 @@ def _effective_profile_values(
         is_local_deepseek_dev_client,
     )
     values = _profile_values(policy)
-    if request_profile == "course_generation_extended":
+    if request_profile == "course_generation_autonomous":
+        has_managed_deepseek = any(item.name == "deepseek" and item.config.managed_evidence_profile
+                                   for item in client._clients)
+        values.update(deepseek_seconds=(EXTENDED_COURSE_GENERATION_SECONDS if has_managed_deepseek
+                                        else policy.number("provider.chatgpt.timeout_seconds")),
+                      max_tokens=policy.integer("generation.editorial_deepseek_max_tokens"),
+                      reserve_max_tokens=policy.integer("generation.editorial_luna_max_tokens"),
+                      reserve_seconds=policy.number("provider.chatgpt.timeout_seconds"))
+    elif request_profile == "course_generation_extended":
         values.update(deepseek_seconds=EXTENDED_COURSE_GENERATION_SECONDS,
                       max_tokens=EXTENDED_COURSE_GENERATION_MAX_TOKENS)
     elif is_local_deepseek_dev_client(client):
@@ -68,10 +76,15 @@ def _effective_profile_values(
 
 
 class V3ProfiledClient:
-    """Apply the fresh V3 course-generation profile to one resolved client."""
+    """Apply the fresh V3 course-generation profile to one resolved client.
+
+    generation_deadline_seconds bounds the TOTAL provider chain, as recorded in
+    whole_invocation_seconds. Per-provider timeouts are ceilings within that
+    remaining total; a fallback is not promised an additional full chain budget.
+    """
 
     def __init__(self, client: ResilientLLMClient, policy: RuntimeSnapshot, *, job_id: str,
-                 cooperative_deadline: bool = False, extended_output: bool = False):
+                 cooperative_deadline: bool = False, extended_output: bool = False, autonomous_output: bool = False):
         if type(client) is not ResilientLLMClient:
             raise TypeError("v3_provider_profile_client_invalid")
         if not isinstance(policy, RuntimeSnapshot):
@@ -80,6 +93,8 @@ class V3ProfiledClient:
             raise ValueError("v3_provider_cooperative_deadline_invalid")
         if type(extended_output) is not bool or extended_output and not cooperative_deadline:
             raise ValueError("v3_provider_extended_output_invalid")
+        if type(autonomous_output) is not bool or autonomous_output and not cooperative_deadline:
+            raise ValueError("v3_provider_autonomous_output_invalid")
         if cooperative_deadline and type(policy.values.get("provider.deepseek.timeout_seconds")) not in (int, float):
             raise ValueError("v3_provider_cooperative_deadline_invalid")
         self._client = client
@@ -90,7 +105,16 @@ class V3ProfiledClient:
             provider.name == "deepseek" and provider.config.managed_evidence_profile
             for provider in client._clients
         )
+        # Only an owned global managed route can widen the two known providers.
+        # A mixed, tenant or local route keeps its existing profile and deadline.
+        # The tenant override resolver emits only deepseek or openrouter; the
+        # reserved chatgpt-reserve name is constructed only by the global route.
+        eligible = bool(client._clients) and all(
+            item.name == "deepseek" and item.config.managed_evidence_profile
+            or item.name == "chatgpt-reserve" for item in client._clients
+        )
         self._request_profile: RequestProfile = (
+            "course_generation_autonomous" if autonomous_output and eligible else
             "course_generation_extended" if extended_output and managed_deepseek else "course_generation"
         )
         self._values = _effective_profile_values(policy, client, self._request_profile)

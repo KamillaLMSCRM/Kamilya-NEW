@@ -7,6 +7,7 @@ from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.practical_editorial_contract import (
     compile_editorial_review,
     compile_editorial_revision,
+    compile_lesson_alignment_revision,
     editorial_review_format,
     editorial_revision_format,
     is_editorial_review_format,
@@ -101,6 +102,28 @@ def test_lesson_revision_cannot_lose_original_questions(case):
     assert updated['lessons'][0]['content'] == proposed['lessons'][0]['content']
     assert updated['lessons'][0]['questions'] == course['lessons'][0]['questions']
     assert meta['retained_missing_targets'] == ['q2']
+
+
+def test_owned_alignment_intent_is_not_a_material_finding_and_preserves_omitted_peers(case):
+    _, packet, original = case
+    original = copy.deepcopy(original)
+    peer = copy.deepcopy(original['lessons'][0])
+    peer['id'] = 'l2'
+    for index, question in enumerate(peer['questions'], start=3):
+        question['id'] = f'q{index}'
+    original['lessons'].append(peer)
+    partial = {'title': original['title'], 'lessons': [copy.deepcopy(original['lessons'][0])]}
+    partial['lessons'][0]['content'] = 'Clarified source interpretation without asserting an existing defect.'
+    partial['lessons'][0]['questions'] = partial['lessons'][0]['questions'][:1]
+    value = revision_value(packet, original, partial)
+    updated, metadata = compile_lesson_alignment_revision(value, packet, original, ['l1'])
+    assert updated['lessons'][1] == original['lessons'][1]
+    assert updated['lessons'][0]['questions'] == original['lessons'][0]['questions']
+    assert updated['lessons'][0]['content'] == partial['lessons'][0]['content']
+    assert metadata['course_error_asserted'] is False
+    for invalid in ([], ['foreign'], ['l1', 'l1']):
+        with pytest.raises(ValueError, match='alignment_scope'):
+            compile_lesson_alignment_revision(value, packet, original, invalid)
 
 
 @pytest.mark.parametrize('domain,severity', [('source', 'material'), ('assessment', 'advisory')])

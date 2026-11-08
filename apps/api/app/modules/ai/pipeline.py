@@ -619,6 +619,7 @@ async def _run_v3_generation(
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
     from app.modules.ai.v3.revision_policy import (
+        AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
         EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
         EDITORIAL_ORDINARY_EXTENDED_MARKER,
@@ -799,6 +800,7 @@ async def _run_v3_generation(
                 generation_client, policy, job_id=state.job_id,
                 **({"cooperative_deadline": True} if cooperative_native else {}),
                 **({"extended_output": True} if extended_output else {}),
+                **({"autonomous_output": True} if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else {}),
             )
             if cooperative_native:
                 journal.native_generation_seconds = generation_client.generation_deadline_seconds
@@ -839,28 +841,31 @@ async def _run_v3_generation(
         )
 
     try:
-        artifacts = await generate_v3_course_from_corpus(
-            corpus,
-            intent=CourseIntent(
-                purpose=(guidance or "").strip(),
-                audience=target_audience.strip(),
-                emphasis=tuple(value.strip() for value in (goals or []) if value.strip()),
-            ),
-            generation_client=generation_client,
-            progress_callback=report_progress,
-            cancellation_callback=lambda: _check_cancelled_async(
-                state.job_id,
-                tenant_id=tenant_id,
-            ),
-            extraction_journal=journal,
-            route_fingerprint=generation_client.cache_fingerprint(),
-            reference_decisions=reference_decisions,
-            direct_client=direct_client,
-            authenticated_qa_policy=authenticated_qa_policy,
-            owned_source_context=owned_source_context,
-            revision_policy=revision_policy,
-            review_policy=review_policy,
-        )
+        from contextlib import nullcontext
+        scope = runtime_settings_scope(policy) if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else nullcontext()
+        with scope:
+            artifacts = await generate_v3_course_from_corpus(
+                corpus,
+                intent=CourseIntent(
+                    purpose=(guidance or "").strip(),
+                    audience=target_audience.strip(),
+                    emphasis=tuple(value.strip() for value in (goals or []) if value.strip()),
+                ),
+                generation_client=generation_client,
+                progress_callback=report_progress,
+                cancellation_callback=lambda: _check_cancelled_async(
+                    state.job_id,
+                    tenant_id=tenant_id,
+                ),
+                extraction_journal=journal,
+                route_fingerprint=generation_client.cache_fingerprint(),
+                reference_decisions=reference_decisions,
+                direct_client=direct_client,
+                authenticated_qa_policy=authenticated_qa_policy,
+                owned_source_context=owned_source_context,
+                revision_policy=revision_policy,
+                review_policy=review_policy,
+            )
     finally:
         if direct_client is not None:
             direct_client.close()
@@ -1480,6 +1485,9 @@ async def _save_generation_to_db_transaction(
                                        output_digest=final_intent["output_digest"])
             completed[RECEIPT_KEY] = completed_receipt(final_intent, final_snapshot, str(course.id))
             job.result = completed
+        from app.modules.courses.automated_editorial_acceptance import bind_automated_acceptance
+
+        await bind_automated_acceptance(session, course=course, job=job)
         await session.commit()
         state.course_id = str(course.id)
         logger.info(f"Saved generation results to DB for course {state.course_id}")

@@ -1,5 +1,122 @@
 # Журнал ошибок движка генерации и обработки курсов
 
+
+## ENG-040 — исправленный моделью курс оставался непроверенным, слепые замечания не возвращались редактору
+
+- Follow-up08.11/19:08UTC: matched full124pair no-hints control183.031s,
+  35102in9916out found L1Q1 [1,3], one false L3Q2 retained. New blind-stage
+  findings are always hypotheses until current full editor confirms NEEDS_REVISION.
+  Verified NOT_MATERIAL can close false evidence without writer; final gate binds
+  every current blind issue to current full resolutions and retains raw receipt.
+  Independent review no P1/P2; RED cases fixed. Full7202PASS/3oldmockFAIL corrected
+  with focused8PASS; finalfull ACTIVE. g4-2 fresh native source/review/repair ACTIVE,
+  source READ byte-identical completed cache only; no hand-edited source verdicts.
+  No release or previous QA/client mutations.
+
+- Follow-up08.11/19:01UTC: Cash g3-2 ended NOT_ACCEPTED,40actual calls,
+  1490452in/125827out/2769.55s, money UNKNOWN; raw/source/figures preserved.
+  Its actual writer fixed all-requisites-before-printing omission, but full-bank
+  review missed broad L1Q1 and invented source-ambiguity holds. Proper option
+  predicate schema replaces best-answer schema; whole124pair control semantically
+  FAILED despite valid inventory: two false NOT_SUPPORTED judgments contradicted
+  their own reasons. A12pair diagnostic success does not prove native acceptance.
+  Matched no-author-source-hints control ACTIVE; refs remain server custody.
+  New independent RED3FAIL/21PASS proves blind hypotheses were edited before
+  semantic adjudication. Existing NEEDS_REVISION/full verifier must authorize the
+  exact issue first; NOT_MATERIAL closes false allegations with no writer.
+  No manual course repair, release or accepted QA/customer mutation in this phase.
+
+- Follow-up08.11/17:23UTC: g2-1/047 again returned attested503/timeout, output and
+  usage UNKNOWN, no identical repeat. Confirmed request organisation defect:
+ 41unmapped rules from17source sections were one catchall; verification accumulated
+  many unrelated prior remarks there. This does not prove model capacity as the
+  timeout cause. Grouping now follows source-reading sections, retaining every
+  rule and dependency/full original/all peer prose; section labels are untrusted
+  navigation only. Prior remark routing uses rule custody then source-ref overlap.
+  Focused40PASS3.67s/quality1010/2174PASS. Fresh source/Cash8L31Q actual model test
+  ACTIVE; not accepted. PDF intermediate0728c6f3 independently content-GO, native
+  whole-course041 no material errors/blind04339unique; final automatic gate unmet.
+  Q5 auditor allegation withdrawn on exact required-vs-permitted reassessment,
+  original rationale retained; no owner question or manual course fix made.
+
+- Follow-up08.11/16:29UTC: fixed source-review routing so generic lesson remarks
+  prefer their linked comparison over the global catchall. Earlier gsc-1/026
+  UNKNOWN timeout preserved/not repeated; new g2/026 completed142.266s43038in6734out.
+  Proof-card semantic flips retain the original allegation; arbitrary new technical
+  IDs cannot prevent no-progress termination. RED regressions now GREEN;
+  full7169PASS/1skip/7warnings89.62s, quality1010/2174PASS, ops contracts6PASS.
+  Existing whole-course QA also checks authored claims against source, complementary
+  to source-to-prose completeness; no additional model critic. Actual model writer
+  fixed L8 conflict prevention. Independent first-round10L39Q review of candidate
+  0728c6f3 found Q5 early-refusal distractor ambiguity. This held-out finding is not
+  injected into model prompts. Complete automatic review ACTIVE; second cash file,
+  native DEV and production are still NOT_ACCEPTED.
+
+- Follow-up08.11/14:23UTC: corrected source interpretations were buried in shared
+  context instead of becoming explicit writer goals. New source-alignment stage
+  carries the source model's own REVISE/addition before/after/reason and mapped
+  targets, without asserting a course error or injecting a human correction.
+  Actual first controlled alignment fixed L3/Q8 and retained8other lessons;
+ 55.25s/63149in2613out, partial evidence only. Completion can only add to the
+  grammar-verified map; cannot regress it. Current compact review physically
+  separates prose from keyed assessments. Per-rule IDs are ownership evidence,
+  semantic verdicts remain model judgments; strict per-issue closure quotes and
+  blind answer checks remain. Verbose per-rule positive quote duplication had
+  repeated300s failures; output/usage UNKNOWN, unchanged payloads not retried.
+  Independent review found prose-only proof correction could authorize an unseen
+  question; both initial/corrected findings now receive the same technical scope
+  hold. Targeted regression plus full7143PASS/1skip/7warnings, baseline1010/2174.
+  Model-owned complete two-file semantic acceptance/hosted DEV/prod still pending.
+
+- 08.11.2026. В исходных production-черновиках двух документов сохранены семь
+  существенных смысловых провалов (ENG-038); прежняя приёмка закрыла их ручной
+  редактурой. Это подтверждает качество исправленных QA-курсов, но не способность
+  движка самостоятельно обнаруживать и исправлять эти ошибки.
+- Подтверждённый дефект контракта v31/v32: после единственной адресной правки
+  первоначальное material-замечание безусловно получало EDITED_UNVERIFIED;
+  переработанный учебный текст не проходил последующую полную модельную проверку.
+  Слепой проверяющий видел только вопросы и обнаруженные им дефекты сохранялись
+  для человека, а не направлялись автору. Результат принудительно требовал ручной
+  проверки даже при пригодной модельной редакции. Это архитектурная причина
+  ручного этапа; она не доказывает, что новое ревью найдёт любой дефект модели.
+- Новый протокол v33 для новых заданий: полное редакторское ревью и физически
+  слепая проверка банка, объединение адресных замечаний, модельная правка,
+  повторная полная проверка текущего курса с решениями по всем material issue_id,
+  затем слепая проверка изменённого банка. Прежние v31/v32 checkpoints не меняются.
+  Ссылки, буквальные цитаты и fingerprints подтверждают принадлежность доказательств,
+  а смысловое решение принимает модель; совпадение текста не объявляется доказательством
+  истинности. Только подтверждённая неоднозначность самого источника получает вопрос
+  человеку. Невалидный ответ, отсутствие прогресса и транспортная неизвестность не
+  превращаются в вопрос владельцу документа.
+- Защита: хорошие соседние части сохраняются существующим компилятором правок;
+  закрытия перепроверяются после каждой следующей редакции; новые замечания не
+  теряются; первые и последующие ответы сохраняются; неизвестный транспорт не
+  повторяется. Бюджет адресной редактуры добавлен в канонический runtime_settings
+  каталог (default3,1–5), миграция0187; он не заменяет смысловую приёмку.
+- Локально: новые две регрессии сначала падали из-за отсутствия автономного цикла,
+  затем прошли; проверены маршруты keyed/blind→правка→подтверждение, истинный вопрос
+  источника, новый дефект после снятия старого, отсутствие прогресса, unknown без
+  повтора и приёмка обычным сервисом. Независимый аудит выявил и помог исправить
+  преждевременный no-progress и потерю первых raw-review receipts.
+- Фактическая граница на момент записи: слепой локальный модельный повтор на
+  исходных черновиках запущен; качество, расход, DEV и новый production ещё не приняты.
+  Старые опубликованные QA-курсы и клиентский тенант не менялись.
+  Evidence: .release-evidence/autonomous-editorial-review-20261108/.
+
+- Follow-up08.11: generic source/teaching review still missed a real qualifier
+  shift; source-only interpretation is now explicit before authoring and every
+  source rule is checked against teaching, independent of quizzes. A63-card
+  response timed out300s (usage/output UNKNOWN); two complete source-preserving
+  section subsets30+33 finished180/196s and detected L3/R13. Current wire uses
+  immutable condition IDs after actual1-based/0-based ambiguity; literal quotes
+  do not establish semantic truth. Invalid proof receives one addressed model
+  correction, not a lesson rewrite or owner question. Identical blind requests
+  after prose-only edits are deduplicated with current-key re-interpretation.
+  Source proposals require actual materiality adjudication; not every proposed
+  ambiguity needs an owner choice. Independent whole-context reassessment demoted
+  PDF L9/Q33/Q35 to optional precision; old oracle/receipts remain unchanged.
+  Final model-repaired courses and native DEV/prod remain NOT VERIFIED.
+
 ## ENG-039 — source-response cap silently replaced by the course profile
 
 - 08.11.2026, production82/ae11c4d3, permanent QA tenant only. The original cash

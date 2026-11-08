@@ -60,8 +60,8 @@ from app.modules.admin.runtime_configuration.runtime import resolve_runtime_sett
 from app.modules.ai import timeout_context
 from app.modules.ai.embedding_space import EmbeddingSpace
 
-RequestProfile = Literal["evidence_low", "course_generation", "course_generation_extended"]
-_COURSE_REQUEST_PROFILES = ("course_generation", "course_generation_extended")
+RequestProfile = Literal["evidence_low", "course_generation", "course_generation_extended", "course_generation_autonomous"]
+_COURSE_REQUEST_PROFILES = ("course_generation", "course_generation_extended", "course_generation_autonomous")
 _REQUEST_PROFILES = (None, "evidence_low", *_COURSE_REQUEST_PROFILES)
 COURSE_GENERATION_MAX_TOKENS = 16384
 EXTENDED_COURSE_GENERATION_MAX_TOKENS = 65536
@@ -101,6 +101,22 @@ class ProviderFailedError(LLMError):
         super().__init__(f"{provider_name} failed: {type(last_exc).__name__}: {last_exc}")
         self.provider_name = provider_name
         self.last_exc = last_exc
+
+
+class ProviderOutcomeUnknownError(LLMError):
+    """A v33 inference may have run; another provider must not be invoked."""
+
+    def __init__(self, provider_name: str, cause: BaseException):
+        super().__init__("autonomous_provider_outcome_unknown")
+        self.provider_name = provider_name
+        self.cause_type = type(cause).__name__
+
+
+def _autonomous_failover_is_safe(cause: BaseException) -> bool:
+    if isinstance(cause, httpx.ConnectError | httpx.ConnectTimeout | httpx.PoolTimeout):
+        return True
+    return (isinstance(cause, httpx.HTTPStatusError)
+            and cause.response.status_code in {400, 401, 402, 403, 404, 405, 413, 415, 422, 429})
 
 
 class AllProvidersFailedError(LLMError):
@@ -241,7 +257,10 @@ def _managed_profile_attempt(
     request_profile: RequestProfile,
 ) -> tuple[LLMProviderConfig, int, float]:
     """Return one request-local managed DeepSeek attempt configuration."""
-    if request_profile == "course_generation_extended":
+    if request_profile == "course_generation_autonomous":
+        deadline = float(EXTENDED_COURSE_GENERATION_SECONDS)
+        max_tokens = policy.integer("generation.editorial_deepseek_max_tokens")
+    elif request_profile == "course_generation_extended":
         deadline = float(EXTENDED_COURSE_GENERATION_SECONDS)
         max_tokens = EXTENDED_COURSE_GENERATION_MAX_TOKENS
     elif request_profile == "course_generation":
@@ -1208,7 +1227,9 @@ class ResilientLLMClient:
         # or widen providers absent from the tenant's resolved route (e.g. BYOK).
         deadline_overrides = dict(provider_deadline_overrides or {})
         profile_policy = await resolve_runtime_settings() if request_profile is not None and any(
-            client.name == "deepseek" and client.config.managed_evidence_profile for client in self._clients
+            (client.name == "deepseek" and client.config.managed_evidence_profile or
+             request_profile == "course_generation_autonomous" and client.name == "chatgpt-reserve")
+            for client in self._clients
         ) else None
         last_exc: BaseException | None = None
         for client in self._clients:
@@ -1229,6 +1250,13 @@ class ResilientLLMClient:
                     attempt_deadline = profile_deadline
                     if request_profile in _COURSE_REQUEST_PROFILES and client.name in deadline_overrides:
                         attempt_deadline = min(attempt_deadline, deadline_overrides[client.name])
+                if request_profile == "course_generation_autonomous" and client.name == "chatgpt-reserve":
+                    assert profile_policy is not None
+                    attempt_max_tokens = profile_policy.integer("generation.editorial_luna_max_tokens")
+                    if attempt_deadline is None:
+                        attempt = LLMClient(replace(client.config, max_retries=0), temperature=self.temperature,
+                                            max_tokens=attempt_max_tokens, max_retries=0)
+                        return await attempt.ainvoke(messages, config=config, response_format=provider_response_format)
                 if attempt_deadline is None:
                     return await client.ainvoke(messages, config=config, response_format=provider_response_format)
                 # Never mutate shared provider objects or inherit a configured
@@ -1245,6 +1273,8 @@ class ResilientLLMClient:
                 except TimeoutError as exc:
                     raise ProviderFailedError(client.name, exc) from exc
             except ProviderFailedError as e:
+                if request_profile == "course_generation_autonomous" and not _autonomous_failover_is_safe(e.last_exc):
+                    raise ProviderOutcomeUnknownError(e.provider_name, e.last_exc) from None
                 logger.warning(
                     f"[LLM_FAILOVER] {e.provider_name} failed "
                     f"({type(e.last_exc).__name__}); "

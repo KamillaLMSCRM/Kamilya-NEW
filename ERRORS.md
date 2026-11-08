@@ -76,6 +76,16 @@
   application outage or repeat completed mutations. All text-source reads use
   explicit UTF-8; prose writes preserve original Git-blob tails byte-for-byte.
 
+- Follow-up2026-11-08 autonomous-editorial task: discover package/file names with
+  rg --files before reads; runtime_configuration is a package, pipeline belongs
+  to ai rather than v3, and PowerShell does not expand rg path globs. Use exact
+  cwd-relative arguments: a lint command with nonexistent paths can exit0 after
+  warnings and proves nothing. Preserve Git-blob line endings using byte writes;
+  Path.write_text on Windows expanded LF into CRLF and made a tiny delta appear
+  whole-file. Exact byte normalization restored the original endings; no logic
+  was reverted. Canonical pytest wrapper needs process-only ExecutionPolicy Bypass
+  in the Windows PowerShell child; its initial policy rejection ran zero tests.
+
 ## AGENT-RESTORE-ADAPTER-001 — relocated archive name and sidecar contract
 
 - Date:2026-11-07.
@@ -187,6 +197,61 @@
   until deployed ordinary authenticated disposition; no directSQL repair.
 
 ## AI-QUALITY-053 - Practical course acceptance and source scope diverged
+
+- Calibration2026-11-08: withdraw root/independent MATERIAL L1Q1 allegation after
+  full teaching/source reassessment. Fiscal receipt can coexist with PKO, but the
+  question tests the taught cash-intake document function; concurrence alone does
+  not prove a second answer to that classification. Narrowing is advisory. Native
+  g5 full editor independently returned verified NOT_MATERIAL, no L1 rewrite/owner
+  question. Preserve the original control and rationale, do not force the engine
+  toward a false oracle. L3Q1 differs: source explicitly names two operations for
+  the same interest-PKO question, a confirmed material assessment defect.
+
+- Recurrence2026-11-08: local gsc4 diagnostic stage adapter cached only responses
+  from OTHER run directories, unlike native stage_once's durable same-job replay.
+  Exact-byte audit confirmed016/024 and017/026,73036in/8953out/168.249s.
+  Other calls are not labeled duplicates; g3-2 had no exact-byte duplicates.
+  This is an agent harness error, not evidence that native worker incurred these
+  duplicates. Root requested a controlled stop at next preclaim by changing only
+  the harness hash; immutable old snapshot and in-flight completed response remain.
+  gsc5 cache includes its own completed directory and a pre-dispatch invariant
+  refuses any completed identical payload missed by lookup. Unknown outcomes remain
+  fenced; never relabel the diagnostic token total as native per-course cost.
+  No production or customer change; continue from exact completed response bytes.
+
+- Recurrence2026-11-08: independent first-round audit initially called Q5
+  materially ambiguous by inventing an undisclosed policy that might permit
+  early refusal. The stem asks what is REQUIRED on supplied facts; the
+  hypothetical did not establish another required answer. Full-source and
+  exact-modality reassessment withdrew it, preserving the original rationale in
+  g2-1/independent-first-round-review.json. Current L9 states general responsibility,
+  not unconditional full liability; preceding contract/law limits matter.
+  Check actual modality, supplied facts and complete teaching context before
+  promoting an auditor allegation. A hypothetical external exception is not
+  source evidence or an owner question. Do not alter good content or active model
+  prompts to satisfy it.
+
+- Recurrence2026-11-08: root-generated new compact-cycle prompt contained597
+  actual U+FFFD replacement characters. Found by explicit UTF-8/codepoint readback
+  before any model dispatch of that module. Replaced with intact ASCII instruction;
+  regression inspects the live module for decoding replacements. Green structural
+  tests do not establish prompt-text integrity; inspect persisted request bytes
+  before attributing strange model behavior to semantics. No affected model receipt
+  was promoted and no historic receipt changed.
+
+- Recurrence2026-11-08: root treated a previous successful grammar correction as
+  if it were present in the latest completeness-expanded map without re-reading
+  the exact consumed interpretation. Historical grammar response002 returned
+  REVISE/R14 with condition bound to credit; later combined completeness002
+  returned SUPPORTED and retained the original person-bound condition. Controls
+  that consumed the latter were contaminated; their failure does not establish
+  failure of the corrected map. Corrected diagnosis preserves both immutable
+  responses and checks the exact effective source interpretation before dispatch.
+  Grammar and additive completeness are now separate owned stages; the latter
+  cannot replace existing rows. Actual saved qualifier regression plus additive
+  lineage/tamper tests prevent loss of the already corrected condition. Do not
+  compare semantic experiments on a claimed source state inferred from an older
+  receipt; bind and inspect the actual effective map. No failed receipt rewritten.
 
 - Owner clarification2026-11-05: new engine generation/processing defects belong
   in docs/testing/GENERATION_ENGINE_ERRORS.md. This journal records agent execution

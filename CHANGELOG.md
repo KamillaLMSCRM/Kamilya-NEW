@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.84] - 2026-11-08
+
+### Fixed
+
+- Route both editorial and independent answer-review findings back to addressed model editing, then verify the full current course and all prior material findings before accepting the automatic content review. Retain genuine source questions, rejected evidence and every review receipt.
+- Bind automatic content acceptance to the exact persisted course and source snapshot in the completed generation job. Content or source changes invalidate that receipt; methodologist publication approval remains explicit.
+
+### Changed
+
+- Select the new editorial protocol only for new jobs; retain older policies and checkpoints. Extend the existing audited runtime settings catalog with the editorial revision budget through additive migration 0187.
+- Preserve grammar-corrected source interpretations through additive completeness, pass model-owned corrections to scoped author alignment, and separate compact teaching-prose review from keyed assessment review. IDs establish custody; semantic verdicts remain explicit model decisions.
+
+
 ## [0.11.83] - 2026-11-08
 
 ### Fixed

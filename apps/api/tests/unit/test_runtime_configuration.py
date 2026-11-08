@@ -116,7 +116,14 @@ def test_frozen_sql_catalog_matches_runtime_types_and_bounds():
     spec2 = importlib.util.spec_from_file_location("source_settings_migration_contract", path2)
     extension = importlib.util.module_from_spec(spec2)
     spec2.loader.exec_module(extension)
-    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) == set(BY_KEY)
+    path3 = Path(__file__).parents[2] / "alembic/versions/0187_editorial_revision_settings.py"
+    spec3 = importlib.util.spec_from_file_location("editorial_settings_migration_contract", path3)
+    editorial = importlib.util.module_from_spec(spec3)
+    spec3.loader.exec_module(editorial)
+    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) | set(editorial.NUMBERS) == set(BY_KEY)
+    for key, (default, minimum, maximum, integer) in editorial.NUMBERS.items():
+        item = BY_KEY[key]
+        assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
     for key, (default, minimum, maximum, integer) in extension.NUMBERS.items():
         item = BY_KEY[key]
         assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
@@ -154,7 +161,10 @@ def test_closed_catalog_rejects_unsafe_types_values_and_keys(key, bad):
 
 def test_default_catalog_preserves_existing_policies_and_names():
     snapshot = default_snapshot()
-    assert len(CATALOG) == len(BY_KEY) == 36
+    assert len(CATALOG) == len(BY_KEY) == 40
+    assert snapshot.integer("generation.editorial_rules_per_review") == 128
+    assert snapshot.integer("generation.editorial_luna_max_tokens") == 32768
+    assert snapshot.integer("generation.editorial_deepseek_max_tokens") == 65536
     assert snapshot.integer("assignment.deepseek_seconds") == 30
     assert snapshot.integer("assignment.chatgpt_seconds") == 40
     assert snapshot.integer("assignment.total_seconds") == 90

@@ -17,6 +17,12 @@ from app.modules.ai.v3.diversity_response_schema import is_diversity_author_form
 from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_response, is_rule_extraction_response_format
 from app.modules.ai.v3.practical_arbitration import is_arbitration_format, matches_arbitration
 from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format, matches_atomic_audit
+from app.modules.ai.v3.practical_compact_editorial_contract import (
+    is_compact_editorial_review_format,
+    is_compact_editorial_verification_format,
+    matches_compact_editorial_review,
+    matches_compact_editorial_verification,
+)
 from app.modules.ai.v3.practical_contract import is_practical_course_format, matches_practical_course_response
 from app.modules.ai.v3.practical_curriculum import (
     is_curriculum_bank_format,
@@ -30,17 +36,54 @@ from app.modules.ai.v3.practical_editorial_contract import (
     matches_editorial_review,
     matches_editorial_revision,
 )
+from app.modules.ai.v3.practical_editorial_verification import (
+    is_editorial_verification_format,
+    matches_editorial_verification,
+)
+from app.modules.ai.v3.practical_option_predicates import is_option_predicates_format, matches_option_predicates
 from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
 from app.modules.ai.v3.practical_question_context import is_context_format, matches_context_response
 from app.modules.ai.v3.practical_review import is_practical_review_format, matches_practical_review
+from app.modules.ai.v3.practical_rule_editorial_contract import (
+    is_rule_editorial_review_format,
+    is_rule_editorial_verification_format,
+    matches_rule_editorial_review,
+    matches_rule_editorial_verification,
+)
 from app.modules.ai.v3.practical_source_audit import is_source_audit_format, matches_source_audit
 from app.modules.ai.v3.practical_source_core import is_source_core_format, matches_source_core
 from app.modules.ai.v3.practical_source_core_editor import is_source_core_editor_format, matches_source_core_editor
 from app.modules.ai.v3.practical_source_reader import is_source_read_format, matches_source_read
+from app.modules.ai.v3.practical_source_semantics import (
+    is_source_completeness_format,
+    is_source_semantics_format,
+    is_source_semantics_verification_format,
+    matches_source_completeness,
+    matches_source_semantics,
+    matches_source_semantics_verification,
+)
 from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_typed_review_response
 
 
 def response_contract(value: object) -> str | None:
+    if is_option_predicates_format(value):
+        return "practical_option_predicates"
+    if is_compact_editorial_review_format(value):
+        return "practical_compact_editorial_review"
+    if is_compact_editorial_verification_format(value):
+        return "practical_compact_editorial_verification"
+    if is_source_completeness_format(value):
+        return "practical_source_completeness"
+    if is_source_semantics_format(value):
+        return "practical_source_semantics"
+    if is_source_semantics_verification_format(value):
+        return "practical_source_semantics_verification"
+    if is_rule_editorial_review_format(value):
+        return "practical_rule_editorial_review"
+    if is_rule_editorial_verification_format(value):
+        return "practical_rule_editorial_verification"
+    if is_editorial_verification_format(value):
+        return "practical_editorial_verification"
     if is_editorial_review_format(value):
         return "practical_editorial_review"
     if is_editorial_revision_format(value):
@@ -93,6 +136,24 @@ def response_contract_hash(value: dict[str, Any]) -> str:
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "practical_option_predicates":
+        return matches_option_predicates(value, response_format)
+    if kind == "practical_compact_editorial_review":
+        return matches_compact_editorial_review(value, response_format)
+    if kind == "practical_compact_editorial_verification":
+        return matches_compact_editorial_verification(value, response_format)
+    if kind == "practical_source_completeness":
+        return matches_source_completeness(value, response_format)
+    if kind == "practical_source_semantics":
+        return matches_source_semantics(value, response_format)
+    if kind == "practical_source_semantics_verification":
+        return matches_source_semantics_verification(value, response_format)
+    if kind == "practical_rule_editorial_review":
+        return matches_rule_editorial_review(value, response_format)
+    if kind == "practical_rule_editorial_verification":
+        return matches_rule_editorial_verification(value, response_format)
+    if kind == "practical_editorial_verification":
+        return matches_editorial_verification(value, response_format)
     if kind == "practical_editorial_review":
         return matches_editorial_review(value, response_format)
     if kind == "practical_editorial_revision":

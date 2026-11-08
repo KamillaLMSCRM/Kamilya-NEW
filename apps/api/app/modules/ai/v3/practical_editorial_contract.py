@@ -130,12 +130,30 @@ def compile_editorial_revision(value: Any, packet: PracticalSourcePacket, origin
                                review: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     if review.get('source_fingerprint') != packet.fingerprint or review.get('course_fingerprint') != _digest(original):
         raise ValueError('editorial_revision_review_identity_invalid')
-    if not matches_editorial_revision(value, editorial_revision_format(packet, original)):
-        raise ValueError('editorial_revision_response_invalid')
     material = [row for row in review['findings'] if row['severity'] == 'material' and row['domain'] != 'source']
     targets: dict[str, set[str]] = {row['target']['kind']: set() for row in material}
     for row in material:
         targets[row['target']['kind']].add(row['target']['id'])
+    return _merge_editorial_revision(value, packet, original, targets)
+
+
+def compile_lesson_alignment_revision(value: Any, packet: PracticalSourcePacket,
+        original: dict[str, Any], lesson_ids: list[str]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Owned edit intent is independent from a finding's severity or truth."""
+    known = {row['id'] for row in original['lessons']}
+    if (type(lesson_ids) is not list or not lesson_ids
+            or any(type(key) is not str or key not in known for key in lesson_ids)
+            or len(lesson_ids) != len(set(lesson_ids))):
+        raise ValueError('editorial_alignment_scope_invalid')
+    course, metadata = _merge_editorial_revision(value, packet, original, {'lesson': set(lesson_ids)})
+    return course, {**metadata, 'edit_intent': 'SOURCE_INTERPRETATION_ALIGNMENT',
+        'course_error_asserted': False, 'semantic_resolution': 'REQUIRES_AUTOMATED_CONTENT_REVIEW'}
+
+
+def _merge_editorial_revision(value: Any, packet: PracticalSourcePacket, original: dict[str, Any],
+        targets: dict[str, set[str]]) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not matches_editorial_revision(value, editorial_revision_format(packet, original)):
+        raise ValueError('editorial_revision_response_invalid')
     all_editable = bool(targets.get('course'))
     proposed = validate_practical_course(value['course'], packet)
     candidates = {row['id']: row for row in proposed['lessons']}

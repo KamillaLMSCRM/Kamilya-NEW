@@ -1,5 +1,84 @@
 # Kamilya Test Run Ledger
 
+## RUN-20261108-AUTONOMOUS-CURRENT-TARGET-NATIVE-BUDGETS
+
+- Local84/v33 final API unit suite7237PASS/1skip/7warnings78.97s; current Python
+  baseline1010/2174PASS; ops gate contracts6PASS1.46s. No actual native DEV rollout.
+- New current-target regressions initially3FAIL/2PASS, then5PASS; latest unverified
+  verdict revokes earlier edit authority. Question NEEDS_REVISION requires literal
+  current target text. Teaching review remains physically separate from quizzes.
+- Native v33 request-local caps now come from captured runtime_settings snapshot:
+  Luna32768/DeepSeek65536. Provider order, credentials, reasoning and legacy
+  profiles preserved.18failover regressions cover safe rejection vs unknown after
+  dispatch; no hidden retry/reserve call on an unknown v33 outcome.
+- Fresh isolated SupabaseDEV0187 settings gate10PASS/all4settings/cleanuptrue/
+  public-schema-neutral; public business-row equivalence NOT_VERIFIED_NOT_WRITTEN.
+  Evidence: autonomous-editorial-review-20261108/settings-0187-native-budgets.json.
+  Subsequent canonical public SupabaseDEV0186→0187 migrationPASS; independent
+  pre/post readback all4constraints/FORCE RLS/settings1/history8 exact hashes
+  unchanged (dev-settings-before/after-0187.json). No production migration.
+  Previous acceptance service11PASS remains
+  service-level lock/custody proof, not hosted API/RBAC acceptance.
+- Navigation prepared2459codefiles/28853nodes/85653edges/2492sources; excluded
+  auditPASS. Independent source review found no remaining P1/P2 in bounded delta.
+- g5-2 NOT_ACCEPTED after3rounds, source_uncertain=false.31actual calls,
+  1064676in/88070out/1767.512s;21exact completed stage reuses; moneyUNKNOWN.
+  This saved-bad-author regression aggregate is not a fresh native course's cost.
+  Independent full8L31Q/10original-figure audit content-GO does not override the
+  automatic hold. False PKO/fiscal Q1 allegation withdrawn; original judgments kept.
+- Sole g6-2/session88495 currently active, native current source/review/repair with
+  saved bad author only. Initial24stages reused by exact request/response hashes;
+  current-target semantic verification is fresh. No manual source/course repair,
+  duplicated or unknown request, customer/prior accepted QA mutation or release.
+
+
+## RUN-20261108-AUTONOMOUS-EDITORIAL-GROUPED-FOLLOWUP
+
+- Current local84/v33: fullAPIunit7169PASS/1skip/7warnings89.62s; ops gate
+  contracts6PASS1.49s; Python baseline1010/2174PASS. Graph refresh2454codefiles/
+  28777nodes/85732edges/2487sources, excluded auditPASS; bounded navigation query
+  does not prove runtime or semantics. No public migration/provider action.
+- Source-group routing, retained negative proof allegation and no-progress RED
+  regressions fixed. Existing whole-course QA now checks both assessment and
+  authored-claim fidelity; no additional critic. Model-only g2 first-round candidate
+  0728c6f3 has10L39Q and zero manual course edits, custody matches new026 request.
+- New026 scoped review completed142.266s43038input6734output; previous gsc-1/026
+  unknown response is preserved and not repeated. Current gsc2.py PID2912/27304
+  ACTIVE. Completed prefixes reused only by exact payload/raw-response hashes.
+  Independent first-round audit has one Q5 material ambiguity; held out from model.
+  Final two-course/native DEV/production acceptance NOT VERIFIED. Existing accepted
+  QA/customer sources, courses and history unchanged. Usage diagnostic aggregate
+  remains separate from a native accepted course's cost.
+
+## RUN-20261108-AUTONOMOUS-EDITORIAL-LOCAL84-COMPACT
+
+- IN_PROGRESS / NOT_RELEASED: primary task uses unchanged saved bad originals,
+  not the previously manually corrected/published QA courses. Existing production83,
+  customer data and prior completed synthetic history preserved.
+- Technical:7143APIunitPASS/1skip/7warnings80.75s; quality1010/2174PASS. Independent
+  scope-escape finding fixed with red-capable regression; no model proof from this.
+- Isolated SupabaseDEV acceptance11PASS, receipt
+  .release-evidence/autonomous-editorial-acceptance-uncertainty_a6340f38ba1b.json;
+  source/content drift/concurrent lock/foreign completed-job receipt rejected,
+  public structure/counts/hash unchanged, cleanup verified. Service-level, not
+  hosted API or publication. New settings0187/default128 owned gate10PASS,
+  cleanuptrue/publicschema-neutral; no public/prod migration.
+- Graph refreshed2449CodeGraph files,28738nodes/85702edges/2482sources,
+  excluded-pathPASS/zeroLLMcalls. Bounded compact-cycle query checked against source;
+  graph is navigation only. CLI metadata warning retained, no shared upgrade.
+- Current saved-original local model run: compact-source-aligned-file-1, actual
+  Luna6/HIGH. Source53grammar+46omissions are explicitly adapted historical fixtures,
+  not fresh native source-stage evidence. First alignment66.172s75324in2958out;
+  correct L3/Q8 condition restored without manual course text. First compact review
+ 186.531s54573in9529out misses separate R90 prevention and makes false material
+  allegations despite full lesson wording. It is NOT accepted. Addressed editor005
+  already in flight; intentional own-harness hash drift stops next dispatch after
+  current response is retained. Diagnose saved review before further generation.
+- Diagnostic aggregate as14:26UTC:54unique returned verified receipts,
+ 2552858input/392230output tokens, moneyUNKNOWN. Failed/inflight usageUNKNOWN,
+  excluded, not zero. Aggregate is experiment cost, NOT native per-course cost.
+  No comparison claiming economical accepted production course yet.
+
 
 ## RUN-20261108-PRODUCTION-TWO-ORIGINALS-83
 
@@ -6407,3 +6486,21 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
   excluded-path auditPASS, zero model calls. Source/test verification separate.
 - No new model request during recovery implementation. No customer/prod/billing/
   role/provider setting changed. Hosted two-course and production acceptance open.
+
+## RUN-20261108-AUTONOMOUS-OPTION-PREDICATES-01 — local, NOT RELEASED
+- Native whole31Q/124pair control:166.938s36392in8882out, valid inventory but
+  semanticFAIL (missed L1Q1, false L3Q2/L7Q2). Matched no-author-source-hints:
+  183.031s35102in9916out, detected L1Q1 [1,3], false L3Q2 remained. Raw receipts
+  preserved; these are model observations, not universal accuracy proof.
+- Runtime now adjudicates every blind hypothesis through existing full editor
+  before editing, NEEDS_REVISION promotion or NOT_MATERIAL no-writer closure.
+  Final acceptance binds current blind IDs to current verified resolutions.
+- Predicate/edge/cycle focused38 cases: three RED defects reproduced then fixed;
+  initial fullAPI7202PASS/3legacy-mockFAIL/1skip76.99s. Legacy mocks adapted,
+  focused8PASS. Baseline1010/2174PASS. Independent integration no P1/P2.
+- Final fullAPI92261 and sole model g4-2/session55012 active19:08UTC. Model HIGH,
+  source/review/repair native; only bad author fixture plus exact completed-response
+  byte cache. No manual course correction, price estimate, deploy/public DB write.
+- Navigation2456codefiles/28813nodes85817edges2489sources/excluded-auditPASS;
+  search option_predicates_messages found only actual driver import and test.
+- Final canonical fullAPI regression:7205PASS/1skip/7warnings73.85s, session92261; technical-gate-final-1907.json binds source hashes. Semantic fullcourses/native DEV remain open.

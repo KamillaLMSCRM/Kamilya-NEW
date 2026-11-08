@@ -16,12 +16,14 @@ from app.modules.ai.v3.direct_luna_owned_stage import run_direct_owned_stage
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.practical_cycle import PracticalCycleResult
 from app.modules.ai.v3.practical_editorial_contract import editorial_review_format, editorial_revision_format
+from app.modules.ai.v3.practical_editorial_verification import editorial_verification_format
 from app.modules.ai.v3.practical_review import PracticalReviewDecision
 from app.modules.ai.v3.practical_service import generate_practical_course, practical_artifacts
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
 from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
 from app.modules.ai.v3.revision_policy import (
+    AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
     CANONICAL_EDITORIAL_REVIEW_POLICY,
     EDITORIAL_ORDINARY_EXTENDED_MARKER,
     EDITORIAL_ORDINARY_KEY,
@@ -53,7 +55,7 @@ def test_closed_policy_and_worker_route_fences():
     assert is_practical_policy(EDITORIAL_PRACTICAL_REVIEW_POLICY)
     assert read_review_policy({'v3_review_policy': EDITORIAL_PRACTICAL_REVIEW_POLICY}) == EDITORIAL_PRACTICAL_REVIEW_POLICY
     with pytest.raises(ValueError):
-        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v33'})
+        read_review_policy({'v3_review_policy': 'v3-practical-source-review-v34'})
     base = {'settings': settings('vm-development-worker'), 'tenant_id': QA_TENANT, 'user_id': uuid4(),
             'course_id': None, 'stored': EDITORIAL_QA_MARKER, 'dispatched': EDITORIAL_QA_MARKER}
     assert editorial_qa_worker_valid(**base)
@@ -69,22 +71,28 @@ def test_closed_policy_and_worker_route_fences():
 def test_editorial_closed_formats_registered(case):
     _, packet, course = case
     for fmt, kind in ((editorial_review_format(packet, course), 'practical_editorial_review'),
+                      (editorial_verification_format(packet, course, []), 'practical_editorial_verification'),
                       (editorial_revision_format(packet, course), 'practical_editorial_revision')):
         assert response_contract(fmt) == kind
         assert not matches_response_contract({}, fmt)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('kind', ['review', 'revision'])
+@pytest.mark.parametrize('kind', ['review', 'revision', 'verify'])
+@pytest.mark.parametrize('version', ['v31', 'v33'])
 @pytest.mark.parametrize('drift', ['none', 'stage', 'group', 'digest'])
-async def test_direct_owned_editorial_plan_is_exact(case, monkeypatch, kind, drift):
+async def test_direct_owned_editorial_plan_is_exact(case, monkeypatch, kind, drift, version):
     _, packet, course = case
-    fmt = editorial_review_format(packet, course) if kind == 'review' else editorial_revision_format(packet, course)
+    if kind == 'verify' and version == 'v31':
+        return  # Verification is a new protocol, never admitted to retained v31 jobs.
+    fmt = (editorial_review_format(packet, course) if kind == 'review' else
+           editorial_verification_format(packet, course, []) if kind == 'verify' else
+           editorial_revision_format(packet, course))
     fake, journal, client, plan, validate = setup()
     args = options(journal, client, plan, validate)
     args['response_format'] = fmt
-    plan.update(stage='review' if kind == 'review' else 'repair',
-        group_id='practical:editorial:' + kind + ':v31:test', request_sha256=_digest([args['messages'], fmt]))
+    plan.update(stage='repair' if kind == 'revision' else 'review',
+        group_id='practical:editorial:' + kind + ':' + version + ':test', request_sha256=_digest([args['messages'], fmt]))
     if drift == 'stage':
         plan['stage'] = 'lesson'
     elif drift == 'group':
@@ -148,9 +156,9 @@ async def test_editorial_dispatch_progress_accepts_whole_course_repair(case, mon
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('tenant,environment,destination,expected', [
-    (QA_TENANT, 'render-development', None, CANONICAL_EDITORIAL_REVIEW_POLICY),
+    (QA_TENANT, 'render-development', None, AUTONOMOUS_EDITORIAL_REVIEW_POLICY),
     (QA_TENANT, 'production', None, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY),
-    (uuid4(), 'render-development', None, CANONICAL_EDITORIAL_REVIEW_POLICY),
+    (uuid4(), 'render-development', None, AUTONOMOUS_EDITORIAL_REVIEW_POLICY),
 ])
 async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, tenant, environment, destination, expected):
     request = AIGenerateRequest(documents=[uuid4()], course_id=destination)
@@ -177,8 +185,8 @@ async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, te
         await router.generate_course(request, db=_lenient_db(), user=SimpleNamespace(id=uuid4(), tenant_id=tenant))
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored['v3_review_policy'] == expected
-    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
-    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_EXTENDED_MARKER if tenant != QA_TENANT and expected == CANONICAL_EDITORIAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_EXTENDED_MARKER if tenant != QA_TENANT and expected == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else None)
 
 
 @pytest.mark.asyncio

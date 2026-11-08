@@ -20,6 +20,17 @@ def read_draft_review(analysis: object) -> dict[str, Any] | None:
                     or value.get('self_review_status') not in {'passed', 'needs_attention'}
                     or value.get('human_review_required') is not True):
                 raise ValueError('draft_review_manifest_invalid')
+            if value.get('content_review_required') is False:
+                receipt = value.get('automated_acceptance')
+                if (owner.get('v3_review_policy') != 'v3-practical-source-review-v33'
+                        or value.get('self_review_status') != 'passed' or value.get('issues') != []
+                        or not isinstance(receipt, dict) or receipt != {
+                            'policy': 'v3-practical-source-review-v33',
+                            'source_fingerprint': value.get('source_fingerprint'),
+                            'draft_fingerprint': value.get('draft_fingerprint')}
+                        or any(not isinstance(value.get(key), str) or len(value[key]) != 64
+                               for key in ('source_fingerprint', 'draft_fingerprint'))):
+                    raise ValueError('draft_review_manifest_invalid')
             ids = []
             for field, blocking in (('issues', True), ('observations', False)):
                 rows = value.get(field)

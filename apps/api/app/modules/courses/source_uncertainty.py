@@ -148,6 +148,10 @@ async def require_current_draft_review(db: Any, course: Any) -> None:
         actual = await compute_course_content_snapshot_hash(db, course)
         if resolution_is_current(course.source_analysis, actual):
             return
+        from app.modules.courses.automated_editorial_acceptance import automatic_acceptance_is_current
+
+        if await automatic_acceptance_is_current(db, course=course, content_hash=actual):
+            return
     except (ValueError, TypeError, KeyError):
         pass
     raise HTTPException(status_code=409, detail={'code': 'source_uncertainty_review_required'})
