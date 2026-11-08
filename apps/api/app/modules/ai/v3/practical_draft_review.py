@@ -6,10 +6,12 @@ import re
 from typing import Any
 
 from app.modules.ai.v3.practical_contract import _digest
+from app.modules.ai.v3.revision_policy import AUTONOMOUS_EDITORIAL_REVIEW_POLICY, is_autonomous_editorial_policy
 from app.modules.courses.draft_review import DRAFT_REVIEW_VERSION
 
 
-def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str]) -> dict[str, Any]:
+def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str], *,
+                       review_policy: str = AUTONOMOUS_EDITORIAL_REVIEW_POLICY) -> dict[str, Any]:
     history = result.history[0] if result.history else {}
     autonomous = history.get('autonomous_editorial') is True
     current_fingerprint = _digest(result.course) if autonomous else ''
@@ -200,7 +202,8 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str]) ->
         add('retained_content', target, 'Часть не возвращена редактором; сохранена исходная версия для проверки.', [], blocking=False)
     # Publication remains an ordinary explicit approval. It is not an unresolved
     # model defect when the exact current candidate has passed both reviews.
-    automated_pass = (autonomous and result.decision.accepted and not integrity_issues
+    automated_pass = (autonomous and is_autonomous_editorial_policy(review_policy)
+        and result.decision.accepted and not integrity_issues
         and history.get('verified_course_fingerprint') == _digest(result.course))
     if not automated_pass:
         add('editorial_review', '', 'Проверьте содержание уроков, ключи тестов и соответствие источникам.', [])
@@ -210,6 +213,6 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str]) ->
             'draft_fingerprint': _digest(result.course), 'issues': list(rows.values()),
             'observations': list(observations.values()),
             **({'content_review_required': not automated_pass} if autonomous else {}),
-            **({'automated_acceptance': {'policy': 'v3-practical-source-review-v33',
+            **({'automated_acceptance': {'policy': review_policy,
                 'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(result.course)}}
                 if automated_pass else {})}

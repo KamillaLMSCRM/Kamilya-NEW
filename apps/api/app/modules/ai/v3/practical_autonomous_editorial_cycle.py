@@ -269,7 +269,10 @@ def _edit_batches(course: dict[str, Any], findings: list[dict[str, Any]]) -> lis
 
 async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         reference_decisions: tuple[Any, ...], stage: Any, *, max_revisions: int,
-        max_rules_per_review: int = 128) -> PracticalCycleResult:
+        max_rules_per_review: int = 128, joint_editor: bool = False) -> PracticalCycleResult:
+    if type(joint_editor) is not bool:
+        raise ValueError('editorial_joint_policy_invalid')
+    joint_options: dict[str, Any] = {'joint_editor': True} if joint_editor else {}
     if type(max_revisions) is not int or not 1 <= max_revisions <= 5:
         raise ValueError('editorial_revision_budget_invalid')
     if build_practical_source_packet(corpus, reference_decisions) != packet:
@@ -327,7 +330,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
     compiled_review = await review_editorial_candidate(packet, source_reading, candidate, context, view, call,
         REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE + RULE_REVIEW_GUIDE, max_rules=max_rules_per_review,
         assessment_system=REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE + ASSESSMENT_REVIEW_GUIDE,
-        verification_guide=VERIFICATION_GUIDE)
+        verification_guide=VERIFICATION_GUIDE, **joint_options)
     review_raw = compiled_review['raw_parts']
     review = compiled_review['review']
     initial_review = copy.deepcopy(review)
@@ -340,6 +343,32 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
     source_questions: dict[str, dict[str, Any]] = {}
     resolutions: list[dict[str, Any]] = []
     rounds = []
+    initial_joint_observations = copy.deepcopy(compiled_review.get('observations', [])) if joint_editor else []
+    initial_joint_resolutions = copy.deepcopy(compiled_review['resolutions']) if joint_editor else []
+    if joint_editor:
+        for row in initial_joint_observations:
+            if row['severity'] == 'material':
+                all_findings.setdefault(row['issue_id'], copy.deepcopy(row))
+        resolutions = copy.deepcopy(initial_joint_resolutions)
+        for resolution in resolutions:
+            finding = all_findings[resolution['issue_id']]
+            if resolution['verified'] and resolution['disposition'] in ('FIXED', 'ALREADY_COVERED', 'NOT_MATERIAL'):
+                closed.add(resolution['issue_id'])
+            elif resolution['verified'] and resolution['disposition'] == 'SOURCE_AMBIGUITY':
+                source_questions[resolution['issue_id']] = resolution
+            elif resolution['verified'] and resolution['disposition'] == 'NEEDS_REVISION':
+                if finding['domain'] != 'source' and finding['target']['kind'] != 'source':
+                    finding['rule_check_unverified'] = False
+                    finding.pop('out_of_scope_review', None)
+                    finding['semantic_confirmation'] = {'course_fingerprint': _digest(candidate),
+                        'reason': resolution['reason'], 'source_refs': copy.deepcopy(resolution['source_refs']),
+                        'source_quote': resolution['source_quote']}
+        # The joint result excludes already closed partial observations. A new
+        # full-editor finding remains open even if it conflicts with a disposition.
+        for row in review['findings']:
+            if row['severity'] == 'material':
+                closed.discard(row['issue_id'])
+                source_questions.pop(row['issue_id'], None)
     # Request-local only: the stage closure freezes provider/route/output policy.
     # Cache completed raw evidence, never a verdict tied to an earlier key.
     blind_cache: dict[str, Any] = {}
@@ -433,10 +462,14 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
             REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE + RULE_REVIEW_GUIDE + VERIFICATION_GUIDE,
             max_rules=max_rules_per_review, prior=checked_findings,
             assessment_system=REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE + ASSESSMENT_REVIEW_GUIDE,
-            verification_guide=VERIFICATION_GUIDE)
+            verification_guide=VERIFICATION_GUIDE, **joint_options)
         verification_raw = verification['raw_parts']
         review = verification['review']
         observation_history.append({'course_fingerprint': _digest(candidate), 'review': copy.deepcopy(review)})
+        if joint_editor:
+            for row in verification.get('observations', []):
+                if row['severity'] == 'material':
+                    all_findings.setdefault(row['issue_id'], copy.deepcopy(row))
         resolutions = verification['resolutions']
         corrected_source_proofs = []
         for resolution in resolutions:
@@ -542,7 +575,9 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         'final_blind_current_course_fingerprint': _digest(candidate),
         'unverified_revised_prose': [] if accepted else revised,
         'keyed_editorial_review': True, 'blind_answer_review': True,
-        'revision_budget': max_revisions, 'revisions_used': revisions},)
+        'revision_budget': max_revisions, 'revisions_used': revisions,
+        **({'initial_joint_observations': initial_joint_observations,
+            'initial_joint_resolutions': initial_joint_resolutions} if joint_editor else {})},)
     return PracticalCycleResult(candidate, {'source_notes': review['source_notes'],
         'narrative_sources': review['narrative_sources']}, decision, history,
         'automated_editorial_review_passed' if accepted else stop or 'source_clarification_required',

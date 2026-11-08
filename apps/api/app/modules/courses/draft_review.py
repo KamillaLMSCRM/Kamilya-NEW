@@ -4,6 +4,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.modules.ai.v3.revision_policy import is_autonomous_editorial_policy
+
 DRAFT_REVIEW_VERSION = 'p30-editorial-draft-v1'
 
 
@@ -22,10 +24,10 @@ def read_draft_review(analysis: object) -> dict[str, Any] | None:
                 raise ValueError('draft_review_manifest_invalid')
             if value.get('content_review_required') is False:
                 receipt = value.get('automated_acceptance')
-                if (owner.get('v3_review_policy') != 'v3-practical-source-review-v33'
+                if (not is_autonomous_editorial_policy(owner.get('v3_review_policy'))
                         or value.get('self_review_status') != 'passed' or value.get('issues') != []
                         or not isinstance(receipt, dict) or receipt != {
-                            'policy': 'v3-practical-source-review-v33',
+                            'policy': owner.get('v3_review_policy'),
                             'source_fingerprint': value.get('source_fingerprint'),
                             'draft_fingerprint': value.get('draft_fingerprint')}
                         or any(not isinstance(value.get(key), str) or len(value[key]) != 64

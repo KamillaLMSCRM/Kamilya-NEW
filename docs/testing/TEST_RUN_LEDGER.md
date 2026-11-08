@@ -1,3 +1,18 @@
+## RUN-20261108-JOINT-EDITOR-V34
+
+- Full API7276PASS/1skip/7warnings74.70s; quality1004/2174PASS.
+- Known33 and new34 explicitly accepted; cross-policy receipt substitution,
+  source/content drift and locked-source acceptance negatives retained/tested.
+- Current all-observations final editor replaces the existing narrow final slot.
+  Bounded unchanged-course diagnostic76.516s/57001in/4062out Luna6/HIGH correctly
+  separated stale allegations, optional source details and real course-scope fix.
+  Ten of eleven dispositions verified; one bad literal quote retained for repair.
+- G8 saved-BAD-author Cash regression ACTIVE/session85019. Native3 revisions,
+  no hand course changes; original source and exact completed response reuse.
+  Not automatic acceptance, native unit cost or live DEV proof yet.
+- CodeGraph/Graphify refreshed22:16UTC; graph edges are navigation only.
+- DEV current installed public revision0187, worker still466; prod83 unchanged.
+
 # Kamilya Test Run Ledger
 
 ## RUN-20261108-AUTONOMOUS-PROOF-CURRENT-CHOICE

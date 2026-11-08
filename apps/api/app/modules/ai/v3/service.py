@@ -1822,8 +1822,8 @@ async def _review_final_diversity(*, policy: str | None, lessons: list[V3Lesson]
 
 async def _practical_output_budget(review_policy: str | None, direct_client: Any) -> int:
     from app.modules.ai.managed_luna_client import LUNA6_MODEL, ManagedLunaClient
-    from app.modules.ai.v3.revision_policy import AUTONOMOUS_EDITORIAL_REVIEW_POLICY, PRACTICAL_MAX_OUTPUT_TOKENS
-    if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY and type(direct_client) is ManagedLunaClient and direct_client.model == LUNA6_MODEL:
+    from app.modules.ai.v3.revision_policy import PRACTICAL_MAX_OUTPUT_TOKENS, is_autonomous_editorial_policy
+    if is_autonomous_editorial_policy(review_policy) and type(direct_client) is ManagedLunaClient and direct_client.model == LUNA6_MODEL:
         from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
         return (await resolve_runtime_settings()).integer("generation.editorial_luna_max_tokens")
     return PRACTICAL_MAX_OUTPUT_TOKENS

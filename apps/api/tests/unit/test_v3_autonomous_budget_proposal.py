@@ -66,12 +66,12 @@ def test_mixed_or_unmanaged_route_never_upgrades():
 
 
 @pytest.mark.asyncio
-async def test_owned_direct_managed_budget_and_checkpoint_change(monkeypatch):
+@pytest.mark.parametrize('review_policy', ['v3-practical-source-review-v33', 'v3-practical-source-review-v34'])
+async def test_owned_direct_managed_budget_and_checkpoint_change(monkeypatch, review_policy):
     from types import SimpleNamespace
 
     from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
     from app.modules.ai.managed_luna_client import ManagedLunaClient
-    from app.modules.ai.v3.revision_policy import AUTONOMOUS_EDITORIAL_REVIEW_POLICY
     from app.modules.ai.v3.service import _practical_output_budget
     from app.modules.ai.v3.stage_checkpoint import _digest, stage_plan
     managed = ManagedLunaClient.__new__(ManagedLunaClient)
@@ -84,10 +84,10 @@ async def test_owned_direct_managed_budget_and_checkpoint_change(monkeypatch):
         raise AssertionError("scoped v33 operation must not reopen runtime settings DB")
     monkeypatch.setattr(core_db, "async_session_factory", forbidden_db)
     with runtime_settings_scope(captured):
-        assert await _practical_output_budget(AUTONOMOUS_EDITORIAL_REVIEW_POLICY, managed) == 32768
+        assert await _practical_output_budget(review_policy, managed) == 32768
         observed = await resolve_runtime_settings()
         assert observed.revision == 37 and observed.integer("generation.editorial_max_revisions") == 4
-        assert await _practical_output_budget(AUTONOMOUS_EDITORIAL_REVIEW_POLICY, direct) == 16384
+        assert await _practical_output_budget(review_policy, direct) == 16384
         assert await _practical_output_budget("legacy-policy", managed) == 16384
     journal = SimpleNamespace(tenant_id="tenant", job_id="job")
     def plan(cap):

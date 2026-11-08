@@ -12,6 +12,8 @@ from app.modules.ai.v3.practical_compact_editorial_contract import (
     compact_editorial_review_format,
     compact_editorial_verification_format,
 )
+from app.modules.ai.v3.practical_editorial_contract import editorial_review_format
+from app.modules.ai.v3.practical_editorial_verification import editorial_verification_format
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_rule_editorial_contract import (
     rule_editorial_review_format,
@@ -26,18 +28,28 @@ from app.modules.ai.v3.practical_source_semantics import (
 from app.modules.ai.v3.stage_checkpoint import stage_once
 from tests.unit.test_direct_luna_owned_stage import setup
 from tests.unit.test_v3_compact_editorial_contract import response as compact_response
+from tests.unit.test_v3_editorial_contract import review_value
 from tests.unit.test_v3_rule_editorial_contract import case, response
 from tests.unit.test_v3_source_semantics import reading, verification
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["direct", "managed"])
-@pytest.mark.parametrize("kind", ["reading", "source_verification", "source_completeness", "review", "verification", "compact_review", "compact_verification"])
+@pytest.mark.parametrize("kind", ["reading", "source_verification", "source_completeness", "review", "verification", "compact_review", "compact_verification", "joint_review", "joint_verification"])
 async def test_source_and_rule_formats_owned_replay_and_stage_fences(monkeypatch, provider, kind):
     packet, course, checked = case()
     initial = compile_source_semantics(reading(packet), packet)
     view = PracticalModelView(packet)
-    if kind == "reading":
+    if kind.startswith('joint_'):
+        result = review_value(packet, course)
+        if kind == 'joint_review':
+            fmt = editorial_review_format(packet, course)
+            group = 'practical:editorial:review:v34:joint:' + 'a' * 64
+        else:
+            result['resolutions'] = []
+            fmt = editorial_verification_format(packet, course, [])
+            group = 'practical:editorial:verify:v34:joint:' + 'a' * 64
+    elif kind == "reading":
         fmt, result = source_semantics_format(packet), reading(packet)
         group = "practical:source-semantics:read:v33:" + packet.fingerprint
     elif kind == "source_verification":
@@ -101,7 +113,10 @@ async def test_source_and_rule_formats_owned_replay_and_stage_fences(monkeypatch
         response_validator=lambda value: None,
         invoke=AsyncMock(),
     )
-    for wrong in ({"stage": "lesson"}, {"stage": "repair"}, {"group_id": "practical:wrong:v33:" + "a" * 64}):
+    wrong_options = [{"stage": "lesson"}, {"stage": "repair"}, {"group_id": "practical:wrong:v33:" + "a" * 64}]
+    if kind.startswith('joint_'):
+        wrong_options.append({'group_id': group.replace(':v34:', ':v35:')})
+    for wrong in wrong_options:
         with pytest.raises(ValueError):
             await stage_once(**{**options, **wrong})
     prepare.assert_not_awaited()

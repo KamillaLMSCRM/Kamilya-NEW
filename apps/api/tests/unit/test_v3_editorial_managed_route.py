@@ -16,11 +16,11 @@ from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownErro
 from app.modules.ai.v3.practical_editorial_contract import editorial_review_format
 from app.modules.ai.v3.qa_luna_pending_policy import KEY, MANAGED_POLICY, admission_marker
 from app.modules.ai.v3.revision_policy import (
-    AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
     CANONICAL_EDITORIAL_REVIEW_POLICY,
     EDITORIAL_MANAGED_QA_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EDITORIAL_QA_KEY,
+    JOINT_EDITORIAL_REVIEW_POLICY,
     editorial_qa_admission_marker,
     editorial_qa_worker_valid,
 )
@@ -85,7 +85,7 @@ async def test_real_managed_admission_stamps_canonical_editorial_policy_server_s
     assert error.value.status_code == 429
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored[KEY] == MANAGED_POLICY
-    assert stored['v3_review_policy'] == AUTONOMOUS_EDITORIAL_REVIEW_POLICY
+    assert stored['v3_review_policy'] == JOINT_EDITORIAL_REVIEW_POLICY
     assert stored[EDITORIAL_QA_KEY] == EDITORIAL_MANAGED_QA_MARKER
 
 

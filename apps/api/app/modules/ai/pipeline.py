@@ -619,11 +619,11 @@ async def _run_v3_generation(
     direct_client: Any = None
     revision_policy = await _load_owned_revision_policy(state.job_id, tenant_id, user_id, list(corpus.document_ids))
     from app.modules.ai.v3.revision_policy import (
-        AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
-        EDITORIAL_QA_KEY,
-        EDITORIAL_ORDINARY_KEY,
         EDITORIAL_ORDINARY_EXTENDED_MARKER,
+        EDITORIAL_ORDINARY_KEY,
+        EDITORIAL_QA_KEY,
         editorial_route_worker_valid,
+        is_autonomous_editorial_policy,
         is_editorial_policy,
         is_practical_policy,
         read_review_policy,
@@ -800,7 +800,7 @@ async def _run_v3_generation(
                 generation_client, policy, job_id=state.job_id,
                 **({"cooperative_deadline": True} if cooperative_native else {}),
                 **({"extended_output": True} if extended_output else {}),
-                **({"autonomous_output": True} if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else {}),
+                **({"autonomous_output": True} if is_autonomous_editorial_policy(review_policy) else {}),
             )
             if cooperative_native:
                 journal.native_generation_seconds = generation_client.generation_deadline_seconds
@@ -842,7 +842,7 @@ async def _run_v3_generation(
 
     try:
         from contextlib import nullcontext
-        scope = runtime_settings_scope(policy) if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else nullcontext()
+        scope = runtime_settings_scope(policy) if is_autonomous_editorial_policy(review_policy) else nullcontext()
         with scope:
             artifacts = await generate_v3_course_from_corpus(
                 corpus,
@@ -926,8 +926,8 @@ async def _verify_fresh_v3_final_source(
     from app.modules.ai.v3.pending_stage_transactions import has_pending
     from app.modules.ai.v3.qa_luna_pending_policy import KEY, OWNED_POLICIES
     from app.modules.ai.v3.revision_policy import (
-        EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
+        EDITORIAL_QA_KEY,
         editorial_route_worker_valid,
         is_editorial_policy,
     )
@@ -996,8 +996,8 @@ async def _verify_native_practical_final_source(
     from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
     from app.modules.ai.v3.qa_luna_pending_policy import OWNED_POLICIES
     from app.modules.ai.v3.revision_policy import (
-        EDITORIAL_QA_KEY,
         EDITORIAL_ORDINARY_KEY,
+        EDITORIAL_QA_KEY,
         POLICY,
         editorial_route_worker_valid,
         is_editorial_policy,
@@ -1126,8 +1126,8 @@ async def _save_generation_to_db_transaction(
     from app.models.ai_job import AIJob
     from app.modules.courses.models import Course
     from app.modules.lessons.models import ContentBlock, Lesson, Module
-    from app.modules.source_preparation.lesson_assets import approved_asset_inventory, bind_lesson_assets
     from app.modules.quizzes.models import Question, Quiz, QuizChoice
+    from app.modules.source_preparation.lesson_assets import approved_asset_inventory, bind_lesson_assets
 
     _apply_assessment_omission_notices(state)
     async with async_session_factory() as session:

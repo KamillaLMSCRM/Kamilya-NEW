@@ -3,6 +3,22 @@
 
 ## ENG-040 — исправленный моделью курс оставался непроверенным, слепые замечания не возвращались редактору
 
+- Follow-up08.11/22:27UTC: confirmed conceptual seam: separate source reviewers
+  and narrow keyed QA had no final consolidated view of ALL current course/source
+  observations. This allowed stale false allegations and optional source choices
+  to survive while an ordinary course-scope correction became an owner question.
+  One bounded full-context diagnostic (unchanged course; no manual fix hints)
+  resolved10/11 dispositions, identified the real lesson5 scope correction and
+  rejected stale ONLY-return allegations.76.516s/57001in/4062out Luna6/HIGH; one
+  bad literal quote remains proof failure, not semantic acceptance.
+- New policy34 replaces the existing final QA slot with a joint editor, retains
+  all partial raw observations/history, consumes verified decisions before blind
+  checking, and routes actual defects to scoped model repair. Old33 is unchanged;
+  unknown35/cross-policy receipt/content/source drift still fail closed. Full
+  7276PASS/1skip/7warnings74.70s/baseline1004/2174PASS, independent bounded noP1/P2.
+  Two-document model-owned regression and native DEV acceptance remain OPEN.
+
+
 - Follow-up08.11/21:23UTC: G6 cash model-only8L31Q ended NOT_ACCEPTED after3
   rounds;21actual calls851638in/83525out/1578.906s,26exact reused stages,
   moneyUNKNOWN. Three different observations produced the SAME confirmed owner

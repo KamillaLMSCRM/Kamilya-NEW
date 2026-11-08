@@ -1,3 +1,33 @@
+# Joint editorial candidate IN PROGRESS — 2026-11-08, 22:27 UTC
+
+- New jobs select policy v34. The existing final keyed-review slot now sees the
+  complete current course, original source and ALL fresh/historical observations
+  together; per-source partial reviews remain quiz-free, untrusted observations.
+  No additional critic, provider, routing or runtime-setting change. Saved v33
+  jobs retain their exact old dispatch and receipt policy. Unknown v35 is rejected.
+- Systemic cause: no final editor previously saw every actual source/prose/quiz
+  observation together. A bounded unedited-course diagnostic closed stale/false
+  allegations and unnecessary source questions, but correctly retained a real
+  lesson5 amount-table scope repair. One call76.516s/57001in/4062out, Luna6/HIGH;
+  ten of eleven dispositions verified, one literal quote needed proof repair.
+- Full API7276PASS/1skip/7warnings74.70s; baseline1004/2174PASS. Independent bounded
+  reviews found no P1/P2. Added exact v33/v34 receipt-policy swap negatives;
+  content/source/lock and UNKNOWN guards remain. Graph navigation refreshed
+  22:16UTC; native practical_service caller confirmed in source/test contracts.
+- ACTIVE sole model regression gsc8.py --execute2/session85019, folder g8-2.
+  Original BAD author only; default3 addressed rounds, model-owned source reading,
+  review and edits; exact completed response reuse. All consumed runtime/harness
+  bytes frozen. No manual course repair or held-out oracle injected. PDF next,
+  sequentially. This saved-author stress test is NOT fresh native unit-cost proof.
+- HEAD1506f368 feature/dev remote readbacks match; CI42525706318 and build-only
+  42526297570 SUCCESS, image9b0e73fa...e8fe8ef attested. New v34 delta is NOT yet
+  committed/deployed. PublicDEV0187 verified; worker remains466/fa932/e148.
+  Existing prod83 and accepted QA/client courses unchanged. Native DEV and
+  production acceptance are open. Pending worker replacement must restore the
+  normal unless-stopped policy AFTER independent exact new-worker readback.
+
+## Superseded checkpoint
+
 # Autonomous editorial follow-up IN PROGRESS — 2026-11-08, 21:23 UTC
 
 - ACTIVE sole model run: gsc7.py --execute2/session10092, g7-2. Freeze all consumed

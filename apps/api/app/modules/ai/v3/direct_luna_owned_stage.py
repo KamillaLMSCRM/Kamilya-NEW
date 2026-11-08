@@ -67,9 +67,9 @@ async def run_direct_owned_stage(
             (kind == "practical_option_predicates" and plan.get("stage") == "review"
              and str(plan.get("group_id", "")).startswith("practical:review:option-predicates:v33:"))
             or (kind == "practical_compact_editorial_review" and plan.get("stage") == "review"
-             and str(plan.get("group_id", "")).startswith("practical:editorial:review:v33:"))
+             and str(plan.get("group_id", "")).startswith(("practical:editorial:review:v33:", "practical:editorial:review:v34:")))
             or (kind == "practical_compact_editorial_verification" and plan.get("stage") == "review"
-             and str(plan.get("group_id", "")).startswith("practical:editorial:verify:v33:"))
+             and str(plan.get("group_id", "")).startswith(("practical:editorial:verify:v33:", "practical:editorial:verify:v34:")))
             or
             (kind == "practical_source_completeness" and plan.get("stage") == "review"
              and str(plan.get("group_id", "")).startswith("practical:source-semantics:complete:v33:"))
@@ -79,9 +79,9 @@ async def run_direct_owned_stage(
             or (kind == "practical_source_semantics_verification" and plan.get("stage") == "review"
              and str(plan.get("group_id", "")).startswith("practical:source-semantics:verify:v33:"))
             or (kind == "practical_rule_editorial_review" and plan.get("stage") == "review"
-             and str(plan.get("group_id", "")).startswith("practical:editorial:review:v33:"))
+             and str(plan.get("group_id", "")).startswith(("practical:editorial:review:v33:", "practical:editorial:review:v34:")))
             or (kind == "practical_rule_editorial_verification" and plan.get("stage") == "review"
-             and str(plan.get("group_id", "")).startswith("practical:editorial:verify:v33:"))
+             and str(plan.get("group_id", "")).startswith(("practical:editorial:verify:v33:", "practical:editorial:verify:v34:")))
             or (kind == "practical_source_read" and plan.get("stage") == "review"
              and str(plan.get("group_id", "")).startswith("practical:source-read:"))
             or
@@ -100,9 +100,9 @@ async def run_direct_owned_stage(
             or (kind == "practical_source_core_editor" and plan.get("stage") == "review"
                 and str(plan.get("group_id", "")).startswith("practical:source-core:editor:"))
             or (kind == "practical_editorial_review" and plan.get("stage") == "review"
-                and str(plan.get("group_id", "")).startswith(("practical:editorial:review:v31:", "practical:editorial:review:v33:")))
+                and str(plan.get("group_id", "")).startswith(("practical:editorial:review:v31:", "practical:editorial:review:v33:", "practical:editorial:review:v34:")))
             or (kind == "practical_editorial_verification" and plan.get("stage") == "review"
-                and str(plan.get("group_id", "")).startswith("practical:editorial:verify:v33:"))
+                and str(plan.get("group_id", "")).startswith(("practical:editorial:verify:v33:", "practical:editorial:verify:v34:")))
             or (kind == "practical_editorial_revision" and plan.get("stage") == "repair"
                 and str(plan.get("group_id", "")).startswith(("practical:editorial:revision:v31:", "practical:editorial:revision:v33:")))
             or (kind == "practical_arbitration" and plan.get("stage") == "review"

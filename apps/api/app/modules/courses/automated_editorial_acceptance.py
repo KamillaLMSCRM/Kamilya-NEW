@@ -5,7 +5,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.modules.ai.v3.revision_policy import AUTONOMOUS_EDITORIAL_REVIEW_POLICY
+from app.modules.ai.v3.revision_policy import is_autonomous_editorial_policy
 from app.modules.courses.draft_review import read_draft_review
 
 KEY = 'v3_automated_editorial_acceptance'
@@ -16,7 +16,7 @@ def clean_manifest(analysis: Any) -> dict[str, Any] | None:
     if not isinstance(analysis, dict) or 'unresolved_source_uncertainty' in analysis:
         return None
     evidence = analysis.get('evidence_v3')
-    if (not isinstance(evidence, dict) or evidence.get('v3_review_policy') != AUTONOMOUS_EDITORIAL_REVIEW_POLICY
+    if (not isinstance(evidence, dict) or not is_autonomous_editorial_policy(evidence.get('v3_review_policy'))
             or evidence.get('automated_review_passed') is not True
             or evidence.get('requires_source_review') is not False
             or evidence.get('quality_verdict') != 'verified'):

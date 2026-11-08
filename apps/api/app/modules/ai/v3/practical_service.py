@@ -44,6 +44,7 @@ from app.modules.ai.v3.revision_policy import (
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
+    JOINT_EDITORIAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
     OWNED_AUDIT_PRACTICAL_REVIEW_POLICY,
     PRACTICAL_MAX_OUTPUT_TOKENS,
@@ -56,6 +57,7 @@ from app.modules.ai.v3.revision_policy import (
     SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY,
     STANDALONE_PRACTICAL_REVIEW_POLICY,
     TYPED_PRACTICAL_REVIEW_POLICY,
+    is_autonomous_editorial_policy,
     is_editorial_policy,
     is_practical_policy,
 )
@@ -155,7 +157,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
                       # Source verification is independent of publication. The
                       # ordinary persistence layer still creates a draft course.
                       quality_verdict='verified' if accepted and source_verified and not result.source_core
-                          and (not result.editorial_review or review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY) else 'needs_review',
+                          and (not result.editorial_review or is_autonomous_editorial_policy(review_policy)) else 'needs_review',
                       validation_report=report)
     assessment_only = (review_policy in {CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY, DOMAIN_PRACTICAL_REVIEW_POLICY, SOURCE_SCOPE_PRACTICAL_REVIEW_POLICY, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY} and source_verified
         and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
@@ -192,7 +194,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
     if result.source_core or result.editorial_review:
         from app.modules.ai.v3.practical_draft_review import editorial_manifest
 
-        artifacts.diagnostics['draft_review'] = editorial_manifest(result, packet, issues)
+        artifacts.diagnostics['draft_review'] = editorial_manifest(result, packet, issues, review_policy=review_policy)
     if result.source_core:
         artifacts.diagnostics['practical_source_core_unresolved_cases'] = list(result.source_core_unresolved_cases)
         artifacts.diagnostics['practical_source_core_source_review_pending'] = result.source_core_source_review_pending
@@ -258,7 +260,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             # Author + two checks per candidate + at most four scoped repairs.
             if editorial:
                 await progress_callback('realization', completed,
-                    max(4, completed + 1) if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY else 4, None, 1)
+                    max(4, completed + 1) if is_autonomous_editorial_policy(review_policy) else 4, None, 1)
             elif review_policy == SOURCE_CORE_PRACTICAL_REVIEW_POLICY:
                 await progress_callback('realization', completed, 5, None, 1)
             elif review_policy in lesson_policies:
@@ -282,14 +284,15 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if review_policy == AUTONOMOUS_EDITORIAL_REVIEW_POLICY:
+    if is_autonomous_editorial_policy(review_policy):
         from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
         from app.modules.ai.v3.practical_autonomous_editorial_cycle import run_autonomous_editorial_cycle
 
         policy = await resolve_runtime_settings()
         result = await run_autonomous_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
             max_revisions=policy.integer('generation.editorial_max_revisions'),
-            max_rules_per_review=policy.integer('generation.editorial_rules_per_review'))
+            max_rules_per_review=policy.integer('generation.editorial_rules_per_review'),
+            **({'joint_editor': True} if review_policy == JOINT_EDITORIAL_REVIEW_POLICY else {}))
     elif editorial:
         from app.modules.ai.v3.practical_editorial_cycle import run_editorial_cycle
         result = await run_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
@@ -328,6 +331,6 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                                            concise_review=review_policy == CONCISE_PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
-    if review_policy in (CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY):
+    if review_policy in (CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY):
         return practical_artifacts(result, corpus, packet, source_sha256, editorial_policy=review_policy)
     return practical_artifacts(result, corpus, packet, source_sha256)
