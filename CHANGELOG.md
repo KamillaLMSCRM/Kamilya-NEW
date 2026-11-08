@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Give addressed v34 evidence correction the exact current target texts used by the literal validator, with consistent source aliases and preserved original spelling. Neighboring targets cannot close an issue.
+
 - Route both editorial and independent answer-review findings back to addressed model editing, then verify the full current course and all prior material findings before accepting the automatic content review. Retain genuine source questions, rejected evidence and every review receipt.
 - Bind automatic content acceptance to the exact persisted course and source snapshot in the completed generation job. Content or source changes invalidate that receipt; methodologist publication approval remains explicit.
 

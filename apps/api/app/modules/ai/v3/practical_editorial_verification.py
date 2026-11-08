@@ -69,6 +69,28 @@ def matches_editorial_verification(value: Any, fmt: Any) -> bool:
     return len(actual) == len(set(actual)) and set(actual) == set(ids) and matches_editorial_review(review, base)
 
 
+def literal_course_texts(course: dict[str, Any], finding: dict[str, Any]) -> list[str]:
+    """Return the exact owned text scope, never evidence of semantic correctness."""
+    target = finding['target']
+    if finding['domain'] == 'assessment' and target['kind'] in ('course', 'lesson'):
+        return [text for lesson in course['lessons']
+            if target['kind'] == 'course' or lesson['id'] == target['id']
+            for question in lesson['questions']
+            for text in (question['prompt'], *question['choices'], question['explanation'])]
+    if target['kind'] == 'course':
+        return [lesson['content'] for lesson in course['lessons']]
+    if target['kind'] == 'lesson':
+        return [lesson['content'] for lesson in course['lessons'] if lesson['id'] == target['id']]
+    if target['kind'] == 'question':
+        texts = []
+        for lesson in course['lessons']:
+            for question in lesson['questions']:
+                if question['id'] == target['id']:
+                    texts = [question['prompt'], *question['choices'], question['explanation']]
+        return texts
+    return []
+
+
 def compile_editorial_verification(value: Any, packet: PracticalSourcePacket, course: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, Any]:
     fmt = editorial_verification_format(packet, course, findings)
     if not matches_editorial_verification(value, fmt):
@@ -100,24 +122,7 @@ def compile_editorial_verification(value: Any, packet: PracticalSourcePacket, co
                 errors.append('current_target_invalid')
         if (disposition in ('FIXED', 'ALREADY_COVERED')
                 or disposition == 'NEEDS_REVISION' and finding['target']['kind'] == 'question'):
-            target = finding['target']
-            texts: list[str] = []
-            if finding['domain'] == 'assessment' and target['kind'] in ('course', 'lesson'):
-                # A quiz-coverage issue needs current assessment evidence. Prose
-                # cannot prove that the employee is actually being assessed.
-                for lesson in course['lessons']:
-                    if target['kind'] == 'course' or lesson['id'] == target['id']:
-                        texts.extend(text for q in lesson['questions']
-                            for text in (q['prompt'], *q['choices'], q['explanation']))
-            elif target['kind'] == 'course':
-                texts = [lesson['content'] for lesson in course['lessons']]
-            elif target['kind'] == 'lesson':
-                texts = [lesson['content'] for lesson in course['lessons'] if lesson['id'] == target['id']]
-            elif target['kind'] == 'question':
-                for lesson in course['lessons']:
-                    for q in lesson['questions']:
-                        if q['id'] == target['id']:
-                            texts = [q['prompt'], *q['choices'], q['explanation']]
+            texts = literal_course_texts(course, finding)
             if not row['course_quote'].strip() or not any(row['course_quote'] in text for text in texts):
                 errors.append('course_quote_invalid')
             if finding['domain'] == 'source':

@@ -3,6 +3,22 @@
 
 ## ENG-040 — исправленный моделью курс оставался непроверенным, слепые замечания не возвращались редактору
 
+- Follow-up 2026-11-08 23:33 UTC: proof-only model calls could cite a neighboring lesson while
+  closing an issue on another target. Shared literal_course_texts now defines
+  the SAME exact compiler and addressed v34 proof context scope. No normalization,
+  semantic judgment, source-question mutation or validator relaxation. Four
+  content/assessment × valid/neighbor synthetic cases RED then44PASS.
+- Independent P2 found source_ref bypassed alias conversion; switched to existing
+  codec-supported source_refs consistently in registry and issue rows. Alias
+  union regression RED then PASS; bounded independent re-review noP1/P2.
+- Real retained failures: addressed native proof control3→1 holds, then corrected
+  alias/original-spelling control1→0, without course edit or semantic closure
+  changes. Whole-course review still has2content remarks; this is literal-custody
+  verification, not a full automatic course PASS. Raw failed receipts retained.
+- Full7282PASS/1skip/7warnings76.83s, baseline1004/2174PASS. Catalog3/DB0187/
+  settings/history/providers unchanged. Proceed fresh native DEV, not another
+  complete saved-bad-author replay.
+
 - Follow-up 2026-11-08 23:14 UTC: v34 final joint review inherited the assessment specialist
   guide, including a claim that prose completeness belonged to another stage.
   Added explicit whole-course joint role; the driver supplies the same general

@@ -9,6 +9,7 @@ from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.practical_editorial_verification import (
     compile_editorial_verification,
     editorial_verification_format,
+    literal_course_texts,
 )
 
 PROOF_ERRORS = frozenset({'source_quote_invalid', 'course_quote_invalid', 'source_refs_invalid', 'reason_missing'})
@@ -29,7 +30,8 @@ def same_proof_disposition(original: str, corrected: str) -> bool:
 
 
 async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: list[dict[str, Any]],
-                                    result: dict[str, Any], context: str, view: Any, call: Any) -> dict[str, Any]:
+                                    result: dict[str, Any], context: str, view: Any, call: Any,
+                                    *, addressed_evidence: bool = False) -> dict[str, Any]:
     output = copy.deepcopy(result)
     rows = output['resolutions']
     if len({row['issue_id'] for row in rows}) != len(rows):
@@ -65,6 +67,31 @@ async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: 
         + '\nCURRENT_ASSESSMENT_TARGETS_JSON\n' + json.dumps(view.encode(questions), ensure_ascii=False, sort_keys=True)
         + '\nPRIOR_MATERIAL_FINDINGS_JSON\n' + json.dumps(prior_wire, ensure_ascii=False, sort_keys=True)
         + '\nPRIOR_INVALID_RESOLUTIONS_JSON\n' + json.dumps(old_wire, ensure_ascii=False, sort_keys=True))
+    system = SYSTEM
+    evidence = None
+    if addressed_evidence:
+        targets: dict[str, Any] = {}
+        issues: list[dict[str, Any]] = []
+        refs: list[str] = []
+        blocks = {block.block_id: block.text for block in packet.blocks}
+        for finding in selected_prior:
+            reference = 'proof-target-' + _digest([finding['domain'], finding['target']])
+            targets.setdefault(reference, {'target': copy.deepcopy(finding['target']),
+                'domain': finding['domain'], 'texts': literal_course_texts(course, finding)})
+            owned_refs = list(dict.fromkeys(ref for ref in [*finding['source_refs'],
+                *selected_by_id[finding['issue_id']]['source_refs']] if ref in blocks))
+            refs.extend(ref for ref in owned_refs if ref not in refs)
+            issues.append({'issue_id': finding['issue_id'], 'target_ref': reference, 'source_refs': owned_refs})
+        evidence = {'issues': issues, 'targets': targets,
+            'sources': [{'source_refs': [ref], 'text': blocks[ref]} for ref in refs]}
+        user += '\nELIGIBLE_PROOF_EVIDENCE_JSON\n' + json.dumps(view.encode(evidence), ensure_ascii=False, sort_keys=True)
+        system += (' Use the issue target_ref to find the exact eligible current texts in ELIGIBLE_PROOF_EVIDENCE_JSON. '
+            'Copy course_quote only from those texts, never a neighboring target even if its meaning is similar. '
+            'The supplied source texts are current owned referenced blocks. These are literal custody candidates, '
+            'not proof that the primary semantic judgment is true. Join issue source_refs to the same aliases in each source row source_refs. '
+            'Use a short contiguous supporting excerpt. Copy it character for character, retaining original spelling, '
+            'grammatical errors, case and punctuation; do not normalize or silently correct literal evidence. '
+            'Preserve an unresolved hold if you cannot supply its evidence.')
     fmt = editorial_verification_format(packet, course, selected_prior)
 
     def compile_response(value: Any) -> dict[str, Any]:
@@ -79,7 +106,9 @@ async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: 
         return compiled
 
     group = 'practical:editorial:verify:v33:proof:' + _digest([course, selected_prior, selected])
-    raw = await call('review', group, [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': user}],
+    if addressed_evidence:
+        group = 'practical:editorial:verify:v33:proof:' + _digest([course, selected_prior, selected, evidence])
+    raw = await call('review', group, [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}],
                      fmt, compile_response)
     compiled = compile_response(raw)
     corrected = {row['issue_id']: row for row in compiled['resolutions']}

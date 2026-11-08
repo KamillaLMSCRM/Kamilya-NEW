@@ -1,3 +1,15 @@
+## RUN-20261108-ADDRESSED-LITERAL-CUSTODY
+
+- 2026-11-08 23:33 UTC:4new RED cases then focused44PASS; source alias join RED then44PASS2.03s.
+  Finalfull7282PASS/1skip/7warnings76.83s; baseline1004/2174PASS. Independent
+  re-review confirms P2closed/no remainingP1/P2; current nav excludedPASS.
+- Actual current native proof stage:3→1→0literal holds; no course edit, semantic
+  disposition/source-question change or UNKNOWN replay. Whole-course2material
+  remarks remain, NOT course acceptance. Exact returned usage retained in
+  native-role-proof-controls-summary.json. No active inference/native generation.
+- Catalog default3/schema0187/settings/history/providers unchanged. Fresh complete
+  three-course native DEV quality/save/recovery acceptance still required.
+
 ## RUN-20261108-COHERENT-JOINT-ROLE-REGISTRY
 
 - 2026-11-08 23:14 UTC: full7278PASS/1skip/7warnings76.81s; focused84PASS3.72s then

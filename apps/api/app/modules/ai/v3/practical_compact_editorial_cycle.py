@@ -380,7 +380,8 @@ async def review_editorial_candidate(
             async def proof_call(name: str, group: str, messages: list[dict[str, str]],
                                  fmt: dict[str, Any], validate: Any) -> Any:
                 return await call(name, group.replace(':v33:proof:', ':v34:proof:', 1), messages, fmt, validate)
-            compiled = await correct_resolution_proofs(packet, course, joint_prior, compiled, context, view, proof_call)
+            compiled = await correct_resolution_proofs(packet, course, joint_prior, compiled, context, view,
+                proof_call, addressed_evidence=True)
         closed = {row['issue_id'] for row in compiled['resolutions'] if row['verified']
                   and row['disposition'] in ('FIXED', 'ALREADY_COVERED', 'NOT_MATERIAL', 'SOURCE_AMBIGUITY')}
         current = {row['issue_id']: row for row in compiled['review']['findings']}

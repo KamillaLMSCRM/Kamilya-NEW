@@ -1,4 +1,5 @@
 import copy
+import json
 
 import pytest
 
@@ -8,6 +9,57 @@ from app.modules.ai.v3.practical_model_view import PracticalModelView
 from tests.unit.test_v3_editorial_verification import sample
 
 pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('domain', ['content', 'assessment'])
+@pytest.mark.parametrize('neighbor_quote', [False, True])
+async def test_addressed_proof_uses_exact_validator_scope_and_still_rejects_neighbor(case, domain, neighbor_quote):
+    from app.modules.ai.v3.practical_editorial_contract import compile_editorial_review
+    from tests.unit.test_v3_editorial_contract import review_value
+
+    _, packet, original = case
+    course = copy.deepcopy(original)
+    neighbor = copy.deepcopy(course['lessons'][0])
+    neighbor.update(id='l2', content='NEIGHBOR_ONLY_PROSE')
+    for index, question in enumerate(neighbor['questions']):
+        question.update(id='neighbor-q' + str(index), prompt='NEIGHBOR_ONLY_QUESTION')
+    course['lessons'].append(neighbor)
+    prior = compile_editorial_review(review_value(packet, course, kind='lesson', target='l1', domain=domain),
+                                    packet, course)['findings']
+    wrong = neighbor['content'] if domain == 'content' else neighbor['questions'][0]['prompt']
+    correct = course['lessons'][0]['content'] if domain == 'content' else course['lessons'][0]['questions'][0]['prompt']
+    raw = {**review_value(packet, course), 'resolutions': [{'issue_id': prior[0]['issue_id'],
+        'disposition': 'ALREADY_COVERED', 'reason': 'Current target supports this.',
+        'source_refs': [packet.blocks[0].block_id], 'source_quote': packet.blocks[0].text,
+        'course_quote': wrong, 'source_question': ''}]}
+    compiled = compile_editorial_verification(raw, packet, course, prior)
+    compiled.update(raw_parts=[], source_rule_checks=[])
+    assert compiled['resolutions'][0]['verification_errors'] == ['course_quote_invalid']
+    before = copy.deepcopy((course, compiled))
+
+    async def call(name, group, messages, fmt, validator):
+        evidence = json.loads(messages[1]['content'].split('\nELIGIBLE_PROOF_EVIDENCE_JSON\n')[1])
+        assert len(evidence['issues']) == len(evidence['targets']) == 1
+        target = evidence['targets'][evidence['issues'][0]['target_ref']]
+        assert target['target'] == {'kind': 'lesson', 'id': 'l1'}
+        assert correct in target['texts'] and wrong not in target['texts']
+        if domain == 'assessment':
+            assert course['lessons'][0]['content'] not in target['texts']
+        assert any(row['text'] == packet.blocks[0].text for row in evidence['sources'])
+        source_aliases = {ref for row in evidence['sources'] for ref in row['source_refs']}
+        assert set(evidence['issues'][0]['source_refs']) <= source_aliases
+        expected_refs = set(prior[0]['source_refs']) | set(raw['resolutions'][0]['source_refs'])
+        assert source_aliases == {PracticalModelView(packet).canonical_to_alias[ref] for ref in expected_refs}
+        value = copy.deepcopy(raw)
+        value['resolutions'][0]['course_quote'] = wrong if neighbor_quote else correct
+        validator(value)
+        return value
+
+    out = await correct_resolution_proofs(packet, course, prior, compiled, 'SOURCE',
+        PracticalModelView(packet), call, addressed_evidence=True)
+    assert out['resolutions'][0]['verified'] is (not neighbor_quote)
+    assert (course, compiled) == before
 
 
 @pytest.mark.asyncio

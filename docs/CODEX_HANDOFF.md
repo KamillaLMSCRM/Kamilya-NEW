@@ -1,3 +1,35 @@
+# Final proof-context candidate — 2026-11-08 23:33 UTC
+
+- No active inference. G8/G9 failed receipts remain unchanged. The coherent native
+  review control retained2material content remarks and3literal proof holds; it
+  did NOT establish automatic course acceptance. Existing proof correction then
+  addressed actual owned targets: holds3→1 and, after alias/typo-custody fix,1→0.
+  No course edit, semantic-disposition change, invented source answer or manual
+  closure. All model responses and stage usage retained. Two material course
+  remarks remain; fresh normal DEV generation is next, not more bad-author loops.
+- Shared literal_course_texts now supplies BOTH compiler scope and v34 proof
+  context. Adjacent current owned target text prevents quoting a neighboring
+  lesson. Question proof cannot use prose. Literal source typos/punctuation must
+  be copied without normalization. Existing quote/disposition/source-question/
+  UNKNOWN guards unchanged; legacy False messages and groups preserved.
+- Independent P2: singular source_ref was not encoded by the existing model view.
+  Fixed with supported source_refs arrays in BOTH issue and source registry;
+  RED then alias-union tests PASS. Independent re-review no remainingP1/P2.
+- Latest full7282PASS/1skip/7warnings76.83s; focused44PASS2.03s; quality1004/2174PASS;
+  nav2465files/28896nodes/85703edges/2498sources/excludedPASS. Source frozen since
+  these gates. Catalog default3, DB0187/settings/history, reasoning/providers and
+  all source/figure/client data unchanged. No default4/override4 proposal selected.
+- Current HEAD7b17e42d138e180e80ccb4e873ffe372f1402d1f feature/dev pushes verified,
+  CI42534304006 pending/needs current readback. This proof delta is not in7b17 yet;
+  commit exact final r5, CI/build/env, canonical DEV API+single worker rollout.
+  Public API and worker last verified466; prepared2739 image not activated.
+- Next MUST be fresh complete PDF+Cash+standards26 native DEV Luna/HIGH courses,
+  real source pins/save/recovery and independent all-content/question/image
+  quality/time/tokens; then intended DeepSeek and authorized protected prod/live
+  cycle after actual GO. Existing accepted QA and customer courses stay intact.
+
+## Superseded checkpoint
+
 # Coherent-role candidate IN PROGRESS — 2026-11-08 23:14 UTC
 
 - Sole inference: coherent-role-control.py --execute2/session75544. Freeze all
