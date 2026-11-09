@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Fresh v35 generation authors directly from the approved literal source, reviews the complete course and independently judges every answer. Actual findings receive scoped model edits and current verification; old v33/v34 jobs retain exact recovery behavior.
+
 - Retain valid partial editorial decisions, complete only missing IDs through one owned model stage, and recover exact retained v34 joint replies without repeating provider requests; strict semantic acceptance remains unchanged.
 
 - Preserve operative source lists and adjudicate historical observations beside complete literal current lesson text; model-only addressed repairs retain good peers and assessment keys.

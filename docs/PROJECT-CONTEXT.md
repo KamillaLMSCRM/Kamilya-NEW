@@ -1,3 +1,30 @@
+## R10 coherent literal-source candidate — 2026-11-09
+
+Fresh admission now selects v35. Native service uses the literal approved source,
+one whole-course keyed editor and physically blind option judgments; only actual
+material findings authorize owned model repairs followed by current verification.
+Derived source interpretation maps are not substituted for the original. Genuine
+source questions, current evidence, unknown-transport fences and publication
+consent remain. v33/v34 keep their exact historical path and checkpoints.
+
+Local real-model control: 8L28Q, 112 independent judgments, three calls,
+108830 input /19282 output tokens, 369.390s, no manual course/source changes.
+Whole editor found zero material findings/wrong keys; blind accepted. Price UNKNOWN.
+Minor administrative completeness advisory is retained, not a fabricated source
+ambiguity. This is not native DEV acceptance. R9 failed scope diagnostic is separate.
+
+Local full7451PASS/1skip/7warnings95.67s; final focused19PASS1.85s;
+quality1004/2174PASS. Real stage journal preclaim interruption/cold replay preserves
+completed author; unknown outcome never silently retries. Exact three retained
+requests match the new driver; all22old R9request hashes still match. Graphs are
+navigation-only. DEV still947afed9/R9; production83unchanged. No inference active.
+Next: exact R10 commit/CI/DEV sole-worker rollout, three complete native courses,
+DeepSeek, protected production/live, then TWO NEW Lombard client courses with
+bounded client-only manual edits if needed. Do not overwrite old client courses.
+Artifacts: .release-evidence/autonomous-editorial-review-20261108/
+r10-coherent-final-three-response-replay.json and native-dev-r9-pdf/
+offline-current-20261109T075955-r10-final-legacy/receipt.json.
+
 ## R9 current-editorial reconciliation candidate — 2026-11-09
 
 DEV remains exact7bc6/R8; production83 unchanged. Native PDF completed8L23Q,

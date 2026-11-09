@@ -10566,3 +10566,20 @@ caught missing marker as intended; corrected test scoping, legacy marker remains
 absent. Final7423PASS. Python write_text newline translation also expanded six
 doc diffs; normalized only those edited docs to repository LF before staging.
 Always inspect final diff statistics and bound diff-check output before release.
+
+### AGENT-ACCEPTANCE-HARNESS-001 R10 continuation
+
+- Native helpers require canonical root .venv (httpx); OPS interpreter is for SSH/
+  deployment and must not be substituted. Import failure occurred before network.
+- Anchor patches to the async service definition: a generic autonomous conditional
+  initially matched the synchronous artifacts function; corrected before execution.
+- Windows source IO must specify encoding=utf-8. A local ASCII policy replacement
+  decoded seven previously clean UTF-8 files as cp1251 and rewrote Cyrillic. Four
+  byte-compatibility tests failed. Restored each exact HEAD blob plus the intended
+  ASCII delta, preserving prior dirty files; full7451thenpassed. Use explicit
+  encoding and inspect numstat before testing; no corrupted source was deployed.
+- Initialize asyncio before denying application sockets in offline Windows replay:
+  event-loop wakeup socketpair is internal, not an external provider request.
+- Stage reports must filter claim_token rows without response before counting usage.
+- A q2 regression fixture initially cited q1 text; strict owned proof correctly held.
+  Corrected fixture quote, not validator. Explicit missing/proof fields stay guarded.

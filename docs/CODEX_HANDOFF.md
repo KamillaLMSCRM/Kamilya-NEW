@@ -1,3 +1,186 @@
+## R10 coherent literal-source candidate — 2026-11-09
+
+Fresh admission now selects v35. Native service uses the literal approved source,
+one whole-course keyed editor and physically blind option judgments; only actual
+material findings authorize owned model repairs followed by current verification.
+Derived source interpretation maps are not substituted for the original. Genuine
+source questions, current evidence, unknown-transport fences and publication
+consent remain. v33/v34 keep their exact historical path and checkpoints.
+
+Local real-model control: 8L28Q, 112 independent judgments, three calls,
+108830 input /19282 output tokens, 369.390s, no manual course/source changes.
+Whole editor found zero material findings/wrong keys; blind accepted. Price UNKNOWN.
+Minor administrative completeness advisory is retained, not a fabricated source
+ambiguity. This is not native DEV acceptance. R9 failed scope diagnostic is separate.
+
+Local full7451PASS/1skip/7warnings95.67s; final focused19PASS1.85s;
+quality1004/2174PASS. Real stage journal preclaim interruption/cold replay preserves
+completed author; unknown outcome never silently retries. Exact three retained
+requests match the new driver; all22old R9request hashes still match. Graphs are
+navigation-only. DEV still947afed9/R9; production83unchanged. No inference active.
+Next: exact R10 commit/CI/DEV sole-worker rollout, three complete native courses,
+DeepSeek, protected production/live, then TWO NEW Lombard client courses with
+bounded client-only manual edits if needed. Do not overwrite old client courses.
+Artifacts: .release-evidence/autonomous-editorial-review-20261108/
+r10-coherent-final-three-response-replay.json and native-dev-r9-pdf/
+offline-current-20261109T075955-r10-final-legacy/receipt.json.
+
+# R10 coherent original-first control PASSED; native integration next — 2026-11-09 08:39 UTC
+
+- result: No active model/test process. Control70778DONE: full blind bank112answer
+  judgments acceptedTRUE,0feedback; same approved literal PDF, no keys/prose shown.
+  Author82750DONE8L28Q and whole-course reviewer87831DONE0materialfindings/0badkeys.
+  Root read all8lessons/28stems/112choices/keys/explanations. No manual content edit.
+- changed: This is LOCAL controlled baseline, NOT native DEV/course acceptance.
+  Actual content3calls: author27242in8000out/151.578s; reviewer48447in2734out/
+  55.906s; blind33141in8548out/161.906s. Total108830in19282out/369.390s; dollars
+  UNKNOWN. Separate failed scope diagnostic27188in2770out/55.297s must not be
+  counted as a successful course stage. Original source SHAunchanged.
+- verified: Original-first removes borrower/loan qualifier error in q2-1 and
+  avoids invented hierarchy uncertainty. Main practical source families covered;
+  employee instruction-acknowledgment/equipment administrative detail is absent,
+  noted separately by root as a non-core completeness advisory, not hidden fact.
+  Whole reviewer reported only numbering3.3.6→3.3.8note; verify original before
+  adding owner question. Blind bank literal source held all112unique IDs correctly.
+- blockers: Native R9job03419e5c remains known-preclaim-held with22complete replies
+  /768394in83585out/no pending, NOT resumed. DEV947afed9/prod83 unchanged. R10 is
+  local2runtimefiles+2testfiles;7438PASS/baseline1004/2174. Current optional modes
+  are NOT selected by API and no profilev35 exists yet. Old22request replay exact.
+- next: Implement fresh v35 coherent path using tested literal original author,
+  existing full keyed review + physically blind answer checks, model-only scoped
+  edit and full current verification with retained findings/proofs. Avoid feeding
+  derivative interpretation maps back as authority. Keep v33/v34 source path and
+  checkpoints byte-compatible. Use existing typed formats, stage journal, R8one-
+  shot missing-resolution completion, R9proof preservation/current acceptance,
+  provenance and source-fidelity guards; do not relax validators or publication.
+  Review per complete course when it fits; blind packing may derive record budget
+  from existing actual response-token budget (conservative structural per-row
+  envelope), preserving complete questions/allIDs and full original context for
+  long documents. No hard document/course cap or new provider resource/plan.
+  Candidate35 must use audited existing revision/output settings and preserve
+  true source questions vs machine review. Then focused/full/nav/localcontrols,
+  commit/projectpush/CI/exactDEV, THREE native courses, intendedDeepSeek, protected
+  prod/live, THEN two NEW usable Lombard client courses, bounded manual edits
+  only in that later client phase. Do not stop at controlled/technical success.
+  Artifacts: current-r10-{author,review,blind,scope}/ under autonomous-editorial-
+  review-20261108. All original failures/evidence retained; original R9unchanged.
+
+# R10 local scope/original-first controls; author probe ACTIVE — 2026-11-09 08:19 UTC
+
+- result: Exact deployed DEV remains947afed9/R9; production83 unchanged. Native
+  R9PDFjob03419e5c is HELD at known preclaim yield after22actual replies,
+  768394input/83585output. No pending/UNKNOWN. Native watcher61214 DONE; do NOT
+  resume blindly or start fresh native before resolving observed contract defects.
+- changed: R10 LOCAL/UNCOMMITTED optional explicit_edit_scope and literal_first_author
+  flags defaultFalse; no admission/profile wiring yet. Shared editor authority
+  gives lesson/course parent precedence over child question, preserving compiler
+  ownership. Original-first experimental mode omits interpretation map from author
+  and skips unproven source-alignment rewrite; all three independent source reads,
+  final source/course review and blind answer checks stay present. No source edit.
+- verified:15new focused tests/48adjacentPASS; full7438PASS/1skip/7warnings91.31s;
+  baseline1004/2174PASS. Exact offline R9replay22requesthashes unchanged under new
+  defaultFalse modes,0model/DBwrites. Native saved payload demonstrably mixed
+  lessonL1 and questionQ1 while old prompt unconditionally froze lesson text for
+  question targets. Caller/compiler both allow parent scope; no permission waiver.
+- blockers: One actual scope-only Luna/HIGH control DONE,27188in2770out/55.297s:
+  changed prose but retained disputed interpretation; NOT semantic success. Old
+  related source map still labels manager uncertainty after current review withdrew
+  it. Separately actual source read R9limits wrongly excludes entrepreneurs and
+  verifierR9SUPPORTED rewrites source ending from genitive to dative in reason;
+  initial Q3 repeats borrower-vs-loan qualifier error. This is NOT owner ambiguity.
+- next: Sole ACTIVE model/control watcher82750: ONE original-first author request
+  without derived reading context, same approved literal PDF, original source
+  SHAunchanged, GPT6Luna/HIGH/32768/300s. Do not modify source modules/harness while
+  its source hashes are frozen. Scopecontrol10325DONE, fulltest97359DONE.
+  Read82750, audit entire produced course/especially qualifier; hypothesis of map
+  priming is NOT causally confirmed yet. No policyv35 selection/commit/deploy yet.
+  Evidence current-r10-scope/current-r10-author, native-dev-r9-pdf/offline-current-
+  20261109T075955[-r10-legacy]. Source fixture still exact1db4packet.
+  After controls finish choose justified fresh profile, preserve v34checkpoints,
+  final localgates/Graphify/CI/exactDEV, three full courses, intendedDeepSeek and
+  protectedprod/live. THEN two new client courses in Lombard, bounded manual
+  client edits authorized; preserve old customer courses/users/history.
+
+# R9 PDF SAMEjob resume2 ACTIVE — 2026-11-09 07:48 UTC
+
+- result: Job03419e5c SAMEjob under exactDEV947afed9; watcher89774 DONE at known
+  preclaim yield after16actualcompleted replies,526103in58659out. No pending/UNKNOWN.
+  Normal owned resume2 watcher61214 ACTIVE; no duplicate inference/test/deploy.
+- changed: No runtime/source/course manual edits. Model whole editor and current
+  reconciler withdrew false source ambiguity for the two comma-listed managers,
+  withdrew shortened employer-name nit, and confirmed L1/Q1 need model correction.
+  Blind option checks are in progress/completing; scoped model edits follow.
+- verified: Actual raw source says both managers, no choice/alternative. Model
+  correctly routes this to course repair rather than owner. Root initial Q3
+  qualifier concern still pending final audit: source qualifier belongs loan,
+  initial question/explanation says borrower category. Saved blind L2 judge
+  supported it; do not infer final correction or GO from literal quotes/keys.
+  Initial manual audit was NOT injected into prompts. No manual course fix.
+- blockers: Final persistedPDF/currentacceptance and cash/standards/DeepSeek/
+  prod/client courses OPEN. Source/renderer code frozen during inference.
+- next: Read61214, fresh owned snapshot only on terminal/meaningful progression.
+  Finish model-only PDF and independently check Q3/fullcourse/proofs/persisted
+  shuffled keys. Then cash/standards sequential; DeepSeek DEV; protected prod/live;
+  two new usable client courses in Lombard, bounded manual edits allowed ONLY
+  for that later client phase. Production83 unchanged.
+
+# R9 native PDF SAMEjob resume1 ACTIVE — 2026-11-09 07:31 UTC
+
+- result: Exact DEV947afed9 RELEASE_OK. Fresh PDFjob03419e5c-e6a1-4c50-9297-b67ec6c3da97
+  initial watcher66163 DONE: known preclaim time-window yield, no pending/UNKNOWN.
+  All6actual model replies retained231985in36285out, modelgpt-6-luna/HIGH route.
+- changed: Normal owned SAMEjob resume1 submitted once, watcher89774 ACTIVE.
+  No source/course/manual edits and no repeated inference. Runtime prompts/source
+  remain frozen947afed9. Old R8course/failure and exact controls stay unchanged.
+- verified: db-20261109T073121.json strictlms_app READONLY shows all claimed
+  request hashes have complete responses, resultonlyownedroutebinding. New initial
+  draft8L22Q read independently,0manualedits. Root flagged Q3 qualifier ownership
+  before current automatic review finishes; initial-independent-audit.json is NOT
+  injected into model prompts. Wait for engine to find/repair it; no premature GO.
+- blockers: Full nativePDF persisted quality/currentreceipt still OPEN; cash/
+  standards/DeepSeek/prod/clientcourses OPEN. Do not start any parallel inference,
+  deployment or duplicate watcher. All future resume requires fresh owned DB
+  snapshot/allresponsescomplete/no pending and one exclusive intent.
+- next: Read89774, then owned DB/status. Finish SAMEjob and actual final course
+  audit, compare model findings with initial-independent audit. Then freshcash and
+  standards sequential, DeepSeek DEV/protectedprod/live, finally TWO client courses
+  in Lombard with bounded manual edits authorized. Production83 unchanged.
+
+# R9 exact DEV RELEASE_OK; fresh PDF next — 2026-11-09 07:16 UTC
+
+- result: DEV API/web/sole VM126worker exact947afed985d6ba844c90c12e144b34da84dc6539.
+  Canonical REL-DEV-CURRENT-RECONCILIATION-947A-R9-20261109 RELEASE_OK;
+  CI42576324822/build42577094320PASS, attested5ff0cdc1…2683.
+- changed:158sourcefiles verified; worker aa73dfe3 rest0/unless-stopped/1CPU1GiB/
+  read-only/no binds, env33b1d345. Old30ec7c48 warmstopped exit0 retained rollback.
+  Production six containers unchanged. No plan, route, resources or rights change.
+- verified: Renderdep-dbon4fs9v7es73fq0akg live; Verceldpl_6hi7RfAzL9djFJoBc4EmT4Acurh7
+  READY exact947afed9. Image/env/worker/health separately verified;7423testsPASS.
+- blockers: Fresh native courses not yet accepted. No pending/UNKNOWN call was
+  repeated; original R8course/failure retained. Do not push/redeploy runtime during
+  inference or start a duplicate. Current run uses native-dev-r9.py generate pdf.
+- next: Finish fresh owned PDF, then cash/standards sequential, full saved audit/
+  images/ethalon and intended DeepSeek DEV, protected prod/live. Finally TWO NEW
+  client courses in Lombard as owner authorized; existing customer data preserved.
+
+# R9 exact source committed/pushed; CI/build pending — 2026-11-09 07:04 UTC
+
+- result: R9 exact947afed985d6ba844c90c12e144b34da84dc6539,24scopedfiles,
+  feature and dev independently read back under project account KamillaLMSCRM.
+  Sanitized receipts and owner-required memory notes saved; no secrets recorded.
+- changed: Current reconciliation/proof preservation/source-vs-course hold
+  separation and reviewed option persistence. No frontend/provider/DBschema delta.
+- verified:7423PASS/1skip/7warnings78.46s; baseline1004/2174PASS; nav2473files,
+  28969nodes85692edges2506sources/excludedPASS. Production six containers unchanged
+  and restart0. DEV30ec7c48 still R8/7bc6,1CPU1GiB; free6.68GBdisk/7.59GBRAM.
+- blockers: CI42576324822 backend coverage still active. Sole existing build helper
+  session37931 waits on this CI, then dispatches ONE build-only workflow, no prod.
+  Do not start a duplicate helper or submit inference while worker/API differ.
+- next: Read37931. After attested image, canonical env-r9stage -> prepare-worker-r9
+  -> readiness/drain/start remote-step-r9 (each dry then execute), prepare-r9-rollout
+  -> restart -> exact controller. All helpers under autonomous-editorial-review-
+  20261108. No active inference. Three fresh native/DeepSeek/prod/client tasks OPEN.
+
 # R9 current-reconciliation candidate; R8 PDF completed — 2026-11-09
 
 - result: R8 SAMEjob c44d9fbc completed 05:49:14Z; course93c01600-dc83-496b-8bb9-c1ad8159229f,

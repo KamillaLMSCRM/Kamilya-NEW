@@ -1238,3 +1238,54 @@ control; it does not retroactively accept interrupted R6 or fresh fullcourses.
   behavior for recovery; unknown/foreign marker rejects. No random per-save drift.
 - Actual save fake-transaction + full snapshot regression16RED/59PASS before fix;
   focused117PASS after fix. Native final-save validation is a fresh DEV gate.
+
+
+## ENG-049 — mixed parent/child editing instructions conflict
+
+- Actual R9PDF03419e5c group revision after17checks: four confirmed observations
+  target lessonL1 and its questionQ1. Compiler grants parent lesson scope, but
+  writer system says question targets must leave title/content unchanged without
+  explaining parent precedence. Actual reply changed question and retained prose/
+  explanatory reservation. All22observed request hashes replay exactly offline.
+- Local explicit authority composes union per owned lesson, lists editable prose
+  and questionIDs, and resolves parent precedence in the actual writer prompt.
+  Scope metadata grants permission, not semantic acceptance. Question-only scopes
+  still freeze prose/peers; unknown/source targets reject. Nine ownership tests
+  plus two actual payload mode tests PASS; old v34all22requests unchanged.
+- Actual one-call new-scope control27188in2770out/55.297s changed prose but retained
+  disputed source reading. This is NOT proof of substantive correction or unique
+  cause; all raw replies kept. Related original source hypotheses still conflict
+  with later current-editor decisions. Original-first matched control is pending.
+
+## ENG-050 — derived source map preserved a wrong restriction despite verification
+
+- Actual R9source read R9/SRC54 uses limits excluding a person conducting business,
+  while literal3.2.1qualifies the microcredit, not the person. Source verifier
+  marks SUPPORTED and paraphrases genitive «не связанного» as dative «не связанному»
+  in its reason. Author Q3 and explanation then use borrower category. Root
+  initial-independent-audit recorded this BEFORE engine review; no feedback injected.
+- Literal quote custody is intact; this is a semantic model error, not source
+  ambiguity or a syntax/ownership failure. Existing grammar guide explicitly
+  forbids changing endings, so source IDs/quote matching cannot prove meaning.
+- Local optional original-first author removes derived-map priming from authorship
+  and unproven pre-review alignment, retaining original source and independent
+  audit. Test confirms all3sourceanalysis calls and downstream independent source/
+  answer review survive. Actual one-call original-first control currently pending;
+  do not assert causal improvement or native acceptance until read/audited.
+
+### ENG-049 / ENG-050 R10 controlled confirmation and coherent path
+
+Original-first control completed without root feedback: author8L28Q, full keyed
+review0material/0badkeys, blind112judgments accepted. Main borrower/loan qualifier
+and manager interpretation no longer distorted. Total3calls108830in19282out,
+369.390s; dollarsUNKNOWN. Separate scope-only failed control is not acceptance.
+Non-core administrative completeness advisory remains visible; no source edit.
+
+New v35 author receives original source and logical groups, not a derivative
+interpretation map. Existing whole-course review and physically blind predicates
+remain independent. Findings retain ownership/history and use composed parent/
+child edit authority, then full current verification. Long answer banks partition
+by complete questions under actual output budget without dropping any material.
+Fresh router/service select35; old33/34 requests unchanged. Technical7451PASS,
+baseline1004/2174; exact3new and22old request replay0newcalls/DBwrites/manualedits.
+This confirms a useful controlled baseline, not native3course or productionGO.

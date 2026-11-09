@@ -3,6 +3,7 @@ import pytest
 
 from app.modules.ai.v3.revision_policy import (
     AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
+    COHERENT_EDITORIAL_REVIEW_POLICY,
     JOINT_EDITORIAL_REVIEW_POLICY,
     REVIEW_KEY,
     is_autonomous_editorial_policy,
@@ -12,7 +13,7 @@ from app.modules.ai.v3.revision_policy import (
 )
 
 
-@pytest.mark.parametrize('policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY])
+@pytest.mark.parametrize('policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY])
 def test_both_autonomous_versions_remain_explicitly_readable(policy):
     assert read_review_policy({REVIEW_KEY: policy}) == policy
     assert is_editorial_policy(policy) and is_practical_policy(policy)
@@ -21,7 +22,7 @@ def test_both_autonomous_versions_remain_explicitly_readable(policy):
 
 
 def test_unrecognized_future_joint_policy_does_not_gain_authority():
-    policy = 'v3-practical-source-review-v35'
+    policy = 'v3-practical-source-review-v36'
     with pytest.raises(ValueError, match='policy_invalid'):
         read_review_policy({REVIEW_KEY: policy})
     assert not is_autonomous_editorial_policy(policy)

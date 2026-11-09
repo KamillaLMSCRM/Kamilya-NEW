@@ -23,6 +23,7 @@ from app.modules.ai.v3.practical_cycle import EXPLICIT_CASE_GUIDE, PracticalCycl
 from app.modules.ai.v3.practical_editorial_contract import (
     compile_editorial_revision,
     compile_lesson_alignment_revision,
+    editorial_edit_authority,
     editorial_revision_format,
 )
 from app.modules.ai.v3.practical_editorial_cycle import (
@@ -85,6 +86,41 @@ SCOPED_EDIT_SYSTEM = (
     'в учебном тексте. Хорошие части возвращаемого урока сохраняй; не переписывай их ради стиля. '
     'Ответ строго по схеме; source/course fingerprints относятся ко всему исходному кандидату.'
 ) + _SOURCE_GUIDE + EXPLICIT_CASE_GUIDE
+EXPLICIT_SCOPED_EDIT_SYSTEM = SCOPED_EDIT_SYSTEM.replace(
+    'Для цели question верни соответствующий урок только с этим вопросом; '
+    'его прежние title/content оставь без изменений.',
+    'EDIT_AUTHORITY_JSON задаёт объединённые полномочия для каждого урока. '
+    'Если есть цель lesson или course, она включает текст урока и его вопросы: '
+    'добавленная цель question не запрещает исправлять этот текст. '
+    'Только для урока БЕЗ цели lesson/course и с одними целями question сохраняй '
+    'title/content и возвращай исправляемые вопросы. '
+    'Проверь каждое подтверждённое замечание к тексту, вопросу и пояснению; '
+    'исправление ключа не закрывает отдельную ошибку в тексте или пояснении.',
+    1,
+)
+
+
+def _scoped_edit_messages(candidate: dict[str, Any], batch: list[dict[str, Any]],
+        context: str, view: Any, related: list[Any], source_authority: str, *,
+        explicit_scope: bool = False) -> list[dict[str, str]]:
+    """Send the same ownership union that the compiler enforces; keep legacy bytes."""
+    def encoded(value: Any) -> str:
+        return json.dumps(view.encode(value), ensure_ascii=False, sort_keys=True)
+
+    owners = {q['id']: lesson['id'] for lesson in candidate['lessons'] for q in lesson['questions']}
+    scope = {row['target']['id'] if row['target']['kind'] == 'lesson' else owners.get(row['target']['id'])
+             for row in batch}
+    selected = candidate['lessons'] if any(row['target']['kind'] == 'course' for row in batch) else [
+        lesson for lesson in candidate['lessons'] if lesson['id'] in scope]
+    authority = ('\nEDIT_AUTHORITY_JSON\n' + encoded(editorial_edit_authority(candidate, batch))) if explicit_scope else ''
+    return [{'role': 'system', 'content': (EXPLICIT_SCOPED_EDIT_SYSTEM if explicit_scope else SCOPED_EDIT_SYSTEM)
+        + EDITORIAL_REASONING_GUIDE + source_authority},
+        {'role': 'user', 'content': context + '\nRELATED_SOURCE_INTERPRETATIONS_JSON\n' + encoded(related)
+            + '\nCURRENT_COURSE_FINGERPRINT\n' + _digest(candidate)
+            + '\nCURRENT_EDIT_SCOPE_JSON\n' + encoded({'title': candidate['title'], 'lessons': selected})
+            + authority + '\nEDITORIAL_FINDINGS_UNVERIFIED_JSON\n' + encoded(batch)}]
+
+
 SOURCE_ALIGNMENT_SYSTEM = (
     'Ты автор-редактор практического курса. Другой этап модели уже исправил собственное '
     'первоначальное понимание норм исходника или дополнил пропущенные самостоятельные правила. '
@@ -270,9 +306,11 @@ def _edit_batches(course: dict[str, Any], findings: list[dict[str, Any]]) -> lis
 async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         reference_decisions: tuple[Any, ...], stage: Any, *, max_revisions: int,
         max_rules_per_review: int = 128, joint_editor: bool = False,
-        addressed_current: bool = False) -> PracticalCycleResult:
+        addressed_current: bool = False, explicit_edit_scope: bool = False,
+        literal_first_author: bool = False) -> PracticalCycleResult:
     if (type(joint_editor) is not bool or type(addressed_current) is not bool
-            or addressed_current and not joint_editor):
+            or type(explicit_edit_scope) is not bool or type(literal_first_author) is not bool
+            or (addressed_current or explicit_edit_scope or literal_first_author) and not joint_editor):
         raise ValueError('editorial_joint_policy_invalid')
     source_authority = SOURCE_AUTHORITY_GUIDE if joint_editor else ''
     joint_options: dict[str, Any] = ({'joint_editor': True,
@@ -333,7 +371,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
     reading_context = source_semantics_context(source_reading, view)
     raw = await call('lesson', 'practical:author:editorial:v33', [
         {'role': 'system', 'content': AUTHOR_SYSTEM + EDITORIAL_REASONING_GUIDE + source_authority},
-        {'role': 'user', 'content': context + reading_context + '\nSOURCE_LOGICAL_UNITS_JSON\n'
+        {'role': 'user', 'content': context + ('' if literal_first_author else reading_context) + '\nSOURCE_LOGICAL_UNITS_JSON\n'
             + encoded([{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups])
             + '\nCOURSE_INTENT_JSON\n' + encoded(asdict(intent))}], course_response_format(packet), author)
     original = author(raw)
@@ -348,7 +386,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
                         'unmapped_rule_ids': [goal['rule_id'] for goal in grammar_goals if not goal['lesson_ids']]}
     alignment_raw = None
     alignment_metadata: dict[str, Any] = {}
-    if grammar_targets:
+    if grammar_targets and not literal_first_author:
         alignment_raw = await call('repair', 'practical:editorial:revision:v33:source-alignment:'
             + _digest([source_reading['verified_reading_fingerprint'], candidate, writer_alignment]), [
                 {'role': 'system', 'content': SOURCE_ALIGNMENT_SYSTEM + source_authority},
@@ -463,19 +501,11 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
             for batch in _edit_batches(candidate, editable):
                 current_review = {**review, 'source_fingerprint': packet.fingerprint,
                     'course_fingerprint': _digest(candidate), 'findings': batch}
-                q_owners = {q['id']: lesson['id'] for lesson in candidate['lessons'] for q in lesson['questions']}
-                scope = {row['target']['id'] if row['target']['kind'] == 'lesson' else q_owners.get(row['target']['id'])
-                         for row in batch}
-                selected = candidate['lessons'] if any(row['target']['kind'] == 'course' for row in batch) else [
-                    lesson for lesson in candidate['lessons'] if lesson['id'] in scope]
                 refs = {ref for row in batch for ref in row['source_refs']}
                 related = [row for row in source_reading['interpretations'] if refs.intersection(row['rule']['source_refs'])]
-                raw_batch = await call('repair', 'practical:editorial:revision:v33:' + _digest([candidate, batch]), [
-                    {'role': 'system', 'content': SCOPED_EDIT_SYSTEM + EDITORIAL_REASONING_GUIDE + source_authority},
-                    {'role': 'user', 'content': context + '\nRELATED_SOURCE_INTERPRETATIONS_JSON\n' + encoded(related)
-                        + '\nCURRENT_COURSE_FINGERPRINT\n' + _digest(candidate)
-                        + '\nCURRENT_EDIT_SCOPE_JSON\n' + encoded({'title': candidate['title'], 'lessons': selected})
-                        + '\nEDITORIAL_FINDINGS_UNVERIFIED_JSON\n' + encoded(batch)}],
+                raw_batch = await call('repair', 'practical:editorial:revision:v33:' + _digest([candidate, batch]),
+                    _scoped_edit_messages(candidate, batch, context, view, related, source_authority,
+                                          explicit_scope=explicit_edit_scope),
                     editorial_revision_format(packet, candidate),
                     lambda v, current=candidate, request_review=current_review:
                         compile_editorial_revision(v, packet, current, request_review))

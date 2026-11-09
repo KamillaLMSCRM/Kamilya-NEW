@@ -9,7 +9,11 @@ from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.practical_cycle import PracticalCycleResult
 from app.modules.ai.v3.practical_review import PracticalReviewDecision
 from app.modules.ai.v3.practical_service import practical_artifacts
-from app.modules.ai.v3.revision_policy import AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY
+from app.modules.ai.v3.revision_policy import (
+    AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
+    COHERENT_EDITORIAL_REVIEW_POLICY,
+    JOINT_EDITORIAL_REVIEW_POLICY,
+)
 from app.modules.courses.automated_editorial_acceptance import (
     KEY,
     automatic_acceptance_is_current,
@@ -33,7 +37,7 @@ def clean_course(case, review_policy=AUTONOMOUS_EDITORIAL_REVIEW_POLICY):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('drift', ['none', 'content', 'source', 'missing', 'duplicate', 'foreign'])
-@pytest.mark.parametrize('review_policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY])
+@pytest.mark.parametrize('review_policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY])
 async def test_current_saved_content_proof_is_required_and_changes_invalidate_it(case, monkeypatch, drift, review_policy):
     course = clean_course(case, review_policy)
     job = SimpleNamespace(course_id=course.id, tenant_id=course.tenant_id, status='completed', stage='completed', result={})
@@ -77,7 +81,7 @@ async def test_failed_snapshot_never_writes_acceptance_or_commits(case, monkeypa
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('drift', ['none', 'content', 'source'])
-@pytest.mark.parametrize('review_policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY])
+@pytest.mark.parametrize('review_policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY])
 async def test_ordinary_approval_requires_current_receipt_and_source_locks(case, monkeypatch, drift, review_policy):
     from fastapi import HTTPException
 
@@ -105,7 +109,7 @@ async def test_ordinary_approval_requires_current_receipt_and_source_locks(case,
     assert source_lock.await_args.kwargs['for_update'] is True
 
 
-@pytest.mark.parametrize('review_policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY])
+@pytest.mark.parametrize('review_policy', [AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY])
 def test_embedded_receipt_cannot_be_swapped_between_autonomous_protocols(case, review_policy):
     from app.modules.courses.draft_review import read_draft_review
 

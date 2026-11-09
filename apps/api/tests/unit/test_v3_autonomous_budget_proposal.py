@@ -66,7 +66,7 @@ def test_mixed_or_unmanaged_route_never_upgrades():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('review_policy', ['v3-practical-source-review-v33', 'v3-practical-source-review-v34'])
+@pytest.mark.parametrize('review_policy', ['v3-practical-source-review-v33', 'v3-practical-source-review-v34', 'v3-practical-source-review-v35'])
 async def test_owned_direct_managed_budget_and_checkpoint_change(monkeypatch, review_policy):
     from types import SimpleNamespace
 

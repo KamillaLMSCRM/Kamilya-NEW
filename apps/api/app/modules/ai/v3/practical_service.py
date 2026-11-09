@@ -37,6 +37,7 @@ from app.modules.ai.v3.revision_policy import (
     AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
     CANONICAL_EDITORIAL_REVIEW_POLICY,
     CLAIM_EVIDENCE_PRACTICAL_REVIEW_POLICY,
+    COHERENT_EDITORIAL_REVIEW_POLICY,
     CONCISE_PRACTICAL_REVIEW_POLICY,
     CONTEXT_SUPPLEMENT_PRACTICAL_REVIEW_POLICY,
     COUNTEREXAMPLE_PRACTICAL_REVIEW_POLICY,
@@ -301,7 +302,15 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if is_autonomous_editorial_policy(review_policy):
+    if review_policy == COHERENT_EDITORIAL_REVIEW_POLICY:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+        from app.modules.ai.v3.practical_coherent_editorial_cycle import run_coherent_editorial_cycle
+
+        policy = await resolve_runtime_settings()
+        result = await run_coherent_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
+            max_revisions=policy.integer('generation.editorial_max_revisions'),
+            max_output_tokens=direct_max_output_tokens)
+    elif is_autonomous_editorial_policy(review_policy):
         from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
         from app.modules.ai.v3.practical_autonomous_editorial_cycle import run_autonomous_editorial_cycle
 
@@ -349,6 +358,7 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                                            concise_review=review_policy == CONCISE_PRACTICAL_REVIEW_POLICY)
     if cancellation_callback:
         await cancellation_callback()
-    if review_policy in (CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY):
+    if review_policy in (CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
+                         JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY):
         return practical_artifacts(result, corpus, packet, source_sha256, editorial_policy=review_policy)
     return practical_artifacts(result, corpus, packet, source_sha256)

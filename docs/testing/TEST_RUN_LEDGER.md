@@ -6684,3 +6684,21 @@ ACTIVE/session82058; no other inference/source review. Wholecourse acceptanceOPE
 Navigation final2473files/28969nodes85692edges2506sources/excludedPASS.
 CodeGraph confirms both save and readback call shared projection; Graphify locates
 current reconciliation through existing review stage. Static navigation only.
+
+### R10 coherent candidate / original-first matched control — 2026-11-09
+
+- Model-only author/full editor/blind:8L28Q/112judgments,3calls,
+  108830in19282out/369.390s; materialfindings0/incorrectkeys0/blindacceptedtrue.
+  PriceUNKNOWN; no source/manualcoursewrites. Main meaning independently read.
+- Technical7451PASS/1skip/7warnings95.67s; final focused19PASS1.85s;
+  baseline1004/2174PASS. Interrupted-before-review stage journal resumes completed
+  author; full cold replay0provider calls. Unknown transport no implicit retry.
+- Exact3retained request/schema hashes match final v35driver598b1cc9…119b;
+  oldR9exact22requests unchanged. Native3courses/DeepSeek/prod/clientwork OPEN.
+- CodeGraph confirmed service→newdriver and shared current reconciliation owners.
+  Graphify initial guessed persistence symbol absent; no runtime conclusion drawn.
+  Navigation prepared2477files/29000nodes/85753edges/2510sources/exclusionsPASS.
+
+- Graphify path newdriver→persistence exists only through a test import, not a
+  directed runtime call path. Confirmed actual service dispatch, stagejournal,
+  artifacts and save/readback owners in source/tests; graph limitation retained.

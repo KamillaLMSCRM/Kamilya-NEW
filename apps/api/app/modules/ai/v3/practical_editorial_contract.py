@@ -126,6 +126,39 @@ def matches_editorial_revision(value: Any, fmt: Any) -> bool:
         and all(len(row['source_refs']) == len(set(row['source_refs'])) for row in value['lesson_sources']))
 
 
+def editorial_edit_authority(course: dict[str, Any], findings: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compose verified edit intents as a union; a child cannot freeze its parent.
+
+    This grants owned editing scope, never establishes a finding's semantic truth.
+    The revision compiler independently retains its existing ownership boundary.
+    """
+    lessons = {lesson['id']: lesson for lesson in course['lessons']}
+    owners = {q['id']: lesson['id'] for lesson in course['lessons'] for q in lesson['questions']}
+    all_editable = False
+    prose: set[str] = set()
+    questions: set[str] = set()
+    for row in findings:
+        target = row.get('target', {})
+        kind, key = target.get('kind'), target.get('id')
+        if row.get('domain') == 'source' or row.get('severity') != 'material':
+            raise ValueError('editorial_edit_authority_invalid')
+        if kind == 'course' and key == 'course':
+            all_editable = True
+        elif kind == 'lesson' and key in lessons:
+            prose.add(key)
+        elif kind == 'question' and key in owners:
+            questions.add(key)
+        else:
+            raise ValueError('editorial_edit_authority_invalid')
+    return {'course_title_editable': all_editable, 'lessons': [
+        {'lesson_id': lesson['id'], 'title_editable': all_editable or lesson['id'] in prose,
+         'content_editable': all_editable or lesson['id'] in prose,
+         'editable_question_ids': [q['id'] for q in lesson['questions']
+             if all_editable or lesson['id'] in prose or q['id'] in questions]}
+        for lesson in course['lessons'] if all_editable or lesson['id'] in prose
+            or any(q['id'] in questions for q in lesson['questions'])]}
+
+
 def compile_editorial_revision(value: Any, packet: PracticalSourcePacket, original: dict[str, Any],
                                review: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     if review.get('source_fingerprint') != packet.fingerprint or review.get('course_fingerprint') != _digest(original):
