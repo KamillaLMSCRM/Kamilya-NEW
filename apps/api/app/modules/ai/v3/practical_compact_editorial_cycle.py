@@ -29,6 +29,7 @@ from app.modules.ai.v3.practical_editorial_verification import (
     editorial_verification_format,
 )
 from app.modules.ai.v3.practical_source_comparisons import build_source_comparison_groups
+from app.modules.ai.v3.practical_source_semantic_cycle import SOURCE_AUTHORITY_GUIDE
 
 CURRENT_TARGET_GUIDE = (
     '\nPrior problem, basis and correction describe historical observations, not the current state. '
@@ -146,11 +147,13 @@ async def review_editorial_candidate(
     all_prior = prior
     if joint_editor:
         prior = None  # Source checks observe the current course, never historical resolutions.
+        system += SOURCE_AUTHORITY_GUIDE
     assessment_prior = [row for row in prior or [] if row['domain'] == 'assessment'
                         or row['target']['kind'] == 'question' or row.get('review_origin') == 'COURSE_FIDELITY']
     if prior is not None:
         prior = [row for row in prior if row not in assessment_prior]
-    comparisons = build_source_comparison_groups(packet, reading, course, max_rules=max_rules)
+    comparison_options = {'coalesce': True} if joint_editor else {}
+    comparisons = build_source_comparison_groups(packet, reading, course, max_rules=max_rules, **comparison_options)
     parts = [group['rule_ids'] for group in comparisons]
     owners = {key: index for index, part in enumerate(parts) for key in part}
     assignments: list[list[dict[str, Any]]] = [[] for _ in parts]
@@ -181,6 +184,9 @@ async def review_editorial_candidate(
             ensure_ascii=False, sort_keys=True)
         content += '\nCOMPARISON_SCOPE\n' + comparison['scope']
         content += '\nSOURCE_SECTION_UNVERIFIED\n' + comparison.get('source_section', '')
+        if comparison.get('logical_groups'):
+            content += '\nLOGICAL_SOURCE_COMPARISON_GROUPS_JSON\n' + json.dumps(
+                comparison['logical_groups'], ensure_ascii=False, sort_keys=True)
         content += "\nREQUIRED_SOURCE_RULE_IDS_JSON\n" + json.dumps(ids)
         content += '\nFULL_ORIGINAL_SOURCE_FOR_DEPENDENCIES\n' + context
         if correction:
@@ -365,7 +371,7 @@ async def review_editorial_candidate(
             ) + (' For null current_target_ref, use the full current course and source; '
                  'do not infer a missing snapshot.')
         joint_system = (joint_editor_system if joint_editor_system is not None else assessment_system)
-        joint_system += verification_guide + joint_target_guide + JOINT_EDITOR_GUIDE
+        joint_system += verification_guide + joint_target_guide + JOINT_EDITOR_GUIDE + SOURCE_AUTHORITY_GUIDE
         joint_group = ('practical:editorial:verify:v34:joint:' if joint_prior
                        else 'practical:editorial:review:v34:joint:') + _digest([course, joint_prior, joint_system])
         joint_raw = await call('review', joint_group,

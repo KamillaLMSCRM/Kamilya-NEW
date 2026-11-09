@@ -42,7 +42,7 @@ from app.modules.ai.v3.practical_review import (
     PracticalReviewDecision,
 )
 from app.modules.ai.v3.practical_source_alignment import build_source_alignment_goals
-from app.modules.ai.v3.practical_source_semantic_cycle import prepare_source_semantics
+from app.modules.ai.v3.practical_source_semantic_cycle import SOURCE_AUTHORITY_GUIDE, prepare_source_semantics
 from app.modules.ai.v3.practical_source_semantics import source_semantics_context
 
 EDITORIAL_REASONING_GUIDE = (
@@ -272,6 +272,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         max_rules_per_review: int = 128, joint_editor: bool = False) -> PracticalCycleResult:
     if type(joint_editor) is not bool:
         raise ValueError('editorial_joint_policy_invalid')
+    source_authority = SOURCE_AUTHORITY_GUIDE if joint_editor else ''
     joint_options: dict[str, Any] = ({'joint_editor': True,
         'joint_editor_system': REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE} if joint_editor else {})
     if type(max_revisions) is not int or not 1 <= max_revisions <= 5:
@@ -298,10 +299,11 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         view.assert_course_ids_disjoint(value)
         return validate_practical_course(value, packet)
 
-    source_reading = await prepare_source_semantics(packet, context, view, call)
+    source_options = {'relation_checks': True} if joint_editor else {}
+    source_reading = await prepare_source_semantics(packet, context, view, call, **source_options)
     reading_context = source_semantics_context(source_reading, view)
     raw = await call('lesson', 'practical:author:editorial:v33', [
-        {'role': 'system', 'content': AUTHOR_SYSTEM + EDITORIAL_REASONING_GUIDE},
+        {'role': 'system', 'content': AUTHOR_SYSTEM + EDITORIAL_REASONING_GUIDE + source_authority},
         {'role': 'user', 'content': context + reading_context + '\nSOURCE_LOGICAL_UNITS_JSON\n'
             + encoded([{'unit_id': key, 'source_refs': list(refs)} for key, refs in audit_units(packet).groups])
             + '\nCOURSE_INTENT_JSON\n' + encoded(asdict(intent))}], course_response_format(packet), author)
@@ -320,7 +322,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
     if grammar_targets:
         alignment_raw = await call('repair', 'practical:editorial:revision:v33:source-alignment:'
             + _digest([source_reading['verified_reading_fingerprint'], candidate, writer_alignment]), [
-                {'role': 'system', 'content': SOURCE_ALIGNMENT_SYSTEM},
+                {'role': 'system', 'content': SOURCE_ALIGNMENT_SYSTEM + source_authority},
                 {'role': 'user', 'content': context + reading_context
                     + '\nCURRENT_COURSE_JSON\n' + encoded(candidate)
                     + '\nMODEL_SOURCE_READING_CORRECTIONS_JSON\n' + encoded(writer_alignment)}],
@@ -383,7 +385,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         for lesson in candidate['lessons']:
             unit = {'title': candidate['title'], 'lessons': [copy.deepcopy(lesson)]}
             messages = option_predicates_messages(packet, unit, context, model_view=view)
-            messages[0]['content'] += CASE_STATUS_REVIEW_GUIDE
+            messages[0]['content'] += CASE_STATUS_REVIEW_GUIDE + source_authority
             fmt = option_predicates_format(packet, unit)
             unit_input = _digest([messages, view.schema(fmt)])
             if unit_input not in blind_cache:
@@ -440,7 +442,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
                 refs = {ref for row in batch for ref in row['source_refs']}
                 related = [row for row in source_reading['interpretations'] if refs.intersection(row['rule']['source_refs'])]
                 raw_batch = await call('repair', 'practical:editorial:revision:v33:' + _digest([candidate, batch]), [
-                    {'role': 'system', 'content': SCOPED_EDIT_SYSTEM + EDITORIAL_REASONING_GUIDE},
+                    {'role': 'system', 'content': SCOPED_EDIT_SYSTEM + EDITORIAL_REASONING_GUIDE + source_authority},
                     {'role': 'user', 'content': context + '\nRELATED_SOURCE_INTERPRETATIONS_JSON\n' + encoded(related)
                         + '\nCURRENT_COURSE_FINGERPRINT\n' + _digest(candidate)
                         + '\nCURRENT_EDIT_SCOPE_JSON\n' + encoded({'title': candidate['title'], 'lessons': selected})

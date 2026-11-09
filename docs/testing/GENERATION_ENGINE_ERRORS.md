@@ -1,5 +1,36 @@
 # Журнал ошибок движка генерации и обработки курсов
 
+## ENG-041 — производная трактовка и отраслевая привычка подменяли область условия исходника
+
+- 2026-11-09: fresh native DEV d9fc0c57 PDF jobbc7b41a9 produced9L28Q.
+  Initial source ruleR11 incorrectly assigned the non-business qualifier to the
+  person; approved §3.2.1 grammatically qualifies the microcredit. Subsequent
+  checks accepted the derived card. No source ambiguity or manual course repair
+  establishes a fix. The original/approved text and raw model responses remain.
+- Root heldout observation was recorded BEFORE the automatic review ended and
+  was NOT injected into model requests. New existing-verifier role on all40
+  initial rules independently returned REVISE R11 and corrected OR-vs-AND R26;
+  source/course unchanged, one actual Luna/HIGH call32261in6937out128.203s.
+- A coalesced prose control still disputed the CORRECT reading because it
+  expected an industry norm. Failure retained. Source-authority contract added
+  consistently to v34 author, scoped editor, prose/joint and key-blind roles;
+  no new critic or weakened evidence/semantic/UNKNOWN checks. Control2 now
+  independently returns verified CONTRADICTED R11 and INCOMPLETE R26 with
+  concrete counterexamples and addressed model corrections:46591in8510out157.062s.
+  This checks40initial rules, not the later completeness additions or full course.
+- Source comparisons are coalesced only in v34 within the existing output
+  budget. Every logical group, goal, rule/source identity, owner and dependency
+  remains. Exact saved native53-rule data:7parts→1, equality PASS, no model call.
+  This is a structural reduction; native total cost/latency savings remain OPEN.
+- Technical gates: focused60PASS; full7298PASS/1skip/7warnings74.97s;
+  baseline1004/2174PASS. Current DEV remains d9fc; new candidate not deployed yet.
+  Original native job is preclaim-interrupted with all14responses retained,
+  no pending/unknown stage. Cost469195in59214out is a partial failed baseline,
+  NOT the unit cost of an accepted course. Cash/standards fresh runs still OPEN.
+- Evidence: .release-evidence/autonomous-editorial-review-20261108/
+  native-dev-r5-pdf/{initial-heldout-oracle.json,db-20261109T002454.json},
+  source-relation-control-1, coalesced-prose-control-{1,2}, native-batching-comparison.json.
+
 
 ## ENG-040 — исправленный моделью курс оставался непроверенным, слепые замечания не возвращались редактору
 

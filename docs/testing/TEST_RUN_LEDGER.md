@@ -1,3 +1,33 @@
+## RUN-20261109-SOURCE-MEANING-R6
+
+- Current local source delta: focused60PASS3.67s; full7298PASS/1skip/7warnings
+  74.97s; baseline1004/2174PASS. LegacyFalse/v33 messages unchanged. No settings,
+  source/human decision, provider route, role, tariff or client mutation.
+- Native PDF baselinebc7b41a9 paused before a new claim; all14actual responses
+  retained469195in59214out. Its initial9L28Q is not accepted; R11scope error
+  recorded independently and never manually corrected or injected as feedback.
+- Model source verifier independently fixes R11modifier attachment and R26OR/AND.
+  Prose control1 wrongly invoked industry expectations; retained as failed.
+  Shared source-authority role control2 correctly returns verified addressed
+  CONTRADICTED R11/INCOMPLETE R26:46591in8510out157.062s, source/course unchanged.
+  All40initial rule IDs checked. Later additions/joint/option/native GO not claimed.
+- Saved full native53-rule comparison:7→1parts, exact goal/scope/dependency
+  preservation. New model/control and raw receipts retained under autonomous root.
+  New candidate commit/DEV/native three-course acceptance/DeepSeek/prod still OPEN.
+
+## RUN-20261109-NATIVE-DEV-R5
+
+- Final source d9fc0c57: CI42535812077 SUCCESS; build42536343807 attested,
+  image3565b4a1…088. Canonical controller RELEASE_OK. API0.11.84/Render
+  dep-dbogmvnf3r2c73b40o3g; Vercel dpl_CnHn8Vf1wicx7qwEqYetSx49mvZw;
+  sole VM126 worker2a8f84ee, source155files/env/configuration/consumer verified.
+- Old worker warm-drained/exit0/retained. New1CPU/1GiB/read-only/no binds,
+  restart unless-stopped. Production/connector IDs/images/restarts unchanged.
+  No schema/runtime settings, tariff, provider route or customer mutations.
+- Sole fresh native PDF jobbc7b41a9-8c1e-4d16-8c76-82ce062d3a35 admitted;
+  DB READ ONLY confirms v34/managed QA/source pin. Quality/save/recovery OPEN.
+  No manual course correction. Follow existing job; do not resubmit.
+
 ## RUN-20261108-ADDRESSED-LITERAL-CUSTODY
 
 - 2026-11-08 23:33 UTC:4new RED cases then focused44PASS; source alias join RED then44PASS2.03s.

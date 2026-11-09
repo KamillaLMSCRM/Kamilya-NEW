@@ -1,3 +1,70 @@
+# R6 source-meaning candidate READY FOR COMMIT/DEV — 2026-11-09 00:44 UTC
+
+- result: No active inference/test. Exact DEV API/web/sole VM worker remain
+  d9fc0c57/0.11.84. Fresh native PDF jobbc7b41a9 is safely interrupted, no pending
+  provider stage;14actual completed requests469195input/59214output. Initial
+  model9L28Q preserved, NO manual course edit. It is NOT full-course acceptance.
+- changed: Actual native source reader assigned a modifier to the recipient,
+  not the loan; native verifier and prose checks repeated that derived mistake.
+  New v34 source verifier explicitly tests grammatical attachment and both
+  directions of applicability. Shared source-authority role now prevents the
+  author/editor/prose/joint/key-blind checker from replacing clear source meaning
+  with an expected industry/legal rule. Legacy False/v33 messages preserved.
+  V34 coalesces logical source comparison groups within the existing128-rule
+  output budget, preserving EVERY goal/scope/dependency/logical boundary.
+- verified: Current native verifier on ALL40unchanged initial model rules, no
+  course/source edits or injected correction facts: actual Luna/HIGH32261in/
+  6937out/128.203s independently REVISE R11 to the loan and fixes OR-vs-AND R26.
+  Coalesced control1 initially DISPUTED the correct interpretation using an
+  external industry expectation; failure retained. Shared source-authority role
+  control2 now returns verified CONTRADICTED R11 with a concrete counterexample
+  and addressed correction, plus verified INCOMPLETE R26;46591in/8510out/
+  157.062s. These40-rule controls are NOT native full-course/joint/option GO.
+  Exact full native53-rule offline batching7→1 with goal/scope/dependency equality.
+  Focused60PASS3.67s; final full7298PASS/1skip/7warnings74.97s; baseline1004/2174PASS.
+- blockers: Local four-module/three-test delta is uncommitted; do NOT imply DEV
+  contains it. Native old job and failed/control receipts remain immutable. No
+  cash/standards fresh generation started; source/human decisions/settings0187,
+  providers, production and accepted/customer courses untouched.
+- next: Final navigation sync/review, commit exact local delta, project-account
+  feature/dev push with independent receipts, CI/image/env and canonical DEV
+  API+single-worker rollout with rollback. Then NEW native PDF/Cash/standards26
+  Luna/HIGH acceptance. Do not resume old job under changed source prompts or
+  call the diagnostic controls three courses. Intended DeepSeek and authorized
+  protected prod/live acceptance only after actual native quality GO.
+  Evidence root .release-evidence/autonomous-editorial-review-20261108:
+  source-relation-control-1, coalesced-prose-control-{1,2},
+  native-batching-comparison.json, native-dev-r5-pdf, native-source-fixture.py.
+
+## Superseded checkpoint
+
+# Native DEV acceptance RUNNING — 2026-11-08 23:58 UTC
+
+- result: Exact d9fc0c57c6fc5d63acabf5562b44fa29230acfe9 deployed to DEV API,
+  Vercel and sole VM126 worker. Controller RELEASE_OK; no production mutation.
+- changed: Worker2a8f84ee uses attested image3565b4a1…088,1CPU/1GiB/read-only,
+  restart unless-stopped; old466/fa932 stopped cleanly and retained for rollback.
+  All six production/connector container IDs, images and restart counts unchanged.
+- verified: CI42535812077 SUCCESS; build42536343807 attested; Render
+  dep-dbogmvnf3r2c73b40o3g live exactd9fc; Vercel
+  dpl_CnHn8Vf1wicx7qwEqYetSx49mvZw READY exactd9fc; public health0.11.84,
+  effective worker configuration and consumer verified. Source/settings0187 unchanged.
+- blockers: Fresh full-course quality/save/recovery acceptance remains OPEN.
+  Sole native PDF jobbc7b41a9-8c1e-4d16-8c76-82ce062d3a35 RUNNING ingestion.
+  Its approved DEV working SHAea0b2408…09f is pinned. DB readback confirms v34,
+  managed-editorial-qa-v1 and qa-managed-luna-diversity-v1. No duplicate submission,
+  human course edit, restart or unknown-response replay is allowed.
+- next: Follow existing session69664 or retained job through normal read-only
+  polling; then cash and standards26 sequentially. native-dev-r5.py writes
+  submission intents/acknowledgements and poll history under
+  .release-evidence/autonomous-editorial-review-20261108/native-dev-r5-{pdf,cash,standards}.
+  read-native-job-r5.py is tenant-bound READ ONLY lms_app custody. Final DEV release
+  receipt: same root/dev-r5-execute-result.json. Actual Luna/HIGH receipts,
+  all-content/question/image matrix, native save/recovery and three-course GO
+  must precede intended DeepSeek and authorized protected production/live release.
+
+## Superseded checkpoint
+
 # Final proof-context candidate — 2026-11-08 23:33 UTC
 
 - No active inference. G8/G9 failed receipts remain unchanged. The coherent native

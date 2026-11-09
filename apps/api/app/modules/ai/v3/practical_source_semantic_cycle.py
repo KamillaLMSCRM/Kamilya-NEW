@@ -66,13 +66,38 @@ SOURCE_COMPLETENESS_SYSTEM = (
 )
 
 
-async def prepare_source_semantics(packet: Any, context: str, view: Any, call: Any) -> dict[str, Any]:
+SOURCE_AUTHORITY_GUIDE = (
+    '\nПроверяй смысл по самому переданному источнику и подтвержденным уточнениям. '
+    'Карточка разбора, прежнее ревью, урок и отраслевая привычка не заменяют исходную норму. '
+    'Для определения области условия установи, какое слово описывает оборот, включая '
+    'согласование падежа, рода и числа; ближайшее существительное не становится его '
+    'носителем автоматически. Не исправляй окончание так, чтобы изменить исходную связь. '
+    'Не подменяй однозначное, пусть непривычное, требование ожидаемой нормой законодательства '
+    'или обычной практикой отрасли. Сопоставь оба направления: случаи, которые источник '
+    'включает, а парафраз исключает, и случаи, которые парафраз включает вопреки источнику. '
+    'Ошибка такого чтения модели исправляется моделью; вопрос человеку нужен только при '
+    'нескольких операционно разных чтениях самого исходника, которые не разрешаются его '
+    'грамматикой и контекстом. Сомнение в привычности ясной формулировки не является такой неоднозначностью.\n'
+)
+
+
+SOURCE_RELATION_GUIDE = """Проверяй область каждого определения и условия отдельно от сходства слов. Сначала разбери буквальную исходную цитату без доверия к готовой карте: какое исходное слово описывает оборот, как с ним согласованы падеж, род и число, какая смысловая связь выражена в контексте. Ближайшее упомянутое существительное не становится носителем условия автоматически. Нельзя исправлять окончание или переставлять определение так, чтобы менялась связь исходного требования.
+
+Для каждого SUPPORTED с условиями в reason явно сопоставь «буквальный фрагмент исходника → определяемый объект или действие» с записанным applies_to. Проверь эквивалентность в обоих направлениях: есть ли случай, на который исходник распространяет требование, а карта его исключает; есть ли случай, который карта включает вопреки исходнику. Такое расхождение требует REVISE с исправлением ошибочного поля карты, даже если последующий урок уже повторяет эту карту. Не превращай ошибку чтения модели в вопрос владельцу: SOURCE_AMBIGUITY допустим только когда исходный текст действительно допускает несколько операционно разных чтений и грамматика с контекстом не позволяют выбрать. Мысленный пограничный случай служит проверке области правила, он не добавляет норму или факты в исходник.
+"""
+
+
+async def prepare_source_semantics(
+    packet: Any, context: str, view: Any, call: Any, *, relation_checks: bool = False,
+) -> dict[str, Any]:
     """Return contract-compiled reading; caller owns transport, checkpoints and retries.
 
     ``context`` must be the existing source-only context built from this packet
     and its confirmed/reference notes. ``call`` decodes aliases and applies the
     validator, as in the practical editorial cycle. No course data is accepted.
     """
+    if type(relation_checks) is not bool:
+        raise ValueError("source_relation_policy_invalid")
     if not isinstance(context, str) or not context.strip():
         raise ValueError("source_semantics_context_invalid")
     raw = await call(
@@ -105,7 +130,8 @@ async def prepare_source_semantics(packet: Any, context: str, view: Any, call: A
         "review",
         "practical:source-semantics:verify:v33:" + reading["reading_fingerprint"],
         [
-            {"role": "system", "content": SOURCE_VERIFY_SYSTEM},
+            {"role": "system", "content": SOURCE_VERIFY_SYSTEM + (
+                "\n" + SOURCE_RELATION_GUIDE if relation_checks else "")},
             {
                 "role": "user",
                 "content": context

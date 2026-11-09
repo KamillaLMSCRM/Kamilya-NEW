@@ -11,12 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Verify the grammatical scope and applicability of source conditions before authoring, and preserve the supplied source meaning across v34 review and addressed repair instead of substituting an expected industry rule.
+
 - Give addressed v34 evidence correction the exact current target texts used by the literal validator, with consistent source aliases and preserved original spelling. Neighboring targets cannot close an issue.
 
 - Route both editorial and independent answer-review findings back to addressed model editing, then verify the full current course and all prior material findings before accepting the automatic content review. Retain genuine source questions, rejected evidence and every review receipt.
 - Bind automatic content acceptance to the exact persisted course and source snapshot in the completed generation job. Content or source changes invalidate that receipt; methodologist publication approval remains explicit.
 
 ### Changed
+
+- Share source/course context across v34 logical comparison groups within the existing output budget, retaining every rule, owned target and dependency.
 
 - Give the v34 joint editor one coherent whole-course role and share current target snapshots without duplicating lesson text for every observation. Preserve all evidence, legacy dispatch and independent checks.
 

@@ -7878,6 +7878,12 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## DEV-GATE-003 - Acceptance helper omitted the trusted browser Origin
 
+- Recurrence2026-11-09: a new ignored resume harness called authenticated
+  DevClient.request for public health BEFORE login; httpx rejected empty Bearer
+  locally. Zero network auth/inference/resume attempts and no intent were made.
+  Use client.http.get for pre-auth health, and DevClient.request only after login.
+  This is a harness failure, not a model/worker interruption or credential issue.
+
 - Recurrence2026-11-08: Root reused Client but omitted the canonical httpx
   constructor's trusted Origin, causing two403 before credential admission.
   Corrected to the existing DEV ORIGIN; no auth/config/credential change.

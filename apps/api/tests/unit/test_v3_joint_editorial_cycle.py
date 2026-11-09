@@ -6,6 +6,7 @@ import pytest
 from app.modules.ai.v3.practical_compact_editorial_cycle import review_editorial_candidate
 from app.modules.ai.v3.practical_editorial_contract import compile_editorial_review
 from app.modules.ai.v3.practical_model_view import PracticalModelView
+from app.modules.ai.v3.practical_source_semantic_cycle import SOURCE_AUTHORITY_GUIDE
 from tests.unit.test_v3_compact_editorial_contract import case, response
 from tests.unit.test_v3_editorial_contract import review_value
 
@@ -27,6 +28,7 @@ async def test_joint_resolves_mixed_prior_and_fresh_partial_without_losing_custo
         proof = ':proof:' in group
         if prose:
             assert ':v34:' in group and 'EXCLUSIVE_QUIZ_PROMPT' not in messages[1]['content']
+            assert SOURCE_AUTHORITY_GUIDE in messages[0]['content']
             assert 'PRIOR_MATERIAL_FINDINGS_JSON' not in messages[1]['content']
             value = response(packet, course, reading)
             value['source_rule_checks'][0].update(status='INCOMPLETE', severity='material', correction='Teach action.')
@@ -38,6 +40,7 @@ async def test_joint_resolves_mixed_prior_and_fresh_partial_without_losing_custo
                 assert 'EXCLUSIVE_QUIZ_PROMPT' in messages[1]['content']
                 assert len(listed) == 3
                 assert messages[0]['content'].startswith('Whole current course editor')
+                assert SOURCE_AUTHORITY_GUIDE in messages[0]['content']
                 assert 'LEGACY_ASSESSMENT_SPECIALIST' not in messages[0]['content']
             value['resolutions'] = [{'issue_id': item['issue_id'], 'disposition': 'NOT_MATERIAL',
                 'reason': 'Current source supports dismissal.', 'source_refs': [packet.blocks[0].block_id],
