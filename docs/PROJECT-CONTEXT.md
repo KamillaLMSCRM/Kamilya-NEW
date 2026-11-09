@@ -1,3 +1,11 @@
+# Focused v36 candidate context — 2026-11-10 Almaty
+
+Local candidate: C:/Kamilya New/Kamilya-NEW/.worktrees/engine-focused-v36-20261110, base cbb294d8, unreleased0.11.84. Four saved-content GO does not establish three fresh DEV courses. Local full7586PASS/quality1004-2174; v36 source/course review separation preserves real source holds. Existing settings catalog/history and PendingStageJournal remain authoritative; no new environment knobs or provider resources.
+
+Fresh read-only2026-11-09T22:48UTC: existing DEV Free API on dev, unused Render Free worker suspended/auto-deployoff, VercelHobby dev; SupabaseDEV0187 with FORCE RLS; sole VM126worker imagec836bf4d... running/restarts0. Canonical Git account KamillaLMSCRM independently read remote dev=cbb294d8 and master=466e0f90. No push/deploy yet. Current task/source/raw evidence owner is the candidate handoff; older records below are historical.
+
+## Previous environment records
+
 # R11 raw approved-fidelity bridge fixed LOCALLY — 2026-11-09 09:40 UTC
 
 - result: No inference active. R10 native PDF6bb0cb20 completed/saved682d37c2:

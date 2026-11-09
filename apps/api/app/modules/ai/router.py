@@ -580,10 +580,10 @@ async def submit_course_generation(
     if qa_pending_marker is not None:
         analysis_payload[QA_PENDING_KEY] = qa_pending_marker
     from app.modules.ai.v3.revision_policy import (
-        COHERENT_EDITORIAL_REVIEW_POLICY,
         EDITORIAL_ORDINARY_EXTENDED_MARKER,
         EDITORIAL_ORDINARY_KEY,
         EDITORIAL_QA_KEY,
+        FOCUSED_EDITORIAL_REVIEW_POLICY,
         SOURCE_CORE_QA_KEY,
         editorial_qa_admission_marker,
         practical_qa_admission,
@@ -602,13 +602,13 @@ async def submit_course_generation(
         editorial_marker = editorial_qa_admission_marker(settings=get_settings(), marker=qa_pending_marker,
                                                         tenant_id=tenant_id, user_id=user.id, course_id=req.course_id)
         if editorial_marker is not None:
-            analysis_payload['v3_review_policy'] = COHERENT_EDITORIAL_REVIEW_POLICY
+            analysis_payload['v3_review_policy'] = FOCUSED_EDITORIAL_REVIEW_POLICY
             analysis_payload[EDITORIAL_QA_KEY] = editorial_marker
         elif qa_pending_marker is None and req.course_id is None:
             from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
             if tenant_id != QA_TENANT and isinstance(user.id, UUID):
-                analysis_payload['v3_review_policy'] = COHERENT_EDITORIAL_REVIEW_POLICY
+                analysis_payload['v3_review_policy'] = FOCUSED_EDITORIAL_REVIEW_POLICY
                 analysis_payload[EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_EXTENDED_MARKER
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,

@@ -15,6 +15,11 @@ from app.modules.ai.v3.auxiliary_response_contracts import (
 from app.modules.ai.v3.batch_review_response_schema import is_batch_review_response, is_batch_review_response_format
 from app.modules.ai.v3.diversity_response_schema import is_diversity_author_format, is_diversity_author_response
 from app.modules.ai.v3.extraction_response_schema import is_rule_extraction_response, is_rule_extraction_response_format
+from app.modules.ai.v3.isolated_attachment_choice_contract import (
+    is_attachment_choice_format,
+    matches_attachment_choice_response,
+)
+from app.modules.ai.v3.practical_action_object_graph import is_action_object_graph_format, matches_action_object_graph
 from app.modules.ai.v3.practical_arbitration import is_arbitration_format, matches_arbitration
 from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format, matches_atomic_audit
 from app.modules.ai.v3.practical_compact_editorial_contract import (
@@ -43,7 +48,9 @@ from app.modules.ai.v3.practical_editorial_verification import (
 )
 from app.modules.ai.v3.practical_option_predicates import is_option_predicates_format, matches_option_predicates
 from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
+from app.modules.ai.v3.practical_prose_revision import is_prose_revision_format, matches_prose_revision
 from app.modules.ai.v3.practical_question_context import is_context_format, matches_context_response
+from app.modules.ai.v3.practical_question_editor import is_question_editor_format, matches_question_editor
 from app.modules.ai.v3.practical_review import is_practical_review_format, matches_practical_review
 from app.modules.ai.v3.practical_rule_editorial_contract import (
     is_rule_editorial_review_format,
@@ -67,6 +74,14 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_action_object_graph_format(value):
+        return "practical_action_object_graph"
+    if is_question_editor_format(value):
+        return "practical_question_editor"
+    if is_prose_revision_format(value):
+        return "practical_prose_revision"
+    if is_attachment_choice_format(value):
+        return "practical_isolated_attachment_choice"
     if is_option_predicates_format(value):
         return "practical_option_predicates"
     if is_compact_editorial_review_format(value):
@@ -144,6 +159,14 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "practical_action_object_graph":
+        return matches_action_object_graph(value, response_format)
+    if kind == "practical_question_editor":
+        return matches_question_editor(value, response_format)
+    if kind == "practical_prose_revision":
+        return matches_prose_revision(value, response_format)
+    if kind == "practical_isolated_attachment_choice":
+        return matches_attachment_choice_response(value, response_format)
     if kind == "practical_option_predicates":
         return matches_option_predicates(value, response_format)
     if kind == "practical_compact_editorial_review":

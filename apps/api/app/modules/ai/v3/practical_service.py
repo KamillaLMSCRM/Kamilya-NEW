@@ -20,6 +20,7 @@ from app.modules.ai.v3.models import (
 )
 from app.modules.ai.v3.practical_contract import (
     PracticalSourcePacket,
+    _digest,
     build_practical_source_packet,
 )
 from app.modules.ai.v3.practical_cycle import PracticalCycleResult, run_practical_cycle
@@ -45,6 +46,7 @@ from app.modules.ai.v3.revision_policy import (
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EXCLUSIVE_OPTIONS_PRACTICAL_REVIEW_POLICY,
     EXPLICIT_CASE_PRACTICAL_REVIEW_POLICY,
+    FOCUSED_EDITORIAL_REVIEW_POLICY,
     JOINT_EDITORIAL_REVIEW_POLICY,
     MATERIALITY_PRACTICAL_REVIEW_POLICY,
     OWNED_AUDIT_PRACTICAL_REVIEW_POLICY,
@@ -180,9 +182,21 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
             and isinstance(row['evidence'].get('target'), dict)
             and row['evidence']['target'].get('kind') in {'lesson', 'question', 'course'}
             for row in result.decision.feedback))
+    focused_pending = (review_policy == FOCUSED_EDITORIAL_REVIEW_POLICY and result.editorial_review
+        and result.stop_reason == 'focused_review_pending' and not result.decision.accepted
+        and result.review.get('source_fingerprint') == packet.fingerprint
+        and result.review.get('course_fingerprint') == _digest(result.course)
+        and bool(result.history) and result.history[0].get('focused_observations_unverified') is True
+        and not result.decision.source_uncertain and source_verified and not provenance_holds
+        and not result.source_core_source_review_pending and not result.source_core_unresolved_cases
+        and not result.unresolved_question_context and not result.unresolved_curriculum_goals
+        and all(row.get('scope') in {'question', 'assessment', 'lesson', 'coverage'}
+                and isinstance(row.get('evidence'), dict)
+                and row['evidence'].get('status') == 'AUTOMATIC_REVIEW_UNRESOLVED'
+                for row in result.decision.feedback))
     artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),
         source_corpus=corpus, source_rules=tuple(rules), canonical_source=True,
-        **({'source_review_required': False} if assessment_only or autonomous_course_only else {}))
+        **({'source_review_required': False} if assessment_only or autonomous_course_only or focused_pending else {}))
     for assessment, lesson in zip(artifacts.assessment.assessments, displayed['lessons'], strict=True):
         for question, raw in zip(assessment.mcq, lesson['questions'], strict=True):
             question.question = raw['prompt']
@@ -221,8 +235,11 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         ]
     if assessment_only:
         artifacts.diagnostics['requires_assessment_review'] = True
-    if autonomous_course_only:
+    if autonomous_course_only or focused_pending:
         artifacts.diagnostics['requires_editorial_review'] = True
+    if focused_pending and set(artifacts.diagnostics.get('unresolved_source_provenance_lesson_ids', [])) == set(prose_provenance_holds):
+        artifacts.diagnostics['requires_source_review'] = False
+        artifacts.diagnostics['focused_editorial_only_provenance_pending'] = list(prose_provenance_holds)
     return artifacts
 
 
@@ -302,7 +319,15 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
             source_read_messages(packet, part, model_view=view), view.schema(source_read_format(packet, part)),
             validate_reading)
         readings.append(validate_source_read(view.decode(value), packet, part))
-    if review_policy == COHERENT_EDITORIAL_REVIEW_POLICY:
+    if review_policy == FOCUSED_EDITORIAL_REVIEW_POLICY:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+        from app.modules.ai.v3.practical_focused_cycle import run_focused_cycle
+
+        policy = await resolve_runtime_settings()
+        result = await run_focused_cycle(packet, corpus, intent, reference_decisions, stage,
+            max_output_tokens=direct_max_output_tokens,
+            max_revisions=policy.integer('generation.editorial_max_revisions'))
+    elif review_policy == COHERENT_EDITORIAL_REVIEW_POLICY:
         from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
         from app.modules.ai.v3.practical_coherent_editorial_cycle import run_coherent_editorial_cycle
 
@@ -359,6 +384,6 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
     if cancellation_callback:
         await cancellation_callback()
     if review_policy in (CANONICAL_EDITORIAL_REVIEW_POLICY, AUTONOMOUS_EDITORIAL_REVIEW_POLICY,
-                         JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY):
+                         JOINT_EDITORIAL_REVIEW_POLICY, COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY):
         return practical_artifacts(result, corpus, packet, source_sha256, editorial_policy=review_policy)
     return practical_artifacts(result, corpus, packet, source_sha256)

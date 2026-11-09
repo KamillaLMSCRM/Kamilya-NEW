@@ -622,6 +622,7 @@ async def _run_v3_generation(
         EDITORIAL_ORDINARY_EXTENDED_MARKER,
         EDITORIAL_ORDINARY_KEY,
         EDITORIAL_QA_KEY,
+        FOCUSED_EDITORIAL_REVIEW_POLICY,
         editorial_route_worker_valid,
         is_autonomous_editorial_policy,
         is_editorial_policy,
@@ -870,14 +871,19 @@ async def _run_v3_generation(
         if direct_client is not None:
             direct_client.close()
 
-    requires_review = bool(
-        artifacts.diagnostics.get("requires_source_review", True)
-        or any(
-            lesson.requires_source_review()
-            for module in artifacts.content.modules
-            for lesson in module.lessons
+    if review_policy == FOCUSED_EDITORIAL_REVIEW_POLICY:
+        from app.modules.ai.v3.focused_stage_guard import focused_source_review_required
+
+        requires_review = focused_source_review_required(artifacts)
+    else:
+        requires_review = bool(
+            artifacts.diagnostics.get("requires_source_review", True)
+            or any(
+                lesson.requires_source_review()
+                for module in artifacts.content.modules
+                for lesson in module.lessons
+            )
         )
-    )
     state.server_source_review_required = requires_review
     state.structure = artifacts.structure
     state.content = artifacts.content

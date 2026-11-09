@@ -6717,3 +6717,10 @@ cleans deterministic fidelity boundary with0newinference/businesswrites/manualed
 
 R11 full7459PASS/1skip/7warnings88.96s, baseline1004/2174PASS; navigation2478files/
 29009nodes/85538edges/2511sources/exclusionsPASS, static-only. No active inference.
+
+
+## 2026-11-10 — focused v36 local integration
+
+Clean candidate feat/engine-focused-v36-20261110 from cbb294d8, nine winning modules/four native formats, no dead global critics. Full7586passed/1skip/7warnings76.81s, focused72passed, qualitybaseline1004/2174PASS. Initial full7577passed/5failed only fresh-policy and future-v36 expectations; tests now require freshv36 and still reject unknownv37, legacyv35 retained. RED/GREEN regressions cover actual selected-origin aggregation and current UNVERIFIED retention through clean blind checks/partial repairs. Full logs/JUnit .release-evidence/focused-editorial-v36-20261110/ (original failure immutable).
+
+Four saved-content GO/advisories35L117Q442choices/10image refs is not fresh three-course DEV or live rendering. Original research receipts: C:/Kamilya New/Kamilya-NEW/.worktrees/course-creation-ux-20261106/.release-evidence/autonomous-editorial-review-20261108/. Production/client data unchanged; no provider plan/resource changes. Next exact-SHA DEV rollout and three real Luna HIGH courses, final DeepSeek and protected production/live.

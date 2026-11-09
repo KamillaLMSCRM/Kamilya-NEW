@@ -1,3 +1,9 @@
+# v0.11.84 focused v36 candidate — LOCAL ONLY, 2026-11-10 Almaty
+
+Local full7586PASS and independent saved-four contentGO are separate from release acceptance. Native DEV three-course, final DeepSeek, exact image/API/sole-worker/frontend rollout, current backup/restore/migration0187/rollback and production synthetic journey remain OPEN. Production83/466e0f90 is unchanged. Existing provider tiers and resources are unchanged. See current handoff and test ledger; no authorization is inferred from this status.
+
+## Earlier production state
+
 ## Source budget83 and two-original production acceptance — 2026-11-08
 
 API plus three workers exact466e0f902b70283cd3d3375cf216163e8d2b2ea5/v0.11.83,

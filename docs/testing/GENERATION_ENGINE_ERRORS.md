@@ -1310,3 +1310,22 @@ This confirms a useful controlled baseline, not native3course or productionGO.
   clean/verified/nohold/eligiblemanifest,0newmodelcalls/DBwrites/manualcourseedits.
 - R10 saved course remains historical blocked evidence; no fake receipt/status
   backfill. R11 exact DEV/fresh native atomic save and 3course acceptance pending.
+
+
+## ENG-052 — global course reviews miss or revert source relations
+
+- Date: 2026-11-09/10.
+- Symptom: saved course prose changed a loan condition into a borrower condition; general reviews labeled it taught or reverted a correct clause. A separate prevention duty was conflated with reporting. All old failed outputs remain retained.
+- Cause: literal reference membership and broad model verdicts do not compare the actual object/condition/action; keyed question evidence can mask wrong prose. This is an observed review failure, not proof of model internals.
+- Fix: v36 separates source/learner literal relation readings, action and noun editing, question-only review and key-blind checks. Actual selected-token alignment controls navigation only; no dictionary or graph signal becomes semantic approval. Whole lesson proposals preserve other questions/media; usable drafts retain explicit editorial review and real source holds separately.
+- Verification: four saved variants35L117Q442choices/10image references independently content GO/advisories, no manual current edits. Same PDF appears three times; D has earlier human corrections. Seven latest completed editor responses117351input/5634output plus one failed timeout usageUNKNOWN; cached reading preparation is excluded from this subtotal. Native three-course/runtime/live acceptance pending. Local full7586PASS; independent mixed-origin parity finding reproduced and fixed.
+- Prevention: retain exact source/current target bindings and all independent findings; classify material consequences against complete course context. Do not treat current identifiers or skipped worksets as coverage, cached controls as native jobs, or all dictionary alternatives as selected syntactic heads.
+
+## ENG-053 — explicit question uncertainty disappeared from actionable review
+
+- Date: 2026-11-10.
+- Symptom: question editor UNVERIFIED stayed only in history when a later blind review had no finding.
+- Cause: final decision.feedback was built only from blind findings.
+- Fix: bind question uncertainty to exact current source/course/question fingerprints, preserve and merge all grounds, address it through the existing scoped model repair, and keep unresolved current observations actionable without inventing source ambiguity. A later current receipt supersedes old uncertainty while all receipts remain in history.
+- Verification: three-mode UNVERIFIED/VALID/REPAIRED regression failed before correction and passes after; merge and stale-revision negatives pass. Full7586PASS/qualitybaseline1004/2174. Native/UI proof pending.
+- Prevention: test the entire producer -> repair -> current decision -> draft registry path with independent review disagreement and partial/no-op edits; history alone is not actionable visibility.

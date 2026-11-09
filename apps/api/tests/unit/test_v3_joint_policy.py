@@ -22,7 +22,7 @@ def test_both_autonomous_versions_remain_explicitly_readable(policy):
 
 
 def test_unrecognized_future_joint_policy_does_not_gain_authority():
-    policy = 'v3-practical-source-review-v36'
+    policy = 'v3-practical-source-review-v37'
     with pytest.raises(ValueError, match='policy_invalid'):
         read_review_policy({REVIEW_KEY: policy})
     assert not is_autonomous_editorial_policy(policy)

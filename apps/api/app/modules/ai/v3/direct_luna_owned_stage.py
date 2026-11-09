@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 from uuid import UUID
@@ -38,6 +39,9 @@ async def run_direct_owned_stage(
     expected_model = client.model if type(client) is ManagedLunaClient else "gpt-6-luna"
     from app.modules.ai.v3.stage_checkpoint import _digest
 
+    focused_group = str(plan.get('group_id', '')).startswith('practical:focused:')
+    if focused_group and response_format is None:
+        raise ValueError('managed_structured_plan_invalid')
     if response_format is not None:
         from app.modules.ai.v3.response_contracts import response_contract
 
@@ -112,6 +116,20 @@ async def run_direct_owned_stage(
             or (kind == "practical_patch" and plan.get("stage") == "repair"
                 and str(plan.get("group_id", "")).startswith("practical:repair:"))
         ) and plan.get("request_sha256") == _digest([messages, response_format])
+        if focused_group:
+            from app.modules.ai.v3.focused_stage_guard import focused_stage_allowed
+
+            focused = (getattr(journal, 'review_policy_bound', False) is True
+                and focused_stage_allowed(plan.get('stage'), plan.get('group_id'), response_format,
+                    policy=getattr(journal, 'expected_review_policy', None), validator=validate_response)
+                and plan.get('schema') == 'v3-stage-checkpoint-v1'
+                and plan.get('tenant_id') == journal.tenant_id and plan.get('job_id') == journal.job_id
+                and all(type(plan.get(key)) is str and re.fullmatch(r'[0-9a-f]{64}', plan[key])
+                        for key in ('source_sha256', 'route_fingerprint'))
+                and plan.get('request_sha256') == _digest([messages, response_format]))
+            if not focused:
+                raise ValueError("managed_structured_plan_invalid")
+            practical = True
         supported_client = type(client) is ManagedLunaClient or (
             type(client) is DirectLunaResponsesClient and (
                 kind == "batch_review_buckets" and batch_review or auxiliary or diversity_author or practical)

@@ -7,39 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.11.84] - 2026-11-08
-
-### Fixed
-
-- Preserve validated raw conversion-fidelity metadata from approved source preparation when loading a course source; keep explicit historical unverified flags and degraded/lossy-source guards.
-
-- Reconcile unresolved observations against current course prose through the existing model editor, retain valid evidence during partial proof repair, and preserve reviewed answer order in native saves while keeping historical recovery compatible. Machine review no longer becomes a fabricated source question.
-
-- Verify the grammatical scope and applicability of source conditions before authoring, and preserve the supplied source meaning across v34 review and addressed repair instead of substituting an expected industry rule.
-
-- Give addressed v34 evidence correction the exact current target texts used by the literal validator, with consistent source aliases and preserved original spelling. Neighboring targets cannot close an issue.
-
-- Route both editorial and independent answer-review findings back to addressed model editing, then verify the full current course and all prior material findings before accepting the automatic content review. Retain genuine source questions, rejected evidence and every review receipt.
-- Bind automatic content acceptance to the exact persisted course and source snapshot in the completed generation job. Content or source changes invalidate that receipt; methodologist publication approval remains explicit.
+## [0.11.84] - 2026-11-10
 
 ### Changed
 
-- Fresh v35 generation authors directly from the approved literal source, reviews the complete course and independently judges every answer. Actual findings receive scoped model edits and current verification; old v33/v34 jobs retain exact recovery behavior.
+- Fresh v36 course jobs use coherent source-based authoring, separate source/lesson relation readings, and scoped action and noun editors. Question editing and key-blind answer checks stay separate; actual unresolved question observations receive bounded model repairs that preserve other questions and lesson prose.
+- Preserve usable pending course drafts without treating unverified lesson provenance as a new ambiguity of an already approved source. Current question uncertainties remain visible, tied to the current source/course/question revision; publication still requires explicit methodologist approval. Graph membership and model judgments do not grant automatic acceptance.
+- Keep all older policy requests and checkpoints readable. New native stages require exact kind, stage, role, owner-bound journal, source/route/policy identity and protected media/question scope. Unknown outcomes do not trigger hidden retries.
+- Use the existing audited runtime settings for revision and output budgets. Additive migration 0187 preserves overrides and audit history; no new provider, plan, resource or permission is introduced.
 
-- Retain valid partial editorial decisions, complete only missing IDs through one owned model stage, and recover exact retained v34 joint replies without repeating provider requests; strict semantic acceptance remains unchanged.
+### Fixed
 
-- Preserve operative source lists and adjudicate historical observations beside complete literal current lesson text; model-only addressed repairs retain good peers and assessment keys.
-
-- Share source/course context across v34 logical comparison groups within the existing output budget, retaining every rule, owned target and dependency.
-
-- Give the v34 joint editor one coherent whole-course role and share current target snapshots without duplicating lesson text for every observation. Preserve all evidence, legacy dispatch and independent checks.
-
-- Consolidate all current source, lesson and assessment observations in the existing final editor stage for new policy v34 jobs; preserve v33 checkpoints and exact-policy acceptance receipts.
-
-- Select the new editorial protocol only for new jobs; retain older policies and checkpoints. Extend the existing audited runtime settings catalog with the editorial revision budget through additive migration 0187.
-- Preserve grammar-corrected source interpretations through additive completeness, pass model-owned corrections to scoped author alignment, and separate compact teaching-prose review from keyed assessment review. IDs establish custody; semantic verdicts remain explicit model decisions.
-- Preserve the full-review decision across equivalent positive evidence labels, reject changed source questions during proof repair, and combine exact duplicate owner questions without dropping their provenance.
-
+- Preserve validated raw conversion fidelity from approved preparation without clearing missing/degraded-source holds.
+- Retain current question-editor UNVERIFIED observations through later blind checks, merge their grounds without duplicate question issues, and invalidate stale evidence after edits.
+- Match selected-head worksets to actual token-instance alignment across all retained origins; possible dictionary matches are not proof of equivalence.
 
 ## [0.11.83] - 2026-11-08
 
