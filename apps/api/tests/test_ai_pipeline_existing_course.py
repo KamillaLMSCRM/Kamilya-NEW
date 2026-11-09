@@ -327,7 +327,8 @@ async def test_generated_single_answer_questions_are_saved_as_mcq(
 
 
 @pytest.mark.asyncio
-async def test_generated_mcq_correct_answers_are_balanced_across_persisted_positions(monkeypatch):
+@pytest.mark.parametrize("preserve_reviewed_order", [False, True])
+async def test_generated_mcq_correct_answers_are_balanced_across_persisted_positions(monkeypatch, preserve_reviewed_order):
     from app.modules.ai import pipeline
 
     tenant_id = uuid4()
@@ -356,6 +357,9 @@ async def test_generated_mcq_correct_answers_are_balanced_across_persisted_posit
         )
         for index in range(4)
     ]
+    reviewed_positions = [2, 0, 3, 1]
+    for question, position in zip(questions, reviewed_positions, strict=True):
+        question.options.insert(position, question.options.pop(0))
     state = GenerationState(
         source_document_ids=[TEST_DOCUMENT],
         job_id="job-balanced",
@@ -372,6 +376,11 @@ async def test_generated_mcq_correct_answers_are_balanced_across_persisted_posit
             assessments=[LessonAssessment(lesson_title=lesson_title, mcq=questions)]
         ),
     )
+    if preserve_reviewed_order:
+        state.source_analysis = {"generation_engine": "evidence_v3", "evidence_v3": {
+            "generation_engine": "v3_cogen",
+            "assessment_option_order_policy": "preserve-reviewed-options-v1",
+        }}
 
     await _save_generation_to_db(state, tenant_id, course.created_by)
 
@@ -380,7 +389,10 @@ async def test_generated_mcq_correct_answers_are_balanced_across_persisted_posit
     assert [
         next(choice.order_index for choice in question_choices if choice.is_correct)
         for question_choices in persisted_questions
-    ] == [0, 1, 2, 3]
+    ] == (reviewed_positions if preserve_reviewed_order else [0, 1, 2, 3])
+    if preserve_reviewed_order:
+        assert [[choice.text for choice in rows] for rows in persisted_questions] == [
+            [option.text for option in question.options] for question in questions]
 
 
 @pytest.mark.asyncio

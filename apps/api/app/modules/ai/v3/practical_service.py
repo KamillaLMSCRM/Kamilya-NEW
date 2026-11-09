@@ -168,9 +168,20 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         and all(row.get('scope') in ({'assessment', 'question'} if result.review_domains else {'assessment'})
                 and isinstance(row.get('evidence'), dict)
                 and 'original_finding' not in row['evidence'] for row in result.decision.feedback))
+    autonomous_course_only = (is_autonomous_editorial_policy(review_policy) and source_verified
+        and not result.decision.source_uncertain and not provenance_holds and not prose_provenance_holds
+        and not result.source_core_source_review_pending and not result.source_core_unresolved_cases
+        and bool(result.decision.feedback) and all(
+            row.get('scope') in {'lesson', 'question', 'assessment', 'coverage'}
+            and isinstance(row.get('evidence'), dict)
+            and row['evidence'].get('status') == 'AUTOMATIC_REVIEW_UNRESOLVED'
+            and row['evidence'].get('domain') in {'content', 'assessment'}
+            and isinstance(row['evidence'].get('target'), dict)
+            and row['evidence']['target'].get('kind') in {'lesson', 'question', 'course'}
+            for row in result.decision.feedback))
     artifacts = v3_course_to_generation_artifacts(course, source_document_ids=list(corpus.document_ids),
         source_corpus=corpus, source_rules=tuple(rules), canonical_source=True,
-        **({'source_review_required': False} if assessment_only else {}))
+        **({'source_review_required': False} if assessment_only or autonomous_course_only else {}))
     for assessment, lesson in zip(artifacts.assessment.assessments, displayed['lessons'], strict=True):
         for question, raw in zip(assessment.mcq, lesson['questions'], strict=True):
             question.question = raw['prompt']
@@ -191,6 +202,10 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         'practical_question_mode': ('source_rule_comprehension_v1' if result.legacy_source_rule_scope
                                     else 'authored_question_scope_v2'),
     })
+    if is_autonomous_editorial_policy(review_policy):
+        from app.modules.ai.assessment_schema import PRESERVE_REVIEWED_OPTION_ORDER
+
+        artifacts.diagnostics['assessment_option_order_policy'] = PRESERVE_REVIEWED_OPTION_ORDER
     if result.source_core or result.editorial_review:
         from app.modules.ai.v3.practical_draft_review import editorial_manifest
 
@@ -205,6 +220,8 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
         ]
     if assessment_only:
         artifacts.diagnostics['requires_assessment_review'] = True
+    if autonomous_course_only:
+        artifacts.diagnostics['requires_editorial_review'] = True
     return artifacts
 
 
@@ -292,7 +309,8 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
         result = await run_autonomous_editorial_cycle(packet, corpus, intent, reference_decisions, stage,
             max_revisions=policy.integer('generation.editorial_max_revisions'),
             max_rules_per_review=policy.integer('generation.editorial_rules_per_review'),
-            **({'joint_editor': True} if review_policy == JOINT_EDITORIAL_REVIEW_POLICY else {}))
+            **({'joint_editor': True, 'addressed_current': True}
+               if review_policy == JOINT_EDITORIAL_REVIEW_POLICY else {}))
     elif editorial:
         from app.modules.ai.v3.practical_editorial_cycle import run_editorial_cycle
         result = await run_editorial_cycle(packet, corpus, intent, reference_decisions, stage,

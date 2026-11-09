@@ -12,7 +12,8 @@ from app.modules.ai.v3.practical_editorial_verification import (
     literal_course_texts,
 )
 
-PROOF_ERRORS = frozenset({'source_quote_invalid', 'course_quote_invalid', 'source_refs_invalid', 'reason_missing'})
+PROOF_ERRORS = frozenset({'source_quote_invalid', 'course_quote_invalid', 'source_refs_invalid', 'reason_missing',
+                          'current_nonmaterial_evidence_missing'})
 PROOF_ELIGIBLE = frozenset({'FIXED', 'ALREADY_COVERED', 'NOT_MATERIAL', 'NEEDS_REVISION', 'SOURCE_AMBIGUITY'})
 POSITIVE_DISPOSITIONS = frozenset({'FIXED', 'ALREADY_COVERED'})
 SYSTEM = (
@@ -75,9 +76,16 @@ async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: 
         refs: list[str] = []
         blocks = {block.block_id: block.text for block in packet.blocks}
         for finding in selected_prior:
-            reference = 'proof-target-' + _digest([finding['domain'], finding['target']])
+            identity = [finding['domain'], finding['target']]
+            peer_prose = (finding['issue_id'] in set(result.get('current_reconciliation', {}).get('current_quote_issue_ids', []))
+                          and selected_by_id[finding['issue_id']]['disposition'] == 'NOT_MATERIAL'
+                          and finding['domain'] == 'content' and finding['target']['kind'] != 'question')
+            if peer_prose:
+                identity.append('current_course_prose')
+            reference = 'proof-target-' + _digest(identity)
             targets.setdefault(reference, {'target': copy.deepcopy(finding['target']),
-                'domain': finding['domain'], 'texts': literal_course_texts(course, finding)})
+                'domain': finding['domain'], 'texts': [lesson['content'] for lesson in course['lessons']]
+                    if peer_prose else literal_course_texts(course, finding)})
             owned_refs = list(dict.fromkeys(ref for ref in [*finding['source_refs'],
                 *selected_by_id[finding['issue_id']]['source_refs']] if ref in blocks))
             refs.extend(ref for ref in owned_refs if ref not in refs)
@@ -96,6 +104,55 @@ async def correct_resolution_proofs(packet: Any, course: dict[str, Any], prior: 
 
     def compile_response(value: Any) -> dict[str, Any]:
         compiled = compile_editorial_verification(value, packet, course, selected_prior)
+        if 'current_reconciliation' in result:
+            from app.modules.ai.v3.practical_current_reconciliation import validate_reconciled_current_evidence
+
+            # Validate identities first. A partial correction may not erase an
+            # independently literal-checked field that was not faulty.
+            proposal = copy.deepcopy(value)
+            kept: dict[str, list[str]] = {}
+            foreign_refs = set()
+            blocks = {block.block_id: block.text for block in packet.blocks}
+            for proposed in proposal['resolutions']:
+                previous = selected_by_id[proposed['issue_id']]
+                finding = prior_by_id[proposed['issue_id']]
+                errors = set(previous['verification_errors'])
+                texts = literal_course_texts(course, finding)
+                if (previous['disposition'] == 'NOT_MATERIAL' and finding['domain'] == 'content'
+                        and finding['target']['kind'] != 'question'
+                        and proposed['issue_id'] in result['current_reconciliation']['current_quote_issue_ids']):
+                    texts = [lesson['content'] for lesson in course['lessons']]
+                quote = previous['course_quote']
+                fields = []
+                if any(ref not in blocks for ref in proposed['source_refs']):
+                    foreign_refs.add(proposed['issue_id'])
+                if (not errors.intersection({'course_quote_invalid', 'current_nonmaterial_evidence_missing'})
+                        and quote.strip() and any(quote in text for text in texts)
+                        and proposed['course_quote'] != quote):
+                    proposed['course_quote'] = quote
+                    fields.append('course_quote')
+                refs = previous['source_refs']
+                source_quote = previous['source_quote']
+                if (not errors.intersection({'source_quote_invalid', 'source_refs_invalid'})
+                        and refs and len(refs) == len(set(refs)) and all(ref in blocks for ref in refs)
+                        and source_quote.strip() and any(source_quote in blocks[ref] for ref in refs)):
+                    for key in ('source_refs', 'source_quote'):
+                        if proposed[key] != previous[key]:
+                            proposed[key] = copy.deepcopy(previous[key])
+                            fields.append(key)
+                if fields:
+                    kept[proposed['issue_id']] = fields
+            if kept:
+                compiled = compile_editorial_verification(proposal, packet, course, selected_prior)
+                for row in compiled['resolutions']:
+                    if row['issue_id'] in kept:
+                        row['retained_valid_proof_fields'] = kept[row['issue_id']]
+            for row in compiled['resolutions']:
+                if row['issue_id'] in foreign_refs:
+                    row['verified'] = False
+                    row['verification_errors'].append('proof_foreign_source_refs')
+            compiled['current_reconciliation'] = copy.deepcopy(result['current_reconciliation'])
+            validate_reconciled_current_evidence(compiled, course, selected_prior)
         for row in compiled['resolutions']:
             old = selected_by_id[row['issue_id']]
             if not same_proof_disposition(old['disposition'], row['disposition']):

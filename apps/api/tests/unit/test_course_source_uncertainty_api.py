@@ -21,6 +21,8 @@ from app.modules.courses.source_uncertainty import (
 from app.modules.lessons.schemas import LessonUpdate
 from app.modules.lessons.service import update_lesson
 
+pytest_plugins = ('tests.unit.test_v3_practical_cycle',)
+
 
 def _make_user(role: str = "methodologist", tenant_id: UUID | None = None, user_id: UUID | None = None):
     return SimpleNamespace(
@@ -277,6 +279,36 @@ async def test_get_course_source_uncertainty_details(monkeypatch: pytest.MonkeyP
     assert "rev-inspect-2026" in data["available_revisions"]
     assert len(data["active_defects"]) == 1
     assert data["active_defects"][0]["defect_id"].startswith("defect-")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('drift', ['none', 'content', 'missing', 'foreign', 'source_hold'])
+async def test_inspection_uses_the_same_owned_current_automatic_receipt_as_approval(case, monkeypatch, drift):
+    from unittest.mock import AsyncMock
+
+    from app.modules.courses.automated_editorial_acceptance import bind_automated_acceptance
+    from tests.unit.test_automated_editorial_acceptance import clean_course
+
+    tenant_id, course_id = uuid4(), uuid4()
+    user = _make_user(tenant_id=tenant_id)
+    course = _make_course(course_id, tenant_id, source_analysis=clean_course(case).source_analysis)
+    app, db = _build_test_app(course, user, [], monkeypatch)
+    job = SimpleNamespace(course_id=course_id, tenant_id=tenant_id,
+                          status='completed', stage='completed', result={})
+    await bind_automated_acceptance(db, course=course, job=job)
+    if drift == 'content':
+        course.modules[0].lessons[0].content += '\nA later edit.'
+    elif drift == 'missing':
+        job.result = {}
+    elif drift == 'foreign':
+        job.tenant_id = uuid4()
+    elif drift == 'source_hold':
+        course.source_analysis[SOURCE_UNCERTAINTY_KEY] = {'status': 'review_required'}
+    db.scalars = AsyncMock(return_value=SimpleNamespace(all=lambda: [job]))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url='http://test') as client:
+        response = await client.get(f'/courses/{course_id}/source-uncertainty')
+    assert response.status_code == 200, response.text
+    assert response.json()['has_active_hold'] is (drift != 'none')
 
 
 @pytest.mark.asyncio

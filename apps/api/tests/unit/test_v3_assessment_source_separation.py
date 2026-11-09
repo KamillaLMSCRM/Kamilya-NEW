@@ -118,6 +118,8 @@ def test_fresh_domain_question_hold_keeps_assessment_review_without_false_source
     assert artifacts.diagnostics['v3_review_policy'] == DOMAIN_PRACTICAL_REVIEW_POLICY
     assert artifacts.diagnostics['automated_review_passed'] is False
     assert artifacts.diagnostics['quality_verdict'] == 'needs_review'
+    assert artifacts.diagnostics['generation_engine'] == 'v3_cogen'
+    assert 'assessment_option_order_policy' not in artifacts.diagnostics
     assert artifacts.diagnostics['requires_source_review'] is False
     assert artifacts.diagnostics['requires_assessment_review'] is True
     assert lesson_status(artifacts) == 'verified'
@@ -130,3 +132,63 @@ def test_fresh_question_domain_does_not_clear_real_source_uncertainty(case):
     artifacts = practical_artifacts(result, corpus, packet, 'a' * 64)
     assert artifacts.diagnostics['requires_source_review'] is True
     assert lesson_status(artifacts) == 'needs_review'
+
+
+@pytest.mark.parametrize('scope', ['lesson', 'question', 'assessment', 'coverage'])
+def test_autonomous_machine_review_is_not_a_human_source_choice(case, scope):
+    from app.modules.ai.v3.revision_policy import JOINT_EDITORIAL_REVIEW_POLICY
+
+    corpus, packet, course = case
+    result = build_result(course, packet, (scope,))
+    finding = result.decision.feedback[0]
+    finding.update(issue_id='current-machine-observation', evidence={
+        'status': 'AUTOMATIC_REVIEW_UNRESOLVED', 'domain': 'content',
+        'target': {'kind': 'lesson', 'id': 'l1'}, 'problem': 'Current model observation.',
+        'source_refs': [packet.blocks[0].block_id],
+    })
+    result = replace(result, editorial_review=True, history=({'autonomous_editorial': True},))
+    artifacts = practical_artifacts(result, corpus, packet, 'a' * 64,
+                                    editorial_policy=JOINT_EDITORIAL_REVIEW_POLICY)
+    assert artifacts.diagnostics['assessment_option_order_policy'] == 'preserve-reviewed-options-v1'
+    assert artifacts.diagnostics['requires_source_review'] is False
+    assert artifacts.diagnostics['automated_review_passed'] is False
+    assert artifacts.diagnostics['quality_verdict'] == 'needs_review'
+    manifest = artifacts.diagnostics['draft_review']
+    assert manifest['content_review_required'] is True
+    assert manifest['source_clarification_required'] is False
+    assert manifest['issues'] and 'automated_acceptance' not in manifest
+    assert manifest['issues'][0]['evidence']['resolution_owner'] == 'model'
+
+
+@pytest.mark.parametrize('fault', ['source_choice', 'conversion', 'provenance', 'revised_prose', 'source_target'])
+def test_autonomous_classification_preserves_independent_holds(case, fault):
+    from app.modules.ai.v3.revision_policy import JOINT_EDITORIAL_REVIEW_POLICY
+
+    corpus, packet, course = case
+    result = build_result(course, packet, ('lesson',), source_uncertain=fault == 'source_choice')
+    finding = result.decision.feedback[0]
+    finding.update(issue_id='guarded-observation', evidence={
+        'status': 'AUTOMATIC_REVIEW_UNRESOLVED', 'domain': 'content',
+        'target': {'kind': 'lesson', 'id': 'l1'}, 'problem': 'Current observation.',
+        'source_refs': [packet.blocks[0].block_id],
+    })
+    history = {'autonomous_editorial': True}
+    if fault == 'conversion':
+        corpus = replace(corpus, documents=(replace(corpus.documents[0], conversion_fidelity=ConversionFidelity.unverified()),))
+    elif fault == 'provenance':
+        result.review['narrative_sources']['l1'] = []
+    elif fault == 'revised_prose':
+        history['unverified_revised_prose'] = ['l1']
+    elif fault == 'source_target':
+        finding['evidence']['target'] = {'kind': 'source', 'id': packet.blocks[0].block_id}
+    if fault == 'source_choice':
+        finding['evidence'].update(status='SOURCE_UNRESOLVED', domain='source',
+                                   source_question='Which of the source alternatives applies?')
+    result = replace(result, editorial_review=True, history=(history,))
+    artifacts = practical_artifacts(result, corpus, packet, 'a' * 64,
+                                    editorial_policy=JOINT_EDITORIAL_REVIEW_POLICY)
+    assert artifacts.diagnostics['requires_source_review'] is True
+    assert artifacts.diagnostics['automated_review_passed'] is False
+    assert artifacts.diagnostics['draft_review']['source_clarification_required'] is (fault == 'source_choice')
+    if fault == 'source_choice':
+        assert artifacts.diagnostics['draft_review']['issues'][0]['evidence']['resolution_owner'] == 'source_owner'

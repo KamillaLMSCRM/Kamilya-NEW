@@ -6661,3 +6661,26 @@ ACTIVE/session82058; no other inference/source review. Wholecourse acceptanceOPE
   cleanuptrue/public0187/sourceunchanged. Model/HTTPcalls0, production/publicbusiness0writes.
 - No current inference. DEVdf91/R7, R8local. Actual samejob recovery/new3-IDmodel
   completion/fullcourse plus cash/standards/DeepSeek/prod acceptance remainOPEN.
+
+
+### R9 current reconciliation / persistence projection — 2026-11-09
+
+- Actual saved R8 native PDF8L23Q: every persisted text/key/explanation matched
+  candidate; all content independently read. False current rights/training claims
+  remain original held failure, no course/source/receipt mutation.
+- Positive CURRENT Luna/HIGH onecall49872in6087out/113.531s:7staleclaims withdrawn.
+  Literal rejection retained; quote-only54685in3770out/73.172s. Exact saved quote
+  reply/schema/request replay after partial-field fix:35/35verifiedclosed,
+  zeroopen/material,0newcalls. Synthetic removedrights paragraph actual Luna
+  47600in3132out/60.938s:5NEEDS_REVISIONremainopen,2newfindings. No manual verdicts.
+- Option persistence16RED/59PASS ->117focusedPASS; actual save fake-transaction
+  and readback across16key/index pairs, both native/legacy. Final full7423PASS/
+  1skip/7warnings78.46s; baseline1004/2174PASS. First broad run had one test-only
+  assertion accidentally targeting legacy DOMAIN policy; corrected to assert
+  marker absent for legacy and present for JOINT. No runtime relaxation.
+- This is LOCAL technical/saved-data evidence. DEVstill7bc6; newnative3courses/
+  DeepSeek/prod/client followup not yet complete. All original failures retained.
+
+Navigation final2473files/28969nodes85692edges2506sources/excludedPASS.
+CodeGraph confirms both save and readback call shared projection; Graphify locates
+current reconciliation through existing review stage. Static navigation only.

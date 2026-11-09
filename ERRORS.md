@@ -10558,3 +10558,11 @@ First gate BLOCKED/cleanuptrue/public0187unchanged is retained. Use a DIFFERENT
 registered JOINT group for that ownership negative; keep unknown dialect rejection
 strict. Add closed phase/error diagnostics rather than catch all exceptions.
 Fresh full canonical isolated gate passes12checks, both author/joint cases.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-09/R9: one new option-policy
+assertion matched the older DOMAIN test instead of JOINT fixture. Full gate
+caught missing marker as intended; corrected test scoping, legacy marker remains
+absent. Final7423PASS. Python write_text newline translation also expanded six
+doc diffs; normalized only those edited docs to repository LF before staging.
+Always inspect final diff statistics and bound diff-check output before release.

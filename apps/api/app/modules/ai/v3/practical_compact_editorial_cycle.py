@@ -186,8 +186,10 @@ async def review_editorial_candidate(
     prior: list[dict[str, Any]] | None = None,
     joint_editor: bool = False,
     joint_editor_system: str | None = None,
+    addressed_current: bool = False,
 ) -> dict[str, Any]:
-    if type(joint_editor) is not bool:
+    if (type(joint_editor) is not bool or type(addressed_current) is not bool
+            or addressed_current and not joint_editor):
         raise ValueError('editorial_joint_policy_invalid')
     all_prior = prior
     if joint_editor:
@@ -420,12 +422,22 @@ async def review_editorial_candidate(
         compiled = {'review': joint['review'], 'source_rule_checks': checks,
                     'resolutions': joint['resolutions'], 'raw_parts': raw_parts,
                     'observations': observations}
-        if joint_prior:
+        proof_prior = joint_prior
+        if addressed_current:
+            from app.modules.ai.v3.practical_current_reconciliation import reconcile_current_editorial
+
+            compiled, proof_prior = await reconcile_current_editorial(
+                packet, course, joint_prior, compiled, context, view, call)
+        if proof_prior:
             async def proof_call(name: str, group: str, messages: list[dict[str, str]],
                                  fmt: dict[str, Any], validate: Any) -> Any:
                 return await call(name, group.replace(':v33:proof:', ':v34:proof:', 1), messages, fmt, validate)
-            compiled = await correct_resolution_proofs(packet, course, joint_prior, compiled, context, view,
+            compiled = await correct_resolution_proofs(packet, course, proof_prior, compiled, context, view,
                 proof_call, addressed_evidence=True)
+        if addressed_current:
+            from app.modules.ai.v3.practical_current_reconciliation import finish_current_reconciliation
+
+            finish_current_reconciliation(compiled, course, proof_prior)
         closed = {row['issue_id'] for row in compiled['resolutions'] if row['verified']
                   and row['disposition'] in ('FIXED', 'ALREADY_COVERED', 'NOT_MATERIAL', 'SOURCE_AMBIGUITY')}
         current = {row['issue_id']: row for row in compiled['review']['findings']}

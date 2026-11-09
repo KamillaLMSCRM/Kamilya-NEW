@@ -668,3 +668,64 @@ focused3passed0.57s, no runtime delta. Navigation2469files/28920nodes85721edges
 2502sources/exclusionPASS. CodeGraph confirms groups->review_editorial_candidate;
 source confirms v34-only dispatch/strict proof correction; semantic saved-control
 is separate from native DEV GO. No active model/test process.
+
+
+## R8 exact DEV rollout and owner follow-up — 2026-11-09 04:54 UTC
+
+- result: DEV API/web/sole VM126worker exact7bc6f1294b49fd19cb6d19b3d0e0994e860b0f4b.
+  CI42562978108PASS/build42563632602 attested8da79758…811d; controller
+  REL-DEV-RESOLUTION-COMPLETION-7BC6-R8-20261109 RELEASE_OK. Worker30ec7c48,
+  env3d2072a6, restart0/1CPU/1GiB; previous2fc1257b warmstopped/retained.
+  Production83/six protected containers unchanged. Existing free/hobby tiers.
+- changed: No source/course manual edits. Exact retained reply recovered through
+  normal owned API SAMEjobc44d9fbc, resume4. Only NEWmissing3decision completion
+  permitted; original23rdHTTP query must not repeat. No runtime/docs push during
+  active inference. Source/body/route and ownership guards retained.
+- verified: Canonical rollout receipts under autonomous-editorial-review-20261108;
+  source image156file hashes, sole consumer, public APIhealth and exactVercel SHA.
+  Renderdep-dbol23h5efls73e788h0; Verceldpl_G6dwmKYa91kZVXLXqETxqMJgxh8Q.
+  Native resume watcher83411 ACTIVE; do not launch duplicate inference/login.
+- blockers: Full persisted PDFcourse, freshcash/standards/DeepSeek and prod GO
+  remain OPEN. Current model output must be independently audited, not inferred
+  from technical gates. Prior manual QA courses are unchanged/NOT engineGO.
+- next: Read83411 then tenant-bound DB snapshot. Finish SAMEjob model-only
+  editorial cycle and full persisted audit, then freshcash/standards sequential.
+  Owner NEWexplicit instruction: AFTER accepted engine production rollout,
+  generate TWO separate courses IN LOMBARD SANDYK from the actual compound PDF
+  and cashDOCX. Inspect every lesson/question/image; bounded manual client-course
+  editing is now authorized if needed to make them usable. Keep autonomous-engine
+  acceptance separate from these human edits. Preserve all old client courses,
+  users, histories; do not massassign/send emails without a separate instruction.
+
+
+
+# R9 current-reconciliation candidate; R8 PDF completed — 2026-11-09
+
+- result: R8 SAMEjob c44d9fbc completed 05:49:14Z; course93c01600-dc83-496b-8bb9-c1ad8159229f,
+  8 lessons/23questions. Full owned saved readback and exact current-candidate
+  comparison PASS. Root read every lesson/choice/key/explanation; no material
+  source distortion found. Old course remains held: no flags or receipts rewritten.
+- changed: R9 LOCAL/UNCOMMITTED reconciles unresolved current material claims in
+  existing model role, preserves validated sibling proof fields on partial quote
+  repair, and separates machine review from genuine source clarification. Fresh
+  autonomous artifacts preserve reviewed shuffled answer order at persistence;
+  historical unmarked checkpoints keep their original projection.
+- verified: R8 43 unique actual replies,1589375input/153318output tokens; elapsed
+  154min includes release/held/resume periods, not steady-state unit latency.
+  R9 positive actual Luna/HIGH 49872in6087out/113.531s:5ALREADY_COVERED+2NOT_MATERIAL.
+  Quote-only model54685in3770out/73.172s; exact saved reply replay verifies all35
+  decisions,zero open/material,zero additional calls. Negative synthetic missing
+  rights paragraph47600in3132out/60.938s:5NEEDS_REVISION remain open plus2newfindings.
+  Dollar price UNKNOWN. Source/course text not manually changed. Original failures
+  retained. Ordering regression16RED/59PASS -> focused117PASS; final full7423PASS/1skip/7warnings78.46s. Baseline1004/2174PASS. No active inference/DBwrite; DEV still7bc6/R8.
+- blockers: R9 not committed/deployed. Fresh three native courses, intended
+  DeepSeek DEV, protected production/live acceptance OPEN. Do not count saved-data
+  mechanism controls or prior manually edited QA as fresh native acceptance.
+- next: Finish final gates/nav/diff, scoped commit/project-account push/exactSHA
+  receipts, CI/build and canonical one-worker DEV rollout. Then fresh three
+  Luna courses sequential, full saved semantic/image audit, DeepSeek and protected
+  production only after GO. AFTER accepted production, owner authorizes TWO NEW
+  client courses in Lombard Sandyk from actual compound PDF and cashDOCX, bounded
+  manual client edits if needed, no old course/history changes or mass emails.
+  Evidence: .release-evidence/autonomous-editorial-review-20261108/current-r9-*/
+  and native-dev-r7-pdf/full-saved-readback/. All old receipts remain immutable.

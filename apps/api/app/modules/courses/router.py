@@ -686,7 +686,12 @@ async def get_course_source_uncertainty_details(
 
     manifest = read_draft_review(sa)
     if manifest is not None:
-        has_hold = has_hold or not resolution_is_current(sa, content_hash)
+        review_current = resolution_is_current(sa, content_hash)
+        if not has_hold and not review_current:
+            from app.modules.courses.automated_editorial_acceptance import automatic_acceptance_is_current
+
+            review_current = await automatic_acceptance_is_current(db, course=course, content_hash=content_hash)
+        has_hold = has_hold or not review_current
 
     raw_defects = get_active_source_defects(sa)
     active_defects = [

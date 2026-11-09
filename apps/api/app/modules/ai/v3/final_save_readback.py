@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
+from app.modules.ai.assessment_schema import mcq_options_for_persistence
 from app.modules.ai.delivery_ownership import matches_generation_delivery
 from app.modules.ai.v3.final_save_contract import (
     INTENT_KEY,
@@ -164,12 +165,7 @@ def verify_snapshot(*, state: Any, intent: dict[str, Any], job: Any, course: Any
                     crows = sorted((c for c in choices if c.question_id == qr.id), key=lambda c: c.order_index)
                     if len(crows) != len(expected.options):
                         return False
-                    correct = [option for option in expected.options if option.is_correct]
-                    ordered = [option for option in expected.options if not option.is_correct]
-                    if len(correct) == 1:
-                        ordered.insert(qi % len(expected.options), correct[0])
-                    else:
-                        ordered = list(expected.options)
+                    ordered = mcq_options_for_persistence(expected, qi, state.source_analysis)
                     for ci, (cr, option) in enumerate(zip(crows, ordered, strict=True)):
                         used_choices.add(cr.id)
                         if not _matches(cr, order_index=ci, text=option.text, is_correct=option.is_correct):

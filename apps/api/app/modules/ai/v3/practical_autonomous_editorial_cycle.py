@@ -269,12 +269,16 @@ def _edit_batches(course: dict[str, Any], findings: list[dict[str, Any]]) -> lis
 
 async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         reference_decisions: tuple[Any, ...], stage: Any, *, max_revisions: int,
-        max_rules_per_review: int = 128, joint_editor: bool = False) -> PracticalCycleResult:
-    if type(joint_editor) is not bool:
+        max_rules_per_review: int = 128, joint_editor: bool = False,
+        addressed_current: bool = False) -> PracticalCycleResult:
+    if (type(joint_editor) is not bool or type(addressed_current) is not bool
+            or addressed_current and not joint_editor):
         raise ValueError('editorial_joint_policy_invalid')
     source_authority = SOURCE_AUTHORITY_GUIDE if joint_editor else ''
     joint_options: dict[str, Any] = ({'joint_editor': True,
         'joint_editor_system': REVIEW_SYSTEM + EDITORIAL_REASONING_GUIDE} if joint_editor else {})
+    if addressed_current:
+        joint_options['addressed_current'] = True
     if type(max_revisions) is not int or not 1 <= max_revisions <= 5:
         raise ValueError('editorial_revision_budget_invalid')
     if build_practical_source_packet(corpus, reference_decisions) != packet:

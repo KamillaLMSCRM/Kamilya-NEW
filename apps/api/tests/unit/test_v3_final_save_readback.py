@@ -169,9 +169,15 @@ def test_multiple_modules_with_shuffled_rows_preserve_bijection():
 
 @pytest.mark.parametrize("source_position", range(4))
 @pytest.mark.parametrize("question_index", range(4))
-def test_saved_choice_rotation_matches_native_projection_without_mutation(source_position, question_index):
+@pytest.mark.parametrize("preserve_reviewed_order", [False, True])
+def test_saved_choice_rotation_matches_native_projection_without_mutation(source_position, question_index, preserve_reviewed_order):
     data = fixture()
     state = data["state"]
+    if preserve_reviewed_order:
+        state.source_analysis["evidence_v3"] = {"generation_engine": "v3_cogen",
+            "assessment_option_order_policy": "preserve-reviewed-options-v1"}
+        data["course"].source_analysis = preserve_generated_source_uncertainty(
+            {}, state.source_analysis, source_review_required=True)
     original = [MCQOption("wrong-a", False), MCQOption("wrong-b", False), MCQOption("wrong-c", False)]
     original.insert(source_position, MCQOption("correct", True))
     state.assessment.assessments[0].mcq = [MCQQuestion(question=f"question-{i}", options=deepcopy(original),
@@ -190,7 +196,8 @@ def test_saved_choice_rotation_matches_native_projection_without_mutation(source
         qid = uuid4()
         data["questions"].append(SimpleNamespace(id=qid, quiz_id=quiz_id, text=f"question-{i}", type="MCQ",
             points=1, explanation="explanation", source_quote="source", order_index=i, pool_group=None))
-        for index, text in enumerate(orders[i]):
+        expected_order = [option.text for option in original] if preserve_reviewed_order else orders[i]
+        for index, text in enumerate(expected_order):
             data["choices"].append(SimpleNamespace(id=uuid4(), question_id=qid, text=text,
                                                   is_correct=text == "correct", order_index=index))
     data["lessons"][0].duration_seconds = _estimate_lesson_duration_seconds("body", question_index + 1)

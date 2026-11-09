@@ -1158,3 +1158,83 @@ control; it does not retroactively accept interrupted R6 or fresh fullcourses.
 - Runtime currentlydf91/R7; newR8 exactdeploy and actual model3-IDcompletion/
   continued fullcourse plus freshcash/standards stillOPEN. Do not relabel this
   typed/custody gate as semantic acceptance or erase the original rejectedreply.
+
+
+## ENG-045 — повторная модельная претензия об уже раскрытом содержании
+
+- 2026-11-09, exact native PDFjobc44d9fbc, joint29 after second model revision.
+  Two material findings allege that lesson1 lacks training topics and lesson8
+  lacks employee rights. Both complete paragraphs explicitly exist in the exact
+  delivered CURRENT course and remain byte-identical to joint23 current course.
+  Exact offline replay matches all29 request hashes, zero network/model calls.
+- Evidence: autonomous-editorial-review-20261108/native-dev-r7-pdf/
+  joint29-exact-{messages,current-course,offline}.json and
+  joint29-independent-stale-absence.json. Model response and actual paragraphs
+  retained; no source/course manual edits. This is not a source ambiguity or
+  scoped-editor loss. Other question findings are assessed separately.
+- The next scoped model writer retained lesson1 prose unchanged; good text was
+  not deleted or artificially rewritten to satisfy the false allegation.
+- Cause boundary: current source/course custody is proven. Relative salience
+  of historical observations and current positive proofs/model anchoring is a
+  hypothesis, not yet a confirmed root cause. Current native model delivery
+  remains active; do not mutate its runtime prompts or repeat its requests.
+- Fix/verification pending: assess terminal current course first; then use the
+  saved exact counterexample to calibrate the existing reviewer, preserving
+  actual material defects and all historical observations in the audit. Never
+  hide an unverified finding or relax a validator merely for acceptance.
+
+
+### ENG-045 R9 saved-data model controls — 2026-11-09
+
+- One addressed CURRENT reconciliation, existing registered v34joint role, full
+  current prose/questions/source and compact observations; no stale proof/basis
+  framing. Actual Luna/HIGH withdrew7stale allegations, no new findings. Decisions
+  remain model judgments; no regex-based dismissal or manually supplied verdict.
+- Positive49872in6087out/113.531s. Literal compiler correctly rejected stitched
+  sourcequotes; quote-only54685in3770out/73.172s preserved all semantic decisions.
+  Exact saved reply replay after ENG-047 verifies35/35closed with0newcalls.
+- Synthetic deletion of rights paragraph, identical source: actual model retained
+  5NEEDS_REVISION and reported2new material findings,47600in3132out/60.938s.
+  This bounds the mechanism without proving isolated salience as sole cause.
+- Native R8 complete8L23Q independently acceptable content, but still held; do not
+  rewrite old receipts. Fresh R9 native/threecourse/DEV/prod gates remain OPEN.
+
+## ENG-046 — machine editorial hold mislabeled as source ambiguity
+
+- Confirmed native PDF R8: unresolved automatic current-course findings became
+  reserved generation source-uncertainty marker despite no actual source question.
+  API also treated every draft manifest as pending, ignoring an exact current
+  server-owned automatic acceptance receipt.
+- R9 preserves source holds for actual questions, conversion/provenance failures,
+  missing/revised unverified prose and source targets. Only fully typed owned
+  automatic content/assessment review is separated, without approving the draft.
+  GET uses existing exact current receipt checker; changed/foreign/missing receipts
+  or reserved source markers retain hold. Model issues remain in history/UI.
+- Synthetic adapter negatives and real ASGI route with exact receipt contracts;
+  no schema/auth/write changes. Native fresh behavior not yet verified.
+
+## ENG-047 — partial proof repair erased valid current evidence
+
+- Actual R9quote-only reply corrected literal sourcequotes but omitted/replaced
+  two already valid current prose quotes; compiler then left their dispositions
+  unverified. Partial-field merge defect, not source ambiguity or bad lesson.
+- For trusted addressed-current proof correction only, revalidate original fields
+  against CURRENT owned source/prose and retain independently valid siblings.
+  Preserve raw reply and retained_valid_proof_fields. Foreign refs remain explicit
+  proof_foreign_source_refs holds even when valid old fields survive.
+- Exact original request/schema/group hash replay,0model/DBwrites, verifies35/35
+  original semantic resolutions; source/course unchanged. Unknown IDs, changed
+  fingerprints, foreign refs, actual source questions and new findings stay held.
+
+## ENG-048 — persistence replaced reviewed option shuffle with lesson-index pattern
+
+- Actual saved R8PDF23questions:8correctA/8B/7C/0D; first question of every lessonA.
+  Model candidate/adapter instead had2A/9B/7C/5D. Full readback showed content/key
+  bijection unchanged but pipeline rotated each key by within-lesson question_idx.
+  Final-save reader duplicated this legacy projection, hiding the native shuffle.
+- Shared pure persistence/readback projection preserves exact reviewed native order
+  only with server-owned generation diagnostics marker bound to output digest.
+  New autonomous artifacts emit marker. Unmarked historical jobs retain exact old
+  behavior for recovery; unknown/foreign marker rejects. No random per-save drift.
+- Actual save fake-transaction + full snapshot regression16RED/59PASS before fix;
+  focused117PASS after fix. Native final-save validation is a fresh DEV gate.

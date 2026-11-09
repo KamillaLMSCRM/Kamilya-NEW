@@ -18,7 +18,7 @@ from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-unt
 from app.core.db import async_session_factory
 from app.modules.ai import timeout_context
 from app.modules.ai.architect_schema import CourseStructure
-from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment
+from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment, mcq_options_for_persistence
 from app.modules.ai.delivery_ownership import DeliveryOwnershipLostError, delivery_id, lock_owned_delivery
 from app.modules.ai.direct_source import (
     DirectSourceCorpus,
@@ -1360,14 +1360,7 @@ async def _save_generation_to_db_transaction(
                                     session.add(question)
                                     await session.flush()
 
-                                    correct_options = [option for option in mcq.options if option.is_correct]
-                                    incorrect_options = [option for option in mcq.options if not option.is_correct]
-                                    ordered_options = list(incorrect_options)
-                                    if len(correct_options) == 1:
-                                        correct_position = q_idx % len(mcq.options)
-                                        ordered_options.insert(correct_position, correct_options[0])
-                                    else:
-                                        ordered_options = list(mcq.options)
+                                    ordered_options = mcq_options_for_persistence(mcq, q_idx, state.source_analysis)
                                     for c_idx, option in enumerate(ordered_options):
                                         choice = QuizChoice(
                                             question_id=question.id,

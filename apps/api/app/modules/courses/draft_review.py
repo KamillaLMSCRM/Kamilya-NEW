@@ -33,6 +33,9 @@ def read_draft_review(analysis: object) -> dict[str, Any] | None:
                         or any(not isinstance(value.get(key), str) or len(value[key]) != 64
                                for key in ('source_fingerprint', 'draft_fingerprint'))):
                     raise ValueError('draft_review_manifest_invalid')
+            if ('source_clarification_required' in value
+                    and type(value['source_clarification_required']) is not bool):
+                raise ValueError('draft_review_manifest_invalid')
             ids = []
             for field, blocking in (('issues', True), ('observations', False)):
                 rows = value.get(field)

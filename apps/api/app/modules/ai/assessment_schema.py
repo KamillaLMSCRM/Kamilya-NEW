@@ -53,6 +53,32 @@ class MCQQuestion:
             return None
 
 
+PRESERVE_REVIEWED_OPTION_ORDER = "preserve-reviewed-options-v1"
+
+
+def mcq_options_for_persistence(
+    question: MCQQuestion, question_index: int, source_analysis: dict[str, Any],
+) -> list[MCQOption]:
+    """Keep native reviewed order; replay unmarked historical saves unchanged.
+
+    The server-authored policy is part of the final-save output digest. Both
+    persistence and readback must use it, without modifying the reviewed input.
+    """
+    diagnostics = source_analysis.get("evidence_v3")
+    if isinstance(diagnostics, dict) and "assessment_option_order_policy" in diagnostics:
+        if (source_analysis.get("generation_engine") != "evidence_v3"
+                or diagnostics.get("generation_engine") != "v3_cogen"
+                or diagnostics["assessment_option_order_policy"] != PRESERVE_REVIEWED_OPTION_ORDER):
+            raise ValueError("assessment_option_order_policy_invalid")
+        return list(question.options)
+    correct = [option for option in question.options if option.is_correct]
+    ordered = [option for option in question.options if not option.is_correct]
+    if len(correct) == 1:
+        ordered.insert(question_index % len(question.options), correct[0])
+        return ordered
+    return list(question.options)
+
+
 @dataclass
 class TrueFalseQuestion:
     statement: str

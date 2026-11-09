@@ -1,3 +1,13 @@
+## R9 current-editorial reconciliation candidate — 2026-11-09
+
+DEV remains exact7bc6/R8; production83 unchanged. Native PDF completed8L23Q,
+full saved content independently read; no manual edits. Old false review/source
+holds retained as failed acceptance evidence. R9 local current-model reconciliation
+and quote preservation pass positive/negative saved-data controls. Fresh native
+assessment ordering preserves its already reviewed shuffle; legacy snapshots keep
+the old projection. Current processes/gates and client follow-up authority are in
+CODEX_HANDOFF. Three fresh courses/DeepSeek/protected production still OPEN.
+
 ## R8 gated local recovery candidate — 2026-11-09 04:37 UTC
 
 No inference/test remains active. R8 full7357PASS/baseline1004/2174; canonical

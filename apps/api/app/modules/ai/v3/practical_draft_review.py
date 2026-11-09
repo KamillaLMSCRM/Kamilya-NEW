@@ -62,6 +62,9 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str], *,
             'possible_answers': [question['choices'][i] for i in options
                                  if question and type(i) is int and 0 <= i < len(question['choices'])],
             'source_quotes': [b.text for b in packet.blocks if b.block_id in refs]}
+        if autonomous:
+            explanation.update(review_domain=evidence.get('domain'), review_status=evidence.get('status'),
+                resolution_owner='source_owner' if evidence.get('status') == 'SOURCE_UNRESOLVED' else 'model')
         problem = str(evidence.get('problem') or finding['scope'])
         if evidence.get('status') == 'SOURCE_UNRESOLVED' and evidence.get('source_question'):
             problem = str(evidence['source_question'])
@@ -212,7 +215,8 @@ def editorial_manifest(result: Any, packet: Any, integrity_issues: list[str], *,
             'human_review_required': True, 'source_fingerprint': packet.fingerprint,
             'draft_fingerprint': _digest(result.course), 'issues': list(rows.values()),
             'observations': list(observations.values()),
-            **({'content_review_required': not automated_pass} if autonomous else {}),
+            **({'content_review_required': not automated_pass,
+                'source_clarification_required': result.decision.source_uncertain} if autonomous else {}),
             **({'automated_acceptance': {'policy': review_policy,
                 'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(result.course)}}
                 if automated_pass else {})}

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reconcile unresolved observations against current course prose through the existing model editor, retain valid evidence during partial proof repair, and preserve reviewed answer order in native saves while keeping historical recovery compatible. Machine review no longer becomes a fabricated source question.
+
 - Verify the grammatical scope and applicability of source conditions before authoring, and preserve the supplied source meaning across v34 review and addressed repair instead of substituting an expected industry rule.
 
 - Give addressed v34 evidence correction the exact current target texts used by the literal validator, with consistent source aliases and preserved original spelling. Neighboring targets cannot close an issue.
