@@ -10583,3 +10583,9 @@ Always inspect final diff statistics and bound diff-check output before release.
 - Stage reports must filter claim_token rows without response before counting usage.
 - A q2 regression fixture initially cited q1 text; strict owned proof correctly held.
   Corrected fixture quote, not validator. Explicit missing/proof fields stay guarded.
+
+- R11 readonly approval replay imports the real source-review service, which loads
+  app settings/ORM at import. First attempt lacked canonical application dotenv
+  and stopped before DB/network on missing JWT config; no model call occurred.
+  Load only the canonical apps/api dotenv into process memory before importing
+  that service; keep the separate lms_app READONLY/Supabase-project check.

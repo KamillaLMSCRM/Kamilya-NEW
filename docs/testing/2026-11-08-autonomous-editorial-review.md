@@ -1,3 +1,28 @@
+# R11 raw approved-fidelity bridge fixed LOCALLY — 2026-11-09 09:40 UTC
+
+- result: No inference active. R10 native PDF6bb0cb20 completed/saved682d37c2:
+  8L21Q,5calls203175in20742out;0manualcontent/sourceedits. All8bodies/21stems/
+  84choices/keys/explanations read, exact saved projection; keys5/6/4/6, all21quotes
+  literal. Whole editor passed; blind3overcomplete-answer claims autonomously
+  closed by current model as verifiedNOT_MATERIAL. Three non-core advisories kept.
+- changed: Engine content accepted but native automatic save acceptance FAILED:
+  raw prepared-source fidelity was loaded as dataclass state, defaulting both
+  verification flagsfalse. Actual approved source metadata is clean/no warnings/
+  nofallback; no ambiguous source defect. R11 now validates raw metadata through
+  ConversionFidelity.from_metadata. Captured historical flags retain old behavior.
+- verified: Red2/6PASS→8PASS; adjacent139PASS4.83s; baseline1004/2174PASS. Actual
+  immutable approval reloaded via READONLYlms_app, exact5savedmodelrequests replayed
+  unchanged: cleanfidelity/verifiedquality/nohold/automaticmanifesteligible;
+  0newmodelcalls/DBwrites/manualedits. No old course hold/receipt rewritten.
+- blockers: DEVd58b9040/R10 and production83 unchanged. R10PDF contentGO is not
+  nativeautomaticGO. Fullsuite7459PASS/1skip/7warnings88.96s; nav79774DONE/exclusionsPASS; no generation.
+  Source witness/replay: native-dev-r10-pdf/source-fidelity-readonly.json,
+  actual-approved-source-for-replay.json,r11-fidelity-five-response-replay.json.
+- next: Finish tests/nav/docs, scopedR11commit/CI/attestedimage/exactDEV. Fresh
+  three native courses (PDF again to prove actual atomic receipt; cash/standards
+  not started). Do not regenerate source or manually clear old R10holds. Then
+  DeepSeek within reconciled cap, protectedprod/live, TWO NEW usable Lombardcourses.
+
 ## R10 coherent literal-source candidate — 2026-11-09
 
 Fresh admission now selects v35. Native service uses the literal approved source,

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserve validated raw conversion-fidelity metadata from approved source preparation when loading a course source; keep explicit historical unverified flags and degraded/lossy-source guards.
+
 - Reconcile unresolved observations against current course prose through the existing model editor, retain valid evidence during partial proof repair, and preserve reviewed answer order in native saves while keeping historical recovery compatible. Machine review no longer becomes a fabricated source question.
 
 - Verify the grammatical scope and applicability of source conditions before authoring, and preserve the supplied source meaning across v34 review and addressed repair instead of substituting an expected industry rule.

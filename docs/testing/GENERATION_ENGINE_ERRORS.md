@@ -1289,3 +1289,24 @@ by complete questions under actual output budget without dropping any material.
 Fresh router/service select35; old33/34 requests unchanged. Technical7451PASS,
 baseline1004/2174; exact3new and22old request replay0newcalls/DBwrites/manualedits.
 This confirms a useful controlled baseline, not native3course or productionGO.
+
+## ENG-051 — approved raw fidelity reconstructed as unverified dataclass state
+
+- Deterministic integration defect, not model/source ambiguity. Native R10job
+  6bb0cb20 saved8L21Q with accepted content and all3false blind claims autonomously
+  adjudicated. Actual21question projection/keys5/6/4/6 and quotes exact. Nonetheless
+  requires_source_review=true/qualityneeds_review; automatic receipt not bound.
+- Immutable source analyzed event81 stores raw typed native-source-preparation
+  metadata (9pages, visual_and_text, fallbackfalse,warnings[]). Approved loader
+  incorrectly called ConversionFidelity(**metadata), leaving metadata_present and
+  metadata_verified at their false defaults. Source approval itself was valid.
+- Fix only raw-to-typed boundary via existing from_metadata validator. Historical
+  snapshots carrying explicit verification flags retain their old interpretation;
+  empty/missing/malformed metadata stays unverified, warnings stay degraded, lossy
+  scanned fallback stays admission-blocked. No validator/publication bypass.
+- Native-shaped loader→artifact regression:2RED/6PASS before,8PASS after; adjacent
+  139PASS/baseline1004/2174. Read actual approved event/pin/workingtext in READONLY
+  Supabase lms_app; replay ALL5real requests exacthash through corrected loader:
+  clean/verified/nohold/eligiblemanifest,0newmodelcalls/DBwrites/manualcourseedits.
+- R10 saved course remains historical blocked evidence; no fake receipt/status
+  backfill. R11 exact DEV/fresh native atomic save and 3course acceptance pending.

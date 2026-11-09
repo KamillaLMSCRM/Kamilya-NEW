@@ -1,3 +1,49 @@
+# R11 raw approved-fidelity bridge fixed LOCALLY — 2026-11-09 09:40 UTC
+
+- result: No inference active. R10 native PDF6bb0cb20 completed/saved682d37c2:
+  8L21Q,5calls203175in20742out;0manualcontent/sourceedits. All8bodies/21stems/
+  84choices/keys/explanations read, exact saved projection; keys5/6/4/6, all21quotes
+  literal. Whole editor passed; blind3overcomplete-answer claims autonomously
+  closed by current model as verifiedNOT_MATERIAL. Three non-core advisories kept.
+- changed: Engine content accepted but native automatic save acceptance FAILED:
+  raw prepared-source fidelity was loaded as dataclass state, defaulting both
+  verification flagsfalse. Actual approved source metadata is clean/no warnings/
+  nofallback; no ambiguous source defect. R11 now validates raw metadata through
+  ConversionFidelity.from_metadata. Captured historical flags retain old behavior.
+- verified: Red2/6PASS→8PASS; adjacent139PASS4.83s; baseline1004/2174PASS. Actual
+  immutable approval reloaded via READONLYlms_app, exact5savedmodelrequests replayed
+  unchanged: cleanfidelity/verifiedquality/nohold/automaticmanifesteligible;
+  0newmodelcalls/DBwrites/manualedits. No old course hold/receipt rewritten.
+- blockers: DEVd58b9040/R10 and production83 unchanged. R10PDF contentGO is not
+  nativeautomaticGO. Fullsuite7459PASS/1skip/7warnings88.96s; nav79774DONE/exclusionsPASS; no generation.
+  Source witness/replay: native-dev-r10-pdf/source-fidelity-readonly.json,
+  actual-approved-source-for-replay.json,r11-fidelity-five-response-replay.json.
+- next: Finish tests/nav/docs, scopedR11commit/CI/attestedimage/exactDEV. Fresh
+  three native courses (PDF again to prove actual atomic receipt; cash/standards
+  not started). Do not regenerate source or manually clear old R10holds. Then
+  DeepSeek within reconciled cap, protectedprod/live, TWO NEW usable Lombardcourses.
+
+# R10 exact DEV; first native PDF ACTIVE — 2026-11-09 09:25 UTC
+
+- result: DEV d58b904066bf6ef908ec9c1df109160df3a58d49 RELEASE_OK. CI42590590202,
+  attested build42591527259/image73801c673aaf1f2b6e3ddb70a12db2651be14f2d70c3a69506fc0c5f1063fbbc.
+- changed: Sole VMworker3e15560953c84c6e392592e911ee72d9d61d2ad8bc1dabcf2ea868b93b488edc,
+  source159files verified/restart0, envc531ef4c606add1801747cbbdadbdd49295d11ceb9b5480f330496db04d822b0.
+  Prior aa73worker stopped/exit0 retained. APIdep-dboov53bc2fs73cpsddg live,
+  webdpl_9KxCEzrLxJZvhu2AN8fxrQyQxrGP READY exactsameSHA. Production83unchanged.
+- verified: First native admission returned explicit409 due oldinterrupted03419e5c.
+  Fresh DBsnapshot092222 proved22completed/allclaimedresponses/noUNKNOWN/no course.
+  Ordinary owned cancel retained all evidence; distinct acknowledged submission
+  6bb0cb20-0db6-4803-a8da-1e311750b7bb uses storedv35, SAMEapprovedPDFworkingea0b2408.
+- blockers: Sole ACTIVE watcher31201/native-dev-r10-after-obsolete.py; author pending.
+  No duplicate submission/resume/rollout/runtime edit while active. Completed usage
+  zero at092501 is only no returned reply yet, not a zero-cost inference claim.
+- next: Read watcher then fullsaved readback/allcontent/keys/source-first21families;
+  model repair only, no root feedback/manualcoursefix during engine acceptance.
+  Cash/standards sequential then intendedDeepSeek/budgetreconcile/protectedprod/live,
+  then TWO NEW Lombard courses with bounded client-only manual fixes if needed.
+  Helpers and immutable receipts under .release-evidence/autonomous-editorial-review-20261108/.
+
 ## R10 coherent literal-source candidate — 2026-11-09
 
 Fresh admission now selects v35. Native service uses the literal approved source,

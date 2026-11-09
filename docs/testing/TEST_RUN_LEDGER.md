@@ -6702,3 +6702,18 @@ current reconciliation through existing review stage. Static navigation only.
 - Graphify path newdriver→persistence exists only through a test import, not a
   directed runtime call path. Confirmed actual service dispatch, stagejournal,
   artifacts and save/readback owners in source/tests; graph limitation retained.
+
+### R10 native PDF / R11 fidelity correction — 2026-11-09
+
+8L21Q native6bb0cb20 completed on exactd58b9040,5Luna6/HIGH calls203175in20742out.
+No writer/manualcontent/sourceedit. Full editor0material; blind3false fullness
+claims closed by current model NOT_MATERIAL, exact3proofs retained. All saved8
+bodies/21questions/explanations/order/correcttexts match; keydistribution5/6/4/6,
+all21quotesliteral,0duplicateprompts/0images expected for this DI. Root21source
+family checklist coremeaningPASS, administrative/wording3advisories retained.
+Automatic native acceptance NOTGO: ENG-051 raw fidelity rehydration defect.
+R11 local8regressions/139adjacent/baselinePASS. Exactactualapproval+5reply replay
+cleans deterministic fidelity boundary with0newinference/businesswrites/manualedits.
+
+R11 full7459PASS/1skip/7warnings88.96s, baseline1004/2174PASS; navigation2478files/
+29009nodes/85538edges/2511sources/exclusionsPASS, static-only. No active inference.

@@ -892,8 +892,16 @@ async def build_direct_source_corpus(
             if not approved.valid(document_id=document_id, source_revision=source_revision):
                 raise DirectSourceError("direct_source_editorial_unproved", (document_id,))
             fidelity_fields = dict(approved.fidelity)
-            fidelity_fields["warnings"] = tuple(fidelity_fields.get("warnings", ()))
-            fidelity = ConversionFidelity(**fidelity_fields)
+            if {"metadata_present", "metadata_verified"} & fidelity_fields.keys():
+                # Historical converter snapshots include captured verification
+                # flags. Preserve an explicitly unverified snapshot as such.
+                fidelity_fields["warnings"] = tuple(fidelity_fields.get("warnings", ()))
+                fidelity = ConversionFidelity(**fidelity_fields)
+            else:
+                # Native preparation stores raw typed converter metadata, not
+                # dataclass state. Validate it through the same intake parser;
+                # constructor defaults would incorrectly erase its verification.
+                fidelity = ConversionFidelity.from_metadata(fidelity_fields)
             if fidelity.admission_blocked or len(approved.working_text) > max_document_chars:
                 raise DirectSourceError("direct_source_editorial_unproved", (document_id,))
             chunks = direct_source_chunks(approved.working_text, document_id=document_id,
