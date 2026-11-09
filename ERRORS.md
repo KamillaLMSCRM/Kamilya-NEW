@@ -86,6 +86,19 @@
   was reverted. Canonical pytest wrapper needs process-only ExecutionPolicy Bypass
   in the Windows PowerShell child; its initial policy rejection ran zero tests.
 
+- Follow-up2026-11-09: PowerShell Set-Content recreated CRLF in an ignored
+  remote inventory script. Canonical kz_remote_exec dry preflight rejected it
+  with script_must_use_lf; network_attempted=false, zero remote execution.
+  Preserve the blocked receipt, normalize bytes to BOM-free UTF-8/LF before
+  hashing, then repeat dry only. Use explicit LF byte/text writes for shell
+  payloads; do not weaken the canonical serializer or repeat an execute intent.
+
+- Follow-up2026-11-09: nested immutable model-control snapshot path reached262
+  Windows characters. FileNotFoundError occurred despite an existing source and
+  parent, BEFORE either intent or provider network. Preserve the failed partial
+  snapshot/0call receipt. Unique flat snapshot basenames plus full source-path/
+  hash manifest fixed custody without MAX_PATH changes or repeated inference.
+
 ## AGENT-RESTORE-ADAPTER-001 — relocated archive name and sidecar contract
 
 - Date:2026-11-07.
@@ -7877,6 +7890,18 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
   convenient shared writer directory.
 
 ## DEV-GATE-003 - Acceptance helper omitted the trusted browser Origin
+
+- Recurrence2026-11-09 R6: harness preflight counted only pending/running jobs,
+  but canonical admission also reserves the same document set for interrupted
+  jobs. POST returned explicit409/old owned job ID; no duplicate was created.
+  Inspect the interrupted state before a fresh source revision. Here a fresh
+  restricted-role snapshot proved14unique completed requests (28response/claim
+  rows), no unknown/pending and no saved course; normal owned cancel retained
+  old evidence, then one new submission was acknowledged. Claim rows do not
+  contain response bodies: compare the full request-hash set with completed
+  response hashes and require completed claim statuses, rather than expecting
+  every row to be a model response. Do not repeat an UNKNOWN POST or cancel
+  pending inference to clear admission.
 
 - Recurrence2026-11-09: a new ignored resume harness called authenticated
   DevClient.request for public health BEFORE login; httpx rejected empty Bearer

@@ -11,6 +11,16 @@ from tests.unit.test_v3_compact_editorial_contract import case, response
 from tests.unit.test_v3_editorial_contract import review_value
 
 
+def _supplied_findings(content):
+    if '\nCURRENT_TARGET_REVIEWS_TEXT\n' in content:
+        return [row for block in content.split('\nUNVERIFIED_OBSERVATIONS_JSON\n')[1:]
+                for row in json.loads(block.split('\n')[0])]
+    if '\nCURRENT_TARGET_REVIEWS_JSON\n' in content:
+        groups = json.loads(content.split('\nCURRENT_TARGET_REVIEWS_JSON\n')[1].split('\n')[0])
+        return [row for group in groups for row in group['observations']]
+    return json.loads(content.split('\nPRIOR_MATERIAL_FINDINGS_JSON\n')[1].split('\n')[0])
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize('invalid_proof', [False, True])
 async def test_joint_resolves_mixed_prior_and_fresh_partial_without_losing_custody(invalid_proof):
@@ -35,8 +45,10 @@ async def test_joint_resolves_mixed_prior_and_fresh_partial_without_losing_custo
         else:
             value = review_value(packet, course)
             value['findings'] = []
-            listed = json.loads(messages[1]['content'].split('\nPRIOR_MATERIAL_FINDINGS_JSON\n')[1].split('\n')[0])
+            listed = _supplied_findings(messages[1]['content'])
             if not proof:
+                assert '\nCURRENT_TARGET_REVIEWS_TEXT\n' in messages[1]['content']
+                assert '\nCURRENT_TARGET_REGISTRY_JSON\n' not in messages[1]['content']
                 assert 'EXCLUSIVE_QUIZ_PROMPT' in messages[1]['content']
                 assert len(listed) == 3
                 assert messages[0]['content'].startswith('Whole current course editor')
@@ -77,7 +89,7 @@ async def test_joint_initial_partial_finding_is_still_adjudicated():
         else:
             value = review_value(packet, course)
             value['findings'] = []
-            prior = json.loads(messages[1]['content'].split('\nPRIOR_MATERIAL_FINDINGS_JSON\n')[1].split('\n')[0])
+            prior = _supplied_findings(messages[1]['content'])
             value['resolutions'] = [{'issue_id': item['issue_id'], 'disposition': 'NOT_MATERIAL',
                 'reason': 'Not material.', 'source_refs': [packet.blocks[0].block_id],
                 'source_quote': packet.blocks[0].text, 'course_quote': '', 'source_question': ''} for item in prior]

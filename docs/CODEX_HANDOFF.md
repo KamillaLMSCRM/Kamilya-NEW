@@ -1,3 +1,148 @@
+# R7 model-owned saved-course repair PASS; fresh native DEV OPEN — 2026-11-09 02:59 UTC
+
+- result: Existing model editor repaired4lessons of the saved8L24Q; all4peers,
+  every prompt/choice/key/reference and23question objects unchanged. One remaining
+  question changed only its equivalent explanation. Current course fingerprint
+  7db3ca0dc6e95c928d4c9257eb5ad6028c0cae31326d4bc7dc27b744662b2403.
+  No root content patch, human finding injection or source answer was used.
+- changed: LOCAL R7 preserves operative set members/applicability in grouped
+  source rules. Existing joint-editor receives full owned current target text
+  literally beside ALL historical observations, rather than detached hashed
+  registry references/nested escaped prose. No new critic, limit, route, setting,
+  schema or weakened literal/semantic gate. LegacyFalse/v33 messages preserved.
+- verified: JSON grouping alone still falsely alleged absent alarm duties;
+  immutable failures retained. Literal-target control on SAME23observations and
+  model-edited8L24Q returned0material findings,21valid resolutions60236in7890out/
+  146.922s. Existing proof-only model stage corrected2source quotes to23/23valid,
+  without changing a disposition, question, course or review. This controlled
+  success is NOT a universal accuracy claim or native course acceptance.
+  Live dedicated DEV connector runner/server hashes match local source exactly;
+  no hidden history/memory, semantic rewrite or installed-wrapper drift found.
+- blockers: DEV remains exactc460 R6, production83 unchanged. R6 job418653b8 is
+  known quiescent/interrupted,23completed requests/no pending/unknown/course;
+  do not resume it under changed prompts. Fresh PDF/cash/standards and intended
+  DeepSeek/production acceptance remain OPEN. No model process currently active.
+- next: Final local gates/nav/commit, canonical exact-SHA DEV update, then fresh
+  whole PDF and cash sequentially, source/image/question audits and standards26
+  comparison. Normal cancel only the proven obsolete quiescent QA baseline before
+  new same-doc admission; no force/reset/delete or unknown inference replay.
+  Evidence .release-evidence/autonomous-editorial-review-20261108/
+  enumeration-{joint-control-2,addressed-editor-1,post-edit-joint-1,
+  post-edit-literal-1,post-edit-proof-1}; source-enumeration-control-2.
+
+## Superseded joint-control checkpoint
+
+# R7 source/prose controls complete; joint adjudication active — 2026-11-09 02:15 UTC
+
+- result: Full local7301PASS/1skip/7warnings76.29s; baseline1004/2174PASS;
+  no technical test remains active. Source-control28rules correctly restores
+  R15. Actual prose control28rules45617in7814out143.812s independently returns
+  verified INCOMPLETE R15/lesson5 with the missing operational members.
+- blockers: Its other observations include FALSE absence claims for PKO/RKO,
+  setting/unsetting alarm, damage prevention and training formats that are
+  visibly present in the unchanged draft/request. Literal compiler verified=true
+  is NOT independent semantic correctness. Do not blindly send all these claims
+  as instructions or manually close/edit them. No R7 course acceptance yet.
+- next: Sole active inference enumeration-joint-control.py/session22858, using
+  the existing joint-editor system/format/current-target registry and ALL16
+  model-derived observations on the unchanged8L24Q. This is a standalone saved
+  adjudication control; no separate proof repair or full native flow claim.
+  After readback, check automatic refutation of false claims and confirmation
+  of genuine gaps, then native scoped model edit + semantic recheck. R6 job
+  remains safely interrupted/all23responses retained; do NOT resume known-bad
+  old prompts merely to accumulate inference. DEV/prod remain as below.
+
+## Superseded source-control checkpoint
+
+# R7 operational enumeration fix local; saved-source control PASS — 2026-11-09 02:10 UTC
+
+- result: DEV remains exactc460 R6/CI42542283011, API/web/sole VMworker verified.
+  R6 PDF418653b8 is now safely preclaim-interrupted, no pending/unknown,23unique
+  completed model requests772908in79189out. Initial8L24Q and all model-only
+  source alignment/L1/L2 edits retained. Source scope/mandatory/liability fixes
+  are present, but dossier contents were summarized away; NO full-course GO,
+  saved DB course, cash/standards run or production change is claimed.
+- changed: R7 is LOCAL/UNCOMMITTED. One runtime module adds a shared general
+  operational-enumeration fidelity guide to existing v34 reader/verifier/
+  completeness/author/prose/joint/editor/key-blind roles. Compact grouped rules
+  must retain applicable operational members; a label/reference to an absent
+  list cannot substitute for its contents. Reference-only lists are distinguished.
+  No extra critic, model call, schema/setting/route/limit or weakened validator.
+  LegacyFalse/v33 base messages stay unchanged. New3RED→focused10PASS1.21s.
+- verified: Source-enumeration-control-2: ALL28unchanged native initial rules,
+  unchanged source, generic new guide, no human finding/member list injected.
+  Actual Luna/HIGH30556in8446out155.5s independently REVISE R15, restoring all
+ 12applicable dossier categories and schedule qualifier; source_question empty.
+  Compiled custody valid; model concatenated quote remains explicitly invalid,
+  FIRST_OWNED_SOURCE_BLOCK fallback and raw quote preserved, not silently passed.
+  This is source-only cause verification, not course/native/other-document GO.
+- blockers: Sole ACTIVE inference is enumeration-prose-control.py/session28664,
+  checking the unchanged8L24Q against the model-corrected28-rule map under the
+  actual R7 prose role. Do not run another inference or resume native R6 now.
+  Its request/intent is retained in enumeration-prose-control-1. Source control1
+  failed local MAX_PATH snapshot262chars BEFORE intent/network;0calls, retained.
+  Flat unique-basename snapshot2 fixed the harness; complete fullpath/hash manifest.
+- next: Read control28664/receipt, verify R15 course gap is automatically located,
+  then model-only addressed edit and semantic recheck on saved responses. Keep
+  all good peers/questions and genuine source uncertainty; no manual lesson
+  repair. Finish proportionate technical/nav gates and commit/deploy R7 exact
+  before NEW native PDF/cash/standards. Do NOT continue known-defective R6 merely
+  to accumulate calls. Normal owned cancel of its known quiescent baseline may
+  be needed before fresh same-document admission; never cancel UNKNOWN/pending.
+
+## Superseded native-start checkpoint
+
+# R6 native PDF running — 2026-11-09 01:26 UTC
+
+- result: Canonical exact-c460 DEV RECONCILED after one clean rebuild. Render
+  dep-dbohvevf3r2c73b7j2lg public healthc460; Vercel
+  dpl_G2DpDCF34RVvxXwD7QbDfEFnwCMz READYc460; sole worker/source/env/consumer
+  c019b550/4ef0/4025361f ready/rest0. CI42542283011 SUCCESS. First blocked
+  execute/reconcile receipts retained; precise stale-runtime mechanism unproven,
+  so do not claim that an identity override or model timeout caused it.
+- changed: First native submit received explicit409 pointing to old interrupted
+  R5 baselinebc7b41a9. Fresh restricted-role DB read proved14unique request hashes
+  all completed (28response/claim rows), no pending/unknown/course. Normal owned
+  cancel terminally retained that obsolete QA baseline, checkpoints and token
+  evidence; no forced stop/reset/delete. One subsequent known409 recovery submit
+  admitted fresh R6 job418653b8-724c-4f23-ba8e-e3a060e1de5b.
+- verified: Approved PDF source SHAea0b2408…09f unchanged. Manual course edits0.
+  Native poll session17728 running ingestion. No cash/standards/new source-review
+  inference in parallel. No client/accepted QA course or production changes.
+- next: Follow SAME job through normal polling and read-native-job-r6.py pdf.
+  Use resume-native-r6.py ONLY for a proven known preclaim yield, all request
+  hashes completed/no pending. Keep literal/code/semantic acceptance separate;
+  then cash and standards26 sequential, intended DeepSeek and protected prod
+  only after actual quality GO. Helpers now bind dev-r6-reconcile-clean-result.json
+  statusRECONCILED, never overwrite earlier BLOCKED execute receipt.
+
+## Superseded API-reconciliation checkpoint
+
+# R6 source-meaning worker ready; API identity reconciliation OPEN — 2026-11-09 01:21 UTC
+
+- result: Exact feature/dev remote c4604a379442cb79ccb11dd489325b1126501adf,
+  project-account receipts retained. CI42542283011 SUCCESS; build42542945381
+  attested image4ef0c987…5afe. New sole VM126 DEV workerc019b550…48d88 ready,
+  all155source files verified,1CPU/1GiB/read-only/no binds/restart unless-stopped,
+  zero restarts. Old2a8/d9fc warm-stopped cleanly/retained; six production and
+  connector identities/images/restarts unchanged. Env payload4025361f…87706.
+- blockers: Controller execute and first reconcile stopped api_release_sha_mismatch:
+  Render dep-dbohorjrjlhs73bgb02g is live/c460 and build logs prove c460 checkout,
+  but public no-store health still reports predecessor d9fc. Direct service/env
+  pagination, linked groups and secret-file checks found no configured identity
+  override. One acknowledged DEV-only restart did not close this discrepancy.
+  Do NOT rewrite health/release claims or start generation on mixed identities.
+- next: ONE clean-cache exact-c460 rebuild acknowledged dep-dbohvevf3r2c73b7j2lg;
+  follow sole reconcile-clean-dev-r6.py/session88071 and preserved result. No new
+  native R6 job/source review/inference has started. If exact identity reconciles,
+  fresh native PDF, cash, standards26 sequentially; use approved frozen sources,
+  model-only corrections and independent whole-content/question/image review.
+  Existing blocked receipts and R5 interrupted job remain immutable. No production
+  mutation, new resource, tier, model route, source decision or client-data change.
+  Current evidence root .release-evidence/autonomous-editorial-review-20261108.
+
+## Superseded pre-commit checkpoint
+
 # R6 source-meaning candidate READY FOR COMMIT/DEV — 2026-11-09 00:44 UTC
 
 - result: No active inference/test. Exact DEV API/web/sole VM worker remain
@@ -4537,3 +4682,11 @@ HTTP health не доказывает, что worker, migrations и пользо
 5. Любое долговечное архитектурное решение получает ADR.
 
 2026-11-02 tenant settings UI-009: owner requested 50 monthly courses and financial-organization flag for Sandyk. Exact scoped production PATCH sent only those fields; HTTP 200 and fresh GET confirm 50/true while existing custom plan and max_users=50 remain unchanged. Old UI could show free while its state submitted custom (not accepted by production API whitelist), explaining the 422 for this form shape. Frontend fix and synthetic page regression are local in frontend-source-review-copy-20261102 based on 1c701f2c; 4 focused Vitest tests and TypeScript noEmit pass. Prepared frontend-only release 0.11.68 on existing UX67; full tests/CI/native/DEV and production acceptance pending. Owner now explicitly requests frontend release before engine continuation. Owner did not request changing the tariff. SMTP has since been restored and owner OTP/login and welcome inbox delivery verified; operational source/runbook is in luna-transport-observability-20261102, keep its supervised mail route intact.
+
+
+R7 final local gate:7304passed/1skipped/7warnings77.85s(session46193);
+baseline1004/2174PASS. Test-only trailing whitespace removed after full run;
+focused3passed0.57s, no runtime delta. Navigation2469files/28920nodes85721edges
+2502sources/exclusionPASS. CodeGraph confirms groups->review_editorial_candidate;
+source confirms v34-only dispatch/strict proof correction; semantic saved-control
+is separate from native DEV GO. No active model/test process.

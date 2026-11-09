@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Preserve operative source lists and adjudicate historical observations beside complete literal current lesson text; model-only addressed repairs retain good peers and assessment keys.
+
 - Share source/course context across v34 logical comparison groups within the existing output budget, retaining every rule, owned target and dependency.
 
 - Give the v34 joint editor one coherent whole-course role and share current target snapshots without duplicating lesson text for every observation. Preserve all evidence, legacy dispatch and independent checks.

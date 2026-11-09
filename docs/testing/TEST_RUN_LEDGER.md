@@ -1,5 +1,21 @@
 ## RUN-20261109-SOURCE-MEANING-R6
 
+- Closeout01:26UTC: exactc460 DEV RECONCILED after acknowledged clean-cache
+  rebuild dep-dbohvevf3r2c73b7j2lg. Public health and Vercel exact; worker config/
+  environment/source/consumer PASS. Stale-runtime cause is NOT proven. Earlier
+  blocked execute/reconcile immutable. First native admission409 correctly
+  blocked duplicate document set; old known interrupted R5 baseline was normally
+  cancelled/retained after fresh14completed-request/no-unknown DB proof. Fresh
+  job418653b8-724c-4f23-ba8e-e3a060e1de5b admitted; SAME original PDF/approved
+  working source, no human content edit. Whole-course acceptance remains OPEN.
+- Runtime checkpoint01:21UTC: exactc4604 feature/dev readback, CI42542283011
+  SUCCESS/build42542945381 attested4ef0c987…5afe. Sole DEV workerc019b550
+  source155PASS/1CPU/1GiB/read-only/restartunless-stopped/rest0; predecessor
+  retained; production six IDs/images/rest counts unchanged. API rollout gate
+  correctly BLOCKED: Render metadata/build checkoutc460 but public healthd9fc.
+  One acknowledged DEV-only restart did not reconcile; one clean-cache rebuild
+  dep-dbohvevf3r2c73b7j2lg pending exact readback. Zero new R6 inference/native
+  submissions. Blocked receipts preserved; no manual identity/content override.
 - Current local source delta: focused60PASS3.67s; full7298PASS/1skip/7warnings
   74.97s; baseline1004/2174PASS. LegacyFalse/v33 messages unchanged. No settings,
   source/human decision, provider route, role, tariff or client mutation.
@@ -6592,3 +6608,27 @@ Live new selection/stage/save and pending old-job reconciliation remain open.
 - Navigation2456codefiles/28813nodes85817edges2489sources/excluded-auditPASS;
   search option_predicates_messages found only actual driver import and test.
 - Final canonical fullAPI regression:7205PASS/1skip/7warnings73.85s, session92261; technical-gate-final-1907.json binds source hashes. Semantic fullcourses/native DEV remain open.
+
+
+## RUN-20261109-R7-SAVED-MODEL-REPAIR-01
+
+- Source control28rules30556in8446out155.5s restored12dossier categories;
+  unchanged-course prose45617in7814out143.812s independently found lesson5gap.
+- Grouped joint retained all16observations; scoped editor4calls109758in6212out/
+ 130.954s changed only4owned lessons, preserving peers and24question keys/options.
+- JSON postreview false alarm absence retained. Same23observations/course literal
+  projection60236in7890out146.922s:0material findings,21valid resolutions.
+  Native proof-only stage: 46365in/1944out/38.672s,
+ 23/23valid,0material findings; dispositions/review/course unchanged.
+- No manual course/source correction; strict custody and actual root content
+  inspection retained. Connector read-only installedsource match,0calls/statechanges.
+- All controls Luna6/HIGH, one inference at a time; no UNKNOWN replay. Not new
+  fullcourse or native DEV GO. Prior failures immutable. Production/customer data0writes.
+
+
+R7 final local gate:7304passed/1skipped/7warnings77.85s(session46193);
+baseline1004/2174PASS. Test-only trailing whitespace removed after full run;
+focused3passed0.57s, no runtime delta. Navigation2469files/28920nodes85721edges
+2502sources/exclusionPASS. CodeGraph confirms groups->review_editorial_candidate;
+source confirms v34-only dispatch/strict proof correction; semantic saved-control
+is separate from native DEV GO. No active model/test process.

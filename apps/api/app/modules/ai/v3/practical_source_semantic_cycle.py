@@ -66,6 +66,24 @@ SOURCE_COMPLETENESS_SYSTEM = (
 )
 
 
+SOURCE_ENUMERATION_GUIDE = (
+    '\nСохраняй операционный состав перечислений: необходимые документы, действия, '
+    'элементы комплекта, категории и другие члены набора, от которых зависит рабочее решение. '
+    'Их можно объединять в одно связное правило, не создавая норму на каждый факт, но сами '
+    'члены и условия их применимости должны оставаться в содержательных полях результата. '
+    'Фраза «предусмотренные документы», «по приведённому перечню» или название процедуры '
+    'не заменяет содержимое исходного операционного списка. Наличие всех source_refs '
+    'также не доказывает сохранение перечисленных требований. Сверяй состав по самому '
+    'исходнику, даже если прежняя карта уже объявлена проверенной. При проверке курса '
+    'учитывай явную пригодную отсылку к списку в другом его уроке; отсутствующий в курсе '
+    'список нельзя считать раскрытым. Проверь конкретный контрпример: сможет ли работник '
+    'следовать результату и при этом пропустить требуемый исходником член набора? '
+    'Если да, это адресная модельная правка карты или курса, а не вопрос человеку. '
+    'Отличай такой набор от оглавления, перечня правовых оснований и справочных деталей, '
+    'которые не меняют изучаемое рабочее решение; не требуй дословности, отдельного урока '
+    'или вопроса для каждого элемента.\n'
+)
+
 SOURCE_AUTHORITY_GUIDE = (
     '\nПроверяй смысл по самому переданному источнику и подтвержденным уточнениям. '
     'Карточка разбора, прежнее ревью, урок и отраслевая привычка не заменяют исходную норму. '
@@ -78,7 +96,7 @@ SOURCE_AUTHORITY_GUIDE = (
     'Ошибка такого чтения модели исправляется моделью; вопрос человеку нужен только при '
     'нескольких операционно разных чтениях самого исходника, которые не разрешаются его '
     'грамматикой и контекстом. Сомнение в привычности ясной формулировки не является такой неоднозначностью.\n'
-)
+) + SOURCE_ENUMERATION_GUIDE
 
 
 SOURCE_RELATION_GUIDE = """Проверяй область каждого определения и условия отдельно от сходства слов. Сначала разбери буквальную исходную цитату без доверия к готовой карте: какое исходное слово описывает оборот, как с ним согласованы падеж, род и число, какая смысловая связь выражена в контексте. Ближайшее упомянутое существительное не становится носителем условия автоматически. Нельзя исправлять окончание или переставлять определение так, чтобы менялась связь исходного требования.
@@ -104,7 +122,8 @@ async def prepare_source_semantics(
         "review",
         "practical:source-semantics:read:v33:" + packet.fingerprint,
         [
-            {"role": "system", "content": SOURCE_READING_SYSTEM},
+            {"role": "system", "content": SOURCE_READING_SYSTEM + (
+                SOURCE_ENUMERATION_GUIDE if relation_checks else "")},
             {"role": "user", "content": context + "\nSOURCE_FINGERPRINT\n" + packet.fingerprint},
         ],
         source_semantics_format(packet),
@@ -131,7 +150,7 @@ async def prepare_source_semantics(
         "practical:source-semantics:verify:v33:" + reading["reading_fingerprint"],
         [
             {"role": "system", "content": SOURCE_VERIFY_SYSTEM + (
-                "\n" + SOURCE_RELATION_GUIDE if relation_checks else "")},
+                "\n" + SOURCE_RELATION_GUIDE + SOURCE_ENUMERATION_GUIDE if relation_checks else "")},
             {
                 "role": "user",
                 "content": context
@@ -147,7 +166,8 @@ async def prepare_source_semantics(
         "review",
         "practical:source-semantics:complete:v33:" + verified["verified_reading_fingerprint"],
         [
-            {"role": "system", "content": SOURCE_COMPLETENESS_SYSTEM},
+            {"role": "system", "content": SOURCE_COMPLETENESS_SYSTEM + (
+                SOURCE_ENUMERATION_GUIDE if relation_checks else "")},
             {"role": "user", "content": context + source_semantics_context(verified, view)},
         ],
         source_completeness_format(packet, verified),

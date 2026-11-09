@@ -54,6 +54,15 @@ JOINT_EDITOR_GUIDE = (
     'No course edit, fabricated fact, or automatic assent to earlier reviewers.'
 )
 
+CURRENT_TARGET_GROUP_GUIDE = (
+    ' CURRENT_TARGET_REVIEWS_TEXT groups each exact current_target_snapshot with its '
+    'observations. Read that whole current snapshot before deciding each allegation; '
+    'the observations are hypotheses, not descriptions of what is absent. '
+    'If the allegedly missing action is already stated there or in the applicable '
+    'current peer text, do not repeat that absence claim. For null snapshots, use '
+    'the full current course and source; do not invent a missing current target.'
+)
+
 
 def _current_prior_targets(prior: list[dict[str, Any]], course: dict[str, Any], *, prose_only: bool) -> list[dict[str, Any]]:
     lessons = {row['id']: row for row in course['lessons']}
@@ -91,6 +100,42 @@ def _current_prior_target_registry(
         finding['current_target_ref'] = reference
         findings.append(finding)
     return findings, registry
+
+
+def _current_target_review_groups(prior: list[dict[str, Any]], course: dict[str, Any]) -> list[dict[str, Any]]:
+    """Keep each owned current target adjacent to all of its unverified observations."""
+    findings, registry = _current_prior_target_registry(prior, course)
+    groups: dict[tuple[str, str], dict[str, Any]] = {}
+    for finding in findings:
+        reference = finding.pop('current_target_ref')
+        target = finding['target']
+        key = (target['kind'], target['id'])
+        if key not in groups:
+            groups[key] = {'target': copy.deepcopy(target),
+                           'current_target_snapshot': copy.deepcopy(registry[reference]) if reference else None,
+                           'observations': []}
+        groups[key]['observations'].append(finding)
+    return list(groups.values())
+
+
+def _render_current_target_reviews(groups: list[dict[str, Any]], view: Any) -> str:
+    """Project owned prose literally; only identities and observations need JSON encoding."""
+    parts: list[str] = []
+    for group in groups:
+        encoded = view.encode(group)
+        snapshot = encoded['current_target_snapshot']
+        parts.extend(['CURRENT_TARGET_JSON', json.dumps(encoded['target'], ensure_ascii=False, sort_keys=True)])
+        if isinstance(snapshot, dict) and isinstance(snapshot.get('content'), str):
+            identity = {key: snapshot[key] for key in ('id', 'title')}
+            parts.extend(['CURRENT_SNAPSHOT_IDENTITY_JSON', json.dumps(identity, ensure_ascii=False, sort_keys=True),
+                          'CURRENT_LESSON_TEXT', snapshot['content'], 'END_CURRENT_LESSON_TEXT',
+                          'CURRENT_QUESTIONS_WITH_KEYS_AND_EXPLANATIONS_JSON',
+                          json.dumps(snapshot['questions'], ensure_ascii=False, sort_keys=True)])
+        else:
+            parts.extend(['CURRENT_TARGET_SNAPSHOT_JSON', json.dumps(snapshot, ensure_ascii=False, sort_keys=True)])
+        parts.extend(['UNVERIFIED_OBSERVATIONS_JSON',
+                      json.dumps(encoded['observations'], ensure_ascii=False, sort_keys=True)])
+    return '\n'.join(parts)
 
 
 def _hold_out_of_scope_findings(result: dict[str, Any], lesson_ids: list[str]) -> None:
@@ -349,11 +394,8 @@ async def review_editorial_candidate(
         joint_content = context + '\nFULL_COURSE_WITH_KEYS_AND_EXPLANATIONS_JSON\n' + json.dumps(
             view.encode(course), ensure_ascii=False, sort_keys=True)
         if joint_prior:
-            registry_findings, target_registry = _current_prior_target_registry(joint_prior, course)
-            joint_content += '\nCURRENT_TARGET_REGISTRY_JSON\n' + json.dumps(
-                view.encode(target_registry), ensure_ascii=False, sort_keys=True)
-            joint_content += '\nPRIOR_MATERIAL_FINDINGS_JSON\n' + json.dumps(
-                view.encode(registry_findings), ensure_ascii=False)
+            target_groups = _current_target_review_groups(joint_prior, course)
+            joint_content += '\nCURRENT_TARGET_REVIEWS_TEXT\n' + _render_current_target_reviews(target_groups, view)
             joint_fmt = editorial_verification_format(packet, course, joint_prior)
         else:
             joint_fmt = editorial_review_format(packet, course)
@@ -365,11 +407,7 @@ async def review_editorial_candidate(
 
         joint_target_guide = CURRENT_TARGET_GUIDE
         if joint_prior:
-            joint_target_guide = CURRENT_TARGET_GUIDE.replace(
-                'adjacent current_target_snapshot',
-                'current snapshot in CURRENT_TARGET_REGISTRY_JSON referenced by its current_target_ref',
-            ) + (' For null current_target_ref, use the full current course and source; '
-                 'do not infer a missing snapshot.')
+            joint_target_guide += CURRENT_TARGET_GROUP_GUIDE
         joint_system = (joint_editor_system if joint_editor_system is not None else assessment_system)
         joint_system += verification_guide + joint_target_guide + JOINT_EDITOR_GUIDE + SOURCE_AUTHORITY_GUIDE
         joint_group = ('practical:editorial:verify:v34:joint:' if joint_prior

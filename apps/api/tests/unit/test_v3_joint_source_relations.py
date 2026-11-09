@@ -5,6 +5,7 @@ import pytest
 from app.modules.ai.v3.practical_model_view import PracticalModelView
 from app.modules.ai.v3.practical_source_semantic_cycle import (
     SOURCE_COMPLETENESS_SYSTEM,
+    SOURCE_ENUMERATION_GUIDE,
     SOURCE_READING_SYSTEM,
     SOURCE_RELATION_GUIDE,
     SOURCE_VERIFY_SYSTEM,
@@ -46,9 +47,10 @@ async def test_returned_relation_correction_preserves_source_and_other_rules(ena
     result = await prepare_source_semantics(p, 'ORIGINAL WITH EXACT CONDITIONS', PracticalModelView(p), call,
                                             relation_checks=enabled)
     assert len(calls) == 3
-    assert calls[0][0]['content'] == SOURCE_READING_SYSTEM
-    assert calls[2][0]['content'] == SOURCE_COMPLETENESS_SYSTEM
-    assert calls[1][0]['content'] == SOURCE_VERIFY_SYSTEM + ('\n' + SOURCE_RELATION_GUIDE if enabled else '')
+    assert calls[0][0]['content'] == SOURCE_READING_SYSTEM + (SOURCE_ENUMERATION_GUIDE if enabled else '')
+    assert calls[2][0]['content'] == SOURCE_COMPLETENESS_SYSTEM + (SOURCE_ENUMERATION_GUIDE if enabled else '')
+    assert calls[1][0]['content'] == SOURCE_VERIFY_SYSTEM + (
+        '\n' + SOURCE_RELATION_GUIDE + SOURCE_ENUMERATION_GUIDE if enabled else '')
     assert all('ORIGINAL WITH EXACT CONDITIONS' in messages[1]['content'] for messages in calls)
     assert result['original_reading']['original'] == original == raw
     assert result['interpretations'][0]['status'] == 'REVISE'

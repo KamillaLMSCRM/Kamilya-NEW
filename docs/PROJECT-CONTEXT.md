@@ -1,3 +1,27 @@
+## Current R7 saved-model repair boundary — 2026-11-09 02:59 UTC
+
+DEV remainsc460 R6; production83 and all accepted/client data unchanged. Local
+R7 existing model-only scoped editor repaired4lessons, current8L24Q retained.
+Literal current-target projection eliminated the repeated false absence claim
+in this matched control;23/23 historical observations resolved by model,0material
+findings after existing evidence-only model correction. Original source and
+all prompts/choices/keys unchanged. This is saved-data mechanism evidence;
+fresh native fullcourses/DEV/DeepSeek/production GO still OPEN. No active inference.
+See current CODEX_HANDOFF, ENG-042 and autonomous-editorial-review report.
+
+## Current DEV c460 / local R7 boundary — 2026-11-09
+
+Exact DEV API/web/sole VM126 worker c4604a379442cb79ccb11dd489325b1126501adf,
+CI42542283011 SUCCESS, attested4ef0c987…5afe, worker c019b550/rest0/1CPU/1GiB/
+read-only/unless-stopped. Canonical REL-DEV-SOURCE-MEANING-C460-R6-20261109
+RECONCILED after one clean-cache Render rebuild; earlier metadata/live-health
+mismatch receipts retained. New R7 operational-list contract is LOCAL/UNCOMMITTED,
+not deployed. Native PDF418653b8 known preclaim-interrupted/all23responses retained,
+no pending/unknown; no native quality GO or DB course. Source-only R7 saved model
+control PASS; course proof/edit and three full courses still OPEN. Current active
+process/evidence details: CODEX_HANDOFF.md and autonomous-editorial-review-20261108.
+Production remains the accepted83/runtime below; client/accepted QA data untouched.
+
 ## Current runtime83 and original-file production acceptance — 2026-11-08
 
 Production API/three workers466e0f90/v0.11.83 image62ea4c08...7e393, blue/zero

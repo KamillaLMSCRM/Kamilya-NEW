@@ -1,5 +1,44 @@
 # Журнал ошибок движка генерации и обработки курсов
 
+## ENG-042 — операционный перечень сворачивался в ссылку на отсутствующий список
+
+- Follow-up02:15UTC: actual unchanged-course prose control returns INCOMPLETE
+  R15 with all applicable members;45617in7814out143.812s. It also alleges absence
+  of several passages actually present in both course and exact wire request
+  (cash orders, alarm setting/unsetting, prevention of harm, training formats).
+  These are model false-positive candidates, not confirmed additional code or
+  source defects. Compiler literal/custody verified is NOT semantic proof. All16
+  observations are sent to the existing joint-editor role/current-target registry
+  for model adjudication before edit. No root manual closure or course correction.
+  Full7301PASS/1skip/7warnings76.29s; baseline1004/2174PASS. Native GO remains OPEN.
+- 2026-11-09, native DEVc460/R6 job418653b8. Source3.6.3 lists12applicable
+  dossier categories. Initial source cardR15 replaced them with the assertion
+  that the listed/required records are included. Grammar verification accepted
+  that card; completeness added no missing members. Lesson5 repeated the
+  reference to a list without supplying that list or a usable course link.
+  Complete source_refs and a valid heading quote did not establish coverage.
+- This is semantic information loss during grouped source abstraction and its
+  downstream validation, not a genuine source ambiguity or a demand for one
+  lesson/question per list item. Source/accepted QA/client courses unchanged.
+  Independent heldout initial-course note was not injected into native calls.
+- Local R7 adds one shared general operational-set preservation guide across
+  existing v34 roles, including all three source stages. Grouping is retained;
+  required members/applicability cannot be replaced by a label. Reference-only
+  enumerations remain nonmandatory teaching detail. No extra critic/request,
+  lowered gate, new configuration/schema or specific dossier rule in code.
+- Technical:3RED then10focusedPASS1.21s. Actual saved-source verifier on ALL28
+  native initial rules independently REVISE R15, with12categories and the
+  conditional schedule retained;30556in8446out155.5s/Luna6HIGH. No human finding
+  or member list supplied. Model quote was concatenated/invalid: raw preserved,
+  explicit owned-source fallback remains, not an invented literal citation.
+- R6 baseline safely preclaim-interrupted,23completed requests772908in79189out,
+  no unknown/pending. It is NOT a full accepted course/unit cost. Current source
+  control proves source-card correction only; saved prose/edit/verification,
+  fresh three native courses/DeepSeek/prod gates remain OPEN. Sole active prose
+  control enumeration-prose-control-1 uses unchanged native8L24Q and the model-
+  corrected28rules, with no injected root allegation. Evidence: autonomous root,
+  native-dev-r6-pdf/initial-heldout-oracle.json, source-enumeration-control-2.
+
 ## ENG-041 — производная трактовка и отраслевая привычка подменяли область условия исходника
 
 - 2026-11-09: fresh native DEV d9fc0c57 PDF jobbc7b41a9 produced9L28Q.
@@ -1029,3 +1068,44 @@ raw не является новым вызовом. Unknown dispatch не по�
   DEV gate PASS11checks/cleanuptrue/publicneutraltrue/public0186, no production writes.
 - Status: LOCAL FIXED, exact CI/DEV recovery pending. Full courses/production
   still NOT VERIFIED. Conservative stale legacy-worker holds require reconciliation.
+
+
+## ENG-043 — исторические замечания заслоняли актуальный текст при повторном ревью
+
+- 2026-11-09. Existing keyed/joint model repeated absence of PKO/RKO and alarm
+  duties even when exact current owned prose contained them. A literal/custody
+  verified verdict did not prove its semantic truth. Failure inputs/responses
+  retained; no false allegation was manually converted into source ambiguity.
+- Detached target registry and JSON grouping still reproduced false absence.
+  R7 groups all observations beside one complete owned current target and emits
+  its prose literally (keys/identities/observations remain structured). Matched
+  same-source/same23observation/same8L24Q control: no material findings;21valid
+  resolutions. Existing proof-only model stage corrected2nonliteral source
+  quotes to23valid, without changing dispositions/course/source questions.
+  This identifies an input representation sensitivity in this case, not a proof
+  that JSON alone causes every model error. No automatic semantic assent added.
+- Model-owned scoped edits before recheck:4calls109758in6212out130.954s,
+ 4untouched peerlessons,24prompts/choices/keys/source refs unchanged,23whole
+  question objects identical; q5-3 explanation alone equivalently rephrased.
+  Dossier list/applicability, materials, safety and qualified liability checked
+  against original source. No root manual lesson repair or correction injection.
+- Falsified alternatives: live DEV connector runner57d188a4/server6498ce23 hashes
+  equal local; exact current prose present in wire input; ephemeral no-history/
+  no-memory CLI; strict typed output pass-through; no semantic fallback/repair
+  outside explicit model stages. Capacity retry only on explicit no-result.
+  Dedicated connector read-only audit0model calls/0state changes.
+- Evidence: autonomous-editorial-review-20261108/enumeration-post-edit-{joint-1,
+  literal-1,proof-1}, enumeration-addressed-editor-1, dev-connector-source-audit.
+  Technical tests validate grouping/custody/preservation, not model infallibility.
+  Native fresh-course and three-document GO remain OPEN.
+
+
+### ENG-042 follow-up — model-owned operative-list correction
+
+Source verifier restored all12applicable dossier categories from28unchanged
+native source rules. Existing prose reviewer independently located the real
+lesson5gap; all its other observations entered joint adjudication without root
+filtering. Model scoped editor supplied the actual list and conditions. R7
+literal joint review and evidence-only correction now resolve all23observations
+with0remaining material findings on saved8L24Q. This closes this saved mechanism
+control; it does not retroactively accept interrupted R6 or fresh fullcourses.
