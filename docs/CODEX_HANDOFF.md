@@ -1,3 +1,235 @@
+# R8 local/isolated gates PASS; prepare exact DEV — 2026-11-09 04:37 UTC
+
+- result: No active model/test/DBgate. Final full7357PASS/1skip/7warnings77.50s,
+  baseline1004/2174PASS. Canonical isolated Supabase r2 PASS12checks, cleanuptrue,
+  public0187/sourceunchanged; sourcehash ee31881f…8315. Initial BLOCKED gate retained
+  cleanuptrue; its joint request-drift fixture used wrong response dialect,
+  corrected without broad exception acceptance. All legacy and joint races nowPASS.
+- changed: R8LOCAL/UNCOMMITTED transports partial known v34joint decisions only
+  with an explicit validator; strict all-ID compiler stays mandatory. One explicit
+  modelcompletion requests only missing3 and preserves25decisions/primaryfindings.
+  Completion uses registered verify:v34:complete-resolutions group and cannot
+  recursively complete. Existing exact owned retained replay supports v34joint
+  only; source/route/wire/body/claim/delivery/atomic usage/audit guards remain.
+- verified: Actual saved23responses offline replay matches EVERYrequesthash;
+  original rejectedreply/schema exactlymatched; asks3IDs, no source/course edits,
+  no model/DBwrites. r8b-completion-offline.json is current; oldr8 diagnostic is
+  superseded solely for corrected internal group registration. Focused118PASS;
+  full7357 includes both managed/direct registered-completion cases.
+- blockers: DEV runtime is still exactdf91R7, production83 untouched. Jobc44d9fbc
+  held with completeHTTP200/body45df4064…259,25/28decisions.23actualknown model
+  replies780713in88886out, not accepted-course unitcost; dollarsUNKNOWN. No cash/
+  standards newgeneration or DeepSeek/prod acceptance yet. Do not ordinaryresume
+  underR7 and do not repeat the original23rd query.
+- next: Commit exact scopedR8; project-account feature/devpush+remoteSHA receipts;
+  CI/build-only image/env and canonical one-worker/API DEV rollout. Then GET job
+  retained_response_replay_available and normal SAMEjob resume with exact pending
+  body/source/route guards. It reuses raw23rdreply, then only NEW3-IDcompletion.
+  All22completed responses retained. Follow automatic course edit/recheck through
+  saved fullcourse audit, then freshcash/standards, intendedDeepSeek and protected
+  prod/live only afterGO. Source prompts up toheldstage are unchanged fromR7.
+  Nav2471/28939nodes85796edges/2504sources/exclusionPASS; graph runtime path went
+  through synthetic _exercise (INFERRED), so source/realDB guardproof is decisive.
+
+# R8 final gates r2 ACTIVE; no model process — 2026-11-09 04:33 UTC
+
+- result: First isolated gate68872DONE/BLOCKED, cleanuptrue/public0187unchanged/
+  sourceunchanged. Legacy7checksPASS; newjoint negative fixture wrongly paired
+  author-stage name with review schema and expected an outcome-unknown error.
+  Registered-format guard correctly rejected that pair as ValueError. Use a
+  different registered JOINT group for request-drift negative; no broad catch.
+- changed: Completion stage now uses existing registered verify:v34:complete-
+  resolutions prefix, not an unregistered new dialect. Managed/direct owned-
+  stage tests verify this registration. Strict compiler and one-shot completion
+  still unchanged; fresh real saved-data r8b control again matches all23request
+  hashes and asks only missing3, preserving25decisions;0model/DBwrites.
+- verified: Focused118PASS2.61s; finalbaseline1004/2174PASS. Previous full7355
+  preceded2new adapter cases; final full34650 active. Nav37518 active. R8runtime
+  localdirty/undeployed; DEVdf91/production83 unchanged. No source/course edits.
+- blockers: Sole live DBgate77144 uses canonical privatecustody .release-evidence/
+  dev/r8-joint-retained-replay-20261109-r2.json. Do not mutate runtime/scripts
+  during its source-hashed execution or repeat an intent. No inference/deploy
+  active; partial-reply jobc44d9fbc held underR7. First receipts remainimmutable.
+- next: Read77144/34650/37518 before nextaction, verify cleanup/currentproof,
+  then finaldocs/commit/projectpush/CI/exactR8DEV. Samejob retained replay via
+  normal owned API ONLY afterupdatedAPI reports eligibility; never repeat its
+  original23rd query. Then automatic3-IDcompletion, normalmodelcourse repair/
+  full persisted audit, freshcash/standards and intendedDeepSeek/prod afterGO.
+  Evidence root autonomous-editorial-review-20261108; r8b-completion-offline.json
+  lives under native-dev-r7-pdf. No current extra model control is needed.
+
+## Superseded first gate checkpoint
+
+# R8 full local PASS; isolated replay transaction gate ACTIVE — 2026-11-09 04:26 UTC
+
+- result: Final fullunit7355PASS/1skip/7warnings77.52s/session73166DONE;
+  finalbaseline1004/2174PASS. Nav96050DONE/PREPARED2471files/28939nodes85834edges/
+ 2504sources/excluded-auditPASS. No active model; known complete partial reply
+  preserved. Runtime DEV stilldf91R7; R8LOCAL/UNCOMMITTED.
+- changed: Exact saved-data replay now transports25decisions and requests only
+  missing3. All23original request hashes unchanged; no HTTP/DBwrites/model calls.
+  Strict compiler still rejects partial decisions; partialcheckpoint forbidden
+  outside exactv34joint+validator. One completion only, no recursive/UNKNOWN retry.
+- verified: Source/claim/body/wire/route/delivery replay safeguards share exact
+  stage-plan allowlist. New78whitelist tests include wrongstage/version/proof/
+  completion/tampering/multiple pending. Existing source fidelity and actual
+  lesson edits remain; no manually inserted resolution or source answer.
+- blockers: Sole active technical process68872 is canonical isolated Supabase
+  transaction gate, privatecustody .release-evidence/dev/r8-joint-retained-replay-
+ 20261109.json; no HTTP/provider calls. Do NOT mutate app/scripts source while
+  its source-hash gate runs. Read result/cleanup before any rerun. No other test,
+  model or deployment active. Heldjobc44d9fbc must NOT ordinary resume underR7.
+- next: After gate result/cleanup, bounded final review/docs/commit/projectpush/
+  CI and exactR8DEV rollout. Then normal owned retained-body replay, SAMEjob,
+  with only new3-IDcompletion inference; original23rd model query not repeated.
+  Full persisted quality and freshcash/standards then intendedDeepSeek/prod open.
+  Graphify finds shared guard consumers; candidate path owned_candidate→replay
+  went through synthetic _exercise, not production flow (INFERRED). Runtime
+  source run_direct_owned_stage179–211 confirms actual replay/finalize connection;
+  graph is navigation only. Rawpartial artifacts/usage in native-dev-r7-pdf.
+
+## Superseded pre-gate checkpoint
+
+# R8 missing-resolution recovery LOCAL; R7 PDF held safely — 2026-11-09 04:24 UTC
+
+- result: No active model/inference. Samejobc44d9fbc-129e-49d9-8c85-665db35f2732
+  is interrupted/public reconciliation_required after structured_shape rejection,
+  NOT a proven transport timeout. Sessions9984/10869/38925/82058DONE. Source/course
+  originals and22completed replies retained; source model edits3lessons retained.
+- changed: Complete HTTP200/raw40416B/body45df4064…259 was privately quarantined.
+  Exact offline replay of22completed request hashes + heldrequest/schema proves
+  a valid typed reply with25of28resolutions;3missingIDs, no extra/duplicate IDs.
+  Dollar priceUNKNOWN;22committed711639in81440out plus retained69074in7446out
+  =>23actual known replies780713in88886out, NOT fullcourse acceptance.
+- verified: R8LOCAL separates transport observations from strict complete-domain
+  approval. Only current v34joint caller may persist typed known partial IDs,
+  then one explicit model stage requests ONLY missingIDs and keeps all25existing
+  decisions/findings. All source/course/enum/duplicate/foreign checks and strict
+  final compiler remain. Legacy/proof/no-validator cannot accept partial stage.
+  Missingcompletion fails once, no recursion/UNKNOWN retry. Existing owner-bound
+  retained author replay is narrowly extended to exact v34joint stage groups,
+  preserving source/route/wire/body/claim/delivery/atomic-commit guards.
+  Offline actual23reply replay requests exactly3missingIDs with all23original
+  request hashes unchanged;0model/DBwrites. This is NOT semantic GO.
+- blockers: Sole active technical processes: fullunit73166, canonical isolated
+  Supabase replaygate68872, navprepare96050; no source edits until source-hashed
+  gate completes. Last focused147PASS; partial/compiler/control tests27PASS;
+  whitelist2RED→78PASS; quality1004/2174PASS. Final gates pending.
+- next: Read those3processes/receipts first. Gate extends both oldauthor and
+  newjoint transaction races, exact current public0187, canonical private fixture
+  cleanup/no HTTP. Do not retry held modelrequest or ordinary resume untilR8
+  exactAPI/worker deployed and owned retained-replay_available verified. Then
+  normal SAMEjob resume reuses known HTTPbody and sends only NEW3-ID completion;
+  original23rd query is never reissued. Freshcash/standards, intendedDeepSeek/
+  production remainOPEN. Runtime DEVdf91R7, production83 unchanged. Local runtime
+  source now DIRTY R8; do not claim deployed. Evidence root autonomous-editorial-review-20261108,
+  native-dev-r7-pdf/{rejected-joint-23.*,r8-completion-offline.json}.
+
+## Superseded resume3 checkpoint
+
+# R7 native PDF SAME-job resume3 ACTIVE — 2026-11-09 03:57 UTC
+
+- result: Existing model scoped editor changed lessons1,6,8, preserving all23
+  question objects and other lessons. No root content patch/source answer.
+- changed: Delivery2preclaimyielded after21unique completed requests676424in/
+ 79143out, all42checkpoint rowscompleted/no pending/UNKNOWN/course. Normal
+  SAMEjob resume3/session9984 active;10869DONE. Exactdf91prompts unchanged.
+- verified: Postedit prose check43SUPPORTED/1CONTRADICTED/1INCOMPLETE of45rules.
+  Its new material hypothesis says lesson3persuasion prohibition is broader
+  than source's consultation-substitution wording; one other-materials omission
+  is advisory. Do NOT accept this hypothesis as fact or manually edit it; full
+  joint model must adjudicate source/current lesson/context. Source note itself
+  says loan qualifier is resolved grammatically and needs no human choice.
+- blockers: Sole ACTIVE resume-native-r7.py pdf3/session9984, samejobc44d9fbc-
+ 129e-49d9-8c85-665db35f2732. Do not start another inference/source review, new
+  generation or midjob docs push/API redeploy. Cash/standards/DeepSeek/prod OPEN.
+- next: Follow9984, fresh restricted DB read then only exactnextresume on proven
+  knownpreclaimyield/allcompleted/noUNKNOWN. Native-full-content-r7.py read-only
+  harness prepared for completed saved content/keys/image hashes; rootsemantic
+  audit still required. DEV exactdf91/CI42553953923; production83/accepted/client
+  data unchanged. Evidence native-dev-r7-pdf. No current technical test process.
+
+## Superseded resume2 checkpoint
+
+# R7 native PDF SAME-job resume2 ACTIVE — 2026-11-09 03:43 UTC
+
+- result: Same PDFjobc44d9fbc-129e-49d9-8c85-665db35f2732 remains the only generation.
+  First8L23Q source-backed draft retained; no root content/source correction.
+- changed: Second delivery preclaimyielded after12unique completed requests,
+ 432809in55265out/no pending/unknown. Normal SAMEjob resume2/session10869 now
+  active; all completed responses retained/reused. Previous38925DONE.
+- verified: Baseline prose/keyed/joint retained4material content observations
+  (rights, mandatory training topics, servicing information/call routing).
+  Three independent blind-option batches also completed. No addressed lesson
+  edit has occurred yet: source-alignment returned lesson8 IDENTICAL. Do NOT
+  mistake12calls for completed repaired-course acceptance or report edits done.
+- blockers: Sole ACTIVE resume-native-r7.py pdf2/session10869. Do not start other
+  inference/source review, duplicate job or docs push/API redeploy. Current
+  runtime remains exactdf91; production83/accepted/customer data unchanged.
+- next: Follow10869 and fresh restricted DB read as needed. Existing model
+  adjudication/edit/recheck must finish; full persisted readback follows. Resume
+  again only a proven known preclaimyield with allrequestscompleted/noUNKNOWN
+  and exact next resume_count. Then cash and standards sequentially; intended
+  DeepSeek/production only after actual quality GO. No fresh model controls
+  alongside this job. Evidence native-dev-r7-pdf; helper names end-r7.
+
+## Superseded resume1 checkpoint
+
+# R7 native PDF SAME-job resume1 ACTIVE — 2026-11-09 03:35 UTC
+
+- result: Author8L23Q contains operative12member dossier list and alarm duties;
+  source verifier itself fixed qualifier attachment. This is a draft, not GO.
+- changed: First delivery safely preclaimyielded after4completed requests,
+ 131712in28688out, no pending/unknown/course. Normal SAMEjob resume1 dispatched;
+  old4responses reused, no duplicate inference. No runtime/source/content edit.
+- verified: Current6unique completed requests231371in38986out. Existing source
+  alignment returned lesson8 byte-identical, preserving content/questions.
+  Prose model43SUPPORTED/2INCOMPLETE of45rules; independently located missing
+  rights and mandatory training topics, without root finding injection. Existing
+  keyed/blind/joint and addressed repair pipeline continues; do not preaccept.
+- blockers: Sole ACTIVE native poller resume-native-r7.py pdf1/session38925,
+  samejobc44d9fbc-129e-49d9-8c85-665db35f2732,realization80%. Session82058DONE.
+  Do not launch another model/source review, duplicate generation or docs push.
+- next: Follow38925; use restricted read-native-job-r7.py pdf and native-stage-
+  report-r7.py only as needed. After terminal, resume only allcompleted/noUNKNOWN
+  knownpreclaimyield via exact next resume_count. Then full persisted readback,
+  freshcash and standards. DEV remains exactdf91; production83/customer data
+  unchanged. Do not turn missing model-written course content into human source
+  questions or manually repair it. Evidence native-dev-r7-pdf.
+
+## Superseded first-delivery checkpoint
+
+# R7 exact DEV RELEASE_OK; fresh PDF native RUNNING — 2026-11-09 03:16 UTC
+
+- result: Exactdf91ad9eb96663ae6cd86a21e74850a91db3e749 feature/dev project-account
+  readback preserved. CI42553953923SUCCESS/build42554559262ATTESTED. API Render
+  dep-dbojjt3rjlhs73bm4j7g live exactdf91; Verceldpl_4QyuQr8jAnqhHsjJNp3Ke7Pi2jht
+  READYdf91. Canonical controller RELEASE_OK, not merely HTTP200.
+- changed: Sole VM126 DEVworker2fc1257b934e3a29f2f88cd21ac185339286874b3331a4dfead55aa70b8cde98,
+  image7a76cd6427f44701e0b588cc7d19a7cab1d13ced786b94a944bd9d0628d75101,
+  env96745f9a73b7e00786cc7788e614f65f1f994cb3ca6a801e1f542734f10a08e0,
+ 1CPU/1GiB/read-only/no binds/restartunless-stopped/rest0.155source hashes and
+  operational script equality to reviewedR6 verified. Oldc019/4ef0 warm-exit0,
+  retained rollback. Six production/connector identities and configuration unchanged.
+- verified: Saved model-owned repair23/23resolved/0material findings remains
+  mechanism proof only. Normal owned cancel retained obsolete quiescentR6job
+ 418653b8/all23completed responses. No pending/UNKNOWN was cancelled/replayed.
+  Source approved PDF original/working bytes unchanged. No manual course patch.
+- blockers: Sole active native inference/poller native-dev-r7.py generate pdf,
+  session82058; jobc44d9fbc-129e-49d9-8c85-665db35f2732 running ingestion5%.
+  Do NOT launch another inference/source review or duplicate this generation.
+  Cash/standards fresh courses, intendedDeepSeek/prod acceptance remain OPEN.
+- next: Follow session82058 and read-native-job-r7.py pdf; normal SAMEjob resume
+  only proven preclaimyield/allrequestscompleted/noUNKNOWN via resume-native-r7.py.
+  Do not edit runtime prompts midjob. Read all persisted content/questions/images
+  using prepared READONLY native-full-content-r7.py after completion; no root
+  content repair. Then freshcash and standards sequentially. Production83 and
+  accepted/client courses remain untouched. Evidence root autonomous-editorial-review-20261108;
+  dev-r7-execute-result.json is authoritative RELEASE_OK. Current doc updates may
+  be dirty; do not push docs midnative job and redeploy API underneath it.
+
+## Superseded local R7 checkpoint
+
 # R7 model-owned saved-course repair PASS; fresh native DEV OPEN — 2026-11-09 02:59 UTC
 
 - result: Existing model editor repaired4lessons of the saved8L24Q; all4peers,

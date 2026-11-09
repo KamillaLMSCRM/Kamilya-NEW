@@ -6632,3 +6632,32 @@ focused3passed0.57s, no runtime delta. Navigation2469files/28920nodes85721edges
 2502sources/exclusionPASS. CodeGraph confirms groups->review_editorial_candidate;
 source confirms v34-only dispatch/strict proof correction; semantic saved-control
 is separate from native DEV GO. No active model/test process.
+
+
+## RUN-20261109-R7-EXACT-DEV-01
+
+CI42553953923SUCCESS; image42554559262ATTESTED7a76cd64;155Gitblob hashes match.
+Remote readiness/drain/start/restartPASS, soleworker2fc1257b rest0; oldc019exit0
+retained. APIdep-dbojjt3rjlhs73bm4j7g/Verceldpl_4QyuQr8jAnqhHsjJNp3Ke7Pi2jht exact
+df91ad9e; controllerRELEASE_OK. Six production/connector guards unchanged.
+Normal cancel obsoletequiescentR6 retains23responses. Fresh PDFjobc44d9fbc
+ACTIVE/session82058; no other inference/source review. Wholecourse acceptanceOPEN.
+
+
+## RUN-20261109-R8-MISSING-RESOLUTION-RECOVERY-01
+
+- NativeR7 retained HTTP200:25of28decisions, complete40416B/body45df4064…259.
+  Exact offline native22completed+retained23rd request hashes match. R8b control
+  preserves25and requests only missing3;0model/DBwrites, no manual course edits.
+- Strict compiler/primary-preservation/missingagain/timeout/no-recursion and
+  legacy/proof/no-validator negatives; real managed replay0HTTP unit passes.
+  Whitelist2RED→78PASS; managed/direct registered-completion focused118PASS2.61s.
+- Final full7357PASS/1skip/7warnings77.50s; baseline1004/2174PASS. Navigation
+ 2471files/28939nodes85796edges2504sources/excludedPASS. Inferred graph path
+  through synthetic _exercise is not runtime proof; source binding verified.
+- First realDBgateBLOCKED fixture dialect expectation; cleanuptrue/shared0187
+  unchanged. Corrected fixture r2 PASS12checks incl oldauthor/newjoint concurrency,
+  source/actor/tenant/route/request/audit negatives and atomic usage/result/body;
+  cleanuptrue/public0187/sourceunchanged. Model/HTTPcalls0, production/publicbusiness0writes.
+- No current inference. DEVdf91/R7, R8local. Actual samejob recovery/new3-IDmodel
+  completion/fullcourse plus cash/standards/DeepSeek/prod acceptance remainOPEN.

@@ -35,7 +35,7 @@ from tests.unit.test_v3_source_semantics import reading, verification
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["direct", "managed"])
-@pytest.mark.parametrize("kind", ["reading", "source_verification", "source_completeness", "review", "verification", "compact_review", "compact_verification", "joint_review", "joint_verification"])
+@pytest.mark.parametrize("kind", ["reading", "source_verification", "source_completeness", "review", "verification", "compact_review", "compact_verification", "joint_review", "joint_verification", "joint_completion"])
 async def test_source_and_rule_formats_owned_replay_and_stage_fences(monkeypatch, provider, kind):
     packet, course, checked = case()
     initial = compile_source_semantics(reading(packet), packet)
@@ -49,6 +49,8 @@ async def test_source_and_rule_formats_owned_replay_and_stage_fences(monkeypatch
             result['resolutions'] = []
             fmt = editorial_verification_format(packet, course, [])
             group = 'practical:editorial:verify:v34:joint:' + 'a' * 64
+            if kind == 'joint_completion':
+                group = 'practical:editorial:verify:v34:complete-resolutions:' + 'a' * 64
     elif kind == "reading":
         fmt, result = source_semantics_format(packet), reading(packet)
         group = "practical:source-semantics:read:v33:" + packet.fingerprint

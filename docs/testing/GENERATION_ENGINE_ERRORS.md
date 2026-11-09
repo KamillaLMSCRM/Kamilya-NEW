@@ -1109,3 +1109,52 @@ filtering. Model scoped editor supplied the actual list and conditions. R7
 literal joint review and evidence-only correction now resolve all23observations
 with0remaining material findings on saved8L24Q. This closes this saved mechanism
 control; it does not retroactively accept interrupted R6 or fresh fullcourses.
+
+
+## ENG-044 — частичный разбор замечаний отбрасывал весь сохранённый ответ
+
+- 2026-11-09, native DEVdf91/R7 PDFjobc44d9fbc. After model-owned edits of lessons
+ 1,6,8, HTTP200 was complete and retained privately:40416B/body45df4064…259.
+  Joint model supplied25of28required decisions. Source/course/schema/typedfields
+  were correct;3IDs omitted, no unknown/duplicate IDs. matches_response_contract
+  mixed typed transport custody with full semantic inventory and rejected all25.
+  Recovery whitelist supported only V31author, so current review could not resume.
+- Exact offline replay:22completed request hashes match; held request/hash and
+  response-format SHA match original. No model call, state write or manual lesson
+  repair. This confirms a missing-decision contract/recovery defect, not a source
+  ambiguity or unavailable model. Original failure/quarantine remain immutable.
+- R8LOCAL retains typed partial observations only under exact currentv34joint
+  caller with validator, then explicitly calls model for missingIDs once. Existing
+  decisions/findings unchanged; new findings retained; strict all-ID compiler
+  remains mandatory. Unknown/duplicate IDs, changed fingerprints, malformed shapes
+  and missingsecondresponse fail. Legacy/proof/no-validator stages stay strict.
+- Existing retained-response authorization extended only to owned v34jointreview
+  groups/caps. Exact same source, route, wire, body, claim and delivery are required;
+  final atomic result/usage/audit preserves raw rejected receipt. This is custody
+  recovery, not automatic source/semantic approval. No UNKNOWN request is repeated.
+- Current known usage:22committed711639in81440out + retained69074in7446out =
+ 23knownactual responses780713in88886out. Not accepted-course unit cost; dollars
+  unknown. Final local/gate/DEV/fullcourse checks pending. No client/prod edits.
+- Evidence: autonomous-editorial-review-20261108/native-dev-r7-pdf/rejected-joint-23.*,
+  r8-completion-offline.json. Regression covers strict compiler, partial-only
+  transport, primary preservation, missingsecondreply/timeout/no retry and exact
+  recovery whitelist. Canonical isolated transaction gate extended for both roles.
+
+
+### ENG-044 local fix and transaction proof — 2026-11-09 04:37 UTC
+
+- Final7357PASS/1skip/7warnings77.50s, baseline1004/2174PASS. Exact saved-data
+  control matches23request hashes; registered3-IDcompletion,25decisions preserved,
+  strict semantic compiler still rejects incomplete inventory. No inference made.
+- Canonical real isolated Supabase gate r2 PASS12checks: one concurrent resume/
+  one delivery claim, foreign actor/tenant and changed source/route/request/audit
+  denied, rollback on late failure, atomic result/usage/retainedreceipt preserved
+  for BOTH author and newjoint. Partialtransport is explicitly not semantic GO.
+  Cleanuptrue/public0187/sourceunchanged. No public business or production writes.
+- First BLOCKED fixture and cleanup proof retained. It paired an author group
+  with a review response in its request-drift negative; registered-format guard
+  correctly rejected before pendingstage inspection. Same registered joint group
+  with a different hash now exercises the intended source/claim boundary.
+- Runtime currentlydf91/R7; newR8 exactdeploy and actual model3-IDcompletion/
+  continued fullcourse plus freshcash/standards stillOPEN. Do not relabel this
+  typed/custody gate as semantic acceptance or erase the original rejectedreply.

@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Retain valid partial editorial decisions, complete only missing IDs through one owned model stage, and recover exact retained v34 joint replies without repeating provider requests; strict semantic acceptance remains unchanged.
+
 - Preserve operative source lists and adjudicate historical observations beside complete literal current lesson text; model-only addressed repairs retain good peers and assessment keys.
 
 - Share source/course context across v34 logical comparison groups within the existing output budget, retaining every rule, owned target and dependency.

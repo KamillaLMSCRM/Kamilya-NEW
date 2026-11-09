@@ -57,7 +57,8 @@ def is_editorial_verification_format(fmt: Any) -> bool:
         return False
 
 
-def matches_editorial_verification(value: Any, fmt: Any) -> bool:
+def matches_editorial_verification_shape(value: Any, fmt: Any) -> bool:
+    """Typed owned observations; an incomplete inventory is never semantic approval."""
     if not is_editorial_verification_format(fmt) or not _matches(value, fmt['json_schema']['schema']):
         return False
     base = copy.deepcopy(fmt)
@@ -66,7 +67,14 @@ def matches_editorial_verification(value: Any, fmt: Any) -> bool:
     base['json_schema']['name'] = 'v3_practical_editorial_review_v1'
     review = {k: v for k, v in value.items() if k != 'resolutions'}
     actual = [row['issue_id'] for row in value['resolutions']]
-    return len(actual) == len(set(actual)) and set(actual) == set(ids) and matches_editorial_review(review, base)
+    return len(actual) == len(set(actual)) and set(actual) <= set(ids) and matches_editorial_review(review, base)
+
+
+def matches_editorial_verification(value: Any, fmt: Any) -> bool:
+    if not matches_editorial_verification_shape(value, fmt):
+        return False
+    ids = fmt['json_schema']['schema']['properties']['resolutions']['items']['properties']['issue_id']['enum']
+    return {row['issue_id'] for row in value['resolutions']} == set(ids)
 
 
 def literal_course_texts(course: dict[str, Any], finding: dict[str, Any]) -> list[str]:

@@ -38,7 +38,7 @@ def source_digest() -> str:
 
 
 async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_b: Any,
-                   job_a: str, resume_job: str, checks: list[str]) -> None:
+                   job_a: str, resume_job: str, checks: list[str], *, joint_review: bool = False) -> None:
     global _STAGE
     if not ENABLED:
         raise RuntimeError("gate_not_enabled")
@@ -90,7 +90,14 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
         tenant_id=tenant_a, user_id=actor, job_id=job_a, credential_revision="synthetic", model="gpt-6-luna")
     messages = [{"role": "user", "content": "Synthetic source only."}]
     fmt = _course_format(["SRC1"])
-    plan = stage_plan(journal, stage="lesson", group_id=AUTHOR_GROUP,
+    stage_kind, stage_group = "lesson", AUTHOR_GROUP
+    if joint_review:
+        from app.modules.ai.v3.practical_editorial_contract import _review_format
+        from app.modules.ai.v3.practical_editorial_verification import _format
+        fmt = _format(_review_format(['SRC1'], ['l1', 'l2'], ['q1'], source, 'b' * 64), ['issue-a', 'issue-b'])
+        stage_kind = 'review'
+        stage_group = 'practical:editorial:verify:v34:joint:' + 'f' * 64 + ':output=' + str(AUTHOR_OUTPUT_TOKENS)
+    plan = stage_plan(journal, stage=stage_kind, group_id=stage_group,
         source_sha256=source, route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt)
     digest = _digest(plan)
     claim_key, result_key = "v3-stage-claim:" + digest, "v3-stage-result:" + digest
@@ -112,6 +119,15 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
     response = {"title": "Synthetic", "lessons": [
         {"id": "l1", "title": "One", "content": "Text", "questions": [question]},
         {"id": "l2", "title": "Two", "content": "Text", "questions": [question]}]}
+    if joint_review:
+        from app.modules.ai.v3.response_contracts import matches_response_contract, matches_transport_contract
+        response = {'source_fingerprint': source, 'course_fingerprint': 'b' * 64, 'summary': 'Synthetic current review',
+            'findings': [], 'source_notes': [], 'narrative_sources': {'l1': ['SRC1'], 'l2': ['SRC1']},
+            'resolutions': [{'issue_id': 'issue-a', 'disposition': 'NOT_MATERIAL', 'reason': 'Synthetic evidence',
+                'source_refs': ['SRC1'], 'source_quote': 'Synthetic', 'course_quote': '', 'source_question': ''}]}
+        if matches_response_contract(response, fmt) or not matches_transport_contract(response, fmt):
+            raise AssertionError('partial_joint_response_became_semantic_acceptance')
+        checks.append('partial_transport_not_semantic')
     raw = json.dumps({"model": "gpt-6-luna", "structured_output_policy": "typed-json-object-v1",
         "response_format_sha256": response_contract_hash(fmt), "choices": [{"message": {"content": json.dumps(response)}}],
         "usage": {"prompt_tokens": 7, "completion_tokens": 2}}).encode()
@@ -235,11 +251,17 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
         async def forbidden(*_args: Any, **_kwargs: Any) -> Any:
             raise AssertionError("unexpected_provider_call")
         client.invoke = forbidden
-        stage_args = dict(stage="lesson", group_id=plan["group_id"], source_sha256=source,
+        stage_args = dict(stage=stage_kind, group_id=plan["group_id"], source_sha256=source,
             route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt,
             invoke=forbidden, direct_client=client, direct_max_output_tokens=AUTHOR_OUTPUT_TOKENS)
+        if joint_review:
+            def validate_joint_observation(item: Any) -> None:
+                if not matches_transport_contract(item, fmt):
+                    raise ValueError('joint_transport_invalid')
+            stage_args['response_validator'] = validate_joint_observation
         _STAGE = "replay_and_drift_checks"
         with patch("app.modules.ai.managed_luna_client.httpx.AsyncClient", side_effect=AssertionError("HTTP forbidden")):
+            _STAGE = 'replay_foreign_actor'
             foreign_actor = PendingStageJournal(str(tenant_a), uuid4(), job_a, sessions, verify_source=verify)
             try:
                 await stage_once(foreign_actor, **stage_args)
@@ -251,6 +273,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
                 await canonical.set_tenant(session, tenant_b)
                 if await session.scalar(select(AIJob.id).where(AIJob.id == job_a)) is not None:
                     raise AssertionError("foreign_tenant_job_visible")
+            _STAGE = 'replay_authorization_drift'
             for field in ("stage", "body_sha256", "pending_sha256"):
                 async with sessions() as session:
                     await canonical.set_tenant(session, tenant_a)
@@ -270,8 +293,11 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
                     await session.commit()
                 if await snapshot() != before:
                     raise AssertionError("drifted_authorization_changed_job")
+            other_group = ('practical:editorial:verify:v34:joint:' + 'e' * 64 + ':output=' + str(AUTHOR_OUTPUT_TOKENS)
+                           if joint_review else 'practical:author:editorial:v31')
+            _STAGE = 'replay_request_drift'
             for altered in ({"source_sha256": "f" * 64}, {"route_fingerprint": "f" * 64},
-                            {"group_id": "practical:author:editorial:v31"},
+                            {"group_id": other_group},
                             {"messages": [{"role": "user", "content": "Changed."}]}):
                 try:
                     await stage_once(journal, **(stage_args | altered))
@@ -281,6 +307,7 @@ async def _exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant
                     raise AssertionError("changed_request_allowed")
             if await snapshot() != before:
                 raise AssertionError("changed_request_changed_job")
+            _STAGE = 'replay_retained_transport'
             replayed = await stage_once(journal, **stage_args)
             if await stage_once(journal, **stage_args) != response:
                 raise AssertionError("cold_replay_changed_response")
@@ -316,17 +343,22 @@ async def exercise(owner: Any, runtime: Any, schema: str, tenant_a: Any, tenant_
     _FAILURE_DIAGNOSTIC.clear()
     try:
         await _exercise(owner, runtime, schema, tenant_a, tenant_b, job_a, resume_job, checks)
+        joint_checks: list[str] = []
+        await _exercise(owner, runtime, schema, tenant_a, tenant_b, job_a, resume_job, joint_checks, joint_review=True)
+        checks.extend('joint_review_' + check for check in joint_checks)
     except Exception as exc:
         _FAILURE_DIAGNOSTIC.update({"stage": _STAGE, "error_class": type(exc).__name__})
         if type(exc) is ValueError and str(exc) in {"managed_rejection_invalid", "managed_luna_config_invalid",
                 "managed_luna_request_invalid", "managed_luna_structured_format_invalid", "v3_pending_claim_invalid",
-                "v3_pending_owner_invalid"}:
+                "v3_pending_owner_invalid", "direct_owned_format_invalid", "managed_structured_plan_invalid",
+                "v3_stage_response_shape_invalid", "joint_transport_invalid", "v3_stage_checkpoint_invalid"}:
             _FAILURE_DIAGNOSTIC["error_code"] = str(exc)
         raise
 
 
-async def execute_candidate(expected_source: str, expected_base: str, custody: Path) -> dict[str, Any]:
-    if not ENABLED or source_digest() != expected_source:
+async def execute_candidate(expected_source: str, expected_base: str, custody: Path,
+                            public_revision: str = '0186') -> dict[str, Any]:
+    if not ENABLED or source_digest() != expected_source or public_revision not in {'0186', '0187'}:
         raise ValueError("source_identity_invalid")
     import ai_generation_realization_dev_check as base
     from dotenv import dotenv_values
@@ -360,16 +392,20 @@ async def execute_candidate(expected_source: str, expected_base: str, custody: P
     previous = base.exercise
     try:
         base.exercise = exercise
-        result = await base.execute(env_file=env_file, revision="0186", expected_source=expected_base, custody_path=custody)
+        result = await base.execute(env_file=env_file, revision=public_revision, expected_source=expected_base, custody_path=custody)
     finally:
         base.exercise = previous
     expected = {"runtime_role_restricted", "migration_upgrade_downgrade_reupgrade", "rls_force_and_acl",
                 "one_resume_one_delivery_claim_and_foreign_denied", "audit_and_source_failure_rollback",
                 "marker_source_route_request_drift_no_http", "atomic_result_audit_usage_and_quarantine_unchanged"}
+    expected.update('joint_review_' + check for check in (
+        'partial_transport_not_semantic', 'one_resume_one_delivery_claim_and_foreign_denied',
+        'audit_and_source_failure_rollback', 'marker_source_route_request_drift_no_http',
+        'atomic_result_audit_usage_and_quarantine_unchanged'))
     safe_result: dict[str, Any] = {key: result.get(key) is True for key in
         ("passed", "cleanup", "shared_migration_head_unchanged", "source_unchanged")}
     safe_result["source_sha256"] = expected_source
-    safe_result["public_revision"] = "0186"
+    safe_result["public_revision"] = public_revision
     checks = result.get("checks")
     safe_result["checks"] = [check for check in checks if isinstance(check, str) and check in expected] if isinstance(checks, list) else []
     for key in ("error_type", "cleanup_error_type", "failed_check"):
@@ -401,12 +437,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if not args.execute:
         print(json.dumps({"status": "OFFLINE_ONLY", "source_sha256": source_digest(),
-            "project_sha256": DEV_REF_SHA256, "required_public_revision": "0186",
+            "project_sha256": DEV_REF_SHA256, "supported_public_revisions": ["0186", "0187"],
             "limitations": ["no HTTP", "synthetic source verifier", "private-body tampering covered by unit tests only",
                             "no real course or provider acceptance"]}))
         return 0
     if (sys.flags.optimize or args.confirm != "RUN_SYNTHETIC_RETAINED_AUTHOR_REPLAY_DEV"
-            or args.expected_public_revision != "0186" or args.custody_path is None
+            or args.expected_public_revision not in {"0186", "0187"} or args.custody_path is None
             or not re.fullmatch(r"[0-9a-f]{64}", args.expected_source_sha256)
             or not re.fullmatch(r"[0-9a-f]{64}", args.expected_base_sha256)):
         print(json.dumps({"status": "BLOCKED", "reason": "exact_execution_arguments_required"}))
@@ -414,11 +450,12 @@ def main(argv: list[str] | None = None) -> int:
     sys.path.insert(0, str(ROOT / "apps/api"))
     try:
         ENABLED = True
-        result = asyncio.run(execute_candidate(args.expected_source_sha256, args.expected_base_sha256, args.custody_path))
+        result = asyncio.run(execute_candidate(args.expected_source_sha256, args.expected_base_sha256, args.custody_path,
+                                               public_revision=args.expected_public_revision))
         print(json.dumps({"status": "PASS", "checks": sorted(result["checks"]),
             "source_sha256": args.expected_source_sha256, "cleanup": result["cleanup"],
             "shared_migration_head_unchanged": result["shared_migration_head_unchanged"],
-            "public_revision": "0186", "source_unchanged": result["source_unchanged"]}))
+            "public_revision": args.expected_public_revision, "source_unchanged": result["source_unchanged"]}))
         return 0
     except Exception:
         print(json.dumps({"status": "BLOCKED", "reason": "gate_failed_or_identity_unverified"}))

@@ -193,9 +193,9 @@ class ManagedLunaClient:
             category = "content_json"
             content = parse_source_first_response(message["content"])
             if "structured_output_policy" in requested:
-                from app.modules.ai.v3.response_contracts import matches_response_contract
+                from app.modules.ai.v3.response_contracts import matches_transport_contract
                 category = "structured_shape"
-                if not matches_response_contract(content, requested["response_format"]):
+                if not matches_transport_contract(content, requested["response_format"]):
                     raise ValueError("managed_luna_structured_shape_invalid")
             category = "usage"
             usage = body.get("usage")
@@ -235,7 +235,7 @@ class ManagedLunaClient:
                 raise ValueError
             request = json.loads(payload)
             from app.modules.ai.v3.response_contracts import response_contract
-            if response_contract(request.get("response_format")) != "practical_course":
+            if response_contract(request.get("response_format")) not in {"practical_course", "practical_editorial_verification"}:
                 raise ValueError
             result, _ = self._decode_response(raw, payload)
             return result

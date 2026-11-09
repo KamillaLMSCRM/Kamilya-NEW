@@ -272,7 +272,7 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
                 from app.modules.ai.v3.retained_author_replay import (
                     AUTHORIZATION_KEY,
                     AUTHORIZATION_POLICY,
-                    is_retained_author_group,
+                    is_retained_stage_plan,
                 )
                 reference = job.result.get(QUARANTINE_KEY, {}).get("entries", {}).get(digest, {})
                 authorization = (job.params or {}).get(AUTHORIZATION_KEY, {})
@@ -292,7 +292,7 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
                         or any(not isinstance(replay_audit.get(k), str)
                                or re.fullmatch(r"[0-9a-f]{64}", replay_audit[k]) is None
                                for k in ("body_sha256", "wire_request_sha256"))
-                        or plan.get("stage") != "lesson" or not is_retained_author_group(plan.get("group_id"))):
+                        or not is_retained_stage_plan(plan)):
                     raise ValueError("v3_pending_replay_audit_invalid")
             verify_repair_slot(job, plan, required=True)
             stored_claim = await journal.read_owned_value_in_session(session, claim_key, plan)

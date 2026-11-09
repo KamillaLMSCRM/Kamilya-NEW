@@ -856,7 +856,7 @@ class LLMClient(_BaseProviderClient):
             request_max_tokens = configured_max_tokens
 
         from app.modules.ai.v3.response_contracts import (
-            matches_response_contract,
+            matches_transport_contract,
             response_contract,
             response_contract_hash,
         )
@@ -914,7 +914,7 @@ class LLMClient(_BaseProviderClient):
                         or data.get("structured_output_policy") != "typed-json-object-v1"
                         or data.get("response_format_sha256") != response_contract_hash(response_format)):
                     raise ValueError("v3_reserve_contract_unverified")
-                if not isinstance(msg.get("content"), str) or not matches_response_contract(
+                if not isinstance(msg.get("content"), str) or not matches_transport_contract(
                         parse_source_first_response(msg["content"]), response_format):
                     raise ValueError("v3_provider_contract_invalid")
             except ValueError:

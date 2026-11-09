@@ -10541,3 +10541,20 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
   labels restored without weakening the release gate.
 - Prevention: every semantic omission claim must cite the exact visible clause
   and compare its own sentence before being reported or used to modify code.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-09: an offline replay producer was
+rerun against already-created immutable output names and stopped FileExistsError
+after0network/model/DBwrites. Read and hash-check existing proof rather than
+rerunning its producer. Preserve original proof and use a new scoped evidence
+name only when a meaningful source change actually requires a new execution.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-09: the new joint-replay DB fixture
+used an author-stage name with a review-schema request in its changed-group
+negative, but expected an outcome-unknown exception from deeper ownership checks.
+The registered-format guard correctly rejected that mismatched dialect earlier.
+First gate BLOCKED/cleanuptrue/public0187unchanged is retained. Use a DIFFERENT
+registered JOINT group for that ownership negative; keep unknown dialect rejection
+strict. Add closed phase/error diagnostics rather than catch all exceptions.
+Fresh full canonical isolated gate passes12checks, both author/joint cases.

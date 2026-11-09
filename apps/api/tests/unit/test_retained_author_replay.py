@@ -12,19 +12,25 @@ from app.modules.ai.v3.stage_checkpoint import _digest
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mutation", [None, "other_stage", "claim", "body", "reference", "multiple"])
-@pytest.mark.parametrize(("group", "allowed"), [
-    ("practical:author:editorial:v31:output=16384", True),
-    ("practical:author:editorial:v31:output=8192", True),
-    ("practical:author:editorial:v31", False),
-    ("practical:review:editorial:v31:output=16384", False),
-    ("practical:author:editorial:v31:output=016384", False),
-    ("practical:author:editorial:v31:output=32768", False),
-    ("practical:author:editorial:v31:output=16384:other", False),
+@pytest.mark.parametrize(("group", "stage", "allowed"), [
+    ("practical:author:editorial:v31:output=16384", "lesson", True),
+    ("practical:author:editorial:v31:output=8192", "lesson", True),
+    ("practical:author:editorial:v31", "lesson", False),
+    ("practical:review:editorial:v31:output=16384", "review", False),
+    ("practical:author:editorial:v31:output=016384", "lesson", False),
+    ("practical:author:editorial:v31:output=32768", "lesson", False),
+    ("practical:author:editorial:v31:output=16384:other", "lesson", False),
+    ("practical:editorial:verify:v34:joint:" + "f" * 64 + ":output=32768", "review", True),
+    ("practical:editorial:verify:v34:joint:" + "f" * 64 + ":output=16384", "review", True),
+    ("practical:editorial:verify:v34:joint:" + "f" * 64 + ":output=32768", "lesson", False),
+    ("practical:editorial:verify:v33:joint:" + "f" * 64 + ":output=32768", "review", False),
+    ("practical:editorial:verify:v34:proof:" + "f" * 64 + ":output=32768", "review", False),
+    ("practical:editorial:verify:v34:complete-resolutions:" + "f" * 64 + ":output=32768", "review", False),
 ])
-async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation, group, allowed):
+async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation, group, stage, allowed):
     tenant, actor, job_id = str(uuid4()), uuid4(), str(uuid4())
     plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": tenant, "job_id": job_id,
-            "stage": "lesson", "group_id": group, "route_fingerprint": "a" * 64}
+            "stage": stage, "group_id": group, "route_fingerprint": "a" * 64}
     digest = _digest(plan)
     entry = {"claim_key": "v3-stage-claim:" + digest, "result_key": "v3-stage-result:" + digest, "token": "b" * 32}
     raw = b"synthetic"

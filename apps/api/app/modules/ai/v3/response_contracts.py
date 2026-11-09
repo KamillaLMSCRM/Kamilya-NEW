@@ -39,6 +39,7 @@ from app.modules.ai.v3.practical_editorial_contract import (
 from app.modules.ai.v3.practical_editorial_verification import (
     is_editorial_verification_format,
     matches_editorial_verification,
+    matches_editorial_verification_shape,
 )
 from app.modules.ai.v3.practical_option_predicates import is_option_predicates_format, matches_option_predicates
 from app.modules.ai.v3.practical_patch import is_practical_patch_format, matches_practical_patch
@@ -132,6 +133,13 @@ def response_contract_hash(value: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode("utf-8")
     ).hexdigest()
+
+
+def matches_transport_contract(value: object, response_format: dict[str, Any]) -> bool:
+    """Retain typed partial decisions; strict compiler approval remains separate."""
+    if response_contract(response_format) == 'practical_editorial_verification':
+        return matches_editorial_verification_shape(value, response_format)
+    return matches_response_contract(value, response_format)
 
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:

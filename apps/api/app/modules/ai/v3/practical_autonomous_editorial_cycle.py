@@ -281,15 +281,40 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         raise ValueError('editorial_source_custody_mismatch')
     view = PracticalModelView(packet)
     context = _context(packet, corpus, view, canonical_json=True)
+    resolution_completions: list[dict[str, Any]] = []
 
     def encoded(value: Any) -> str:
         return json.dumps(view.encode(value), ensure_ascii=False, sort_keys=True)
 
     async def call(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
+        from app.modules.ai.v3.practical_editorial_verification import (
+            matches_editorial_verification,
+            matches_editorial_verification_shape,
+        )
+        from app.modules.ai.v3.practical_resolution_completion import (
+            complete_editorial_resolutions,
+            is_joint_verification_group,
+        )
+
+        may_complete = joint_editor and name == 'review' and is_joint_verification_group(group)
+
         def checked(raw: Any) -> Any:
-            return validator(view.decode(raw))
+            value = view.decode(raw)
+            if (may_complete and matches_editorial_verification_shape(value, fmt)
+                    and not matches_editorial_verification(value, fmt)):
+                return None  # Retain observed partial decisions; no semantic acceptance.
+            return validator(value)
         wire = await stage(name, group, messages, view.schema(fmt), checked)
         value = view.decode(wire)
+        if (may_complete and matches_editorial_verification_shape(value, fmt)
+                and not matches_editorial_verification(value, fmt)):
+            async def complete(completion_group: str, request: Any, completion_format: Any, validate: Any) -> Any:
+                def validate_wire(raw: Any) -> Any:
+                    return validate(view.decode(raw))
+                response = await stage('review', completion_group, request, view.schema(completion_format), validate_wire)
+                return view.decode(response)
+            value, audit = await complete_editorial_resolutions(value, fmt, messages, complete)
+            resolution_completions.append(audit)
         validator(value)
         return value
 
@@ -579,6 +604,7 @@ async def run_autonomous_editorial_cycle(packet: Any, corpus: Any, intent: Any,
         'unverified_revised_prose': [] if accepted else revised,
         'keyed_editorial_review': True, 'blind_answer_review': True,
         'revision_budget': max_revisions, 'revisions_used': revisions,
+        **({'resolution_completion_history': copy.deepcopy(resolution_completions)} if resolution_completions else {}),
         **({'initial_joint_observations': initial_joint_observations,
             'initial_joint_resolutions': initial_joint_resolutions} if joint_editor else {})},)
     return PracticalCycleResult(candidate, {'source_notes': review['source_notes'],

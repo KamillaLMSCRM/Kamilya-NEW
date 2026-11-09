@@ -121,12 +121,22 @@ async def stage_once(
     def validate(value: Any) -> dict[str, Any]:
         if not isinstance(value, dict) or not value:
             raise ValueError("v3_stage_response_invalid")
-        from app.modules.ai.v3.response_contracts import matches_response_contract, response_contract
+        from app.modules.ai.v3.response_contracts import (
+            matches_response_contract,
+            matches_transport_contract,
+            response_contract,
+        )
 
         kind = response_contract(response_format) if response_format is not None else None
         if (response_format is not None and (kind in {"practical_option_predicates", "batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read", "practical_arbitration", "practical_question_context", "practical_curriculum", "practical_curriculum_bank", "practical_source_core", "practical_source_core_editor", "practical_editorial_review", "practical_editorial_revision", "practical_editorial_verification", "practical_source_semantics", "practical_source_semantics_verification", "practical_source_completeness", "practical_compact_editorial_review", "practical_compact_editorial_verification", "practical_rule_editorial_review", "practical_rule_editorial_verification"}
                 or kind is not None and kind.startswith("aux:"))):
-            if not matches_response_contract(value, response_format):
+            valid = matches_response_contract(value, response_format)
+            if not valid and response_validator is not None and stage == 'review':
+                from app.modules.ai.v3.practical_resolution_completion import is_joint_verification_group
+                owned_group = group_id.rsplit(':output=', 1)[0]
+                valid = (is_joint_verification_group(owned_group)
+                         and matches_transport_contract(value, response_format))
+            if not valid:
                 raise ValueError("v3_stage_response_shape_invalid")
         try:
             checked = cast(dict[str, Any], json.loads(json.dumps(value, ensure_ascii=False, allow_nan=False)))

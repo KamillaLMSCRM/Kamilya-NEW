@@ -1,4 +1,4 @@
-"""Read-only eligibility for the retained, complete V31 author response."""
+"""Read-only eligibility for retained V31 author and V34 joint-review replies."""
 from __future__ import annotations
 
 import base64
@@ -23,6 +23,14 @@ def is_retained_author_group(value: object) -> bool:
     return isinstance(value, str) and value in {
         f"practical:author:editorial:v31:output={cap}" for cap in (8192, PRACTICAL_MAX_OUTPUT_TOKENS)
     }
+
+
+def is_retained_stage_plan(plan: dict[str, Any]) -> bool:
+    if plan.get('stage') == 'lesson':
+        return is_retained_author_group(plan.get('group_id'))
+    group = plan.get('group_id')
+    return bool(plan.get('stage') == 'review' and isinstance(group, str) and re.fullmatch(
+        r'practical:editorial:verify:v34:joint:[a-f0-9]{64}:output=(8192|16384|32768)', group))
 
 
 async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
@@ -54,7 +62,7 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
                                                         generation_key=journal._owned_key(entry["claim_key"]))
         plan = dict(saved_plan.plan_payload)
         if (_digest(plan) != digest or plan.get("schema") != "v3-stage-checkpoint-v1"
-                or plan.get("stage") != "lesson" or not is_retained_author_group(plan.get("group_id"))
+                or not is_retained_stage_plan(plan)
                 or plan.get("tenant_id") != journal.tenant_id or plan.get("job_id") != journal.job_id
                 or plan.get("route_fingerprint") != reference.get("route_fingerprint")):
             return None

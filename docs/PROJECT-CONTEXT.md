@@ -1,3 +1,30 @@
+## R8 gated local recovery candidate — 2026-11-09 04:37 UTC
+
+No inference/test remains active. R8 full7357PASS/baseline1004/2174; canonical
+isolated Supabase replay gate12checksPASS/cleanuptrue/public0187unchanged.
+Known partial modelreply is retained,25of28decisions; exact23request replay
+requests only missing3 without source/course edits. DEV stilldf91/R7; production83.
+Current CODEX_HANDOFF controls exactR8 rollout then SAMEjob retainedbody replay.
+No model query may be blindly repeated. Freshcash/standards/DeepSeek/prod GO open.
+
+## Current R8 local recovery boundary — 2026-11-09
+
+DEV runtime stilldf91/R7; original PDFjobc44d9fbc held, no inference active.
+Complete model reply privately retained but omitted3of28decisions. LocalR8
+preserves25decisions and requests only3missing, plus exact owned v34joint
+retained-body replay. No manual course/source fix or unknown request replay.
+Fullunit73166/isolatedSupabasegate68872/nav96050 active; source-hashed gate means
+no source edits until done. See current CODEX_HANDOFF and ENG-044. Cash/standards/
+DeepSeek/prod GO open; production83 and customer/accepted QA data unchanged.
+
+## Current exact DEV R7 — 2026-11-09 03:16 UTC
+
+Canonical controller RELEASE_OKdf91ad9e: API/web/sole VM126worker exact; image
+7a76cd64, env96745f9a, CI42553953923PASS. Previousc460worker retained rollback.
+Fresh native PDFc44d9fbc is active/session82058. No other inference or model replay.
+Runtime prompts must remain fixed; no midjob docs push/API redeploy. Production83
+unchanged. Fullcourses/DeepSeek/prod GO remain open; current CODEX_HANDOFF controls.
+
 ## Current R7 saved-model repair boundary — 2026-11-09 02:59 UTC
 
 DEV remainsc460 R6; production83 and all accepted/client data unchanged. Local

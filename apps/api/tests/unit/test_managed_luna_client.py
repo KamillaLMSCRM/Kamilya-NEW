@@ -103,6 +103,36 @@ def setup(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_complete_owned_partial_joint_reply_replays_without_network_or_semantic_acceptance(setup):
+    from app.modules.ai.v3.practical_editorial_contract import _review_format
+    from app.modules.ai.v3.practical_editorial_verification import _format, matches_editorial_verification
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+
+    client, tenant, actor, _, requests = setup
+    fmt = _format(_review_format(['SRC1'], ['l1'], ['q1'], 'a' * 64, 'b' * 64), ['issue-a', 'issue-b'])
+    content = {'source_fingerprint': 'a' * 64, 'course_fingerprint': 'b' * 64, 'summary': 'Current review',
+        'findings': [], 'source_notes': [], 'narrative_sources': {'l1': ['SRC1']}, 'resolutions': [
+            {'issue_id': 'issue-a', 'disposition': 'NOT_MATERIAL', 'reason': 'Current evidence',
+             'source_refs': ['SRC1'], 'source_quote': 'Source', 'course_quote': '', 'source_question': ''}]}
+    raw = json.dumps({'model': 'gpt-5.6-luna', 'choices': [{'message': {'content': json.dumps(content)}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt)}).encode()
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare([{'role': 'user', 'content': 'Current source/course'}], max_output_tokens=8192,
+        ownership_checkpoint=checkpoint, response_format=fmt)
+    receipt = {'policy': 'managed-response-quarantine-v1', 'accepted': False, 'complete_http_response': True,
+        'status': 200, 'phase': 'structured_shape', 'stage_sha256': 'c' * 64,
+        'route_fingerprint': client.cache_fingerprint(),
+        'wire_request_sha256': hashlib.sha256(client._prepared[cap]).hexdigest(),
+        'raw_base64': base64.b64encode(raw).decode(), 'byte_count': len(raw),
+        'body_sha256': hashlib.sha256(raw).hexdigest()}
+    result = await client.replay_completed(cap, receipt=receipt, tenant_id=tenant, user_id=actor,
+        job_id='job', stage_id='c' * 64, ownership_checkpoint=checkpoint)
+    assert result.content == content and not matches_editorial_verification(result.content, fmt)
+    assert not requests and result.usage.input_tokens == 8
+
+
+@pytest.mark.asyncio
 async def test_preparation_is_local_one_use_and_freezes_payload(setup):
     client, tenant, user, _, requests = setup
     messages = [{"role": "user", "content": "synthetic"}]
