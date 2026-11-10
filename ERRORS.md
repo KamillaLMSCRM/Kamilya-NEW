@@ -10615,3 +10615,28 @@ Always inspect final diff statistics and bound diff-check output before release.
 - Fix: unique nonce target/marker plus returned created OID; coordinator cleanup authority only after that invocation receipt; no cleanup or retry after unknown restore outcome. Sensitive-copy/decrypted TMPDIR is mode700 and removed in an unconditional nested finally even if database cleanup fails. Production revision checks do not precede owned cleanup.
 - Verification: AST-extracted actual finally4synthetic no-creation/success/ownership-failure/drop-failure checksPASS; independent r29 reviewREADY; actual signed restore/0187/old83reader and owned target/temp absencePASS. No production migration/data/config writes occurred in this drill.
 - Prevention: bind cleanup to invocation ownership rather than a reusable name; fault-inject cleanup independently of the happy path and report any disconnect/kill as unknown, never as clean.
+
+
+## AGENT-RETAINED-READ-001 — Scoped diagnostics exceeded the transport contract
+
+2026-11-10 own read-only harness, not product failure. PostgreSQL AIJob.id isString
+while tenant/actor/document IDs areUUID; a UUID job parameter caused DBAPIError.
+After correction, full output exceeded kz_remote_exec evidence limit50lines/500chars
+and failedremote_evidence_contract_invalid. Fixed with relevant projections and
+then immutable hash-bound pagination within the existing sanitizer (never increased
+limits/bypassedtransport). Local max-envelope contract tested first. Client source
+prior events belonged to another actor; narrowed own eventwindow>=13 instead of
+removing tenant/job/actor guards. Failures retained;0DB/modelwrites. Dry run status
+isREADY, executedPASS; never treat those as interchangeable.
+
+RELEASE-007 recurrence2026-11-10: old ignored fresh-backup/restore helpers again created
+the O_EXCL sentinel withflock. Exact owned empty inode214/root0644/size0, noowner/
+controller/workflow and unchanged83runtime were independently verified; scoped
+reviewed cleanup removed only that sentinel. Canonical installed fresh-backupgate
+then succeeded. Old helperflock paths are retired; use test! -e, never open lock
+for inspection. Postread-r22 verifies absentlock, deployed85 and retainedrollback.
+
+AGENT-FLAGS-086: local r30build used an incorrect fourth flag name. It was stopped,
+not accepted; corrected r31 used exact NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED=true
+with three canonical methodologistflags,67pages and51browser scenariosPASS. Derive
+flag names from deploymentcontroller, never reconstruct similar names from memory.

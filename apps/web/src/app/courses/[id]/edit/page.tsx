@@ -37,6 +37,7 @@ import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel
 import { WorkspacePage, WorkspacePageHeader, WorkspaceToolbar } from '@/features/workspace-design';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
 import { currentAuthorSession, sameAuthorSession } from '@/features/course-authoring/authorSession';
+import { authorRead } from '@/features/course-authoring/authorRead';
 import LessonCorrectionPanel, { type LessonCorrectionPanelHandle } from '@/features/methodologist-workbench/LessonCorrectionPanel';
 import type { CorrectionApplicationReceipt } from '@/lib/lessonCorrection';
 
@@ -235,10 +236,9 @@ export default function CourseEditPage() {
     const isCurrentRead = () => isScopeCurrent(captured) && generation === metadataGenerationRef.current;
     setReadinessUnavailable(true);
     try {
-      const headers = { Authorization: `Bearer ${latestTokenRef.current}` };
       const [courseRes, structRes] = await Promise.all([
-        fetch(`${API_URL}/v1/courses/${courseId}`, { headers }),
-        fetch(`${API_URL}/v1/courses/${courseId}/structure`, { headers }),
+        authorRead(`${API_URL}/v1/courses/${courseId}`, captured.identity.session),
+        authorRead(`${API_URL}/v1/courses/${courseId}/structure`, captured.identity.session),
       ]);
       if (!courseRes.ok || !structRes.ok) throw new Error('Workspace load failed');
       const [courseData, structureData] = await Promise.all([courseRes.json(), structRes.json()]);
@@ -489,10 +489,7 @@ export default function CourseEditPage() {
     if (captured.identity !== workspaceScope || !isScopeCurrent(captured)) return;
     setLoadingLessonId(lessonId);
     try {
-      const res = await fetch(`${API_URL}/v1/lessons/${lessonId}`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${latestTokenRef.current}` },
-      });
+      const res = await authorRead(`${API_URL}/v1/lessons/${lessonId}`, captured.identity.session);
       if (!res.ok) {
         const payload = await res.json().catch(() => null);
         throw new Error(payload?.message || payload?.detail || `HTTP ${res.status}`);
@@ -567,7 +564,7 @@ export default function CourseEditPage() {
       const isCurrentRead = () => isCurrentSave() && metadataGeneration === metadataGenerationRef.current;
       setReadinessUnavailable(true);
       try {
-        const reviewResponse = await fetch(`${API_URL}/v1/courses/${courseId}`, { headers: { Authorization: `Bearer ${latestTokenRef.current}` } });
+        const reviewResponse = await authorRead(`${API_URL}/v1/courses/${courseId}`, captured.identity.session);
         if (!reviewResponse.ok) throw new Error('Review status readback failed');
         const reviewedCourse = await reviewResponse.json() as Course;
         if (!isCurrentRead()) return;

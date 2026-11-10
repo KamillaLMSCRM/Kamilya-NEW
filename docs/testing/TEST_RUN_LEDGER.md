@@ -6781,3 +6781,18 @@ New persistent71a37f3d fixture, ordinary DeepSeek primary/Luna reserve after aud
 New owner$1 scope11completed calls77967in116771out/194738total; peak cache-miss upper$0.1635153,remaining$0.8364847, no active/unknown new calls. Old experiments excluded. Raw addressed replies identify deepseek-flash; native alias fieldUNKNOWN due exact-alias metadata guard. Official pricing documents legacyalias redirects to Flash; thinking ON/oldLOW unchanged. Evidence final-deepseek/completed-budget-r33.json and native-r23/addressed-r26/r28/r30.
 
 Restore R25 draft blocked in independent review (unsafe static ownership/cleanup); R27 draft failed cleanup exception review; neither executed. R29 unique nonce+OID+unconditional700TMPDIR cleanup,4synthetic cleanup-failure cases PASS, independent READY. Actual canonical pinned encrypted0186 restore/SIGNED report279c1714...917ad4,131tables127FORCE,RPO21982/RTO19; actual0187 SQL from Alembic preserves settings/historySHA92c63625...d3ff. Actual old83 READ ONLY lms_app reader succeeded on0187/revision4/oneoldoverride. Owned target/plaintext absent; prod0186/runtime unchanged. Current production four services old62ea4c08/restart0 and allfourflagsTRUE independently read. Fresh release-backup RPO remains separately required.
+
+
+## RUN-20261110-PRODUCTION85-LIVE-P1P2
+
+Protected42785811949 and native42780644349 deployed exact7f062b46; postread-r22PASS.
+Actual ordinary synthetic full flow completed2L7Q/100%, native178s,0contentedits,
+certificateKML-2026-9F9D12C15C6E/publicVALID,3PDFpagesvisuallyPASS, exactjournalCSV PASS.
+Cost upper$0.0534168(8calls). Details:2026-11-10-production85-p1p2-live-acceptance.md.
+
+## RUN-20261110-AUTHOR-READ86-LOCAL
+
+Original built85 regression RED on401editorload. GET-only fenced recovery, retained
+impersonation identity and delayed sibling401 controls:16focusedPASS; full194files/
+1760testsPASS,51builtbrowser scenariosPASS,67pagesbuildPASS,TS/scopedlintPASS.
+No write retry or engine logic change; exactDEV/production follow-up OPEN.

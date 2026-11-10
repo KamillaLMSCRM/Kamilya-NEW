@@ -194,7 +194,7 @@ export class SyntheticWorkspace {
         };
         let reply: Reply;
         if (method === 'POST' && path === '/v1/auth/refresh') {
-          reply = { json: { access_token: 'synthetic-workspace-token-not-a-real-jwt', user: actor } };
+          reply = { json: { access_token: `synthetic-workspace-token-not-a-real-jwt-${this.matching('POST', '/v1/auth/refresh').length}`, user: actor } };
         } else if (method === 'GET' && path === '/v1/users/me') {
           reply = { json: actor };
         } else {

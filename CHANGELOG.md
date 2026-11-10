@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.86] - 2026-11-10
+
+### Fixed
+
+- Recover ordinary author-session expiry on editor course, structure, lesson and post-save status reads. Reuse the existing session refresh once and fence dispatch, replay and results to the initiating author identity. Reuse a sibling's refreshed token for a delayed old-token response.
+- Keep impersonated editor sessions from using the platform refresh cookie. An expired impersonation returns its original authentication failure without replacing the active identity or replaying a read. Save, publication, reorder and other mutations remain outside automatic retry.
+
+### Verification
+
+- The unmodified 0.11.85 engine completed a production synthetic course in 178 seconds: two lessons and seven questions accepted against the fixed source, published, assigned and fully completed through the ordinary browser, with matching certificate, public verification, PDF and training-log CSV. This frontend follow-up changes no engine logic or production schema.
+
 ## [0.11.85] - 2026-11-10
 
 ### Fixed

@@ -6,7 +6,10 @@ const wire = vi.hoisted(() => ({ create: vi.fn(), load: vi.fn(), apply: vi.fn(),
 let lang = 'ru';
 let session = { accessToken: 'test-token', user: { role: 'methodologist', user_id: 'actor-1', tenant_id: 'tenant-1', impersonated_by: undefined as string | undefined } };
 const translate = (key: string) => ({ 'aiAssistant.chatPlaceholder': 'Ask AI', 'aiGeneration.chat.send': 'Send', 'aiAssistant.applyLesson': 'Legacy Apply' }[key] ?? key);
-vi.mock('@/store/authStore', () => ({ useAuthStore: (selector: (s: typeof session) => unknown) => selector(session) }));
+vi.mock('@/store/authStore', () => ({ useAuthStore: Object.assign(
+  (selector: (s: typeof session) => unknown) => selector(session),
+  { getState: () => session },
+) }));
 vi.mock('@/store/languageStore', () => ({ useLanguageStore: (selector: (s: { lang: string }) => unknown) => selector({ lang }) }));
 vi.mock('@/i18n/useT', () => ({ useT: () => ({ lang, t: translate }) }));
 vi.mock('@/components/ui/Toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
