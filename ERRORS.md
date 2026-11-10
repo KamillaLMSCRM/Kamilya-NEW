@@ -10589,3 +10589,20 @@ Always inspect final diff statistics and bound diff-check output before release.
   and stopped before DB/network on missing JWT config; no model call occurred.
   Load only the canonical apps/api dotenv into process memory before importing
   that service; keep the separate lms_app READONLY/Supabase-project check.
+
+
+### AGENT-ACCEPTANCE-HARNESS-001 follow-up — 2026-11-10 release sidecars
+
+- Symptom: new helper assumptions stopped before completion: unsupported upload MIME suffix, nullable stage payload, frontend healthz treated as JSON, release state assumed to own feature flags, and remote timeout600 exceeded canonical300. Original failed attempts remain retained.
+- Cause: copied DTO/transport assumptions were not checked against the exact current contract. These are agent harness errors, not engine defects or credential failures.
+- Fix: inspect closed upload MIME and reconcile empty owned catalog before a distinct corrected upload; retain None pending payloads; parse healthz text; obtain effective flags via canonical config read in allfour containers; cap remote helper at300. Keep validators unchanged and phase-bound exclusive intents.
+- Verification: exact e9 native DeepSeek completed, source/code custody retained, model calls and rejected partial corrections counted; prod four-service flags readbackPASS. The initial source/version/push-preflight failure caused no Git push; release notes marker fixed before retry.
+- Prevention: prepare typed readback against actual DTO/source before new inference; separate local policy revision from model-routing revision and canonical source publication from runtime acceptance.
+
+### AGENT-ACCEPTANCE-HARNESS-001 restore-sidecar safety review — 2026-11-10
+
+- Symptom: independent review blocked unexecuted r25/r27 drafts: a static marker could authorize deleting an old target; cleanup could be skipped after an ownership/drop failure; default drill TMPDIR was outside the claimed owned directory.
+- Cause: disposable lifecycle ownership and failure cleanup were incompletely composed around the canonical restore command.
+- Fix: unique nonce target/marker plus returned created OID; coordinator cleanup authority only after that invocation receipt; no cleanup or retry after unknown restore outcome. Sensitive-copy/decrypted TMPDIR is mode700 and removed in an unconditional nested finally even if database cleanup fails. Production revision checks do not precede owned cleanup.
+- Verification: AST-extracted actual finally4synthetic no-creation/success/ownership-failure/drop-failure checksPASS; independent r29 reviewREADY; actual signed restore/0187/old83reader and owned target/temp absencePASS. No production migration/data/config writes occurred in this drill.
+- Prevention: bind cleanup to invocation ownership rather than a reusable name; fault-inject cleanup independently of the happy path and report any disconnect/kill as unknown, never as clean.

@@ -6764,3 +6764,14 @@ Fresh global DEV routing is revision7, distinct from runtime settings revision9.
 Operations DB counts6pending/3running with oldest activity~140days are historical
 statuses, not current-consumer proof. No route PUT or cleanup performed; separate
 current consumer/queue idle probe prepared. Do not erase history for a green count.
+
+
+### 2026-11-10 R23–R33 exact DEV / ordinary DeepSeek / isolated compatibility
+
+Exact e9 CI42767230946/build42767814305/image0109b876...94f8f; APIdep-dbpbijnf3r2c73fmdjc0, webdpl_37UkYqm9oqrBs27FT6ouNGUkJh8R, sole VMworker8ca48b3e...12be5/restart0 RELEASE_OK. API169source files identical to4a3. Real ordinary methodologist five sidebar destinations/contextual menus and pointer navigation PASS; widths/local1721web/33browser previously accepted. Old worker retained stopped; production6containers unchanged.
+
+New persistent71a37f3d fixture, ordinary DeepSeek primary/Luna reserve after audited model-routing7->8, GLMdisabled; runtimepolicy9 separate. Approved standardsworking8febe470 reused literally; indexpartial/13chunks0indexed/embeddingsunavailable disclosed. Source3DeepSeek calls10160in30877out; six keep decisions reused prior genuine boundary acknowledgement and literal context, no new normative answers/source text edits. Source approval22. Nativejob2e407d20 completedcoursea13183f9,4L16Q64choices/~538s,5calls39748in73379out. Native question checks/blind missed two issue-stage premises: independent NO_GO retained. R26 one partial repair not applied, R28 stage still implicit not applied, R30 two accepted source-quoted model edits. Ordinary two PUTs/readback preserve4prose/14peerQ/64choices+keys/source; target quotes invalidated natively. Not autonomous discovery; final reviewed content GO is distinct from original NO_GO.
+
+New owner$1 scope11completed calls77967in116771out/194738total; peak cache-miss upper$0.1635153,remaining$0.8364847, no active/unknown new calls. Old experiments excluded. Raw addressed replies identify deepseek-flash; native alias fieldUNKNOWN due exact-alias metadata guard. Official pricing documents legacyalias redirects to Flash; thinking ON/oldLOW unchanged. Evidence final-deepseek/completed-budget-r33.json and native-r23/addressed-r26/r28/r30.
+
+Restore R25 draft blocked in independent review (unsafe static ownership/cleanup); R27 draft failed cleanup exception review; neither executed. R29 unique nonce+OID+unconditional700TMPDIR cleanup,4synthetic cleanup-failure cases PASS, independent READY. Actual canonical pinned encrypted0186 restore/SIGNED report279c1714...917ad4,131tables127FORCE,RPO21982/RTO19; actual0187 SQL from Alembic preserves settings/historySHA92c63625...d3ff. Actual old83 READ ONLY lms_app reader succeeded on0187/revision4/oneoldoverride. Owned target/plaintext absent; prod0186/runtime unchanged. Current production four services old62ea4c08/restart0 and allfourflagsTRUE independently read. Fresh release-backup RPO remains separately required.

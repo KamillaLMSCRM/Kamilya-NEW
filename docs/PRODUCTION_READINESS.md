@@ -1,3 +1,10 @@
+# 0.11.84 preproduction checkpoint — 2026-11-10
+
+Exact DEV e9f47df36f7cdee3d622be55c3da76e9259f2149 has API/web/sole-worker readback,1721web tests/33browser scenarios, and real five-link methodologist/contextual-navigation acceptance. Three native Luna courses completed; standards' independent scope finding was model-corrected. Native DeepSeek4L16Q finished; its two independent premise findings required addressed model repair and native persistence/readback. All original failed reviews remain retained. This supports explicitly reviewed drafts; it does not prove autonomous semantic completeness.
+
+Pinned0186 signed disposable restore131tables/127FORCE/RTO19s passed, actual0187 migration preserved settings/history, actual old83runtime-settings reader passed with restricted READ ONLY lms_app and new four override keys absent. Temporary DB/all owned plaintext absent; production remains0186/83/blue. Fresh release-backup freshness and protected backend/native frontend release/live gates remain OPEN. Binary compatibility is conditional, not authority to erase audited overrides or downgrade schema.
+
+
 # v0.11.84 — native DEV accepted in part; production gate OPEN, 2026-11-10
 
 Exact4a3ec606 DEV three native Luna HIGH courses completed20L56Q/180choices/10original cash images. PDF/cash content GO with retained advisories. Standards' independent question-scope finding is repaired through addressed model editor+ordinary API and verified in actual DEV quiz preview; the blind checker did not discover it. This is a documented limitation, not three fully autonomous no-finding results. PDF full actual learner/certificate/journal/CSV journey PASS; cash all10live original image byte identities PASS. Existing published production83 and customer data are unchanged.

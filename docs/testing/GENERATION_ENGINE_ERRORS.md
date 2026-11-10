@@ -1355,3 +1355,8 @@ This demonstrates addressed repair, not autonomous discovery or complete future
 semantic coverage. Original failed responses/usage and audits remain under
 .release-evidence/focused-editorial-v36-20261110/question-applicability-r13..r16,
 unaccepted-r16-source-archive and addressed-question-qa-r17.
+
+
+### ENG-052 follow-up — ordinary DeepSeek source-premise cases, 2026-11-10
+
+Native e9 DeepSeek job2e407d20 saved4L16Q. Two source-premise defects survived native question-editor VALID and blind SUPPORTED: I nonapproval omitted already-issued scope; II stem already-issued conflicted with refusal of issuance. Literal16/16 source quotes did not prove applicability. Independent reader identified both without supplied hints. Root supplied findings to existing native editor: R26 repaired onlyII, R28 repairedI but leftII stage implicit, R30 with exact independent source-condition quotes explicitly repaired both. Native two scoped PUT/readbacks preserve all4prose/14peers/64choices+keys, invalidate only edited quotes. No new validator or manufactured source interpretation was deployed. These demonstrate current review limitations and addressed correction, not autonomous detection or removal of the need for explicit course review. Original/rejected replies, full token use and independent verdicts retained in final-deepseek/native-r23 and addressed-r26/r28/r30.

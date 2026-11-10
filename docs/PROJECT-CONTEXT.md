@@ -1,3 +1,7 @@
+# Verified current contour — 2026-11-10 07:30 UTC
+
+DEV exact e9f47df36f7cdee3d622be55c3da76e9259f2149: API dep-dbpbijnf3r2c73fmdjc0/live, web dpl_37UkYqm9oqrBs27FT6ouNGUkJh8R/READY, sole isolated VM126worker8ca48b3e...12be5/image0109b876...94f8f/schema0187. Native DeepSeek course4L16Q completed; two independent QA scope findings corrected by addressed model proposals and native API readback, not autonomous discovery. New additional$1 budget spent no more than$0.1635153 across11completed calls; prior experiments excluded. No active inference. Production remains83/466e0f90/blue/schema0186; native frontend82/ae11c4d3 unchanged. Actual signed restore/isolated0187/old83reader proof passed, all owned temporary data absent. Release backup freshness, protected backend/native frontend deployment and live acceptance still open. Current handoff owns exact process/receipt details; older contour paragraphs below are historical.
+
 # Current DEV context — 2026-11-10
 
 DEV exact4a3ec606: API dep-dbp5mobm8hqs73cu6j3g/live, frontend dpl_CaivSDYvfGzMqR64DWqkcJ5sSLxj/READY, sole VM126 worker214863e098932ca241d16d066e356a83fff3b540b33a5b42f9c1f0e8caba702f/imagebda41f4326faed255be939431d1627ed0d29939c96cd92886be3808cb8812dcd/schema0187. Three fresh QA courses complete; see current handoff for content and independent-review boundaries. After Codex restart the ordinary existing IAB DEV session reads correctly. Local sidebar/reader follow-up is not yet deployed. Production remains0.11.83/466e0f90/schema0186. No new provider resources/plans or customer-course edits.
