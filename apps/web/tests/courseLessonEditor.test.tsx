@@ -179,6 +179,95 @@ function openLessonEditor() {
 }
 
 describe('course lesson editor', () => {
+  it('keeps publication details closed without hiding source inspection or dirty warnings', async () => {
+    useAuthStore.setState({ user: { user_id: '75000000-0000-4000-8000-000000000001', tenant_id: '75000000-0000-4000-8000-000000000002', tenant: null, role: 'methodologist', full_name: 'Author', email: null, telegram_id: '' } });
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    const { container } = render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    const checks = container.querySelector<HTMLDetailsElement>('[data-publication-checks]')!;
+    expect(checks.open).toBe(false);
+    expect(screen.getByRole('button', { name: 'Открыть замечания и источники' })).toBeVisible();
+    expect(screen.getByText('Проверка и публикация — подробности')).toBeVisible();
+    openLessonEditor();
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Unsaved lesson' } });
+    expect(container.querySelector('[data-redesign-page="course-editor"] > fieldset > p[role="status"]')).toBeVisible();
+    fireEvent.click(checks.querySelector('summary')!);
+    expect(checks.open).toBe(true);
+    expect(screen.getByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeDisabled();
+  });
+  it.each([
+    ['module', 'http'], ['module', 'network'], ['lesson', 'http'], ['lesson', 'network'],
+  ])('retains %s creation input on %s failure and permits an explicit retry', async (kind, failure) => {
+    setupFetch();
+    const read = fetchMock.getMockImplementation()!;
+    let fail = true;
+    fetchMock.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        if (fail && failure === 'network') throw new Error('Offline');
+        if (fail) return jsonResponse({}, 503);
+        return jsonResponse({ id: 'created-1', title: 'Retained title', content_type: 'text', order_index: 1 });
+      }
+      return read(input, init);
+    });
+    render(<CourseEditPage />);
+    await screen.findByRole('button', { name: 'Введение' });
+    if (kind === 'lesson') fireEvent.click(screen.getByRole('button', { name: '+ courses.addLesson' }));
+    const input = screen.getByRole('textbox', { name: kind === 'module' ? 'courses.addModule' : 'courses.addLesson' });
+    fireEvent.change(input, { target: { value: 'Retained title' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(await screen.findByText(/^Не удалось сохранить\./)).toHaveAttribute('role', 'alert');
+    expect(input).toHaveValue('Retained title');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    await waitFor(() => expect(input).toBeEnabled());
+    fail = false;
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(screen.queryByText(/^Не удалось сохранить\./)).not.toBeInTheDocument());
+    await screen.findByText('Retained title', { selector: kind === 'module' ? 'h3' : 'span' });
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(2);
+  });
+
+  it('does not submit duplicate creation commands while the first request is unresolved', async () => {
+    setupFetch();
+    const read = fetchMock.getMockImplementation()!;
+    let complete!: (response: Response) => void;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => init?.method === 'POST'
+      ? new Promise<Response>((resolve) => { complete = resolve; }) : read(input, init));
+    render(<CourseEditPage />);
+    const input = await screen.findByRole('textbox', { name: 'courses.addModule' });
+    fireEvent.change(input, { target: { value: 'Only once' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    expect(input).toBeDisabled();
+    await act(async () => complete(jsonResponse({ id: 'created-1', title: 'Only once' })));
+    expect(input).toBeEnabled();
+    expect(input).toHaveValue('');
+  });
+
+  it('does not let an old session creation completion clear a newer pending request', async () => {
+    setupFetch();
+    const read = fetchMock.getMockImplementation()!;
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => init?.method === 'POST'
+      ? new Promise<Response>((resolve) => { pending.push(resolve); }) : read(input, init));
+    render(<CourseEditPage />);
+    let input = await screen.findByRole('textbox', { name: 'courses.addModule' });
+    fireEvent.change(input, { target: { value: 'Old session' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    act(() => { useAuthStore.setState((state) => ({ sessionEpoch: state.sessionEpoch + 1 })); });
+    input = await screen.findByRole('textbox', { name: 'courses.addModule' });
+    await waitFor(() => expect(input).toBeEnabled());
+    expect(input).toHaveValue('');
+    fireEvent.change(input, { target: { value: 'New session' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await act(async () => pending[0](jsonResponse({}, 503)));
+    expect(input).toBeDisabled();
+    expect(screen.queryByText(/^Не удалось сохранить\./)).not.toBeInTheDocument();
+    await act(async () => pending[1](jsonResponse({ id: 'new-session-module', title: 'New session' })));
+    expect(input).toBeEnabled();
+    expect(await screen.findByRole('heading', { name: 'New session' })).toBeInTheDocument();
+  });
   it('shows the creation-time missing illustration count alongside the approved source without blocking publication', async () => {
     const documentId = '3021ee52-3387-46b2-a6c4-a7bd36136ffa';
     const approvalId = 'b5b93138-cf8e-4e06-a87b-278e21efe8e2';

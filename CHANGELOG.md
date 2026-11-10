@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.85] - 2026-11-10
+
+### Fixed
+
+- Admit only the known additive 0186-to-0187 schema transition for release 0.11.84 and later; preserve older release epochs and reject unexpected current schema revisions. The published 0.11.84 release failed before production deployment and is not retagged.
+- Close contextual menus on Escape, outside click, focus departure and navigation, with keyboard focus restoration. Keep course publication details compact without hiding source, unsaved-edit or missing-illustration warnings.
+- Load dashboard sources independently, retry only failed sources and discard responses from stale sessions or tenants. Show bounded queues and unknown totals honestly, including training source truncation.
+- Keep catalog and record actions usable on narrow screens while preserving methodologist publication gates and the focused v36 engine accepted in DEV.
+
 ## [0.11.84] - 2026-11-10
 
 ### Changed

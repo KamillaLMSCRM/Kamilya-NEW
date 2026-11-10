@@ -171,6 +171,7 @@ for (const viewport of [
       await page.goto(`/courses/${ids.course}/edit?lessonId=${ids.lesson}`);
       const content = page.getByRole('textbox', { name: 'Lesson content', exact: true });
       await expect(content).toHaveValue(lessons[0].content);
+      await page.locator('[data-publication-checks] > summary').click();
       await expect(page.getByText('No unsaved course changes', { exact: true })).toBeVisible();
       await content.fill('Inspect equipment');
       await content.press('ControlOrMeta+A');
@@ -182,7 +183,7 @@ for (const viewport of [
       await page.keyboard.press('ArrowRight');
       await expect(toolbar.getByRole('button', { name: 'Italic', exact: true })).toBeFocused();
       await expect(page.getByRole('status').filter({ hasText: /^Unsaved changes$/ })).toBeVisible();
-      await expect(page.getByText('Save or discard unsaved course changes before approval or publication.', { exact: true })).toBeVisible();
+      await expect(page.getByText('Save or discard unsaved course changes before approval or publication.', { exact: true }).first()).toBeVisible();
       await expect(page.getByRole('button', { name: 'Approve course', exact: true })).toBeDisabled();
       await page.getByRole('group', { name: 'Lesson view mode', exact: true })
         .getByRole('button', { name: 'Preview', exact: true }).click();

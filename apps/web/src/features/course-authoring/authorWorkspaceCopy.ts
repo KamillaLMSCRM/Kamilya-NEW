@@ -1,4 +1,6 @@
 const en = {
+  publicationChecks: 'Review and publication details',
+  creationFailure: 'The title is retained. Check the list before selecting Create again; a lost connection does not confirm whether the item was created.',
   unplacedIllustrations: 'Illustrations not placed during course creation: {count}. Check the source and add them where needed before publication.',
   formatting: 'Text formatting', bold: 'Bold', italic: 'Italic', heading: 'Heading',
   bullets: 'Bulleted list', numbered: 'Numbered list', quote: 'Quote', code: 'Inline code', text: 'text',
@@ -27,6 +29,8 @@ const en = {
 
 type Copy = { [K in keyof typeof en]: string };
 const ru: Copy = {
+  publicationChecks: 'Проверка и публикация — подробности',
+  creationFailure: 'Название сохранено в поле. Проверьте список перед повторным нажатием «Создать»: при обрыве связи результат создания может быть неизвестен.',
   unplacedIllustrations: 'При создании курса не добавлены иллюстрации: {count}. Проверьте источник и при необходимости добавьте их перед публикацией.',
   formatting: 'Форматирование текста', bold: 'Полужирный', italic: 'Курсив', heading: 'Заголовок',
   bullets: 'Маркированный список', numbered: 'Нумерованный список', quote: 'Цитата', code: 'Код в строке', text: 'текст',
@@ -53,6 +57,8 @@ const ru: Copy = {
   draftConflict: 'Сохранённый вопрос изменился после начала редактирования. Ваш черновик сохранён для сверки, но сохранение заблокировано. Повторите загрузку или отмените черновик и откройте текущий вопрос. Автоматической перезаписи не будет.',
 };
 const kk: Copy = {
+  publicationChecks: 'Тексеру және жариялау мәліметтері',
+  creationFailure: 'Атау өрісте сақталды. «Жасау» түймесін қайта баспас бұрын тізімді тексеріңіз: байланыс үзілсе, жасау нәтижесі белгісіз болуы мүмкін.',
   unplacedIllustrations: 'Курс жасалғанда қосылмаған суреттер: {count}. Жарияламас бұрын дереккөзді тексеріп, қажет суреттерді қосыңыз.',
   formatting: 'Мәтінді пішімдеу', bold: 'Қалың', italic: 'Көлбеу', heading: 'Тақырып',
   bullets: 'Маркерленген тізім', numbered: 'Нөмірленген тізім', quote: 'Дәйексөз', code: 'Жол ішіндегі код', text: 'мәтін',

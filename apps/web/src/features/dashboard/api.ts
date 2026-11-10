@@ -1,22 +1,27 @@
 import { getLearningActionCenter } from '@/features/learning-actions/api';
 import { api } from '@/lib/api';
 import type { MandatoryTrainingSummary } from '@/features/mandatory-training/types';
-import { buildMethodologistDashboard, type DashboardCourse, type DashboardJob, type MethodologistDashboardModel } from './model';
+import type { DashboardCourse, DashboardJob, DashboardSources } from './model';
 
-export async function loadMethodologistDashboard(signal: AbortSignal): Promise<MethodologistDashboardModel> {
-  const [learning, courses, jobs, mandatory] = await Promise.allSettled([
-    getLearningActionCenter(undefined, signal),
-    api.get<DashboardCourse[]>('/v1/courses?per_page=100', { signal }),
-    api.get<DashboardJob[]>('/v1/ai/jobs', { signal }),
-    api.get<MandatoryTrainingSummary>('/v1/admin/mandatory-training/summary', { signal }),
-  ]);
+export const dashboardSections = ['learning', 'courses', 'jobs', 'mandatory'] as const;
+export type DashboardSection = typeof dashboardSections[number];
 
-  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-
-  return buildMethodologistDashboard({
-    learning: learning.status === 'fulfilled' ? learning.value : null,
-    courses: courses.status === 'fulfilled' && Array.isArray(courses.value.data) ? courses.value.data : null,
-    jobs: jobs.status === 'fulfilled' && Array.isArray(jobs.value.data) ? jobs.value.data : null,
-    mandatory: mandatory.status === 'fulfilled' ? mandatory.value.data : null,
-  });
+// Each source settles independently; slow summaries must not hold the work queue.
+export function loadDashboardSection<Key extends DashboardSection>(key: Key, signal: AbortSignal): Promise<DashboardSources[Key]> {
+  const loaders: { [Name in DashboardSection]: () => Promise<DashboardSources[Name]> } = {
+    learning: async () => {
+      const value = await getLearningActionCenter(undefined, signal);
+      return value.summary.training_log ? value : null;
+    },
+    courses: async () => {
+      const response = await api.get<DashboardCourse[]>('/v1/courses?per_page=100', { signal });
+      return Array.isArray(response.data) ? response.data : null;
+    },
+    jobs: async () => {
+      const response = await api.get<DashboardJob[]>('/v1/ai/jobs', { signal });
+      return Array.isArray(response.data) ? response.data : null;
+    },
+    mandatory: async () => (await api.get<MandatoryTrainingSummary>('/v1/admin/mandatory-training/summary', { signal })).data,
+  };
+  return loaders[key]();
 }

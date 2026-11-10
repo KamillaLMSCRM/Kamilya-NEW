@@ -1,3 +1,9 @@
+## RUN-20261110-FRONTEND-P1-P2-INTEGRATION
+
+- Source fix/frontend-p1-20261110 was frozen and ported as22named web files onto ec2922c0 in a separate worktree. Original source unchanged. Root independently passed193frontend files/1744tests; types/scoped lint/diff checkPASS. Independent review found bounded training-source totals misrepresented; corrected with three retained controls (truncated zero/two and untruncated five with three visible).
+- Protected84 workflow42778231944 failed at manifest validation before production deployment. Missing exact epoch reproduced RED6/7, then42controller/bundle/workflow testsPASS after known0186-to-0187 mapping; independent reviewREADY. Runtime installed old controller hash read separately; no upgrade yet. New immutable85candidate preserves84tag and prior engine acceptance boundaries.
+- Final built67pages/49browser scenariosPASS (16P1/P2+33existing) at390/915/1024/1440; axe0serious/critical. Production four feature flags enabled. Root visually checked desktop dashboard/mobile editor. Python baseline1004/2174PASS. Exact DEV/prod acceptance remains OPEN; no new model request, customer write, provider plan/resource or permission change.
+
 ## RUN-20261109-SOURCE-MEANING-R6
 
 - Closeout01:26UTC: exactc460 DEV RECONCILED after acknowledged clean-cache

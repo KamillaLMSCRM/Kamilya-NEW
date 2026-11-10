@@ -30,6 +30,13 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('layout session validation during tenant preview', () => {
+  it('provides exactly one focusable target for the application skip link', () => {
+    const { container } = render(<Layout>Test cabinet</Layout>);
+    const targets = container.querySelectorAll('#main-content');
+    expect(targets).toHaveLength(1);
+    expect(targets[0].tagName).toBe('MAIN');
+    expect(targets[0]).toHaveAttribute('tabindex', '-1');
+  });
   it('does not request the forbidden platform profile on focus or visibility return', () => {
     state.user.impersonated_by = 'platform-operator';
     render(<Layout>Test cabinet</Layout>);

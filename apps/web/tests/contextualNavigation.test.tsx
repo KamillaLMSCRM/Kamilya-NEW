@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ContextualNavigation from '@/components/layout/ContextualNavigation';
 import Sidebar from '@/components/layout/Sidebar';
@@ -18,6 +18,30 @@ vi.mock('next/navigation', () => ({
 const user = { user_id: 'm', tenant_id: 't', tenant: { id: 't', name: 'Test' }, telegram_id: '', role: 'methodologist', roles: ['methodologist'], full_name: 'Test', email: 'test@example.com' };
 
 describe('contextual methodologist navigation', () => {
+  it('closes on Escape and returns focus from a link to its trigger', () => {
+    const { container } = render(<ContextualNavigation section="courses" />);
+    const menu = container.querySelector('details')!;
+    menu.open = true;
+    const link = screen.getByRole('link', { name: 'Документы' });
+    link.focus();
+    fireEvent.keyDown(link, { key: 'Escape' });
+    expect(menu.open).toBe(false);
+    expect(menu.querySelector('summary')).toHaveFocus();
+  });
+
+  it('closes on outside pointer, focus exit and link activation', () => {
+    const { container } = render(<><ContextualNavigation section="courses" /><button>Outside</button></>);
+    const menu = container.querySelector('details')!;
+    menu.open = true;
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Outside' }));
+    expect(menu.open).toBe(false);
+    menu.open = true;
+    fireEvent.blur(menu, { relatedTarget: screen.getByRole('button', { name: 'Outside' }) });
+    expect(menu.open).toBe(false);
+    menu.open = true;
+    fireEvent.click(menu.querySelector('a')!);
+    expect(menu.open).toBe(false);
+  });
   beforeEach(() => {
     useAuthStore.setState({ user });
     useLanguageStore.setState({ lang: 'ru' });

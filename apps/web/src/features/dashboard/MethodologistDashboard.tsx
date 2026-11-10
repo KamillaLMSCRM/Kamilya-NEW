@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  CircleAlert,
   Clock3,
   FilePlus2,
   ListChecks,
@@ -15,8 +14,9 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useLanguageStore } from '@/store/languageStore';
-import { loadMethodologistDashboard } from './api';
-import type { MethodologistDashboardModel } from './model';
+import { dashboardSections, loadDashboardSection, type DashboardSection } from './api';
+import { buildMethodologistDashboard, type DashboardSources } from './model';
+import { getQueueCopy, queueScope } from './queueCopy';
 import { DashboardTaskQueue, type DashboardTask } from './DashboardTaskQueue';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { WorkspacePage } from '@/features/workspace-design';
@@ -197,37 +197,35 @@ function DashboardContent() {
   const lang = useLanguageStore((state) => state.lang);
   const m = copy[lang as keyof typeof copy] ?? copy.ru;
   const w = workspaceCopy(lang);
-  const [model, setModel] = useState<MethodologistDashboardModel | null>(null);
+  const [sources, setSources] = useState<DashboardSources>({ learning: null, courses: null, jobs: null, mandatory: null });
+  const [loadStates, setLoadStates] = useState<Record<DashboardSection, 'loading' | 'ready' | 'error'>>({ learning: 'loading', courses: 'loading', jobs: 'loading', mandatory: 'loading' });
+  const controllers = useRef<Partial<Record<DashboardSection, AbortController>>>({});
+  const q = getQueueCopy(lang);
+  const model = dashboardSections.every((key) => loadStates[key] === 'loading') ? null : buildMethodologistDashboard(sources);
+  const trainingSourceTruncated = sources.learning?.summary.training_items_truncated === true;
   const [workView, setWorkView] = useState<'all' | 'training' | 'content' | 'review'>('all');
-  const [refresh, setRefresh] = useState(0);
-
-  useEffect(() => {
+  const refreshSection = useCallback((key: DashboardSection) => {
+    controllers.current[key]?.abort();
     const controller = new AbortController();
-    setModel(null);
-    void loadMethodologistDashboard(controller.signal)
-      .then((next) => { if (!controller.signal.aborted) setModel(next); })
+    controllers.current[key] = controller;
+    const isCurrent = () => !controller.signal.aborted && controllers.current[key] === controller;
+    setLoadStates((current) => ({ ...current, [key]: 'loading' }));
+    setSources((current) => ({ ...current, [key]: null }));
+    void loadDashboardSection(key, controller.signal)
+      .then((value) => {
+        if (!isCurrent()) return;
+        setSources((current) => ({ ...current, [key]: value }));
+        setLoadStates((current) => ({ ...current, [key]: value == null ? 'error' : 'ready' }));
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setModel({
-          learningAvailable: false,
-          training: null,
-          attention: null,
-          mandatory: null,
-          content: {
-            coursesAvailable: false,
-            totalCourses: null,
-            publishedCourses: null,
-            draftCourses: null,
-            coursesTruncated: false,
-            jobsAvailable: false,
-            activeJobs: null,
-            attentionJobs: null,
-            jobs: [],
-            reviewCourses: [],
-          },
-        });
+        if (isCurrent()) setLoadStates((current) => ({ ...current, [key]: 'error' }));
       });
-    return () => controller.abort();
-  }, [refresh]);
+  }, []);
+  useEffect(() => {
+    dashboardSections.forEach(refreshSection);
+    const active = controllers.current;
+    return () => { Object.values(active).forEach((controller) => controller?.abort()); };
+  }, [refreshSection]);
 
   const issueLabel = (issue: string) => ({
     overdue: m.overdueIssue,
@@ -312,32 +310,44 @@ function DashboardContent() {
       </nav>
 
       {!model && <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground"><LoaderCircle className="h-5 w-5 motion-safe:animate-spin" />{m.loading}</div>}
-      {model && !model.learningAvailable && <div role="status" className="flex flex-wrap items-start gap-3 rounded-2xl border border-amber-300/70 bg-amber-50 p-5 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"><CircleAlert className="mt-0.5 h-5 w-5 shrink-0" /><p className="min-w-0 flex-1 basis-64">{m.unavailable}</p><button type="button" onClick={() => setRefresh((value) => value + 1)} className="min-h-10 rounded-lg border border-current/20 px-3 py-2 text-sm font-medium">{w.retry}</button></div>}
 
       {model && <DashboardTaskQueue key={workView} lang={lang} groups={[
-        ...((workView === 'all' || workView === 'training') && model.attention ? [{
-          id: 'training', title: m.priorityPeople, tasks: trainingTasks, empty: m.noIssues,
-          notice: model.attention.truncated ? m.moreItems : undefined,
+        ...((workView === 'all' || workView === 'training') ? [{
+          id: 'training', title: m.priorityPeople, tasks: trainingTasks, empty: model.learningAvailable ? (trainingSourceTruncated || model.attention?.trainingIssues ? q.localEmpty : m.noIssues) : m.unavailable,
+          loading: loadStates.learning === 'loading', loadingLabel: m.loading,
+          retry: loadStates.learning === 'error' ? () => refreshSection('learning') : undefined, retryLabel: `${w.retry} · ${m.priorityPeople}`,
+          notice: model.attention ? `${queueScope(lang, trainingTasks.length, trainingSourceTruncated ? null : model.attention.trainingIssues)} ${q.order} ${trainingSourceTruncated ? q.trainingBound : ''}` : undefined,
           link: { href: actionCenterHref, label: m.allActions },
         }] : []),
         ...((workView === 'all' || workView === 'content') ? [{
           id: 'generation', title: taskCopy.jobs, tasks: generationTasks,
-          empty: model.content.jobsAvailable ? m.noJobs : m.jobsUnavailable,
-          notice: generationTasks.length >= 5 ? m.jobsScope : undefined,
+          loading: loadStates.jobs === 'loading', loadingLabel: m.loading,
+          retry: loadStates.jobs === 'error' ? () => refreshSection('jobs') : undefined, retryLabel: `${w.retry} · ${taskCopy.jobs}`,
+          empty: model.content.jobsAvailable ? model.content.jobsTruncated ? q.localEmpty : m.noJobs : m.jobsUnavailable,
+          notice: model.content.jobsAvailable ? `${queueScope(lang, generationTasks.length, model.content.jobTotal)} ${q.order} ${model.content.jobsTruncated ? q.jobsBound : ''}` : undefined,
+          link: { href: '/ai/generate', label: q.jobs },
         }] : []),
         ...(workView === 'all' || workView === 'review' ? [{
           id: 'review', title: review, tasks: reviewTasks,
+          loading: loadStates.courses === 'loading', loadingLabel: m.loading,
+          retry: loadStates.courses === 'error' ? () => refreshSection('courses') : undefined, retryLabel: `${w.retry} · ${review}`,
           empty: !model.content.coursesAvailable ? m.contentUnavailable
-            : lang === 'kk' ? 'Тексеруге курс жоқ.' : lang === 'en' ? 'No courses awaiting review.' : 'Нет курсов, ожидающих проверки.',
-          notice: model.content.coursesTruncated ? m.coursesTruncated : undefined,
+            : model.content.coursesTruncated ? q.localEmpty : lang === 'kk' ? 'Тексеруге курс жоқ.' : lang === 'en' ? 'No courses awaiting review.' : 'Нет курсов, ожидающих проверки.',
+          notice: model.content.coursesAvailable ? `${queueScope(lang, reviewTasks.length, model.content.reviewTotal)} ${q.order} ${model.content.coursesTruncated ? q.reviewBound : ''}` : undefined,
+          link: { href: '/courses?status=draft', label: q.drafts },
         }] : []),
       ]} />}
+      {model && loadStates.mandatory !== 'ready' && <section aria-label={q.mandatory} className="rounded-xl border border-border bg-card p-4 text-sm">
+        <h2 className="font-semibold">{q.mandatory}</h2>
+        <p className="mt-2 text-muted-foreground">{loadStates.mandatory === 'loading' ? m.loading : q.unavailable}</p>
+        {loadStates.mandatory === 'error' && <button type="button" className="mt-2 min-h-10 rounded-lg border border-border px-3 text-primary" onClick={() => refreshSection('mandatory')}>{w.retry} · {q.mandatory}</button>}
+      </section>}
 
       {(workView === 'all' || workView === 'training') && model?.training && model.attention && <div className="flex min-w-0 flex-col gap-6">
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
           <SectionHeading id="attention-title" title={m.attention} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
           <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            <Metric label={m.trainingIssues} value={model.attention.trainingIssues} testId="training-issues" href={actionFocusHref('training')} />
+            <Metric label={m.trainingIssues} value={trainingSourceTruncated ? '—' : model.attention.trainingIssues} testId="training-issues" href={actionFocusHref('training')} />
             <Metric label={m.weakQuestions} value={model.attention.weakQuestions} href={actionFocusHref('weak_questions')} />
             <Metric label={m.openActions} value={model.attention.openActions} testId="open-actions" href={actionFocusHref('open')} />
             <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} href={actionFocusHref('overdue')} />
@@ -349,6 +359,7 @@ function DashboardContent() {
               <Metric label={m.staleAssignments} value="—" testId="mandatory-stale-unavailable" />
             </>}
           </div>
+          {trainingSourceTruncated && <p className="mt-2 text-xs text-muted-foreground">{q.trainingBound}</p>}
         </section>
 
         <section className="grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5 sm:p-6 xl:grid-cols-[minmax(220px,1fr)_minmax(200px,0.7fr)_minmax(0,2fr)] xl:items-center" aria-labelledby="health-title">
@@ -361,7 +372,7 @@ function DashboardContent() {
 
       {(workView === 'all' || workView === 'content') && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
         <SectionHeading id="content-title" title={m.content} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
-        {(!model.content.coursesAvailable || !model.content.jobsAvailable) && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
+        {(loadStates.courses === 'error' || loadStates.jobs === 'error') && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         {model.content.coursesTruncated && <p className="mt-2 text-xs leading-5 text-muted-foreground">{m.coursesTruncated}</p>}
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} href="/courses" /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} href="/courses?status=published" /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} href="/courses?status=draft" /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></div>
         <nav aria-label={m.quickActions} className="mt-5 grid gap-2 sm:grid-cols-3"><QuickLink href="/ai/generate?new=1" label={m.createFromMaterials} icon={<FilePlus2 className="h-4 w-4" />} /><QuickLink href="/courses" label={m.reviewCourses} icon={<BookOpen className="h-4 w-4" />} /><QuickLink href="/training-log" label={m.trainingLog} icon={<Clock3 className="h-4 w-4" />} /></nav>

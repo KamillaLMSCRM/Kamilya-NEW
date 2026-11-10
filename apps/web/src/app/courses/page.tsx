@@ -58,6 +58,11 @@ function readCourseStatusFilter(value: string | null): string {
   return value && COURSE_STATUS_FILTERS.has(value) ? value : '';
 }
 
+function readCoursePage(value: string | null): number {
+  const page = Number(value);
+  return Number.isSafeInteger(page) && page >= 1 && page <= 1_000_000 ? page : 1;
+}
+
 const getSourceBlueprintId = (course: CourseWithBlueprintSource) =>
   course.source_analysis?.blueprint?.id;
 
@@ -89,6 +94,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const [description, setDescription] = useState('');
   const [search, setSearch] = useState(() => searchParams.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState(() => readCourseStatusFilter(searchParams.get('status')));
+  const [page, setPage] = useState(() => readCoursePage(searchParams.get('page')));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [blueprints, setBlueprints] = useState<CourseBlueprintCatalogItem[]>([]);
   const [blueprintsLoading, setBlueprintsLoading] = useState(true);
@@ -99,7 +105,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const blueprintRequest = useRef(0);
 
   const blueprintLocale: BlueprintLocale = lang === 'kk' ? 'kk' : 'ru';
-  const query = JSON.stringify([search, statusFilter]);
+  const query = JSON.stringify([search, statusFilter, page]);
   const currentQuery = useRef(query);
   currentQuery.current = query;
   const currentBlueprintLocale = useRef(blueprintLocale);
@@ -108,13 +114,13 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const loadError = !loading && courseResult.phase === 'error' ? courseResult.error : null;
   const courses = !loading && courseResult.phase === 'ready' ? courseResult.courses : [];
   const hasFilters = Boolean(search || statusFilter);
-  const coursesTruncated = !loading && !loadError && courses.length === 100;
   const browserQuery = searchParams.toString();
 
   useEffect(() => {
     const params = new URLSearchParams(browserQuery);
     const nextSearch = params.get('q') ?? '';
     const nextStatus = readCourseStatusFilter(params.get('status'));
+    setPage(readCoursePage(params.get('page')));
     setSearch((current) => current === nextSearch ? current : nextSearch);
     setStatusFilter((current) => current === nextStatus ? current : nextStatus);
   }, [browserQuery]);
@@ -135,10 +141,12 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
     || error?.message
     || fallback;
 
-  const replaceFilterQuery = useCallback((nextSearch: string, nextStatus: string, history: 'push' | 'replace' = 'push') => {
+  const replaceFilterQuery = useCallback((nextSearch: string, nextStatus: string, history: 'push' | 'replace' = 'push', nextPage = 1) => {
+    setPage(nextPage);
     const params = new URLSearchParams();
     if (nextSearch) params.set('q', nextSearch);
     if (nextStatus) params.set('status', nextStatus);
+    if (nextPage > 1) params.set('page', String(nextPage));
     const nextQuery = params.toString();
     router[history](nextQuery ? `/courses?${nextQuery}` : '/courses', { scroll: false });
   }, [router]);
@@ -153,6 +161,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
       if (search) params.set('q', search);
       if (statusFilter) params.set('status', statusFilter);
       params.set('per_page', '100');
+      if (page > 1) params.set('page', String(page));
       const res = await api.get(`/v1/courses?${params}`);
       if (!isCurrent()) return;
       setCourseResult({ query, phase: 'ready', courses: Array.isArray(res.data) ? res.data : [] });
@@ -163,7 +172,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
         description: apiErrorMessage(err, tRef.current('common.loadFailed')),
       });
     }
-  }, [search, statusFilter, query]);
+  }, [search, statusFilter, page, query]);
 
   const refreshCourses = useRef(fetchCourses);
   refreshCourses.current = fetchCourses;
@@ -418,7 +427,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           <h2 id="own-courses-title" className="text-lg font-semibold text-foreground">{copy.ownCourses}</h2>
           {!loading && !loadError && <p className="text-sm text-muted-foreground" role="status">{copy.loadedList}: <span className="font-semibold text-foreground">{courses.length}</span></p>}
         </div>
-        {coursesTruncated && <p className="text-xs leading-5 text-muted-foreground">{copy.first100}</p>}
+        <p className="text-xs leading-5 text-muted-foreground">{copy.pageSize}</p>
 
         <div role="search" aria-label={copy.filters} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
           <div className="min-w-0 flex-1 sm:min-w-48">
@@ -450,12 +459,12 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           ) : courses.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-12 text-center">
               <BookOpen className="mx-auto mb-4 h-8 w-8 text-muted-foreground" aria-hidden="true" />
-              <h3 className="font-semibold text-foreground">{hasFilters ? copy.filteredEmpty : t('courses.noCourses')}</h3>
+              <h3 className="font-semibold text-foreground">{page > 1 ? copy.emptyPage : hasFilters ? copy.filteredEmpty : t('courses.noCourses')}</h3>
               <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted-foreground">{hasFilters ? copy.filteredEmptyHint : canManage ? copy.emptyHint : null}</p>
             </div>
           ) : (
             canManage ? (
-              <RecordList records={courses} getId={(course) => course.id} title={(course) => course.title}
+              <RecordList key={query} records={courses} getId={(course) => course.id} title={(course) => course.title} mobileBackLabel={copy.backToList}
                 description={(course) => course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
                 status={(course) => course.status === 'published' ? t('courses.published') : course.status === 'draft' ? t('courses.draft') : course.status}
                 detailsLabel={copy.openCourse} renderDetails={renderCourse} />
@@ -464,6 +473,11 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
             )
           )}
         </div>
+        {(page > 1 || courses.length > 0) && <nav aria-label={copy.pagination} className="flex flex-wrap items-center justify-between gap-3">
+          <Button variant="outline" disabled={loading || page === 1} onClick={() => replaceFilterQuery(search, statusFilter, 'push', page - 1)}>{copy.previousPage}</Button>
+          <span role="status" className="text-sm text-muted-foreground">{copy.page} {page}</span>
+          <Button variant="outline" disabled={loading || Boolean(loadError) || courses.length < 100} onClick={() => replaceFilterQuery(search, statusFilter, 'push', page + 1)}>{copy.nextPage}</Button>
+        </nav>}
       </section>
 
       {canManage && (

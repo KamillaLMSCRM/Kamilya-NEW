@@ -95,6 +95,107 @@ beforeEach(() => {
 });
 
 describe('methodologist operations dashboard', () => {
+  it('ignores a delayed old-tenant source even when its transport ignores abort', async () => {
+    const original = apiMock.get.getMockImplementation()!;
+    let resolveOld!: (value: { data: typeof actionCenter }) => void;
+    const oldRead = new Promise<{ data: typeof actionCenter }>((resolve) => { resolveOld = resolve; });
+    apiMock.get.mockImplementation((path, config) => path === '/v1/admin/learning-actions' ? oldRead : original(path, config));
+    render(<MethodologistDashboard />);
+    await screen.findByRole('button', { name: /заявка 0228597d/ });
+    apiMock.get.mockImplementation((path, config) => path === '/v1/admin/learning-actions'
+      ? Promise.resolve({ data: { ...actionCenter, training_items: [{ ...actionCenter.training_items[0], full_name: 'Current tenant employee' }] } }) : original(path, config));
+    act(() => useAuthStore.setState({ user: { ...useAuthStore.getState().user!, tenant_id: 'new-tenant' } }));
+    expect(await screen.findByRole('button', { name: /Current tenant employee/ })).toBeVisible();
+    await act(async () => resolveOld({ data: actionCenter }));
+    expect(screen.queryByRole('button', { name: /Сотрудник с риском/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Current tenant employee/ })).toBeVisible();
+  });
+  it('renders ready tasks while an optional source remains unresolved', async () => {
+    const original = apiMock.get.getMockImplementation()!;
+    apiMock.get.mockImplementation((path, config) => path === '/v1/admin/mandatory-training/summary'
+      ? new Promise(() => {}) : original(path, config));
+    render(<MethodologistDashboard />);
+    expect(await screen.findByRole('button', { name: /Сотрудник с риском/ })).toBeVisible();
+    expect(await screen.findByRole('button', { name: /заявка 0228597d/ })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Обязательное обучение' })).toHaveTextContent('Загрузка задач');
+    expect(screen.getByTestId('mandatory-missing-unavailable')).toHaveTextContent('—');
+  });
+
+  it('retries only the failed jobs source without clearing ready learning tasks', async () => {
+    const original = apiMock.get.getMockImplementation()!;
+    let failed = true;
+    apiMock.get.mockImplementation((path, config) => path === '/v1/ai/jobs' && failed
+      ? Promise.reject(new Error('Jobs unavailable')) : original(path, config));
+    render(<MethodologistDashboard />);
+    const retry = await screen.findByRole('button', { name: /Повторить.*Задания генерации/ });
+    const employee = screen.getByRole('button', { name: /Сотрудник с риском/ });
+    failed = false;
+    fireEvent.click(retry);
+    expect(employee).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /заявка 0228597d/ })).toBeVisible();
+    expect(apiMock.get.mock.calls.filter(([path]) => path === '/v1/ai/jobs')).toHaveLength(2);
+    expect(apiMock.get.mock.calls.filter(([path]) => path === '/v1/admin/learning-actions')).toHaveLength(1);
+    expect(apiMock.get.mock.calls.filter(([path]) => path === '/v1/courses?per_page=100')).toHaveLength(1);
+  });
+
+  it('does not claim complete job totals from the bounded twenty-job endpoint', () => {
+    const model = buildMethodologistDashboard({ learning: null, courses: [], mandatory: null,
+      jobs: Array.from({ length: 20 }, (_, index) => ({ id: String(index), job_type: 'course_generation', status: 'completed', created_at: '2026-11-10T00:00:00Z' })),
+    });
+    expect(model.content.jobsTruncated).toBe(true);
+    expect(model.content.jobTotal).toBeNull();
+    expect(model.content.activeJobs).toBeNull();
+    expect(model.content.attentionJobs).toBeNull();
+  });
+
+  it('labels all local list limits including training and review slices', async () => {
+    const original = apiMock.get.getMockImplementation()!;
+    apiMock.get.mockImplementation((path, config) => {
+      if (path === '/v1/admin/learning-actions') return Promise.resolve({ data: { ...actionCenter,
+        summary: { ...actionCenter.summary, training_issue_count: 10 },
+        training_items: Array.from({ length: 10 }, (_, index) => ({ ...actionCenter.training_items[0], enrollment_id: String(index) })),
+      } });
+      if (path === '/v1/courses?per_page=100') return Promise.resolve({ data: Array.from({ length: 8 }, (_, index) => ({ id: String(index), title: `Review ${index}`, status: 'draft', ai_generated: true, review_status: 'pending' })) });
+      return original(path, config);
+    });
+    render(<MethodologistDashboard />);
+    expect(await screen.findByText(/Показано 3 из 10/)).toBeVisible();
+    expect(await screen.findByText(/Показано 5 из 8/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Все черновики' })).toHaveAttribute('href', '/courses?status=draft');
+  });
+
+  it.each([0, 2])('does not present a truncated source count of %i as a tenant total', async (count) => {
+    const original = apiMock.get.getMockImplementation()!;
+    apiMock.get.mockImplementation((path, config) => path === '/v1/admin/learning-actions'
+      ? Promise.resolve({ data: { ...actionCenter,
+        summary: { ...actionCenter.summary, training_issue_count: count, training_items_truncated: true },
+        training_items: Array.from({ length: count }, (_, index) => ({ ...actionCenter.training_items[0], enrollment_id: String(index) })),
+      } }) : original(path, config));
+    render(<MethodologistDashboard />);
+    expect(await screen.findByText(`Показано ${count}; общий итог неизвестен.`, { exact: false })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Проблемных назначений: —' })).toBeVisible();
+    expect(screen.getAllByText(/Проверена только часть записей обучения/).length).toBeGreaterThan(0);
+    const group = screen.getByRole('heading', { name: 'Проблемные назначения' }).parentElement?.parentElement;
+    expect(group).not.toBeNull();
+    expect(within(group!).queryByText(`Показано ${count} из ${count}.`, { exact: false })).not.toBeInTheDocument();
+    if (count === 0) {
+      expect(screen.getByText('В загруженной части списка таких задач нет.')).toBeVisible();
+      expect(screen.queryByText('Сейчас нет выявленных проблем по обучению.')).not.toBeInTheDocument();
+    }
+  });
+
+  it('retains exact source totals when only the visible three-item slice is limited', async () => {
+    const original = apiMock.get.getMockImplementation()!;
+    apiMock.get.mockImplementation((path, config) => path === '/v1/admin/learning-actions'
+      ? Promise.resolve({ data: { ...actionCenter,
+        summary: { ...actionCenter.summary, training_issue_count: 5, training_items_truncated: false },
+        training_items: Array.from({ length: 5 }, (_, index) => ({ ...actionCenter.training_items[0], enrollment_id: String(index) })),
+      } }) : original(path, config));
+    render(<MethodologistDashboard />);
+    expect(await screen.findByText(/Показано 3 из 5/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Проблемных назначений: 5' })).toBeVisible();
+    expect(screen.queryByText(/Проверена только часть записей обучения/)).not.toBeInTheDocument();
+  });
   it.each([
     ['ru', 'Сохранение или проверка результата', 'Не удалось создать курс'],
     ['en', 'Saving or result verification required', 'Course generation failed'],

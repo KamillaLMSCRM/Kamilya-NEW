@@ -1,3 +1,12 @@
+## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
+
+- Date:2026-11-10. Scope: release orchestration, not generated content.
+- Symptom: protected0.11.84 workflow42778231944 stopped with v3_migration_revision_invalid while creating its manifest; the production deployment job was skipped. Production83/schema0186 remained unchanged.
+- Cause: migration0187 was present and DEV-tested, but the source and installed release controller still mapped every version>=82 to0185-to-0186. Root omitted the local exact-manifest check before dispatch.
+- Fix: add the known>=84 epoch0186-to-0187, preserving older epochs and exact schema refusal. Publish a new immutable85 candidate; never move the published84tag. Upgrade the installed controller only through the protected existing workflow before application deployment.
+- Verification: regression first reproduced six failures; controller/bundle/workflow suite42PASS. Independent review found no material defect. Installed-controller upgrade and production rollout remain separate runtime gates.
+- Prevention: for every schema head change, validate the exact planned release manifest and already-deployed head checks locally, then compare installed controller hash before protected dispatch. Do not interpret a published GitHub release as a production deployment.
+
 ## AGENT-RELEASE-OBSERVABILITY-001 — stale watchdog identity survived prior releases
 
 - Date:2026-11-07.

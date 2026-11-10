@@ -125,6 +125,9 @@ export default function CourseEditPage() {
   const [savedLessonContent, setSavedLessonContent] = useState('');
   const [lessonView, setLessonView] = useState<'edit' | 'preview'>('edit');
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
+  const [creationBusy, setCreationBusy] = useState(false);
+  const creationPending = useRef<symbol | null>(null);
+  const [creationError, setCreationError] = useState<{ target: string; message: string } | null>(null);
   const [savingLesson, setSavingLesson] = useState(false);
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
   const [programGenerationJob, setProgramGenerationJob] = useState<string | null>(null);
@@ -259,6 +262,7 @@ export default function CourseEditPage() {
     setLoadingLessonId(null); setSavingLesson(false); setReleaseAction(null);
     setNewModuleTitle(''); setEditingModuleId(null); setEditModuleTitle('');
     setNewLessonTitle(''); setAddingLessonToModule(null);
+    creationPending.current = null; setCreationBusy(false); setCreationError(null);
     setChatOpen(false); setChatFocus({}); setCorrectionBusy(false); correctionBusyRef.current = false;
     setLoadError(false); setReadinessUnavailable(true); setLoading(true);
     initialLessonRef.current = null;
@@ -267,18 +271,31 @@ export default function CourseEditPage() {
   }, [fetchData, workspaceScope]);
 
   const handleAddModule = async () => {
+    if (creationPending.current) return;
     const isCurrent = beginAction('add-module');
     if (!newModuleTitle.trim() || !latestTokenRef.current || !isCurrent()) return;
-    const res = await fetch(`${API_URL}/v1/courses/${courseId}/modules`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${latestTokenRef.current}` },
-      body: JSON.stringify({ title: newModuleTitle }),
-    });
-    if (res.ok) {
+    const creationRequest = Symbol();
+    creationPending.current = creationRequest;
+    setCreationBusy(true);
+    setCreationError(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/courses/${courseId}/modules`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${latestTokenRef.current}` },
+        body: JSON.stringify({ title: newModuleTitle }),
+      });
+      if (!res.ok) throw new Error('Module creation failed');
       const mod = await res.json();
       if (!isCurrent()) return;
       setModules((prev) => [...prev, { ...mod, lessons: [] }]);
       setNewModuleTitle('');
+    } catch {
+      if (isCurrent()) setCreationError({ target: 'module', message: `${t('common.saveFailed')}. ${copy.creationFailure}` });
+    } finally {
+      if (creationPending.current === creationRequest) {
+        creationPending.current = null;
+        if (isCurrent()) setCreationBusy(false);
+      }
     }
   };
 
@@ -354,14 +371,20 @@ export default function CourseEditPage() {
   };
 
   const handleAddLesson = async (moduleId: string) => {
+    if (creationPending.current) return;
     const isCurrent = beginAction(`add-lesson:${moduleId}`);
     if (!newLessonTitle.trim() || !latestTokenRef.current || !isCurrent()) return;
-    const res = await fetch(`${API_URL}/v1/modules/${moduleId}/lessons`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${latestTokenRef.current}` },
-      body: JSON.stringify({ title: newLessonTitle, content_type: 'text' }),
-    });
-    if (res.ok) {
+    const creationRequest = Symbol();
+    creationPending.current = creationRequest;
+    setCreationBusy(true);
+    setCreationError(null);
+    try {
+      const res = await fetch(`${API_URL}/v1/modules/${moduleId}/lessons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${latestTokenRef.current}` },
+        body: JSON.stringify({ title: newLessonTitle, content_type: 'text' }),
+      });
+      if (!res.ok) throw new Error('Lesson creation failed');
       const lesson = await res.json();
       if (!isCurrent()) return;
       setModules((prev) => prev.map((m) =>
@@ -369,6 +392,13 @@ export default function CourseEditPage() {
       ));
       setNewLessonTitle('');
       setAddingLessonToModule(null);
+    } catch {
+      if (isCurrent()) setCreationError({ target: moduleId, message: `${t('common.saveFailed')}. ${copy.creationFailure}` });
+    } finally {
+      if (creationPending.current === creationRequest) {
+        creationPending.current = null;
+        if (isCurrent()) setCreationBusy(false);
+      }
     }
   };
 
@@ -775,15 +805,22 @@ export default function CourseEditPage() {
         </div>
       } />
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
+      {workspaceDirty && <p role="status" className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">{copy.unsaved}</p>}
+      {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
+        courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
+        onResolved={() => { void fetchData(); }} />}
+      <details data-publication-checks className="rounded-xl border border-border bg-card">
+      <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+        {copy.publicationChecks}
+        <span className="font-normal text-muted-foreground">· {readinessUnavailable ? copy.unavailable : published ? t('courses.published') : workspaceDirty ? copy.changes : !requiresCourseReview ? copy.notRequired : approved ? copy.approved : course.review_status === 'needs_changes' ? copy.needsChanges : copy.pending}</span>
+      </summary>
+      <div className="space-y-4 border-t border-border p-4">
       {course.ai_generated && (
         <section id="course-release" aria-labelledby="course-release-heading" className="scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5">
           <h2 id="course-release-heading" className="font-semibold">{t('releaseSteps.title')}</h2>
           <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm marker:font-semibold">
             <li>
               <p className="mb-2 pl-2 font-medium">{t('releaseSteps.source')}</p>
-              <SourceReviewPanel key={`${course.id}:${session.generation}`}
-                courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
-                onResolved={() => { void fetchData(); }} />
             </li>
             <li>
               <Link className={workflowLinkClass} href={`/quizzes?courseId=${courseQuery}${programGenerationJob ? `&programGenerationJob=${encodeURIComponent(programGenerationJob)}` : ''}`}>{t('releaseSteps.quizzes')}</Link>
@@ -809,15 +846,6 @@ export default function CourseEditPage() {
         </section>
       )}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
-      {(approvedSources.length > 0 || (unplacedCount > 0 && !published)) && <section className="space-y-2 rounded-xl border border-border p-4" aria-label={sourceCopy.status}>
-        <h2 className="text-sm font-semibold">{sourceCopy.status}</h2>
-        {unplacedCount > 0 && !published && <p className="text-sm" role="status">{copy.unplacedIllustrations.replace('{count}', String(unplacedCount))}</p>}
-        <ul className="space-y-1">{approvedSources.map((source, index) => <li key={source.approval_id}>
-          <Link className="text-sm text-primary underline" href={sourceReviewHref(source.document_id, source.approval_id)}>
-            {sourceCopy.preview} {approvedSources.length > 1 ? index + 1 : ''} · {sourceCopy.revision} {source.revision}
-          </Link>
-        </li>)}</ul>
-      </section>}
       <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={workspaceDirty}
         requiresReview={requiresCourseReview} reviewStatus={course.review_status} unavailable={readinessUnavailable} />
       <WorkspaceToolbar className="py-2">
@@ -833,6 +861,17 @@ export default function CourseEditPage() {
         {!course.ai_generated && <Link className="inline-flex min-h-10 items-center" href={`/quizzes?courseId=${courseQuery}`}>{copy.quizzesLink}</Link>}
       </nav>
       </WorkspaceToolbar>
+      </div>
+      </details>
+      {(approvedSources.length > 0 || (unplacedCount > 0 && !published)) && <section className="space-y-2 rounded-xl border border-border p-4" aria-label={sourceCopy.status}>
+        <h2 className="text-sm font-semibold">{sourceCopy.status}</h2>
+        {unplacedCount > 0 && !published && <p className="text-sm" role="status">{copy.unplacedIllustrations.replace('{count}', String(unplacedCount))}</p>}
+        <ul className="space-y-1">{approvedSources.map((source, index) => <li key={source.approval_id}>
+          <Link className="text-sm text-primary underline" href={sourceReviewHref(source.document_id, source.approval_id)}>
+            {sourceCopy.preview} {approvedSources.length > 1 ? index + 1 : ''} · {sourceCopy.revision} {source.revision}
+          </Link>
+        </li>)}</ul>
+      </section>}
       {course.status !== 'published' && course.source_instruction_id && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
           {t('authenticatedUi.editor.draftVisibilityHint')}
@@ -852,13 +891,17 @@ export default function CourseEditPage() {
                 aria-label={t('courses.addModule')}
                 placeholder={t('courses.addModule') + '...'}
                 value={newModuleTitle}
+                disabled={creationBusy}
+                aria-invalid={creationError?.target === 'module' || undefined}
+                aria-describedby={creationError?.target === 'module' ? 'module-create-error' : undefined}
                 onChange={(event) => setNewModuleTitle(event.target.value)}
                 onKeyDown={(event) => event.key === 'Enter' && handleAddModule()}
               />
-              <Button size="sm" onClick={handleAddModule} disabled={!newModuleTitle.trim()}>
+              <Button size="sm" onClick={handleAddModule} disabled={creationBusy || !newModuleTitle.trim()}>
                 {t('common.create')}
               </Button>
             </div>
+            {creationError?.target === 'module' && <p id="module-create-error" role="alert" className="text-sm text-destructive">{creationError.message}</p>}
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
               {modules.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">{t('courses.noModules')}</p>
@@ -906,11 +949,12 @@ export default function CourseEditPage() {
                   </div>
                   {addingLessonToModule === mod.id ? (
                     <div className="space-y-2 pt-1">
-                      <Input aria-label={t('courses.addLesson')} placeholder={t('courses.addLesson') + '...'} value={newLessonTitle} onChange={(event) => setNewLessonTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleAddLesson(mod.id)} />
+                      <Input aria-label={t('courses.addLesson')} placeholder={t('courses.addLesson') + '...'} value={newLessonTitle} disabled={creationBusy} aria-invalid={creationError?.target === mod.id || undefined} aria-describedby={creationError?.target === mod.id ? `lesson-create-error-${mod.id}` : undefined} onChange={(event) => setNewLessonTitle(event.target.value)} autoFocus onKeyDown={(event) => event.key === 'Enter' && handleAddLesson(mod.id)} />
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleAddLesson(mod.id)}>{t('common.create')}</Button>
-                        <Button variant="outline" size="sm" onClick={() => { setAddingLessonToModule(null); setNewLessonTitle(''); }}>{t('common.cancel')}</Button>
+                        <Button size="sm" disabled={creationBusy || !newLessonTitle.trim()} onClick={() => handleAddLesson(mod.id)}>{t('common.create')}</Button>
+                        <Button variant="outline" size="sm" disabled={creationBusy} onClick={() => { setAddingLessonToModule(null); setNewLessonTitle(''); setCreationError(null); }}>{t('common.cancel')}</Button>
                       </div>
+                      {creationError?.target === mod.id && <p id={`lesson-create-error-${mod.id}`} role="alert" className="text-sm text-destructive">{creationError.message}</p>}
                     </div>
                   ) : (
                     <Button variant="ghost" size="sm" className="w-full justify-start text-primary" onClick={() => setAddingLessonToModule(mod.id)}>+ {t('courses.addLesson')}</Button>

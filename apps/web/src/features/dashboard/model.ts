@@ -56,10 +56,13 @@ export interface MethodologistDashboardModel {
     draftCourses: number | null;
     coursesTruncated: boolean;
     jobsAvailable: boolean;
+    jobsTruncated: boolean;
+    jobTotal: number | null;
     activeJobs: number | null;
     attentionJobs: number | null;
     jobs: DashboardJob[];
     reviewCourses: DashboardCourse[];
+    reviewTotal: number | null;
   };
 }
 
@@ -71,6 +74,10 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
   const relevantJobs = (sources.jobs ?? [])
     .filter((job) => job.job_type === 'course_generation' && !HIDDEN_JOB_STATUSES.has(job.status));
   const visibleJobs = relevantJobs.slice(0, 5);
+  const reviewCourses = (sources.courses ?? []).filter((course) =>
+    course.status === 'draft' && (course.ai_generated || course.source_analysis?.blueprint?.id) &&
+    (course.review_status === 'pending' || course.review_status === 'needs_changes'),
+  );
 
   return {
     learningAvailable: Boolean(log && sources.learning),
@@ -90,7 +97,7 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
       openActions: sources.learning.summary.open_action_count,
       overdueActions: sources.learning.summary.overdue_action_count,
       items: sources.learning.training_items.slice(0, 3),
-      truncated: sources.learning.summary.training_items_truncated,
+      truncated: sources.learning.summary.training_items_truncated || sources.learning.training_items.length > 3,
     } : null,
     mandatory: sources.mandatory,
     content: {
@@ -100,13 +107,13 @@ export function buildMethodologistDashboard(sources: DashboardSources): Methodol
       draftCourses: sources.courses && sources.courses.length < 100 ? sources.courses.filter((course) => course.status !== 'published').length : null,
       coursesTruncated: (sources.courses?.length ?? 0) === 100,
       jobsAvailable: sources.jobs !== null,
-      activeJobs: sources.jobs === null ? null : relevantJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status)).length,
-      attentionJobs: sources.jobs === null ? null : relevantJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status)).length,
+      jobsTruncated: (sources.jobs?.length ?? 0) >= 20,
+      jobTotal: sources.jobs === null || sources.jobs.length >= 20 ? null : relevantJobs.length,
+      activeJobs: sources.jobs === null || sources.jobs.length >= 20 ? null : relevantJobs.filter((job) => ACTIVE_JOB_STATUSES.has(job.status)).length,
+      attentionJobs: sources.jobs === null || sources.jobs.length >= 20 ? null : relevantJobs.filter((job) => !ACTIVE_JOB_STATUSES.has(job.status)).length,
       jobs: visibleJobs,
-      reviewCourses: (sources.courses ?? []).filter((course) =>
-        course.status === 'draft' && (course.ai_generated || course.source_analysis?.blueprint?.id) &&
-        (course.review_status === 'pending' || course.review_status === 'needs_changes'),
-      ).slice(0, 5),
+      reviewCourses: reviewCourses.slice(0, 5),
+      reviewTotal: sources.courses && sources.courses.length < 100 ? reviewCourses.length : null,
     },
   };
 }

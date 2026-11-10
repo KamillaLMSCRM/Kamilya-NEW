@@ -77,6 +77,36 @@ function results(container: HTMLElement) {
 }
 
 describe('production course catalogue presentation', () => {
+  it('opens courses beyond the first 100 through the existing server page contract', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({ ...draft, id: `page-1-${index}`, title: `Course ${index + 1}` }));
+    apiMock.get.mockImplementation((url: string) => Promise.resolve({ data: url.startsWith('/v1/course-blueprints?') ? [] : url.includes('page=2') ? [{ ...draft, title: 'Course 101' }] : firstPage }));
+    render(<CoursesPage />);
+    await screen.findByRole('heading', { name: 'Course 1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Следующая страница' }));
+    expect(await screen.findByRole('heading', { name: 'Course 101' })).toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/courses?per_page=100&page=2');
+    expect(navigation.push).toHaveBeenCalledWith('/courses?page=2', { scroll: false });
+    expect(screen.getByRole('button', { name: 'Следующая страница' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Предыдущая страница' }));
+    expect(await screen.findByRole('heading', { name: 'Course 1' })).toBeInTheDocument();
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('restores the page with browser history and resets it when filters change', async () => {
+    navigation.searchParams = new URLSearchParams('q=safety&status=draft&page=2');
+    const { rerender } = render(<CoursesPage />);
+    await screen.findByRole('heading', { name: draft.title });
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/courses?q=safety&status=draft&per_page=100&page=2');
+    navigation.searchParams = new URLSearchParams('q=safety&status=draft');
+    rerender(<CoursesPage />);
+    await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Страницы каталога' })).getByRole('status')).toHaveTextContent('Страница 1'));
+    navigation.searchParams = new URLSearchParams('q=safety&status=draft&page=2');
+    rerender(<CoursesPage />);
+    await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Страницы каталога' })).getByRole('status')).toHaveTextContent('Страница 2'));
+    fireEvent.change(screen.getByLabelText('Статус'), { target: { value: 'published' } });
+    expect(navigation.push).toHaveBeenLastCalledWith('/courses?q=safety&status=published', { scroll: false });
+    await waitFor(() => expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?q=safety&status=published&per_page=100'));
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     apiMock.get.mockReset();

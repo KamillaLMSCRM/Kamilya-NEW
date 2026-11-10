@@ -19,6 +19,10 @@ type TaskGroup = {
   tasks: DashboardTask[];
   notice?: string;
   link?: { href: string; label: string };
+  loading?: boolean;
+  loadingLabel?: string;
+  retry?: () => void;
+  retryLabel?: string;
 };
 
 const messages = {
@@ -55,7 +59,7 @@ export function DashboardTaskQueue({ groups, lang }: { groups: TaskGroup[]; lang
               <h3 className="text-sm font-semibold">{group.title}</h3>
               {group.link && <Link href={group.link.href} className="inline-flex min-h-8 items-center rounded text-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring">{group.link.label}</Link>}
             </div>
-            {group.tasks.length ? <ul className="mt-2 space-y-1.5">
+            {group.loading ? <p role="status" className="mt-2 text-sm text-muted-foreground">{group.loadingLabel}</p> : group.tasks.length ? <ul className="mt-2 space-y-1.5">
               {group.tasks.map((task) => {
                 const pressed = selected?.id === task.id;
                 return <li key={task.id}>
@@ -72,6 +76,7 @@ export function DashboardTaskQueue({ groups, lang }: { groups: TaskGroup[]; lang
                 </li>;
               })}
             </ul> : <p className="mt-2 text-sm text-muted-foreground">{group.empty}</p>}
+            {group.retry && <button type="button" onClick={group.retry} className="mt-2 min-h-10 rounded-lg border border-border px-3 text-sm text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">{group.retryLabel}</button>}
             {group.notice && <p className="mt-2 text-xs text-muted-foreground">{group.notice}</p>}
           </div>
         ))}
