@@ -394,5 +394,10 @@ async def resolve_pins(
             approval_id=str(event.id), recognized_text=state.original, working_text=event.payload["working"],
             working_sha256=event.payload["working_sha256"], spans=tuple(event.payload["spans"]),
             fidelity=state.fidelity, preparation=state.preparation,
+            decision_context=tuple(
+                {'item_id': item_id, 'decision': row['decision'], 'quote': row['before'],
+                 'reason': row['reason'], 'start': row['start'], 'end': row['end']}
+                for item_id, row in sorted(state.decisions.items())
+            ),
         )
     return result

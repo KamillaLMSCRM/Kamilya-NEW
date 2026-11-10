@@ -1,3 +1,9 @@
+# Current sign-off — production88 / native frontend86 — 2026-11-10T14:04 UTC
+
+Protected workflow42819440969 SUCCESS / exact8a2d91b730b96c3f65a23d1290066408fd881140 / no migration / schema0187. Four88containers a77bd173...0b6 healthy/restarts0. Native frontend86 exact44dc1134 separately accepted, actual ordinary auth recovery proven. DEV88 exact source and soleworker accepted. Fresh signed backup after final artifact and isolated0187restore/old85reader passed; disposable target/plaintext absent. Independent r139 validates source5hashes, restricted role/FORCE RLS/settingshistory92c63625...3ff, watchdog88, active timers, rollback85 and reserve/DEV unchanged. Retention oneshot not run; no new cleanup at closeout.
+
+Changed source-review capability proven in actual production: retainedcash source resumes toapproved113 with10images reused; nativecourse8L31Q generated in465.2s/8calls. Publication28827dda...8776 follows independent/root semantic review,2manual scoped edits,8browserquizpreviews100% and ordinary approvals. Both newclientcourses usable; all6oldcohort hashes unchanged,0newclientenrollments/attempts. Earlier synthetic85 fulllearner/PDF/cert/CSV proof is explicitly historical, not relabeled88. Fullsize blob opening not verified by current browser; embedded10images decoded/visually inspected. Exact modelalias UNKNOWN, providerDeepSeek. Totalapproved$1 upper0.7198821; production upper0.5563668. Final structural envelope/refs/verdict in .release-evidence/source-alias-r73/backend-final-r142*. Root verifies all refs; structural GO alone does not authorize operations.
+
 # Current release boundary — 2026-11-10 11:45 UTC
 
 Frontend86 native44dc1134 RELEASE_OK with independent CT137/public proof; backend85

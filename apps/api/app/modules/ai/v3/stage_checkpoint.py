@@ -65,6 +65,11 @@ async def read_verified_stage_result(journal: ExtractionJournal, plan: dict[str,
     response = value.get("response")
     if not isinstance(response, dict) or not response or value.get("response_sha256") != _digest(response):
         raise ValueError("v3_stage_checkpoint_invalid")
+    if 'author_custody' in value:
+        from app.modules.ai.v3.practical_author_transport import validate_author_custody
+        # This helper has no request format; it checks internal custody only.
+        if not validate_author_custody(value['author_custody'], response):
+            raise ValueError("v3_stage_checkpoint_invalid")
     return cast(dict[str, Any], json.loads(json.dumps(response, ensure_ascii=False, allow_nan=False)))
 
 
@@ -77,7 +82,7 @@ async def stage_once(
     route_fingerprint: str,
     messages: list[dict[str, str]],
     response_format: dict[str, Any] | None,
-    invoke: Callable[[], Awaitable[dict[str, Any]]],
+    invoke: Callable[[], Awaitable[Any]],
     direct_client: Any = None,
     direct_max_output_tokens: int = 8192,
     response_validator: Callable[[dict[str, Any]], None] | None = None,
@@ -127,8 +132,24 @@ async def stage_once(
             raise ValueError("focused_stage_scope_invalid")
     signature = _digest(plan)
     result_key, claim_key = f"v3-stage-result:{signature}", f"v3-stage-claim:{signature}"
+    from app.modules.ai.v3.practical_author_transport import is_practical_author_stage
+
+    def custody(value: Any) -> dict[str, Any] | None:
+        from app.modules.ai.v3.practical_author_transport import (
+            PracticalAuthorArtifact,
+            author_custody,
+        )
+        if type(value) is not PracticalAuthorArtifact:
+            return None
+        if not is_practical_author_stage(stage, group_id):
+            raise ValueError('practical_author_stage_invalid')
+        return author_custody(value, response_format)
 
     def validate(value: Any) -> dict[str, Any]:
+        from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
+        if type(value) is PracticalAuthorArtifact:
+            custody(value)
+            value = value.normalized_value
         if not isinstance(value, dict) or not value:
             raise ValueError("v3_stage_response_invalid")
         from app.modules.ai.v3.response_contracts import (
@@ -163,6 +184,10 @@ async def stage_once(
         if value.get("identity") != signature:
             raise ValueError("v3_stage_checkpoint_invalid")
         response = validate(value.get("response"))
+        if 'author_custody' in value:
+            from app.modules.ai.v3.practical_author_transport import validate_author_custody
+            if not is_practical_author_stage(stage, group_id) or not validate_author_custody(value['author_custody'], response, response_format):
+                raise ValueError("v3_stage_checkpoint_invalid")
         if value.get("response_sha256") != _digest(response):
             raise ValueError("v3_stage_checkpoint_invalid")
         return response
@@ -178,6 +203,10 @@ async def stage_once(
             if value.get("identity") != signature:
                 raise ValueError("v3_stage_checkpoint_invalid")
             response = validate(value.get("response"))
+            if 'author_custody' in value:
+                from app.modules.ai.v3.practical_author_transport import validate_author_custody
+                if not is_practical_author_stage(stage, group_id) or not validate_author_custody(value['author_custody'], response, response_format):
+                    raise ValueError("v3_stage_checkpoint_invalid")
             if value.get("response_sha256") != _digest(response):
                 raise ValueError("v3_stage_checkpoint_invalid")
             return response
@@ -276,6 +305,7 @@ async def stage_once(
                 claim_key=claim_key,
                 validate_value=validate_value,
                 validate_response=validate,
+                author_custody=custody,
                 messages=messages,
                 max_output_tokens=direct_max_output_tokens,
                 _owned_claim_guard=_owned_claim_guard,
@@ -287,6 +317,7 @@ async def stage_once(
             claim_key=claim_key,
             validate_value=validate_value,
             validate_response=validate,
+            author_custody=custody,
             invoke=invoke,
             _owned_claim_guard=_owned_claim_guard,
         )
@@ -311,9 +342,12 @@ async def stage_once(
     await journal.save_value(claim_key, marker)
     if await journal.read_owned_value(claim_key, plan) != marker:
         raise ValueError("v3_stage_claim_unverified")
-    response = validate(await invoke())
+    received = await invoke()
+    response = validate(received)
+    custody_value = custody(received)
     await journal.save_value(
-        result_key, {"identity": signature, "response": response, "response_sha256": _digest(response)}
+        result_key, {"identity": signature, "response": response, "response_sha256": _digest(response),
+                     **({'author_custody': custody_value} if custody_value is not None else {})}
     )
     saved = await load_result()
     if saved is None:

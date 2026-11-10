@@ -1411,3 +1411,27 @@ ENG-053 follow-up: new client PDF was separately manually reconstructed and publ
 as2493476d-9e8e-4900-a6ea-061894a2f7dd,8L32Q, all8realpreviewtests100%. Added missing
 3.12duties/onequestion and qualified two answers; old interrupted job unchanged.
 Manual course has separate approved-source evidence, not in-product native AI pins.
+
+
+### ENG-054 follow-up — actual production88 continuation, 2026-11-10T14:04 UTC
+
+Exact8a production88 repairs retainedcashsource alias without source/prompt/routing changes. One retry reuses10images andcachededitor; one new independentreview yieldsapproved113/14automaticedits. Nativecash8L31Q completed465.2s/8calls andisnowpublished after disclosedmanualQA. Actualimage sourcehashes/closedcustodyprobe and finalr139readbackPASS. Oldfailed102ledger/rawresponse retained, not relabeledusagecomplete; actualmodelalias stillUNKNOWN. ENG-053author-null prototype remains untracked/unshipped and originalPDFfailure retained.
+
+### ENG-055 — broad cash-flow distractor survived whole-course editorial review
+
+Nativeproduction88cashcourseb05421bb, Q4e92865e: incorrectchoice broadly said issuanceofmicrocredit, althoughsourcealso automatically creates interestreceiptPКО at ticketissuance. Explanation likewise collapsed principalpayout andinterestreceipt. Independent/rootreview found scope ambiguity, notwrongreturn-ticketkey. Generalreview missed this qualified distinction; literal sourcequotes alone didnotprove option exclusivity. Classification:modelsemantic/editorial limitation; no claim deterministic softwarefix eliminatesrecurrence.
+
+Preserved originalr128/independentreview; reviewedmanualr132proposal applied once viaordinaryquestionPUT/r133, preservingstem/correctkey/allchoiceIDs/threepeers andinvalidating oldAIquote. Exactafterreadr135/r137; realpreview4/4 andall8tests31/31; explicit humansourcereview/approvals/publication retained. OneL4paragraph separatelyclarifies actualemployee-recipient under approvedsource113interpretation; companyquestion17 remainsunanswered, notfictionalclientconsent. NativeAIassistant403forimpersonatedprincipal stoppedbeforeprovider; no account/endpoint/role workaround. Future semantic regression should compare competing cash flows, not addper-documentregex or claim autonomousdiscovery. All other7lessonbodies/30questions unchanged.
+
+
+#### ENG-055 local follow-up, 2026-11-10
+
+Two retained managed Luna HIGH whole-editor controls both fixed the recipient lesson but missed the broad unkeyed operation option. Merely strengthening prose instructions does not establish exhaustive answer review. Preserve the miss, do not mark empty findings as acceptance. Existing key-blind option-predicate reader already has per-option judgments and entire original source; test that path before inventing another critic or deterministic cash-specific rule. Approved source keep rationales previously were absent from generation context; now source-bound context preserves them without changing original text or fabricating organization replies. Current partial revision ownership/receipt fixes are local; all deployed acceptance remains OPEN. Exact counters/evidence in RUN-20261110-NAVIGATION-UPGRADE-AND-ENGINE89-LOCAL.
+
+
+ENG-055 retained-control boundary: Native option-predicate reader covers every ID but still classifies the broad issuance choice as the principal payout. Same-source single-question control reproduces it; larger batch size is not established as cause. Generic workflow/action wording contrast did not change it and was removed. A safe-clarification question-editor prompt also returned no changes. Independent source adjudication identifies two plausible readings but disputes materiality. This is an open semantic/editorial precision issue, not a missing deterministic validator or proof that stronger invariants fix interpretation. Exact13call counters and immutable controls in ledger closeout; no deployed89 claim.
+
+
+ENG-053 local89 wiring: native/managed author transport now preserves raw/canonical-format/normalization receipt and only removes unknown null annotations. Saved8L31Q structural replay is lossless for instructional data. Exact current-format cold replay and credential safety tested; direct Responses QA route is disabled/excluded, original interrupted production job not relabeled recovered. No arbitrary valid schema or declared invalid null is accepted.
+
+ENG-055 addressed path chosen by owner-delegated root decision: known observations are retained input, not repeatedly rediscovered. Four model calls across two addressed rounds corrected q3-1 and L4, then restored the unrequested omitted director-signature duty found by independent review. Generic revision role now preserves unaffected actors/obligations within a clause. Receipt labels retained origin, preserves unedited-target/source observations and strict source/course/corpus identity, no automatic approval. Seven other bodies/30peer questions exact; independent target/source review accepted. Blind discovery remains a disclosed limitation, no per-document runtime rule or validator relaxation. DEV/production acceptance still OPEN.

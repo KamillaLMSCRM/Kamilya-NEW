@@ -173,7 +173,9 @@ def source_model_text(packet: PracticalSourcePacket, *, aliases: Mapping[str, st
 def is_practical_course_format(value: Any) -> bool:
     try:
         ids = value['json_schema']['schema']['properties']['lessons']['items']['properties']['questions']['items']['properties']['source_refs']['items']['enum']
-        return type(ids) is list and bool(ids) and all(isinstance(i, str) and i for i in ids) and value == _course_format(ids)
+        return (type(ids) is list and bool(ids) and all(type(i) is str and i for i in ids)
+                and json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
+                == json.dumps(_course_format(ids), sort_keys=True, separators=(',', ':'), allow_nan=False))
     except (KeyError, TypeError, ValueError):
         return False
 

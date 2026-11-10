@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.89] - 2026-11-10
+
+### Fixed
+
+- Accept only unknown null-valued annotation members in the registered practical-author response, preserving the complete original reply, normalized value, exact format and checked normalization receipt through owned checkpoints. Invalid declared values, non-null extras, duplicate keys and foreign references still fail. Escaped configured credentials cannot enter accepted custody or rejection quarantine.
+- Carry approved source-decision rationales into the course editor with their original revision binding. Run the whole-source editor after question changes and preserve unresolved source findings and unchanged-target observations.
+- Apply addressed editorial revisions only to their owned lesson text or question; preserve good peers, media and ordering. Support explicitly retained review observations bound to the exact source and course revision, with an honest origin label and no automatic semantic approval. Partial model replies no longer require copying the whole course, and receipts describe only changes actually applied.
+
+### Verification boundary
+
+- Saved null-extension replay changes only eight empty annotations in an8L31Q author reply. On the retained cash course, the model applies supplied observations in two addressed rounds (four model calls), including a separately detected omitted-signature requirement. Independent review accepts the final employee-recipient wording and narrowed principal-payout distractor; seven other lesson bodies and30peer questions remain identical. This does not establish blind rediscovery of the distractor ambiguity or automatic publication approval. Exact DEV/production acceptance is a separate gate.
+
+
 ## [0.11.88] - 2026-11-10
 
 ### Fixed

@@ -36,10 +36,11 @@ class PendingStageJournal(WorkerCycleJournal):
     async def run_pending(self, *, plan: dict[str, Any], result_key: str, claim_key: str,
                           validate_value: Callable[[dict[str, Any]], dict[str, Any]],
                           validate_response: Callable[[Any], dict[str, Any]],
-                          invoke: Callable[[], Awaitable[dict[str, Any]]],
+                          invoke: Callable[[], Awaitable[Any]],
                           _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
                           _direct_metadata: Callable[[], dict[str, Any]] | None = None,
                           _completed_response: Callable[[str, Exception], ManagedResponseRejectedError | None] | None = None,
+                          author_custody: Callable[[Any], dict[str, Any] | None] | None = None,
                           ) -> dict[str, Any]:
         verify_source = self.verify_source
         if _owned_claim_guard is not None:
@@ -109,6 +110,9 @@ class PendingStageJournal(WorkerCycleJournal):
             response = validate_response(received)
             phase = "stage_metadata"
             value = {"identity": digest, "response": response, "response_sha256": _digest(response)}
+            custody_value = author_custody(received) if author_custody is not None else None
+            if custody_value is not None:
+                value['author_custody'] = custody_value
             if _direct_metadata is not None:
                 from app.modules.ai.v3.direct_usage_metadata import checked_metadata
                 metadata = checked_metadata(_direct_metadata())

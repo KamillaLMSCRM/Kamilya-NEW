@@ -1,3 +1,7 @@
+# Current contour — 2026-11-10T14:04 UTC
+
+Production88 exact8a2d91b730b96c3f65a23d1290066408fd881140/API+3blue workers a77bd173...0b6/schema0187; native frontend86/44dc1134. DEV88 exactsame source, one VM126worker dd74dcca...f243/597aabf8...acea, RenderFree/VercelHobby unchanged. Signed backup/isolated restore and independent r139 identity/settings/RLS/watchdog/rollback/reserve checks PASS. Both NEW Lombard PDF2493476d8L32Q and cashb05421bb8L31Q/10images are published after disclosed manual review; oldsixcohort hashes unchanged. All cash8previewtests100%,0new employeeenrollments/attempts. Productioncostupper0.5563668, remaining0.2800332; no owned active inference. Exact IDs/evidence/limits in current CODEX_HANDOFF. No autonomous-perfect or100page claim. Untracked author-null prototype is excluded from deployed88.
+
 # Current contour — 2026-11-10 12:45 UTC
 
 DEV exactde6234d0/version87 accepted: Render dep-dbpgus5bedkc738nf8eg/live, Vercel dpl_ARao96jK9kUJzPXmGsNExAaJFygp/READY, sole VM126worker f75701ec...44fe/imagef45a1bd...953c/restarts0/unless-stopped. Old8c retained stopped for rollback; no new paid model calls. Production API+3workers85/7f/schema0187 and native frontend86/44dc remain. Actual production ordinary editor expiry/recovery passed without business writes. Protected87 failed before build/deploy because release notes were missing; preserve tag/release and prepare new88 package, application runtime unchanged. Canonical handoff owns exact evidence and active-process details.

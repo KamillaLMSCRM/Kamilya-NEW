@@ -219,7 +219,20 @@ async def run_focused_cycle(packet: Any, corpus: Any, intent: Any, reference_dec
         candidate = proposed
         current_q_receipt = receipt
         blind_feedback = _with_question_uncertainty(packet, candidate, current_q_receipt, await blind_check(candidate))
-    normalized_feedback = []
+    from app.modules.ai.v3.practical_source_editor import run_source_editor
+    before_whole_editor = candidate
+    candidate, whole_editor, editorial_pending = await run_source_editor(packet, corpus, candidate, view, stage)
+    if candidate != before_whole_editor:
+        retained_uncertainty = [f for f in blind_feedback if f['evidence'].get('producer') == 'question_editor'
+                                or 'question_editor_unverified' in f['evidence']]
+        blind_feedback = await blind_check(candidate)
+        for prior in retained_uncertainty:
+            same = next((f for f in blind_feedback if (f['scope'], f['id']) == (prior['scope'], prior['id'])), None)
+            if same is None:
+                blind_feedback.append(copy.deepcopy(prior))
+            else:
+                same['evidence']['prior_question_editor_unverified'] = copy.deepcopy(prior['evidence'])
+    normalized_feedback = copy.deepcopy(editorial_pending)
     for finding in blind_feedback:
         row = copy.deepcopy(finding)
         if row.get('scope') == 'question' and isinstance(row.get('evidence'), dict):
@@ -235,9 +248,12 @@ async def run_focused_cycle(packet: Any, corpus: Any, intent: Any, reference_dec
                 'learner_graph_fingerprint': learner_graph['input_fingerprint'], 'action_pairs': len(action['pairs']),
                 'noun_observations': len(noun['noun_observations']), 'question_receipt': q_receipt,
                 'current_question_receipt': current_q_receipt,
+                'question_receipt_matches_final_course': current_q_receipt['after_course_fingerprint'] == _digest(candidate),
                 'question_repairs': question_repairs,
+                'whole_source_editor': whole_editor,
                 'unverified_revised_prose': [lesson['id'] for lesson in candidate['lessons']],
                 'coverage_limits': action['coverage_limits']},)
-    decision = PracticalReviewDecision(False, False, (), (), False, tuple(normalized_feedback))
+    decision = PracticalReviewDecision(False, any(f['scope'] == 'source' for f in editorial_pending),
+                                       (), (), False, tuple(normalized_feedback))
     return PracticalCycleResult(candidate, review, decision, history, 'focused_review_pending',
                                 standalone_review=True, editorial_review=True)

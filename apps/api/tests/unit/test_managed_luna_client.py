@@ -23,6 +23,7 @@ async def test_retained_author_replay_is_one_use_and_never_posts(setup):
     content = {"title": "Course", "lessons": [{"id": "lesson-1", "title": "Lesson", "content": "Text",
         "questions": [{"id": "q1", "prompt": "Question?", "choices": ["A", "B", "C"],
                        "correct_index": 0, "explanation": "Because", "source_refs": ["SRC1"]}]}]}
+    content['lessons'][0]['questions_note'] = None
     body = {"model": client.model, "structured_output_policy": "typed-json-object-v1",
             "response_format_sha256": response_contract_hash(fmt),
             "choices": [{"message": {"content": json.dumps(content)}}],
@@ -39,7 +40,9 @@ async def test_retained_author_replay_is_one_use_and_never_posts(setup):
         "raw_base64": base64.b64encode(raw).decode(), "byte_count": len(raw), "body_sha256": hashlib.sha256(raw).hexdigest()}
     result = await client.replay_completed(cap, receipt=receipt, tenant_id=tenant, user_id=user, job_id="job",
                                            stage_id="a" * 64, ownership_checkpoint=checkpoint)
-    assert result.content == content and result.usage.input_tokens == 8 and not requests
+    assert result.content.raw_text == json.dumps(content)
+    assert 'questions_note' not in result.content.normalized_value['lessons'][0]
+    assert result.usage.input_tokens == 8 and not requests
     with pytest.raises(ManagedLunaError):
         await client.replay_completed(cap, receipt=receipt, tenant_id=tenant, user_id=user, job_id="job",
                                       stage_id="a" * 64, ownership_checkpoint=checkpoint)
@@ -53,6 +56,88 @@ async def test_retained_author_replay_is_one_use_and_never_posts(setup):
         await client.replay_completed(different_cap, receipt=receipt, tenant_id=tenant, user_id=user,
                                       job_id="job", stage_id="a" * 64, ownership_checkpoint=checkpoint)
     assert not requests
+
+
+@pytest.mark.asyncio
+async def test_practical_author_secret_in_unknown_null_key_is_rejected(setup):
+    from app.modules.ai.v3.practical_contract import _course_format
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+
+    client, tenant, user, state, requests = setup
+    fmt = _course_format(['SRC1'])
+    course = {'title': 'Course', 'lessons': [{'id': 'l', 'title': 'Lesson', 'content': 'Text',
+        'private-secret': None, 'questions': [{'id': 'q', 'prompt': 'Question?', 'choices': ['A', 'B', 'C'],
+        'correct_index': 0, 'explanation': 'Reason', 'source_refs': ['SRC1']}]}]}
+    state['body'] = {'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt),
+        'choices': [{'message': {'content': json.dumps(course)}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare([{'role': 'user', 'content': 'synthetic'}], max_output_tokens=8,
+                               ownership_checkpoint=checkpoint, response_format=fmt)
+    with pytest.raises(ManagedLunaError) as exc:
+        await client.invoke(cap, tenant_id=tenant, user_id=user, job_id='job',
+                            stage_id='a' * 64, ownership_checkpoint=checkpoint)
+    assert 'private-secret' not in str(exc.value)
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+async def test_practical_author_bracketed_natural_language_with_quote_is_accepted(setup):
+    from app.modules.ai.v3.practical_contract import _course_format
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+    client, tenant, user, state, requests = setup
+    fmt = _course_format(['SRC1'])
+    course = {'title': 'Course', 'lessons': [{'id': 'l', 'title': 'Lesson',
+        'content': '[Note] Customer said "', 'questions': [{'id': 'q', 'prompt': 'Question?',
+        'choices': ['A', 'B', 'C'], 'correct_index': 0, 'explanation': 'Reason', 'source_refs': ['SRC1']}]}]}
+    state['body'] = {'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt),
+        'choices': [{'message': {'content': json.dumps(course)}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare([{'role': 'user', 'content': 'synthetic'}], max_output_tokens=8,
+                               ownership_checkpoint=checkpoint, response_format=fmt)
+    result = await client.invoke(cap, tenant_id=tenant, user_id=user, job_id='job',
+                                 stage_id='a' * 64, ownership_checkpoint=checkpoint)
+    assert result.content.normalized_value == course
+    from app.modules.ai.managed_luna_client import _unsafe_credential_envelope
+    assert not _unsafe_credential_envelope(json.dumps(state['body']).encode(), 'private-secret')
+    assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('mode', ['unknown_key', 'declared_value', 'duplicate', 'malformed'])
+async def test_managed_escaped_credential_never_enters_custody(setup, mode):
+    from app.modules.ai.v3.practical_contract import _course_format
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+    client, tenant, user, state, requests = setup
+    fmt = _course_format(['SRC1'])
+    course = {'title': 'Course', 'lessons': [{'id': 'l', 'title': 'Lesson', 'content': 'Text',
+        'questions': [{'id': 'q', 'prompt': 'Question?', 'choices': ['A', 'B', 'C'],
+        'correct_index': 0, 'explanation': 'Reason', 'source_refs': ['SRC1']}]}]}
+    if mode == 'declared_value':
+        course['title'] = 'private-secret'
+    else:
+        course['lessons'][0]['private-secret'] = None
+    raw = json.dumps(course).replace('private-secret', r'\u0070rivate-secret')
+    if mode == 'duplicate':
+        raw = raw.replace('"title": "Course"', '"title": "Course", "title": "Course"')
+    if mode == 'malformed':
+        raw = raw[:-1]
+    state['body'] = {'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt), 'choices': [{'message': {'content': raw}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}
+    from app.modules.ai.managed_luna_client import _unsafe_credential_envelope
+    assert _unsafe_credential_envelope(json.dumps(state['body']).encode(), 'private-secret')
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare([{'role': 'user', 'content': 'synthetic'}], max_output_tokens=8,
+                               ownership_checkpoint=checkpoint, response_format=fmt)
+    with pytest.raises(ManagedLunaError) as caught:
+        await client.invoke(cap, tenant_id=tenant, user_id=user, job_id='job',
+                            stage_id='a' * 64, ownership_checkpoint=checkpoint)
+    assert type(caught.value) is ManagedLunaError
+    assert len(requests) == 1
 
 
 @pytest.mark.asyncio

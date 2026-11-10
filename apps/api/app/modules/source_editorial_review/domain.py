@@ -41,6 +41,7 @@ class ApprovedEditorialDocument:
     spans: tuple[dict[str, Any], ...] = field(repr=False)
     fidelity: dict[str, Any] = field(repr=False)
     preparation: dict[str, Any] | None = field(default=None, repr=False)
+    decision_context: tuple[dict[str, Any], ...] = field(default=(), repr=False)
 
     @property
     def editorial_revision(self) -> str:
@@ -51,6 +52,24 @@ class ApprovedEditorialDocument:
                 or text_hash(self.working_text) != self.working_sha256):
             return False
         try:
+            if not isinstance(self.decision_context, tuple):
+                return False
+            seen_decisions = set()
+            for row in self.decision_context:
+                if (not isinstance(row, dict)
+                        or set(row) != {'item_id', 'decision', 'quote', 'reason', 'start', 'end'}
+                        or type(row['item_id']) is not str or not row['item_id'].strip()
+                        or row['item_id'] in seen_decisions or row['decision'] not in {'keep', 'replace'}
+                        or type(row['reason']) is not str or not row['reason'].strip()
+                        or type(row['quote']) is not str):
+                    return False
+                unanchored = row['start'] is None and row['end'] is None and row['decision'] == 'keep'
+                anchored = (type(row['start']) is int and type(row['end']) is int
+                    and 0 <= row['start'] < row['end'] <= len(self.recognized_text)
+                    and self.recognized_text[row['start']:row['end']] == row['quote'])
+                if not unanchored and not anchored:
+                    return False
+                seen_decisions.add(row['item_id'])
             if self.preparation is not None:
                 if not source_revision.startswith("document:"):
                     return False

@@ -14,6 +14,7 @@ from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownErro
 from app.modules.ai.v3.owned_stage_inspection import inspect_owned_stage
 from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
 from app.modules.ai.v3.pending_stage_transactions import _locked_job, verify_repair_slot, verify_source_safely
+from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
 
 async def run_direct_owned_stage(
@@ -29,6 +30,7 @@ async def run_direct_owned_stage(
     max_output_tokens: int,
     _owned_claim_guard: Callable[[Any, Any, dict[str, Any]], Awaitable[bool]] | None = None,
     response_format: dict[str, Any] | None = None,
+    author_custody: Callable[[Any], dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     """Replay before preparation/claim; only the direct API performs a trusted token count."""
     if type(journal) is not PendingStageJournal or type(client) not in (DirectLunaResponsesClient, ManagedLunaClient):
@@ -228,6 +230,9 @@ async def run_direct_owned_stage(
                 "cached_input_tokens": result.usage.cached_input_tokens, "reasoning_tokens": result.usage.reasoning_tokens}})
             value = {"identity": _digest(plan), "response": response, "response_sha256": _digest(response),
                      "direct_metadata": replay_metadata, "direct_metadata_sha256": _digest(replay_metadata)}
+            custody_value = author_custody(result.content) if author_custody is not None else None
+            if custody_value is not None:
+                value['author_custody'] = custody_value
             audit = {"policy": AUTHORIZATION_POLICY, "stage_sha256": _digest(plan),
                      "body_sha256": candidate["body_sha256"],
                      "wire_request_sha256": candidate["receipt"]["wire_request_sha256"], "model": result.model}
@@ -284,7 +289,7 @@ async def run_direct_owned_stage(
         if budget is not None:
             budget.before_claim(generation_seconds=client.generation_deadline_seconds)
 
-        async def invoke() -> dict[str, Any]:
+        async def invoke() -> dict[str, Any] | PracticalAuthorArtifact:
             nonlocal claimed, completed_response
             claimed = True
             result = await client.invoke(
@@ -321,6 +326,7 @@ async def run_direct_owned_stage(
             _owned_claim_guard=_owned_claim_guard,
             _direct_metadata=lambda: metadata,
             _completed_response=completed_rejection,
+            author_custody=author_custody,
         )
     finally:
         client.discard(capability)

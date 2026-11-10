@@ -25,6 +25,7 @@ from app.modules.ai.v3.revision_policy import (
     read_review_policy,
 )
 from app.modules.ai.v3.stage_checkpoint import _digest, stage_once, stage_plan
+from tests.unit.test_practical_source_editor import empty_source_editor_review
 
 
 @pytest.fixture
@@ -213,12 +214,17 @@ async def test_fake_owned_journal_repair_then_cold_replay_and_drift(focused_case
                 and journal.user_id == actor)
     journal.verify_source = verify
 
-    async def pending(*, plan, result_key, claim_key, validate_value, validate_response, invoke, _owned_claim_guard):
+    async def pending(*, plan, result_key, claim_key, validate_value, validate_response, invoke, _owned_claim_guard,
+                      author_custody=None):
         if not await journal.verify_source(None, None, plan):
             raise ValueError('owned_source_or_route_drift')
         if result_key not in store:
-            value = validate_response(await invoke())
+            received = await invoke()
+            value = validate_response(received)
             store[result_key] = {'identity': _digest(plan), 'response': value, 'response_sha256': _digest(value)}
+            custody = author_custody(received) if author_custody is not None else None
+            if custody is not None:
+                store[result_key]['author_custody'] = custody
         return validate_value(store[result_key])
     journal.run_pending = pending
 
@@ -232,6 +238,8 @@ async def test_fake_owned_journal_repair_then_cold_replay_and_drift(focused_case
                 return {'role': data['role'], 'input_fingerprint': data['input_fingerprint'], 'decisions': [
                     {'token_id': row['token_id'], 'classification': 'UNKNOWN', 'object_kind': 'UNKNOWN',
                      'object_quote': '', 'negation_quote': '', 'note': ''} for row in data['candidate_tokens']]}
+            if ':editorial-review:' in group:
+                return empty_source_editor_review(fmt)
             if ':questions:' in group:
                 payload = json.loads(messages[1]['content'].split('\nQUESTION_EDITOR_JSON\n', 1)[1])
                 return {'source_fingerprint': packet.fingerprint, 'course_fingerprint': payload['course_fingerprint'],

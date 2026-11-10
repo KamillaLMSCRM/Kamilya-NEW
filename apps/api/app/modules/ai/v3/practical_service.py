@@ -244,7 +244,7 @@ def practical_artifacts(result: PracticalCycleResult, corpus: DirectSourceCorpus
 
 
 async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: CourseIntent,
-    invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[dict[str, Any]]],
+    invoke: Callable[[list[dict[str, str]], dict[str, Any] | None], Awaitable[Any]],
     source_sha256: str, journal: ExtractionJournal | None, route_fingerprint: str,
     reference_decisions: tuple[SourceReferenceDecision, ...] = (), direct_client: Any = None,
     direct_max_output_tokens: int = PRACTICAL_MAX_OUTPUT_TOKENS,
@@ -289,6 +289,15 @@ async def generate_practical_course(corpus: DirectSourceCorpus, *, intent: Cours
                 direct_max_output_tokens=direct_max_output_tokens, response_validator=validate)
         else:
             value = await invoke(messages, fmt)
+            from app.modules.ai.v3.practical_author_transport import (
+                PracticalAuthorArtifact,
+                is_practical_author_stage,
+                validate_practical_author_artifact,
+            )
+            if type(value) is PracticalAuthorArtifact:
+                if not is_practical_author_stage(stage, group) or not validate_practical_author_artifact(value, fmt):
+                    raise ValueError('practical_author_transport_scope_invalid')
+                value = value.normalized_value
             validate(value)
         completed += 1
         if progress_callback:

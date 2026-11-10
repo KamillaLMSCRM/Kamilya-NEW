@@ -12,7 +12,7 @@ import logging
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import httpx
@@ -25,6 +25,9 @@ from app.modules.ai.direct_luna_responses_contract import (
     validate_count,
 )
 from app.modules.ai.source_first_response import parse_source_first_response
+
+if TYPE_CHECKING:
+    from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
 logger = logging.getLogger(__name__)
 COUNT_DEADLINE_SECONDS = 60.0
@@ -86,7 +89,7 @@ class ResponsesRejectedError(ResponsesClientError):
 
 @dataclass(frozen=True, repr=False)
 class ResponsesResult:
-    content: dict[str, Any]
+    content: dict[str, Any] | PracticalAuthorArtifact
     model: str
     usage: LunaUsage
 

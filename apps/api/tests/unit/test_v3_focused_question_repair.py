@@ -8,6 +8,7 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3 import practical_focused_cycle as cycle
 from app.modules.ai.v3.practical_contract import build_practical_source_packet
 from app.modules.ai.v3.practical_model_view import PracticalModelView
+from tests.unit.test_practical_source_editor import empty_source_editor_review
 
 
 @pytest.mark.asyncio
@@ -34,6 +35,10 @@ async def test_question_repair_scoped_rechecks_only_changed_units(mode):
             value = {'role': data['role'], 'input_fingerprint': data['input_fingerprint'], 'decisions': [
                 {'token_id': row['token_id'], 'classification': 'UNKNOWN', 'object_kind': 'UNKNOWN',
                  'object_quote': '', 'negation_quote': '', 'note': ''} for row in data['candidate_tokens']]}
+        elif ':editorial-review:' in group:
+            if mode == 'repair':
+                assert 'Changed?' in messages[1]['content']
+            value = empty_source_editor_review(fmt)
         elif ':questions:' in group or ':question-repair:' in group:
             data = json.loads(messages[1]['content'].split('\nQUESTION_EDITOR_JSON\n', 1)[1].split(
                 '\nUNVERIFIED_CURRENT_QUESTION_FINDINGS_JSON\n', 1)[0])

@@ -82,6 +82,54 @@ def envelope(content, *, typed=None, usage=True, model="test-model"):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('mode', ['unknown_key', 'declared_value', 'duplicate', 'malformed'])
+async def test_native_escaped_credential_never_enters_custody(transport, mode):
+    from app.modules.ai.v3.practical_contract import _course_format
+    state, calls = transport
+    fmt = _course_format(['SRC1'])
+    course = {'title': 'Course', 'lessons': [{'id': 'l', 'title': 'Lesson', 'content': 'Text',
+        'questions': [{'id': 'q', 'prompt': 'Question?', 'choices': ['A', 'B', 'C'],
+        'correct_index': 0, 'explanation': 'Reason', 'source_refs': ['SRC1']}]}]}
+    if mode == 'declared_value':
+        course['title'] = 'test'
+    else:
+        course['lessons'][0]['test'] = None
+    raw = json.dumps(course).replace('test', r'\u0074est')
+    if mode == 'duplicate':
+        raw = raw.replace('"title": "Course"', '"title": "Course", "title": "Course"')
+    if mode == 'malformed':
+        raw = raw[:-1]
+    state['body'] = envelope(raw)
+    with pytest.raises(ValueError, match='v3_provider_contract_invalid'):
+        await LLMClient(config('deepseek'), max_retries=0).ainvoke('synthetic', response_format=fmt)
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_native_practical_author_keeps_raw_content_after_validation(transport):
+    from app.modules.ai.v3.practical_contract import _course_format
+    state, calls = transport
+    fmt = _course_format(['SRC1'])
+    course = {'title': 'Course', 'lessons': [{'id': 'l', 'title': 'Lesson', 'content': 'Text',
+        'questions_note': None, 'questions': [{'id': 'q', 'prompt': 'Question?', 'choices': ['A', 'B', 'C'],
+        'correct_index': 0, 'explanation': 'Reason', 'source_refs': ['SRC1']}]}]}
+    raw = json.dumps(course)
+    state['body'] = envelope(raw)
+    result = await LLMClient(config('deepseek'), max_retries=0).ainvoke('synthetic', response_format=fmt)
+    assert result.content == raw and len(calls) == 1
+    course['lessons'][0]['test'] = None
+    state['body'] = envelope(json.dumps(course))
+    with pytest.raises(ValueError, match='v3_provider_contract_invalid') as exc:
+        await LLMClient(config('deepseek'), max_retries=0).ainvoke('synthetic', response_format=fmt)
+    assert 'test' not in str(exc.value)
+    del course['lessons'][0]['test']
+    course['lessons'][0]['questions_note'] = 'unexpected'
+    state['body'] = envelope(json.dumps(course))
+    with pytest.raises(ModelArtifactRejectedError):
+        await LLMClient(config('deepseek'), max_retries=0).ainvoke('synthetic', response_format=fmt)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("provider", ["deepseek", "other-provider"])
 async def test_native_wire_retains_exact_schema_as_trusted_instruction(transport, provider):
     state, calls = transport

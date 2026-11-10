@@ -914,13 +914,24 @@ class LLMClient(_BaseProviderClient):
                         or data.get("structured_output_policy") != "typed-json-object-v1"
                         or data.get("response_format_sha256") != response_contract_hash(response_format)):
                     raise ValueError("v3_reserve_contract_unverified")
-                if not isinstance(msg.get("content"), str) or not matches_transport_contract(
-                        parse_source_first_response(msg["content"]), response_format):
+                raw_content = msg.get("content")
+                if not isinstance(raw_content, str):
+                    raise ValueError("v3_provider_contract_invalid")
+                from app.modules.ai.v3.practical_contract import is_practical_course_format
+                if is_practical_course_format(response_format):
+                    from app.modules.ai.credential_content_guard import contains_credential
+                    if contains_credential(raw_content, self.config.api_key):
+                        raise ValueError("v3_provider_contract_invalid")
+                    from app.modules.ai.v3.practical_author_transport import normalize_practical_author
+                    candidate = normalize_practical_author(raw_content, response_format).normalized_value
+                else:
+                    candidate = parse_source_first_response(raw_content)
+                if not matches_transport_contract(candidate, response_format):
                     raise ValueError("v3_provider_contract_invalid")
             except ValueError:
                 rejected = msg.get("content")
-                if (not isinstance(rejected, str)
-                        or (self.config.api_key and self.config.api_key in rejected)):
+                from app.modules.ai.credential_content_guard import contains_credential
+                if not isinstance(rejected, str) or contains_credential(rejected, self.config.api_key):
                     raise ValueError("v3_provider_contract_invalid") from None
                 observed_usage = data.get("usage")
                 observed_usage = observed_usage if isinstance(observed_usage, dict) else {}

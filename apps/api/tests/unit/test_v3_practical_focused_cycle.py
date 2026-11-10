@@ -8,6 +8,7 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.v3 import practical_focused_cycle as cycle
 from app.modules.ai.v3.practical_contract import _digest, build_practical_source_packet
 from app.modules.ai.v3.practical_model_view import PracticalModelView
+from tests.unit.test_practical_source_editor import empty_source_editor_review
 
 
 @pytest.fixture
@@ -38,6 +39,8 @@ async def test_no_finding_is_not_acceptance_and_blind_question_runs(example):
                 'decisions': [{'token_id': row['token_id'], 'classification': 'UNKNOWN', 'object_kind': 'UNKNOWN',
                                'object_quote': '', 'negation_quote': '', 'note': ''}
                               for row in payload['candidate_tokens']]}
+        elif ':editorial-review:' in group:
+            result = empty_source_editor_review(fmt)
         elif ':questions:' in group:
             payload = json.loads(messages[1]['content'].split('\nQUESTION_EDITOR_JSON\n', 1)[1])
             result = {'source_fingerprint': packet.fingerprint, 'course_fingerprint': payload['course_fingerprint'],
@@ -131,6 +134,8 @@ async def test_question_editor_uncertainty_is_addressed_and_remains_current(exam
             value = {'role': payload['role'], 'input_fingerprint': payload['input_fingerprint'], 'decisions': [
                 {'token_id': row['token_id'], 'classification': 'UNKNOWN', 'object_kind': 'UNKNOWN',
                  'object_quote': '', 'negation_quote': '', 'note': ''} for row in payload['candidate_tokens']]}
+        elif ':editorial-review:' in group:
+            value = empty_source_editor_review(fmt)
         elif ':questions:' in group or ':question-repair:' in group:
             payload = json.loads(messages[1]['content'].split('\nQUESTION_EDITOR_JSON\n', 1)[1].split(
                 '\nUNVERIFIED_CURRENT_QUESTION_FINDINGS_JSON\n', 1)[0])

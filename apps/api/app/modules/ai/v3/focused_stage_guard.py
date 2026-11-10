@@ -13,7 +13,7 @@ def focused_stage_allowed(stage: object, group: object, fmt: Any, *, policy: Any
     if (type(stage) is not str or type(group) is not str or policy != FOCUSED_EDITORIAL_REVIEW_POLICY
             or not callable(validator) or not isinstance(fmt, dict)):
         return False
-    match = re.fullmatch(r'practical:focused:(author|graph:source|graph:learner|attachment:source|attachment:learner|action|noun|questions|question-repair|blind):v36:([0-9a-f]{64}):output=([1-9][0-9]*)', group)
+    match = re.fullmatch(r'practical:focused:(author|graph:source|graph:learner|attachment:source|attachment:learner|action|noun|questions|question-repair|blind|editorial-review|editorial-revision):v36:([0-9a-f]{64}):output=([1-9][0-9]*)', group)
     if not match:
         return False
     name = match[1]
@@ -25,6 +25,8 @@ def focused_stage_allowed(stage: object, group: object, fmt: Any, *, policy: Any
         'attachment:learner': ('review', 'practical_isolated_attachment_choice'),
         'action': ('repair', 'practical_prose_revision'), 'noun': ('repair', 'practical_prose_revision'),
         'questions': ('repair', 'practical_question_editor'), 'question-repair': ('repair', 'practical_question_editor'),
+        'editorial-review': ('review', 'practical_editorial_review'),
+        'editorial-revision': ('repair', 'practical_editorial_revision'),
         'blind': ('review', 'practical_option_predicates')}
     if (stage, kind) != allowed[name]:
         return False

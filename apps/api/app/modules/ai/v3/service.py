@@ -1901,7 +1901,7 @@ async def generate_v3_course_from_corpus(
     reference_context_for_rules(corpus.tenant_id, corpus.documents, reference_decisions, ())
     first_title = corpus.documents[0].title if corpus.documents else "Курс по регламенту"
 
-    async def llm_invoker(messages: list[dict[str, str]], response_format: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def invoke_payload(messages: list[dict[str, str]], response_format: dict[str, Any] | None = None) -> Any:
         if cancellation_callback:
             await cancellation_callback()
 
@@ -1916,6 +1916,14 @@ async def generate_v3_course_from_corpus(
         else:
             raise TypeError(f"Unsupported generation_client type: {type(generation_client)}")
 
+        if practical:
+            from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact, normalize_practical_author
+            from app.modules.ai.v3.practical_contract import is_practical_course_format
+            if is_practical_course_format(response_format):
+                if type(raw_text) is PracticalAuthorArtifact:
+                    return raw_text
+                if type(raw_text) is str:
+                    return normalize_practical_author(raw_text, response_format)
         if isinstance(raw_text, dict):
             return raw_text
         if strict_batch_contract or practical:
@@ -1924,10 +1932,16 @@ async def generate_v3_course_from_corpus(
         parsed: dict[str, Any] = json.loads(raw_text)
         return parsed
 
+    async def llm_invoker(messages: list[dict[str, str]], response_format: dict[str, Any] | None = None) -> dict[str, Any]:
+        value = await invoke_payload(messages, response_format)
+        if not isinstance(value, dict):
+            raise ValueError('v3_nonpractical_response_invalid')
+        return value
+
     if practical:
         from app.modules.ai.v3.practical_service import generate_practical_course
         assert review_policy is not None
-        return await generate_practical_course(corpus, intent=intent, invoke=llm_invoker,
+        return await generate_practical_course(corpus, intent=intent, invoke=invoke_payload,
             source_sha256=doc_sha, journal=extraction_journal, route_fingerprint=route_fingerprint,
             reference_decisions=reference_decisions, direct_client=direct_client,
             direct_max_output_tokens=await _practical_output_budget(review_policy, direct_client), cancellation_callback=cancellation_callback,

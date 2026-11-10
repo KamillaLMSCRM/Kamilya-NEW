@@ -17,9 +17,11 @@ from uuid import UUID
 import httpx
 
 from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
+from app.modules.ai.credential_content_guard import contains_credential
 from app.modules.ai.direct_luna_api import LunaUsage
 from app.modules.ai.direct_luna_responses_client import ResponsesResult
 from app.modules.ai.source_first_response import parse_source_first_response
+from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
 MODEL = "gpt-5.6-luna"
 LUNA6_MODEL = "gpt-6-luna"
@@ -29,6 +31,14 @@ MAX_CONTENT_BYTES = 262144
 logger = logging.getLogger(__name__)
 ERROR_CODES = frozenset({"not_configured", "authorization_required", "unavailable", "protocol_mismatch",
                          "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected"})
+
+
+def _unsafe_credential_envelope(raw: bytes, token: str) -> bool:
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return True
+    return contains_credential(text, token, embedded_json=True)
 
 
 def _diagnostic(phase: str, job_id: str, stage_id: str | None, started: float,
@@ -191,11 +201,22 @@ class ManagedLunaClient:
             if len(message["content"].encode("utf-8")) > MAX_CONTENT_BYTES:
                 raise ValueError
             category = "content_json"
-            content = parse_source_first_response(message["content"])
+            parsed_content = parse_source_first_response(message["content"])
+            content: dict[str, Any] | PracticalAuthorArtifact = parsed_content
             if "structured_output_policy" in requested:
                 from app.modules.ai.v3.response_contracts import matches_transport_contract
                 category = "structured_shape"
-                if not matches_transport_contract(content, requested["response_format"]):
+                from app.modules.ai.v3.practical_contract import is_practical_course_format
+                if is_practical_course_format(requested["response_format"]):
+                    if contains_credential(message["content"], self._token):
+                        raise ValueError("managed_luna_structured_shape_invalid")
+                    from app.modules.ai.v3.practical_author_transport import normalize_practical_author
+                    artifact = normalize_practical_author(message["content"], requested["response_format"])
+                    content = artifact
+                    checked_content = artifact.normalized_value
+                else:
+                    checked_content = parsed_content
+                if not matches_transport_contract(checked_content, requested["response_format"]):
                     raise ValueError("managed_luna_structured_shape_invalid")
             category = "usage"
             usage = body.get("usage")
@@ -308,7 +329,7 @@ class ManagedLunaClient:
             incoming, outgoing = decoded.usage.input_tokens, decoded.usage.output_tokens
             from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError, ManagedResponsesResult
             capture = None
-            if stage_id is not None and self._token.encode("utf-8") not in raw:
+            if stage_id is not None and not _unsafe_credential_envelope(bytes(raw), self._token):
                 try:
                     capture = ManagedResponseRejectedError(raw=bytes(raw), tenant_id=tenant_id, user_id=user_id,
                         job_id=job_id, stage=stage_id, route_fingerprint=self.cache_fingerprint(),
@@ -322,7 +343,7 @@ class ManagedLunaClient:
             _diagnostic("failure", job_id, stage_id, started, status, category)
             if classify_invalid_json and status == 200 and category == "content_json":
                 raise ManagedLunaCompletedJsonError("managed_luna_response_invalid") from None
-            if stage_id is not None and self._token.encode("utf-8") not in raw:
+            if stage_id is not None and not _unsafe_credential_envelope(bytes(raw), self._token):
                 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
                 try:
                     retained = ManagedResponseRejectedError(raw=bytes(raw), tenant_id=tenant_id, user_id=user_id,

@@ -10669,3 +10669,18 @@ flag names from deploymentcontroller, never reconstruct similar names from memor
   Resolve all local evidence paths from one task directory: the r64 DEV receipt
   was initially saved at worktree root, then moved byte-identically before cleanup.
   Healthz is plain text: verify its documented header instead of assuming JSON.
+
+
+### AGENT-ACCEPTANCE-HARNESS-001 follow-up — 2026-11-10T14:04 UTC
+
+Source-alias task R85/R86 shell clones repeated default Windows decoding; explicitUTF-8/LF R87 succeeded. Owned job readersR121/R122 incorrectly emitted empty document_ids (actualparamskeydocuments), violating closedEVIDENCEgrammar despite exit0; preservefailedreceipts, reproduceemptyvalue locally, thenR123structuredtransport. LargeR127readexport failed withno validpayload; switched once tocanonicalordinaryDTO R128, no model/contentwrite or securitychange. Do notjson.loademptyfailurestdout; inspectstderr/statusfirst. Browserquizselector matched sameanswertext in twodifferentquestions; scopeeachradiogroup by visiblequestionheading/section, do not choosefirst. Previewonly, noemployeeattempts. Currentfullsizeblobnavigation denied bybrowserURLpolicy; do not bypass or claimfullsizePASS; embeddedmedia proof separatelyqualified. Inspectexactfilepaths withrg--files beforeguessing models orrunbookreceipt names.
+
+
+## AGENT-REVIEW-PRIVACY-001 — Source prefix was mislabeled as sanitized review evidence
+
+- Date:2026-11-10.
+- Symptom: A local independent-review view named sanitized still contained identifiable example details copied from a source block.
+- Cause: The first Markdown illustration marker was treated as the boundary of all preceding OCR, although a structural source block can begin inside an earlier image transcript.
+- Fix: Mark the original local view sensitive/do_not_share and supersede it with three explicitly inspected normative paragraphs and generic course text. No sample personal data was repeated in the agent report or distributed to the owner.
+- Verification: Root inspected the exact normative quote and approved-decision reason; independent review accepted the limited v2 evidence and retained duty preservation.
+- Prevention: Do not treat a source prefix or a filename as sanitization. Build review evidence from inspected literal passages and verify actual contents before delegation; preserve sensitive raw evidence only in its approved local contour.
