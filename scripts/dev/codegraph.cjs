@@ -4,7 +4,7 @@
 // Repository-local navigation, not runtime, security or release evidence.
 const fs = require('node:fs');
 const path = require('node:path');
-const VERSION = '1.6.1';
+const VERSION = '1.6.2';
 const ROOT = path.resolve(__dirname, '../..');
 const TOOL_ROOT = path.join(ROOT, '.release-evidence', 'codegraph-pilot');
 const LIMIT = 12;

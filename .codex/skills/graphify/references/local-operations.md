@@ -5,10 +5,13 @@ part of the task.
 
 ## Workstation setup
 
-CLI: `graphify` from the pipx environment below. Run `graphify --version` and
+CLI: `python -m graphify` from the checkout-local environment below. Run `graphify --version` and
 compare its actual `--help` before using version-sensitive flags; the workstation
 version is not an architectural invariant and must not be frozen in this runbook.
-Python: `C:/Users/user/AppData/Local/pipx/pipx/venvs/graphifyy/Scripts/python.exe`.
+Python: `<checkout>/.release-evidence/graphify-runtime/venv/Scripts/python.exe`.
+Owner-authorized stable package on 2026-11-10: `graphifyy==0.9.105`.
+Create the local venv and install with `python -m pip install --only-binary=:all: --index-url https://pypi.org/simple graphifyy==0.9.105`; run `pip check`.
+Do not overwrite the shared pipx interpreter or accept global skill-install suggestions.
 Run from the actual repository root, never `C:/Kamilya New`. Recheck the
 version/import before trusting this machine-specific path after drift.
 

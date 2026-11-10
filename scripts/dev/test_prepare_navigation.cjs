@@ -61,7 +61,7 @@ test('path confinement rejects traversal and artifact-directory junctions', t =>
 
 test('receipt rejects wrong worktree, source/tool drift and changed index', () => {
   const actual = { root: 'checkout', sources: { sha256: 'source' }, graphifyVersion: 'graphify 0.9.23', graphifyPython: 'python', artifacts: { graph: 'hash' } };
-  const receipt = { ...actual, schema: 1, codegraphVersion: '1.6.1' };
+  const receipt = { ...actual, schema: 1, codegraphVersion: '1.6.2' };
   assert.doesNotThrow(() => validateReceipt(receipt, actual));
   for (const patch of [{ root: 'other' }, { sources: { sha256: 'changed' } }, { graphifyVersion: 'new' }, { graphifyPython: 'other-python' }, { artifacts: { graph: 'changed' } }]) assert.throws(() => validateReceipt(receipt, { ...actual, ...patch }));
   assert.throws(() => validateReceipt({ ...receipt, codegraphVersion: 'other' }, actual));

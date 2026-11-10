@@ -1,7 +1,7 @@
 # CodeGraph: bounded local code navigation
 
 Accepted local pilot and mandatory-use routing updated: 2026-10-03.
-Runtime pinned to `@colbymchenry/codegraph@1.6.1`.
+Runtime pinned to `@colbymchenry/codegraph@1.6.2`.
 This is a development tool, not an LMS application dependency or production service.
 
 ## When to use
@@ -41,7 +41,7 @@ is disabled; our SDK wrapper bypasses that installer entirely.
 Run from the repository root with the repository-owned public npm configuration:
 
 ```powershell
-npm.cmd install --prefix .release-evidence/codegraph-pilot/runtime --cache .release-evidence/codegraph-pilot/npm-cache --userconfig scripts/dev/codegraph.public.npmrc --globalconfig scripts/dev/codegraph.global.npmrc --registry https://registry.npmjs.org --ignore-scripts --no-audit --no-fund @colbymchenry/codegraph@1.6.1
+npm.cmd install --prefix .release-evidence/codegraph-pilot/runtime --cache .release-evidence/codegraph-pilot/npm-cache --userconfig scripts/dev/codegraph.public.npmrc --globalconfig scripts/dev/codegraph.global.npmrc --registry https://registry.npmjs.org --ignore-scripts --no-audit --no-fund @colbymchenry/codegraph@1.6.2
 npm.cmd audit signatures --prefix .release-evidence/codegraph-pilot/runtime --cache .release-evidence/codegraph-pilot/npm-cache --userconfig scripts/dev/codegraph.public.npmrc --globalconfig scripts/dev/codegraph.global.npmrc --registry https://registry.npmjs.org
 node --test scripts/dev/test_codegraph.cjs
 node --liftoff-only scripts/dev/codegraph.cjs index
@@ -96,11 +96,11 @@ run it concurrently with graph writers or source edits.
 Empty SQLite WAL and transient SHM files created by a read-only CodeGraph query
 do not invalidate readiness; nonempty WAL content remains part of the snapshot.
 
-If the interpreter path differs, pass `--graphify-python ABSOLUTE_PATH`. On the
-2026-10-09 workstation Graphify reports package0.9.23 versus skill metadata0.9.58;
-its actual installed AST extract/query/diagnose capabilities were verified.
-This warning does not authorize an upgrade or skill downgrade. The current
-graph is undirected: query neighbors do not establish call direction.
+If the interpreter path differs, pass `--graphify-python ABSOLUTE_PATH`.
+The 2026-11-10 owner-authorized tools are: CodeGraph1.6.2 and Graphify0.9.105.
+Graphify uses checkout-local .release-evidence/graphify-runtime/venv; shared pipx
+and other application skills are preserved. Do not install global skills to silence
+a version warning. Confirm decisive graph relationships in current source.
 
 This is an explicit checkout-preparation step, not a shared Git hook. After a
 material source delta, run `--prepare` once before review if both snapshots are
