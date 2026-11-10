@@ -6789,6 +6789,8 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RELEASE-002 - Local version check omitted the release-note identity contract
 
+- Recurrence 2026-11-10: candidate87 repeated this error: development validation and DEV passed, but required docs/releases/v0.11.87.md was missing. Protected workflow42817667496 stopped at immutable product identity before image build or production mutation. Published87 tag/release are preserved. Replacement88 has complete release notes and must pass `validate_version.py --release --expected-version 0.11.88` before its first push/tag. Do not treat ordinary CI version consistency as the release-mode gate.
+
 - Date: 2026-09-22.
 - Symptom: DEV exact-SHA acceptance passed, but the production tag preflight
   stopped before tag creation because release notes had the localized label

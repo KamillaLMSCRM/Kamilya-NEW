@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.88] - 2026-11-10
+
+### Fixed
+
+- Complete the immutable release package for the source-editor alias correction already verified in DEV at 0.11.87. Application runtime code is unchanged from that candidate. Preserve its published tag and failed protected workflow; the missing release-notes gate stopped before production mutation.
+
+### Verification
+
+- DEV API, Vercel frontend and the sole isolated VM worker independently matched de6234d05d4093b7b127b9d6d5f882eadc1ae895. A network-disabled image probe verified Unicode alias custody and unchanged raw data without a provider call. Exact 0.11.88 CI, runtime parity and protected production acceptance remain separate gates.
+
 ## [0.11.87] - 2026-11-10
 
 ### Fixed

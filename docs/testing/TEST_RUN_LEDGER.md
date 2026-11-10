@@ -1,3 +1,8 @@
+## RUN-20261110-SOURCE-ALIAS87-DEV
+
+- Exact de6234d05d4093b7b127b9d6d5f882eadc1ae895/0.11.87 CI42811168308 and attested image42812189442/f45a1bd...953c. Controller RELEASE_OK verifies exact Render/Vercel/sole VM126worker; full receipt .release-evidence/source-alias-r73/dev-r88-execute-result.json. Network-disabled image synthetic custody probe PASS, complete startup170source files,0provider requests/DB writes. Warm stop/current predecessor retained; production10container boundary unchanged. One explicitly recoverable unreferenced image removed to restore6GiB floor, all86containers/configs/state unchanged.
+- Protected87 workflow42817667496 failed missing release notes before build/deploy; preserved immutable87 tag. Replacement88 changes only version/package documentation, application runtime unchanged. Release-mode validator is mandatory before its first push. Harness UTF-8 clone failures and first resource-floor stop retained, not counted as product failures or successful acceptance. Remaining paid production slice unchanged0.4765707.
+
 ## RUN-20261110-FRONTEND-P1-P2-INTEGRATION
 
 - Source fix/frontend-p1-20261110 was frozen and ported as22named web files onto ec2922c0 in a separate worktree. Original source unchanged. Root independently passed193frontend files/1744tests; types/scoped lint/diff checkPASS. Independent review found bounded training-source totals misrepresented; corrected with three retained controls (truncated zero/two and untruncated five with three visible).

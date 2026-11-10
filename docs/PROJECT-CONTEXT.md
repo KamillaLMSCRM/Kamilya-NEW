@@ -1,4 +1,8 @@
-# Current contour — 2026-11-10 11:45 UTC
+# Current contour — 2026-11-10 12:45 UTC
+
+DEV exactde6234d0/version87 accepted: Render dep-dbpgus5bedkc738nf8eg/live, Vercel dpl_ARao96jK9kUJzPXmGsNExAaJFygp/READY, sole VM126worker f75701ec...44fe/imagef45a1bd...953c/restarts0/unless-stopped. Old8c retained stopped for rollback; no new paid model calls. Production API+3workers85/7f/schema0187 and native frontend86/44dc remain. Actual production ordinary editor expiry/recovery passed without business writes. Protected87 failed before build/deploy because release notes were missing; preserve tag/release and prepare new88 package, application runtime unchanged. Canonical handoff owns exact evidence and active-process details.
+
+# Historical contour — 2026-11-10 11:45 UTC
 
 Production API+3workers85/7f062b46/schema0187 remain unchanged. Native frontend86
 exact44dc1134 is independently deployed/read back; current85 and previous82 plus
