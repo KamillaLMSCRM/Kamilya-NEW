@@ -1,3 +1,9 @@
+# Current DEV context — 2026-11-10
+
+DEV exact4a3ec606: API dep-dbp5mobm8hqs73cu6j3g/live, frontend dpl_CaivSDYvfGzMqR64DWqkcJ5sSLxj/READY, sole VM126 worker214863e098932ca241d16d066e356a83fff3b540b33a5b42f9c1f0e8caba702f/imagebda41f4326faed255be939431d1627ed0d29939c96cd92886be3808cb8812dcd/schema0187. Three fresh QA courses complete; see current handoff for content and independent-review boundaries. After Codex restart the ordinary existing IAB DEV session reads correctly. Local sidebar/reader follow-up is not yet deployed. Production remains0.11.83/466e0f90/schema0186. No new provider resources/plans or customer-course edits.
+
+## Superseded local candidate context
+
 # Focused v36 candidate context — 2026-11-10 Almaty
 
 Local candidate: C:/Kamilya New/Kamilya-NEW/.worktrees/engine-focused-v36-20261110, base cbb294d8, unreleased0.11.84. Four saved-content GO does not establish three fresh DEV courses. Local full7586PASS/quality1004-2174; v36 source/course review separation preserves real source holds. Existing settings catalog/history and PendingStageJournal remain authoritative; no new environment knobs or provider resources.

@@ -6724,3 +6724,43 @@ R11 full7459PASS/1skip/7warnings88.96s, baseline1004/2174PASS; navigation2478fil
 Clean candidate feat/engine-focused-v36-20261110 from cbb294d8, nine winning modules/four native formats, no dead global critics. Full7586passed/1skip/7warnings76.81s, focused72passed, qualitybaseline1004/2174PASS. Initial full7577passed/5failed only fresh-policy and future-v36 expectations; tests now require freshv36 and still reject unknownv37, legacyv35 retained. RED/GREEN regressions cover actual selected-origin aggregation and current UNVERIFIED retention through clean blind checks/partial repairs. Full logs/JUnit .release-evidence/focused-editorial-v36-20261110/ (original failure immutable).
 
 Four saved-content GO/advisories35L117Q442choices/10image refs is not fresh three-course DEV or live rendering. Original research receipts: C:/Kamilya New/Kamilya-NEW/.worktrees/course-creation-ux-20261106/.release-evidence/autonomous-editorial-review-20261108/. Production/client data unchanged; no provider plan/resource changes. Next exact-SHA DEV rollout and three real Luna HIGH courses, final DeepSeek and protected production/live.
+
+### 2026-11-10 native DEV and sidebar/reader follow-up
+
+Exact4a3 CI42719100278/build42720142971/imagebda41f43 and sole worker214863e0
+accepted by DEV controller. Three native jobs PDF824e2cb8/cashac4256f6/standards
+1eaac004 completed8L24Q/7L21Q/5L11Q;29calls676958in118071out. No root source/content
+edits during these native generation jobs. Actual cold continuation retained all5
+prior responses and made2new calls. PDF full ordinary8L24Q100%/journal/CSV/PDF/
+certificate/public DEV verification PASS; cash all10original-vs-live images match.
+Standards source-family audit found one standalone question condition; separate
+scope clarification keeps prose as advisory. R13–R16 extra reviews failed to find
+it autonomously. R16 v2 source archived/restored, not shipped. R17 addressed model
+edit17992in1589out32s, exact one stem/explanation changed; independent review and
+ordinary API persistence/readback/actual DEV UI PASS. Source quote invalidation
+preserved. This is a QA-assisted correction, not autonomous detection.
+
+Local full API7590PASS/1skip/7warnings87.18s for experimental v2 now archived;
+accepted4a3 baseline7586PASS retained. Quality1004/2174PASS. Full web1721PASS with
+maxWorkers2 before popup fix; prior one full-suite assignment failure remained
+unclassified despite isolated6PASS/fullfile36PASS and was not called fixed.
+Browser r18 had25PASS/8FAIL: obsolete old-menu and default-table assumptions.
+Updated r20 had6PASS/2FAIL: genuine contextual popup/rail overlap915/1024px.
+Local alignment fix is under regression; failed screenshots/traces retained.
+No production/customer writes, no new provider resources or billing changes.
+
+
+### Follow-up r21/r22 sidebar and reader verification
+
+Production build with adaptive popup anchor within main-content boundary passes
+all8previously failing browser cases. Tests now use real Courses->More->Questions
+and explicit record-cards->Full-table action; original unsaved-history and whole-
+filter CSV checks remain. Obsolete explanatory-copy assertions removed according
+to owner's prior copy-removal scope. Final full browser r22:33PASS/38.7s at1440/
+1024/915/390px; final full web r21:1721PASS/0FAIL. TypeScript/scoped ESLint and
+Next67page production build PASS. No force-click, timeout increase or role bypass.
+
+Fresh global DEV routing is revision7, distinct from runtime settings revision9.
+Operations DB counts6pending/3running with oldest activity~140days are historical
+statuses, not current-consumer proof. No route PUT or cleanup performed; separate
+current consumer/queue idle probe prepared. Do not erase history for a green count.

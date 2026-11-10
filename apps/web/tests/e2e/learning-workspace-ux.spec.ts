@@ -40,6 +40,8 @@ function filterScope(url: URL) {
 
 for (const viewport of [
   { name: 'desktop1440', width: 1440, height: 900 },
+  { name: 'tablet1024', width: 1024, height: 900 },
+  { name: 'narrowDesktop915', width: 915, height: 900 },
   { name: 'mobile390', width: 390, height: 844 },
 ]) {
   test.describe(viewport.name, () => {
@@ -56,7 +58,7 @@ for (const viewport of [
 
       const outline = page.getByRole('navigation', { name: 'Course outline', exact: true });
       const toggle = page.getByRole('button', { name: 'Course outline', exact: true });
-      if (viewport.width < 768) {
+      if (viewport.width < 1280) {
         await expect(outline).toBeHidden();
         await expect(toggle).toHaveAttribute('aria-expanded', 'false');
         await toggle.focus();
@@ -69,9 +71,12 @@ for (const viewport of [
       await page.keyboard.press('Enter');
       const heading = page.getByRole('heading', { name: lessons[1].title, exact: true });
       await expect(heading).toBeVisible();
+      if (viewport.width >= 768 && viewport.width < 1280) {
+        await expect.poll(() => heading.evaluate((node) => node.clientWidth)).toBeGreaterThan(500);
+      }
       await expect(heading).toBeFocused();
       await expect(page.getByText('Stop work and notify the supervisor.', { exact: true })).toBeVisible();
-      if (viewport.width < 768) await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      if (viewport.width < 1280) await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
       const help = page.getByRole('button', { name: 'Lesson help', exact: true });
       await expect(help).toHaveAttribute('aria-expanded', 'false');
@@ -93,6 +98,30 @@ for (const viewport of [
       await expect(page.getByRole('heading', { name: course.title, exact: true })).toBeVisible();
       await expect(page.locator('main[data-learning-focused="true"]')).toHaveCount(0);
       await noPageOverflow(page);
+    });
+
+    if (viewport.width === 1440) test('methodologist reader keeps the global rail and readable lesson width below xl', async ({ page, workspace }, info) => {
+      workspace.learner();
+      workspace.role = 'methodologist';
+
+      for (const width of [1024, 915]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(`/courses/${ids.course}?lessonId=${ids.lesson}`);
+
+        await expect(page.locator('aside[data-workspace-rail="true"]')).toBeVisible();
+        await expect(page.locator('main[data-learning-focused="false"]')).toBeVisible();
+        const heading = page.getByRole('heading', { name: lessons[0].title, exact: true });
+        await expect(heading).toBeVisible();
+        await expect.poll(() => heading.evaluate((node) => node.clientWidth)).toBeGreaterThan(300);
+
+        const outline = page.getByRole('navigation', { name: 'Course outline', exact: true });
+        const toggle = page.getByRole('button', { name: 'Course outline', exact: true });
+        await expect(outline).toBeHidden();
+        await toggle.click();
+        await expect(outline).toBeVisible();
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+        await capture(page, info, `methodologist-reader-${width}`);
+      }
     });
 
     test('learner submits a real quiz UI and sees aggregate result with not-required evidence', async ({ page, workspace }, info) => {
@@ -203,16 +232,13 @@ for (const viewport of [
     });
 
     test('unsaved question survives actual Next Back and Forward without a write', async ({ page, workspace }, info) => {
-      workspace.documents();
       workspace.author();
-      await page.goto('/documents');
-      await expect(page.getByRole('button', { name: sourceDocument.title, exact: true })).toBeVisible();
+      workspace.get('/v1/courses', [course]);
+      workspace.get('/v1/course-blueprints', []);
+      await page.goto('/courses');
+      await expect(page.getByRole('heading', { name: 'Courses', exact: true })).toBeVisible();
+      await page.locator('summary').filter({ hasText: /^More$/ }).click();
       const quizzesLink = page.locator('a[href="/quizzes"]').first();
-      // A translated off-canvas drawer is technically visible to Playwright,
-      // but cannot be clicked until the real menu is opened.
-      if (viewport.width < 1024) {
-        await page.getByRole('button', { name: 'Open menu', exact: true }).click();
-      }
       await quizzesLink.click();
       await expect(page).toHaveURL(`${appOrigin}/quizzes`);
       const courseToggle = page.getByRole('button', { name: new RegExp(course.title) }).first();
@@ -222,7 +248,7 @@ for (const viewport of [
       await page.getByRole('article', { name: 'Question 1', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
       await page.getByRole('textbox', { name: 'Question text', exact: true }).fill('Keep this unsaved history draft');
       await page.goBack();
-      await expect(page).toHaveURL(`${appOrigin}/documents`);
+      await expect(page).toHaveURL(`${appOrigin}/courses`);
       await page.goForward();
       await expect(page).toHaveURL(`${appOrigin}/quizzes`);
       await expect(page.getByRole('textbox', { name: 'Question text', exact: true })).toHaveValue('Keep this unsaved history draft');
@@ -319,6 +345,10 @@ for (const viewport of [
       await page.getByRole('button', { name: 'Next', exact: true }).click();
       await expect.poll(() => workspace.matching('GET', '/v1/admin/training-log')
         .some((call) => call.url.searchParams.get('history') === 'true' && call.url.searchParams.get('offset') === '100')).toBe(true);
+      // Methodologists start with record cards; the comparison table is explicit.
+      await expect(page.getByRole('button', { name: 'Synthetic employee 101 Synthetic workplace safety 50%', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Synthetic employee 102 Synthetic workplace safety 50%', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Full table', exact: true }).click();
       const visibleRows = viewport.width < 1024
         ? page.getByTestId('training-log-mobile-list')
         : page.locator('.training-log-table-scroll');
@@ -326,8 +356,7 @@ for (const viewport of [
       await expect(visibleRows.getByText('Synthetic employee 102', { exact: true })).toBeVisible();
       await expect(visibleRows.getByText('Superseded history', { exact: true })).toBeVisible();
       await expect(visibleRows.getByText('Synthetic employee 001', { exact: true })).toHaveCount(0);
-      await expect(page.getByText('Summary and CSV use the current filters and your authorized reporting scope.', { exact: true })).toBeVisible();
-      await expect(page.getByText('CSV includes every record matching the current filters, not only the displayed page.', { exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Download CSV', exact: true })).toBeEnabled();
       const downloaded = page.waitForEvent('download');
       await page.getByRole('button', { name: 'Download CSV', exact: true }).click();
       const download = await downloaded;

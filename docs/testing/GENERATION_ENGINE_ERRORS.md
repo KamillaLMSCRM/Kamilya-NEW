@@ -1329,3 +1329,29 @@ This confirms a useful controlled baseline, not native3course or productionGO.
 - Fix: bind question uncertainty to exact current source/course/question fingerprints, preserve and merge all grounds, address it through the existing scoped model repair, and keep unresolved current observations actionable without inventing source ambiguity. A later current receipt supersedes old uncertainty while all receipts remain in history.
 - Verification: three-mode UNVERIFIED/VALID/REPAIRED regression failed before correction and passes after; merge and stale-revision negatives pass. Full7586PASS/qualitybaseline1004/2174. Native/UI proof pending.
 - Prevention: test the entire producer -> repair -> current decision -> draft registry path with independent review disagreement and partial/no-op edits; history alone is not actionable visibility.
+
+### ENG-052 — native standards scope miss; addressed repair and rejected v2 experiment
+
+Three fresh exact4a3 DEV courses completed20L56Q. Standards L2 standalone question
+omitted the issued-loan condition of approved source section2/I/3. The surrounding
+lesson can inherit the physical-review setting and is a clarity advisory; no
+pre-issuance refusal outcome is invented. Independent finding and later scope
+clarification are separate immutable artifacts. Existing question and blind
+reviewers missed this condition; repeated generic prompt refinements R13–R15 did
+not solve it. R16 typed prerequisites likewise declared the condition DIRECT
+despite the missing word, and generated four unrelated quote-metadata holds.
+Those are verifier-format errors, not four new content defects. Entire owned v2
+source/test delta is archived and restored to accepted4a3; it was never deployed.
+
+One addressed existing native question-editor call R17 received the independently
+identified finding as unverified feedback. Actual gpt-6-luna HIGH17992input/
+1589output/32s added already-issued scope to exactly one stem and explanation;
+all5lesson bodies,10peer questions,44choices and correct identities unchanged.
+Independent semantic review accepted this exact repair. Ordinary tenant-scoped
+question PUT persisted the model proposal, followed by full quiz/source/structure
+readback and real methodologist preview. Native API invalidated the target's old
+source_quote, correctly; no metadata or automatic approval was fabricated.
+This demonstrates addressed repair, not autonomous discovery or complete future
+semantic coverage. Original failed responses/usage and audits remain under
+.release-evidence/focused-editorial-v36-20261110/question-applicability-r13..r16,
+unaccepted-r16-source-archive and addressed-question-qa-r17.

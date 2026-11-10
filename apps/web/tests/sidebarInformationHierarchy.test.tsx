@@ -30,23 +30,27 @@ describe('methodologist sidebar information hierarchy', () => {
     useLanguageStore.setState({ lang: 'ru' });
   });
 
-  it('puts the five operational areas first and keeps other destinations in tools', () => {
+  it.each([false, true])('shows only the five primary navigation links when collapsed=%s', (collapsed) => {
     navigationState.pathname = '/dashboard';
-    const { container } = render(<Sidebar collapsed={false} onToggle={() => {}} />);
-    const primary = Array.from(container.querySelectorAll('#sidebar-nav > div > ul a'));
-    expect(primary.map((link) => link.textContent)).toEqual(['Задачи', 'Курсы', 'Сотрудники', 'Назначения', 'Журнал обучения']);
-    const tools = screen.getByText('Инструменты').closest('details')!;
-    expect(tools).not.toHaveAttribute('open');
-    expect(tools.querySelector('a[href="/positions"]')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Инструменты'));
-    expect(tools).toHaveAttribute('open');
+    const { container } = render(<Sidebar collapsed={collapsed} onToggle={() => {}} />);
+    const links = Array.from(container.querySelectorAll('#sidebar-nav a'));
+    expect(links.map((link) => link.getAttribute('href'))).toEqual(['/dashboard', '/courses', '/staff', '/assignments', '/training-log']);
+    expect(links.map((link) => link.getAttribute('aria-label'))).toEqual(['Задачи', 'Курсы', 'Сотрудники', 'Назначения', 'Журнал обучения']);
+    expect(screen.queryByText('Инструменты')).not.toBeInTheDocument();
   });
 
-  it('opens the tools when a child detail route is active', () => {
+  it('does not restore the old menu on a secondary route', () => {
     navigationState.pathname = '/positions/retained-id';
-    render(<Sidebar collapsed={false} onToggle={() => {}} />);
-    expect(screen.getByRole('link', { name: 'Должности' })).toHaveAttribute('aria-current', 'page');
+    const { container } = render(<Sidebar collapsed={false} onToggle={() => {}} />);
+    expect(container.querySelector('#sidebar-nav a[href="/positions"]')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Сотрудники' })).toHaveAttribute('href', '/staff');
+  });
+
+  it('uses the active role rather than assigned roles to choose the sidebar', () => {
+    useAuthStore.setState({ user: { ...methodologist, role: 'admin', roles: ['admin', 'methodologist'] } });
+    const { container } = render(<Sidebar collapsed={false} onToggle={() => {}} />);
+    expect(container.querySelector('#sidebar-nav a[href="/admin"]')).toBeInTheDocument();
+    expect(container.querySelector('#sidebar-nav a[href="/dashboard"]')).not.toBeInTheDocument();
   });
 
   it('shows the Russian methodologist guide below the logo and opens it safely in a new tab', () => {

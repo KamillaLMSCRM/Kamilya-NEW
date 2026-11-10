@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, BookOpenCheck, Building2, ChevronDown, ChevronRight, FileText, GraduationCap, Network, Search, Upload, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, Button, Modal } from "@/components/ui";
 import { useAuthStore } from "@/store/authStore";
+import ContextualNavigation from "@/components/layout/ContextualNavigation";
 import { useT, type TranslationKey } from "@/i18n/useT";
 import { toast } from "@/components/ui/Toast";
 import { api } from "@/lib/api";
@@ -554,6 +555,7 @@ export default function AdminStaffPage() {
   return (
     <WorkspacePage id="staff" title={t(isImportPage ? "staffPage.importTitle" : "staffPage.title")} icon={isImportPage ? <Upload /> : <Users />} className="mx-auto max-w-7xl" actions={isStaffOwnersRole ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <ContextualNavigation section="staff" />
         <Link
           href="/invitations"
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-control-hover hover:text-control-hover-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

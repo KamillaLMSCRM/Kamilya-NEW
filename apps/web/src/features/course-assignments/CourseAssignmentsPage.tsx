@@ -13,6 +13,7 @@ import {
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
+import ContextualNavigation from '@/components/layout/ContextualNavigation';
 import { getAuthSessionEpoch } from '@/lib/auth';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { getAssignmentSourceInfo } from '@/lib/assignmentSource';
@@ -1115,7 +1116,7 @@ function AssignmentsContent() {
   if (loading) return <WorkspacePage id="assignments" title={t('courseAssignments.title')}><p role="status">{t('common.loading')}</p></WorkspacePage>;
 
   return (
-    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />}>
+    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />} actions={<ContextualNavigation section="assignments" />}>
 
       {accessLinks.length > 0 && (
         <WorkspacePanel className="border-primary/30" bodyClassName="space-y-3" aria-label={t('courseAssignments.ui.activationTitle')}>

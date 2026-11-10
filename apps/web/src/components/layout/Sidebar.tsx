@@ -93,13 +93,12 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
   const isMethodologist = user?.role === 'methodologist';
   const primaryHrefs = ['/dashboard', '/courses', '/staff', '/assignments', '/training-log'];
   const primaryRoutes = isMethodologist ? primaryHrefs.flatMap((href) => allRoutes.filter((route) => route.href === href)) : [];
-  const routes = isMethodologist ? allRoutes.filter((route) => !primaryHrefs.includes(route.href)) : allRoutes;
+  const routes = isMethodologist ? [] : allRoutes;
   const labels = lang === 'kk'
-    ? ['Тапсырмалар', 'Курстар', 'Қызметкерлер', 'Тағайындаулар', 'Оқу журналы', 'Құралдар', 'Жұмыс кеңістігі']
+    ? ['Тапсырмалар', 'Курстар', 'Қызметкерлер', 'Тағайындаулар', 'Оқу журналы', 'Жұмыс кеңістігі']
     : lang === 'en'
-      ? ['Tasks', 'Courses', 'Employees', 'Assignments', 'Training log', 'Tools', 'Workspace']
-      : ['Задачи', 'Курсы', 'Сотрудники', 'Назначения', 'Журнал обучения', 'Инструменты', 'Рабочее пространство'];
-  const toolRouteActive = isMethodologist && routes.some((route) => isNavigationItemActive(route.href, pathname, searchParams));
+      ? ['Tasks', 'Courses', 'Employees', 'Assignments', 'Training log', 'Workspace']
+      : ['Задачи', 'Курсы', 'Сотрудники', 'Назначения', 'Журнал обучения', 'Рабочее пространство'];
   const sections = [...new Set(routes.map((route) => route.section).filter(Boolean))] as NavigationSection[];
 
   return (
@@ -172,7 +171,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
 
       <nav id="sidebar-nav" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-5" aria-label={t('a11y.mainNavigation')}>
         {isMethodologist && <div className="space-y-3">
-          {!collapsed && <p className="px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{labels[6]}</p>}
+          {!collapsed && <p className="px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{labels[5]}</p>}
           <ul className="space-y-1">
             {primaryRoutes.map((route) => {
               const Icon = ICONS[route.icon!];
@@ -186,10 +185,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
             })}
           </ul>
         </div>}
-        <details className={cn('methodologist-tools', !isMethodologist && 'contents')} open={!isMethodologist || toolRouteActive || undefined}>
-          {isMethodologist && <summary className={cn('cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-muted', collapsed && 'px-1 text-center text-[10px]')} title={labels[5]}>{labels[5]}</summary>}
-          {!isMethodologist && <summary className="hidden" />}
-          <div className="space-y-5">
+        {!isMethodologist && <div className="space-y-5">
           {sections.map((section) => {
           const sectionRoutes = routes.filter((route) => route.section === section);
           const topLevelRoutes = sectionRoutes.filter(
@@ -306,8 +302,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
             </div>
           );
         })}
-      </div>
-        </details>
+      </div>}
       </nav>
 
       <div className="shrink-0 border-t border-border bg-card p-3">

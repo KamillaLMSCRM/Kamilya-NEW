@@ -1,3 +1,11 @@
+# v0.11.84 — native DEV accepted in part; production gate OPEN, 2026-11-10
+
+Exact4a3ec606 DEV three native Luna HIGH courses completed20L56Q/180choices/10original cash images. PDF/cash content GO with retained advisories. Standards' independent question-scope finding is repaired through addressed model editor+ordinary API and verified in actual DEV quiz preview; the blind checker did not discover it. This is a documented limitation, not three fully autonomous no-finding results. PDF full actual learner/certificate/journal/CSV journey PASS; cash all10live original image byte identities PASS. Existing published production83 and customer data are unchanged.
+
+Local sidebar/reader package still requires exact DEV browser acceptance; final ordinary DeepSeek test, current pinned restore/migration/old83binary compatibility and protected production/native frontend/live gates remain OPEN. The failed extra v2 verifier was not shipped. Runtime settings/history remain authoritative; old binary compatibility is conditional on no new editor override keys. No blanket rollback claim, no billable provider/resource changes.
+
+## Historical local-only checkpoint
+
 # v0.11.84 focused v36 candidate — LOCAL ONLY, 2026-11-10 Almaty
 
 Local full7586PASS and independent saved-four contentGO are separate from release acceptance. Native DEV three-course, final DeepSeek, exact image/API/sole-worker/frontend rollout, current backup/restore/migration0187/rollback and production synthetic journey remain OPEN. Production83/466e0f90 is unchanged. Existing provider tiers and resources are unchanged. See current handoff and test ledger; no authorization is inferred from this status.

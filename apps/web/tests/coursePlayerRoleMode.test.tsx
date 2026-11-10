@@ -301,8 +301,8 @@ describe('course player role modes', () => {
     const root = document.querySelector('div.min-h-screen');
     const outline = root?.querySelector('div.w-full');
     const content = root?.querySelector('div.min-w-0');
-    expect(root).toHaveClass('flex-col', 'md:flex-row');
-    expect(outline).toHaveClass('w-full', 'md:w-80');
+    expect(root).toHaveClass('flex-col', 'xl:flex-row');
+    expect(outline).toHaveClass('w-full', 'xl:w-80');
     expect(content).toBeInTheDocument();
     const toggle = screen.getByRole('button', { name: 'Оглавление курса' });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');

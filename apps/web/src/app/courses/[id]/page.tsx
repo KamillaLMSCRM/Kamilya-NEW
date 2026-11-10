@@ -885,10 +885,10 @@ export default function CoursePlayerPage() {
   const hasQuiz = lessonQuiz !== null;
 
   return (
-    <WorkspacePage id="course-reader" className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-5 !space-y-0 md:flex-row">
+    <WorkspacePage id="course-reader" className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-5 !space-y-0 xl:flex-row">
       {kioskSessionNotice}
       {/* Left sidebar — TOC */}
-      <div className="flex w-full min-w-0 flex-col self-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:sticky md:top-6 md:max-h-[calc(100dvh-3rem)] md:w-80 md:shrink-0">
+      <div className="flex w-full min-w-0 flex-col self-start overflow-hidden rounded-2xl border border-border bg-card shadow-sm xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:w-80 xl:shrink-0">
         <div className="border-b border-border p-5">
           <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
@@ -903,9 +903,9 @@ export default function CoursePlayerPage() {
               totalText: tp('common.counts.lessonTotal', totalLessons),
             })} ({progressPercent}%)
           </p>
-          <Button type="button" variant="outline" className="mt-3 w-full md:hidden" aria-expanded={outlineOpen} aria-controls="learner-course-outline" onClick={() => setOutlineOpen((value) => !value)}>{workspaceCopy.outline}</Button>
+          <Button type="button" variant="outline" className="mt-3 w-full xl:hidden" aria-expanded={outlineOpen} aria-controls="learner-course-outline" onClick={() => setOutlineOpen((value) => !value)}>{workspaceCopy.outline}</Button>
         </div>
-        <nav id="learner-course-outline" aria-label={workspaceCopy.outline} className={`${outlineOpen ? 'block' : 'hidden'} max-h-[50dvh] md:max-h-none md:block flex-1 overflow-y-auto p-4 space-y-3`}>
+        <nav id="learner-course-outline" aria-label={workspaceCopy.outline} className={`${outlineOpen ? 'block' : 'hidden'} max-h-[50dvh] xl:max-h-none xl:block flex-1 overflow-y-auto p-4 space-y-3`}>
           {modules.map((mod) => (
             <div key={mod.id}>
               <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{mod.title}</p>

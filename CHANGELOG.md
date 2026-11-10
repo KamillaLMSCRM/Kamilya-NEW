@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Remove the legacy methodologist Tools menu from the sidebar while preserving secondary destinations in their course, employee, assignment and training-log sections. Keep contextual menus inside the available content area on narrow screens.
+- Stack the native course outline below the xl breakpoint so the global workspace rail does not squeeze lesson text on tablet and narrow desktop screens.
 - Preserve validated raw conversion fidelity from approved preparation without clearing missing/degraded-source holds.
 - Retain current question-editor UNVERIFIED observations through later blind checks, merge their grounds without duplicate question issues, and invalidate stale evidence after edits.
 - Match selected-head worksets to actual token-instance alignment across all retained origins; possible dictionary matches are not proof of equivalence.

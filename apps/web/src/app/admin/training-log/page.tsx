@@ -16,6 +16,7 @@ import {
 } from '@/components/ui';
 import { Check, FileDown, Link2, Package, RefreshCw, Square, SquareCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import ContextualNavigation from '@/components/layout/ContextualNavigation';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
@@ -524,6 +525,7 @@ export default function AdminTrainingLogPage() {
         title={t('trainingLog.title')}
         icon={<FileDown />}
         actions={<>
+          <ContextualNavigation section="trainingLog" />
           <Button type="button" variant="outline" onClick={resetFilters}>{t('trainingLog.filters.reset')}</Button>
           <Button type="button" onClick={exportCsv} title={m.exportScope} disabled={loading || total === 0}>{t('trainingLog.export.csv')}</Button>
           {isMethodologist && selectedEvidenceIds.size > 0 && <>
