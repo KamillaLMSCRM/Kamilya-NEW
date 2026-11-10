@@ -795,7 +795,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-07.
+Current as of: 2026-11-10.
 
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
@@ -10619,15 +10619,21 @@ Always inspect final diff statistics and bound diff-check output before release.
 
 ## AGENT-RETAINED-READ-001 — Scoped diagnostics exceeded the transport contract
 
-2026-11-10 own read-only harness, not product failure. PostgreSQL AIJob.id isString
-while tenant/actor/document IDs areUUID; a UUID job parameter caused DBAPIError.
-After correction, full output exceeded kz_remote_exec evidence limit50lines/500chars
-and failedremote_evidence_contract_invalid. Fixed with relevant projections and
-then immutable hash-bound pagination within the existing sanitizer (never increased
-limits/bypassedtransport). Local max-envelope contract tested first. Client source
-prior events belonged to another actor; narrowed own eventwindow>=13 instead of
-removing tenant/job/actor guards. Failures retained;0DB/modelwrites. Dry run status
-isREADY, executedPASS; never treat those as interchangeable.
+- Date: 2026-11-10. Own read-only harness, not product failure.
+- Symptom: a UUID job parameter caused DBAPIError; the corrected full projection
+  then failed remote_evidence_contract_invalid.
+- Cause: PostgreSQL AIJob.id is String while tenant/actor/document IDs are UUID;
+  the full output also exceeded kz_remote_exec evidence limits of 50 lines/500
+  characters. Prior client source events belonged to another actor.
+- Fix: use a string job ID, relevant projections and immutable hash-bound
+  pagination within the existing sanitizer. Narrow own event window to >=13;
+  preserve tenant/job/actor guards. Never increase limits or bypass transport.
+- Verification: local maximum-envelope contract and bounded owned reads passed;
+  failed attempts remain retained, with zero DB writes or model calls.
+- Prevention: check exact column types and output envelope before remote reads.
+  Dry-run status is READY and executed status is PASS; do not interchange them.
+  Run the error-journal contract before pushing documentation changes; omitted
+  mandatory labels in this entry stopped CI42801721311 before release.
 
 RELEASE-007 recurrence2026-11-10: old ignored fresh-backup/restore helpers again created
 the O_EXCL sentinel withflock. Exact owned empty inode214/root0644/size0, noowner/
