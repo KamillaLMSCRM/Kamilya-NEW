@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.87] - 2026-11-10
+
+### Fixed
+
+- Canonicalize identifier-shaped Unicode labels from the source editor into deterministic server-owned ASCII aliases before strict compilation. Preserve original model replies and all source, proposal and supporting-quotation text. Existing valid ASCII aliases are unchanged; malformed labels, duplicates and collisions still fail closed. Independent semantic review remains required before any source edit.
+- Report the two known compiler alias contract failures as invalid model responses rather than an unexplained analysis failure. Unrelated invariant failures retain their existing classification.
+
+### Verification
+
+- A retained production response that failed on one mixed-script label now compiles with only that label changed: 14 proposed edits and three unresolved items; no source edit, model call or database write. Focused review/custody tests and the full local unit suite passed. DEV continuation and production release are separate pending gates.
+
 ## [0.11.86] - 2026-11-10
 
 ### Fixed

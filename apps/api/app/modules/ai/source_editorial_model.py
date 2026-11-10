@@ -76,6 +76,43 @@ Each row contains exactly patch_alias, relation, reason (1..300 characters), and
 the nine booleans above. One row per proposed patch, no missing/extra aliases.
 """
 
+AUTHOR_ALIAS_NORMALIZATION_POLICY = "source-editorial-author-alias-v1"
+
+
+def _author_alias_rows(data: Mapping[str, Any], *, source_id: str, chunk_id: str) -> dict[str, list[dict[str, Any]]]:
+    """Canonicalize only opaque identifiers, retaining the original wire untouched."""
+    shapes = {
+        "patches": ({"alias", "before", "after", "category", "reason", "supporting_original_context_quotes"},
+                    "source_editorial_author_patch_shape"),
+        "unresolved": ({"alias", "excerpt", "category", "reason"}, "source_editorial_author_gap_shape"),
+    }
+    rows = {kind: [dict(_object(row, *shapes[kind])) for row in data[kind]] for kind in shapes}
+    originals: set[str] = set()
+    for row in (row for values in rows.values() for row in values):
+        alias = row["alias"]
+        if (not isinstance(alias, str) or not alias or len(alias) > 64 or not alias[0].isalpha()
+                or any(not (character.isalpha() or character.isdigit() or character in "_-")
+                       for character in alias[1:])):
+            raise ValueError("source_editorial_invalid_alias")
+        if alias in originals:
+            raise ValueError("source_editorial_duplicate_alias")
+        originals.add(alias)
+    used: set[str] = set()
+    for kind, values in rows.items():
+        for index, row in enumerate(values):
+            alias = row["alias"]
+            if re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,63}", alias) is None:
+                material = [AUTHOR_ALIAS_NORMALIZATION_POLICY, source_id, chunk_id, kind, index, alias]
+                canonical = "u" + sha256(json.dumps(material, ensure_ascii=False, separators=(",", ":"))
+                                         .encode("utf-8")).hexdigest()[:63]
+                if canonical in originals:
+                    raise ValueError("source_editorial_duplicate_alias")
+                row["alias"] = canonical
+            if row["alias"] in used:
+                raise ValueError("source_editorial_duplicate_alias")
+            used.add(row["alias"])
+    return rows
+
 
 def _exact_span(source: str, quote: object, supporting_quotes: object = ()) -> tuple[int, int]:
     if not isinstance(quote, str) or not quote or len(quote) > 2000:
@@ -230,6 +267,7 @@ def _compile_editorial_author_response(
     if (not isinstance(data["patches"], list) or len(data["patches"]) > 256
             or not isinstance(data["unresolved"], list) or len(data["unresolved"]) > 256):
         raise ValueError("source_editorial_author_inventory")
+    data = _author_alias_rows(data, source_id=source_id, chunk_id=chunk_id)
     patches: list[dict[str, Any]] = []
     unresolved: list[dict[str, Any]] = []
     for raw in data["unresolved"]:

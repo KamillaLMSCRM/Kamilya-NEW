@@ -10646,3 +10646,24 @@ AGENT-FLAGS-086: local r30build used an incorrect fourth flag name. It was stopp
 not accepted; corrected r31 used exact NEXT_PUBLIC_STAFF_STRUCTURE_V3_ENABLED=true
 with three canonical methodologistflags,67pages and51browser scenariosPASS. Derive
 flag names from deploymentcontroller, never reconstruct similar names from memory.
+
+## AGENT-AUTHORING-HARNESS-001 — Assumed API projections stopped a new-draft harness
+
+- Date: 2026-11-10.
+- Symptom: the initial read-only login harness stopped on missing Origin and an
+  incorrect user ID field; the first draft harness stopped before business intents
+  because its course baseline omitted the API's archived-course filter.
+- Cause: root assumed response shapes and default list semantics. Static review
+  also caught that question POST returns QuizResponse before that path executed.
+- Fix: use the canonical trusted Origin, user.user_id and exact tenant context;
+  explicitly union active and archived course reads; extract the one new question
+  from the returned quiz and fsync its actual ID before another mutation. Preserve
+  failed ledgers and never rerun a create with an uncertain acknowledgment.
+- Verification: corrected r54 created one new draft8L32Q with exact text/key readback;
+  ordinary UI published it and all8previewtests passed100%. Read-only r63/r67 prove
+  every old-cohort count/hash unchanged. Earlier r51 ledger contains no business intent.
+- Prevention: read exact DTOs/default filters before authenticating, freeze and
+  review the mutation script, and reconcile its exclusive intent log before a retry.
+  Resolve all local evidence paths from one task directory: the r64 DEV receipt
+  was initially saved at worktree root, then moved byte-identically before cleanup.
+  Healthz is plain text: verify its documented header instead of assuming JSON.

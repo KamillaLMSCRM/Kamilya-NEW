@@ -140,6 +140,9 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     (ManagedLunaError("managed_luna_response_invalid"), "source_review_invalid_response"),
     (ValueError("managed_qa_luna_unavailable"), "source_review_provider_unavailable"),
     (ValueError("source_editorial_author_inventory"), "source_review_invalid_response"),
+    (ValueError("source_editorial_invalid_alias"), "source_review_invalid_response"),
+    (ValueError("source_editorial_duplicate_alias"), "source_review_invalid_response"),
+    (ValueError("source_editorial_unclassified_invariant"), "source_review_analysis_failed"),
     (RuntimeError("Untrusted diagnostic content"), "source_review_analysis_failed"),
 ])
 def test_source_review_reports_provider_failure_without_leaking_details(error, expected):

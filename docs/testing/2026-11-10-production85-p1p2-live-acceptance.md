@@ -80,3 +80,31 @@ metadata limitation), providerDeepSeek proven; do not claim exact returned alias
 No provider plan/resource/rights/voice/reserve changes. Large100page document and
 fully autonomous flaw detection remain unproven. Four original Lombard courses and
 all other existing client content are outside these2newcourse writes.
+
+## 11:45 UTC follow-up — frontend86 and new client PDF
+
+Frontend86 exact44dc1134 is actually deployed natively: masterCI42806252958 and
+build42803705743/artifact13758245235, archive4528e430...3280. Independent CT137 marker/
+symlink/status and public header agree. API/threeworkers remain85/7f/schema0187.
+Current85/previous82/protected299+359 retained. Obsolete78 only removed after exact
+off-host archive3b56fba6...ba75/manifest5b467305...e4af and insufficient capacity proof.
+Native controller RELEASE_OK; ordinary live browser follow-up continues separately.
+
+NEW client PDF course2493476d-9e8e-4900-a6ea-061894a2f7dd is published,8L32Q. It is a
+manual reconstruction of the retained response with independently reviewed source3.12
+coverage, one added question, qualified authority/liability keys and one explanation.
+All8lessons and32questions/options/keys read back through ordinary API; actual browser
+all8lessons and8quiz previews100%,0employeeattempts/enrollments. No native AI source
+pins are claimed; approved revision114/9998c34f... and exact workinghash04e3f6d4...e2419
+remain separately recorded. Original interrupted8add6f4b unchanged. All old-client
+cohort hashes match baseline, including281users/23enrollments/8oldcourses/71oldlessons.
+
+Cash source preparation retained10images/8parts/5learning sections, then failed on a
+mixed-script opaque model label at revision102/editor_response.12completedcalls
+50478in108839out upper$0.1457502 retained; no unmatched editorial request intents.
+Candidate87 fixes only machine-label canonicalization and error classification;
+local exact saved-response compile succeeds without changing source/content or a
+new model call. Independent semantic review/sourceapproval/native cashcourse remain
+open. Production totalknownupper$0.3598293, plus priorDEV$0.1635153=$0.5233446;
+remaining approvedproduction$0.4765707. Failed source ledger usage_complete=false
+is preserved; counted completed receipts are deduplicated, not silently relabeled.

@@ -1,4 +1,15 @@
-# CURRENT: production 0.11.85 deployed; real synthetic acceptance in progress — 2026-11-10 09:46 UTC
+# Current contour — 2026-11-10 11:45 UTC
+
+Production API+3workers85/7f062b46/schema0187 remain unchanged. Native frontend86
+exact44dc1134 is independently deployed/read back; current85 and previous82 plus
+protected recovery retained. NEW client manual PDF course2493476d is published8L32Q,
+all8previewtests100%, old281users/23enrollments/8courses/71lessons hashes unchanged.
+This worktree candidate87 repairs a source-editor opaque Unicode alias; its local
+compile/tests pass, DEV/protected backend production and cash continuation remain
+open. No active inference; cashfailed102 retains10images/12completedcalls. See current
+handoff and generation error journalENG-054 for custody/cost/exact evidence pointers.
+
+# Historical contour — 2026-11-10 09:46 UTC
 
 - result: Protected backend workflow42785811949 SUCCESS; production API and3green workers run7f062b46d49a8e5ddf81e53d9b3b54bc8ffcfde8/image14e811fe...ca51, DB0187. Native CT137 frontend independently returns exact7f, all4flags true. Release440120463/tagv0.11.85; master/dev exact7f independently read through project account. P1/P2 is actually deployed; earlier pre-deploy records below are historical.
 - changed: Installed controller4c96e615...6917 after exactCI and protected master workflow42784079508. Native artifact42780644349/13745592788 deployed via frozen packet619b1dd7...d48. Watchdog85 identity updated, thresholds/other bytes unchanged, timers active; old83image/blueAPI retained and oldworkers stopped by controller. Native immediate rollback82/ae11, additional78 retained; oldest76 only cleaned with off-host recovery proof. Existing client records untouched.

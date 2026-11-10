@@ -1381,3 +1381,33 @@ recording forms. Root retained original with explicit grounds; source0edits. Nat
 course2L7Q passed independent semantic review and full real flow withoutcontentedits.
 Do not label the source reviewer entirely autonomous or confuse undefined form with
 a source contradiction. Genuine PDF number3.3.7 gap remains ownerquestion14.
+
+### ENG-054 — Opaque model label stopped source review after retained visual preparation
+
+2026-11-10, client cash document a251c975: preparation retained all10images and8parts/
+5learning sections. The first source-editor reply completed, but one of17patch labels
+mixed ASCII and Cyrillic. Strict source compiler raised source_editorial_invalid_alias;
+the catch-all exposed source_review_analysis_failed/editor_response at revision102.
+This is a deterministic transport-identity defect, not a source ambiguity or proof
+that the proposed edits preserve meaning.12completedcalls50478in108839out retained.
+
+Candidate87 canonicalizes only nonempty identifier-shaped Unicode aliases within
+the existing64character bound, with source/chunk/kind/position-bound native IDs.
+Raw reply/content/supports remain unchanged. Valid ASCII identifiers are identical;
+missing/blank/punctuation/oversize/duplicate/colliding labels still reject. Strict
+span/semantic compiler and independent review remain unchanged. Known alias failures
+map to invalid_response; unrelated invariants stay generic. No added model critic.
+
+Saved reply81a5b30f...f463: old production pure replay REDinvalid_alias, local candidate
+compilePASS with exactly1metadata field changed/14proposedpatches3unresolved/0source
+edits/0newmodelcalls/0DBwrites. Actual full request-route fingerprint NOT_VERIFIED;
+owned immutable source manifest and unique first-editor/block identity are bound.
+82adjacent checks (63packet+19separate prototype),7593trackedunitPASS/1skip, quality
+1004ruff/2174mypyPASS; independent source reviewREADY. DEV/native continuation,
+independent semantic assessment and production deployment remain OPEN. Never rerun
+visual extraction or claim source approval from this compile-only result.
+
+ENG-053 follow-up: new client PDF was separately manually reconstructed and published
+as2493476d-9e8e-4900-a6ea-061894a2f7dd,8L32Q, all8realpreviewtests100%. Added missing
+3.12duties/onequestion and qualified two answers; old interrupted job unchanged.
+Manual course has separate approved-source evidence, not in-product native AI pins.

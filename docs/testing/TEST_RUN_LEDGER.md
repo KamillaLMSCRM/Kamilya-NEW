@@ -6796,3 +6796,29 @@ Original built85 regression RED on401editorload. GET-only fenced recovery, retai
 impersonation identity and delayed sibling401 controls:16focusedPASS; full194files/
 1760testsPASS,51builtbrowser scenariosPASS,67pagesbuildPASS,TS/scopedlintPASS.
 No write retry or engine logic change; exactDEV/production follow-up OPEN.
+
+## RUN-20261110-FRONTEND86-PRODUCTION
+
+Exact44dc1134/masterCI42806252958/nativebuild42803705743/artifact13758245235;
+canonical native controller RELEASE_OK and independent CT137/public44dc readback.
+API/3workers remain85/7f/schema0187. Retained85/82/protected299+359; obsolete78
+cleanup only after exact offhostrecoverability. Ordinary DEV editorHTTP200;
+actualDEV401 not observed, controlled built401 tests carry that narrower proof.
+Full ordinary production follow-up pending; no model calls for frontend release.
+
+## RUN-20261110-SANDYK-NEW-PDF-MANUAL
+
+Course2493476d published11:12UTC,8L32Q. Independent full content review after addressed
+manual correction, exact API text/options/key readback, all8real browser lessons and
+8quiz previews100%;0employeeattempts/enrollments. Oldnativejob retained interrupted.
+All six old-cohort counts/hashes matchbaseline; separate provenance, no nativeAIpins.
+
+## RUN-20261110-SOURCE-ALIAS87-LOCAL
+
+Retained source-editor reply REDinvalid_alias on production85 compiler; candidate
+changes exactly1opaque label, source/raw/all other fields unchanged, compilePASS,
+14proposedpatches3unresolved,0appliedsourceedits/0modelcalls/0DBwrites. Classification
+2RED thenGREEN;63packet-focused+19separateprototype=82PASS. Full tracked unit scope
+7593PASS/1skip/7warnings107.02s, excluding the unintegrated prototype test file.
+Final qualitybaseline1004ruff/2174mypyPASS, no baseline relaxation. Independent reviews
+READY. DEV/production87/source semantic review remain OPEN.

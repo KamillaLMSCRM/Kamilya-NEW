@@ -1,4 +1,16 @@
-# CURRENT: production 0.11.85 deployed; real synthetic acceptance in progress — 2026-11-10 09:46 UTC
+# Current release boundary — 2026-11-10 11:45 UTC
+
+Frontend86 native44dc1134 RELEASE_OK with independent CT137/public proof; backend85
+7f062b46/14e811fe image/schema0187 remains. Current85/previous82/protected299+359
+recoverable; obsolete78 cleanup verified against exact off-host archive/manifest.
+Production85 full ordinary synthetic2L7Q/assignment/completion/PDF/certificate/journal
+PASS is recorded separately. New manual client PDF8L32Q published and previewed;
+this is not autonomous generation acceptance. Candidate87 source-alias fix is LOCAL
+only, with retained-reply compile/7593trackedunit/63packet-focused/quality PASS and
+independent review. Exact DEV/image/source continuation and protected backend
+production87 gates remain OPEN; no source approval or cashcourse result claimed.
+
+# Historical checkpoint — 2026-11-10 09:46 UTC
 
 - result: Protected backend workflow42785811949 SUCCESS; production API and3green workers run7f062b46d49a8e5ddf81e53d9b3b54bc8ffcfde8/image14e811fe...ca51, DB0187. Native CT137 frontend independently returns exact7f, all4flags true. Release440120463/tagv0.11.85; master/dev exact7f independently read through project account. P1/P2 is actually deployed; earlier pre-deploy records below are historical.
 - changed: Installed controller4c96e615...6917 after exactCI and protected master workflow42784079508. Native artifact42780644349/13745592788 deployed via frozen packet619b1dd7...d48. Watchdog85 identity updated, thresholds/other bytes unchanged, timers active; old83image/blueAPI retained and oldworkers stopped by controller. Native immediate rollback82/ae11, additional78 retained; oldest76 only cleaned with off-host recovery proof. Existing client records untouched.

@@ -1,6 +1,8 @@
 """Synthetic custody and continuation checks; no provider or database calls."""
 
+import json
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
@@ -9,6 +11,11 @@ from uuid import uuid4
 import pytest
 
 from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError
+from app.modules.ai.source_editorial_model import (
+    compile_editorial_author_response,
+    prepare_source_working_edition,
+    source_editorial_result_valid,
+)
 from app.modules.source_editorial_review.continuation import handoff, lineage, valid_continuation
 from app.modules.source_editorial_review.request_custody import (
     BeforePostDeferred,
@@ -23,6 +30,72 @@ from app.modules.source_preparation.domain import PreparedSource, digest
 from app.modules.source_preparation.extraction import NativeSource
 from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY, prepare_native_source
 
+
+def _alias_patch(alias):
+    return {"alias": alias, "before": "A  B", "after": "A B", "category": "layout",
+            "reason": "spacing", "supporting_original_context_quotes": ["A  B"]}
+
+
+@pytest.mark.asyncio
+async def test_unicode_author_alias_is_canonical_for_review_and_custody():
+    wire = {"patches": [_alias_patch("p_expert_ocenka_obязан")], "unresolved": []}
+    original = deepcopy(wire)
+    async def complete(messages):
+        data = json.loads(messages[-1]["content"])
+        if "proposal_sha256" in data:
+            alias = data["patches"][0]["alias"]
+            assert alias.isascii() and alias != original["patches"][0]["alias"]
+            axes = ("digits_preserved", "numeric_values_preserved", "units_preserved", "operators_preserved",
+                    "negation_modality_preserved", "coordination_logic_preserved", "actors_preserved",
+                    "content_complete", "no_inferred_list_logic")
+            return {"proposal_sha256": data["proposal_sha256"], "rows": [{"patch_alias": alias,
+                "relation": "preserved", "reason": "spacing", **{key: True for key in axes}}]}
+        return wire
+    result = await prepare_source_working_edition("A  B", source_id="source", chunk_id="chunk", complete_json=complete)
+    assert wire == original and result.author_wire == original
+    assert source_editorial_result_valid(result, source_text="A  B", source_id="source", chunk_id="chunk")
+    assert not source_editorial_result_valid(result, source_text="A  B", source_id="source", chunk_id="other")
+
+
+def test_author_alias_ascii_and_invalids():
+    def compile_rows(rows):
+        return compile_editorial_author_response("A  B", source_id="source", chunk_id="chunk",
+                                                 wire={"patches": rows, "unresolved": []})
+    assert compile_rows([_alias_patch("Valid_1")]).patches[0].alias == "Valid_1"
+    for alias in (None, "", " ", "a" * 65, "a.b", "2alias"):
+        with pytest.raises(ValueError):
+            compile_rows([_alias_patch(alias)])
+    for alias in ("duplicate", "дубликат"):
+        with pytest.raises(ValueError):
+            compile_rows([_alias_patch(alias), _alias_patch(alias)])
+    missing = _alias_patch("safe")
+    del missing["alias"]
+    with pytest.raises(ValueError):
+        compile_rows([missing])
+    canonical = compile_rows([_alias_patch("слово")]).patches[0].alias
+    with pytest.raises(ValueError, match="duplicate_alias"):
+        compile_rows([_alias_patch("слово"), _alias_patch(canonical)])
+
+
+def test_unicode_alias_does_not_bypass_unsafe_patch_guards():
+    patch = {"alias": "правка", "before": "10 days", "after": "20 days", "category": "typo",
+             "reason": "change", "supporting_original_context_quotes": ["10 days"]}
+    proposal = compile_editorial_author_response("Wait 10 days.", source_id="source", chunk_id="chunk",
+        wire={"patches": [patch], "unresolved": []})
+    assert not proposal.patches and len(proposal.unresolved) == 1
+
+
+def test_unicode_unresolved_alias_and_generated_collision(monkeypatch):
+    from app.modules.ai import source_editorial_model as model
+    gap = {"alias": "срок", "excerpt": "A  B", "category": "typo", "reason": "check"}
+    wire = {"patches": [], "unresolved": [gap]}
+    original = deepcopy(wire)
+    proposal = compile_editorial_author_response("A  B", source_id="source", chunk_id="chunk", wire=wire)
+    assert proposal.unresolved[0].alias.isascii() and wire == original
+    monkeypatch.setattr(model, "sha256", lambda _: SimpleNamespace(hexdigest=lambda: "0" * 64))
+    with pytest.raises(ValueError, match="duplicate_alias"):
+        compile_editorial_author_response("A  B", source_id="source", chunk_id="chunk", wire={
+            "patches": [_alias_patch("слово"), _alias_patch("другое")], "unresolved": []})
 
 def stage_key(text="one", source="a" * 64):
     return identity(tenant="tenant", document="document", original_sha=source, selected_sha="selected",

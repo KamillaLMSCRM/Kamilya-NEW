@@ -221,6 +221,10 @@ def analysis_failure_code(error: Exception) -> str:
             return "source_review_provider_outcome_unknown"
         if error.args == ("managed_luna_response_invalid",):
             return "source_review_invalid_response"
+    if isinstance(error, ValueError) and error.args in {
+        ("source_editorial_invalid_alias",), ("source_editorial_duplicate_alias",),
+    }:
+        return "source_review_invalid_response"
     if isinstance(error, ValueError) and len(error.args) == 1 and isinstance(error.args[0], str) and re.fullmatch(
             r"source_editorial_(?:author_[a-z_]+|model_[a-z_]+)", error.args[0]):
         return "source_review_invalid_response"
