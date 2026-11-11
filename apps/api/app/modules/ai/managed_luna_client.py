@@ -231,7 +231,8 @@ class ManagedLunaClient:
 
     async def replay_completed(self, capability: object, *, receipt: dict[str, Any], tenant_id: UUID,
                                user_id: UUID, job_id: str, stage_id: str,
-                               ownership_checkpoint: Callable[[], Awaitable[bool]]) -> ResponsesResult:
+                               ownership_checkpoint: Callable[[], Awaitable[bool]],
+                               stage_plan: dict[str, Any] | None = None) -> ResponsesResult:
         """Consume an exact retained structured-shape response without a network request."""
         try:
             payload = self._prepared.pop(capability, None)
@@ -246,7 +247,7 @@ class ManagedLunaClient:
                     or receipt.get("policy") != "managed-response-quarantine-v1"
                     or receipt.get("accepted") is not False or receipt.get("complete_http_response") is not True
                     or type(receipt.get("status")) is not int or receipt["status"] != 200
-                    or receipt.get("phase") != "structured_shape" or receipt.get("stage_sha256") != stage_id
+                    or receipt.get("phase") not in {"structured_shape", "stage_finalize"} or receipt.get("stage_sha256") != stage_id
                     or receipt.get("route_fingerprint") != self.cache_fingerprint()
                     or receipt.get("wire_request_sha256") != hashlib.sha256(payload).hexdigest()):
                 raise ValueError
@@ -256,8 +257,21 @@ class ManagedLunaClient:
                 raise ValueError
             request = json.loads(payload)
             from app.modules.ai.v3.response_contracts import response_contract
-            if response_contract(request.get("response_format")) not in {"practical_course", "practical_editorial_verification"}:
+            kind = response_contract(request.get("response_format"))
+            if kind not in {"practical_course", "practical_editorial_verification"}:
                 raise ValueError
+            if receipt['phase'] == 'stage_finalize':
+                from app.modules.ai.v3.retained_author_replay import is_focused_author_plan
+                from app.modules.ai.v3.stage_checkpoint import _digest
+                if (not is_focused_author_plan(stage_plan) or kind != 'practical_course'
+                        or not isinstance(stage_plan, dict) or stage_plan.get('schema') != 'v3-stage-checkpoint-v1'
+                        or stage_plan.get('tenant_id') != str(tenant_id) or stage_plan.get('job_id') != job_id
+                        or not isinstance(stage_plan.get('source_sha256'), str)
+                        or re.fullmatch(r'[0-9a-f]{64}', stage_plan['source_sha256']) is None
+                        or stage_plan.get('route_fingerprint') != self.cache_fingerprint()
+                        or stage_plan.get('request_sha256') != _digest([request['messages'], request['response_format']])
+                        or _digest(stage_plan) != stage_id):
+                    raise ValueError
             result, _ = self._decode_response(raw, payload)
             return result
         except Exception:

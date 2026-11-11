@@ -272,3 +272,45 @@ async def test_pending_author_finalize_unknown_never_reissues(fmt, course, monke
     with pytest.raises(ExtractionOutcomeUnknownError):
         await stage_once(**args)
     assert calls == [1]
+
+
+@pytest.mark.parametrize('extra_null', [False, True])
+def test_author_custody_is_stable_under_json_storage(fmt, course, extra_null):
+    from app.modules.ai.v3.practical_author_transport import author_custody, validate_author_custody
+
+    if extra_null:
+        course['lessons'][0]['questions_note'] = None
+    artifact = normalize_practical_author(json.dumps(course), fmt)
+    wire = author_custody(artifact, fmt)
+    stored = json.loads(json.dumps(wire, ensure_ascii=False, allow_nan=False))
+    assert stored == wire
+    assert validate_author_custody(stored, artifact.normalized_value, fmt)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('extra_null', [False, True])
+async def test_pending_author_json_storage_finalizes_and_cold_replays(fmt, course, extra_null, monkeypatch):
+    from app.modules.ai.v3.pending_stage_transactions import has_pending
+    from app.modules.ai.v3.stage_checkpoint import stage_once
+    from tests.unit.test_pending_stage_journal import journal
+
+    active, fake = journal()
+    persist = fake.checkpoint_assessment
+    async def json_storage(session, **kwargs):
+        kwargs['assessment_payload'] = json.loads(json.dumps(kwargs['assessment_payload'], allow_nan=False))
+        await persist(session, **kwargs)
+    monkeypatch.setattr(fake, 'checkpoint_assessment', json_storage)
+    if extra_null:
+        course['lessons'][0]['questions_note'] = None
+    artifact = normalize_practical_author(json.dumps(course), fmt)
+    calls = []
+    async def invoke():
+        calls.append(1)
+        return artifact
+    args = dict(journal=active, stage='lesson', group_id='practical:author:v1',
+                source_sha256='a' * 64, route_fingerprint='b' * 64,
+                messages=[{'role': 'user', 'content': 'synthetic'}], response_format=fmt, invoke=invoke)
+    assert await stage_once(**args) == artifact.normalized_value
+    assert not has_pending(fake.job.result)
+    assert await stage_once(**args) == artifact.normalized_value
+    assert calls == [1]

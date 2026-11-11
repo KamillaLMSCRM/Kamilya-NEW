@@ -27,10 +27,21 @@ def is_retained_author_group(value: object) -> bool:
 
 def is_retained_stage_plan(plan: dict[str, Any]) -> bool:
     if plan.get('stage') == 'lesson':
-        return is_retained_author_group(plan.get('group_id'))
+        return is_retained_author_group(plan.get('group_id')) or is_focused_author_plan(plan)
     group = plan.get('group_id')
     return bool(plan.get('stage') == 'review' and isinstance(group, str) and re.fullmatch(
         r'practical:editorial:verify:v34:joint:[a-f0-9]{64}:output=(8192|16384|32768)', group))
+
+
+def is_focused_author_plan(plan: Any) -> bool:
+    return bool(isinstance(plan, dict) and plan.get('stage') == 'lesson'
+        and isinstance(plan.get('group_id'), str) and re.fullmatch(
+            r'practical:focused:author:v36:[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id']))
+
+
+def retained_phase_allowed(plan: dict[str, Any], phase: Any) -> bool:
+    return bool(phase == 'structured_shape' and not is_focused_author_plan(plan) and is_retained_stage_plan(plan)
+                or phase == 'stage_finalize' and is_focused_author_plan(plan))
 
 
 async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
@@ -53,7 +64,7 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
         reference = quarantine["entries"][digest]
         if (not isinstance(reference, dict) or reference.get("stage_sha256") != digest
                 or reference.get("checkpoint_key") != private_key(digest)
-                or reference.get("phase") != "structured_shape" or reference.get("accepted") is not False
+                or reference.get("phase") not in {"structured_shape", "stage_finalize"} or reference.get("accepted") is not False
                 or reference.get("complete_http_response") is not True or type(reference.get("status")) is not int
                 or reference.get("status") != 200):
             return None
@@ -63,9 +74,16 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
         plan = dict(saved_plan.plan_payload)
         if (_digest(plan) != digest or plan.get("schema") != "v3-stage-checkpoint-v1"
                 or not is_retained_stage_plan(plan)
+                or not retained_phase_allowed(plan, reference.get('phase'))
                 or plan.get("tenant_id") != journal.tenant_id or plan.get("job_id") != journal.job_id
                 or plan.get("route_fingerprint") != reference.get("route_fingerprint")):
             return None
+        if is_focused_author_plan(plan):
+            from app.modules.ai.v3.revision_policy import FOCUSED_EDITORIAL_REVIEW_POLICY, REVIEW_KEY
+            params = job.params if isinstance(getattr(job, 'params', None), dict) else {}
+            analysis = params.get('source_analysis')
+            if not isinstance(analysis, dict) or analysis.get(REVIEW_KEY) != FOCUSED_EDITORIAL_REVIEW_POLICY:
+                return None
         marker = await journal.read_owned_value_in_session(db, entry["claim_key"], plan)
         if marker != {"identity": digest, "claim_token": entry["token"]}:
             return None

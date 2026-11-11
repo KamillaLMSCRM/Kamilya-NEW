@@ -1,5 +1,13 @@
 # Журнал ошибок движка генерации и обработки курсов
 
+## ENG-056 — custody receipt changed tuple/list type across JSONB storage
+
+- 2026-11-11, exact native DEV89/a23b4f30 cash job75472d90-ee35-4768-9377-779365a13fca. One managed Luna6 HIGH response completed HTTP200 in136.8s,28209input/7430output. Application validation passed; pending checkpoint finalization stopped and retained the complete response privately. No course was saved, no duplicate generation was started, production88/client records unchanged.
+- Classification: deterministic persistence representation defect, not a source ambiguity, model-content failure, quota failure or reason to change reasoning. Immutable receipt.removed_paths tuple became a list in JSONB, so the strict checkpoint readback rejected its own value. Private retained bodySHA ddc30f41769e88a2a71676df9b5589ffb42810d272817f3b2a6a65691ff04f6e; original claim/pending/quarantine preserved.
+- Four local RED regressions cover empty/nonempty custody plus actual pending finalization/cold replay with a JSON storage adapter. Normalize receipt to JSON arrays before persistence; do not relax saved==value, source/schema/credential checks or declared invalid null rejection. Related77PASS, broader custody/eligibility/client-wrapper385PASS. Actual DEV89 database SELECT-only codec test confirms oldFAIL/fixedPASS without hot patch, writes or provider requests.
+- Controlled continuation extends the existing retained replay only to exact focused V36 author stage_finalize. Keep V31/V34 structured_shape behavior unchanged; reject V36 structured_shape and other phases/groups. Require owned original claim, no completed result, bound V36 policy, source/route/current request/body hashes, one-use capability and delivery authorization. Native DEV90 recovery/full-course and production acceptance remain OPEN; neither local replay nor eligibility relabels the old job as completed.
+
+
 ## ENG-042 — операционный перечень сворачивался в ссылку на отсутствующий список
 
 - Follow-up02:15UTC: actual unchanged-course prose control returns INCOMPLETE

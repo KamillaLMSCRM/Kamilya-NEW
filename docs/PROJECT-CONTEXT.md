@@ -1,3 +1,11 @@
+# Candidate90 and held DEV89 response — 2026-11-11
+
+DEV89 API dep-dbps7m8u01pc7392gl6g, web dpl_7jZ7KNPZYkVeq8w8L3FebU7hfgeL and soleVMworker203533a0 are exacta23/live/ready. One native cashjob75472d90-ee35-4768-9377-779365a13fca holds a complete author reply after JSONB tuple/list custody comparison failure; no duplicate generation or manual marker clear. Candidate90 fixes that deterministic representation and controlled owned replay; local tests/realDB SELECT-only codec and isolated helper eligibility PASS. It is not yet deployed. Production88/frontend86/client courses unchanged. Cache7 exact copies removed safely/all88then-currentcontainers preserved; disk82%/9.18GB. Follow current CODEX_HANDOFF for the exact continuation.
+
+# Engine89 rollout continuation, 2026-11-10
+
+Candidate a23b4f30/version89 on dev has exactCI42855930375 and attested build42857271379/image7ed30c54...9d0a. Protected DEV env staged; production88/frontend86 and all client data unchanged. Sole VM DEV worker88 remainsrunning, Render API provider source88; current89 native acceptance not started. Pulled candidate image passed component/source checks, then final capacity gate stopped at free6292652032bytes/87% used. Exact7 recoverable unreferenced-image cleanup is prepared, independently reviewed and awaiting owner approval; no cache removal or worker handoff occurred. Canonical handoff owns exact script/receipts and next steps. No active inference.
+
 # Current contour — 2026-11-10T14:04 UTC
 
 Production88 exact8a2d91b730b96c3f65a23d1290066408fd881140/API+3blue workers a77bd173...0b6/schema0187; native frontend86/44dc1134. DEV88 exactsame source, one VM126worker dd74dcca...f243/597aabf8...acea, RenderFree/VercelHobby unchanged. Signed backup/isolated restore and independent r139 identity/settings/RLS/watchdog/rollback/reserve checks PASS. Both NEW Lombard PDF2493476d8L32Q and cashb05421bb8L31Q/10images are published after disclosed manual review; oldsixcohort hashes unchanged. All cash8previewtests100%,0new employeeenrollments/attempts. Productioncostupper0.5563668, remaining0.2800332; no owned active inference. Exact IDs/evidence/limits in current CODEX_HANDOFF. No autonomous-perfect or100page claim. Untracked author-null prototype is excluded from deployed88.

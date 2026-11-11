@@ -11,7 +11,8 @@ from app.modules.ai.v3.stage_checkpoint import _digest
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("mutation", [None, "other_stage", "claim", "body", "reference", "multiple"])
+@pytest.mark.parametrize("mutation", [None, "other_stage", "claim", "body", "reference", "multiple", "result", "policy"])
+@pytest.mark.parametrize('failure_phase', ['structured_shape', 'stage_finalize'])
 @pytest.mark.parametrize(("group", "stage", "allowed"), [
     ("practical:author:editorial:v31:output=16384", "lesson", True),
     ("practical:author:editorial:v31:output=8192", "lesson", True),
@@ -26,8 +27,13 @@ from app.modules.ai.v3.stage_checkpoint import _digest
     ("practical:editorial:verify:v33:joint:" + "f" * 64 + ":output=32768", "review", False),
     ("practical:editorial:verify:v34:proof:" + "f" * 64 + ":output=32768", "review", False),
     ("practical:editorial:verify:v34:complete-resolutions:" + "f" * 64 + ":output=32768", "review", False),
+    ("practical:focused:author:v36:" + "f" * 64 + ":output=32768", "lesson", True),
+    ("practical:focused:author:v36:" + "f" * 64 + ":output=16384", "lesson", True),
+    ("practical:focused:author:v36:" + "f" * 64 + ":output=32768", "review", False),
+    ("practical:focused:author:v36:" + "f" * 64 + ":output=032768", "lesson", False),
+    ("practical:focused:author:v35:" + "f" * 64 + ":output=32768", "lesson", False),
 ])
-async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation, group, stage, allowed):
+async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation, failure_phase, group, stage, allowed):
     tenant, actor, job_id = str(uuid4()), uuid4(), str(uuid4())
     plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": tenant, "job_id": job_id,
             "stage": stage, "group_id": group, "route_fingerprint": "a" * 64}
@@ -35,11 +41,12 @@ async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation,
     entry = {"claim_key": "v3-stage-claim:" + digest, "result_key": "v3-stage-result:" + digest, "token": "b" * 32}
     raw = b"synthetic"
     receipt = {"policy": replay.POLICY, "accepted": False, "complete_http_response": True, "status": 200,
-               "phase": "structured_shape", "stage_sha256": digest, "route_fingerprint": "a" * 64,
+               "phase": failure_phase, "stage_sha256": digest, "route_fingerprint": "a" * 64,
                "wire_request_sha256": "c" * 64, "raw_base64": base64.b64encode(raw).decode(),
                "body_sha256": hashlib.sha256(raw).hexdigest(), "byte_count": len(raw)}
     reference = {k: v for k, v in receipt.items() if k != "raw_base64"} | {"checkpoint_key": replay.private_key(digest)}
-    job = SimpleNamespace(id=job_id, tenant_id=tenant, user_id=actor, course_id=None, result={
+    job = SimpleNamespace(id=job_id, tenant_id=tenant, user_id=actor, course_id=None,
+        params={'source_analysis': {'v3_review_policy': 'v3-practical-source-review-v36'}}, result={
         "v3_pending_stages": {"policy": "v3-pending-stages-v1", "entries": {digest: entry}},
         replay.KEY: {"policy": replay.POLICY, "entries": {digest: reference}}})
     marker = {"identity": digest, "claim_token": entry["token"]}
@@ -51,7 +58,8 @@ async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation,
         async def load_plan(self, *_args, **_kwargs):
             return SimpleNamespace(plan_payload=plan, source_job_id=job_id, plan_revision='v1', lessons=('lesson',))
         async def read_owned_value_in_session(self, _db, key, _plan):
-            return marker if key == entry["claim_key"] else None if key == entry["result_key"] else receipt
+            return (marker if key == entry["claim_key"] else
+                ({'already_saved': True} if mutation == 'result' else None) if key == entry["result_key"] else receipt)
     monkeypatch.setattr(replay, "PendingStageJournal", Journal)
     if mutation == "other_stage":
         plan["group_id"] = "practical:review:editorial:v31"
@@ -63,5 +71,10 @@ async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation,
         reference["phase"] = "usage"
     if mutation == "multiple":
         job.result["v3_pending_stages"]["entries"]["e" * 64] = deepcopy(entry)
+    if mutation == 'policy':
+        job.params['source_analysis']['v3_review_policy'] = 'v3-practical-source-review-v35'
     candidate = await replay.owned_candidate(object(), job)
-    assert (candidate is not None) is (mutation is None and allowed)
+    focused = group.startswith('practical:focused:author:v36:')
+    unchanged = mutation is None or mutation == 'policy' and not focused
+    phase_allowed = failure_phase == ('stage_finalize' if focused else 'structured_shape')
+    assert (candidate is not None) is (unchanged and allowed and phase_allowed)

@@ -1003,6 +1003,20 @@ Current as of: 2026-11-10.
 
 ## AI-REALIZATION-001 - Whole-lesson recovery missed native persistence and validation contracts
 
+- Recurrence2026-11-11: candidate89 passed memory-only custody checks, but native
+  DEV job75472d90 stopped after complete HTTP200 author output at stage_finalize.
+  AuthorNormalizationReceipt.removed_paths was an immutable tuple; asdict kept
+  it, JSONB returned a list, and strict saved/readback equality rolled back the
+  result. The test double had retained the tuple unchanged and missed this seam.
+  Four new local regressions reproduce it with empty/nonempty receipts and the
+  actual PendingStageJournal finalizer using JSON serialization. Wire custody now
+  uses JSON arrays before persistence; strict comparison and source guards stay.
+  Actual DEV SELECT-only JSONB proof confirms oldFAIL/fixedPASS, no writes/model
+  calls/hot patch. Exact private response and pending claim remain retained;
+  controlled focused-author finalization replay must prove ownership, absent
+  result, source/request/body hashes and delivery before reusing it. Never clear
+  quarantine or run another generation to conceal this deterministic defect.
+
 - Date: 2026-10-30.
 - Symptom: the unaccepted realization candidate passed its in-memory tests but
   native cold lookup raised generation_plan_not_found; JSONB roundtrip and a
@@ -10314,6 +10328,20 @@ were read-only rejected attempts. Evidence lines require bounded safe scalar fie
 - Follow-up2026-11-03: DEV1330 Standards ad5c3466 returned five HTTP200 responses40535input5530output, but fifth JSON-valid extraction failed downstream and its response was lost before finalizer. Exact offending field is UNKNOWN. LOCAL V2 now types extraction fields at producer, binds schema/request identity, and retains bounded complete managed response through application validation/metadata/finalization failures. Native V2 uses the same atomic pending substrate and truthful content-only rejection custody, request-local DeepSeek reasoningLOW/profile binding. Saved synthetic array-valued timing and interrupted/finalizer/source/owner/route regressions cover the failure class; they do not identify the actual lost fifth field. No blind replay or quota refund. Final integrated/PG/runtime/full-course gates remain separate.
 
 ## OPS-DOCKER-MOUNTS-001 - Unordered Docker mount inventory compared as ordered state
+
+- Recurrence2026-11-10 Engine89: cloned ignored rollout scripts reintroduced raw
+  Mounts ordering into the protected inventory and the DEV predecessor check.
+  Image source/component checks passed, then the comparison stopped before any
+  worker handoff. Three read-only samples isolated Mounts-only permutations;
+  sorting complete records restores the original boundary SHA5cdcb0d1...66e0.
+  All ten protected IDs/start times/images and the old DEV worker were preserved.
+  Corrected all three rollout scripts, including the direct DEV comparison.
+  Offline AST-executed production functions now accept permutations and reject
+  an actual RW change. Keep these script-level regressions when cloning rollout
+  artifacts; a prior application unit suite does not cover an ignored ops script.
+  Separate capacity stop: pulled image left6292652032bytes/87% used. Seven exact
+  unused image copies have GHCR index/children/all-blob recovery proof; their
+  reviewed cleanup remains pending owner approval, not an executed recovery.
 
 - Date: 2026-11-03.
 - Symptom: Isolated DEV connector upgrade failed runtime comparison and then reported rollback boundary unverified although retained old image, semantic environment/mounts and all six production container identities remained unchanged.

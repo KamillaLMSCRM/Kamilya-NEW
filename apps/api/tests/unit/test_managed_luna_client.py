@@ -452,3 +452,66 @@ def test_invalid_model_policy_rejected(model, effort, deadline):
         ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='private-secret',
             tenant_id=uuid4(), user_id=uuid4(), job_id='job', credential_revision='r1', model=model,
             reasoning_effort=effort, deadline_seconds=deadline)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('fault', [None, 'missing_plan', 'group', 'stage', 'tenant', 'job', 'source',
+    'route', 'request', 'phase', 'body', 'wire', 'declared_null'])
+async def test_focused_finalization_replay_is_bound_and_never_sends(setup, fault):
+    from app.modules.ai.v3.practical_contract import _course_format
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+    from app.modules.ai.v3.stage_checkpoint import _digest
+
+    client, tenant, actor, _, requests = setup
+    fmt = _course_format(['SRC1'])
+    messages = [{'role': 'user', 'content': 'Synthetic source only.'}]
+    content = {'title': 'Course', 'lessons': [{'id': 'l1', 'title': 'Lesson', 'content': 'Text',
+        'questions': [{'id': 'q1', 'prompt': 'Question?', 'choices': ['A', 'B', 'C'],
+            'correct_index': 0, 'explanation': 'Reason', 'source_refs': ['SRC1']}]}]}
+    if fault == 'declared_null':
+        content['lessons'][0]['content'] = None
+    body = {'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt),
+        'choices': [{'message': {'content': json.dumps(content)}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}
+    raw = json.dumps(body).encode()
+    checkpoint = AsyncMock(return_value=True)
+    capability = await client.prepare(messages, max_output_tokens=32768,
+        ownership_checkpoint=checkpoint, response_format=fmt)
+    plan = {'schema': 'v3-stage-checkpoint-v1', 'tenant_id': str(tenant), 'job_id': 'job',
+        'stage': 'lesson', 'group_id': 'practical:focused:author:v36:' + 'f' * 64 + ':output=32768',
+        'source_sha256': 'b' * 64, 'route_fingerprint': client.cache_fingerprint(),
+        'request_sha256': _digest([messages, fmt])}
+    receipt = {'policy': 'managed-response-quarantine-v1', 'accepted': False, 'complete_http_response': True,
+        'status': 200, 'phase': 'stage_finalize', 'stage_sha256': _digest(plan),
+        'route_fingerprint': client.cache_fingerprint(),
+        'wire_request_sha256': hashlib.sha256(client._prepared[capability]).hexdigest(),
+        'raw_base64': base64.b64encode(raw).decode(), 'byte_count': len(raw),
+        'body_sha256': hashlib.sha256(raw).hexdigest()}
+    stage_id = _digest(plan)
+    changes = {'group': ('group_id', 'practical:focused:question-repair:v36:' + 'f' * 64 + ':output=32768'),
+        'stage': ('stage', 'review'), 'tenant': ('tenant_id', str(uuid4())), 'job': ('job_id', 'foreign'),
+        'source': ('source_sha256', 'invalid'), 'route': ('route_fingerprint', 'c' * 64),
+        'request': ('request_sha256', 'c' * 64)}
+    if fault in changes:
+        key, value = changes[fault]
+        plan[key] = value
+        # Even a self-consistent stage digest cannot waive route/source/request checks.
+        stage_id = receipt['stage_sha256'] = _digest(plan)
+    if fault == 'phase':
+        receipt['phase'] = 'stage_validation'
+    if fault == 'body':
+        receipt['body_sha256'] = '0' * 64
+    if fault == 'wire':
+        receipt['wire_request_sha256'] = '0' * 64
+    options = dict(receipt=receipt, tenant_id=tenant, user_id=actor, job_id='job', stage_id=stage_id,
+        ownership_checkpoint=checkpoint, stage_plan=None if fault == 'missing_plan' else plan)
+    if fault is None:
+        result = await client.replay_completed(capability, **options)
+        assert result.content.normalized_value == content
+    else:
+        with pytest.raises(ManagedLunaError):
+            await client.replay_completed(capability, **options)
+    with pytest.raises(ManagedLunaError):
+        await client.replay_completed(capability, **options)
+    assert not requests

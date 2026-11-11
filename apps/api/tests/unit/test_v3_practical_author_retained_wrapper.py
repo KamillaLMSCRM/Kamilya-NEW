@@ -12,13 +12,14 @@ from app.modules.ai.evidence_engine.models import CourseIntent
 from app.modules.ai.managed_luna_client import ManagedLunaClient
 from app.modules.ai.v3.practical_contract import _course_format
 from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
-from app.modules.ai.v3.revision_policy import EDITORIAL_PRACTICAL_REVIEW_POLICY
+from app.modules.ai.v3.revision_policy import EDITORIAL_PRACTICAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY
 from app.modules.ai.v3.stage_checkpoint import _digest
 from tests.unit.test_direct_luna_owned_stage import setup
 
 
 @pytest.mark.asyncio
-async def test_practical_wrapper_replays_retained_author_without_post(monkeypatch):
+@pytest.mark.parametrize('focused', [False, True])
+async def test_practical_wrapper_replays_retained_author_without_post(monkeypatch, focused):
     from app.modules.ai.delivery_ownership import delivery_id
     from app.modules.ai.v3 import practical_editorial_cycle, practical_service
     from app.modules.ai.v3.owned_stage_inspection import StageInspection
@@ -33,6 +34,13 @@ async def test_practical_wrapper_replays_retained_author_without_post(monkeypatc
         'document:' + hashlib.sha256(source.encode()).hexdigest(), (), source_text=source)
     corpus = DirectSourceCorpus(journal.tenant_id, (document,), len(source), 0)
     messages = [{'role': 'user', 'content': 'Synthetic source only.'}]
+    group = 'practical:focused:author:v36:' + 'f' * 64 if focused else 'practical:author:editorial:v31'
+    cap_limit = 32768 if focused else 16384
+    expected_group = group + ':output=' + str(cap_limit)
+    policy = FOCUSED_EDITORIAL_REVIEW_POLICY if focused else EDITORIAL_PRACTICAL_REVIEW_POLICY
+    if focused:
+        journal.review_policy_bound = True
+        journal.expected_review_policy = policy
     fmt = _course_format(['SRC1'])
     response = {'title': 'Course', 'lessons': [{'id': 'l1', 'title': 'Lesson', 'content': 'Text',
         'questions': [{'id': 'q1', 'prompt': 'Question?', 'choices': ['A', 'B', 'C'],
@@ -45,14 +53,14 @@ async def test_practical_wrapper_replays_retained_author_without_post(monkeypatc
 
     async def inspect(**options):
         plan = options['plan']
-        assert plan['group_id'] == 'practical:author:editorial:v31:output=16384'
-        cap = await client.prepare(messages, max_output_tokens=16384,
+        assert plan['group_id'] == expected_group
+        cap = await client.prepare(messages, max_output_tokens=cap_limit,
             ownership_checkpoint=AsyncMock(return_value=True), response_format=fmt)
         wire_hash = hashlib.sha256(client._prepared[cap]).hexdigest()
         client.discard(cap)
         digest = _digest(plan)
         receipt = {'policy': 'managed-response-quarantine-v1', 'accepted': False, 'complete_http_response': True,
-            'status': 200, 'phase': 'structured_shape', 'stage_sha256': digest,
+            'status': 200, 'phase': 'stage_finalize' if focused else 'structured_shape', 'stage_sha256': digest,
             'route_fingerprint': client.cache_fingerprint(), 'wire_request_sha256': wire_hash,
             'raw_base64': base64.b64encode(raw).decode(), 'byte_count': len(raw), 'body_sha256': hashlib.sha256(raw).hexdigest()}
         candidate = {'stage': digest, 'body_sha256': receipt['body_sha256'], 'pending_sha256': 'b' * 64,
@@ -66,16 +74,21 @@ async def test_practical_wrapper_replays_retained_author_without_post(monkeypatc
         return candidate_holder['value']
 
     async def finalize(**kwargs):
-        assert kwargs['plan']['group_id'] == 'practical:author:editorial:v31:output=16384'
-        return kwargs['validate'](kwargs['value'])
+        assert kwargs['plan']['group_id'] == expected_group
+        stored = json.loads(json.dumps(kwargs['value'], allow_nan=False))
+        assert stored == kwargs['value']
+        return kwargs['validate'](stored)
 
     async def editorial(_packet, _corpus, _intent, _decisions, stage, **_kwargs):
-        return await stage('lesson', 'practical:author:editorial:v31', messages, fmt, lambda _: None)
+        return await stage('lesson', group, messages, fmt, lambda _: None)
 
     monkeypatch.setattr('app.modules.ai.v3.direct_luna_owned_stage.inspect_owned_stage', inspect)
     monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.owned_candidate', candidate_read)
     monkeypatch.setattr('app.modules.ai.v3.pending_stage_transactions.finalize_pending', finalize)
-    monkeypatch.setattr(practical_editorial_cycle, 'run_editorial_cycle', editorial)
+    if focused:
+        monkeypatch.setattr('app.modules.ai.v3.practical_focused_cycle.run_focused_cycle', editorial)
+    else:
+        monkeypatch.setattr(practical_editorial_cycle, 'run_editorial_cycle', editorial)
     monkeypatch.setattr(practical_service, 'practical_artifacts', lambda result, *_args, **_kwargs: result)
     forbidden = AsyncMock(side_effect=AssertionError('unexpected inference'))
     monkeypatch.setattr(client, 'invoke', forbidden)
@@ -83,7 +96,7 @@ async def test_practical_wrapper_replays_retained_author_without_post(monkeypatc
     try:
         result = await practical_service.generate_practical_course(corpus, intent=CourseIntent(audience='Staff'),
             invoke=forbidden, source_sha256='a' * 64, journal=journal, route_fingerprint=client.cache_fingerprint(),
-            direct_client=client, direct_max_output_tokens=16384, review_policy=EDITORIAL_PRACTICAL_REVIEW_POLICY)
+            direct_client=client, direct_max_output_tokens=cap_limit, review_policy=policy)
         assert result == response
         forbidden.assert_not_awaited()
     finally:

@@ -223,7 +223,7 @@ async def run_direct_owned_stage(
                                               ownership_checkpoint=replay_checkpoint, response_format=response_format)
             result = await client.replay_completed(capability, receipt=candidate["receipt"],
                 tenant_id=UUID(journal.tenant_id), user_id=journal.user_id, job_id=journal.job_id,
-                stage_id=_digest(plan), ownership_checkpoint=replay_checkpoint)
+                stage_id=_digest(plan), ownership_checkpoint=replay_checkpoint, stage_plan=plan)
             response = validate_response(result.content)
             replay_metadata = checked_metadata({"model": result.model, "usage": {
                 "input_tokens": result.usage.input_tokens, "output_tokens": result.usage.output_tokens,

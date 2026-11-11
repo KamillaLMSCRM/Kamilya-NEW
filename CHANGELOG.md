@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.90] - 2026-11-11
+
+### Fixed
+
+- Serialize the practical-author custody receipt as JSON values before storing it. Its immutable in-memory tuple previously became an array in JSONB and failed the strict readback comparison, rolling back a valid author reply. Keep full raw/normalized custody and strict checkpoint equality.
+- Resume a retained complete focused V36 author reply after failed checkpoint finalization through the existing owned replay protocol. Require the original claim, absent completed result, bound V36 policy, source, route, exact current request and response hashes, delivery authorization and one-use capability. Unknown or foreign outcomes remain held; no new author model request is made by replay.
+
+### Verification boundary
+
+- Four new local regressions first reproduced the JSON roundtrip failure, including empty and nonempty normalization receipts. The deployed DEV89 database SELECT-only codec check reproduces the failure and confirms JSON wire normalization without writes or hot patches. Exact DEV90 replay/full-course and protected production acceptance remain separate gates.
+
 ## [0.11.89] - 2026-11-10
 
 ### Fixed

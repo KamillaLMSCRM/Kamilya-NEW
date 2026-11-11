@@ -127,8 +127,11 @@ def validate_practical_author_artifact(artifact: Any, response_format: Any) -> b
 def author_custody(artifact: PracticalAuthorArtifact, response_format: Any) -> dict[str, Any]:
     if not validate_practical_author_artifact(artifact, response_format):
         raise ValueError('practical_author_custody_invalid')
+    # The immutable in-memory receipt uses tuples; the stored JSON protocol uses
+    # arrays. Canonicalize before pending finalization compares its readback.
+    receipt = {**asdict(artifact.receipt), 'removed_paths': list(artifact.receipt.removed_paths)}
     return {'raw_text': artifact.raw_text, 'normalized_text': artifact.normalized_text,
-            'format': json.loads(json.dumps(response_format)), 'receipt': asdict(artifact.receipt)}
+            'format': json.loads(json.dumps(response_format)), 'receipt': receipt}
 
 
 def validate_author_custody(value: Any, response: Any, response_format: Any = None) -> bool:
