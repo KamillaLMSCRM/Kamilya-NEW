@@ -263,8 +263,22 @@ class ManagedLunaClient:
             request = json.loads(payload)
             from app.modules.ai.v3.response_contracts import response_contract
             kind = response_contract(request.get("response_format"))
-            if kind not in {"practical_course", "practical_editorial_verification"}:
+            if kind not in {"practical_course", "practical_editorial_verification", "simple_semantic_source_plan"}:
                 raise ValueError
+            if kind == 'simple_semantic_source_plan':
+                from app.modules.ai.v3.retained_author_replay import is_semantic_plan_stage
+                from app.modules.ai.v3.stage_checkpoint import _digest
+                if (receipt['phase'] != 'structured_shape' or not is_semantic_plan_stage(stage_plan)
+                        or not isinstance(stage_plan, dict) or stage_plan.get('schema') != 'v3-stage-checkpoint-v1'
+                        or stage_plan.get('tenant_id') != str(tenant_id) or stage_plan.get('job_id') != job_id
+                        or not isinstance(stage_plan.get('source_sha256'), str)
+                        or re.fullmatch(r'[0-9a-f]{64}', stage_plan['source_sha256']) is None
+                        or stage_plan.get('route_fingerprint') != self.cache_fingerprint()
+                        or stage_plan.get('request_sha256') != _digest([request['messages'], request['response_format']])
+                        or _digest(stage_plan) != stage_id
+                        or request['response_format']['json_schema']['schema']['properties']['source_fingerprint']['enum']
+                            != [stage_plan['group_id'].split(':')[4]]):
+                    raise ValueError
             if receipt['phase'] == 'stage_finalize':
                 from app.modules.ai.v3.retained_author_replay import is_focused_author_plan
                 from app.modules.ai.v3.stage_checkpoint import _digest

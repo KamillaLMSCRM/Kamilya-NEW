@@ -1,4 +1,4 @@
-"""Read-only eligibility for retained V31 author and V34 joint-review replies."""
+"""Read-only eligibility for explicitly supported completed-response protocols."""
 from __future__ import annotations
 
 import base64
@@ -26,6 +26,8 @@ def is_retained_author_group(value: object) -> bool:
 
 
 def is_retained_stage_plan(plan: dict[str, Any]) -> bool:
+    if is_semantic_plan_stage(plan):
+        return True
     if plan.get('stage') == 'lesson':
         return is_retained_author_group(plan.get('group_id')) or is_focused_author_plan(plan)
     group = plan.get('group_id')
@@ -37,6 +39,12 @@ def is_focused_author_plan(plan: Any) -> bool:
     return bool(isinstance(plan, dict) and plan.get('stage') == 'lesson'
         and isinstance(plan.get('group_id'), str) and re.fullmatch(
             r'practical:focused:author:v36:[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id']))
+
+
+def is_semantic_plan_stage(plan: Any) -> bool:
+    return bool(isinstance(plan, dict) and plan.get('stage') == 'review'
+        and isinstance(plan.get('group_id'), str) and re.fullmatch(
+            r'practical:simple:plan:v6:[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id']))
 
 
 def retained_phase_allowed(plan: dict[str, Any], phase: Any) -> bool:
@@ -83,6 +91,12 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
             params = job.params if isinstance(getattr(job, 'params', None), dict) else {}
             analysis = params.get('source_analysis')
             if not isinstance(analysis, dict) or analysis.get(REVIEW_KEY) != FOCUSED_EDITORIAL_REVIEW_POLICY:
+                return None
+        if is_semantic_plan_stage(plan):
+            from app.modules.ai.v3.revision_policy import REVIEW_KEY, SIMPLE_COURSE_REVIEW_V6_POLICY
+            params = job.params if isinstance(getattr(job, 'params', None), dict) else {}
+            analysis = params.get('source_analysis')
+            if not isinstance(analysis, dict) or analysis.get(REVIEW_KEY) != SIMPLE_COURSE_REVIEW_V6_POLICY:
                 return None
         marker = await journal.read_owned_value_in_session(db, entry["claim_key"], plan)
         if marker != {"identity": digest, "claim_token": entry["token"]}:

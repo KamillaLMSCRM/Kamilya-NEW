@@ -100,18 +100,22 @@ def matches_semantic_plan(value: Any, fmt: Any) -> bool:
     if len(unit_ids) != len(set(unit_ids)) or any(not item.strip() or item in ids for item in unit_ids):
         return False
     primary: set[str] = set()
+    accounted: set[str] = set()
     for unit in value['units']:
         p, s = unit['primary_slices'], unit['supporting_slices']
         if not unit['title'].strip() or len(set(p + s)) != len(p) + len(s):
             return False
         primary.update(p)
+        accounted.update(p + s)
     excluded: set[str] = set()
     for item in value['non_teaching']:
         refs = item['slice_ids']
         if not item['reason'].strip() or len(set(refs)) != len(refs) or excluded.intersection(refs):
             return False
         excluded.update(refs)
-    return not primary.intersection(excluded) and primary | excluded == ids
+    # Referenced parent/definition context is accounted input, not missing
+    # primary teaching. This check establishes ownership, never semantic coverage.
+    return not primary.intersection(excluded) and accounted | excluded == ids
 
 
 def semantic_plan_request(packet: Any, corpus: Any, intent: Any) -> tuple[list[dict[str, str]], dict[str, Any]]:

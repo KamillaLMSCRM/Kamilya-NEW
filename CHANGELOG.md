@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.97 — Candidate
+
+- Account for source slices explicitly linked as supporting context, preserving ownership and missing-source checks without forcing introductory material into assessed lessons.
+- Permit exact owned V6 plan responses rejected by the old role counter to use existing scoped quarantine replay after current decoding; preserve original pending/source/request/route and audit guards.
+- Keep V6 producer messages and schemas unchanged, so recovery does not repeat an already completed model request.
+
 ## 0.11.96 — Candidate
 
 - Group approved source slices into coherent practical units with literal parent/table/reference context, then author one lesson and its questions per unit.
