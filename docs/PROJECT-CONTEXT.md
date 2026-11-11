@@ -1,4 +1,8 @@
-# Candidate90 and held DEV89 response — 2026-11-11
+# Current local experiment — 2026-11-11
+
+Production90 acceptance belongs to exact16504ca0/backend image7d5ff388 and native frontend86/44dc1134; see the accepted report in `C:/Kamilya New/Kamilya-NEW/.worktrees/engine-author-transport-20261110/docs/testing/2026-11-11-engine90-production-acceptance.md`. The new isolated `simple-course-editor-20261111` worktree starts from that source and is LOCAL ONLY. Its three meaningful model stages (direct-source author, source-to-course reviewer, addressed editor) replace the experimental semantic cascade. The lossy model-outline prototype was rejected. Ordinary persistence/lease/source approval have local integration tests, but deployed DEV is not yet tested. `docs/CODEX_HANDOFF.md` owns live process/evidence pointers. Older contour paragraphs are historical, not current provider truth.
+
+# Historical: Candidate90 and held DEV89 response — 2026-11-11
 
 DEV89 API dep-dbps7m8u01pc7392gl6g, web dpl_7jZ7KNPZYkVeq8w8L3FebU7hfgeL and soleVMworker203533a0 are exacta23/live/ready. One native cashjob75472d90-ee35-4768-9377-779365a13fca holds a complete author reply after JSONB tuple/list custody comparison failure; no duplicate generation or manual marker clear. Candidate90 fixes that deterministic representation and controlled owned replay; local tests/realDB SELECT-only codec and isolated helper eligibility PASS. It is not yet deployed. Production88/frontend86/client courses unchanged. Cache7 exact copies removed safely/all88then-currentcontainers preserved; disk82%/9.18GB. Follow current CODEX_HANDOFF for the exact continuation.
 

@@ -13,9 +13,9 @@ from app.modules.ai.v3.qa_luna_pending_policy import DIRECT_POLICY, MANAGED_POLI
 from app.modules.ai.v3.revision_policy import (
     EDITORIAL_QA_KEY,
     EDITORIAL_QA_MARKER,
-    FOCUSED_EDITORIAL_REVIEW_POLICY,
     REVIEW_POLICY,
     SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
+    SIMPLE_COURSE_REVIEW_POLICY,
     practical_qa_admission,
     source_core_qa_admission,
 )
@@ -115,9 +115,9 @@ async def test_native_admission_binds_policy_to_actual_destination(monkeypatch, 
         await router.generate_course(request, db=_lenient_db(), user=user)
     assert error.value.status_code == 429
     expected = (REVIEW_POLICY if destination == 'existing' else
-                FOCUSED_EDITORIAL_REVIEW_POLICY if tenant_kind == 'normal' or environment == 'render-development'
+                SIMPLE_COURSE_REVIEW_POLICY if tenant_kind == 'normal' or environment == 'render-development'
                 else SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY)
     assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected
     marker = submit.await_args.kwargs['params']['source_analysis'].get(EDITORIAL_QA_KEY)
-    assert marker == (EDITORIAL_QA_MARKER if tenant_kind == 'qa' and expected == FOCUSED_EDITORIAL_REVIEW_POLICY else None)
+    assert marker == (EDITORIAL_QA_MARKER if tenant_kind == 'qa' and expected == SIMPLE_COURSE_REVIEW_POLICY else None)
     assert submit.await_args.kwargs['course_id'] == (course if destination == 'existing' else None)

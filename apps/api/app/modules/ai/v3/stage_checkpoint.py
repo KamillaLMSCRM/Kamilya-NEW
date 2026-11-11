@@ -121,6 +121,16 @@ async def stage_once(
             }
         )
     focused = group_id.startswith("practical:focused:")
+    simple = group_id.startswith("practical:simple:")
+    if simple:
+        from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
+        from app.modules.ai.v3.simple_course_service import simple_stage_allowed
+
+        if (type(journal) is not PendingStageJournal or getattr(journal, "review_policy_bound", False) is not True
+                or not callable(journal.verify_source)
+                or not simple_stage_allowed(stage, group_id, response_format,
+                    policy=getattr(journal, "expected_review_policy", None), validator=response_validator)):
+            raise ValueError("simple_stage_scope_invalid")
     if focused:
         from app.modules.ai.v3.focused_stage_guard import focused_stage_allowed
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -159,7 +169,7 @@ async def stage_once(
         )
 
         kind = response_contract(response_format) if response_format is not None else None
-        if (response_format is not None and (focused or kind in {"practical_option_predicates", "batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read", "practical_arbitration", "practical_question_context", "practical_curriculum", "practical_curriculum_bank", "practical_source_core", "practical_source_core_editor", "practical_editorial_review", "practical_editorial_revision", "practical_editorial_verification", "practical_source_semantics", "practical_source_semantics_verification", "practical_source_completeness", "practical_compact_editorial_review", "practical_compact_editorial_verification", "practical_rule_editorial_review", "practical_rule_editorial_verification"}
+        if (response_format is not None and (focused or simple or kind in {"practical_option_predicates", "batch_review_buckets", "diversity_author", "practical_course", "practical_review", "practical_patch", "practical_source_audit", "practical_source_read", "practical_arbitration", "practical_question_context", "practical_curriculum", "practical_curriculum_bank", "practical_source_core", "practical_source_core_editor", "practical_editorial_review", "practical_editorial_revision", "practical_editorial_verification", "practical_source_semantics", "practical_source_semantics_verification", "practical_source_completeness", "practical_compact_editorial_review", "practical_compact_editorial_verification", "practical_rule_editorial_review", "practical_rule_editorial_verification"}
                 or kind is not None and kind.startswith("aux:"))):
             valid = matches_response_contract(value, response_format)
             if not valid and response_validator is not None and stage == 'review':
@@ -266,7 +276,7 @@ async def stage_once(
                 is_source_semantics_format,
                 is_source_semantics_verification_format,
             )
-            practical = focused or (
+            practical = focused or simple or (
                 stage == "review" and group_id.startswith("practical:review:option-predicates:v33:") and is_option_predicates_format(response_format)
                 or stage == "review" and group_id.startswith(("practical:editorial:review:v33:", "practical:editorial:review:v34:")) and is_compact_editorial_review_format(response_format)
                 or stage == "review" and group_id.startswith(("practical:editorial:verify:v33:", "practical:editorial:verify:v34:")) and is_compact_editorial_verification_format(response_format)

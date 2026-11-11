@@ -207,7 +207,8 @@ class ManagedLunaClient:
                 from app.modules.ai.v3.response_contracts import matches_transport_contract
                 category = "structured_shape"
                 from app.modules.ai.v3.practical_contract import is_practical_course_format
-                if is_practical_course_format(requested["response_format"]):
+                from app.modules.ai.v3.simple_course_editor import is_simple_editor_format
+                if is_practical_course_format(requested["response_format"]) or is_simple_editor_format(requested["response_format"]):
                     if contains_credential(message["content"], self._token):
                         raise ValueError("managed_luna_structured_shape_invalid")
                     from app.modules.ai.v3.practical_author_transport import normalize_practical_author

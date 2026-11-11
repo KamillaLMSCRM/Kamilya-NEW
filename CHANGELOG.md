@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.91] - 2026-11-11
+
+### Changed
+
+- New-course generation uses a separate direct-source author, one source-to-course curriculum review and an addressed editor. Preserve the approved document hierarchy rather than replacing it with a model-authored summary or invoking legacy semantic repair cascades. Existing jobs keep their recorded policies and checkpoints.
+- The editorial brief covers operative actions and their scopes, question keys and guessing cues, exact instructional image markers and genuinely undecidable source questions. Retain approved source decisions and untouched good content; keep actual changed paths and the review separately from human approval.
+- Use the ordinary journal and draft persistence, preserving original/normalized response custody, approved source spans and reviewed option order. Do not borrow the separate correction-tool prompt-size cap as a generation provenance limit or turn distant selected spans into one fabricated question quote.
+
+### Verification boundary
+
+- Local three-document component runs and retained-response editing are documented in `docs/testing/2026-11-11-simple-course-editor.md`. Full ordinary DEV-worker, paid DeepSeek and production acceptance are separate gates. Local substantive acceptance is not a deployment claim.
+- No migration, customer-course mutation, provider-routing/plan change or production frontend deployment is part of this source change. Structural and ownership validation remains; a model-authored editorial result does not grant publication approval.
+
 ## [0.11.90] - 2026-11-11
 
 ### Fixed

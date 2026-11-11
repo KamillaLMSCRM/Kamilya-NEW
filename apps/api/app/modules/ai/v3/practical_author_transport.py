@@ -19,8 +19,11 @@ VERSION = "practical-author-null-extras-v1"
 
 
 def is_practical_author_stage(stage: Any, group: Any) -> bool:
+    if stage == 'repair' and type(group) is str and re.fullmatch(
+            r'practical:simple:editor:v1:[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return True
     return stage == 'lesson' and type(group) is str and re.fullmatch(
-        r'practical:(?:author:(?:v1|editorial:v31|editorial:v33)|focused:author:v36:[0-9a-f]{64})(?::output=[1-9][0-9]*)?',
+        r'practical:(?:author:(?:v1|editorial:v31|editorial:v33)|focused:author:v36:[0-9a-f]{64}|simple:author:v1:[0-9a-f]{64})(?::output=[1-9][0-9]*)?',
         group,
     ) is not None
 
@@ -90,7 +93,9 @@ def _normalize(value: Any, schema: dict[str, Any], path: str, removed: list[str]
 
 
 def normalize_practical_author(raw_text: str, response_format: Any) -> PracticalAuthorArtifact:
-    if type(raw_text) is not str or not is_practical_course_format(response_format):
+    from app.modules.ai.v3.simple_course_editor import is_simple_editor_format, matches_simple_editor
+    simple_editor = is_simple_editor_format(response_format)
+    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor):
         raise ValueError("practical_author_transport_format_invalid")
     try:
         parsed = json.loads(raw_text, object_pairs_hook=_pairs, parse_constant=_constant, parse_float=_finite_float)
@@ -98,7 +103,8 @@ def normalize_practical_author(raw_text: str, response_format: Any) -> Practical
             raise ValueError("practical_author_transport_not_object")
         removed: list[str] = []
         normalized = _normalize(parsed, response_format["json_schema"]["schema"], "", removed)
-        if not matches_practical_course_response(normalized, response_format):
+        if not (matches_simple_editor(normalized, response_format) if simple_editor
+                else matches_practical_course_response(normalized, response_format)):
             raise ValueError("practical_author_transport_invalid")
         text = json.dumps(normalized, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
         raw_sha = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()

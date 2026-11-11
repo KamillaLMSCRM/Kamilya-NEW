@@ -70,10 +70,20 @@ from app.modules.ai.v3.practical_source_semantics import (
     matches_source_semantics,
     matches_source_semantics_verification,
 )
+from app.modules.ai.v3.simple_course_editor import (
+    is_simple_editor_format,
+    is_simple_review_format,
+    matches_simple_editor,
+    matches_simple_review,
+)
 from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_typed_review_response
 
 
 def response_contract(value: object) -> str | None:
+    if is_simple_editor_format(value):
+        return "simple_course_editor"
+    if is_simple_review_format(value):
+        return "simple_course_review"
     if is_action_object_graph_format(value):
         return "practical_action_object_graph"
     if is_question_editor_format(value):
@@ -159,6 +169,10 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "simple_course_editor":
+        return matches_simple_editor(value, response_format)
+    if kind == "simple_course_review":
+        return matches_simple_review(value, response_format)
     if kind == "practical_action_object_graph":
         return matches_action_object_graph(value, response_format)
     if kind == "practical_question_editor":

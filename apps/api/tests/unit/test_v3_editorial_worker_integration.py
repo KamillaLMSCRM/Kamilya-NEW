@@ -29,8 +29,8 @@ from app.modules.ai.v3.revision_policy import (
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EDITORIAL_QA_KEY,
     EDITORIAL_QA_MARKER,
-    FOCUSED_EDITORIAL_REVIEW_POLICY,
     SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
+    SIMPLE_COURSE_REVIEW_POLICY,
     editorial_qa_worker_valid,
     is_practical_policy,
     read_review_policy,
@@ -156,9 +156,9 @@ async def test_editorial_dispatch_progress_accepts_whole_course_repair(case, mon
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('tenant,environment,destination,expected', [
-    (QA_TENANT, 'render-development', None, FOCUSED_EDITORIAL_REVIEW_POLICY),
+    (QA_TENANT, 'render-development', None, SIMPLE_COURSE_REVIEW_POLICY),
     (QA_TENANT, 'production', None, SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY),
-    (uuid4(), 'render-development', None, FOCUSED_EDITORIAL_REVIEW_POLICY),
+    (uuid4(), 'render-development', None, SIMPLE_COURSE_REVIEW_POLICY),
 ])
 async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, tenant, environment, destination, expected):
     request = AIGenerateRequest(documents=[uuid4()], course_id=destination)
@@ -185,8 +185,8 @@ async def test_ordinary_admission_stamps_only_server_selected_qa(monkeypatch, te
         await router.generate_course(request, db=_lenient_db(), user=SimpleNamespace(id=uuid4(), tenant_id=tenant))
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored['v3_review_policy'] == expected
-    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == FOCUSED_EDITORIAL_REVIEW_POLICY else None)
-    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_EXTENDED_MARKER if tenant != QA_TENANT and expected == FOCUSED_EDITORIAL_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_QA_KEY) == (EDITORIAL_QA_MARKER if tenant == QA_TENANT and expected == SIMPLE_COURSE_REVIEW_POLICY else None)
+    assert stored.get(EDITORIAL_ORDINARY_KEY) == (EDITORIAL_ORDINARY_EXTENDED_MARKER if tenant != QA_TENANT and expected == SIMPLE_COURSE_REVIEW_POLICY else None)
 
 
 @pytest.mark.asyncio
