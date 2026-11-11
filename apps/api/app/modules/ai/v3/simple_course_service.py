@@ -38,7 +38,27 @@ from app.modules.courses.draft_review import DRAFT_REVIEW_VERSION
 
 def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, validator: Any) -> bool:
     from app.modules.ai.v3.response_contracts import response_contract
-    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY
+    from app.modules.ai.v3.revision_policy import (
+        SIMPLE_COURSE_REVIEW_POLICY,
+        SIMPLE_COURSE_REVIEW_V2_POLICY,
+        SIMPLE_COURSE_REVIEW_V3_POLICY,
+    )
+
+    if policy == SIMPLE_COURSE_REVIEW_V3_POLICY:
+        if type(group) is not str or not callable(validator):
+            return False
+        match_v3 = re.fullmatch(r'practical:simple:(plan|author-batch|editor-batch):v3:([0-9a-f]{64})(?::unit=([0-9a-f]{64}))?:output=[1-9][0-9]*', group)
+        if not match_v3:
+            return False
+        expected_v3 = {'plan': ('review', 'simple_source_unit_plan'),
+                       'author-batch': ('lesson', 'practical_course'),
+                       'editor-batch': ('repair', 'simple_course_editor')}
+        if (stage, response_contract(fmt)) != expected_v3[match_v3[1]]:
+            return False
+        if (match_v3[1] == 'plan') != (match_v3[3] is None):
+            return False
+        return (match_v3[1] == 'author-batch'
+                or fmt['json_schema']['schema']['properties']['source_fingerprint']['enum'] == [match_v3[2]])
 
     versions = {SIMPLE_COURSE_REVIEW_POLICY: 'v1', SIMPLE_COURSE_REVIEW_V2_POLICY: 'v2'}
     if type(group) is not str or type(policy) is not str or policy not in versions or not callable(validator):
@@ -101,11 +121,15 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
                             packet: PracticalSourcePacket, source_sha256: str, *,
                             review_policy: str | None = None) -> GenerationArtifacts:
     """Pin proposed references to owned source spans, without semantic certification."""
-    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY
+    from app.modules.ai.v3.revision_policy import (
+        SIMPLE_COURSE_REVIEW_POLICY,
+        SIMPLE_COURSE_REVIEW_V2_POLICY,
+        SIMPLE_COURSE_REVIEW_V3_POLICY,
+    )
 
     if review_policy is None:
         review_policy = SIMPLE_COURSE_REVIEW_POLICY
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY}:
         raise ValueError('simple_materialization_policy_invalid')
 
     _source_context(packet, corpus, {})
@@ -210,10 +234,14 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
     direct_client: Any = None, direct_max_output_tokens: int,
     cancellation_callback: Any = None, progress_callback: Any = None,
     review_policy: str | None = None) -> GenerationArtifacts:
-    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY
+    from app.modules.ai.v3.revision_policy import (
+        SIMPLE_COURSE_REVIEW_POLICY,
+        SIMPLE_COURSE_REVIEW_V2_POLICY,
+        SIMPLE_COURSE_REVIEW_V3_POLICY,
+    )
 
     review_policy = SIMPLE_COURSE_REVIEW_POLICY if review_policy is None else review_policy
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY}:
         raise ValueError('simple_service_policy_invalid')
     total = 5 if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY else 3
     packet = build_practical_source_packet(corpus, reference_decisions)
@@ -247,7 +275,11 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             await progress_callback('realization', completed, total, None, 1)
         return value
 
-    if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY:
+    if review_policy == SIMPLE_COURSE_REVIEW_V3_POLICY:
+        from app.modules.ai.v3.simple_course_editor_v3 import run_simple_course_editor_v3
+
+        result = await run_simple_course_editor_v3(packet, corpus, intent, stage, reference_decisions=reference_decisions)
+    elif review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY:
         from app.modules.ai.v3.simple_course_editor_v2 import run_simple_course_editor_v2
 
         result = await run_simple_course_editor_v2(packet, corpus, intent, stage)

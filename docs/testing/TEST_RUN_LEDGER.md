@@ -1,3 +1,20 @@
+## RUN-20261111-SOURCE-UNIT93-LOCAL
+
+-30focused tests PASS1.52s; pure source-unit actual ManagedLuna.prepare/shipped
+ producer checked with synthetic key before credential/network. No native route
+ change or production write. Baseline1004/2174PASS from assigned module check.
+- Literal standardsII unit author34.0s12549in1680out/1L4Q; four cards accepted,
+ practical handover reference incomplete. Ordinary editor, no error hints,
+ 40.406s14054in1986out; dependencies expanded; IDs/keys retained; independent
+ complete selected-unit QA/adjudication LOCAL_UNIT_PASS. Exact H9/unit-controls-04/05.
+ Two calls26603input3666output, modeltime74.406s; managed monetary cost UNKNOWN.
+- Scope controls detected missing territory, positive no false finding; PDF
+ question review had no established wrong key. Extended prose hypothesis failed
+ preventive duty and is rejected. H9 immutable10control/6call inventory166425in
+ 21606out includes failures; premodel unit01–03 are0calls. No speculative finding
+ converted into extra inference. Automatic split/assembled3fullDEV/DeepSeek/
+ release/live remain OPEN; this is one manually selected unit, not full acceptance.
+
 ## RUN-20261110-NAVIGATION-UPGRADE-AND-ENGINE89-LOCAL
 
 - Owner requested current CodeGraph/Graphify. Official stable registries/releases checked: CodeGraph1.6.2 (npm/GitHub), graphifyy0.9.105 (PyPI/GitHub). Checkout-local installations only; npm signatures/attestations PASS (2packages), Graphify pip check PASS. Shared pipx and other projects untouched. 14 wrapper/exclusion/freshness tests PASS. Current source-bound preparation and independent read-only gate READY; CodeGraph2514files, Graphify30145nodes/91595edges/2561source files; excluded-path audit PASS and graph preparation0LLM tokens. Sources2596files; receipt `.release-evidence/navigation/receipt.json`. Actual Graphify EXTRACTED path run_focused_cycle→run_source_editor agrees with current source; bounded CodeGraph callers confirm practical_service and four test modules. Static graph edges remain navigation candidates, not runtime truth. Versions/runbook/default local Python and mandatory content-hash freshness protocol updated; no watcher/global hooks/provider changes.
@@ -6934,3 +6951,13 @@ LOCAL only; no business writes/provider change/deploy. Exact mechanism/results i
 Owned five-phase + producer/negative/source/policy/cold replay and scopes/retention72PASS3.00s, baseline1004/2174PASS. Full prior7956PASS1skip7warnings83.76s predates latestfive-role/Fdelta; newfullsuite+navigationrunning. F firstfixtureusedwrongdiagnosticspath (notproductRED), correctedactualseam1FAIL1PASS confirmslostUNDECIDABLE, then27seam/servicePASS plus5stale/foreign/changed-questionnegatives. H8runner final console's calls4 includes1cache; result.json model_calls3/freshusage authoritative. DEV91/native3oldcourses remain nonsemanticGO; threefreshDEV92 notrun.
 
 Final LOCAL source freeze: full7977PASS1skip7warnings91.74s, mandatorycritical63PASS8.09s, H8full4L15Q independentGO; Fconsumer independentlyaccepted. NavigationREADY source32776a31eeed93111eb4a810ea72f438ad533ab2969fe977ac814a9141f5d697, CodeGraph2528files, Graphify34817nodes116597edges2566files, exclusionsPASS0LLM, build153.091sGraphify/11.228sCodeGraph. No native92/prodacceptance implied.
+
+
+## 2026-11-11 LOCAL93 typed-origin cash control
+
+H10/retained-course04/b, exact same retained6L18Q draft and automatic10topic plan; approved native manifest parity PASS. One fresh ordinaryeditor gpt-6-luna/HIGH44038IN7712OUT142.562s→10L30Q/10originalimage markers once; independent fullcontent GO, image pixels not reviewed. Source/customer writes0. Prior source-first control NO_GO and read-onlycritic0findings retained. Final nativeDEV/prod gates OPEN.
+
+
+### Final frozen LOCAL93 checks — 11.11
+
+Full API8060PASS/1skip7warnings86.57s; required critical journey29selectors→79PASS8.89s (database gate deferred to approvedDEV). Baseline1004/2174PASS; diffcheckPASS. CodeGraph2538files/Graphify34942nodes117404edges2576sourcefiles/exclusionPASS,read-onlyREADY sourceb09bf586e4ec6b5ade45105e334835ba4330ed46f6327539e7cb4d4af41ab0b2. Typed-origin actual owned seam covered by existing parametrized mainselector. No new model calls. NativeDEV/prod not accepted.

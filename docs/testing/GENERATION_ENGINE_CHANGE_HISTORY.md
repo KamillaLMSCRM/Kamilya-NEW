@@ -39,6 +39,140 @@
 | [Handoff](../CODEX_HANDOFF.md) | Точка продолжения, незавершённые действия | Неизменяемую истину всех старых абзацев |
 | CodeGraph / Graphify | Кандидаты связей и путь к исходникам | Семантическую полноту курса, отсутствие дефекта, runtime-переключение |
 
+### CHG-L93I — фактический LOCAL итог, 11.11
+
+Нативный approved cash manifest получен SELECT-only restrictedlms_app: approval97abc070-40b1-4136-9dd8-ba65e54a616f, manifestSHA0a1b5b3f65be04a1e94df1d76639585e1365c9a49fbc3d9d364e182ddba0f6ec. Packetef7a5425/working3c73b32e unchanged;91blocks/264typedsegments concatenate exactly. Full record/receipt native-origin-parity-cash.json, no source/customer mutation.
+
+| Run ID | Тип / модель | Fresh IN/OUT; time | Результат |
+|---|---|---|---|
+| H10-retained-course03/b | source-first retained editor;gpt-6-luna/HIGH |37476/7895;146.547s|NO_GO: unsupported imperative retained. Additional fiscal option claim subsequently WITHDRAWN as non-exhaustive, not another defect.|
+| H10-blind-editorial-qa/b | extra read-only critic hypothesis;gpt-6-luna/HIGH |43968/1459|REJECTED:0findings on known wrong imperative; NOT integrated.|
+| H10-retained-course04/b | typed-native-origin retained editor;gpt-6-luna/HIGH |44038/7712;142.562s|Independent LOCAL content GO10L30Q/10originalimages once; accountant field now descriptive, not prescribed. No error hints/manual edits.|
+
+Same6L author and10topic automatic plan supplied from saved responses, NOT native checkpoint cache/replay or fresh complete generation. One positive outcome supports testing inDEV, not a causal guarantee or stable semantic detector. Image pixel/render proof,3freshnativecourses/provider/release gates remain OPEN. H10/origin-cash-full-quality-review.md and document-run-inventory-local93-final.json preserve exact artifact hashes/actual usage/UNKNOWN monetary cost and build. Old failed author6L18Q and earlier editor failures are not relabeled GO.
+
+## Реестр обработок документов по модели и версии
+
+**Обязателен с 11.11.2026 для каждого инженерного прогона.** До вызова сохраняется
+intent/run ID; после ответа — фактические stage/model/usage/output receipts; после
+QA — отдельный смысловой вердикт и связь с предыдущим run на той же редакции.
+Failed/unknown/partial/cached попытки остаются. Первая генерация, обработка
+сохранённого курса, только review, адресная правка, extraction и replay — разные
+типы; их время/токены нельзя смешивать в стоимость одного нового курса.
+
+Поля полного record: document ID/revision/working SHA и packet fingerprint,
+engine version/commit либо LOCAL snapshot, policy/prompt/request hash, выбранная
+и фактически сообщённая модель, reasoning, provider system/build fingerprint
+при наличии, run/parent/stage IDs, fresh/cache/replay, время, IN/OUT/cached tokens,
+денежный расход либо UNKNOWN, output/course hashes, число уроков/вопросов/картинок,
+ошибки и независимое QA. Идентичность source packet и SHA рабочей редакции — разные
+поля. Смена входной редакции отмечается отдельно от изменения движка. Название
+модели-алиаса не доказывает неизменность скрытой provider build; недоступный build
+ID остаётся UNKNOWN. Не записывать source/OCR, credentials и персональные примеры.
+
+### Снимок доступных прогонов 11.11 — 18 записей
+
+Это **ограниченная восстановленная выборка**, не полный реестр всех прогонов за
+месяц и не все557commits. Детали40наблюдаемых стадий, hashes файлов и причины
+отсутствующих полей: [исходный снимок](../../.release-evidence/simple-course-restoration-blind-20261111/document-run-inventory.json),
+[расширенные метрики](../../.release-evidence/simple-course-restoration-blind-20261111/document-run-inventory-enriched.json).
+Первый снимок сохраняет PDF92 PENDING на момент сборки; ниже завершение транспорта
+PDF уточнено отдельно, смысловой QA ещё не объявлен успешным. Кэш не новый расход.
+
+| Run ID | Документ | Движок / commit | Фактическая модель / reasoning | Тип | Свежие + кэш | Токены IN/OUT, свежие | Время; результат | Смысловой итог |
+|---|---|---|---|---|---:|---:|---|---|
+| isolated91-cash | касса | LOCAL isolated91 | gpt-6-luna / high | isolated review | 1+0 |31926/2738|55.0с;8L28Q|UNKNOWN|
+| isolated91-pdf | ДИ из PDF | LOCAL isolated91 | gpt-6-luna / high | isolated review |1+0|33706/1123|24.9с;8L24Q|UNKNOWN|
+| isolated91-standards | стандарты26 | LOCAL isolated91 | gpt-6-luna / high | isolated review |1+0|17752/2710|54.6с;4L15Q|UNKNOWN|
+| H3-cash | касса | LOCAL92 H3 |gpt-6-luna / high|retained edit|3+0|100620/9754|190.3с;8L28Q|FAIL: добавлена неподтверждённая обязанность|
+| H3-pdf | ДИ из PDF |LOCAL92 H3|gpt-6-luna / high|retained edit|3+0|112021/11087|214.6с;8L24Q|FAIL: пропуск/новое усиление ответа|
+| H3-standards |стандарты26|LOCAL92 H3|gpt-6-luna / high|retained edit|3+0|54663/6458|132.5с;4L15Q|LOCAL GO|
+| H4-pdf |ДИ из PDF|LOCAL92 H4|gpt-6-luna / high|failed worksheet|1+0|34053/12608|UNKNOWN; курс не принят|FAIL shape и смысл|
+| H5-cash |касса|LOCAL92 H5|gpt-6-luna / high|retained edit|3+0|110718/11745|225.9с;8L28Q|FAIL: обязанность из образца пропущена ревью|
+| H5-pdf |ДИ из PDF|LOCAL92 H5|gpt-6-luna / high|retained edit|3+0|134323/13543|257.6с;8L24Q|LOCAL GO|
+| H5-standards |стандарты26|LOCAL92 H5|gpt-6-luna / high|retained edit|3+0|58107/7614|151.2с;4L15Q|FAIL: не замечено условие места|
+| H6-cash |касса|LOCAL92 H6|gpt-6-luna / high|example guide control|2+1|78646/10379|196.3с;8L28Q|FAIL; guide удалён|
+| H7-cash |касса|LOCAL92 H7|gpt-6-luna / high|addressed edit; supplied QA|1+1|38616/7435|139.3с;8L28Q|LOCAL GO, не blind discovery|
+| H8-retained-standards |стандарты26|LOCAL92 H8|gpt-6-luna / high|retained five-role edit|3+1|68530/11184|215.5с;4L15Q|LOCAL GO; обнаружил explanation reviewer|
+| native91-standards |стандарты26|b71b89f6|gpt-6-luna / high|fresh DEV course|3+0|53970/11127|346.4с;4L15Q|FAIL: условие места|
+| native91-pdf |ДИ из PDF|b71b89f6|gpt-6-luna / high|fresh DEV course|3+0|109164/16701|445.1с;8L24Q|FAIL: предотвращение конфликта|
+| native91-cash |касса|b71b89f6|gpt-6-luna / high|fresh DEV course|3+0|101083/15979|435.2с;8L28Q/10images|Контент пригоден; source-review дефект истории|
+| native92-standards |стандарты26|20a5d281|UNKNOWN¹|fresh DEV course|ожидает checkpoint|UNKNOWN|487.6с;4L15Q|FAIL: «рядом» не задаёт границу территории|
+| native92-pdf |ДИ из PDF|20a5d281|UNKNOWN¹|fresh DEV course|ожидает checkpoint|UNKNOWN|699.5с;9L30Q|Транспорт completed; смысловой QA pending|
+
+¹ В DEV92 выбрана Luna6/HIGH; фактическую модель и полный per-stage расход
+заполнить по прямому checkpoint/usage readback, не по настройке маршрута. Денежная
+стоимость managed Luna для этих прогонов UNKNOWN; её не выводят из API-тарифа.
+L/Q у isolated/retained — размер переданного/исправленного курса, не новая генерация.
+
+**Наблюдаемая динамика, без причинной подмены:** на стандартах H3/H8 исправляли
+сохранённый пример, но H5 и свежий DEV92 снова пропустили условие. Поэтому
+«локальный пример исправлен» не равно улучшению новой генерации. На ДИ H3/H4
+не прошли, H5 восстановил обязанность; свежий92 проверяется целиком. На кассе
+H6 не помог обнаружению, H7 подтвердил только адресное исправление. Это разные
+результаты, а не одна общая зелёная оценка последней версии.
+
+Сравнения дополняются по тому же run ID; новый прогон получает новый ID и parent,
+старый не переписывается. Для будущих моделей/версий действует тот же контракт.
+
+### Обновление native92 после прямого readback и QA — 11.11
+
+Оригинальный pending/UNKNOWN снимок выше сохранён в evidence; это дополнение,
+а не замена неудачи успехом. Оба job завершились без ручной правки курсов.
+Прямой SELECT-only readback ограниченной роли `lms_app` подтвердил модель,
+HIGH route fingerprint, пять отдельных стадий и JSONB custody:
+[checkpoint receipt](../../.release-evidence/simple-course-restoration-blind-20261111/checkpoint-read92.executed.json).
+
+| Run | Модель фактически | Fresh calls | IN/OUT | Время | Последующий полный QA |
+|---|---|---:|---:|---:|---|
+| native92-standards |gpt-6-luna/HIGH|5|96239/16104|487.625с|FAIL: условие территории не задано; [полный review](../../.release-evidence/simple-course-restoration-blind-20261111/native-dev92-standards/independent-quality-review.md)|
+| native92-pdf |gpt-6-luna/HIGH|5|210439/27935|699.5с|FAIL: не раскрыта превентивная обязанность; претензия к distractor о ставке позднее ОТОЗВАНА как недоказанная; [review с сохранённой первой оценкой и adjudication](../../.release-evidence/simple-course-restoration-blind-20261111/native-dev92-pdf/independent-quality-review.md)|
+
+По сравнению с native91 на той же редакции standards вход вырос53970→96239,
+время346.4→487.6с, но ошибка условия снова осталась. PDF вход109164→210439,
+время445.1→699.5с; уроков/вопросов стало8/24→9/30, права и ответственность
+дополнены моделью, но существенный пропуск сохранился. **Увеличение числа стадий
+само по себе не подтвердило улучшение качества.** Третий fresh92 не запущен
+после общего провала; существующий PDF завершён, ничего не отменялось наугад.
+
+В PDF QA была также первоначальная претензия к дополнительной проверке; после
+сверки §3.1.4 и формулировки «в установленном порядке» она снижена до advisory.
+Это исправление оценки аудитора, не установленный третий дефект движка.
+
+### CHG-DOC02 — 11.11: обязательный реестр document/model/version runs
+
+- По указанию владельца добавлены18доступных инженерных прогонов/40наблюдаемых
+  стадий, исходный immutable snapshot, расширенные метрики и прямой native92
+  readback. AGENTS/PROJECT-CONTEXT закрепляют intent-before-call и результат
+  после ответа/QA, разделение fresh/cache/replay и поколения/edit/review/extraction.
+- Показаны неудачи и возврат ошибок после локальногоGO; отсутствие provider build
+  ID/цены/старого snapshot не заменяется предположением. Новый запуск должен
+  появиться здесь до inference, затем дополниться фактической моделью/расходом/
+  результатом. Более ранние недели ещё не восстановлены покомпонентно;557Git
+  commits — другая инвентаризация, не557генераций.
+
+### Следующий ограниченный контроль, ещё НЕ результат
+
+| Run ID | Документ / вход | Движок | План / модель | Статус |
+|---|---|---|---|---|
+| scope93-standards-negative-01 | свежий сохранённый native92 standards; workingSHA8febe470…; полный банк без key/body/explanations | LOCAL93A, base20a5d281; новый custody envelope над прежним v16 reader | 1fresh actualgpt-6-luna/HIGH;19444in3798out74.328s; noauthor/editor/targethints | LOCAL обнаружение: q3-2 DEPENDS/FOUND с альтернативной внешней процедурой;14peerquestions не flagged;0sourcequestions. Не freshcourseGO |
+| scope93-standards-positive-01 | тот же saved bank, только синтетическая замена недостаточного места на явное inside-settlement условие; не правка native курса | тот же LOCAL93A/runtime snapshot | 1fresh Luna6/HIGH;19452in3432out;67.25s | PASS контроль:0proposals/15UNIQUE, нет ложного DEPENDS; H9/controls-positive/d/result.json |
+| scope93-pdf-negative-01 | полный saved bank свежего native92 PDF; workingSHAea0b2408…; без key/body/explanations | тот же LOCAL93A/runtime snapshot | 1fresh Luna6/HIGH;48819in5362out;101.438s |30UNIQUE/0question-proposals;1source-question о приоритете начальников не требуется для реальных карточек; прежняя претензия к rate option ОТОЗВАНА как недоказанная; H9/pdf-rate-source-adjudication.md |
+| prose93-pdf-negative-01 | полные9текстов fresh92 PDF, без тестов/ключей; тот же approved workingSHAea0b2408… | LOCAL93B role candidate; прежняя editorial schema/compiler | 1fresh Luna6/HIGH;52107in5348out;101.562s | FAIL: не найден пропуск профилактики конфликта; добавления о расписании/ознакомлении не приняты как доказанные дефекты; H9/prose-controls/c/result.json; в worker не переносить |
+| prose93-pdf-positive-01 | ранее принятые8текстов H5 PDF; тот же approved source | тот же LOCAL93B role candidate |0calls/0tokens|NOT_RUN: negative не подтвердил гипотезу; дальнейший расход на эту роль отменён|
+| unit93-standards-II-01 | буквальный source block IIкатегории + его I-category reference/общий context; original workingSHA8febe470… не меняется | LOCAL93C source-view experiment, base20a5d281 | модель не вызвана;0model tokens; остановка до selected-unit/request записи при чтении provider config | PRE_MODEL_FAILED DevReleaseBlocked; не семантический результат и не неизвестный модельный ответ |
+| unit93-standards-II-02 | тот же источник/блок/роль; предыдущий model request не отправлялся | тот же LOCAL93C; immutable harness/output ID, расширенная safe диагностика |0model calls/0tokens|PRE_MODEL_FAILED: provider config GET TimeoutError;001request отсутствует|
+| unit93-standards-II-03 | тот же буквальный unit и роль; рабочая редакция не меняется | LOCAL93C; тот же approved DEV credential из уже проверенного immutable worker env, только RAM/SSH; без Render GET |0calls/0tokens|PRE_MODEL_FAILED: root передал список в helper, ожидающий packet; ValueError до001request; credential read прошёл, модель не вызывалась|
+| unit93-standards-II-04 | один буквальный II-category block +3 точных supporting blocks;5644source characters; исходная редакция неизменна, старый курс/замечания в payload не входят | LOCAL93C pure simple_source_unit module SHA842c876b…; harnessSHAa583164f…; base20a5d281 |1fresh gpt-6-luna/HIGH;12549in1680out;34.0s|4вопроса/ключи/объяснения без установленной ошибки; урок NOT_YET_ACCEPTED: не раскрыта отсылка к действиям при передаче; independent review; H9/unit-controls-04/d/result.json|
+| unit93-standards-II-05 | тот же буквальный unit + целый текущий урок/4вопроса из unit04; без списка дефектов/целей правки | LOCAL93C ordinary editor role, тот же selected-source builder/schema |1fresh gpt-6-luna/HIGH;14054in1986out;40.406s|LOCAL_UNIT_PASS после independent QA/adjudication; модель сама раскрыла зависимости;1L4Q,IDs/keys сохранены; H9/unit-controls-05/d/independent-review.md; не полный курс/DEV proof|
+
+Evidence последнего контроля: [intent](../../.release-evidence/simple-course-scope93-20261111/controls/d/intent.json),
+[result](../../.release-evidence/simple-course-scope93-20261111/controls/d/result.json),
+[8-file source snapshot](../../.release-evidence/simple-course-scope93-20261111/source-snapshot.json).
+Actual native92 metrics/model/QA в [новом неизменяемом снимке](../../.release-evidence/simple-course-restoration-blind-20261111/document-run-inventory-final-native92.json):18runs/50observedstages;
+первый pending snapshot сохранён. Изолированный LOCAL93control — девятнадцатая
+обработка, зарегистрированная отдельно до inference, без новой генерации курса.
+
 ## Подтверждённые повторения и места утраты поведения
 
 | Семейство | Прежняя реализация/наблюдение | Что произошло позже | Состояние на 11.11 |
@@ -410,6 +544,393 @@ ordinary API admission → stored review_policy → generate_v3_course_from_corp
   prompt/semantic guard/cascade/provider или клиентских изменений.
 - Отдельное замечание аудитора о guide L92D не принято: он намеренно удалён после
   отрицательного H6. Это не потерянная успешная наработка, повтор запрещён.
+
+### CHG-L93A — 11.11: вернуть DEPENDS / контрпример самого вопроса, ПРЕДЛОЖЕНО
+
+- Сверка CHG-H03/H06/H07/L92E, ENG-058 и фактических callbacks: nativeDEV92
+  standards cf2b111d завершён487.625s/4L15Q, но вопрос02e18b14 использует «рядом
+  с офисом» вместо условия одной территории; first-workday ответ зависит от
+  неуказанной границы. Author/reviews/editor завершились без proposals/changes.
+  H8retained успех не обобщился; новой приёмки нет.
+- Фактический пробел: key-blind `practical_option_predicates` доказывает один
+  compatible case, но не представляет альтернативный совместимый случай с другим
+  результатом. Старый `practical_review` уже содержит UNIQUE/DEPENDS/AMBIGUOUS/
+  UNKNOWN + typed counterexample и tested whole-bank режим v16. Это найденный
+  механизм, не новый лозунг «проверь внимательнее» и не обещание стабильности.
+- RESTORE в существующей одной question-review роли: старый whole-bank standalone
+  contract/reader/interpretation, с реально видимым quiz title, скрытыми ключами,
+  объяснениями, body и author refs. Вопрос о требуемой процедуре проверяется по
+  всем source-permitted cases, совместимым с указанными фактами. Generic/may
+  вопрос сохраняет existential semantics; не требовать универсальности от него.
+  Никаких regex для слов «рядом», названий городов или кассовых операций.
+- KEEP prose/explanation/editor, scoped merge/UNVERIFIED retention/current source/
+  approved reasons/custody. Пять ролей, без шестого критика и каскада повторов.
+  СтарыйV2 и его jobs сохраняют прежнее поведение; новый путь получает отдельную
+  V3policy/group identity. До native: exact saved negative и explicit-scope
+  positive, generic broad/narrow cash controls; сравнить обнаружение и отсутствие
+  ложных претензий. Сначала zero-inference producer/owned/cold replay proof.
+- Custody-уточнение до реализации: старый v16 echo содержит только source fingerprint
+  и IDs вопросов; сырой ответ с теми жеIDs и другой формулировкой сам по себе не
+  отличим. Thin wire envelope добавляет **только bank_fingerprint** и собственное
+  имя схемы; semantic поля/старый strict compiler не меняются. До компиляции
+  сверяется текущая visible-bank projection, envelope снимается и вызывается
+  прежний v16 interpreter. Request-hash journal остаётся обязательным. Это не
+  новая semantic эвристика; stale-bank negative обязателен до платного вызова.
+- Состояние: локальный монитор batch остановлен до cashPOST; уже запущенный
+  PDF bba11768 продолжает worker, GET-only observer26571, без повторной генерации
+  и изменения failed standards. После общего провала не отправлять третий курс
+  на том же заведомо недостаточном reader. Это гипотеза переноса до saved proof.
+
+### CHG-L93B — 11.11: контрпример к положительному покрытию уроком, ПРЕДЛОЖЕНО
+
+- Сверка CHG-H06/H07/L92B/C, ENG-041/052/058 и actual native92 PDF prose reply:
+  summary сгруппировал3.11–3.12, назвал только сообщение о конфликте и объявил
+  раздел объяснённым. Он НЕ давал отдельного вывода «устранение = предотвращение»;
+  почему пропущена самостоятельная обязанность внутри модели, UNKNOWN.
+- H4 полный worksheet уже перечислял обязанности, но ошибочно засчитал reporting
+  как обе и сломал shape; H5 один source→prose контроль находил старый пропуск,
+  но свежий92его не находит. Поэтому не возвращать worksheet/cascade и не
+  повторять общий guide. Старый compact review хранит INCOMPLETE/CONTRADICTED/
+  SUPPORTED, literal evidence; membership/evidence само по себе не entailment.
+- Ограниченная гипотеза В ТОЙ ЖЕ prose-review роли и существующей схеме:
+  для материальной положительной coverage claims искать конкретный случай,
+  когда сотрудник выполнил всё написанное в курсе, но отдельная исходная
+  обязанность/условие остались неисполненными; также проверять, допускает ли
+  курс действие, запрещённое источником. Два направления смыслового сравнения,
+  а не требование дословных слов. Источник и весь текущий текст доступны;
+  тесты/ключи не передаются. Finding содержит sourcequote/currentlessonquote/
+  конкретный контрпример в basis, адресную correction; model claim UNVERIFIED.
+- До переноса в runtime: candidate role сохраняется отдельно с hash, negative
+  полный fresh92 PDF и positive принятый H5 PDF без target hints. Один вызов на
+  контроль, без нового author/editor. Проверить также эквивалентные формулировки
+  и известные ложные coverage-претензии. Если не подтвердится — сохранить FAIL,
+  не называть новой гарантией и не повторять model на той же неизменной задаче.
+- Никакой regex для конкретного глагола/финансового документа, нового большого
+  перечня требований, шестой роли или deterministic semantic validator. СтарыйV2
+  immutable; активировать только отдельныйV3 после saved negative/positive proof.
+
+### CHG-L93C — 11.11: исходный блок → связный урок и вопросы, ПРЕДЛОЖЕННЫЙ КОНТРОЛЬ
+
+- После замечания владельца: задача вопроса к ясному блоку не требует повторного
+  разбора всего документа. Actual simple author получает весь source и свободно
+  строит уроки, затем независимый global review реконструирует их рамки. Это
+  не тождественно генерации по уже выделенным смысловым блокам.
+- Сверка CHG-H01/H03/L91/L92A/B: прежний model-authored outline уже терял
+  условия; производная карта не становится нормативным источником. Поэтому
+  в первом контроле выделить **точные оригинальные source IDs/диапазоны и
+  родительский контекст**, без пересказа/новой нормы. Original/approval не менять;
+  subset отмечен как model view с full document revision/hash, не новая
+  фиктивно согласованная редакция. Нужные отсылки остаются зависимостями.
+- Один ясный блок standards26 → один связный урок/3–4вопроса в одном author
+  запросе. Source scope передаётся вместе с блоком и сохраняется в видимом
+  названии теста; условие отдельного вопроса остаётся в его формулировке.
+  Не строить обзор всех воображаемых случаев других разделов. Проверка:
+  source fidelity, понятность, один лучший подтверждённый целиком ответ,
+  достаточный видимый контекст, ошибочное действие/ключ; не искать дефект
+  через придуманное компанией полномочие или буквальную синонимию.
+- Это проверка учебного комплекта на выделенном блоке, не готовая автоматическая
+  классификация любого документа и не три полных DEV курса. До runtime выбрать
+  корректный existing source-unit/dependency путь по доказательству; старые
+  paths/5role experiments и неудачи сохранить. Не объявлять новую формулировку
+  исправлением без model output и независимой проверки.
+- L93B negative не обнаружил preventive duty и вместо этого предложил schedule/
+  acknowledgement additions; hypothesis FAIL, positive пока NOT_RUN после
+  отрицательного результата. Не переносить этот role candidate в worker.
+- Реализация прототипа: `simple_source_unit.py` выбирает только owned literal
+  IDs, сохраняет full source fingerprint и approval, явно разделяет primary/
+  supporting. Schema повторно использует `_course_format`, без нового смыслового
+  валидатора. Unscoped reference context нельзя молча отбросить. 14focused tests
+  PASS, включая actual ManagedLuna.prepare/shipped producer с synthetic key без
+  сети. Это контрактная проверка, не доказательство качества вопросов.
+- Unit01/02 не дошли до модели из-за provider GET timeout; unit03 остановлен до
+  модели из-за ошибочного вызова helper в root harness. Все0calls сохранены
+  отдельно, не считаются итерациями генерации. Unit04 собран новым frozen
+  harness; exact реальный request/producer проверен локально **до** чтения
+  credential. Область блока вручную выбрана в эксперименте; автоматическое
+  выделение всего документа ещё не проверено.
+- Результат C на13:18UTC: unit04 author34.0s12549in1680out дал4корректных
+  вопроса, но оставил практическую отсылку без раскрытия. Unit05 ordinary editor
+  без списка ошибок сам добавил необходимые действия/условия;40.406s14054in1986out.
+  После полного independent чтения selected source/урока/4cards — LOCAL_UNIT_PASS.
+  Итого2fresh calls26603input3666output/74.406s модельного времени. Все4keys и
+  IDs сохранены; реальный diff в actual-course-comparison.json, поле changes=[]
+  в prototype harness — placeholder, не production edit receipt. За metadata
+  фиктивную неизменность не выдавать. Денежный managed расход/provider build UNKNOWN.
+- Важно для оценки: аудитор сначала распространил I-category signature branch
+  на все II-category передачи, но после сверки специального условия «при наличии
+  сомнений» отозвал это как недоказанный существенный пропуск. Первая оценка и
+  withdrawal сохранены. Дополнительного modelcall по недоказанному finding нет.
+  Не переносить максимум предположений по отсылке как универсальные обязанности.
+- H9/document-run-inventory-local93-after-unit05.json добавляет10control records/
+  6fresh calls166425input21606output, включая неудачный prose control; unit01–03
+  имеют0modelcalls и не маскируются как генерации. У unit05 итог в связанном
+  independent-review.md; immutable inventory хранит ссылку SEE_INDEPENDENT_QA.
+  Это дополнение к18recoveredruns/50stages, не восстановление всех прежних недель.
+- Root повторно проверил30focused tests PASS1.52s. Новый source-unit path пока
+  не выбран штатным worker: автоматическое разбиение/сборка и3полных DEVкурса
+  остаются отдельными gates; production90 не менялся. Текущий вывод относится
+  к пригодности простого source-unit author→editor подхода на одном ясном блоке.
+
+### CHG-L93D — 11.11: автоматический source-unit author→editor, ПРЕДЛОЖЕНО до изменений
+
+| Run intent | Input | Actual model target / reasoning | Operation and current result |
+|---|---|---|---|
+| source-unit93-plan-d | standards26 approved working source;packet9e09475c…;13nonblank blocks |gpt-6-luna/HIGH|1automatic-plan call planned; exact fixture+real prepare+producer preflight PASS; no old course/defect hints; H10/local-plan/d|
+| source-unit93-plan-c | approved PDF instruction;packet1db4da1f…;229nonblank blocks |gpt-6-luna/HIGH|1automatic-plan call planned; same assembled preflight PASS; H10/local-plan/c|
+| source-unit93-plan-b | approved cash instruction;packetef7a5425…;91nonblank blocks/10originalimages |gpt-6-luna/HIGH|1automatic-plan call planned; same assembled preflight PASS; H10/local-plan/b|
+| source-unit93-plan-r1-d | same standards revision, full literal source +owned structural labels |gpt-6-luna/HIGH|1revised automatic-plan call planned; source_structure and unambiguous reference task, no old course/defect hints; H10/local-plan-r1/d|
+| source-unit93-plan-r1-c | same approved PDF, source_structure |gpt-6-luna/HIGH|1revised automatic-plan call planned; H10/local-plan-r1/c|
+| source-unit93-plan-r1-b | same approved cash instruction/images, source_structure |gpt-6-luna/HIGH|1automatic-plan call planned; first cash plan was NOT_RUN; H10/local-plan-r1/b|
+| source-unit93-plan-r2-c | same approved PDF; literal source structure, compact required assignment vector |gpt-6-luna/HIGH|1plan call planned only after1000-block producer+prepare and current assembled3-stage tests; H10/local-plan-r2/c|
+| source-unit93-plan-r2-b | same approved cash source/images; same compact assignment vector |gpt-6-luna/HIGH|1plan call planned; no earlier cash planning inference; H10/local-plan-r2/b|
+| source-unit93-retained-plan-r3-c | exact complete saved R2PDF request/response unchanged |gpt-6-luna/HIGH prior result;0fresh calls|offline consumer normalization/revalidation; original failure/usage retained; H10/retained-plan-r3/c|
+| source-unit93-plan-r3-b | same approved cash source/images, compact vector and benign-support normalization |gpt-6-luna/HIGH|1plan planned; R2b not called because consumer normalization changed; H10/local-plan-r3/b|
+
+H10=.release-evidence/source-unit-engine93-20261111. LOCAL snapshot hashes bind
+planner/unit/orchestrator/response registry to exact each preflight request.
+Source revision/approval unchanged; no native jobs or business writes in controls.
+
+- First source-only plans: standards1call14611in792out18.047s/6units; PDF1call
+  32019in1861out/19units. Standards II unit omitted I-category procedure support
+  while keeping only table heading. This is a real dependency-selection miss,
+  not ambiguity in the original. Cash first-plan intent NOT_RUN after shared
+  flaw,0calls. No author/full course wasted on this plan.
+- Before revised planner edit: existing instruction requested only "confirmed"
+  cross-reference dependencies, so clear textual references lacked an explicit
+  task. Restore general unambiguous textual references and structural literal
+  labels/table context; selected support must include target procedure/conditions,
+  not just heading. Prefer meaningful original section boundaries; combine short
+  related sections into one practical3–4question lesson, without arbitrary count
+  or size cap. This is planner task correction, not a case-specific validator or
+  new model stage. Preserve original failed plans and compare revised snapshot.
+- Follow-up before next code change: revisedPDF plan contained23units and omitted
+  only legal-basis SRC4 from primary/non-teaching accounting; known complete
+  response saved,47379input2610output, not an unknown network outcome. Source
+  content is clear; do not treat bookkeeping omission as semantic ambiguity.
+  Revised standards5units includes actual I-procedure dependency,15630in950out.
+- Integration decision BEFORE replacement: per-unit2N role loop is technically
+  proven but can multiply protocol/context overhead on long documents. Replace
+  unreleasedV3 loop with1plan→1batch author→1batch ordinary editor. Each lesson
+  remains bound to its explicit literal primary/support selection; union source
+  sent once, no rewritten normative outline. Preserve source-unit dependency/
+  custody/provenance, editorial ambiguity retention, media/IDs, actual changes,
+  owned stage_once/cold replay. Do not invoke old3critics or regenerate good units
+  on retry. Prior per-unit prototype/tests retained as historical evidence, not
+  claimed current dispatch.
+- Planner producer contract will require a keyed assignment for EVERY source ID,
+  instead of asking the model to remember every ID in free arrays. Canonical
+  units/primary/support/non-teaching interface unchanged. This is closed JSON
+  inventory custody, not a code-based semantic judge. Missing instructional
+  meaning remains model/editor/independent QA responsibility. New full assembled
+  seam test must pass for batched3-stage path before inference/DEV.
+- Required per-source object schema was rejected locally by the unchanged512-node
+  producer guard at1000blocks. No model call. Compact fixed-length source-order
+  assignment vector passes real producer+prepare1000-block synthetic test; every
+  position has exact input identity/index, non-teaching reason explicit. Guard
+  untouched, no arbitrary source size cap or domain semantic regex. Canonical
+  plan interface unchanged. All intermediate formats are unreleased snapshots.
+- R2PDF known complete response:46615input2802output,229/229 assignments,
+  20units, no foreign/unknown/primaryless units. It was rejected solely because
+  supporting_refs repeated each unit's own primary refs. This redundancy changes
+  no source or teaching assignment; do NOT spend another model call fixing it.
+  Before correction: accept owned redundant support in wire, deterministically
+  deduplicate/remove primary refs from support on decode (primary dominates),
+  preserve exact raw/hash, retain strict canonical selection. No semantic claim
+  relaxed, no foreign refs/primary coverage omitted. Offline re-evaluate the
+  exact saved R2response through corrected consumer, not a new generation.
+- Independent integration review also separated input selection from used-source
+  provenance: candidate persists editor-proposed lesson_sources after checking
+  each against that lesson's own selected primary/support; broader selection
+  stays diagnostic scope. Model provenance is still unverified meaning, not
+  automatic evidence of semantic completeness. No source/model regeneration.
+
+- Owner explicitly requests automatic meaningful units/dependencies, lesson+cards,
+  ordinary editorial correction,3fullDEV thenproduction. Prior CHG-H01/H03/L92A/B/
+  L93A/B/C checked: lossy outline must not replace literal source; failed global
+  prose hypothesis/worksheet/cascaded critics are not restored. Accepted C unit
+  author→editor is the behavioral reference, not proof of automatic planning.
+- Keep: current approved working source and decision custody, immutable source IDs,
+  PracticalModelView, existing practical course schema, media markers, native
+  stage_once owned journal/pending recovery, tenant guards, normal persistence/
+  human approval/publication. OldV1/V2 jobs keep their frozen paths.
+- Replace for newV3 jobs only: full-document author+3critics+scoped final editor
+  with1source-unit plan selecting literal primary/supporting IDs; author then
+  ordinary editor per unit; deterministic assembly with unique lesson/question
+  IDs and actual change/provenance records. Plan wording is navigation only,
+  never a rewritten normative source. All nonempty source blocks accounted as
+  primary or explicitly reasoned non-teaching context; reusable support may recur.
+- Parent headings/table headers/confirmed cross-reference targets stay literal
+  dependencies; no hidden unsupported expansion. Course-level prior good content
+  is not reauthored on resume; completed exact stages cold-replay without new
+  inference. New policy/group/format requires full assembled native-transport
+  zero-inference coverage before any model/API run.
+- Ownership: bounded writer owns simple_source_unit_plan.py and its tests only;
+  root owns source_unit extensions, orchestration, routing/response registry,
+  transport seams, diagnostics/docs/release. Independent reviewer owns read-only
+  source/dependency/semantic assessment. Production and client courses unchanged
+  until exact DEV semantic/technical acceptance. Runtime tunables use existing
+  runtime_settings mechanism; no new paid capacity/provider/billing settings.
+- Saved proof: standards missing-location, PDF preventive-duty omission, cash
+  obsolete history/example-duty/broad-option cases; unit04/05 exact accepted
+  learning unit. New3fullcourses only after local assembled-path and saved source
+  plan/unit results. Register every document/model/version run before inference.
+
+### CHG-L93E — 11.11: план навигации не становится запретом чтения исходника, ПРЕДЛОЖЕНО
+
+| Run intent | Source/model | Planned check |
+|---|---|---|
+| source-unit93-course-b | approved cash packetef7a5425… +retained automatic10-unit plan fromR3;gpt-6-luna/HIGH |2fresh calls author+ordinary editor, no old course or known-error hints; full literal source once, proposed map revisable; H10/local-course/b. Real producer/prepare+whole-controller synthetic preflight PASS before credential. First plan supplied from saved model result, NOT native checkpoint/cache proof.|
+
+- Review found cash client-RKO unit lacks the common RKO paragraph in proposed
+  support; mixed source block also contains client-PKO image and RKO material.
+  All literal source is owned/present, but hard per-unit ref allowance prevents
+  author/editor using a legitimate common rule from another proposed unit.
+  This is the same conceptual error as treating a derived plan as normative truth.
+- Keep automatic literal topic plan as guidance, source inventory and primary
+  topic identity. Send complete approved literal source ONCE per batch. Permit
+  author/editor to add needed owned supporting context, using full current source
+  and actual proposed lesson_sources; do not constrain semantic references to
+  imperfect model-proposed support edges. Foreign tenant/document/revision refs
+  remain rejected. Question correctness/primary-topic faithfulness stay model and
+  independent QA tasks, not inferred from a reference subset.
+- Ordinary whole-course editor may relocate an original illustration to its
+  correct lesson. Keep source-owned image addresses and course-wide preservation;
+  per-lesson image-lock would block repair of a mixed-boundary association.
+  Preserve lesson/question identities and actual change/provenance receipts.
+- Before new DEV runs: real assembled3-stage regression for common rule reused
+  across units, foreign-source negative and legitimate image relocation versus
+  image drop/invention. Then one local cash batch author→editor using the same
+  automatic plan, without known-error hints; inspect all content/images against
+  source. No new planner critic, financial regex or repeated full planning call.
+- Final media boundary preserves authored asset identities at least once across
+  the course, validates destinations against current owned source, and permits
+  relocation/caption correction/consolidation of duplicate copies. It does not
+  assert image completeness or correct placement; independent course QA does.
+  Current actual3-stage synthetic seam13PASS includes shared common-rule source,
+  editor-proposed provenance, media relocation/drop/foreign and cold recovery.
+
+### CHG-L93F — 11.11: не приравнивать число тем плана к полноте курса, ПРЕДЛОЖЕНО
+
+| Run intent | Input/model | Planned check |
+|---|---|---|
+| source-unit93-retained-course-b | same approved cash packet, retained automatic plan +exact complete author response SHA-bound; gpt-6-luna/HIGH |1fresh ordinary editor call,0author regeneration; no known-error hints; H10/retained-course02/b. Exact real-source6L draft→editor producer/prepare preflight PASS without credentials/network. Original rejected author retained; reuse is NOT exact-request cache/native replay.|
+
+- First cash author completed one known response30896input4585output with6lessons/
+  18questions/9asset markers. The navigation plan proposed10units; consumer
+  rejected solely because lesson inventory differed. This does not demonstrate
+  missing teaching content. Do not regenerate the source/course to satisfy an
+  unverified outline count. Retain raw, usage and original failure.
+- Correct unreleased path: plan is proposed meaningful topic organization; author
+  may combine related topics into coherent lessons, preserving source meaning.
+  Editor compares complete approved source with actual draft, can add missing
+  lessons/questions while retaining existing identities and good content.
+  No automatic claim of coverage from lesson count or source-ref presence.
+  Keep3–4questions per actual lesson, source/tenant/revision ownership, valid
+  shape, actual provenance, original assets and owned recovery. Human approval
+  remains separate. This removes a false semantic gate, not integrity checks.
+- Evaluate the exact retained6-lesson draft, then send only the ordinary editor
+  role the full source/current draft/proposed topic map without defect hints.
+  One new editor call, no author regeneration or invented source correction.
+  Independent full-course/image QA determines real omissions and usability.
+
+### CHG-L93G — 11.11: источник раньше проверяемого курса, ПРОВЕРЯЕМАЯ ГИПОТЕЗА
+
+| Run intent | Input/model | Planned check |
+|---|---|---|
+| source-unit93-source-first-editor-b | same approved source +same exact6L18Q author, proposed map;gpt-6-luna/HIGH |1ordinary editor call with source before candidate;0author regeneration/known-error hints; H10/retained-course03/b; exact producer/prepare on retained draft before credentials|
+
+- Ordinary editor on retained6L18Q draft returned10L30Q, restored online-cash/
+  outage/error operations and all10unique assets,37469input7978output/1freshcall.
+  Independent QA still found example-derived accountant action and an unrelated
+  duplicate cash-book image in outage lesson. Both outputs retained NO_GO.
+- Code observation: sort_keys=True serializes current_learning_units before
+  source_blocks; previous prose roles similarly put lessons before source.
+  This is confirmed request order, NOT proven cause of semantic anchoring.
+- Before change: serialize literal source first, then current approved context/
+  proposed topic map, actual draft last. Ask the same ordinary editorial role
+  to read source before candidate. No new critic, domain rule, field validator
+  or additional runtime stage. Source/approval/reasoning unchanged.
+- Controlled retained-source test: exact original6L18Q author and same full
+  approved source, source-first editor without issue hints. One new editor call,
+  not another author or course regeneration. Compare independently with prior
+  editor output; do not call one pass proof of reliable detection. Only fresh
+  full DEV courses can establish candidate acceptance.
+
+### CHG-L93H — 11.11: отдельное редакторское чтение сохранённого результата, ПРЕДЛОЖЕННЫЙ ЭКСПЕРИМЕНТ
+
+- Source-first G returned10L30Q37476in7895out146.547s; duplicate image fixed,
+  accountant example-derived action remains and one listed-set answer omits
+  seller name. Independent full review NO_GO; source-first order is useful input
+  discipline, not proven semantic fix. Do not repeat same rewrite unchanged.
+- Recheck priorH5/H6/L92/L93B: broad prose-only reviews and generic guides failed;
+  they are not restored. Test existing typed editorial_review contract as ONE
+  read-only independent QA role on the complete final course, including keys,
+  explanations and image references, source before candidate, no issue hints.
+  Unlike full reauthoring, its only output is concrete supported findings and
+  addressable corrections. No new semantic validator or operative regex.
+- One saved-current-cash control first. If it does not find the real defects,
+  stop this role hypothesis; no unchanged retry and no integration/claim. If it
+  works, feed its own findings to the existing ordinary editor, then independent
+  content QA. Any runtime extra stage requires separate pre-entry/owned tests.
+- Separate static diagnosis: native ApprovedEditorialDocument retains validated
+  preparation (typed blocks/assets); simple projection drops origin types, while
+  literal text still labels example/OCR/non-normative description. Local fixture
+  omits full preparation, so cannot prove native metadata parity. This is a real
+  projection gap, not proof of the model's internal error cause; kind=form alone
+  is not an authority classification. H10/visual-source-provenance-review.md.
+
+| Run intent | Input/model | Planned check |
+|---|---|---|
+| source-unit93-blind-editorial-qa-b | approved cash source +complete source-first10L30Q final, no supplied issue list;gpt-6-luna/HIGH |1read-only QA call via existing editorial_review schema; no author/editor regeneration; H10/blind-editorial-qa/b; no new runtime role until saved proof|
+
+### CHG-L93I — 11.11: типизированное происхождение текста иллюстраций, ПРЕДЛОЖЕНО
+
+| Run intent | Input/model | Planned check |
+|---|---|---|
+| source-unit93-origin-editor-b | same approved cash source +same6L18Q author; exact native immutable preparation restored from restricted readonly DEV, manifest0a1b5b3f…;gpt-6-luna/HIGH |1ordinary editor call, source-first typed origin, no issue-instance hints; no author regeneration/new critic; H10/retained-course04/b; producer/prepare beforecredentials|
+
+- H blind read-only QA returned0findings despite independently demonstrated
+  accountant action/incomplete key,43968input1459output/1call. Hypothesis FAIL;
+  do not integrate that role or repeat same unchanged call. No new critic stage.
+- Static confirmed gap: native resolve_pins/DirectSourceDocument retains validated
+  ApprovedEditorialDocument.preparation with typed blocks/asset kind/OCR/description.
+  The simple projection reparses working_text and discards those types. Non-scan
+  OCR/description is appended to an existing source block. Literal example labels
+  remain visible, so cause inside model is UNKNOWN; no claim OCR was absent.
+- Before change: reuse authoritative validate_binding/PreparedSource.selected
+  and approved raw→working spans to project literal model-view segments with
+  origin document body / visual OCR / visual description / scanned-page text.
+  Concatenation must equal current owned block exactly; no source rewrite or
+  invented normative classification. Kind=form/screen is provenance, not a rule.
+  Preserve original asset identities; exclude storage_key/provider secrets.
+- NewV3 only: planner/author/editor receive typed source-origin segments, old
+  jobs retain old byte requests. No source omission or per-case financial regex.
+  Ambiguous mapping stays unclassified with a diagnostic, not falsely labelled;
+  invalid/stale preparation binding fails custody as before. No extra model role.
+- Local fixture currently reconstructs preparation=None, unlike native. First
+  read immutable approved preparation from canonical SupabaseDEV under restricted
+  lms_app READ_ONLY/tenant scope and validate exact cached revision/text binding.
+  Then test real-source parity and retained-draft editor with typed context once,
+  without manual source/course edits or known issue hints. No3freshfullcourses
+  while these saved defects are unresolved; DEV rollout and production remain open.
+- Readback narrowed to cash after bulk metadata exceeded the unchanged64KiB
+  diagnostic-output limit (plain and compressed3source bulk); no model calls or
+  business writes. One cash-only compressed READ_ONLY lms_app query succeeded,
+  approval97abc070…/working3c73b32e…/manifest0a1b5b3f…; validate_binding matches
+  exact original source,5selected parts,129prepared blocks,10assets. Private
+  manifest stored locally, storage keys never projected/printed. Receipt
+  approved-preparation-receipt-cash.json. No source or approval was changed.
+- Pure native/local parity PASS: sourcepacketef7a5425… unchanged; every segment
+  reconstructs exact working source.11275document-body chars,13247visualOCR,
+  4970visual-description,1556unclassified (including whitespace/edited ranges);
+  all10assets mapped. Types are provenance only, not normative judgments.
+- Actual3-stage synthetic segment integration/legacyV1/V2 payload checks42PASS,
+  baseline1004/2174PASS. No more source-model calls on rejected H reviewer role.
+- Re-adjudication: source-first L7Q3 material wrong-key claim WITHDRAWN; stem
+  does not demand exhaustive list and all keyed details are source-supported.
+  Adding seller name/quantity is advisory precision. Separate unsupported
+  accountant action still blocks local semantic GO. No call spent on withdrawn
+  question finding. Preserve first independent assessment and withdrawal.
 
 ### Результаты L92C–F на 11.11, перед DEV
 
@@ -1080,3 +1601,8 @@ Graphify — основной кодовый путь **и отдельная к
 Это ограничение процесса, а не обещание безошибочности модели. Непринятый L92B
 нельзя выпускать или объявлять успехом на основании зелёных structural tests.
 <!-- ENGINE_HISTORY_GRAPH_END -->
+
+
+### Final frozen LOCAL93 checks — 11.11
+
+Full API8060PASS/1skip7warnings86.57s; required critical journey29selectors→79PASS8.89s (database gate deferred to approvedDEV). Baseline1004/2174PASS; diffcheckPASS. CodeGraph2538files/Graphify34942nodes117404edges2576sourcefiles/exclusionPASS,read-onlyREADY sourceb09bf586e4ec6b5ade45105e334835ba4330ed46f6327539e7cb4d4af41ab0b2. Typed-origin actual owned seam covered by existing parametrized mainselector. No new model calls. NativeDEV/prod not accepted.

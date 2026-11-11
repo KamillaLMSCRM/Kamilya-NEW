@@ -1,5 +1,19 @@
 ## ENG-058 — editorial visibility mismatch, incomplete source comparison and obsolete history
 
+- Follow-up11.11/13:18UTC: native92 standards still omitted territory and native92
+  PDF omitted prevention despite5roles; semantic NO_GO, cash not submitted.
+  Scope93 reused v16 question contract detected territory without hints and did
+  not flag its positive correction. Extended whole-prose counterexample role
+  missed prevention again; hypothesis rejected, positive not run. Do not ship it.
+- Literal unit control CHG-L93C: one source II block+3dependencies, one author
+  gave1L4correct cards; ordinary no-hints editor expanded missing practical
+  reference without new validator. Independent selected-unit QA PASS;2calls
+  26603in3666out. H9/unit-controls-04/05. Not automatic segmentation/DEV proof.
+- QA errors are separately retained: initial PDF rate overlap and alleged
+  universal II handover signature duty were withdrawn after source adjudication.
+  They must not drive unnecessary edits or become new blanket prompt rules.
+  Source ambiguity and a speculative maximal interpretation are not equivalent.
+
 - Follow-up11:25UTC, restoration CHG-L92C/D/E/F: H5PDF blind prose→scopededitor accepted; H5cash/H6exampleguide failed to discover accountant-example promotion, guide removed. H7 supplied QA→one actual editor call independently accepted8L28Q/10markers; no blind detection claim. H8standards5role retained-source control: one missing-location stem fixed by separate explanation reviewer; blind option reader did NOT flag it. Source refs/schema alone still not semantic proof. Old worksheetL92B rejected, not active.
 - Confirmed deterministic lost behavior: simple card reviewer received hidden author key/explanation/body; restored old key-blind primitive plus separate explanation role, actual5stage owned/cold replay PASS. Independent audit found UNDECIDABLE only nested diagnostic; actual seam RED0issues expected1, fixed materializer to preserve source/draft-bound question-specific ordinary editorial issue, not source ambiguity. 72focusedPASS/baseline1004/2174PASS, current fullsuite pending. All saved negatives retained; native92/release not accepted yet.
 
@@ -1475,3 +1489,8 @@ ENG-055 addressed path chosen by owner-delegated root decision: known observatio
 First exact91 DEV job d4bf8aaf-033e-428f-9d3b-646402a1a3b8 failed before any observed managed request (43.672s, no course). Read-only owned lms_app state has only route binding, no stage claim/result; logs expose ValueError. A local regression reproduces all3SIMPLE stages failing managed_structured_plan_invalid at the independent direct_luna_owned_stage gate, before inspection or provider preparation. Its registration had not followed the new orchestration policy. This is a deterministic integration defect, not a model-content failure. The old failed job is preserved; no resubmission or manual status change.
 
 The transport now reuses the SIMPLE stage/policy/format guard and retains exact journal, owner/schema, source/route digest and request-hash checks before existing source/claim/custody logic. Ten new zero-inference tests cover3stage_once entrypoints, all3service stages with cold replay through a mocked owned journal/provider, and6forged-plan negatives. Initial red3/3 and fixed10/10 were observed. Independent Terra source review finds no material issue; native DB/provider proof remains open until a new exact-SHA DEV rollout. No production mutation or paid model call.
+
+
+## LOCAL93 provenance control — 2026-11-11
+
+Simple projection previously flattened native document body and visual-example OCR/description. Typed origin now preserves exact literal source and labels without assigning new duties. Retained-course04 cash ordinary editor independently LOCAL GO10L30Q/10images; earlier source-first control and extra critic failed. CHG-L93I/evidence H10. No claim of proven model-internal cause or fresh DEV acceptance.

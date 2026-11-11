@@ -15,6 +15,9 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_v3_owned_assembly_and_cold_replay",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_v3_owned_plan_rejects_forgery_before_provider",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_unit_editor_preserves_existing_image_and_rejects_drop_or_foreign_addition",
         "apps/api/tests/unit/test_ai_router_admission.py::test_full_tenant_queue_maps_submission_limit_to_http_429",
         "apps/api/tests/unit/test_v3_simple_course_editor_v2.py::test_five_roles_have_isolated_payloads_and_current_approved_meaning",
         "apps/api/tests/unit/test_v3_simple_course_editor_v2.py::test_independent_solver_does_not_receive_author_key_explanation_or_body",
@@ -50,6 +53,7 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "invariants": [
+        "New literal source-unit jobs account for the complete approved source, include needed literal dependencies, and replay completed plan/author/editor stages without duplicate provider calls; grouping is not semantic certification.",
         "Every admitted engine stage traverses its real owned transport registration and completed-response replay before paid or managed full-course acceptance; isolated orchestration tests cannot substitute for this seam.",
         "Embedding source revision is derived from the original document content SHA-256.",
         "Only the active verified document revision and exact embedding space are retrieved.",

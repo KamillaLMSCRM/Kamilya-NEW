@@ -1,3 +1,15 @@
+## AGENT-COLD-PREFLIGHT-001 — проверочный запуск потерял штатную конфигурацию
+
+- Date:2026-11-11. Scope: локальная подготовка DEV92/20a5d281, не дефект генерации.
+- Symptom: новый image preflight остановился до warm-drain; image уже загружен, но проверка Settings в отдельном network-none контейнере не прошла. Старый DEV-worker и production продолжали работать.
+- Cause: root заново собрал проверочный docker run и пропустил `--env-file`, хотя проверенная каноническая процедура worker-start уже передаёт staged runtime.env. Не ошибка модели и не нехватка диска: фактически после pull свободно6.5GiB.
+- Fix: повторно использован точный конфигурационный блок канонического worker-start: строгие root/0700/0600, release/environment SHA, receiver validation; отдельный диагностический запуск не повторяет pull и не меняет worker. Не ослаблять Settings или минимальный запас6GiB.
+- Verification: H8/cold-diagnostic92.sh: без конфигурации ValidationError1, с согласованной45-key конфигурацией Settingsvalid/177sourcehashesmatch/sshtrue. Exact dry/hash/execute PASS; production projection неизменён, действующий worker не перезапускался. Затем штатный warm drainexit0/newworkerready выполнен отдельно.
+- Prevention: брать проверенный assembled command вместе с environment ownership/preflight, а не воспроизводить только его видимую часть. Перед остановкой действующего worker проверять уже загруженный новый образ с той же средой; не повторять неизвестную операцию наугад. Диагностика выводит классы/счётчики/hashes, не значения среды, raw source/OCR или персональные примеры. Старый BLOCKED receipt сохраняется.
+- Recurrence11.11 LOCAL93 prototype: unit03 передал список IDs в `course_response_format(packet)` и получил ValueError до001request; ещё один launcher использовал helper Python без httpx вместо project `.venv`, остановившись при импорте до main. Обе ошибки root harness,0model calls; source/model response не затронуты. Unit04/05 используют явный project interpreter и pure `source_unit_request` с `_course_format(selected_ids)`. Exact saved-source messages/format проходят real `ManagedLuna.prepare` и shipped producer **до credential/network**, frozen hashes повторно проверяются в runner. Synthetic unit fixture alone не заменяет preflight фактического запроса.
+
+- Recurrence LOCAL93 release preparation: root invoked remote wrapper with project interpreter lacking Paramiko (stopped beforenetwork), then used a mistyped diagnostic digest (stopped beforeintent/network). Reused canonical Python312 remote interpreter and exact computed script hash; failed receipts retained. Never type a guessed digest. A docs writer also changed LF to CRLF; exact owned six files normalized back before staging. Preserve file newline convention and capture diff-check output to a bounded file. These are agent harness failures, not engine/model failures.
+
 ## AGENT-ENGINE-HISTORY-001 — прежний подход повторно предлагался без сверки переноса
 
 - Date:2026-11-11. Это ошибка организации работы агента, не обещание устранить стохастические ошибки модели кодом.

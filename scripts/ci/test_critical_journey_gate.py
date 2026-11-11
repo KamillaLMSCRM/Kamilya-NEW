@@ -30,7 +30,7 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
         ],
     )
     assert [journey.journey_id for journey in impacted] == ["AI-COURSE-01"]
-    assert len(impacted[0].required_tests) == 26
+    assert len(impacted[0].required_tests) == 29
     assert len(impacted[0].database_tests) == 1
     assert "scripts/ci/kb_rag_schema_contract.py" in impacted[0].runtime_gates
     assert (
@@ -52,6 +52,10 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
     assert (
         "apps/api/tests/unit/test_v3_simple_owned_transport_v2.py::"
         "test_v2_service_runs_five_owned_stages_and_cold_replays"
+    ) in impacted[0].required_tests
+    assert (
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::"
+        "test_v3_owned_assembly_and_cold_replay"
     ) in impacted[0].required_tests
 
 
@@ -77,9 +81,9 @@ def test_local_mode_emits_database_free_tests_and_defers_database_gate(tmp_path:
     )
     assert result["status"] == "READY"
     assert result["journeys"] == ["AI-COURSE-01"]
-    assert result["required_tests"] == 26
+    assert result["required_tests"] == 29
     assert result["deferred_database_tests"] == 1
-    assert len(output.read_text(encoding="utf-8").splitlines()) == 26
+    assert len(output.read_text(encoding="utf-8").splitlines()) == 29
     assert "test_document_reindex_worker_completes_and_is_idempotent" not in output.read_text(encoding="utf-8")
 
 
@@ -94,7 +98,7 @@ def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) 
         execution_profile="ci",
     )
 
-    assert result["required_tests"] == 27
+    assert result["required_tests"] == 30
     assert result["deferred_database_tests"] == 0
     assert "test_document_reindex_worker_completes_and_is_idempotent" in output.read_text(encoding="utf-8")
 

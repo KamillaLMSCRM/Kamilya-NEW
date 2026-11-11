@@ -1,15 +1,51 @@
+# Current 93 local acceptance and rollout boundary — 2026-11-11
+
+Candidate93 uses three owned source-unit plan/batch-author/ordinary-editor stages, full approved literal source and typed original-body/image provenance. The retained cash result is independently LOCAL content GO10L30Q/10images,1fresh Luna6HIGH editor44038IN7712OUT142.562s. Prior failures and rejected extra critic remain recorded. Fresh three native DEV93 courses and production are not accepted. Current handoff owns exact runtime/process/rollback identities; historical sections below do not override it.
+
 # Журнал изменений движка — обязательный маршрут
+
+Currentcandidate93LOCAL:3owned stages plan→batch author→ordinary editor;
+full approved literal source once, plan navigation not semantic access/count
+boundary, source before draft; oldV1/V2 frozen. Current source-first retained
+cash control runs H10/retained-course03/b/session1998; do not duplicate. Prior
+editor restored10L30Q but still NO_GO on accountant example/action and misplaced
+duplicate image. DEV remains92/20a5, production90 unchanged; no93commit/deploy.
+Current details and exact next gates in top CODEX_HANDOFF and CHG-L93D–G.
+Older statuses below are historical, not current acceptance.
+
+Current13:18UTC11.11: LOCAL93C one literal standards II-category unit +exact
+dependencies passed author→ordinary editor independent content QA,2Luna6HIGH
+calls26603input3666output/74.406s modeltime. Four questions had no established
+key error already after author. No hints supplied to editor; no additional critic
+cascade. Exact outputs/initial reviews/withdrawals in H9 unit-controls-04/05,
+history CHG-L93C and10-record per-model control inventory. Manual selection is
+NOT automatic segmentation/full3courses/nativeworker acceptance. DeployedDEV92
+and production90 unchanged by local controls. Older12:30 status below is history.
 
 Перед изменением кода, правил, промптов, ролей, условий или policy движка читать
 [GENERATION_ENGINE_CHANGE_HISTORY.md](testing/GENERATION_ENGINE_CHANGE_HISTORY.md)
 и сверять соответствующие записи с текущим dispatch/worker-путём. Правило и
 обязательные поля закреплены в `AGENTS.md`, раздел «История доработок движка».
 Каждая доработка имеет отдельную запись, включая локальные/отклонённые варианты;
+с11.11 там также ведётся реестр каждой обработки документа по модели/версии:
+input revision/hash, engine/policy/snapshot, actual model/reasoning, run/stage IDs,
+fresh/cache usage, time, output hashes, semantic verdict и сравнение с предыдущим
+run на той же редакции. UNKNOWN и неудачи сохраняются, extraction/edit/review/full
+generation различаются. Правило intent-before-call/result-after-QA закреплено в AGENTS.
 старый модуль, оставшийся в Git, может не вызываться новым путём. Журнал дефектов
 `GENERATION_ENGINE_ERRORS.md` и журнал прогонов `TEST_RUN_LEDGER.md` сохраняют свои
 отдельные назначения. История не заменяет текущую runtime/release-проверку.
 
 # Current restoration candidate — 2026-11-11
+
+Update12:30UTC: DEV92/20a5d281 is live/soleworkerad8161e5/imagecee38266, but its
+two fresh courses FAILED full semantic review. Cash was not submitted after the
+shared failure; no jobs/models/controller remain active. LOCAL93A thin adapter
+restores old v16 DEPENDS/counterexample logic, not yet worker-selected. One saved
+standards whole-bank control found missing scope without target hints; positive
+and cross-document controls still needed. Per-document/model/version run registry
+is now mandatory in same canonical history (18recoveredruns/50stage records plus
+new controls); exact native92 expense is logged and not mislabeled improvement.
 
 Canonical progress: `docs/testing/2026-11-11-engine-restoration.md`, CHG-L92C/D/E/F
 and current handoff. LOCAL92 restores actual scoped edit, unresolved finding

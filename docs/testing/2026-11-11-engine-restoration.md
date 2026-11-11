@@ -1,5 +1,16 @@
 # Восстановление наработок движка — 11 ноября 2026
 
+Update13:18UTC: CHG-L93C validates the owner's simpler unit-level approach on one
+literal standardsII source unit+3dependencies. Author→ordinary editor, no defect
+hints,2Luna6HIGH calls26603in3666out/74.406s modeltime;1lesson/4questions accepted
+after full independent selected-source QA. Evidence H9 unit-controls-04/05 and
+canonical change history; initial draft had an unexplained handover reference,
+editor expanded it autonomously. No wrong key demonstrated. Native92PDF rate
+option allegation withdrawn as unproven; its preventive omission remains.
+Manual selection/one unit is not automatic document partitioning, assembled
+course,3freshDEV or production proof. Old whole-prose prompt hypothesis rejected.
+No new deploy or customer data write; current engine release gates remain open.
+
 Задача: восстановить полезное поведение, потерянное при переходе на simple,
 проверить сохранённые дефекты, затем три полных курса в DEV. Это текущий
 локальный отчёт, **не разрешение считать candidate92 принятым**.

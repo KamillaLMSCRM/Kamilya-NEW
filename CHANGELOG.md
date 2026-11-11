@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.93] - 2026-11-11
+
+### Changed
+
+- New generation jobs group the approved literal source into meaningful units with explicit primary and supporting references, then prepare lessons/questions and apply ordinary editorial correction in three owned stages. Shared literal source is transmitted once per batch; old jobs retain their stored paths.
+- Carry exact table headings and authenticated reference targets into each unit. Persist validated editor-proposed lesson provenance separately from broader input scope, preserve original media and identities, and cold-replay completed stages after interruption.
+- Account for every source block through a compact producer-bound assignment vector. Normalize redundant owned support edges without another model call; foreign references and changed approval/source identities remain rejected. This is structural custody, not semantic approval.
+
 ## [0.11.92] - 2026-11-11
 
 ### Changed
