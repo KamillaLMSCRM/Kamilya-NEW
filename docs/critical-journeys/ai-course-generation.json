@@ -15,6 +15,12 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_simple_cloud_transport_v6.py::test_v6_cloud_raw_delta_null_custody_and_cold_replay",
+        "apps/api/tests/unit/test_v3_semantic_blank_context.py::test_blank_block_cannot_break_editor_projection_after_authors",
+        "apps/api/tests/unit/test_v3_semantic_context_integrity.py::test_author_parent_context_preserves_unselected_typed_visual_observation",
+        "apps/api/tests/unit/test_v3_semantic_context_integrity.py::test_editors_receive_unrepresented_illustration_inventory",
+        "apps/api/tests/unit/test_v3_semantic_context_integrity.py::test_later_table_row_excerpt_retains_exact_parent_and_offsets",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v6.py::test_v6_real_decode_owned_path_and_cold_replay",
         "apps/api/tests/unit/test_managed_luna_client.py::test_delta_editor_real_decode_preserves_raw_custody",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v5.py::test_v5_owned_isolated_editors_and_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v4.py::test_v4_owned_three_stages_and_cold_replay",

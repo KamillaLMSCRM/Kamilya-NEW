@@ -818,8 +818,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-11.
-
+Current as of: 2026-11-12.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -10754,4 +10753,24 @@ A harness used the public editorial-review preparation DTO as if it were the ful
 - Cause: root treated assembled fake-provider tests as proof of actual ManagedLunaClient._decode_response coverage. Its older kind branch omitted the new delta format. Four real-envelope positive tests reproduced the gap; four negatives already passed.
 - Fix: add delta recognition to the existing decoder normalization branch; require the real-envelope matrix in AI-COURSE-01. Native proof binds terminal course ID and requires custody for all three content stages. No semantic relaxation or new model critic.
 - Verification: focused65 PASS1.52s. Initial full95 run8095PASS/1FAIL solely because this new journal entry lacked required field labels; fixed this entry without changing the gate. Initial Ruff I001 corrected with import formatting; baseline1004/2174 thenPASS. No model calls. Final95/local and DEV gates remain separately recorded.
-- Prevention: for every new model format verify producer, prepare, actual decoder, checkpoint and relevant replay separately. Do not claim mocks prove decoding. Use this journal's required Date/Symptom/Cause/Fix/Verification/Prevention labels and freeze source before navigation preparation.
+- Prevention: for every new model format verify producer, prepare, actual decoder, checkpoint and relevant replay separately. Recurrence12.11 generic-cloud invoke_payload had the analogous delta omission after managed fix; raw-string cloud whole-controller regression RED1/negative2 ->GREEN3 with three content custodies/cold replay. Always test BOTH registered managed and ordinary cloud consumers before API/native acceptance. Do not claim mocks prove decoding. Use this journal's required Date/Symptom/Cause/Fix/Verification/Prevention labels and freeze source before navigation preparation.
+
+
+## AGENT-LITERAL-PROJECTION-001 — diagnostic table projection used headers as row text
+
+- Date: 2026-11-11.
+- Symptom: zero-LLM LOCAL literal baseline receipts listed selected table rows but displayed headers only; independent reviewer caught missing thresholds and procedures before any runtime integration.
+- Cause: root misread SourceUnit.context as full standalone row; actual interface holds the header while SourceUnit.text holds the row. Reference counts/hashes alone did not establish output inclusion.
+- Fix: immutable r2 diagnostic uses context+text for rows and verifies each selected literal block is contained in projected output. Failed95/96 projections retained. No business/runtime/model calls or source edits.
+- Verification: exact source-unit metadata inspected; r2 generation and independent semantic/render review recorded separately under CHG-L96C. Initial projection is NO GO, not accepted evidence.
+- Prevention: inspect actual producer interface before composing artifacts; test selected row text survives, not merely that its reference/header/hash appears. Literal input/source custody is separate from rendered instructional completeness.
+
+
+## AGENT-SEMANTIC-BLANK-096 — model-visible inventory differs from lossless source catalog
+
+- Date: 2026-11-12.
+- Symptom: LOCAL V6 standards pilot stopped after eight completed model stages and before either editor with KeyError on a blank source block.
+- Cause: root projected every lossless slice through PracticalModelView.canonical_to_alias, which intentionally excludes whitespace-only blocks. Initial synthetic owned-path fixture had no blank storage block; source fidelity and model visibility inventories were conflated.
+- Fix: editor projection keeps only blocks in the model-visible alias map; source catalog and exact range custody remain lossless. No source edit, broader alias permission, or semantic relaxation.
+- Verification: exact eight saved request/schema/response replay reproduced the stack; dedicated blank-source regression plus assembled V6 matrix11PASS2.09s. Source/catalog remains unchanged; continuation must revalidate byte-identical completed requests and submit only the two unstarted editors.
+- Prevention: every full controller contract includes whitespace-only storage blocks and typed mixed-origin examples, not just clean synthetic prose. Keep completed response custody and diagnose before a repeated generation; preserve original failed attempt and continuation separately.

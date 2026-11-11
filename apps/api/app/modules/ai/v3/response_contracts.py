@@ -85,11 +85,14 @@ from app.modules.ai.v3.simple_question_scope_review import (
     is_simple_question_scope_format,
     matches_simple_question_scope,
 )
+from app.modules.ai.v3.simple_semantic_source_plan import is_semantic_plan_format, matches_semantic_plan
 from app.modules.ai.v3.simple_source_unit_plan import is_source_unit_plan_format, matches_source_unit_plan
 from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_typed_review_response
 
 
 def response_contract(value: object) -> str | None:
+    if is_semantic_plan_format(value):
+        return "simple_semantic_source_plan"
     if is_simple_delta_editor_format(value):
         return "simple_course_delta_editor"
     if is_source_unit_plan_format(value):
@@ -187,6 +190,8 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "simple_semantic_source_plan":
+        return matches_semantic_plan(value, response_format)
     if kind == "simple_course_delta_editor":
         return matches_simple_delta_editor(value, response_format)
     if kind == "simple_source_unit_plan":

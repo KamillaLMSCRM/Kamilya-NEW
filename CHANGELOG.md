@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.11.96 — Candidate
+
+- Group approved source slices into coherent practical units with literal parent/table/reference context, then author one lesson and its questions per unit.
+- Apply addressed teaching and card edits with stable identities, source-owned illustrations, ordinary pending custody and cold replay; retain original policies for existing jobs.
+- Preserve typed image provenance and expose missing primary illustrations as editorial observations. Normalize addressed cloud responses through the same raw/normalized custody contract used by Luna.
+- Local retained-course quality is accepted; fresh DEV and production acceptance remain separate gates.
+
 ## 0.11.95 — Candidate
 
 - Preserve original and normalized addressed-editor responses through the real managed Luna decoder, including safe unknown-null normalization.

@@ -1504,3 +1504,13 @@ Simple projection previously flattened native document body and visual-example O
 ### GEN-095 — managed delta decoder missed raw/normalized custody
 
 11.11.2026, local sourcefd07e5e1+95delta. Known sourceV5 output was structurally registered but not included in ManagedLunaClient normalization branch. Valid exact responses returned dict without custody; root/nested unknown-null could fail before editorial application. Deterministic integration defect, no demonstrated model-content fault. Fixed same normalization branch; 8real envelope cases cover two editors × exact/unknown-null/non-null-extra/required-null.65testfilePASS;0fresh modelcalls. No94freshfullcourse was submitted; saved local contentGO remains separate. Independent readback helper now binds exact courseID and requires custody for all3contentstages. DEV95 and semantics pending. CHG-L95A / AI-CLIENT-SEAM-095.
+
+
+### GEN-095-S — fresh V5 source fidelity remains incomplete
+
+11.11: fresh DEV95 standards3L11Q/4calls70506IN8201OUT317.266s, semanticNO_GO. Missing positive handover signature; liability paraphrase changes parenthetical assessment violations into an independent basis. Both already inauthor; bodyeditor corrected other scope/enumeration but missedthese. Notnull/custody/persistence error:4actualphases/3contentcustodies/0otherblocksverified. PreserveH12actualstages; no95PDF/cash/DeepSeek before saved diagnosis. CHG-L96A is a source-only planning experiment, not a confirmed architectural cause or production patch.
+
+
+## GEN-096 — source representation and cloud custody transfer
+
+LOCAL source outline and whole-row literal output were tested and rejected as selected solutions: paraphrase can still lose scope; literal rows repeat unrelated procedures and selection can omit operative blocks. V6 instead groups exact intra-block slices and authors one practical unit at a time, preserving literal row/header context and typed visual provenance. Initial7L27Q still had implicit I-category scope; the same model's two addressed edits with explicit literal hierarchy (no defect hints) independently corrected it. No guarantee of flawless new generations; native3course acceptance remains OPEN. Failure/provenance/usage records CHG-L96A–G/H16/H17/H18 retained, not relabelled. Generic cloud omitted delta format from existing normalization branch just as managed path previously did; raw-string regression RED1/2negative ->GREEN3 demonstrates deterministic fix before any paidDeepSeek call. No semantic regex or manual content patch.
