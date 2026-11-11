@@ -1,3 +1,19 @@
+# Simple91 transport correction — 2026-11-11T08:36 UTC
+
+- result: First native DEV standards job d4bf8aaf-033e-428f-9d3b-646402a1a3b8 failed43.672s/no course; PDF/cash were not submitted. Production90/master16504/frontend86/customer records unchanged. No active model/deploy process after completed controller37388/native81038.
+- changed: Missing SIMPLE registration in direct_luna_owned_stage reproduced with3local failures, then fixed by sharing the existing exact SIMPLE stage/policy/format guard. New10zero-inference seam/full3stage/cold-replay/negative-plan tests and AI-COURSE-01 mandatory selectors; AGENTS now requires assembled-path proof before full model runs.
+- verified: Full7920PASS/1skip/7warnings113.32s; criticaljourney37PASS7.07s; gate+newtests16PASS1.83s; baseline1004/2174PASS; independent Terra review no material finding. CodeGraph source syncPASS. Read-only actual job/worker state and failed source/runtime receipts preserved in H=.release-evidence/simple-course-editor-20261111. No blind reissue or manual failed-job mutation.
+- blockers: Corrected source is not yet committed/deployed. Current DEV API/worker/web exactfb0 is infrastructure-ready but its new model route is not accepted. Old90 worker3830 retained stopped under kamilya-dev-worker-rollback-16504ca0-7d5ff388. Current sole worker80b00778 ready/restarts0/unless-stopped, env9ab8d1cf, imagec98e3294. Native sources unchanged.
+- next: Commit corrected exact whitelist, project-account push/readback/receipts, CI/attested build-only and canonical DEV worker/API/web rollout; reuse env onlyreleaseSHA delta. Then new exact-revision batch standards/pdf/cash once, normalQA LunaHIGH and complete content/media/usage/source/recovery readbacks. Preserve originalfailedjob. No DeepSeek91/prod91 acceptance yet; old paid90budget remains scoped90.
+
+# Simple editor91 DEV rollout in progress — 2026-11-11T08:19 UTC
+
+- result: Candidate91 exact `fb0fecae16eca99272de10704958caa7211a1611` pushed and independently read back on feature/dev through KamillaLMSCRM. Production90/master16504 and frontend86/customer courses remain unchanged.
+- changed: Sole DEV VM worker replaced with80b00778d9c36b343e7c1da93462786d1150f270c7f3d795c2430a385e6a5146 on attested imagec98e3294...d533, protected45-key env digest9ab8d1cf...1e9f. Old90 worker cleanly stopped and retained as kamilya-dev-worker-rollback-16504ca0-7d5ff388; new worker restartunless-stopped/ready. No force kill or extra consumer.
+- verified: Exact CI42983919862/build-only42984935614 SUCCESS, OCI attestation accepted, cold image174-source-file/config/pypdfium2/ssh checks PASS. Canonical protected10-container projection444fd814...536a9 unchanged. Stage/start/restart receipts in `.release-evidence/simple-course-editor-20261111`; no model/customer writes during rollout.
+- blockers: One canonical DEV controller running (execsession37388), exclusive intent REL-DEV-SIMPLE91-FB0FECAE-20261111. Do not dispatch another controller or submit native generation before exact API/frontend/worker parity. Last public DEV health still90 while rollout pending; no DEV91 acceptance claimed.
+- next: Complete same controller; run prepared native-dev91.py sequential standards/pdf/cash once with ordinary QA methodologist, actual managedLunaHIGH source/usage and content/media/readback. Preserve prior scoped90 paid budget; new91 DeepSeek and production gates remain open. Graphify external module-stub index failure remains navigation-only NOT_READY; CodeGraph/source fallback current.
+
 # CURRENT: simple course editor experiment — 2026-11-11
 
 - result: Active checkout is `C:/Kamilya New/Kamilya-NEW/.worktrees/simple-course-editor-20261111`, branch `feat/simple-course-editor-20261111`, base `16504ca00e91d681cb4ea66711f500b2600b0118`. Production90 was already accepted in the preceding checkout; the historical DEV89/production88 statements below are superseded. No new release or customer mutation has occurred here.

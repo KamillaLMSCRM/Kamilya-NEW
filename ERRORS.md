@@ -28,6 +28,8 @@
 
 ## AGENT-ACCEPTANCE-HARNESS-001 — unverified fixture assumptions and lost diagnostics
 
+- Recurrence2026-11-11: a read-only DEV91 preflight incorrectly required a custom production container label that does not exist, and introduced an8GiB threshold instead of the already accepted6GiB worker-image readiness rule. The script stopped before mutations. Initial output lacked phase detail. Fixed-format independent Docker readback proved production90/DEV90 identities; a phase-marked read proved the missing label and8.149GBdisk/8.128GBavailable memory. The exact existing readiness script establishes6GiB before and after pull; using it is a correction to the invented harness requirement, not a weakened product gate. Corrected preflight passed with empty DEV queues/sole idle consumer and unchanged production projection. Preserve all failed scripts/receipts. For every new harness, emit phase evidence before guards and derive resource/identity rules from the verified mechanism before adding assertions.
+
 - Date:2026-11-07. Scope:source-preparation82 acceptance scripts, not a product defect.
 - Symptom: acceptance harness stopped on fixture/session/image assertions and
   initially retained insufficient diagnostics to classify them.
@@ -10712,3 +10714,8 @@ Source-alias task R85/R86 shell clones repeated default Windows decoding; explic
 - Fix: Mark the original local view sensitive/do_not_share and supersede it with three explicitly inspected normative paragraphs and generic course text. No sample personal data was repeated in the agent report or distributed to the owner.
 - Verification: Root inspected the exact normative quote and approved-decision reason; independent review accepted the limited v2 evidence and retained duty preservation.
 - Prevention: Do not treat a source prefix or a filename as sanitization. Build review evidence from inspected literal passages and verify actual contents before delegation; preserve sensitive raw evidence only in its approved local contour.
+
+
+### AGENT-ACCEPTANCE-HARNESS-001 owned transport seam — 2026-11-11
+
+The root's initial7910unit checks exercised new policy orchestration and pending replay separately but omitted the real stage_once→run_direct_owned_stage managed-client seam. This allowed exact91 DEV to fail before inference. Corrected with a failing three-stage seam regression, a complete mocked-provider three-stage service/cold replay check, and negative owned-plan cases. Both existing layers now use the same exact SIMPLE guard. Technical component passes still do not establish native course quality or release readiness; no repetition of a failed/unknown generation to diagnose this.

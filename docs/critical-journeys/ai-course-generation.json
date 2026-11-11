@@ -15,6 +15,9 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_simple_owned_transport.py::test_simple_native_stage_reaches_owned_inspection_without_inference",
+        "apps/api/tests/unit/test_v3_simple_owned_transport.py::test_all_three_simple_stages_use_owned_transport_and_cold_replay",
+        "apps/api/tests/unit/test_v3_simple_owned_transport.py::test_simple_owned_transport_rejects_forged_plan_before_inspection",
         "apps/api/tests/unit/test_document_conversion_fallback.py::test_ingestion_preserves_canonical_document_source_revision",
         "apps/api/tests/unit/test_active_document_revision_retrieval.py::test_semantic_fts_and_legacy_chunk_reads_require_active_document_revision",
         "apps/api/tests/unit/test_context_expansion.py::test_expansion_deduplicates_overlapping_context_windows",
@@ -37,6 +40,7 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "invariants": [
+        "Every admitted engine stage traverses its real owned transport registration and completed-response replay before paid or managed full-course acceptance; isolated orchestration tests cannot substitute for this seam.",
         "Embedding source revision is derived from the original document content SHA-256.",
         "Only the active verified document revision and exact embedding space are retrieved.",
         "Adjacent context overlap is deduplicated without crossing tenant, document or revision boundaries.",

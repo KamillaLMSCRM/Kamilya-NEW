@@ -6905,3 +6905,12 @@ Separate candidate91 worktree `simple-course-editor-20261111` from accepted16504
 Initial PDF required one retained2-call general-scope edit; cash required two retained2-call media/source-scope and assessment-quality edits. Final locally accepted PDF8L24Q, cash8L27Q/10original image markers; source captions/placement checked independently, actual pixels/rendering remain DEV. Correct cash option positions7/12/8, all27correct answer texts preserved. No case-specific issue list was supplied to those reviewer payloads. Additional6calls222225in28056out are disclosed separately; rejected earlier prototypes remain archived. This is NOT three accepted untouched first drafts and NOT native DEV acceptance. Report: `docs/testing/2026-11-11-simple-course-editor.md`.
 
 Final local APIunit7910PASS/1skip/7warnings80.26s, focusedworker/criticaljourney72PASS, baseline1004/2174PASS, version91consistent, release-contract185/head0187/382errorentriesPASS. CodeGraph sync/caller evidencePASS; Graphify combined source audit remainsNOT_READY on8external-module stubs, no weakening. Native3courses/DeepSeek/production gates open. No active inference at local closeout; production90/frontend86 preserved.
+
+
+## RUN-20261111-SIMPLE91-OWNED-TRANSPORT
+
+- Scope: zero-inference reconstruction of native91 failed job's transport registration, not course quality acceptance.
+- Red:3/3SIMPLE stage_once→direct owned calls rejected managed_structured_plan_invalid before provider preparation.
+- Fixed:10seam/full3stage+mocked-provider cold replay/negative-plan testsPASS; oldtransport+simplefocused33PASS. FullAPI7920PASS/1skip/7warnings113.32s. AI-COURSE-01 local37PASS; manifest/gate+newtests16PASS1.83s; Pythonbaseline1004/2174PASS. Independent Terra source review accepted; CodeGraphsyncPASS.
+- DEV before correction:fb0 APIdep-dbq28q3rjlhs73b0sim0/Verceldpl_DGqycT8NWUgZNCXDBBAHy1pwsBs1/soleVM80b00778/imagec98e3294 controllerRELEASE_OK. One standardsjobd4bf8aaf failed43.672s/no course/no observed managed request; no PDF/cash submission. Historical failure retained, no content edit/status rewrite/retry. Production90 unchanged.
+- Remaining: corrected exact-SHA CI/DEV and full native model/content/media/usage/recovery acceptance, then separately authorized DeepSeek/prod.
