@@ -66,6 +66,86 @@ def test_sparse_question_references_do_not_invent_one_continuous_quote():
     assert _question_quote([first], corpus) == text[:15]
 
 
+def test_unverified_reviewer_question_reaches_draft_without_becoming_source_ambiguity():
+    from app.modules.ai.v3.simple_course_editor import _digest
+
+    corpus = corpus_fixture()
+    packet = build_practical_source_packet(corpus)
+    ref = packet.blocks[0].block_id
+    raw = course(ref=ref)
+    receipt = {'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(raw),
+               'unverified_source_questions': [{'id': 'reviewer-question', 'question': 'Unresolved observation',
+                                                'source_refs': [ref], 'status': 'UNVERIFIED'}]}
+    result = SimpleCourseResult(copy.deepcopy(raw), raw, {}, [], [],
+        {'proposals': [], 'revision_receipt': receipt}, [{'lesson_id': 'lesson', 'source_refs': [ref]}])
+    artifacts = simple_course_artifacts(result, corpus, packet, 'd' * 64)
+    review = read_draft_review({'generation_engine': 'evidence_v3', 'evidence_v3': artifacts.diagnostics})
+    assert review['source_clarification_required'] is False
+    assert artifacts.diagnostics['requires_source_review'] is False
+    issue = next(row for row in review['issues'] if row['id'] == 'reviewer-question')
+    assert issue['message'] == 'Unresolved observation' and issue['blocking'] is True
+    result.review['revision_receipt']['draft_fingerprint'] = 'e' * 64
+    with pytest.raises(ValueError, match='simple_revision_receipt_stale'):
+        simple_course_artifacts(result, corpus, packet, 'd' * 64)
+
+
+@pytest.mark.parametrize('fault', [None, 'source', 'draft', 'question', 'ref'])
+def test_independent_uncertainty_survives_editor_change_and_rejects_stale_or_foreign_evidence(fault):
+    from app.modules.ai.v3.simple_course_editor import _digest
+
+    corpus = corpus_fixture()
+    packet = build_practical_source_packet(corpus)
+    ref = packet.blocks[0].block_id
+    draft = course(ref=ref)
+    edited = copy.deepcopy(draft)
+    edited['lessons'][0]['questions'][0]['prompt'] = 'Edited question does not resolve an unverified observation.'
+    independent = {'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(draft),
+        'unverified_observations': [{'question_id': 'question', 'status': 'UNVERIFIED',
+            'problem': 'Independent review could not resolve the question.', 'source_refs': [ref]}]}
+    if fault in {'source', 'draft'}:
+        independent[fault + '_fingerprint'] = 'e' * 64
+    elif fault == 'question':
+        independent['unverified_observations'][0]['question_id'] = 'foreign-question'
+    elif fault == 'ref':
+        independent['unverified_observations'][0]['source_refs'] = ['foreign-ref']
+    result = SimpleCourseResult(draft, edited, {}, [], [],
+        {'proposals': [], 'independent_option_review': independent}, [{'lesson_id': 'lesson', 'source_refs': [ref]}])
+    if fault:
+        with pytest.raises(ValueError, match='simple_independent_'):
+            simple_course_artifacts(result, corpus, packet, 'd' * 64)
+        return
+    artifacts = simple_course_artifacts(result, corpus, packet, 'd' * 64)
+    review = read_draft_review({'generation_engine': 'evidence_v3', 'evidence_v3': artifacts.diagnostics})
+    issue = next(row for row in review['issues'] if row['id'].startswith('simple-independent-'))
+    assert issue['target_id'] == 'question' and issue['blocking'] is True
+    assert review['source_clarification_required'] is False
+    assert issue['evidence']['reviewed_draft_fingerprint'] == _digest(draft)
+    assert issue['evidence']['current_question_fingerprint'] == _digest(edited['lessons'][0]['questions'][0])
+
+
+def test_unapplied_course_finding_reaches_ordinary_draft_review():
+    from app.modules.ai.v3.simple_course_editor import _digest
+
+    corpus = corpus_fixture()
+    packet = build_practical_source_packet(corpus)
+    ref = packet.blocks[0].block_id
+    raw = course(ref=ref)
+    finding = {'domain': 'content', 'severity': 'material', 'target': {'kind': 'course', 'id': 'course'},
+               'problem': 'Missing procedure', 'basis': 'Unverified comparison', 'correction': 'Locate the gap',
+               'source_refs': [ref]}
+    receipt = {'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(raw),
+               'unapplied_review_findings': [{'id': 'unapplied', 'source_fingerprint': packet.fingerprint,
+                   'draft_fingerprint': _digest(raw), 'status': 'UNVERIFIED', 'finding': finding}]}
+    result = SimpleCourseResult(copy.deepcopy(raw), raw, {}, [], [],
+        {'proposals': [], 'revision_receipt': receipt}, [{'lesson_id': 'lesson', 'source_refs': [ref]}])
+    artifacts = simple_course_artifacts(result, corpus, packet, 'd' * 64)
+    review = read_draft_review({'generation_engine': 'evidence_v3', 'evidence_v3': artifacts.diagnostics})
+    issue = next(row for row in review['issues'] if row['id'] == 'unapplied')
+    assert issue['message'] == 'Missing procedure\nLocate the gap' and issue['blocking'] is True
+    assert not artifacts.diagnostics['requires_source_review']
+    assert result.course == raw
+
+
 def responses():
     calls = []
 

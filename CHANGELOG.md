@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.92] - 2026-11-11
+
+### Changed
+
+- Separate source-to-prose review, existing key-blind option reading and explanation review before the addressed editor. Hide author keys, explanations and lesson bodies from the independent option reader while keeping the actual visible quiz title.
+- Merge revisions only into reviewed domains/targets; preserve good peer content and original illustrations. Keep unresolved source-question dispositions, unsupported-scope findings and independent uncertainty as revision-bound ordinary editorial issues.
+- Give generation only the current approved source and all interpretation reasons; keep replaced historical wording in the audit record. Existing jobs keep their recorded policy/checkpoints.
+
+### Verification boundary
+
+- Saved standards/PDF repair and supplied-observation cash repair passed independent local content review; cash blind-discovery controls failed and remain documented. No claim of automatic semantic approval. See `docs/testing/2026-11-11-engine-restoration.md` and history L92C–F.
+- Full native DEV/DeepSeek/production acceptance is required separately. No migration, customer-course mutation, provider/plan or production frontend functionality change.
+
 ## [0.11.91] - 2026-11-11
 
 ### Changed

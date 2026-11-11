@@ -1,3 +1,12 @@
+## AGENT-ENGINE-HISTORY-001 — прежний подход повторно предлагался без сверки переноса
+
+- Date:2026-11-11. Это ошибка организации работы агента, не обещание устранить стохастические ошибки модели кодом.
+- Symptom: source-to-lesson coverage, раздельная проверка урока/вопроса и сохранение условий при правке повторно описывались как следующий новый шаг, хотя уже реализовывались в старых policy. Простое наличие старых файлов подменяло проверку их вызова новым маршрутом.
+- Cause: при смене controller не было единого change journal и явной матрицы сохраняемого/исключаемого/обходящегося поведения. Разрозненные handoff, журнал дефектов, тесты и удачные локальные ответы не отслеживали перенос на новую policy. Исходники подтверждают: simple dispatch обходит сохранённые focused/coherent/autonomous ветви; это не доказывает, что все их механизмы полезны или должны вернуться целиком.
+- Fix: По указанию владельца `docs/testing/GENERATION_ENGINE_CHANGE_HISTORY.md`,557доступныхGitcommits/архивный незавершённыйGraphifyplan/отклонённыеL92A-L92B; обязательная сверка до правки и датированная запись после неё в AGENTS, ссылка в PROJECT-CONTEXT. Не выдавать повтор слов о полноте за новый механизм.
+- Verification: два независимых read-only разбора истории;557SHAs/anchors совпадают, текущие source dispatch ветви сверены; CodeGraph/Graphify актуальны, directed simple path подтверждён. Карта истории/восемь graph checks0modelcalls; статические graphs не объявлены semantic/runtime approval. Нового production выпуска нет.
+- Prevention: перед изменением искать прежние записи и читать фактический выбранный путь; записывать keep/remove/bypass и сохранённую регрессию. После изменения фиксировать exactsource, локальный результат/стоимость и отдельноDEV/production. Не удалять неудачи и не переносить старыйGO на новыйcontroller. ПоследнийworksheetL92B остаётся НЕПРИНЯТЫМ.
+
 ## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
 
 - Date:2026-11-10. Scope: release orchestration, not generated content.

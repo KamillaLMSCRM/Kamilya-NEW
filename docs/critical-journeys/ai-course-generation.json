@@ -15,6 +15,16 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_ai_router_admission.py::test_full_tenant_queue_maps_submission_limit_to_http_429",
+        "apps/api/tests/unit/test_v3_simple_course_editor_v2.py::test_five_roles_have_isolated_payloads_and_current_approved_meaning",
+        "apps/api/tests/unit/test_v3_simple_course_editor_v2.py::test_independent_solver_does_not_receive_author_key_explanation_or_body",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v2.py::test_v2_stage_once_reaches_owned_inspection",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v2.py::test_v2_service_runs_five_owned_stages_and_cold_replays",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v2.py::test_v2_transport_rejects_forged_plan_before_inspection",
+        "apps/api/tests/unit/test_v3_simple_revision_v2.py::test_quiet_and_partial_editor_retains_unverified_without_source_hold",
+        "apps/api/tests/unit/test_v3_simple_revision_v2.py::test_domain_scopes_restore_peer_title_and_media",
+        "apps/api/tests/unit/test_v3_simple_service.py::test_unverified_reviewer_question_reaches_draft_without_becoming_source_ambiguity",
+        "apps/api/tests/unit/test_v3_simple_service.py::test_unapplied_course_finding_reaches_ordinary_draft_review",
         "apps/api/tests/unit/test_v3_simple_owned_transport.py::test_simple_native_stage_reaches_owned_inspection_without_inference",
         "apps/api/tests/unit/test_v3_simple_owned_transport.py::test_all_three_simple_stages_use_owned_transport_and_cold_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport.py::test_simple_owned_transport_rejects_forged_plan_before_inspection",

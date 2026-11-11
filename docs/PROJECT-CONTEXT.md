@@ -1,3 +1,30 @@
+# Журнал изменений движка — обязательный маршрут
+
+Перед изменением кода, правил, промптов, ролей, условий или policy движка читать
+[GENERATION_ENGINE_CHANGE_HISTORY.md](testing/GENERATION_ENGINE_CHANGE_HISTORY.md)
+и сверять соответствующие записи с текущим dispatch/worker-путём. Правило и
+обязательные поля закреплены в `AGENTS.md`, раздел «История доработок движка».
+Каждая доработка имеет отдельную запись, включая локальные/отклонённые варианты;
+старый модуль, оставшийся в Git, может не вызываться новым путём. Журнал дефектов
+`GENERATION_ENGINE_ERRORS.md` и журнал прогонов `TEST_RUN_LEDGER.md` сохраняют свои
+отдельные назначения. История не заменяет текущую runtime/release-проверку.
+
+# Current restoration candidate — 2026-11-11
+
+Canonical progress: `docs/testing/2026-11-11-engine-restoration.md`, CHG-L92C/D/E/F
+and current handoff. LOCAL92 restores actual scoped edit, unresolved finding
+retention, current approved-source projection and key-blind option reading with
+separate explanation review (5roles). Failed worksheet and failed example guide
+are explicitly rejected; do not repeat them. Saved PDF blind repair and cash
+addressed repair passed independent content review. H8standards changed only
+missing location in one stem; detector attribution is separate explanation review,
+not the blind option reader. Three fresh native DEV92 courses/release still open.
+Production90 and DEV91 remain as below; old pending-worksheet text is historical.
+
+# Previous verified contour and local candidate — 2026-11-11
+
+Production remains accepted90 exact16504ca0/native frontend86 exact44dc1134. DEV91 exactb71b89f6 has healthy API/web/sole VM126worker and three completed native courses (20lessons67questions/10originalcashimages), with source/custody/API/assets readback. It is NOT semantically accepted: source conditions, a compound duty and obsolete history contamination remain documented in ENG-058. LOCAL dirty92 separates lesson bodies from visible question cards and removes replaced historical quotes from model context while preserving all approved interpretation reasons and the audit record. Retained standards correction passed independent review; the first PDF correction did not. A source-to-lesson worksheet is being added inside the same content-audit call. Follow current CODEX_HANDOFF for exact IDs, active work, evidence and unresolved gates. No production/provider/customer mutation or new paid DeepSeek call in this phase.
+
 # Current local experiment — 2026-11-11
 
 Production90 acceptance belongs to exact16504ca0/backend image7d5ff388 and native frontend86/44dc1134; see the accepted report in `C:/Kamilya New/Kamilya-NEW/.worktrees/engine-author-transport-20261110/docs/testing/2026-11-11-engine90-production-acceptance.md`. The new isolated `simple-course-editor-20261111` worktree starts from that source and is LOCAL ONLY. Its three meaningful model stages (direct-source author, source-to-course reviewer, addressed editor) replace the experimental semantic cascade. The lossy model-outline prototype was rejected. Ordinary persistence/lease/source approval have local integration tests, but deployed DEV is not yet tested. `docs/CODEX_HANDOFF.md` owns live process/evidence pointers. Older contour paragraphs are historical, not current provider truth.

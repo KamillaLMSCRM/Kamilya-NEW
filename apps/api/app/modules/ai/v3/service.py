@@ -1856,6 +1856,7 @@ async def generate_v3_course_from_corpus(
         PREVIOUS_REVIEW_POLICY,
         REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_POLICY,
+        SIMPLE_COURSE_REVIEW_V2_POLICY,
         is_practical_policy,
         is_scoped_policy,
     )
@@ -1921,7 +1922,9 @@ async def generate_v3_course_from_corpus(
             from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact, normalize_practical_author
             from app.modules.ai.v3.practical_contract import is_practical_course_format
             from app.modules.ai.v3.simple_course_editor import is_simple_editor_format
-            if is_practical_course_format(response_format) or is_simple_editor_format(response_format):
+            from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format
+            if (is_practical_course_format(response_format) or is_simple_editor_format(response_format)
+                    or is_simple_revision_v2_format(response_format)):
                 if type(raw_text) is PracticalAuthorArtifact:
                     return raw_text
                 if type(raw_text) is str:
@@ -1940,14 +1943,15 @@ async def generate_v3_course_from_corpus(
             raise ValueError('v3_nonpractical_response_invalid')
         return value
 
-    if review_policy == SIMPLE_COURSE_REVIEW_POLICY:
+    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY}:
         from app.modules.ai.v3.simple_course_service import generate_simple_course
 
         return await generate_simple_course(corpus, intent=intent, invoke=invoke_payload,
             source_sha256=doc_sha, journal=extraction_journal, route_fingerprint=route_fingerprint,
             reference_decisions=reference_decisions, direct_client=direct_client,
             direct_max_output_tokens=await _practical_output_budget(review_policy, direct_client),
-            cancellation_callback=cancellation_callback, progress_callback=progress_callback)
+            cancellation_callback=cancellation_callback, progress_callback=progress_callback,
+            review_policy=review_policy)
 
     if practical:
         from app.modules.ai.v3.practical_service import generate_practical_course

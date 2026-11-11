@@ -37,18 +37,21 @@ JOINT_EDITORIAL_REVIEW_POLICY = "v3-practical-source-review-v34"
 COHERENT_EDITORIAL_REVIEW_POLICY = "v3-practical-source-review-v35"
 FOCUSED_EDITORIAL_REVIEW_POLICY = "v3-practical-source-review-v36"
 SIMPLE_COURSE_REVIEW_POLICY = "v3-simple-course-editor-v1"
+SIMPLE_COURSE_REVIEW_V2_POLICY = "v3-simple-course-editor-v2"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
 def is_editorial_policy(value: object) -> bool:
     return type(value) is str and value in (EDITORIAL_PRACTICAL_REVIEW_POLICY, CANONICAL_EDITORIAL_REVIEW_POLICY,
                                           AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY,
-                                          COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_POLICY)
+                                          COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY,
+                                          SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY)
 
 
 def is_autonomous_editorial_policy(value: object) -> bool:
     return type(value) is str and value in (AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY,
-                                          COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_POLICY)
+                                          COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY,
+                                          SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY)
 
 
 def is_scoped_policy(value: object) -> bool:
@@ -192,6 +195,7 @@ def read_review_policy(analysis: Any) -> str | None:
         COHERENT_EDITORIAL_REVIEW_POLICY,
         FOCUSED_EDITORIAL_REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_POLICY,
+        SIMPLE_COURSE_REVIEW_V2_POLICY,
     }:
         raise ValueError("v3_review_policy_invalid")
     return str(analysis[REVIEW_KEY])

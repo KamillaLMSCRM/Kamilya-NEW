@@ -76,10 +76,16 @@ from app.modules.ai.v3.simple_course_editor import (
     matches_simple_editor,
     matches_simple_review,
 )
+from app.modules.ai.v3.simple_course_revision_v2 import (
+    is_simple_revision_v2_format,
+    matches_simple_revision_v2,
+)
 from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_typed_review_response
 
 
 def response_contract(value: object) -> str | None:
+    if is_simple_revision_v2_format(value):
+        return "simple_course_revision_v2"
     if is_simple_editor_format(value):
         return "simple_course_editor"
     if is_simple_review_format(value):
@@ -169,6 +175,8 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "simple_course_revision_v2":
+        return matches_simple_revision_v2(value, response_format)
     if kind == "simple_course_editor":
         return matches_simple_editor(value, response_format)
     if kind == "simple_course_review":

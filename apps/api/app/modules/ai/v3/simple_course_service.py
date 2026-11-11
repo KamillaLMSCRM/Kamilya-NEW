@@ -38,18 +38,28 @@ from app.modules.courses.draft_review import DRAFT_REVIEW_VERSION
 
 def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, validator: Any) -> bool:
     from app.modules.ai.v3.response_contracts import response_contract
-    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY
+    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY
 
-    if type(group) is not str or policy != SIMPLE_COURSE_REVIEW_POLICY or not callable(validator):
+    versions = {SIMPLE_COURSE_REVIEW_POLICY: 'v1', SIMPLE_COURSE_REVIEW_V2_POLICY: 'v2'}
+    if type(group) is not str or type(policy) is not str or policy not in versions or not callable(validator):
         return False
-    match = re.fullmatch(r'practical:simple:(author|review|editor):v1:([0-9a-f]{64}):output=[1-9][0-9]*', group)
-    if not match:
+    match = re.fullmatch(r'practical:simple:(author|review|review-content|review-assessment|review-explanations|editor):(v[12]):([0-9a-f]{64}):output=[1-9][0-9]*', group)
+    if not match or match[2] != versions[policy]:
+        return False
+    if (match[1] == 'review' and match[2] != 'v1'
+            or match[1] in {'review-content', 'review-assessment', 'review-explanations'} and match[2] != 'v2'):
         return False
     expected = {'author': ('lesson', 'practical_course'),
-                'review': ('review', 'simple_course_review'), 'editor': ('repair', 'simple_course_editor')}
+                'review': ('review', 'simple_course_review'),
+                'review-content': ('review', 'practical_editorial_review'),
+                'review-assessment': ('review', 'practical_option_predicates'),
+                'review-explanations': ('review', 'simple_course_review'),
+                'editor': ('repair', 'simple_course_editor')}
+    if match[2] == 'v2':
+        expected['editor'] = ('repair', 'simple_course_revision_v2')
     if (stage, response_contract(fmt)) != expected[match[1]]:
         return False
-    return match[1] == 'author' or fmt['json_schema']['schema']['properties']['source_fingerprint']['enum'] == [match[2]]
+    return match[1] == 'author' or fmt['json_schema']['schema']['properties']['source_fingerprint']['enum'] == [match[3]]
 
 
 def _pinned_spans(blocks: list[PracticalSourceBlock], corpus: DirectSourceCorpus) -> list[dict[str, Any]]:
@@ -88,9 +98,15 @@ def _question_quote(blocks: list[PracticalSourceBlock], corpus: DirectSourceCorp
 
 
 def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorpus,
-                            packet: PracticalSourcePacket, source_sha256: str) -> GenerationArtifacts:
+                            packet: PracticalSourcePacket, source_sha256: str, *,
+                            review_policy: str | None = None) -> GenerationArtifacts:
     """Pin proposed references to owned source spans, without semantic certification."""
-    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY
+    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY
+
+    if review_policy is None:
+        review_policy = SIMPLE_COURSE_REVIEW_POLICY
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY}:
+        raise ValueError('simple_materialization_policy_invalid')
 
     _source_context(packet, corpus, {})
     envelope = {'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(result.draft),
@@ -124,11 +140,50 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
         for identity, row in source_questions.items()]
     issues.append({'id': 'simple-editorial-review', 'kind': 'editorial_review', 'target_id': '',
         'message': 'Проверьте уроки и тесты перед согласованием курса.', 'source_refs': [], 'blocking': True})
+    receipt = result.review.get('revision_receipt', {})
+    if receipt and (receipt.get('source_fingerprint') != packet.fingerprint
+                    or receipt.get('draft_fingerprint') != _digest(result.draft)):
+        raise ValueError('simple_revision_receipt_stale')
+    for row in receipt.get('unverified_source_questions', []):
+        issues.append({'id': row['id'], 'kind': 'editorial_review', 'target_id': '',
+            'message': row['question'], 'source_refs': row['source_refs'], 'blocking': True,
+            'evidence': {'unverified': True, 'source_fingerprint': packet.fingerprint,
+                         'reviewed_draft_fingerprint': _digest(result.draft)}})
+    for row in receipt.get('unapplied_review_findings', []):
+        if (row.get('source_fingerprint') != packet.fingerprint
+                or row.get('draft_fingerprint') != _digest(result.draft)):
+            raise ValueError('simple_unapplied_review_stale')
+        finding = row['finding']
+        target = finding['target']
+        issues.append({'id': row['id'], 'kind': 'editorial_review',
+            'target_id': target['id'] if target['kind'] in {'lesson', 'question'} else '',
+            'message': finding['problem'] + '\n' + finding['correction'],
+            'source_refs': finding['source_refs'], 'blocking': True,
+            'evidence': {'unverified': True, 'source_fingerprint': packet.fingerprint,
+                         'reviewed_draft_fingerprint': _digest(result.draft)}})
+    independent = result.review.get('independent_option_review', {})
+    if independent:
+        if (independent.get('source_fingerprint') != packet.fingerprint
+                or independent.get('draft_fingerprint') != _digest(result.draft)):
+            raise ValueError('simple_independent_review_stale')
+        final_questions = {question['id']: question for lesson in course['lessons'] for question in lesson['questions']}
+        owned_refs = {block.block_id for block in packet.blocks}
+        for row in independent.get('unverified_observations', []):
+            question_id = row['question_id']
+            if (question_id not in final_questions or row.get('status') != 'UNVERIFIED'
+                    or not set(row['source_refs']).issubset(owned_refs)):
+                raise ValueError('simple_independent_observation_invalid')
+            issues.append({'id': 'simple-independent-' + _digest([packet.fingerprint, _digest(result.draft), question_id])[:24],
+                'kind': 'editorial_review', 'target_id': question_id, 'message': row['problem'],
+                'source_refs': row['source_refs'], 'blocking': True,
+                'evidence': {'unverified': True, 'source_fingerprint': packet.fingerprint,
+                    'reviewed_draft_fingerprint': _digest(result.draft),
+                    'current_question_fingerprint': _digest(final_questions[question_id])}})
     observations = [{'id': 'simple-observation-' + str(i), 'kind': 'editorial_suggestion',
         'target_id': row['target_id'], 'message': row['correction'], 'source_refs': row['source_refs'],
         'blocking': False, 'evidence': {'unverified': True, 'reviewed_draft_fingerprint': _digest(result.draft)}}
         for i, row in enumerate(result.review['proposals'])]
-    diagnostics = {'generation_engine': 'v3_cogen', 'v3_review_policy': SIMPLE_COURSE_REVIEW_POLICY,
+    diagnostics = {'generation_engine': 'v3_cogen', 'v3_review_policy': review_policy,
         'document_sha256': source_sha256, 'source_packet_fingerprint': packet.fingerprint,
         'lessons_count': len(contents), 'assessments_count': len(assessments),
         'quality_verdict': 'needs_review', 'automated_review_passed': False,
@@ -153,7 +208,14 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
 async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, invoke: Any,
     source_sha256: str, journal: Any, route_fingerprint: str, reference_decisions: tuple[SourceReferenceDecision, ...] = (),
     direct_client: Any = None, direct_max_output_tokens: int,
-    cancellation_callback: Any = None, progress_callback: Any = None) -> GenerationArtifacts:
+    cancellation_callback: Any = None, progress_callback: Any = None,
+    review_policy: str | None = None) -> GenerationArtifacts:
+    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY
+
+    review_policy = SIMPLE_COURSE_REVIEW_POLICY if review_policy is None else review_policy
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY}:
+        raise ValueError('simple_service_policy_invalid')
+    total = 5 if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY else 3
     packet = build_practical_source_packet(corpus, reference_decisions)
     completed = 0
 
@@ -182,8 +244,13 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             validator(value)
         completed += 1
         if progress_callback:
-            await progress_callback('realization', completed, 3, None, 1)
+            await progress_callback('realization', completed, total, None, 1)
         return value
 
-    result = await run_simple_course_editor(packet, corpus, intent, stage)
-    return simple_course_artifacts(result, corpus, packet, source_sha256)
+    if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY:
+        from app.modules.ai.v3.simple_course_editor_v2 import run_simple_course_editor_v2
+
+        result = await run_simple_course_editor_v2(packet, corpus, intent, stage)
+    else:
+        result = await run_simple_course_editor(packet, corpus, intent, stage)
+    return simple_course_artifacts(result, corpus, packet, source_sha256, review_policy=review_policy)

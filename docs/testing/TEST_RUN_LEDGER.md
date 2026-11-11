@@ -6914,3 +6914,23 @@ Final local APIunit7910PASS/1skip/7warnings80.26s, focusedworker/criticaljourney
 - Fixed:10seam/full3stage+mocked-provider cold replay/negative-plan testsPASS; oldtransport+simplefocused33PASS. FullAPI7920PASS/1skip/7warnings113.32s. AI-COURSE-01 local37PASS; manifest/gate+newtests16PASS1.83s; Pythonbaseline1004/2174PASS. Independent Terra source review accepted; CodeGraphsyncPASS.
 - DEV before correction:fb0 APIdep-dbq28q3rjlhs73b0sim0/Verceldpl_DGqycT8NWUgZNCXDBBAHy1pwsBs1/soleVM80b00778/imagec98e3294 controllerRELEASE_OK. One standardsjobd4bf8aaf failed43.672s/no course/no observed managed request; no PDF/cash submission. Historical failure retained, no content edit/status rewrite/retry. Production90 unchanged.
 - Remaining: corrected exact-SHA CI/DEV and full native model/content/media/usage/recovery acceptance, then separately authorized DeepSeek/prod.
+
+
+## RUN-20261111-SIMPLE91-NATIVE-AND-92-RETAINED-REVIEW
+
+DEV exactb71b89f6 native three courses: standards4L15Q346.437s53970in11127out; PDF8L24Q445.110s109164in16701out; cash8L28Q/10images435.250s101083in15979out. Total9calls264217in43807out, Luna6HIGH. Ordinary sources unchanged; source/route/request/checkpoint JSONB custody and complete bodies/quizzes/original asset hash/dimensions reads PASS. No new client data. Technical completion is NOT semantic acceptance; material findings and withdrawn false cash scope finding are in ENG-058.
+
+LOCAL92 first separated retained cases: standards3calls54663in6458out independentPASS, only stem/explanation changed; PDF3calls112021in11087out independentFAIL (compound-duty omission remains; new scope error); cash3calls100620in9754out0holds/10images independentreviewpending. No exact issue/target hints supplied. Prior isolated probes are separate and do not prove final-payload parity. No generation repeated from scratch. Current unit7941PASS/1skip/7warnings85.50s and baseline1004/2174PASS before pending coverage-worksheet delta. Initial PowerShell child policy rejection ran0tests; canonical documented process-only ExecutionPolicy Bypass corrected invocation. Production90 remains unchanged, no paidDeepSeek. H2/H3 current handoff own immutable receipts and local/native proof boundaries.
+
+
+## RUN-20261111-ENGINE-CHANGE-HISTORY
+
+Owner requested durable per-change history and mandatory prior-solution comparison. 557scoped local reachable Gitcommits/557uniqueanchors/objecttypes verified, June21–Nov11;546BASE90/2DEV91_SOURCE/9OTHER_REF. Curated history/archivedV88V9plan/negativeL92A-L92B separately preserved and independently reviewed, metadata not semantic audit. AGENTS+PROJECT-CONTEXT mandate pre-edit history/currentdispatch and keep/remove/bypass matrix. CodeGraph/Graphify READY; source2hop simplepath, history1139nodes3180edges/0missingendpoints/0duplicate or collapsededges;8capturedboundedqueries0LLMcalls. Receipt .release-evidence/engine-change-history-full-20261111. Historical modelcalls are not charged as history work; no new generation/login/provider/DB/production action, push or changes to tariffs. Local92snapshot stays NOT_ACCEPTED.
+
+## RUN-20261111-ENGINE-RESTORATION-CDEF
+
+LOCAL only; no business writes/provider change/deploy. Exact mechanism/results in 2026-11-11-engine-restoration.md and CHG-L92C–F. H5PDF blind3fresh134323/13543 independentGO; H5cash3fresh110718/11745FAIL; H5standards3fresh58107/7614FAIL. H6exampleguide2fresh78646/10379FAIL/removed. H7addressedcash1fresh38616/7435 independentGO8L28Q10markers. H8standards3fresh68530/11184+exactcachedprose18538/1841, onlyl3q2stemchanged; explanationreviewdetector, blindsolvermissed. No new author inference in these controls. Cached tokens not newly charged; monetaryUNKNOWN.
+
+Owned five-phase + producer/negative/source/policy/cold replay and scopes/retention72PASS3.00s, baseline1004/2174PASS. Full prior7956PASS1skip7warnings83.76s predates latestfive-role/Fdelta; newfullsuite+navigationrunning. F firstfixtureusedwrongdiagnosticspath (notproductRED), correctedactualseam1FAIL1PASS confirmslostUNDECIDABLE, then27seam/servicePASS plus5stale/foreign/changed-questionnegatives. H8runner final console's calls4 includes1cache; result.json model_calls3/freshusage authoritative. DEV91/native3oldcourses remain nonsemanticGO; threefreshDEV92 notrun.
+
+Final LOCAL source freeze: full7977PASS1skip7warnings91.74s, mandatorycritical63PASS8.09s, H8full4L15Q independentGO; Fconsumer independentlyaccepted. NavigationREADY source32776a31eeed93111eb4a810ea72f438ad533ab2969fe977ac814a9141f5d697, CodeGraph2528files, Graphify34817nodes116597edges2566files, exclusionsPASS0LLM, build153.091sGraphify/11.228sCodeGraph. No native92/prodacceptance implied.
