@@ -39,6 +39,8 @@ FOCUSED_EDITORIAL_REVIEW_POLICY = "v3-practical-source-review-v36"
 SIMPLE_COURSE_REVIEW_POLICY = "v3-simple-course-editor-v1"
 SIMPLE_COURSE_REVIEW_V2_POLICY = "v3-simple-course-editor-v2"
 SIMPLE_COURSE_REVIEW_V3_POLICY = "v3-simple-source-units-editor-v3"
+SIMPLE_COURSE_REVIEW_V4_POLICY = "v3-simple-source-units-delta-editor-v4"
+SIMPLE_COURSE_REVIEW_V5_POLICY = "v3-simple-source-units-addressed-editors-v5"
 PRACTICAL_MAX_OUTPUT_TOKENS = 16384
 
 
@@ -47,14 +49,14 @@ def is_editorial_policy(value: object) -> bool:
                                           AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY,
                                           COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY,
                                           SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY,
-                                          SIMPLE_COURSE_REVIEW_V3_POLICY)
+                                          SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY)
 
 
 def is_autonomous_editorial_policy(value: object) -> bool:
     return type(value) is str and value in (AUTONOMOUS_EDITORIAL_REVIEW_POLICY, JOINT_EDITORIAL_REVIEW_POLICY,
                                           COHERENT_EDITORIAL_REVIEW_POLICY, FOCUSED_EDITORIAL_REVIEW_POLICY,
                                           SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY,
-                                          SIMPLE_COURSE_REVIEW_V3_POLICY)
+                                          SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY)
 
 
 def is_scoped_policy(value: object) -> bool:
@@ -200,6 +202,8 @@ def read_review_policy(analysis: Any) -> str | None:
         SIMPLE_COURSE_REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_V2_POLICY,
         SIMPLE_COURSE_REVIEW_V3_POLICY,
+        SIMPLE_COURSE_REVIEW_V4_POLICY,
+        SIMPLE_COURSE_REVIEW_V5_POLICY,
     }:
         raise ValueError("v3_review_policy_invalid")
     return str(analysis[REVIEW_KEY])

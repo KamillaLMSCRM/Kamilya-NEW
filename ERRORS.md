@@ -10740,3 +10740,8 @@ Source-alias task R85/R86 shell clones repeated default Windows decoding; explic
 ### AGENT-ACCEPTANCE-HARNESS-001 owned transport seam — 2026-11-11
 
 The root's initial7910unit checks exercised new policy orchestration and pending replay separately but omitted the real stage_once→run_direct_owned_stage managed-client seam. This allowed exact91 DEV to fail before inference. Corrected with a failing three-stage seam regression, a complete mocked-provider three-stage service/cold replay check, and negative owned-plan cases. Both existing layers now use the same exact SIMPLE guard. Technical component passes still do not establish native course quality or release readiness; no repetition of a failed/unknown generation to diagnose this.
+
+
+### AGENT-COLD-PREFLIGHT-001 continuation, 11.11 LOCAL94
+
+A harness used the public editorial-review preparation DTO as if it were the full internal approval manifest; binding correctly stopped beforeinference. Readback of the exact immutable approval event with restricted READONLYlms_app restored the full18-blockmanifest, valid/sourceunchanged. An ambient Python attempt lackedPydantic and stoppedbeforeSSH; app-importing helpers use explicitrootvenv-Xutf8 plus existingusersiteonlyforParamiko. A first stage export omitted encoding=utf8 and produced Windowsmojibake locally; nativepayload/DBwerecorrect. Badexportsretained, canonical-stages93 regenerated fromimmutableUTF8privatepayload. No newengineencodingfix. Prefer alreadyverifiedassembledhelper/realcontracts and explicitUTF8 at every artifact boundary.

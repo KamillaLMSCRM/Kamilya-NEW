@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.94 — Candidate
+
+- Apply addressed editorial text deltas atomically so a partial correction cannot silently replace an entire lesson snapshot.
+- Separate teaching-text and question-card editing, with exact source/draft/identity/media custody and saved V1/V2/V3/V4 protocols.
+
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

@@ -20,6 +20,12 @@ VERSION = "practical-author-null-extras-v1"
 
 def is_practical_author_stage(stage: Any, group: Any) -> bool:
     if type(group) is str and re.fullmatch(
+            r'practical:simple:(author-batch|editor-body|editor-cards):v5:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == ('lesson' if ':author-batch:' in group else 'repair'))
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:(author-batch|editor-delta):v4:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == ('lesson' if ':author-batch:' in group else 'repair'))
+    if type(group) is str and re.fullmatch(
             r'practical:simple:(author-batch|editor-batch):v3:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
         return bool(stage == ('lesson' if ':author-batch:' in group else 'repair'))
     if stage == 'repair' and type(group) is str and re.fullmatch(
@@ -96,11 +102,13 @@ def _normalize(value: Any, schema: dict[str, Any], path: str, removed: list[str]
 
 
 def normalize_practical_author(raw_text: str, response_format: Any) -> PracticalAuthorArtifact:
+    from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format, matches_simple_delta_editor
     from app.modules.ai.v3.simple_course_editor import is_simple_editor_format, matches_simple_editor
     from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format, matches_simple_revision_v2
     simple_editor = is_simple_editor_format(response_format)
     simple_revision = is_simple_revision_v2_format(response_format)
-    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor or simple_revision):
+    simple_delta = is_simple_delta_editor_format(response_format)
+    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor or simple_revision or simple_delta):
         raise ValueError("practical_author_transport_format_invalid")
     try:
         parsed = json.loads(raw_text, object_pairs_hook=_pairs, parse_constant=_constant, parse_float=_finite_float)
@@ -108,7 +116,8 @@ def normalize_practical_author(raw_text: str, response_format: Any) -> Practical
             raise ValueError("practical_author_transport_not_object")
         removed: list[str] = []
         normalized = _normalize(parsed, response_format["json_schema"]["schema"], "", removed)
-        valid = (matches_simple_revision_v2(normalized, response_format) if simple_revision
+        valid = (matches_simple_delta_editor(normalized, response_format) if simple_delta
+                 else matches_simple_revision_v2(normalized, response_format) if simple_revision
                  else matches_simple_editor(normalized, response_format) if simple_editor
                  else matches_practical_course_response(normalized, response_format))
         if not valid:

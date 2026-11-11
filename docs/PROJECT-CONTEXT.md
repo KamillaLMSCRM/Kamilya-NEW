@@ -1,3 +1,11 @@
+# Candidate94 local GO; deployed DEV remains93 — 2026-11-11
+
+NewV5 has sourceplan/author/teachingdelta/carddelta, actualinputisolation plusimmutableexactspanedits. Same native93 retainedstandards3L11Q independentlyLOCALGOafter2LunaHIGHcalls38463IN1651OUT37.532s. Full8088/critical96/baseline1004-2174PASS, graphrefreshcomplete. DEV93 exact87f5/15cc remainsrunning, production90/nativefrontend86 unchanged; fresh94threecourses/provider/prod gatesOPEN. Noactivejobs. Currenthandoff/H11 own exactreceipts; ownerauthorizedadditional$1finalDeepSeekcycleunspent.
+
+# Current DEV93 deployed — 2026-11-11
+
+Exact87f5e500/version93 API/web/soleVMworker15cc/image85b42e65 passedcanonicalRELEASE_OK. Old92/ad816retainedstopped;production90/nativefrontend86 unchanged. Exact8cachedimagecleanup authorized andpassed/all94preexistingcontainerspreserved;8.92GiBfree/81%. Native standards job3f2745cc running; fullthree-course/provider/prod/live acceptance OPEN. Currenthandoff/H10 own exactprocess/receipt pointers; previouscontour paragraphs historical. Separate newDeepSeek93$1authority recorded/spent0.
+
 # Current 93 local acceptance and rollout boundary — 2026-11-11
 
 Candidate93 uses three owned source-unit plan/batch-author/ordinary-editor stages, full approved literal source and typed original-body/image provenance. The retained cash result is independently LOCAL content GO10L30Q/10images,1fresh Luna6HIGH editor44038IN7712OUT142.562s. Prior failures and rejected extra critic remain recorded. Fresh three native DEV93 courses and production are not accepted. Current handoff owns exact runtime/process/rollback identities; historical sections below do not override it.

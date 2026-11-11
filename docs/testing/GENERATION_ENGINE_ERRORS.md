@@ -1494,3 +1494,8 @@ The transport now reuses the SIMPLE stage/policy/format guard and retains exact 
 ## LOCAL93 provenance control — 2026-11-11
 
 Simple projection previously flattened native document body and visual-example OCR/description. Typed origin now preserves exact literal source and labels without assigning new duties. Retained-course04 cash ordinary editor independently LOCAL GO10L30Q/10images; earlier source-first control and extra critic failed. CHG-L93I/evidence H10. No claim of proven model-internal cause or fresh DEV acceptance.
+
+
+## ENG-061 — полный snapshot редактора потерял неизменённое обучение
+
+11.11 native93standards автордалгорода/лимиты/суммирование, редакторзаменил весьпервыйурок новымвступлением. Сохранившиесявопросы/источники некомпенсируют потерю. READONLY реальные3стадии/0другихcontentblocks подтверждены. НеошибкаUI/валидаторацитат/исходника. Контрактfullstate непредотвращаетчастичныйответмодели какполнуюзаменуtargetbody. CHG-L94Aпредложендоизменений; детерминированныедействияредактора поадреснымдельтам должнысохранятьнетронутыйтекст. Доказательствоисправленияещёнет; old93NO_GOнепереписывать.

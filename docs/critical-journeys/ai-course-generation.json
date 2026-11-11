@@ -15,6 +15,8 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v5.py::test_v5_owned_isolated_editors_and_replay",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v4.py::test_v4_owned_three_stages_and_cold_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_v3_owned_assembly_and_cold_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_v3_owned_plan_rejects_forgery_before_provider",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_unit_editor_preserves_existing_image_and_rejects_drop_or_foreign_addition",

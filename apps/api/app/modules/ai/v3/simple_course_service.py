@@ -42,17 +42,21 @@ def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, valid
         SIMPLE_COURSE_REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_V2_POLICY,
         SIMPLE_COURSE_REVIEW_V3_POLICY,
+        SIMPLE_COURSE_REVIEW_V4_POLICY,
+        SIMPLE_COURSE_REVIEW_V5_POLICY,
     )
 
-    if policy == SIMPLE_COURSE_REVIEW_V3_POLICY:
+    if type(policy) is str and policy in {SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY}:
         if type(group) is not str or not callable(validator):
             return False
-        match_v3 = re.fullmatch(r'practical:simple:(plan|author-batch|editor-batch):v3:([0-9a-f]{64})(?::unit=([0-9a-f]{64}))?:output=[1-9][0-9]*', group)
+        version = 'v5' if policy == SIMPLE_COURSE_REVIEW_V5_POLICY else 'v4' if policy == SIMPLE_COURSE_REVIEW_V4_POLICY else 'v3'
+        action = 'editor-body|editor-cards' if version == 'v5' else 'editor-delta' if version == 'v4' else 'editor-batch'
+        match_v3 = re.fullmatch(r'practical:simple:(plan|author-batch|' + action + '):' + version + r':([0-9a-f]{64})(?::unit=([0-9a-f]{64}))?:output=[1-9][0-9]*', group)
         if not match_v3:
             return False
         expected_v3 = {'plan': ('review', 'simple_source_unit_plan'),
                        'author-batch': ('lesson', 'practical_course'),
-                       'editor-batch': ('repair', 'simple_course_editor')}
+                       **{item: ('repair', 'simple_course_delta_editor' if version in {'v4', 'v5'} else 'simple_course_editor') for item in action.split('|')}}
         if (stage, response_contract(fmt)) != expected_v3[match_v3[1]]:
             return False
         if (match_v3[1] == 'plan') != (match_v3[3] is None):
@@ -125,11 +129,13 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
         SIMPLE_COURSE_REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_V2_POLICY,
         SIMPLE_COURSE_REVIEW_V3_POLICY,
+        SIMPLE_COURSE_REVIEW_V4_POLICY,
+        SIMPLE_COURSE_REVIEW_V5_POLICY,
     )
 
     if review_policy is None:
         review_policy = SIMPLE_COURSE_REVIEW_POLICY
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY}:
         raise ValueError('simple_materialization_policy_invalid')
 
     _source_context(packet, corpus, {})
@@ -238,12 +244,14 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
         SIMPLE_COURSE_REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_V2_POLICY,
         SIMPLE_COURSE_REVIEW_V3_POLICY,
+        SIMPLE_COURSE_REVIEW_V4_POLICY,
+        SIMPLE_COURSE_REVIEW_V5_POLICY,
     )
 
     review_policy = SIMPLE_COURSE_REVIEW_POLICY if review_policy is None else review_policy
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY}:
         raise ValueError('simple_service_policy_invalid')
-    total = 5 if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY else 3
+    total = 5 if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY else 4 if review_policy == SIMPLE_COURSE_REVIEW_V5_POLICY else 3
     packet = build_practical_source_packet(corpus, reference_decisions)
     completed = 0
 
@@ -275,10 +283,12 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             await progress_callback('realization', completed, total, None, 1)
         return value
 
-    if review_policy == SIMPLE_COURSE_REVIEW_V3_POLICY:
+    if review_policy in {SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY}:
         from app.modules.ai.v3.simple_course_editor_v3 import run_simple_course_editor_v3
 
-        result = await run_simple_course_editor_v3(packet, corpus, intent, stage, reference_decisions=reference_decisions)
+        result = await run_simple_course_editor_v3(packet, corpus, intent, stage,
+            reference_decisions=reference_decisions, delta_editor=review_policy in {SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY},
+            separate_editors=review_policy == SIMPLE_COURSE_REVIEW_V5_POLICY)
     elif review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY:
         from app.modules.ai.v3.simple_course_editor_v2 import run_simple_course_editor_v2
 

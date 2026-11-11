@@ -70,6 +70,7 @@ from app.modules.ai.v3.practical_source_semantics import (
     matches_source_semantics,
     matches_source_semantics_verification,
 )
+from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format, matches_simple_delta_editor
 from app.modules.ai.v3.simple_course_editor import (
     is_simple_editor_format,
     is_simple_review_format,
@@ -89,6 +90,8 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_simple_delta_editor_format(value):
+        return "simple_course_delta_editor"
     if is_source_unit_plan_format(value):
         return "simple_source_unit_plan"
     if is_simple_question_scope_format(value):
@@ -184,6 +187,8 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "simple_course_delta_editor":
+        return matches_simple_delta_editor(value, response_format)
     if kind == "simple_source_unit_plan":
         return matches_source_unit_plan(value, response_format)
     if kind == "simple_question_scope_review":
