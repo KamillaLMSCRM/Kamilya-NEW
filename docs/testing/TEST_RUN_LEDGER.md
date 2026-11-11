@@ -6971,3 +6971,10 @@ Exact87f5e500/CI43049241570/build43050113170/image85b42e65;soleworker15cc;APIdep
 ### 11.11 CHG-L94B фактический LOCAL результат
 
 H11/separated94/d: sourcepacket9e/currentapprovedworking8f, exactsame native93author/automaticplan (retained,nocheckpointcache).2freshgpt-6-lunaHIGH:teaching18101IN1210OUT26.532s;cards20362IN441OUT11.0s. Firstbodyrolewithoutoldcards independentlychangedonlyL1openingtoregionaldirectorate lookup; cardsnoedits. Independentall3bodies/11cardsLOCALGO;alllimits/cities/aggregation/questions/peerbodiespreserved. CHG94A singlecombineddelta control20608IN1574OUT32.64s remainsNO_GO onmissedauthoredscopeerror, notrelabeled. Freshnative94/production stillOPEN. Full8088PASS/1skip7warnings76.67s; critical96PASS8.13s; baseline1004/2174PASS; graph2542files/34981nodes117630edges refreshdone. ExistingV3/V4ownedreplays23PASS;V5actualfakeseam6PASS. Metadata/usage/hashreceiptsinH11, managedUSD/providerbuildUNKNOWN. No paidDeepSeekcall.
+
+
+## 2026-11-11 — CHG-L95A LOCAL managed delta decoder
+
+- Candidate: fd07e5e1 + narrow95 working patch; managed decoder registration only, roles unchanged. Real-envelope RED four positives/four negatives→65focusedPASS1.52s. Both editor roles exercise raw/normalized PracticalAuthorArtifact custody, safe unknown-null and rejection negatives;0LLMrequests.
+- Final canonical full unit:8096PASS/1skip/7warnings76.73s; critical32selectors+gate+release-contract→106PASS8.58s; quality baseline1004/2174PASS. Initial failures retained in H12: importstyle corrected; journal missinglabels/header corrected; critical selector expectedcounts updated to32local/33CI with explicit new-test inclusion, no gate weakened.
+- CodeGraph/Graphify refresh pending at this note. DEV94 controllerBLOCKED/api_release_sha_mismatch despite providerlive94: publichealth93/87f5, no94coursecall; source/causeUNKNOWN. Existing production90 untouched. H12=.release-evidence/managed-delta-custody95-20261111. AdditionalDeepSeek1USD remains0spent. LOCAL tests do not prove native or course semantics.

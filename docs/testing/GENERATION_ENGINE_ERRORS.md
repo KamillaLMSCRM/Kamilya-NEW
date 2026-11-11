@@ -1499,3 +1499,8 @@ Simple projection previously flattened native document body and visual-example O
 ## ENG-061 — полный snapshot редактора потерял неизменённое обучение
 
 11.11 native93standards автордалгорода/лимиты/суммирование, редакторзаменил весьпервыйурок новымвступлением. Сохранившиесявопросы/источники некомпенсируют потерю. READONLY реальные3стадии/0другихcontentblocks подтверждены. НеошибкаUI/валидаторацитат/исходника. Контрактfullstate непредотвращаетчастичныйответмодели какполнуюзаменуtargetbody. CHG-L94Aпредложендоизменений; детерминированныедействияредактора поадреснымдельтам должнысохранятьнетронутыйтекст. Доказательствоисправленияещёнет; old93NO_GOнепереписывать.
+
+
+### GEN-095 — managed delta decoder missed raw/normalized custody
+
+11.11.2026, local sourcefd07e5e1+95delta. Known sourceV5 output was structurally registered but not included in ManagedLunaClient normalization branch. Valid exact responses returned dict without custody; root/nested unknown-null could fail before editorial application. Deterministic integration defect, no demonstrated model-content fault. Fixed same normalization branch; 8real envelope cases cover two editors × exact/unknown-null/non-null-extra/required-null.65testfilePASS;0fresh modelcalls. No94freshfullcourse was submitted; saved local contentGO remains separate. Independent readback helper now binds exact courseID and requires custody for all3contentstages. DEV95 and semantics pending. CHG-L95A / AI-CLIENT-SEAM-095.

@@ -14,6 +14,62 @@ from app.modules.ai.managed_luna_client import ManagedLunaClient, ManagedLunaCom
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('role', ['body', 'cards'])
+@pytest.mark.parametrize('mode', ['exact', 'unknown_null', 'unknown_nonnull', 'required_null'])
+async def test_delta_editor_real_decode_preserves_raw_custody(setup, role, mode):
+    from app.modules.ai.managed_luna_client import _ResponseDecodeError
+    from app.modules.ai.v3.practical_author_transport import (
+        PracticalAuthorArtifact,
+        author_custody,
+        is_practical_author_stage,
+        validate_author_custody,
+    )
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+    from app.modules.ai.v3.simple_course_delta_editor import delta_editor_format
+
+    client, _, _, _, requests = setup
+    source_fp = 'a' * 64
+    draft_fp = ('b' if role == 'body' else 'c') * 64
+    fmt = delta_editor_format(['SRC1'], source_fp, draft_fp)
+    group = f'practical:simple:editor-{role}:v5:' + source_fp + ':unit=' + 'd' * 64 + ':output=8192'
+    assert is_practical_author_stage('repair', group)
+    content = {'source_fingerprint': source_fp, 'draft_fingerprint': draft_fp,
+        'body_edits': [{'lesson_id': 'lesson', 'before': 'old', 'after': 'new'}] if role == 'body' else [],
+        'title_edits': [], 'question_edits': [], 'added_lessons': [],
+        'lesson_sources': [{'lesson_id': 'lesson', 'source_refs': ['SRC1']}], 'source_questions': []}
+    if mode == 'unknown_null':
+        content['unexpected'] = None
+        content['lesson_sources'][0]['unexpected_nested'] = None
+    elif mode == 'unknown_nonnull':
+        content['unexpected'] = 'not allowed'
+    elif mode == 'required_null':
+        content['body_edits'] = None
+    raw_content = json.dumps(content, ensure_ascii=False)
+    envelope = {'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt), 'choices': [{'message': {'content': raw_content}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare([{'role': 'user', 'content': group}], max_output_tokens=8,
+                               ownership_checkpoint=checkpoint, response_format=fmt)
+    try:
+        if mode in {'unknown_nonnull', 'required_null'}:
+            with pytest.raises(_ResponseDecodeError) as error:
+                client._decode_response(json.dumps(envelope).encode(), client._prepared[cap])
+            assert error.value.phase == 'structured_shape'
+        else:
+            result, _ = client._decode_response(json.dumps(envelope).encode(), client._prepared[cap])
+            assert isinstance(result.content, PracticalAuthorArtifact)
+            assert result.content.raw_text == raw_content
+            assert result.content.receipt.removed_paths == (
+                ('/lesson_sources/0/unexpected_nested', '/unexpected') if mode == 'unknown_null' else ())
+            assert 'unexpected' not in result.content.normalized_value
+            assert validate_author_custody(author_custody(result.content, fmt), result.content.normalized_value, fmt)
+        assert not requests
+    finally:
+        client.discard(cap)
+
+
+@pytest.mark.asyncio
 async def test_retained_author_replay_is_one_use_and_never_posts(setup):
     from app.modules.ai.v3.practical_contract import _course_format
     from app.modules.ai.v3.response_contracts import response_contract_hash

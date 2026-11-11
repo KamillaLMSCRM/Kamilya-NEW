@@ -30,8 +30,9 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
         ],
     )
     assert [journey.journey_id for journey in impacted] == ["AI-COURSE-01"]
-    assert len(impacted[0].required_tests) == 31
+    assert len(impacted[0].required_tests) == 32
     assert len(impacted[0].database_tests) == 1
+    assert "apps/api/tests/unit/test_managed_luna_client.py::test_delta_editor_real_decode_preserves_raw_custody" in impacted[0].required_tests
     assert "scripts/ci/kb_rag_schema_contract.py" in impacted[0].runtime_gates
     assert (
         "apps/api/tests/unit/test_backward_quality_corpus.py::"
@@ -81,9 +82,9 @@ def test_local_mode_emits_database_free_tests_and_defers_database_gate(tmp_path:
     )
     assert result["status"] == "READY"
     assert result["journeys"] == ["AI-COURSE-01"]
-    assert result["required_tests"] == 31
+    assert result["required_tests"] == 32
     assert result["deferred_database_tests"] == 1
-    assert len(output.read_text(encoding="utf-8").splitlines()) == 31
+    assert len(output.read_text(encoding="utf-8").splitlines()) == 32
     assert "test_document_reindex_worker_completes_and_is_idempotent" not in output.read_text(encoding="utf-8")
 
 
@@ -98,7 +99,7 @@ def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) 
         execution_profile="ci",
     )
 
-    assert result["required_tests"] == 32
+    assert result["required_tests"] == 33
     assert result["deferred_database_tests"] == 0
     assert "test_document_reindex_worker_completes_and_is_idempotent" in output.read_text(encoding="utf-8")
 

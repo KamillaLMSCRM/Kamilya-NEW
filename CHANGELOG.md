@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.95 — Candidate
+
+- Preserve original and normalized addressed-editor responses through the real managed Luna decoder, including safe unknown-null normalization.
+- Add real-envelope regressions for both separated editor roles to the required document-to-course journey.
+
 ## 0.11.94 — Candidate
 
 - Apply addressed editorial text deltas atomically so a partial correction cannot silently replace an entire lesson snapshot.

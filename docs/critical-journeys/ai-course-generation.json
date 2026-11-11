@@ -15,6 +15,7 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_managed_luna_client.py::test_delta_editor_real_decode_preserves_raw_custody",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v5.py::test_v5_owned_isolated_editors_and_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v4.py::test_v4_owned_three_stages_and_cold_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v3.py::test_v3_owned_assembly_and_cold_replay",

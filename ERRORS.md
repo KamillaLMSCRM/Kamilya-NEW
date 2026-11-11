@@ -818,7 +818,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-10.
+Current as of: 2026-11-11.
 
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
@@ -10745,3 +10745,13 @@ The root's initial7910unit checks exercised new policy orchestration and pending
 ### AGENT-COLD-PREFLIGHT-001 continuation, 11.11 LOCAL94
 
 A harness used the public editorial-review preparation DTO as if it were the full internal approval manifest; binding correctly stopped beforeinference. Readback of the exact immutable approval event with restricted READONLYlms_app restored the full18-blockmanifest, valid/sourceunchanged. An ambient Python attempt lackedPydantic and stoppedbeforeSSH; app-importing helpers use explicitrootvenv-Xutf8 plus existingusersiteonlyforParamiko. A first stage export omitted encoding=utf8 and produced Windowsmojibake locally; nativepayload/DBwerecorrect. Badexportsretained, canonical-stages93 regenerated fromimmutableUTF8privatepayload. No newengineencodingfix. Prefer alreadyverifiedassembledhelper/realcontracts and explicitUTF8 at every artifact boundary.
+
+
+## AI-CLIENT-SEAM-095 — critical producer/prepare test omitted the real managed decoder
+
+- Date: 2026-11-11.
+- Symptom: V5 delta format passed producer/prepare/schema checks but the actual managed client omitted raw/normalized custody and rejected unknown-null extras. Caught before a fresh94 course call.
+- Cause: root treated assembled fake-provider tests as proof of actual ManagedLunaClient._decode_response coverage. Its older kind branch omitted the new delta format. Four real-envelope positive tests reproduced the gap; four negatives already passed.
+- Fix: add delta recognition to the existing decoder normalization branch; require the real-envelope matrix in AI-COURSE-01. Native proof binds terminal course ID and requires custody for all three content stages. No semantic relaxation or new model critic.
+- Verification: focused65 PASS1.52s. Initial full95 run8095PASS/1FAIL solely because this new journal entry lacked required field labels; fixed this entry without changing the gate. Initial Ruff I001 corrected with import formatting; baseline1004/2174 thenPASS. No model calls. Final95/local and DEV gates remain separately recorded.
+- Prevention: for every new model format verify producer, prepare, actual decoder, checkpoint and relevant replay separately. Do not claim mocks prove decoding. Use this journal's required Date/Symptom/Cause/Fix/Verification/Prevention labels and freeze source before navigation preparation.
