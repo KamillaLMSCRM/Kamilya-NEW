@@ -1,3 +1,7 @@
+# Candidate99 local; deployed DEV98r and production90 unchanged
+
+Newunit-scopedreading/addressededitors V8 locallypassed8203unit/193critical/quality1004-2174 and independentintegrationreview. SavedPDF16L63Q contentGO isLOCALonly. Threefreshfullnative99courses, DeepSeek andproduction/live acceptance remainOPEN. CurrentCODEX_HANDOFF andCHG-L99E ownexactidentities/processes; olderstatusesbelow historical. No migration/provider/plan/customerchanges.
+
 # Candidate94 local GO; deployed DEV remains93 — 2026-11-11
 
 NewV5 has sourceplan/author/teachingdelta/carddelta, actualinputisolation plusimmutableexactspanedits. Same native93 retainedstandards3L11Q independentlyLOCALGOafter2LunaHIGHcalls38463IN1651OUT37.532s. Full8088/critical96/baseline1004-2174PASS, graphrefreshcomplete. DEV93 exact87f5/15cc remainsrunning, production90/nativefrontend86 unchanged; fresh94threecourses/provider/prod gatesOPEN. Noactivejobs. Currenthandoff/H11 own exactreceipts; ownerauthorizedadditional$1finalDeepSeekcycleunspent.

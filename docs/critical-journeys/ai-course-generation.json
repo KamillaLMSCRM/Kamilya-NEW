@@ -15,6 +15,11 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_v8_independent_unit_readings_author_editors_and_replay",
+        "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_failed_unit_read_never_invokes_author",
+        "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_reader_and_author_checkpoints_are_bound_to_complete_plan",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v8.py::test_v8_real_managed_owned_replay",
+        "apps/api/tests/unit/test_v3_simple_cloud_transport_v8.py::test_v8_cloud_owned_pending_and_replay",
         "apps/api/tests/unit/test_v3_simple_source_reading_v7.py::test_v7_source_reader_scoped_authors_editors_and_cold_replay",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v7.py::test_v7_real_decode_owned_path_and_cold_replay",
         "apps/api/tests/unit/test_v3_simple_cloud_transport_v7.py::test_v7_cloud_raw_delta_null_custody_and_cold_replay",

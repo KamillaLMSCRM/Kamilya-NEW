@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.99] - 2026-11-12
+
+- Read each semantic source unit and its literal dependencies before authoring, retaining grammatical referents and scoped conditions without transcribing the entire document into one reading.
+- Compare actual source and draft applicability in the two existing addressed editors; preserve supported lessons, questions, illustrations and response custody.
+- Bind new V8 reader and author checkpoints to both plan and unit, retaining frozen earlier-job requests and cold recovery. Native full-course quality remains a separate acceptance gate.
+
 ## [0.11.98] - 2026-11-12
 
 - Read source actors, actions and scoped conditions independently before authoring; use that fallible reading alongside the approved original in per-unit authors and addressed editors.

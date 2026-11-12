@@ -46,7 +46,29 @@ def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, valid
         SIMPLE_COURSE_REVIEW_V5_POLICY,
         SIMPLE_COURSE_REVIEW_V6_POLICY,
         SIMPLE_COURSE_REVIEW_V7_POLICY,
+        SIMPLE_COURSE_REVIEW_V8_POLICY,
     )
+
+    if policy == SIMPLE_COURSE_REVIEW_V8_POLICY:
+        if type(group) is not str or not callable(validator):
+            return False
+        match_v8 = re.fullmatch(r'practical:simple:(plan|source-read|author-unit|editor-body|editor-cards):v8:([0-9a-f]{64})(?::plan=([0-9a-f]{64}))?(?::unit=([0-9a-f]{64}))?:output=[1-9][0-9]*', group)
+        if not match_v8:
+            return False
+        role = match_v8[1]
+        if ((role == 'plan' and (match_v8[3] is not None or match_v8[4] is not None))
+                or (role in {'source-read', 'author-unit'} and (match_v8[3] is None or match_v8[4] is None))
+                or (role in {'editor-body', 'editor-cards'} and (match_v8[3] is not None or match_v8[4] is None))):
+            return False
+        expected_v8 = {'plan': ('review', 'simple_semantic_source_plan'),
+            'source-read': ('review', 'practical_source_semantics'),
+            'author-unit': ('lesson', 'practical_course'),
+            'editor-body': ('repair', 'simple_course_delta_editor'),
+            'editor-cards': ('repair', 'simple_course_delta_editor')}
+        if (stage, response_contract(fmt)) != expected_v8[role]:
+            return False
+        return (role == 'author-unit'
+            or fmt['json_schema']['schema']['properties']['source_fingerprint']['enum'] == [match_v8[2]])
 
     if policy == SIMPLE_COURSE_REVIEW_V7_POLICY:
         if type(group) is not str or not callable(validator):
@@ -166,11 +188,12 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
         SIMPLE_COURSE_REVIEW_V5_POLICY,
         SIMPLE_COURSE_REVIEW_V6_POLICY,
         SIMPLE_COURSE_REVIEW_V7_POLICY,
+        SIMPLE_COURSE_REVIEW_V8_POLICY,
     )
 
     if review_policy is None:
         review_policy = SIMPLE_COURSE_REVIEW_POLICY
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY}:
         raise ValueError('simple_materialization_policy_invalid')
 
     _source_context(packet, corpus, {})
@@ -293,10 +316,11 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
         SIMPLE_COURSE_REVIEW_V5_POLICY,
         SIMPLE_COURSE_REVIEW_V6_POLICY,
         SIMPLE_COURSE_REVIEW_V7_POLICY,
+        SIMPLE_COURSE_REVIEW_V8_POLICY,
     )
 
     review_policy = SIMPLE_COURSE_REVIEW_POLICY if review_policy is None else review_policy
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY}:
         raise ValueError('simple_service_policy_invalid')
     total = 5 if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY else 4 if review_policy == SIMPLE_COURSE_REVIEW_V5_POLICY else 3
     packet = build_practical_source_packet(corpus, reference_decisions)
@@ -330,7 +354,16 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             await progress_callback('realization', completed, total, None, 1)
         return value
 
-    if review_policy == SIMPLE_COURSE_REVIEW_V7_POLICY:
+    if review_policy == SIMPLE_COURSE_REVIEW_V8_POLICY:
+        from app.modules.ai.v3.simple_course_editor_v8 import run_simple_course_editor_v8
+
+        async def planned_v8(count: int) -> None:
+            nonlocal total
+            total = count
+
+        result = await run_simple_course_editor_v8(packet, corpus, intent, stage,
+            reference_decisions=reference_decisions, planned_callback=planned_v8)
+    elif review_policy == SIMPLE_COURSE_REVIEW_V7_POLICY:
         from app.modules.ai.v3.simple_course_editor_v7 import run_simple_course_editor_v7
 
         async def planned_v7(count: int) -> None:

@@ -1,3 +1,7 @@
+# Candidate99 local; deployed DEV98r and production90 unchanged
+
+Newunit-scopedreading/addressededitors V8 locallypassed8203unit/193critical/quality1004-2174 and independentintegrationreview. SavedPDF16L63Q contentGO isLOCALonly. Threefreshfullnative99courses, DeepSeek andproduction/live acceptance remainOPEN. CurrentCODEX_HANDOFF andCHG-L99E ownexactidentities/processes; olderstatusesbelow historical. No migration/provider/plan/customerchanges.
+
 # Candidate96 LOCAL boundary — 2026-11-11T19:33:01.840263+00:00
 
 Production release90 remains the last verified production state; this task has not changed it. DEV95 exact3b958fc5 is deployed but fresh standards quality failed. Candidate96 is LOCAL: semantic source slices with literal hierarchy, per-unit authoring, addressed separated editors and real managed/cloud custody. Retained7L27Q correction by the model is independently practical GO; it does not establish fresh96 generation, native persistence or release readiness. Three full fresh DEV courses, final authorized DeepSeekDEV, exact CI/image/worker/provider identity, current backup/restore/rollback, protected release and synthetic live acceptance remain OPEN. H18 evidence and current handoff separate every failed/retained/fresh boundary.

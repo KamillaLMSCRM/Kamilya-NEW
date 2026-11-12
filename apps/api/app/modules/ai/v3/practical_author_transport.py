@@ -20,6 +20,12 @@ VERSION = "practical-author-null-extras-v1"
 
 def is_practical_author_stage(stage: Any, group: Any) -> bool:
     if type(group) is str and re.fullmatch(
+            r'practical:simple:author-unit:v8:[0-9a-f]{64}:plan=[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == 'lesson')
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:(editor-body|editor-cards):v8:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == 'repair')
+    if type(group) is str and re.fullmatch(
             r'practical:simple:(author-unit|editor-body|editor-cards):v[67]:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
         return bool(stage == ('lesson' if ':author-unit:' in group else 'repair'))
     if type(group) is str and re.fullmatch(
