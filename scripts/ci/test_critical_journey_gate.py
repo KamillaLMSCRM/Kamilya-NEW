@@ -30,13 +30,20 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
         ],
     )
     assert [journey.journey_id for journey in impacted] == ["AI-COURSE-01"]
-    assert len(impacted[0].required_tests) == 50
+    assert len(impacted[0].required_tests) >= 50
     assert {
         "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_v8_independent_unit_readings_author_editors_and_replay",
         "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_failed_unit_read_never_invokes_author",
         "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_reader_and_author_checkpoints_are_bound_to_complete_plan",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v8.py::test_v8_real_managed_owned_replay",
         "apps/api/tests/unit/test_v3_simple_cloud_transport_v8.py::test_v8_cloud_owned_pending_and_replay",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v9.py::test_v9_real_decoders_and_owned_cold_replay",
+        "apps/api/tests/unit/test_simple_course_editor_v9.py::test_author_unit_reviews_global_review_and_joint_block_editor",
+        "apps/api/tests/unit/test_simple_course_block_editor.py::test_invalid_block_scope_or_fingerprint_fails_without_mutation",
+        "apps/api/tests/unit/test_simple_course_address_repair.py::test_invalid_assignments_fail_closed",
+        "apps/api/tests/unit/test_simple_editor_findings.py::test_missing_duplicate_and_bad_evidence_stay_unverified",
+        "apps/api/tests/unit/test_normalized_editorial_review.py::test_fake_and_extra_format_properties_rejected",
+        "apps/api/tests/unit/test_v3_simple_source_finding_v9.py::test_v9_editor_dispositions_remain_visible_and_bound_to_final_course",
     } <= set(impacted[0].required_tests)
     assert len(impacted[0].database_tests) == 1
     assert "apps/api/tests/unit/test_managed_luna_client.py::test_delta_editor_real_decode_preserves_raw_custody" in impacted[0].required_tests
@@ -89,9 +96,10 @@ def test_local_mode_emits_database_free_tests_and_defers_database_gate(tmp_path:
     )
     assert result["status"] == "READY"
     assert result["journeys"] == ["AI-COURSE-01"]
-    assert result["required_tests"] == 50
+    expected = pytest_selectors(load_contract(), REPO_ROOT / "apps" / "api", execution_profile="local")
+    assert result["required_tests"] == len(expected)
     assert result["deferred_database_tests"] == 1
-    assert len(output.read_text(encoding="utf-8").splitlines()) == 50
+    assert output.read_text(encoding="utf-8").splitlines() == list(expected)
     assert "test_document_reindex_worker_completes_and_is_idempotent" not in output.read_text(encoding="utf-8")
 
 
@@ -106,7 +114,8 @@ def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) 
         execution_profile="ci",
     )
 
-    assert result["required_tests"] == 51
+    expected = pytest_selectors(load_contract(), REPO_ROOT / "apps" / "api", execution_profile="ci")
+    assert result["required_tests"] == len(expected)
     assert result["deferred_database_tests"] == 0
     assert "test_document_reindex_worker_completes_and_is_idempotent" in output.read_text(encoding="utf-8")
 

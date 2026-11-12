@@ -206,13 +206,19 @@ class ManagedLunaClient:
             if "structured_output_policy" in requested:
                 from app.modules.ai.v3.response_contracts import matches_transport_contract
                 category = "structured_shape"
+                from app.modules.ai.v3.normalized_editorial_review import is_normalized_editorial_review_format
                 from app.modules.ai.v3.practical_contract import is_practical_course_format
+                from app.modules.ai.v3.simple_course_address_repair import is_address_repair_format
+                from app.modules.ai.v3.simple_course_block_editor import is_simple_block_editor_format
                 from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format
                 from app.modules.ai.v3.simple_course_editor import is_simple_editor_format
                 from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format
                 if (is_practical_course_format(requested["response_format"]) or is_simple_editor_format(requested["response_format"])
                         or is_simple_revision_v2_format(requested["response_format"])
-                        or is_simple_delta_editor_format(requested["response_format"])):
+                        or is_simple_delta_editor_format(requested["response_format"])
+                        or is_simple_block_editor_format(requested["response_format"])
+                        or is_normalized_editorial_review_format(requested["response_format"])
+                        or is_address_repair_format(requested["response_format"])):
                     if contains_credential(message["content"], self._token):
                         raise ValueError("managed_luna_structured_shape_invalid")
                     from app.modules.ai.v3.practical_author_transport import normalize_practical_author

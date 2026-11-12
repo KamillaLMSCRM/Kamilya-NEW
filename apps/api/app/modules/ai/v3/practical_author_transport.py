@@ -20,8 +20,20 @@ VERSION = "practical-author-null-extras-v1"
 
 def is_practical_author_stage(stage: Any, group: Any) -> bool:
     if type(group) is str and re.fullmatch(
-            r'practical:simple:author-unit:v8:[0-9a-f]{64}:plan=[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+            r'practical:simple:repair-address:v9:[0-9a-f]{64}:unit=[0-9a-f]{64}:proposal=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == 'repair')
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:review-unit:v9:[0-9a-f]{64}:plan=[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == 'review')
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:review-content:v9:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == 'review')
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:author-unit:v[89]:[0-9a-f]{64}:plan=[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
         return bool(stage == 'lesson')
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:editor-joint:v9:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
+        return bool(stage == 'repair')
     if type(group) is str and re.fullmatch(
             r'practical:simple:(editor-body|editor-cards):v8:[0-9a-f]{64}:unit=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
         return bool(stage == 'repair')
@@ -91,7 +103,20 @@ def _pointer_token(value: str) -> str:
     return value.replace("~", "~0").replace("/", "~1")
 
 
-def _normalize(value: Any, schema: dict[str, Any], path: str, removed: list[str]) -> Any:
+def _normalize(value: Any, schema: dict[str, Any], path: str, removed: list[str], *, unions: bool = False) -> Any:
+    if unions and 'anyOf' in schema:
+        from app.modules.ai.v3.batch_review_response_schema import _matches
+        candidates = []
+        for option in schema['anyOf']:
+            paths: list[str] = []
+            candidate = _normalize(value, option, path, paths, unions=True)
+            if _matches(candidate, option):
+                candidates.append((candidate, paths))
+        if len(candidates) == 1:
+            normalized, paths = candidates[0]
+            removed.extend(paths)
+            return normalized
+        return value
     if schema.get("type") == "object" and type(value) is dict:
         properties = schema["properties"]
         result = {}
@@ -103,29 +128,44 @@ def _normalize(value: Any, schema: dict[str, Any], path: str, removed: list[str]
                 else:
                     result[key] = item
             else:
-                result[key] = _normalize(item, properties[key], child_path, removed)
+                result[key] = _normalize(item, properties[key], child_path, removed, unions=unions)
         return result
     if schema.get("type") == "array" and type(value) is list:
-        return [_normalize(item, schema["items"], path + "/" + str(index), removed) for index, item in enumerate(value)]
+        return [_normalize(item, schema["items"], path + "/" + str(index), removed, unions=unions) for index, item in enumerate(value)]
     return value
 
 
 def normalize_practical_author(raw_text: str, response_format: Any) -> PracticalAuthorArtifact:
+    from app.modules.ai.v3.normalized_editorial_review import (
+        is_normalized_editorial_review_format,
+        matches_normalized_editorial_review,
+    )
+    from app.modules.ai.v3.simple_course_address_repair import is_address_repair_format, matches_address_repair_shape
+    from app.modules.ai.v3.simple_course_block_editor import (
+        is_simple_block_editor_format,
+        matches_simple_block_editor_shape,
+    )
     from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format, matches_simple_delta_editor
     from app.modules.ai.v3.simple_course_editor import is_simple_editor_format, matches_simple_editor
     from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format, matches_simple_revision_v2
+    address_repair = is_address_repair_format(response_format)
+    simple_block = is_simple_block_editor_format(response_format)
+    normalized_review = is_normalized_editorial_review_format(response_format)
     simple_editor = is_simple_editor_format(response_format)
     simple_revision = is_simple_revision_v2_format(response_format)
     simple_delta = is_simple_delta_editor_format(response_format)
-    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor or simple_revision or simple_delta):
+    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor or simple_revision or simple_delta or simple_block or normalized_review or address_repair):
         raise ValueError("practical_author_transport_format_invalid")
     try:
         parsed = json.loads(raw_text, object_pairs_hook=_pairs, parse_constant=_constant, parse_float=_finite_float)
         if type(parsed) is not dict:
             raise ValueError("practical_author_transport_not_object")
         removed: list[str] = []
-        normalized = _normalize(parsed, response_format["json_schema"]["schema"], "", removed)
-        valid = (matches_simple_delta_editor(normalized, response_format) if simple_delta
+        normalized = _normalize(parsed, response_format["json_schema"]["schema"], "", removed, unions=normalized_review)
+        valid = (matches_address_repair_shape(normalized, response_format) if address_repair
+                 else matches_simple_block_editor_shape(normalized, response_format) if simple_block
+                 else matches_normalized_editorial_review(normalized, response_format) if normalized_review
+                 else matches_simple_delta_editor(normalized, response_format) if simple_delta
                  else matches_simple_revision_v2(normalized, response_format) if simple_revision
                  else matches_simple_editor(normalized, response_format) if simple_editor
                  else matches_practical_course_response(normalized, response_format))

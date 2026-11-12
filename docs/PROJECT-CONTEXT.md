@@ -1,3 +1,11 @@
+# Local candidate100; deployed DEV99b and production90 unchanged — 2026-11-12T10:20:45.646640+00:00
+
+V9 candidate100 passed retained three-document editor controls, not fresh full native acceptance. New admissions selected locally; deployed DEV still c04/version99 and production16504/version90. Current exact state/source hashes/processes/gates at CODEX_HANDOFF top and CHG-L100K–O; ENG064 owns finding-custody defect. Pending model evidence is unverified, never human approval. No external model process now. Three fresh LunaHIGH DEV courses then same approved finalDeepSeekUSD1spent0 and protected production/live remain mandatory. Old paragraphs below historical.
+
+# Current DEV99b deployed; editor investigation local — 12 November 2026
+
+DEV 0.11.99 (`c04c536dd890815fe648110271f9ac437301f6e3`) is deployed with the sole VM worker and attested image. CI and deployment passed; content acceptance did not. The first fresh full standards course is preserved as NO_GO. No fresh PDF/cash99b acceptance or DeepSeek/prod release is claimed. Production remains0.11.90/16504ca0 with prior frontend86. Current exact identities, active processes and next gates are at the top of CODEX_HANDOFF.md. Editor-only saved controls and rejected attempts are in CHG-L100A–G and .release-evidence/independent-editors100-20261112. Historical statuses below do not override this state.
+
 # Candidate99 local; deployed DEV98r and production90 unchanged
 
 Newunit-scopedreading/addressededitors V8 locallypassed8203unit/193critical/quality1004-2174 and independentintegrationreview. SavedPDF16L63Q contentGO isLOCALonly. Threefreshfullnative99courses, DeepSeek andproduction/live acceptance remainOPEN. CurrentCODEX_HANDOFF andCHG-L99E ownexactidentities/processes; olderstatusesbelow historical. No migration/provider/plan/customerchanges.

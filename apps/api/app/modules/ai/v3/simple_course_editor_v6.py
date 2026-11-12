@@ -29,7 +29,7 @@ from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
 
 async def run_simple_course_editor_v6(packet: PracticalSourcePacket, corpus: DirectSourceCorpus,
     intent: Any, stage: Any, *, reference_decisions: tuple[SourceReferenceDecision, ...] = (),
-    planned_callback: Any = None) -> SimpleCourseResult:
+    planned_callback: Any = None, course_editor: Any = None) -> SimpleCourseResult:
     view = PracticalModelView(packet)
     messages, fmt = semantic_plan_request(packet, corpus, intent)
 
@@ -70,7 +70,8 @@ async def run_simple_course_editor_v6(packet: PracticalSourcePacket, corpus: Dir
                     for origin in row['origins']]} for row in selected['slices']]}
         selections.append({'lesson_id': lesson['id'], 'unit_id': unit['id'], **selection_receipt})
     original = _course_valid({'title': plan['title'], 'lessons': lessons}, packet, view)
-    body, cards, body_receipt, card_receipt = await edit_semantic_course(
+    selected_editor = edit_semantic_course if course_editor is None else course_editor
+    body, cards, body_receipt, card_receipt = await selected_editor(
         packet, corpus, intent, original, plan, selections, stage)
     refs: dict[str, list[str]] = {}
     for row in initial_sources + body['lesson_sources'] + cards['lesson_sources']:

@@ -38,7 +38,8 @@ _COMPARE = (' Independently identify the entity bearing each source qualificatio
 
 
 async def run_simple_course_editor_v8(packet: Any, corpus: Any, intent: Any, stage: Any, *,
-                                      reference_decisions: tuple[Any, ...] = (), planned_callback: Any = None) -> Any:
+                                      reference_decisions: tuple[Any, ...] = (), planned_callback: Any = None,
+                                      course_editor: Any = None) -> Any:
     view = PracticalModelView(packet)
     plan: dict[str, Any] | None = None
     plan_fp = ''
@@ -121,8 +122,16 @@ async def run_simple_course_editor_v8(packet: Any, corpus: Any, intent: Any, sta
         messages[1]['content'] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         return await stage(name, v8_group, messages, fmt, validator)
 
+    async def reviewed_editor(source_packet: Any, source_corpus: Any, source_intent: Any,
+        original: Any, source_plan: Any, source_selections: Any, unused_adapted_stage: Any) -> Any:
+        if plan is None or len(readings) != len(plan['units']):
+            raise ValueError('simple_v8_readings_incomplete')
+        return await course_editor(source_packet, source_corpus, source_intent, original,
+            source_plan, source_selections, stage, source_reading=aggregate())
+
     result = await run_simple_course_editor_v6(packet, corpus, intent, adapted,
-                                                reference_decisions=reference_decisions)
+        reference_decisions=reference_decisions,
+        course_editor=None if course_editor is None else reviewed_editor)
     if plan is None or len(readings) != len(plan['units']):
         raise ValueError('simple_v8_readings_incomplete')
     return replace(result, review={**result.review, 'method': 'semantic-unit-source-readings-addressed-editors-v1',

@@ -1,3 +1,7 @@
+# Candidate100 acceptance boundary — 2026-11-12T10:20:45.646640+00:00
+
+LOCAL saved editor controls standards5L17Q/PDF16L63Q/cash7L23Q with10sourceillustrations are practically accepted after independent source QA. They do not prove fresh native generation, actual image-pixel rendering or deployment. V9 is selected only in the local candidate; deployed DEV99b/c04 and production90/16504 remain current. Three fresh complete native LunaHIGH DEV courses, final complete DeepSeek DEV within approvedUSD1, exact protected release/rollback and live synthetic workflow remain OPEN. Current handoff owns immutable identities; historical GO claims below never apply to this candidate.
+
 # Candidate99 local; deployed DEV98r and production90 unchanged
 
 Newunit-scopedreading/addressededitors V8 locallypassed8203unit/193critical/quality1004-2174 and independentintegrationreview. SavedPDF16L63Q contentGO isLOCALonly. Threefreshfullnative99courses, DeepSeek andproduction/live acceptance remainOPEN. CurrentCODEX_HANDOFF andCHG-L99E ownexactidentities/processes; olderstatusesbelow historical. No migration/provider/plan/customerchanges.

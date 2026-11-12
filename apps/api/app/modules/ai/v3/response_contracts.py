@@ -19,6 +19,10 @@ from app.modules.ai.v3.isolated_attachment_choice_contract import (
     is_attachment_choice_format,
     matches_attachment_choice_response,
 )
+from app.modules.ai.v3.normalized_editorial_review import (
+    is_normalized_editorial_review_format,
+    matches_normalized_editorial_review,
+)
 from app.modules.ai.v3.practical_action_object_graph import is_action_object_graph_format, matches_action_object_graph
 from app.modules.ai.v3.practical_arbitration import is_arbitration_format, matches_arbitration
 from app.modules.ai.v3.practical_atomic_audit import is_atomic_audit_format, matches_atomic_audit
@@ -70,6 +74,11 @@ from app.modules.ai.v3.practical_source_semantics import (
     matches_source_semantics,
     matches_source_semantics_verification,
 )
+from app.modules.ai.v3.simple_course_address_repair import is_address_repair_format, matches_address_repair_shape
+from app.modules.ai.v3.simple_course_block_editor import (
+    is_simple_block_editor_format,
+    matches_simple_block_editor_shape,
+)
 from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format, matches_simple_delta_editor
 from app.modules.ai.v3.simple_course_editor import (
     is_simple_editor_format,
@@ -91,6 +100,12 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_address_repair_format(value):
+        return "simple_course_address_repair"
+    if is_simple_block_editor_format(value):
+        return "simple_course_block_editor"
+    if is_normalized_editorial_review_format(value):
+        return "normalized_editorial_review"
     if is_semantic_plan_format(value):
         return "simple_semantic_source_plan"
     if is_simple_delta_editor_format(value):
@@ -190,6 +205,12 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == "simple_course_address_repair":
+        return matches_address_repair_shape(value, response_format)
+    if kind == "simple_course_block_editor":
+        return matches_simple_block_editor_shape(value, response_format)
+    if kind == "normalized_editorial_review":
+        return matches_normalized_editorial_review(value, response_format)
     if kind == "simple_semantic_source_plan":
         return matches_semantic_plan(value, response_format)
     if kind == "simple_course_delta_editor":

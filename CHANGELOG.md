@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.11.100] - 2026-11-12
+
+### Changed
+- Generate lessons from literal semantic units, then review actual teaching against each unit and perform one independent course review with coordinated addressed corrections.
+- Keep accepted interpretations scoped to their recorded issue, preserve good text and media, and retain unresolved editorial findings instead of silently treating an applied edit as full resolution.
+- Recover conflicting physical edit addresses with one explicit text-preserving address reconciliation; retain the original draft and warnings when a correction cannot be applied.
+- Preserve raw model responses, null-normalization custody and completed-stage replay for the new policy while retaining historical generation contracts.
+
 ## [0.11.99] - 2026-11-12
 
 - Read each semantic source unit and its literal dependencies before authoring, retaining grammatical referents and scoped conditions without transcribing the entire document into one reading.

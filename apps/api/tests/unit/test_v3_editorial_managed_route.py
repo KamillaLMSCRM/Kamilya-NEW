@@ -20,7 +20,7 @@ from app.modules.ai.v3.revision_policy import (
     EDITORIAL_MANAGED_QA_MARKER,
     EDITORIAL_PRACTICAL_REVIEW_POLICY,
     EDITORIAL_QA_KEY,
-    SIMPLE_COURSE_REVIEW_V8_POLICY,
+    SIMPLE_COURSE_REVIEW_V9_POLICY,
     editorial_qa_admission_marker,
     editorial_qa_worker_valid,
 )
@@ -85,7 +85,7 @@ async def test_real_managed_admission_stamps_canonical_editorial_policy_server_s
     assert error.value.status_code == 429
     stored = submit.await_args.kwargs['params']['source_analysis']
     assert stored[KEY] == MANAGED_POLICY
-    assert stored['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V8_POLICY
+    assert stored['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V9_POLICY
     assert stored[EDITORIAL_QA_KEY] == EDITORIAL_MANAGED_QA_MARKER
 
 
