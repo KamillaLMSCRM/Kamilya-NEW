@@ -20,6 +20,27 @@ HOST = "92.38.49.167"
 USER = "kamilya-dev-models"
 FORWARDS = ((18999, "10.77.77.2", 18999), (18889, "10.77.77.4", 18005))
 OCR_FORWARD = (18600, "10.77.77.2", 18601)
+_OPTIONAL_RECONNECT_DELAYS = (1, 2, 4)
+_TRANSIENT_FAILURES = frozenset({
+    "ssh_start_timeout", "ssh_start_failed_network_connect_timeout", "ssh_start_failed_network_connect_refused",
+    "ssh_start_failed_network_connection_reset", "ssh_start_failed_network_connection_closed",
+    "ssh_start_failed_network_unreachable",
+})
+_LOCAL_START_FAILURES = frozenset({
+    "ssh_start_failed_identity_crypto_error", "ssh_start_failed_system_openssl_mismatch",
+    "ssh_start_failed_local_bind_conflict", "ssh_start_failed_local_bind_unavailable",
+    "ssh_start_failed_unsupported_ssh_option", "ssh_start_failed_host_key_algorithm_unavailable",
+    "ssh_start_failed_identity_invalid_format", "ssh_start_failed_identity_bad_permissions",
+})
+
+
+def optional_bridge_failure(code: str) -> str:
+    """Classify private bridge failures without weakening local configuration fences."""
+    if code in _TRANSIENT_FAILURES:
+        return "retry"
+    if code.startswith("ssh_start_failed_") and code not in _LOCAL_START_FAILURES:
+        return "quarantine"
+    return "fatal"
 
 
 class RuntimeBlocked(Exception):
@@ -308,7 +329,11 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
         raise RuntimeBlocked("ssh_binary_unavailable")
     if any(_available(port) for port, _, _ in selected_forwards(source)):
         raise RuntimeBlocked("local_port_owned_elsewhere")
+    optional = (source.get("DEPLOYMENT_ENVIRONMENT") == "vm-development-worker"
+                and source.get("DEV_MODEL_SSH_ROLE") == "worker")
+    forwards = selected_forwards(source)
     ssh = child = probe = None
+    quarantined = False
     terminating = False
 
     def terminate(_signum, _frame):
@@ -326,27 +351,93 @@ def run(argv: list[str], env: dict[str, str] | None = None) -> int:
                 with os.fdopen(descriptor, "wb") as stream:
                     stream.write(contents)
             key = b""
-            ssh = start_forward(identity, hosts, source)
+            try:
+                ssh = start_forward(identity, hosts, source)
+            except RuntimeBlocked as exc:
+                classification = optional_bridge_failure(str(exc))
+                if not optional or classification == "fatal":
+                    raise
+                if any(_available(port) for port, _, _ in forwards):
+                    raise RuntimeBlocked("local_port_owned_elsewhere") from None
+                quarantined = classification == "quarantine"
+                print("EVIDENCE|dev_private_models=unavailable|reason=" + str(exc)
+                    + diagnostic_context(source), flush=True)
+                if quarantined:
+                    print("EVIDENCE|dev_private_models=quarantined" + diagnostic_context(source), flush=True)
             if terminating:
                 return 143
             safe_env = child_environment(source)
             print("EVIDENCE|dev_private_models=consumer_starting|role=" + source["DEV_MODEL_SSH_ROLE"]
                 + diagnostic_context(source), flush=True)
             child = spawn(argv, env=safe_env, stdin=subprocess.DEVNULL)
-            if source.get("DEV_MODEL_ACCEPTANCE_ID"):
+            def start_probe():
+                if not source.get("DEV_MODEL_ACCEPTANCE_ID"):
+                    return None
                 probe_path = Path(__file__).with_name("dev_private_model_acceptance.py")
                 probe_env = {**safe_env, "DEV_MODEL_ACCEPTANCE_ROLE": source["DEV_MODEL_SSH_ROLE"],
                     "DB_POOL_SIZE": "1", "DB_MAX_OVERFLOW": "0"}
-                probe = spawn([sys.executable, str(probe_path)], env=probe_env,
+                return spawn([sys.executable, str(probe_path)], env=probe_env,
                     stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("EVIDENCE|dev_private_models=connected|role=" + source["DEV_MODEL_SSH_ROLE"]
-                + diagnostic_context(source), flush=True)
+            if ssh is not None:
+                probe = start_probe()
+                print("EVIDENCE|dev_private_models=connected|role=" + source["DEV_MODEL_SSH_ROLE"]
+                    + diagnostic_context(source), flush=True)
+            attempts = 0
+            retry_at = time.monotonic() + _OPTIONAL_RECONNECT_DELAYS[0]
             while not terminating:
-                if ssh.poll() is not None:
-                    raise RuntimeBlocked("ssh_connection_lost")
                 result = child.poll()
                 if result is not None:
                     return result
+                if ssh is not None and ssh.poll() is not None:
+                    if not optional:
+                        raise RuntimeBlocked("ssh_connection_lost")
+                    reason = ssh_failure(ssh)
+                    classification = optional_bridge_failure(reason)
+                    stop(probe)
+                    probe = None
+                    stop(ssh)
+                    ssh = None
+                    if classification == "fatal":
+                        raise RuntimeBlocked(reason)
+                    if any(_available(port) for port, _, _ in forwards):
+                        raise RuntimeBlocked("local_port_owned_elsewhere")
+                    print("EVIDENCE|dev_private_models=unavailable|reason=" + reason
+                        + diagnostic_context(source), flush=True)
+                    if classification == "quarantine":
+                        quarantined = True
+                        print("EVIDENCE|dev_private_models=quarantined" + diagnostic_context(source), flush=True)
+                    elif attempts == len(_OPTIONAL_RECONNECT_DELAYS):
+                        print("EVIDENCE|dev_private_models=reconnect_exhausted" + diagnostic_context(source), flush=True)
+                    else:
+                        retry_at = time.monotonic() + _OPTIONAL_RECONNECT_DELAYS[attempts]
+                if optional and ssh is None:
+                    if any(_available(port) for port, _, _ in forwards):
+                        raise RuntimeBlocked("local_port_owned_elsewhere")
+                    if not quarantined and attempts < len(_OPTIONAL_RECONNECT_DELAYS) and time.monotonic() >= retry_at:
+                        attempts += 1
+                        try:
+                            ssh = start_forward(identity, hosts, source)
+                        except RuntimeBlocked as exc:
+                            classification = optional_bridge_failure(str(exc))
+                            if classification == "fatal":
+                                raise
+                            if any(_available(port) for port, _, _ in forwards):
+                                raise RuntimeBlocked("local_port_owned_elsewhere") from None
+                            print("EVIDENCE|dev_private_models=unavailable|reason=" + str(exc)
+                                + "|reconnect_attempt=" + str(attempts) + diagnostic_context(source), flush=True)
+                            if classification == "quarantine":
+                                quarantined = True
+                                print("EVIDENCE|dev_private_models=quarantined" + diagnostic_context(source), flush=True)
+                            elif attempts == len(_OPTIONAL_RECONNECT_DELAYS):
+                                print("EVIDENCE|dev_private_models=reconnect_exhausted" + diagnostic_context(source), flush=True)
+                            else:
+                                retry_at = time.monotonic() + _OPTIONAL_RECONNECT_DELAYS[attempts]
+                        else:
+                            if terminating:
+                                return 143
+                            probe = start_probe()
+                            print("EVIDENCE|dev_private_models=connected|role=" + source["DEV_MODEL_SSH_ROLE"]
+                                + "|reconnect_attempt=" + str(attempts) + diagnostic_context(source), flush=True)
                 time.sleep(0.25)
             return 143
     finally:

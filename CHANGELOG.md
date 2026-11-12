@@ -1,10 +1,13 @@
 # Changelog
 
-## 0.11.98 — Candidate
+## [Unreleased]
+
+## [0.11.98] - 2026-11-12
 
 - Read source actors, actions and scoped conditions independently before authoring; use that fallible reading alongside the approved original in per-unit authors and addressed editors.
 - Keep correct question cards when similar, preserve stable identities, source illustrations and exact delta custody.
 - Freeze new V7 stage identities while retaining prior V6 requests and owned recovery unchanged. Full native semantic acceptance is a separate release gate.
+- Keep the VM cloud consumer alive when its optional private SSH bridge is unavailable; retain strict private identity/listener checks and bounded recovery without changing provider routes.
 
 ## 0.11.97 — Candidate
 
@@ -35,7 +38,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
 
 ## [0.11.93] - 2026-11-11
 

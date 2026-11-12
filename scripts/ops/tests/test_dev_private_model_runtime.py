@@ -392,3 +392,152 @@ def test_disabled_ocr_preserves_configured_child_url():
     config = {**environment(), 'DEV_OCR_SSH_ENABLED': 'false', 'DOCLING_URL': 'http://synthetic.example'}
     assert runtime.child_environment(config)['DOCLING_URL'] == 'http://synthetic.example'
     assert runtime.selected_forwards(config) == runtime.FORWARDS
+
+
+def optional_worker():
+    return {**environment(), 'DEV_MODEL_SSH_ROLE': 'worker', 'DEPLOYMENT_ENVIRONMENT': 'vm-development-worker',
+            'DEV_OCR_SSH_ENABLED': 'true', 'EMBEDDING_URL': 'http://127.0.0.1:18889/v1'}
+
+
+@pytest.mark.parametrize('scenario', ['startup_recover', 'drop_recover', 'exhaust', 'hard_start',
+    'hard_reconnect', 'foreign_start', 'foreign_after_drop', 'signal', 'unknown_start',
+    'pin_start', 'auth_start', 'unknown_reconnect', 'pin_reconnect', 'auth_reconnect',
+    'unknown_drop', 'pin_drop', 'auth_drop', 'bind_drop'])
+def test_optional_vm_worker_bridge_lifecycle(monkeypatch, capsys, scenario):
+    state = {'clock': 0.0, 'attempts': 0, 'child_env': None, 'stopped': [], 'child_started': False}
+
+    class Process:
+        def __init__(self, role):
+            self.role = role
+            errors = {'unknown_drop': b'x' * 255, 'pin_drop': b'Host key verification failed',
+                      'auth_drop': b'Permission denied', 'bind_drop': b'Address already in use'}
+            self.stderr = io.BytesIO(errors.get(scenario, b'connection reset'))
+
+        def poll(self):
+            if self.role == 'child':
+                return 7 if state['clock'] >= 12 else None
+            if self.role == 'initial_ssh' and scenario in ('drop_recover', 'foreign_after_drop',
+                                                          'unknown_drop', 'pin_drop', 'auth_drop', 'bind_drop'):
+                return 255 if state['clock'] >= 0.5 else None
+            return None
+
+    def start(_identity, _hosts, _source):
+        state['attempts'] += 1
+        attempt = state['attempts']
+        if scenario in ('startup_recover', 'exhaust', 'hard_reconnect', 'unknown_reconnect', 'pin_reconnect',
+                        'auth_reconnect') and (attempt == 1 or scenario == 'exhaust'):
+            raise runtime.RuntimeBlocked('ssh_start_failed_network_connect_timeout')
+        if scenario == 'hard_start' or scenario == 'hard_reconnect' and attempt == 2:
+            raise runtime.RuntimeBlocked('ssh_start_failed_local_bind_conflict')
+        if scenario in ('unknown_start', 'unknown_reconnect'):
+            raise runtime.RuntimeBlocked('ssh_start_failed_exit_255_diagnostic_bytes_255')
+        if scenario in ('pin_start', 'pin_reconnect'):
+            raise runtime.RuntimeBlocked('ssh_start_failed_host_pin_rejected')
+        if scenario in ('auth_start', 'auth_reconnect'):
+            raise runtime.RuntimeBlocked('ssh_start_failed_authentication_denied')
+        return Process('initial_ssh' if attempt == 1 else 'recovered_ssh')
+
+    def spawn(_argv, **kwargs):
+        state['child_started'] = True
+        state['child_env'] = kwargs['env']
+        return Process('child')
+
+    def sleep(seconds):
+        state['clock'] += seconds
+        if scenario == 'signal' and state['clock'] >= 0.5:
+            handlers[runtime.signal.SIGTERM](runtime.signal.SIGTERM, None)
+
+    handlers = {}
+    def set_signal(sig, handler):
+        old = handlers.get(sig, runtime.signal.SIG_DFL)
+        handlers[sig] = handler
+        return old
+
+    monkeypatch.setattr(runtime.sys, 'platform', 'linux')
+    monkeypatch.setattr(runtime.shutil, 'which', lambda _: 'ssh')
+    monkeypatch.setattr(runtime, '_available', lambda _port: scenario == 'foreign_start' or
+                        scenario == 'foreign_after_drop' and state['clock'] >= 0.5)
+    monkeypatch.setattr(runtime, 'start_forward', start)
+    monkeypatch.setattr(runtime, 'spawn', spawn)
+    monkeypatch.setattr(runtime, 'stop', lambda proc: state['stopped'].append(proc.role) if proc else None)
+    monkeypatch.setattr(runtime.time, 'monotonic', lambda: state['clock'])
+    monkeypatch.setattr(runtime.time, 'sleep', sleep)
+    monkeypatch.setattr(runtime.signal, 'signal', set_signal)
+    config = optional_worker()
+    if scenario in ('hard_start', 'hard_reconnect', 'foreign_start', 'foreign_after_drop', 'bind_drop'):
+        with pytest.raises(runtime.RuntimeBlocked, match='local_bind_conflict|local_port_owned_elsewhere'):
+            runtime.run(['consumer'], config)
+        if scenario in ('hard_start', 'foreign_start'):
+            assert not state['child_started']
+        else:
+            assert 'child' in state['stopped']
+        return
+    assert runtime.run(['consumer'], config) == (143 if scenario == 'signal' else 7)
+    assert state['child_env']['DOCLING_URL'] == 'http://127.0.0.1:18600'
+    assert state['child_env']['EMBEDDING_URL'] == config['EMBEDDING_URL']
+    assert not any(key.startswith('DEV_MODEL_SSH_') for key in state['child_env'])
+    assert 'DEV_OCR_SSH_ENABLED' not in state['child_env'] and 'child' in state['stopped']
+    output = capsys.readouterr().out
+    if scenario == 'exhaust':
+        assert state['attempts'] == 1 + len(runtime._OPTIONAL_RECONNECT_DELAYS)
+        assert 'reconnect_exhausted' in output and 'connected|' not in output
+    elif scenario in ('startup_recover', 'drop_recover'):
+        assert state['attempts'] == 2 and 'unavailable|' in output and 'reconnect_attempt=1' in output
+        assert 'recovered_ssh' in state['stopped']
+    elif scenario in ('unknown_start', 'pin_start', 'auth_start', 'unknown_reconnect', 'pin_reconnect',
+                      'auth_reconnect', 'unknown_drop', 'pin_drop', 'auth_drop'):
+        assert state['attempts'] == (2 if scenario.endswith('_reconnect') else 1)
+        assert 'unavailable|' in output and 'quarantined|' in output
+        assert output.count('connected|') == (1 if scenario.endswith('_drop') else 0)
+
+
+def test_render_worker_remains_strict_on_connect_timeout(monkeypatch):
+    monkeypatch.setattr(runtime.sys, 'platform', 'linux')
+    monkeypatch.setattr(runtime.shutil, 'which', lambda _: 'ssh')
+    monkeypatch.setattr(runtime, '_available', lambda _: False)
+    monkeypatch.setattr(runtime, 'start_forward', lambda *_: (_ for _ in ()).throw(
+        runtime.RuntimeBlocked('ssh_start_failed_network_connect_timeout')))
+    monkeypatch.setattr(runtime, 'spawn', lambda *_args, **_kwargs: pytest.fail('unexpected consumer'))
+    config = {**environment(), 'DEV_MODEL_SSH_ROLE': 'worker', 'DEPLOYMENT_ENVIRONMENT': 'render-development-worker'}
+    with pytest.raises(runtime.RuntimeBlocked, match='network_connect_timeout'):
+        runtime.run(['consumer'], config)
+
+
+def test_optional_recovery_budget_counts_nested_actual_ssh_starts_and_does_not_reset(monkeypatch, capsys):
+    state = {'clock': 0.0, 'ssh_starts': 0}
+
+    class Process:
+        def __init__(self, role, number=0):
+            self.role, self.number = role, number
+            self.stderr = io.BytesIO(b'connection reset')
+
+        def poll(self):
+            if self.role == 'child':
+                return 0 if state['clock'] >= 30 else None
+            if self.number == 1:
+                return 255 if state['clock'] >= 0.5 else None
+            return 255 if self.number == 5 else None
+
+    def spawn(argv, **_kwargs):
+        if argv[0] == 'ssh':
+            state['ssh_starts'] += 1
+            return Process('ssh', state['ssh_starts'])
+        return Process('child')
+
+    def ready(process, **_kwargs):
+        if process.number not in (1, 5):
+            raise runtime.RuntimeBlocked('ssh_start_failed_network_connection_reset')
+
+    monkeypatch.setattr(runtime.sys, 'platform', 'linux')
+    monkeypatch.setattr(runtime.shutil, 'which', lambda _: 'ssh')
+    monkeypatch.setattr(runtime, '_available', lambda _: False)
+    monkeypatch.setattr(runtime, 'spawn', spawn)
+    monkeypatch.setattr(runtime, 'drain_diagnostics', lambda _: None)
+    monkeypatch.setattr(runtime, 'await_forward', ready)
+    monkeypatch.setattr(runtime, 'stop', lambda _: None)
+    monkeypatch.setattr(runtime.time, 'monotonic', lambda: state['clock'])
+    monkeypatch.setattr(runtime.time, 'sleep', lambda seconds: state.update(clock=state['clock'] + seconds))
+    assert runtime.run(['consumer'], optional_worker()) == 0
+    # One initial connection, then three recovery sessions of at most two SSH starts.
+    assert state['ssh_starts'] == 7
+    assert 'reconnect_exhausted' in capsys.readouterr().out
