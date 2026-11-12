@@ -29,7 +29,8 @@ from app.modules.ai.v3.source_reference_decisions import SourceReferenceDecision
 
 async def run_simple_course_editor_v6(packet: PracticalSourcePacket, corpus: DirectSourceCorpus,
     intent: Any, stage: Any, *, reference_decisions: tuple[SourceReferenceDecision, ...] = (),
-    planned_callback: Any = None, course_editor: Any = None) -> SimpleCourseResult:
+    planned_callback: Any = None, course_editor: Any = None,
+    retain_unit_title_context: bool = False) -> SimpleCourseResult:
     view = PracticalModelView(packet)
     messages, fmt = semantic_plan_request(packet, corpus, intent)
 
@@ -56,6 +57,8 @@ async def run_simple_course_editor_v6(packet: PracticalSourcePacket, corpus: Dir
         group = 'practical:simple:author-unit:v6:' + packet.fingerprint + ':unit=' + selected['selection_fingerprint']
         authored = unit_valid(await stage('lesson', group, messages, fmt, unit_valid))
         lesson = copy.deepcopy(authored['lessons'][0])
+        if retain_unit_title_context:
+            lesson['title'] = unit_lesson_title(unit['title'], lesson['title'])
         # Model-local q1 IDs must not collide between independently authored units.
         lesson['id'] = 'lesson-' + _digest([plan_fp, unit['id']])[:24]
         for question in lesson['questions']:
@@ -88,6 +91,11 @@ async def run_simple_course_editor_v6(packet: PracticalSourcePacket, corpus: Dir
         'unverified_illustrations': unrepresented_source_images(packet, corpus, plan, cards['course'])}
     return SimpleCourseResult(original, cards['course'], plan, questions,
         _changes(original, cards['course']), review, sources)
+
+
+def unit_lesson_title(planned: str, authored: str) -> str:
+    """Retain the planned topic alongside the author's label, without certifying either."""
+    return authored if planned == authored else planned + ' — ' + authored
 
 
 def unrepresented_source_images(packet: PracticalSourcePacket, corpus: DirectSourceCorpus,

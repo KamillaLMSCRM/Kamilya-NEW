@@ -289,14 +289,17 @@ async def apply_reviewed_course_v9(packet: Any, corpus: Any, intent: Any, origin
 
 
 async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, stage: Any, *,
-                                      reference_decisions: tuple[Any, ...] = (), planned_callback: Any = None) -> Any:
+                                      reference_decisions: tuple[Any, ...] = (), planned_callback: Any = None,
+                                      retain_unit_title_context: bool = False,
+                                      repair_plan_accounting: bool = False) -> Any:
     plan: dict[str, Any] | None = None
     plan_normalization: dict[str, Any] | None = None
+    accounting_receipt: dict[str, Any] | None = None
     selections_by_fp: dict[str, tuple[dict[str, Any], Any]] = {}
     records: list[dict[str, Any]] = []
 
     async def versioned(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
-        nonlocal plan, plan_normalization
+        nonlocal plan, plan_normalization, accounting_receipt
         if ':plan:v6:' in group:
             plan_messages = copy.deepcopy(messages)
             system = plan_messages[0]['content']
@@ -311,8 +314,30 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
                 canonical: dict[str, Any] = validator(completed)
                 return canonical
 
-            wire = await stage(name, group.replace(':v6:', ':v9:', 1), plan_messages, fmt, validated_plan)
-            plan = validated_plan(wire)
+            def structural_plan(value: Any) -> dict[str, Any]:
+                from app.modules.ai.v3.simple_semantic_source_plan import matches_semantic_plan_structure
+
+                if not matches_semantic_plan_structure(value, fmt):
+                    raise ValueError('semantic_plan_invalid')
+                return copy.deepcopy(value)
+
+            wire = await stage(name, group.replace(':v6:', ':v9:', 1), plan_messages, fmt,
+                               structural_plan if repair_plan_accounting else validated_plan)
+            try:
+                plan = validated_plan(wire)
+            except ValueError as exc:
+                if not repair_plan_accounting or str(exc) != 'semantic_plan_invalid':
+                    raise
+                from app.modules.ai.v3.simple_plan_accounting import accounting_request, apply_accounting
+
+                repair_messages, repair_fmt = accounting_request(wire, packet, corpus)
+
+                def validate_accounting(value: Any) -> dict[str, Any]:
+                    return apply_accounting(value, wire, packet, corpus)[0]
+
+                proposal = await stage('repair', 'practical:simple:plan-accounting:v11:' + packet.fingerprint
+                    + ':unit=' + _digest(wire), repair_messages, repair_fmt, validate_accounting)
+                plan, accounting_receipt = apply_accounting(proposal, wire, packet, corpus)
             for unit in plan['units']:
                 _, _, selected = semantic_unit_request(packet, corpus, intent, plan, unit['id'],
                                                        reference_decisions=reference_decisions)
@@ -321,7 +346,7 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
                     raise ValueError('simple_v9_unit_selection_invalid')
                 selections_by_fp[identity] = (unit, selected)
             if planned_callback:
-                await planned_callback(2 * len(plan['units']) + 3)
+                await planned_callback(2 * len(plan['units']) + 3 + int(accounting_receipt is not None))
             return plan
         if plan is None or ':author-unit:v6:' not in group:
             raise ValueError('simple_v9_stage_invalid')
@@ -339,6 +364,10 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
         wire = await stage(name, author_group, authored_messages, fmt, validator)
         authored = validator(wire)
         lesson = copy.deepcopy(authored['lessons'][0])
+        if retain_unit_title_context:
+            from app.modules.ai.v3.simple_course_editor_v6 import unit_lesson_title
+
+            lesson['title'] = unit_lesson_title(unit['title'], lesson['title'])
         lesson['id'] = 'lesson-' + _digest([_digest(plan), unit['id']])[:24]
         for question in lesson['questions']:
             question['id'] = 'question-' + _digest([lesson['id'], question['id']])[:24]
@@ -351,13 +380,14 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
                      source_plan: Any, selections: Any, _stage: Any) -> Any:
         async def extra_stage() -> None:
             if planned_callback:
-                await planned_callback(2 * len(source_plan['units']) + 4)
+                await planned_callback(2 * len(source_plan['units']) + 4 + int(accounting_receipt is not None))
         return await edit_reviewed_course_v9(source_packet, source_corpus, source_intent, original, source_plan,
             selections, stage, unit_reviews=records, reference_decisions=reference_decisions,
             additional_stage_callback=extra_stage)
 
     result = await run_simple_course_editor_v6(packet, corpus, intent, versioned,
-        reference_decisions=reference_decisions, course_editor=editor)
+        reference_decisions=reference_decisions, course_editor=editor,
+        retain_unit_title_context=retain_unit_title_context)
     fingerprint = _digest(result.draft)
     body_receipt = result.review['editor_delta_receipts']['body']
     reviews = [('global', body_receipt['content_review'])] + [
@@ -407,5 +437,6 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
             unapplied[identity] = {'id': identity, 'status': 'UNVERIFIED', 'finding': finding,
                 'source_fingerprint': packet.fingerprint, 'draft_fingerprint': fingerprint}
         receipt['unapplied_review_findings'] = list(unapplied.values())
+    extra = {'source_plan_accounting': accounting_receipt} if accounting_receipt is not None else {}
     return replace(result, review={**result.review, 'method': 'semantic-unit-source-reviews-joint-block-editor-v1',
-                                   'source_plan_normalization': plan_normalization, 'revision_receipt': receipt})
+                                   'source_plan_normalization': plan_normalization, 'revision_receipt': receipt, **extra})

@@ -93,6 +93,31 @@ def test_supported_model_claim_keeps_original_and_semantic_review(case, status):
     assert not row['semantic_approval'] and row['result_fingerprint'] == _digest(case[1])
 
 
+@pytest.mark.parametrize('after,quote,expected', [
+    ('Corrected lesson body', 'Corrected lesson body.', True),
+    ('Corrected lesson body.', 'CORRECTED   LESSON BODY', True),
+    ('Corrected lesson body', 'Different lesson body.', False),
+    ('Limit 1000', 'Limit 10000.', False),
+    ('Pay, then record', 'Pay then record.', False),
+    ('New prefix Existing lesson body', 'Existing lesson body.', False),
+    ('Existing lesson body', 'Existing lesson body.', False),
+])
+def test_owned_final_field_typography_preserves_full_text_and_change_proof(case, after, quote, expected):
+    packet, original, rows, decision = copy.deepcopy(case)
+    final = copy.deepcopy(original)
+    final['lessons'][0]['content'] = after
+    decision.update(status='CORRECTED', final_quote=quote)
+    row = compile_finding_dispositions(rows, [decision], packet, original, final,
+        allow_final_field_typography=True)[0]
+    assert row['model_resolved'] == expected
+    assert row['decision']['final_quote'] == quote
+    assert row['status'] == 'UNVERIFIED' and not row['semantic_approval']
+    if expected:
+        assert row['final_quote_match'] == 'owned_field_typography'
+    legacy = compile_finding_dispositions(rows, [decision], packet, original, final)[0]
+    assert not legacy['model_resolved']
+
+
 def test_already_satisfied_quote_must_exist_in_original(case):
     final = copy.deepcopy(case[1])
     final['lessons'][0]['content'] = 'Fresh new body'

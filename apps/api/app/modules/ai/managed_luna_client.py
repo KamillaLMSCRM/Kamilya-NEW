@@ -240,12 +240,16 @@ class ManagedLunaClient:
                 from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format
                 from app.modules.ai.v3.simple_course_editor import is_simple_editor_format
                 from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format
+                from app.modules.ai.v3.simple_finding_evidence import is_evidence_format
+                from app.modules.ai.v3.simple_plan_accounting import is_accounting_format
                 if (is_practical_course_format(requested["response_format"]) or is_simple_editor_format(requested["response_format"])
                         or is_simple_revision_v2_format(requested["response_format"])
                         or is_simple_delta_editor_format(requested["response_format"])
                         or is_simple_block_editor_format(requested["response_format"])
                         or is_normalized_editorial_review_format(requested["response_format"])
-                        or is_address_repair_format(requested["response_format"])):
+                        or is_address_repair_format(requested["response_format"])
+                        or is_accounting_format(requested["response_format"])
+                        or is_evidence_format(requested["response_format"])):
                     if contains_credential(message["content"], self._token):
                         raise ValueError("managed_luna_structured_shape_invalid")
                     from app.modules.ai.v3.practical_author_transport import normalize_practical_author

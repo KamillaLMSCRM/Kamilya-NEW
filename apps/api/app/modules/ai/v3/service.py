@@ -1865,6 +1865,7 @@ async def generate_v3_course_from_corpus(
         SIMPLE_COURSE_REVIEW_V8_POLICY,
         SIMPLE_COURSE_REVIEW_V9_POLICY,
         SIMPLE_COURSE_REVIEW_V10_POLICY,
+        SIMPLE_COURSE_REVIEW_V11_POLICY,
         is_practical_policy,
         is_scoped_policy,
     )
@@ -1935,10 +1936,13 @@ async def generate_v3_course_from_corpus(
             from app.modules.ai.v3.simple_course_delta_editor import is_simple_delta_editor_format
             from app.modules.ai.v3.simple_course_editor import is_simple_editor_format
             from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format
+            from app.modules.ai.v3.simple_finding_evidence import is_evidence_format
+            from app.modules.ai.v3.simple_plan_accounting import is_accounting_format
             if (is_practical_course_format(response_format) or is_simple_editor_format(response_format)
                     or is_simple_revision_v2_format(response_format) or is_simple_delta_editor_format(response_format)
                     or is_simple_block_editor_format(response_format) or is_normalized_editorial_review_format(response_format)
-                    or is_address_repair_format(response_format)):
+                    or is_address_repair_format(response_format) or is_accounting_format(response_format)
+                    or is_evidence_format(response_format)):
                 if type(raw_text) is PracticalAuthorArtifact:
                     return raw_text
                 if type(raw_text) is str:
@@ -1957,7 +1961,7 @@ async def generate_v3_course_from_corpus(
             raise ValueError('v3_nonpractical_response_invalid')
         return value
 
-    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY}:
+    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}:
         from app.modules.ai.v3.simple_course_service import generate_simple_course
 
         return await generate_simple_course(corpus, intent=intent, invoke=invoke_payload,

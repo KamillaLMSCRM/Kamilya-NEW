@@ -55,7 +55,8 @@ def _field(course: dict[str, Any], target: dict[str, Any]) -> str | None:
 
 
 def compile_finding_dispositions(inventory: list[dict[str, Any]], decisions: Any, packet: Any,
-                                 original: dict[str, Any], final: dict[str, Any]) -> list[dict[str, Any]]:
+                                 original: dict[str, Any], final: dict[str, Any], *,
+                                 allow_final_field_typography: bool = False) -> list[dict[str, Any]]:
     source = {block.block_id: block.text for block in packet.blocks}
     original_fp, result_fp = _digest(original), _digest(final)
     grouped: dict[str, list[dict[str, Any]]] = {}
@@ -81,6 +82,17 @@ def compile_finding_dispositions(inventory: list[dict[str, Any]], decisions: Any
         before, after = _field(original, target), _field(final, target)
         refs, source_quote, final_quote, reason = (decision.get(key) for key in
             ('source_refs', 'source_quote', 'final_quote', 'reason'))
+        final_quote_match = 'none'
+        actual_final_quote = final_quote
+        if type(final_quote) is str and final_quote.strip() and type(after) is str:
+            if final_quote in after:
+                final_quote_match = 'literal'
+            elif allow_final_field_typography:
+                quoted = normalize_literal_quote(final_quote).removesuffix('.')
+                actual = normalize_literal_quote(after).removesuffix('.')
+                if quoted and quoted == actual:
+                    final_quote_match = 'owned_field_typography'
+                    actual_final_quote = after
         source_quote_match = 'none'
         if (type(refs) is list and refs and all(type(ref) is str and ref in source for ref in refs)
                 and type(source_quote) is str and source_quote.strip()):
@@ -93,16 +105,18 @@ def compile_finding_dispositions(inventory: list[dict[str, Any]], decisions: Any
             and all(type(ref) is str and ref in source for ref in refs) and len(refs) == len(set(refs))
             and type(source_quote) is str and source_quote.strip()
             and source_quote_match != 'none'
-            and type(final_quote) is str and final_quote.strip() and type(after) is str and final_quote in after
+            and final_quote_match != 'none'
             and type(reason) is str and reason.strip())
         new_lesson = (kind == 'lesson_content' and before is None and
                       any(row.get('id') == identity for row in final.get('lessons', [])) and
                       not any(row.get('id') == identity for row in original.get('lessons', [])))
         resolved = bool(evidence_valid and (claim == 'NOT_MATERIAL'
-            or claim == 'ALREADY_SATISFIED' and type(before) is str and cast(str, final_quote) in before
+            or claim == 'ALREADY_SATISFIED' and type(before) is str and cast(str, actual_final_quote) in before
             or claim == 'CORRECTED' and (type(before) is str and before != after
-                                        and cast(str, final_quote) not in before or new_lesson)))
+                                        and cast(str, actual_final_quote) not in before or new_lesson)))
         result.append({**copy.deepcopy(item), 'result_fingerprint': result_fp, 'claimed_status': claim,
             'decision': copy.deepcopy(decision), 'source_quote_match': source_quote_match, 'evidence_valid': evidence_valid,
             'model_resolved': resolved, 'status': 'UNVERIFIED', 'semantic_approval': False})
+        if allow_final_field_typography:
+            result[-1]['final_quote_match'] = final_quote_match
     return result

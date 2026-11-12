@@ -28,6 +28,13 @@ def _question_findings(review: dict[str, Any]) -> list[dict[str, Any]]:
             and f['target']['kind'] == 'question']
 
 
+def _application_findings(review: dict[str, Any], operational: bool) -> list[dict[str, Any]]:
+    return [f for f in review['findings']
+        if (f['domain'] == 'assessment' and f['target']['kind'] == 'question')
+        or (f['domain'] == 'source' and f['target']['kind'] == 'source')
+        or (operational and f['domain'] == 'content' and f['target']['kind'] == 'lesson')]
+
+
 def _revalidated_parent(base: SimpleCourseResult, final: dict[str, Any], packet: Any) -> dict[str, Any]:
     review = copy.deepcopy(base.review)
     receipt = review.get('revision_receipt')
@@ -52,10 +59,16 @@ def _revalidated_parent(base: SimpleCourseResult, final: dict[str, Any], packet:
 
 
 async def complete_card_review_v10(packet: Any, corpus: Any, intent: Any, base: SimpleCourseResult,
-                                   stage: Any, *, additional_stage_callback: Any = None) -> SimpleCourseResult:
+                                   stage: Any, *, additional_stage_callback: Any = None,
+                                   operational_review: bool = False) -> SimpleCourseResult:
     before = validate_practical_course(base.course, packet)
     view = PracticalModelView(packet)
-    messages, fmt, context = card_editorial_review_request(packet, corpus, intent, before, base.lesson_sources)
+    context: Any
+    if operational_review:
+        from app.modules.ai.v3.simple_operational_review import operational_review_request
+        messages, fmt, context = operational_review_request(packet, corpus, intent, before)
+    else:
+        messages, fmt, context = card_editorial_review_request(packet, corpus, intent, before, base.lesson_sources)
     before_fp = _digest(before)
 
     def review_valid(value: Any) -> dict[str, Any]:
@@ -70,30 +83,31 @@ async def complete_card_review_v10(packet: Any, corpus: Any, intent: Any, base: 
     canonical_review = review_valid(wire)
     scope_status = 'valid'
     try:
-        canonical_review = compile_card_editorial_review(wire, packet, before, context)
+        if not operational_review:
+            canonical_review = compile_card_editorial_review(wire, packet, before, context)
     except ValueError as exc:
         if str(exc) != 'simple_card_finding_scope_invalid':
             raise
         # An unsupported finding cannot suppress independent valid question findings.
         scope_status = 'partial'
     application_review = copy.deepcopy(canonical_review)
-    application_review['findings'] = [f for f in canonical_review['findings']
-        if (f['domain'] == 'assessment' and f['target']['kind'] == 'question')
-        or (f['domain'] == 'source' and f['target']['kind'] == 'source')]
+    application_review['findings'] = _application_findings(canonical_review, operational_review)
     # A question reviewer has no authority to replace unchanged lesson references.
     application_review['narrative_sources'] = {row['lesson_id']: copy.deepcopy(row['source_refs'])
                                               for row in base.lesson_sources}
     allowed = {f['target']['id'] for f in _question_findings(application_review)}
+    bodies = {f['target']['id'] for f in application_review['findings']
+              if f['domain'] == 'content' and f['severity'] == 'material' and f['target']['kind'] == 'lesson'}
     source_observations: list[dict[str, Any]] = []
     decisions: list[dict[str, Any]] = []
     final = copy.deepcopy(before)
     status, application_error = 'not_needed', None
     repair_receipt: dict[str, Any] | None = None
-    if allowed:
+    if allowed or bodies:
         if additional_stage_callback:
             await additional_stage_callback()
         repair_messages, repair_fmt, repair_context = prepare_postedit_cards(
-            packet, corpus, intent, before, application_review)
+            packet, corpus, intent, before, application_review, allow_lesson_bodies=operational_review)
 
         def repair_valid(value: Any) -> dict[str, Any]:
             if not _matches(value, repair_fmt['json_schema']['schema']):
@@ -129,6 +143,9 @@ async def complete_card_review_v10(packet: Any, corpus: Any, intent: Any, base: 
         'repair_decisions': decisions, 'repair_receipt': repair_receipt,
         'editor_source_observations': source_observations, 'semantic_approval': False,
     }
+    if operational_review:
+        review[POST_KEY].update({'editorial_mode': 'operational-v1',
+            'before_lesson_bodies': {lesson['id']: lesson['content'] for lesson in before['lessons'] if lesson['id'] in bodies}})
     review['method'] = 'unit-body-joint-editor-independent-visible-cards-v10'
     # Upstream source holds survive. A card corrector cannot create a new source-human gate.
     result = replace(base, course=final, changes=_changes(base.draft, final), review=review)
@@ -137,7 +154,13 @@ async def complete_card_review_v10(packet: Any, corpus: Any, intent: Any, base: 
 
 
 def postedit_review_state(result: SimpleCourseResult, packet: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
+    if 'source_evidence_repair' in result.review:
+        from app.modules.ai.v3.simple_finding_evidence import validate_evidence
+        validate_evidence(packet, result)
     post = result.review.get(POST_KEY)
+    operational = isinstance(post, dict) and post.get('editorial_mode') == 'operational-v1'
+    if isinstance(post, dict) and 'editorial_mode' in post and not operational:
+        raise ValueError('simple_v10_postedit_mode_invalid')
     parent = result.review.get('editor_delta_receipts', {}).get('body', {})
     if parent.get('application_status') == 'applied':
         delta = parent.get('joint_delta_receipt', {})
@@ -154,21 +177,28 @@ def postedit_review_state(result: SimpleCourseResult, packet: Any) -> tuple[list
             or post.get('reviewed_course_fingerprint') != expected_before
             or post.get('result_fingerprint') != _digest(result.course)
             or post.get('lesson_sources_fingerprint') != _digest(result.lesson_sources)
-            or post.get('course_title_fingerprint') != _digest(result.course['title'])
-            or post.get('lesson_fingerprints') != {lesson['id']: _digest([lesson['title'], lesson['content']])
-                                                   for lesson in result.course['lessons']}):
+            or post.get('course_title_fingerprint') != _digest(result.course['title'])):
         raise ValueError('simple_v10_postedit_receipt_stale')
     before = copy.deepcopy(result.course)
     cards = _cards(before)
     review = post['review']
     expected_application = copy.deepcopy(review)
-    expected_application['findings'] = [f for f in review['findings']
-        if (f['domain'] == 'assessment' and f['target']['kind'] == 'question')
-        or (f['domain'] == 'source' and f['target']['kind'] == 'source')]
+    expected_application['findings'] = _application_findings(review, operational)
     expected_application['narrative_sources'] = {row['lesson_id']: row['source_refs'] for row in result.lesson_sources}
     if post['application_review'] != expected_application:
         raise ValueError('simple_v10_application_review_stale')
     allowed = {f['target']['id'] for f in _question_findings(post['application_review'])}
+    bodies = {f['target']['id'] for f in post['application_review']['findings']
+              if operational and f['domain'] == 'content' and f['severity'] == 'material'
+              and f['target']['kind'] == 'lesson'}
+    if operational:
+        old_bodies = post.get('before_lesson_bodies')
+        if (type(old_bodies) is not dict or set(old_bodies) != bodies
+                or any(type(text) is not str for text in old_bodies.values())):
+            raise ValueError('simple_v10_postedit_inventory_invalid')
+        for lesson in before['lessons']:
+            if lesson['id'] in bodies:
+                lesson['content'] = old_bodies[lesson['id']]
     if set(post['before_questions']) != allowed or set(post['question_fingerprints']) != set(cards):
         raise ValueError('simple_v10_postedit_inventory_invalid')
     for lesson in before['lessons']:
@@ -182,12 +212,15 @@ def postedit_review_state(result: SimpleCourseResult, packet: Any) -> tuple[list
             elif _digest(question) != post['question_fingerprints'][qid]:
                 raise ValueError('simple_v10_unflagged_question_changed')
     if (_digest(before) != post['reviewed_course_fingerprint']
+            or post.get('lesson_fingerprints') != {lesson['id']: _digest([lesson['title'], lesson['content']])
+                                                    for lesson in before['lessons']}
             or any(_digest(q) != post['question_fingerprints'][qid] for qid, q in _cards(before).items())):
         raise ValueError('simple_v10_postedit_inventory_invalid')
     compile_editorial_review(review, packet, before)
     compile_editorial_review(post['application_review'], packet, before)
     findings = inventory(packet.fingerprint, _digest(before), [('postedit_cards', review)])
-    dispositions = compile_finding_dispositions(findings, post['repair_decisions'], packet, before, result.course)
+    dispositions = compile_finding_dispositions(findings, post['repair_decisions'], packet, before, result.course,
+                                                 allow_final_field_typography=operational)
     issues: list[dict[str, Any]] = []
     observations: list[dict[str, Any]] = []
     common = {'unverified': True, 'semantic_approval': False, 'source_fingerprint': packet.fingerprint,
@@ -214,6 +247,10 @@ def postedit_review_state(result: SimpleCourseResult, packet: Any) -> tuple[list
                 'target_id': f['target']['id'] if f['target']['kind'] in ('question', 'lesson') else '',
                 'message': f['problem'] + '\n' + f['correction'],
                 'source_refs': copy.deepcopy(f['source_refs']), 'blocking': True, 'evidence': common})
+        elif operational and f['severity'] == 'material' and f not in expected_application['findings']:
+            issues.append({'id': 'simple-v11-unsupported-' + _digest([packet.fingerprint, _digest(before), f])[:24],
+                'kind': 'editorial_review', 'target_id': '', 'message': f['problem'] + '\n' + f['correction'],
+                'source_refs': copy.deepcopy(f['source_refs']), 'blocking': True, 'evidence': common})
     for row in post['editor_source_observations']:
         if (not isinstance(row, dict) or set(row) != {'question', 'source_refs'}
                 or not isinstance(row['question'], str) or not row['question'].strip()
@@ -232,20 +269,32 @@ def postedit_review_state(result: SimpleCourseResult, packet: Any) -> tuple[list
 
 async def run_simple_course_editor_v10(packet: Any, corpus: Any, intent: Any, stage: Any, *,
                                        reference_decisions: tuple[Any, ...] = (),
-                                       planned_callback: Any = None) -> SimpleCourseResult:
+                                       planned_callback: Any = None,
+                                       retain_unit_title_context: bool = False,
+                                       repair_plan_accounting: bool = False,
+                                       operational_review: bool = False,
+                                       after_body_callback: Any = None) -> SimpleCourseResult:
     inner_count = 0
+    extra_count = 0
 
     async def planned(count: int) -> None:
         nonlocal inner_count
         inner_count = count
         if planned_callback:
-            await planned_callback(count + 1)
+            await planned_callback(count + 1 + extra_count)
 
     base = await run_simple_course_editor_v9(packet, corpus, intent, stage,
-        reference_decisions=reference_decisions, planned_callback=planned)
+        reference_decisions=reference_decisions, planned_callback=planned,
+        retain_unit_title_context=retain_unit_title_context, repair_plan_accounting=repair_plan_accounting)
 
     async def extra() -> None:
+        nonlocal extra_count
+        extra_count += 1
         if planned_callback:
-            await planned_callback(inner_count + 2)
+            await planned_callback(inner_count + 1 + extra_count)
 
-    return await complete_card_review_v10(packet, corpus, intent, base, stage, additional_stage_callback=extra)
+    if after_body_callback is not None:
+        base = await after_body_callback(base, extra)
+
+    return await complete_card_review_v10(packet, corpus, intent, base, stage, additional_stage_callback=extra,
+                                          operational_review=operational_review)

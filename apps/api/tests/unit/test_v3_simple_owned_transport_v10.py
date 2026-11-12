@@ -15,7 +15,7 @@ from app.modules.ai.source_fidelity import ConversionFidelity
 from app.modules.ai.v3.extraction_checkpoint import ExtractionOutcomeUnknownError
 from app.modules.ai.v3.practical_contract import _digest, build_practical_source_packet
 from app.modules.ai.v3.response_contracts import response_contract_hash
-from app.modules.ai.v3.revision_policy import POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY
+from app.modules.ai.v3.revision_policy import POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY
 from app.modules.ai.v3.service import generate_v3_course_from_corpus
 from tests.unit.test_direct_luna_owned_stage import setup
 from tests.unit.test_v3_simple_owned_transport_v2 import client_for
@@ -25,6 +25,7 @@ from tests.unit.test_v3_simple_owned_transport_v9 import response_for
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('variant', ['v10', 'v11_complete', 'v11_missing'])
 @pytest.mark.parametrize(
     ("transport", "fault", "interrupt"),
     [
@@ -71,10 +72,11 @@ from tests.unit.test_v3_simple_owned_transport_v9 import response_for
         ("cloud", "parent_unresolved", 0),
     ],
 )
-async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport, fault, interrupt):
+async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport, fault, interrupt, variant):
     fake, journal, _, _, _ = setup()
     journal.review_policy_bound = True
-    journal.expected_review_policy = SIMPLE_COURSE_REVIEW_V10_POLICY
+    policy = SIMPLE_COURSE_REVIEW_V10_POLICY if variant == 'v10' else SIMPLE_COURSE_REVIEW_V11_POLICY
+    journal.expected_review_policy = policy
     corpus = synthetic_corpus(journal.tenant_id, mixed_origin=True)
     if fault in {
         "bank_source",
@@ -108,17 +110,34 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
     def produce(fmt, messages):
         assert runner._checked_structured_format(fmt) == fmt["json_schema"]["schema"]
         payload = json.loads(messages[1]["content"])
-        if "unapproved_question_cards" in payload:
+        if fmt['json_schema']['name'] == 'simple_finding_evidence_v1':
+            props = fmt['json_schema']['schema']['properties']
+            return 'evidence', {**{key: props[key]['enum'][0] for key in (
+                'source_fingerprint', 'draft_fingerprint', 'result_fingerprint', 'inventory_fingerprint')},
+                'bindings': {key: value['enum'][0] for key, value in props['bindings']['properties'].items()}}
+        if fmt['json_schema']['name'] == 'simple_plan_accounting_v1':
+            return 'accounting', {'source_fingerprint': packet.fingerprint,
+                'plan_fingerprint': payload['plan_fingerprint'], 'new_units': [],
+                'assignments': [{'slice_id': row['id'], 'unit_id': '', 'role': 'non_teaching',
+                    'reason': 'Administrative context.'} for row in payload['missing_slices']]}
+        if "unapproved_question_cards" in payload or 'assessment_cards' in payload:
             role = "bank"
-            cards = payload["unapproved_question_cards"]
+            cards = payload.get('assessment_cards', payload.get('unapproved_question_cards'))
             assert len(cards) == 6
-            assert all(set(c) == {"id", "lesson_id", "lesson_title", "prompt", "choices"} for c in cards)
-            assert "correct_index" not in messages[1]["content"] and "explanation" not in messages[1]["content"]
-            assert "New intro." not in messages[1]["content"] and "Preserve body." not in messages[1]["content"]
+            fields = {'id', 'lesson_id', 'lesson_title', 'prompt', 'choices'}
+            if variant == 'v10':
+                assert all(set(c) == fields for c in cards)
+                assert "correct_index" not in messages[1]["content"] and "explanation" not in messages[1]["content"]
+                assert "New intro." not in messages[1]["content"] and "Preserve body." not in messages[1]["content"]
+            else:
+                assert all(set(c) == fields | {'correct_index', 'explanation', 'source_refs'} for c in cards)
+                assert len(payload['lesson_bodies']) == 2 and 'UNTRUSTED' in messages[0]['content']
+                assert 'New intro.' in messages[1]['content'] and 'Preserve body.' in messages[1]['content']
             assert "independent_content_review" not in payload and "unit_reviews" not in payload
             target = cards[1]
             remembered["cards"] = copy.deepcopy(cards)
-            navigation = payload["lesson_source_navigation"]
+            navigation = payload.get('lesson_source_navigation', [{'lesson_id': row['id'], 'source_refs': ['SRC1']}
+                for row in payload.get('lesson_bodies', [])])
             raw = {
                 "source_fingerprint": packet.fingerprint,
                 "course_fingerprint": payload["course_fingerprint"],
@@ -184,7 +203,8 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
             role = "repair"
             flagged = payload["flagged_cards"]
             assert len(flagged) == 1 and flagged[0]["question"]["id"] == remembered["cards"][1]["id"]
-            assert "New intro." not in messages[1]["content"] and "Preserve body." not in messages[1]["content"]
+            if variant == 'v10' or fault != 'body_finding':
+                assert "New intro." not in messages[1]["content"] and "Preserve body." not in messages[1]["content"]
             assert remembered["cards"][2]["prompt"] not in messages[1]["content"]
             q = copy.deepcopy(flagged[0]["question"])
             q["prompt"] = "Corrected second prompt"
@@ -228,7 +248,7 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
             elif fault == "required_null":
                 raw["question_edits"] = None
             return role, raw
-        inner_fault = (
+        inner_fault = 'finding_resolved' if variant == 'v11_evidence' else (
             "finding_resolved"
             if fault == "parent_resolved"
             else "finding_unresolved"
@@ -236,6 +256,12 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
             else None
         )
         role, raw = response_for(fmt, messages, packet, image, inner_fault)
+        if role == 'joint' and variant == 'v11_evidence':
+            assert raw['finding_dispositions']
+            for decision in raw['finding_dispositions']:
+                decision['source_quote'] = 'malformed stitched quote'
+        if role == 'plan' and variant == 'v11_missing':
+            raw['non_teaching'] = []
         if role == "joint" and fault == "upstream_source":
             raw["source_questions"] = [{"question": "Upstream source hold", "source_refs": ["SRC1"]}]
         return role, raw
@@ -263,7 +289,7 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
 
     def cold():
         result = fresh_journal(journal, fake)
-        result.expected_review_policy = SIMPLE_COURSE_REVIEW_V10_POLICY
+        result.expected_review_policy = policy
         return result
 
     monkeypatch.setattr(client, "invoke", invoke)
@@ -275,7 +301,7 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
         "extraction_journal": journal,
         "direct_client": client if transport == "managed" else None,
         "revision_policy": POLICY,
-        "review_policy": SIMPLE_COURSE_REVIEW_V10_POLICY,
+        "review_policy": policy,
         "route_fingerprint": "d" * 64,
     }
     try:
@@ -298,7 +324,7 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
         count = len(calls)
         replay = await generate_v3_course_from_corpus(**{**args, "extraction_journal": cold()})
         assert len(calls) == count and first.content == replay.content and first.assessment == replay.assessment
-        assert calls == ["plan", "author", "unit-review", "author", "unit-review", "review", "joint", "bank"] + (
+        assert calls == ["plan"] + (["accounting"] if variant == 'v11_missing' else []) + ["author", "unit-review", "author", "unit-review", "review", "joint"] + (['evidence'] if variant == 'v11_evidence' else []) + ["bank"] + (
             [] if fault == "clean" else ["repair"]
         )
         course = first.diagnostics["practical_course"]
@@ -311,7 +337,15 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
         )
         assert lessons[0]["questions"][2]["prompt"] == "HIDDEN_QUESTION q2"
         post = first.diagnostics["simple_review"]["postedit_card_review"]
-        assert [lesson["title"] for lesson in lessons] == ["Lesson", "Lesson"]
+        if variant == 'v11_evidence':
+            evidence = first.diagnostics['simple_review']['source_evidence_repair']
+            assert not evidence['semantic_approval']
+            original = evidence['original_revision_receipt']['review_finding_dispositions'][0]
+            current = first.diagnostics['simple_review']['revision_receipt']['review_finding_dispositions'][0]
+            assert not original['model_resolved'] and current['model_resolved']
+            assert current['result_fingerprint'] == _digest(course)
+        assert [lesson["title"] for lesson in lessons] == (
+            ["Lesson", "Lesson"] if variant == 'v10' else ["First — Lesson", "Second — Lesson"])
         assert lessons[1]["content"] == "Old intro.\n\nPreserve body."
         for lesson in lessons:
             assert _digest([lesson["title"], lesson["content"]]) == post["lesson_fingerprints"][lesson["id"]]
@@ -365,3 +399,10 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
             )
     finally:
         client.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('transport', ['managed', 'cloud'])
+@pytest.mark.parametrize('interrupt', [0, 8, 9, 10])
+async def test_v11_evidence_actual_decoders_owned_cold_replay(monkeypatch, transport, interrupt):
+    await test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport, 'fix', interrupt, 'v11_evidence')

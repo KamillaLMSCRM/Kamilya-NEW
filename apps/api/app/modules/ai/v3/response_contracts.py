@@ -90,6 +90,8 @@ from app.modules.ai.v3.simple_course_revision_v2 import (
     is_simple_revision_v2_format,
     matches_simple_revision_v2,
 )
+from app.modules.ai.v3.simple_finding_evidence import is_evidence_format, matches_evidence
+from app.modules.ai.v3.simple_plan_accounting import is_accounting_format, matches_accounting
 from app.modules.ai.v3.simple_question_scope_review import (
     is_simple_question_scope_format,
     matches_simple_question_scope,
@@ -100,6 +102,10 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    if is_evidence_format(value):
+        return 'simple_finding_evidence'
+    if is_accounting_format(value):
+        return "simple_plan_accounting"
     if is_address_repair_format(value):
         return "simple_course_address_repair"
     if is_simple_block_editor_format(value):
@@ -205,6 +211,10 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == 'simple_finding_evidence':
+        return matches_evidence(value, response_format)
+    if kind == "simple_plan_accounting":
+        return matches_accounting(value, response_format)
     if kind == "simple_course_address_repair":
         return matches_address_repair_shape(value, response_format)
     if kind == "simple_course_block_editor":

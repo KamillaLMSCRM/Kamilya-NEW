@@ -46,14 +46,19 @@ def is_semantic_plan_stage(plan: Any) -> bool:
 
 
 def semantic_plan_review_policy(plan: Any) -> str | None:
-    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY
+    from app.modules.ai.v3.revision_policy import (
+        SIMPLE_COURSE_REVIEW_V6_POLICY,
+        SIMPLE_COURSE_REVIEW_V9_POLICY,
+        SIMPLE_COURSE_REVIEW_V11_POLICY,
+    )
 
     if not (isinstance(plan, dict) and plan.get('stage') == 'review' and isinstance(plan.get('group_id'), str)):
         return None
-    match = re.fullmatch(r'practical:simple:plan:v(6|9):[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id'])
+    match = re.fullmatch(r'practical:simple:plan:v(6|9|11):[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id'])
     if not match:
         return None
-    return SIMPLE_COURSE_REVIEW_V6_POLICY if match[1] == '6' else SIMPLE_COURSE_REVIEW_V9_POLICY
+    return {'6': SIMPLE_COURSE_REVIEW_V6_POLICY, '9': SIMPLE_COURSE_REVIEW_V9_POLICY,
+            '11': SIMPLE_COURSE_REVIEW_V11_POLICY}[match[1]]
 
 
 def retained_phase_allowed(plan: dict[str, Any], phase: Any) -> bool:

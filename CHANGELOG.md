@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.11.104] - 2026-11-13
+
+### Changed
+- Preserve the semantic-unit topic alongside the authored title before lesson and question review; keep deliberate title edits available.
+- Recover a structurally valid source plan with one bounded model allocation of omitted source slices, preserving its existing units and assignments.
+- Review final lesson bodies and complete question cards as separate products; correct only material-target bodies or cards while preserving other text, media, identities and source navigation.
+- Repair malformed source-evidence quotations by model selection of already cited source passages, without regenerating good learning content. Preserve original claims and failed evidence; no semantic approval is inferred.
+- Accept whole-owned-field citation typography for V11 final evidence while retaining strict word, number, target, change and unrelated-finding boundaries. Existing stored policies retain their defaults and request identities.
+
 ## [0.11.103] - 2026-11-12
 
 ### Changed
