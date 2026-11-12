@@ -30,7 +30,14 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
         ],
     )
     assert [journey.journey_id for journey in impacted] == ["AI-COURSE-01"]
-    assert len(impacted[0].required_tests) == 45
+    assert len(impacted[0].required_tests) == 50
+    assert {
+        "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_v8_independent_unit_readings_author_editors_and_replay",
+        "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_failed_unit_read_never_invokes_author",
+        "apps/api/tests/unit/test_v3_simple_unit_reading_v8.py::test_reader_and_author_checkpoints_are_bound_to_complete_plan",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v8.py::test_v8_real_managed_owned_replay",
+        "apps/api/tests/unit/test_v3_simple_cloud_transport_v8.py::test_v8_cloud_owned_pending_and_replay",
+    } <= set(impacted[0].required_tests)
     assert len(impacted[0].database_tests) == 1
     assert "apps/api/tests/unit/test_managed_luna_client.py::test_delta_editor_real_decode_preserves_raw_custody" in impacted[0].required_tests
     assert "scripts/ci/kb_rag_schema_contract.py" in impacted[0].runtime_gates
@@ -82,9 +89,9 @@ def test_local_mode_emits_database_free_tests_and_defers_database_gate(tmp_path:
     )
     assert result["status"] == "READY"
     assert result["journeys"] == ["AI-COURSE-01"]
-    assert result["required_tests"] == 45
+    assert result["required_tests"] == 50
     assert result["deferred_database_tests"] == 1
-    assert len(output.read_text(encoding="utf-8").splitlines()) == 45
+    assert len(output.read_text(encoding="utf-8").splitlines()) == 50
     assert "test_document_reindex_worker_completes_and_is_idempotent" not in output.read_text(encoding="utf-8")
 
 
@@ -99,7 +106,7 @@ def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) 
         execution_profile="ci",
     )
 
-    assert result["required_tests"] == 46
+    assert result["required_tests"] == 51
     assert result["deferred_database_tests"] == 0
     assert "test_document_reindex_worker_completes_and_is_idempotent" in output.read_text(encoding="utf-8")
 
