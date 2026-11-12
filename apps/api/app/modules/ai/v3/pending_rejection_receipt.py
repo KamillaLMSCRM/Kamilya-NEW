@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.modules.ai.direct_luna_responses_client import ResponsesRejectedError
+from app.modules.ai.managed_luna_client import ManagedLunaHttpRejectedError
 from app.modules.ai.v3.pending_stage_transactions import (
     _locked_job,
     _owner,
@@ -18,14 +19,18 @@ POLICY = "v3-response-rejection-receipt-v1"
 
 
 async def retain_rejection(*, journal: Any, plan: dict[str, Any], result_key: str, claim_key: str,
-                           marker: dict[str, str], rejection: ResponsesRejectedError,
+                           marker: dict[str, str], rejection: ResponsesRejectedError | ManagedLunaHttpRejectedError,
                            verify_source: Any) -> None:
     _owner(plan, journal)
-    if type(rejection) is not ResponsesRejectedError or not callable(verify_source):
+    if type(rejection) not in (ResponsesRejectedError, ManagedLunaHttpRejectedError) or not callable(verify_source):
         raise ValueError("v3_rejection_unverified")
     digest = _digest(plan)
     receipt = rejection.checked_receipt(tenant_id=journal.tenant_id, user_id=journal.user_id,
                                        job_id=journal.job_id, stage=digest)
+    if type(rejection) is ManagedLunaHttpRejectedError:
+        if receipt['route_fingerprint'] != plan.get('route_fingerprint'):
+            raise ValueError('v3_rejection_route_unverified')
+        receipt = {'policy': 'managed-http-rejection-v1', **receipt}
     async with journal.sessions() as session:
         job = await _locked_job(session, journal, journal.user_id)
         expected = {"claim_key": claim_key, "result_key": result_key, "token": marker.get("claim_token")}

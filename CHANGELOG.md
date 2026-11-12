@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.11.102] - 2026-11-12
+
+### Fixed
+- Retain bounded authenticated connector rejection reasons with request, stage, route and response fingerprints, including capacity; keep unverified outcomes explicitly unknown.
+- Allow one explicitly acknowledged recovery in the permanent DEV QA contour for an unfinished text stage. Preserve the original unknown attempt and replay every completed stage from an exact, server-owned inventory before issuing the remaining request.
+- Reject recovery when prompts, route, source, output cap, stored results or ownership differ; preserve normal resume and production pending fences.
+
 ## [0.11.101] - 2026-11-12
 
 ### Fixed

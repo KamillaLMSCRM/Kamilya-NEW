@@ -1,3 +1,7 @@
+# Current 2026-11-12T13:05:15.330595+00:00 - LOCAL102 recovery candidate; DEV101 held after unknown503
+
+DEV101 exact9482bf7a/image28a0/soleVMworker982/env113a/APIdep-dbqqi6/Verceldpl21J is deployed. Standards job e156803f-03b8-4b80-b00b-33c65899d62e holds reconciliation_required after HTTP50352.394s at author7; 13successfulstages216089IN22425OUT retained, failed usage/cause UNKNOWN. LOCAL102 preserves rejection evidence and implements one explicitly acknowledged QA-only same-job retry with exact completed-stage inventory/frontier. Full8444unit/426critical/quality/legacy33 andactual13savedrequest replaysPASS; native102/threefullcourses remain OPEN. No newmodelcalls or APIrecoverymutation yet. Production90/API16504/nativefrontend86/0187 unchanged; samefinalDeepSeekUSD1spent0. ENG066/CHG102A-B and CODEX_HANDOFF own details.
+
 # Current 2026-11-12T11:35:31.037627+00:00 - candidate101 local, deployedDEV100 held at saved plan
 
 DEV100 exact5c71e89b/image926bc4/soleworker7a7f remains deployed; standards job e156803f-03b8-4b80-b00b-33c65899d62e reconciliation_required before authoring. One complete Luna6HIGH plan response is preserved, no repeat request. Unpublished101 fixes formatting-only accounting and exact owned V9 replay. Full8375unit/370critical/616CI-script/quality/legacy33checksPASS; live101 recovery and three full courses remain OPEN. Production90/API16504/nativefrontend86 unchanged; schema0187, customer data/provider plans/rollback unchanged. Detailed state: docs/CODEX_HANDOFF.md and ENG-065/CHG-L101A. Same final DeepSeekUSD1spent0.

@@ -30,7 +30,8 @@ MAX_RESPONSE_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
 logger = logging.getLogger(__name__)
 ERROR_CODES = frozenset({"not_configured", "authorization_required", "unavailable", "protocol_mismatch",
-                         "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected"})
+                         "busy", "invalid_input", "timeout", "output_limit", "tool_use_rejected", "capacity"})
+MAX_HTTP_REJECTION_BYTES = 1024
 
 
 def _unsafe_credential_envelope(raw: bytes, token: str) -> bool:
@@ -63,6 +64,32 @@ def _diagnostic(phase: str, job_id: str, stage_id: str | None, started: float,
 
 class ManagedLunaError(RuntimeError):
     """Sanitized connector failure."""
+
+
+class ManagedLunaHttpRejectedError(ManagedLunaError):
+    """Bounded connector HTTP evidence, never authorization to retry or settle."""
+
+    def __init__(self, *, scope: tuple[UUID, UUID, str], stage: str, status: int, code: str,
+                 body_sha256: str, byte_count: int, wire_request_sha256: str, route_fingerprint: str):
+        super().__init__('managed_luna_http_rejected')
+        self._scope, self._stage = scope, stage
+        self._receipt: dict[str, Any] = {'status': status, 'code': code, 'body_sha256': body_sha256, 'byte_count': byte_count,
+                         'wire_request_sha256': wire_request_sha256, 'route_fingerprint': route_fingerprint}
+
+    def checked_receipt(self, *, tenant_id: str, user_id: UUID, job_id: str, stage: str) -> dict[str, Any]:
+        try:
+            valid_scope = self._scope == (UUID(tenant_id), user_id, job_id)
+        except (ValueError, TypeError, AttributeError):
+            valid_scope = False
+        receipt = self._receipt
+        if (not valid_scope or type(stage) is not str or self._stage != stage or re.fullmatch(r'[0-9a-f]{64}', stage) is None
+                or type(receipt['status']) is not int or not 400 <= receipt['status'] <= 599
+                or receipt['code'] not in ERROR_CODES or type(receipt['byte_count']) is not int
+                or not 1 <= receipt['byte_count'] <= MAX_HTTP_REJECTION_BYTES
+                or any(type(receipt[key]) is not str or re.fullmatch(r'[0-9a-f]{64}', receipt[key]) is None
+                       for key in ('body_sha256', 'wire_request_sha256', 'route_fingerprint'))):
+            raise ValueError('managed_luna_http_rejection_scope_invalid')
+        return {**receipt, 'tenant_id': tenant_id, 'user_id': str(user_id), 'job_id': job_id, 'stage': stage}
 
 
 class ManagedLunaCompletedJsonError(ManagedLunaError):
@@ -321,6 +348,7 @@ class ManagedLunaClient:
         _diagnostic("attempt", job_id, stage_id, started, None, "started")
         failed = False
         raw = bytearray()
+        http_rejection: ManagedLunaHttpRejectedError | None = None
         try:
             async with asyncio.timeout(self._deadline):
                 async with httpx.AsyncClient(timeout=self._deadline, follow_redirects=False, trust_env=False) as client:
@@ -334,8 +362,10 @@ class ManagedLunaClient:
                             failed = True
                             category = "http_error"
                             error_raw = bytearray()
+                            complete = True
                             async for chunk in response.aiter_raw():
-                                if len(error_raw) + len(chunk) > 4096:
+                                if len(error_raw) + len(chunk) > MAX_HTTP_REJECTION_BYTES:
+                                    complete = False
                                     break
                                 error_raw.extend(chunk)
                             try:
@@ -345,6 +375,31 @@ class ManagedLunaClient:
                                     category = code
                             except Exception:
                                 pass
+                            declared_length = response.headers.get('content-length')
+                            if (declared_length is not None and
+                                    (not declared_length.isascii() or not declared_length.isdecimal()
+                                     or int(declared_length) != len(error_raw))):
+                                complete = False
+                            if (complete and stage_id is not None and 400 <= status <= 599
+                                    and response.headers.get('content-encoding', 'identity').lower() == 'identity'
+                                    and not _unsafe_credential_envelope(bytes(error_raw), self._token)):
+                                try:
+                                    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+                                        result: dict[str, Any] = {}
+                                        for key, item in pairs:
+                                            if key in result:
+                                                raise ValueError('duplicate_key')
+                                            result[key] = item
+                                        return result
+                                    body = json.loads(error_raw, object_pairs_hook=unique_object)
+                                    if (type(body) is dict and set(body) == {'error'}
+                                            and type(body['error']) is str and body['error'] in ERROR_CODES):
+                                        http_rejection = ManagedLunaHttpRejectedError(scope=self._scope, stage=stage_id,
+                                            status=status, code=body['error'], body_sha256=hashlib.sha256(error_raw).hexdigest(),
+                                            byte_count=len(error_raw), wire_request_sha256=hashlib.sha256(payload).hexdigest(),
+                                            route_fingerprint=self.cache_fingerprint())
+                                except (ValueError, TypeError, UnicodeDecodeError):
+                                    pass
                         elif response.headers.get("content-encoding", "identity").lower() != "identity":
                             category = "encoding"
                             failed = True
@@ -359,8 +414,11 @@ class ManagedLunaClient:
             raise
         except Exception:
             failed = True
+            http_rejection = None
         if failed:
             _diagnostic("failure", job_id, stage_id, started, status, category)
+            if http_rejection is not None:
+                raise http_rejection from None
             raise ManagedLunaError("managed_luna_outcome_unknown")
         _diagnostic("response", job_id, stage_id, started, status, "body_received")
         try:

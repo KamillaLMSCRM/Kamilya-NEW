@@ -99,7 +99,19 @@
         "apps/api/tests/unit/test_simple_plan_formatting.py::test_unassigned_break_is_completed_without_mutation",
         "apps/api/tests/unit/test_simple_plan_formatting.py::test_visual_asset_or_unverified_origin_is_not_excluded",
         "apps/api/tests/unit/test_simple_plan_formatting.py::test_missing_meaningful_slice_is_never_excluded",
-        "apps/api/tests/unit/test_simple_plan_formatting.py::test_unrelated_invalidity_still_fails_when_break_missing"
+        "apps/api/tests/unit/test_simple_plan_formatting.py::test_unrelated_invalidity_still_fails_when_break_missing",
+        "apps/api/tests/unit/test_managed_http_rejection.py::test_complete_finite_error_preserves_scoped_evidence_without_retry",
+        "apps/api/tests/unit/test_managed_http_rejection.py::test_uncertain_http_response_is_unknown",
+        "apps/api/tests/unit/test_managed_http_rejection.py::test_interrupted_error_stream_cannot_be_recorded",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_authorization_preserves_unknown_call_and_cached_stages",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_changed_source_approval_never_mutates_job_or_checkpoints",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_completed_inventory_failure_never_mutates_job_or_checkpoints",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_rejected_retry_never_mutates_job_or_private_checkpoints",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_real_resume_authorizes_one_delivery_and_keeps_private_and_cached_history",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_real_resume_rejection_precedes_mutation_commit_and_dispatch",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_unknown_dispatch_keeps_queued_delivery_and_retry_ledger",
+        "apps/api/tests/unit/test_explicit_stage_retry.py::test_second_operation_rejected_for_distinct_unknown_stage",
+        "apps/api/tests/unit/test_v9_explicit_retry_transport.py::test_real_http_failure_is_retained_and_only_unfinished_stage_runs_again"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"

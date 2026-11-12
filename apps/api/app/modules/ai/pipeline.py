@@ -663,6 +663,15 @@ async def _run_v3_generation(
         if pending_mode:
             authenticated_qa_policy = stored
             journal = PendingStageJournal(str(tenant_id), user_id, state.job_id, async_session_factory)
+            from app.modules.ai.v3.explicit_stage_retry import checked_ledger
+            journal.explicit_stage_retries = checked_ledger(job.params)
+            if journal.explicit_stage_retries is not None and any(
+                entry['actor_id'] != str(user_id)
+                or entry['original_plan']['job_id'] != state.job_id
+                or entry['original_plan']['tenant_id'] != str(tenant_id)
+                for entry in journal.explicit_stage_retries['entries'].values()
+            ):
+                raise ExtractionOutcomeUnknownError('explicit_stage_retry_owner_unverified')
             from app.modules.ai.v3.completed_extraction_reuse import read_parent_marker
             journal.completed_extraction_parent_job_id = read_parent_marker(job.params, stored)
             context = await load_owned_source_context(journal=journal, tenant_id=tenant_id,
@@ -691,6 +700,7 @@ async def _run_v3_generation(
                                  ordinary_stored=current.get(EDITORIAL_ORDINARY_KEY),
                                  ordinary_dispatched=state.source_analysis.get(EDITORIAL_ORDINARY_KEY)))
                         and route_valid
+                        and checked_ledger(job.params) == journal.explicit_stage_retries
                         and read_parent_marker(job.params, stored) == journal.completed_extraction_parent_job_id
                         and await context.verify_locked(session, job, plan) is True)
             journal.verify_source = verify_qa_source

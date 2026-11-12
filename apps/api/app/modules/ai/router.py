@@ -73,6 +73,7 @@ from app.modules.ai.schemas import (
     DocumentPassportSection,
     QuarantineGenerationRequest,
 )
+from app.modules.ai.v3.explicit_stage_retry import ResumeGenerationRequest, retry_candidate
 from app.modules.courses.models import Course
 
 logger = logging.getLogger(__name__)
@@ -1001,6 +1002,7 @@ async def resume_generation(
     job_id: str,
     db: AsyncSession = Depends(get_db),  # noqa: B008
     user: User = Depends(require_ai_job_access),  # noqa: B008
+    payload: ResumeGenerationRequest | None = None,
 ) -> AIJobResponse:
     """Resume missing lesson and assessment checkpoints for one logical job."""
     tenant_id = user.tenant_id
@@ -1015,7 +1017,11 @@ async def resume_generation(
     from app.modules.ai.v3.retained_author_replay import owned_candidate
 
     replay_candidate = await owned_candidate(db, job) if may_resume_retained_author(job) else None
-    if has_pending(getattr(job, "result", None)) and replay_candidate is None:
+    retry_request = payload.retry_unfinished if payload is not None else None
+    explicit_candidate = await retry_candidate(db, job, user.id, get_settings()) if retry_request is not None else None
+    if retry_request is not None and (explicit_candidate is None or explicit_candidate['stage'] != retry_request.stage_sha256):
+        raise HTTPException(status_code=409, detail={'code': 'explicit_stage_retry_unverified'})
+    if has_pending(getattr(job, "result", None)) and replay_candidate is None and explicit_candidate is None:
         raise HTTPException(status_code=409, detail={"code": "v3_stage_pending_or_unknown"})
     if not job_uses_current_generation_engine(job):
         raise HTTPException(
@@ -1026,7 +1032,7 @@ async def resume_generation(
                 "action": "start_new_generation",
             },
         )
-    if not is_resumable_generation_job(job) and replay_candidate is None:
+    if not is_resumable_generation_job(job) and replay_candidate is None and explicit_candidate is None:
         raise HTTPException(status_code=409, detail="Job is not resumable")
     documents = params.get("documents")
     course_structure = params.get("course_structure")
@@ -1057,6 +1063,8 @@ async def resume_generation(
         "source_analysis": params.get("source_analysis") if isinstance(params.get("source_analysis"), dict) else {},
         "reuse_reason": params.get("reuse_reason"),
     }
+    retry_kwargs: dict[str, Any] = ({'retry_request': retry_request, 'retry_actor_id': cast(UUID, user.id)}
+                                   if retry_request is not None else {})
     try:
         resumed, queue_metadata = await resume_interrupted_ai_job(
             db,
@@ -1066,6 +1074,7 @@ async def resume_generation(
             active_limit=active_limit,
             worker_concurrency=settings.AI_WORKER_CONCURRENCY,
             historical_estimate_seconds=settings.AI_ESTIMATED_JOB_SECONDS,
+            **retry_kwargs,
         )
     except AIJobAdmissionLimitReachedError as exc:
         raise _admission_http_error(exc) from exc

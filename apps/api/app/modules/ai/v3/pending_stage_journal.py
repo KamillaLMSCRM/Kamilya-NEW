@@ -32,6 +32,7 @@ class PendingStageJournal(WorkerCycleJournal):
         self.verify_source = verify_source
         self.completed_extraction_parent_job_id: str | None = None
         self.native_generation_seconds: float | None = None
+        self.explicit_stage_retries: dict[str, Any] | None = None
 
     async def run_pending(self, *, plan: dict[str, Any], result_key: str, claim_key: str,
                           validate_value: Callable[[dict[str, Any]], dict[str, Any]],
@@ -42,6 +43,7 @@ class PendingStageJournal(WorkerCycleJournal):
                           _completed_response: Callable[[str, Exception], ManagedResponseRejectedError | None] | None = None,
                           author_custody: Callable[[Any], dict[str, Any] | None] | None = None,
                           ) -> dict[str, Any]:
+        from app.modules.ai.managed_luna_client import ManagedLunaHttpRejectedError
         verify_source = self.verify_source
         if _owned_claim_guard is not None:
             if not callable(verify_source) or not callable(_owned_claim_guard):
@@ -140,7 +142,7 @@ class PendingStageJournal(WorkerCycleJournal):
                 # A failed or unknown evidence write never permits acceptance or another call.
                 pass
             raise ExtractionOutcomeUnknownError("v3_pending_provider_outcome_unknown") from None
-        except ResponsesRejectedError as exc:
+        except (ResponsesRejectedError, ManagedLunaHttpRejectedError) as exc:
             from app.modules.ai.v3.pending_rejection_receipt import retain_rejection
 
             try:

@@ -870,6 +870,8 @@ async def resume_interrupted_ai_job(
     worker_concurrency: int,
     historical_estimate_seconds: int,
     dispatcher: AIJobDispatcher | None = None,
+    retry_request: Any = None,
+    retry_actor_id: UUID | None = None,
 ) -> tuple[AIJob, dict[str, int | None]]:
     """Requeue the same logical generation without charging quota again."""
     active_limit = _positive_int(active_limit, "active_limit")
@@ -886,7 +888,14 @@ async def resume_interrupted_ai_job(
         raise AIJobSubmissionUnavailableError(RETIRED_GENERATION_ENGINE_MESSAGE)
     from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY, owned_candidate
     candidate = await owned_candidate(db, locked) if may_resume_retained_author(locked) else None
-    if not is_resumable_generation_job(locked) and candidate is None:
+    explicit_candidate = None
+    if retry_request is not None:
+        from app.core.config import get_settings
+        from app.modules.ai.v3.explicit_stage_retry import retry_candidate
+        explicit_candidate = await retry_candidate(db, locked, retry_actor_id, get_settings())
+        if explicit_candidate is None:
+            raise AIJobSubmissionUnavailableError('Unfinished stage retry could not be verified')
+    if not is_resumable_generation_job(locked) and candidate is None and explicit_candidate is None:
         raise AIJobSubmissionUnavailableError("AI job is not resumable")
     active_count = await count_active_ai_jobs(db, tenant_id)
     if active_count >= active_limit:
@@ -895,6 +904,13 @@ async def resume_interrupted_ai_job(
             active_count=active_count,
             active_limit=active_limit,
         )
+
+    if explicit_candidate is not None:
+        from app.modules.ai.v3.explicit_stage_retry import authorize_retry
+        try:
+            await authorize_retry(db, locked, retry_actor_id, get_settings(), retry_request)
+        except ValueError:
+            raise AIJobSubmissionUnavailableError('Unfinished stage retry could not be verified') from None
 
     previous_result: dict[str, Any] = locked.result if isinstance(locked.result, dict) else {}
     resume_count = int(previous_result.get("resume_count", 0) or 0) + 1

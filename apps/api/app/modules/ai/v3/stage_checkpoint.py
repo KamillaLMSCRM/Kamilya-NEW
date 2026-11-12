@@ -140,6 +140,10 @@ async def stage_once(
                 or not focused_stage_allowed(stage, group_id, response_format,
                     policy=getattr(journal, "expected_review_policy", None), validator=response_validator)):
             raise ValueError("focused_stage_scope_invalid")
+    if simple:
+        from app.modules.ai.v3.explicit_stage_retry import guard_recovery_stage, retry_plan
+        await guard_recovery_stage(journal, plan)
+        plan = retry_plan(plan, getattr(journal, 'explicit_stage_retries', None))
     signature = _digest(plan)
     result_key, claim_key = f"v3-stage-result:{signature}", f"v3-stage-claim:{signature}"
     from app.modules.ai.v3.practical_author_transport import is_practical_author_stage
