@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.105] - 2026-11-13
+
+### Fixed
+- Keep an owned source plan when a fragment is listed as both primary and supporting: V11 removes only the redundant supporting membership and preserves the exact raw plan and normalization receipt. Canonical compilation, source ownership, coverage, conflicts and within-list uniqueness remain strict.
+- Reuse the same captured plan through the existing scoped response-recovery path. No repeat model request, new editor role or source-text correction is needed for reference redundancy.
+
 ## [0.11.104] - 2026-11-13
 
 ### Changed

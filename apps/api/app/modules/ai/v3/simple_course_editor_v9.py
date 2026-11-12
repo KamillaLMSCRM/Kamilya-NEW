@@ -295,11 +295,12 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
     plan: dict[str, Any] | None = None
     plan_normalization: dict[str, Any] | None = None
     accounting_receipt: dict[str, Any] | None = None
+    role_normalization: dict[str, Any] | None = None
     selections_by_fp: dict[str, tuple[dict[str, Any], Any]] = {}
     records: list[dict[str, Any]] = []
 
     async def versioned(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
-        nonlocal plan, plan_normalization, accounting_receipt
+        nonlocal plan, plan_normalization, accounting_receipt, role_normalization
         if ':plan:v6:' in group:
             plan_messages = copy.deepcopy(messages)
             system = plan_messages[0]['content']
@@ -323,6 +324,10 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
 
             wire = await stage(name, group.replace(':v6:', ':v9:', 1), plan_messages, fmt,
                                structural_plan if repair_plan_accounting else validated_plan)
+            if repair_plan_accounting:
+                from app.modules.ai.v3.simple_plan_formatting import canonicalize_plan_support
+
+                wire, role_normalization = canonicalize_plan_support(wire, packet, corpus)
             try:
                 plan = validated_plan(wire)
             except ValueError as exc:
@@ -438,5 +443,7 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
                 'source_fingerprint': packet.fingerprint, 'draft_fingerprint': fingerprint}
         receipt['unapplied_review_findings'] = list(unapplied.values())
     extra = {'source_plan_accounting': accounting_receipt} if accounting_receipt is not None else {}
+    if role_normalization is not None:
+        extra['source_plan_role_normalization'] = role_normalization
     return replace(result, review={**result.review, 'method': 'semantic-unit-source-reviews-joint-block-editor-v1',
                                    'source_plan_normalization': plan_normalization, 'revision_receipt': receipt, **extra})

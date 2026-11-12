@@ -11,10 +11,32 @@ from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.simple_semantic_source_plan import (
     build_semantic_slices,
     compile_semantic_plan,
+    matches_semantic_plan_structure,
     semantic_plan_format,
 )
 
 _BREAK = re.compile(r'\s*<br\s*/?\s*>\s*', re.IGNORECASE)
+
+
+def canonicalize_plan_support(value: Any, packet: Any, corpus: Any
+                              ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """A model-selected primary slice needs no second supporting membership."""
+    if not matches_semantic_plan_structure(value, semantic_plan_format(packet, corpus)):
+        raise ValueError('semantic_plan_invalid')
+    original = copy.deepcopy(value)
+    canonical = copy.deepcopy(value)
+    removed = []
+    for unit in canonical['units']:
+        primary = set(unit['primary_slices'])
+        redundant = [ref for ref in unit['supporting_slices'] if ref in primary]
+        if redundant:
+            unit['supporting_slices'] = [ref for ref in unit['supporting_slices'] if ref not in primary]
+            removed.append({'unit_id': unit['id'], 'slice_ids': redundant})
+    if not removed:
+        return canonical, None
+    return canonical, {'source_fingerprint': packet.fingerprint, 'original_plan': original,
+        'model_plan_fingerprint': _digest(original), 'normalized_plan_fingerprint': _digest(canonical),
+        'removed_redundant_support': removed, 'semantic_approval': False}
 
 
 def complete_formatting_plan(value: Any, packet: Any, corpus: Any) -> tuple[dict[str, Any], dict[str, Any]]:

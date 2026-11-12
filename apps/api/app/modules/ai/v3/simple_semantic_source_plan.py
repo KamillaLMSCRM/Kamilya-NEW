@@ -103,7 +103,8 @@ def _matches_semantic_plan(value: Any, fmt: Any, *, complete: bool) -> bool:
     accounted: set[str] = set()
     for unit in value['units']:
         p, s = unit['primary_slices'], unit['supporting_slices']
-        if not unit['title'].strip() or len(set(p + s)) != len(p) + len(s):
+        if (not unit['title'].strip() or len(set(p)) != len(p) or len(set(s)) != len(s)
+                or complete and bool(set(p).intersection(s))):
             return False
         primary.update(p)
         accounted.update(p + s)

@@ -16,8 +16,9 @@ from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.practical_contract import build_practical_source_packet
 from app.modules.ai.v3.response_contracts import response_contract_hash
 from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY
+from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY
 from app.modules.ai.v3.simple_course_editor_v9 import run_simple_course_editor_v9
+from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 from app.modules.ai.v3.simple_semantic_source_plan import build_semantic_slices, semantic_plan_format
 from app.modules.ai.v3.stage_checkpoint import _digest, stage_once, stage_plan
 from tests.unit.test_owned_stage_inspection import setup_journal
@@ -29,7 +30,7 @@ class ReachedAuthorError(Exception):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('missing', ['formatting', 'meaningful'])
+@pytest.mark.parametrize('missing', ['formatting', 'meaningful', 'role_overlap'])
 async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missing):
     corpus = make_corpus([source_block(1, 'Work.\n<br>\nOther.')], [])
     packet = build_practical_source_packet(corpus)
@@ -39,16 +40,21 @@ async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missin
         'title': 'Course', 'units': [{'id': 'unit', 'title': 'Work',
             'primary_slices': [slices[0]['id']], 'supporting_slices': []}],
         'non_teaching': [{'slice_ids': [row['id'] for row in slices[1:]], 'reason': 'Context'}]}
-    missing_id = next(row['id'] for row in slices if row['text'] == ('<br>' if missing == 'formatting' else 'Other.'))
-    value['non_teaching'][0]['slice_ids'].remove(missing_id)
-    if not value['non_teaching'][0]['slice_ids']:
-        value['non_teaching'] = []
+    if missing == 'role_overlap':
+        value['units'][0]['supporting_slices'] = [slices[0]['id']]
+    else:
+        missing_id = next(row['id'] for row in slices if row['text'] == ('<br>' if missing == 'formatting' else 'Other.'))
+        value['non_teaching'][0]['slice_ids'].remove(missing_id)
+        if not value['non_teaching'][0]['slice_ids']:
+            value['non_teaching'] = []
+    policy = SIMPLE_COURSE_REVIEW_V11_POLICY if missing == 'role_overlap' else SIMPLE_COURSE_REVIEW_V9_POLICY
+    runner = run_simple_course_editor_v11 if missing == 'role_overlap' else run_simple_course_editor_v9
 
     fake = setup_journal()
     tenant, actor = uuid4(), uuid4()
     fake.tenant_id = str(tenant)
     fake.job.user_id, fake.job.tenant_id, fake.job.id, fake.job.course_id = actor, tenant, fake.job_id, None
-    fake.job.params['source_analysis']['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V9_POLICY
+    fake.job.params['source_analysis']['v3_review_policy'] = policy
 
     async def verify(_session, _job, _plan):
         return True
@@ -59,7 +65,7 @@ async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missin
     journal._owned_key = fake._owned_key
     journal.read_owned_value_in_session = fake.read_owned_value_in_session
     journal.review_policy_bound = True
-    journal.expected_review_policy = SIMPLE_COURSE_REVIEW_V9_POLICY
+    journal.expected_review_policy = policy
     # owned_candidate reconstructs the journal; retain its real method with our fake repository.
     monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.PendingStageJournal', lambda *_: journal)
     monkeypatch.setattr(socket.socket, 'connect', lambda *_a, **_k: pytest.fail('network forbidden'))
@@ -71,11 +77,11 @@ async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missin
     async def stage(name, group, messages, fmt, validator):
         calls.append(group)
         if ':author-unit:' in group:
-            assert missing == 'formatting'
+            assert missing in {'formatting', 'role_overlap'}
             assert retained['result_key'] in fake.values
             assert PENDING_KEY not in fake.job.result
             raise ReachedAuthorError
-        assert ':plan:v9:' in group and len(calls) == 1
+        assert (':plan:v11:' if missing == 'role_overlap' else ':plan:v9:') in group and len(calls) == 1
         full_group = group + ':output=32768'
         plan = stage_plan(journal, stage=name, group_id=full_group, source_sha256='b' * 64,
             route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt)
@@ -122,9 +128,9 @@ async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missin
 
     context = delivery_id.set('synthetic-delivery')
     try:
-        if missing == 'formatting':
+        if missing in {'formatting', 'role_overlap'}:
             with pytest.raises(ReachedAuthorError):
-                await run_simple_course_editor_v9(packet, corpus, {}, stage)
+                await runner(packet, corpus, {}, stage)
             assert len(calls) == 2
             saved = fake.values[retained['result_key']]
             assert saved['response'] == retained['raw_plan']
@@ -132,7 +138,7 @@ async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missin
             assert fake.job.result['v3_retained_author_replay_audit']['body_sha256'] == retained['receipt']['body_sha256']
         else:
             with pytest.raises(ExtractionOutcomeUnknownError):
-                await run_simple_course_editor_v9(packet, corpus, {}, stage)
+                await runner(packet, corpus, {}, stage)
             assert len(calls) == 1 and retained['result_key'] not in fake.values
             assert PENDING_KEY in fake.job.result
     finally:

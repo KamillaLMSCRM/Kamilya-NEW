@@ -13,9 +13,12 @@ from tests.unit.test_v3_simple_owned_transport_v3 import synthetic_corpus, unit_
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('preserve,edit_title,accounting', [
-    (False, False, False), (True, False, False), (True, True, False), (True, False, True)])
-async def test_full_pipeline_preserves_visible_topic_without_freezing_editorial_title(preserve, edit_title, accounting):
+@pytest.mark.parametrize('preserve,edit_title,accounting,redundant_support', [
+    (False, False, False, False), (True, False, False, False), (True, True, False, False),
+    (True, False, True, False), (True, False, True, True)])
+async def test_full_pipeline_preserves_visible_topic_without_freezing_editorial_title(
+    preserve, edit_title, accounting, redundant_support,
+):
     corpus = synthetic_corpus('tenant', mixed_origin=True)
     packet = build_practical_source_packet(corpus)
     planned = 'Inside the office settlement'
@@ -37,7 +40,7 @@ async def test_full_pipeline_preserves_visible_topic_without_freezing_editorial_
             ids = [s['id'] for s in payload['source_slices'] if s['text'].strip()]
             value = {'source_fingerprint': packet.fingerprint,
                 'slices_fingerprint': payload['slices_fingerprint'], 'title': 'Course',
-                'units': [{'id': 'one', 'title': planned, 'supporting_slices': [],
+                'units': [{'id': 'one', 'title': planned, 'supporting_slices': ids[:1] if redundant_support else [],
                     'primary_slices': ids[:-1] if accounting else ids}],
                 'non_teaching': []}
         elif ':plan-accounting:' in group:
@@ -77,6 +80,11 @@ async def test_full_pipeline_preserves_visible_topic_without_freezing_editorial_
               else await run_simple_course_editor_v10(packet, corpus, {}, stage, **kwargs))
     assert stages == ['plan'] + (['accounting'] if accounting else []) + ['author', 'unit', 'global', 'joint', 'bank']
     assert raw_author == original_wire
+    if redundant_support:
+        normalization = result.review['source_plan_role_normalization']
+        assert normalization['original_plan']['units'][0]['supporting_slices']
+        assert normalization['semantic_approval'] is False
+        assert not result.plan['units'][0]['supporting_slices']
     assert result.draft['lessons'][0]['title'] == expected
     assert result.course['lessons'][0]['title'] == (revised if edit_title else expected)
     assert result.course['lessons'][0]['content'] == original_wire['lessons'][0]['content']
