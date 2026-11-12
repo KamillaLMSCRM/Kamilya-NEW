@@ -6825,6 +6825,8 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RELEASE-002 - Local version check omitted the release-note identity contract
 
+- Recurrence 2026-11-12: candidate99/5775fd77 passed8203APIunit tests but root omitted the canonical three-manifest validator beforepush; web package stayed98. CI43161267524 correctlyblocked both version gates before image/deploy. Fix web metadata99, execute validate_version.py --release --expected-version0.11.99 and20version/workflow tests before correctivepush. API/module source unchanged; no modelcalls. Preserve failedCI, stopobserver/build onfailure, do not rerun unchanged5775.
+
 - Recurrence 2026-11-10: candidate87 repeated this error: development validation and DEV passed, but required docs/releases/v0.11.87.md was missing. Protected workflow42817667496 stopped at immutable product identity before image build or production mutation. Published87 tag/release are preserved. Replacement88 has complete release notes and must pass `validate_version.py --release --expected-version 0.11.88` before its first push/tag. Do not treat ordinary CI version consistency as the release-mode gate.
 
 - Date: 2026-09-22.
