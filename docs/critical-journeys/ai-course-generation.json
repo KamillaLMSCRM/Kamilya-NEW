@@ -15,6 +15,9 @@
         "scripts/ops/kb_rag_application_dev_gate.py"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_simple_source_reading_v7.py::test_v7_source_reader_scoped_authors_editors_and_cold_replay",
+        "apps/api/tests/unit/test_v3_simple_owned_transport_v7.py::test_v7_real_decode_owned_path_and_cold_replay",
+        "apps/api/tests/unit/test_v3_simple_cloud_transport_v7.py::test_v7_cloud_raw_delta_null_custody_and_cold_replay",
         "apps/api/tests/unit/test_v3_semantic_plan_replay.py::test_supporting_only_slice_is_accounted",
         "apps/api/tests/unit/test_v3_semantic_plan_replay.py::test_supporting_accounting_remains_fail_closed",
         "apps/api/tests/unit/test_v3_semantic_plan_replay.py::test_semantic_plan_replay_is_bound_and_never_sends",
