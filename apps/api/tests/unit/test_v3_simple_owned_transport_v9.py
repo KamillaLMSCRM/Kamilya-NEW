@@ -37,7 +37,9 @@ def response_for(fmt, messages, packet, image, fault):
             'address' if kind == 'simple_course_block_addresses_v1' else 'joint')
     if role == 'plan':
         def ids(ref):
-            return [row['id'] for row in payload['source_slices'] if row['source_ref'] == ref and row['text'].strip()]
+            return [row['id'] for row in payload['source_slices'] if row['source_ref'] == ref and row['text'].strip()
+                    and not (fault == 'format_break' and row['text'].strip() == '<br>')
+                    and not (fault == 'missing_meaningful' and 'First topic instructs' in row['text'])]
         raw = {'source_fingerprint': packet.fingerprint, 'slices_fingerprint': payload['slices_fingerprint'],
             'title': 'Course', 'units': [
                 {'id': 'one', 'title': 'First', 'primary_slices': ids('SRC1'), 'supporting_slices': []},
@@ -134,12 +136,23 @@ def response_for(fmt, messages, packet, image, fault):
     ('managed', 0, 'address_unresolved'), ('cloud', 0, 'address_unresolved'),
     ('managed', 0, 'address_stale'), ('cloud', 0, 'address_null'),
     ('managed', 0, 'finding_resolved'), ('cloud', 6, 'finding_resolved'),
-    ('managed', 0, 'finding_unresolved'), ('cloud', 0, 'finding_unresolved')])
+    ('managed', 0, 'finding_unresolved'), ('cloud', 0, 'finding_unresolved'),
+    ('managed', 0, 'format_break'), ('managed', 1, 'format_break'), ('cloud', 1, 'format_break'),
+    ('managed', 0, 'missing_meaningful'), ('cloud', 0, 'missing_meaningful')])
 async def test_v9_real_decoders_and_owned_cold_replay(monkeypatch, transport, interrupt_after, fault):
     fake, journal, _, _, _ = setup()
     journal.review_policy_bound = True
     journal.expected_review_policy = SIMPLE_COURSE_REVIEW_V9_POLICY
     corpus = synthetic_corpus(journal.tenant_id, mixed_origin=True)
+    if fault in {'format_break', 'missing_meaningful'}:
+        from dataclasses import replace
+
+        from tests.unit.test_v3_simple_source_origin import asset, figure, make_corpus, source_block
+
+        picture = asset('a', text='Visual OCR sentinel', description='Visual description sentinel')
+        blocks = [source_block(1, 'First topic instructs action.\n<br>\n' + figure(picture), asset_ids=[picture.id]),
+                  source_block(2, 'Second topic instructs action.'), source_block(3, 'Administrative note.')]
+        corpus = replace(make_corpus(blocks, [picture]), tenant_id=journal.tenant_id)
     packet = build_practical_source_packet(corpus)
     image = '![Caption a](source-asset:asset-' + 'a' * 64 + ')'
     client, calls = client_for(journal), []
@@ -176,12 +189,12 @@ async def test_v9_real_decoders_and_owned_cold_replay(monkeypatch, transport, in
         'extraction_journal': journal, 'direct_client': client if transport == 'managed' else None,
         'revision_policy': POLICY, 'review_policy': SIMPLE_COURSE_REVIEW_V9_POLICY, 'route_fingerprint': 'd' * 64}
     try:
-        known_result = fault in {'drop_image', 'address_ok', 'address_unresolved', 'finding_resolved', 'finding_unresolved'}
+        known_result = fault in {'drop_image', 'address_ok', 'address_unresolved', 'finding_resolved', 'finding_unresolved', 'format_break'}
         if fault and not known_result:
             with pytest.raises(ExtractionOutcomeUnknownError):
                 await generate_v3_course_from_corpus(**args)
-            assert calls[-1] == ('address' if fault in {'address_stale', 'address_null'} else 'review' if fault == 'review_null' else 'unit-review' if fault in {'unit_null', 'target_null', 'review_nonnull'} else 'joint')
-            assert len([key for key in fake.values if key.startswith('v3-stage-result:')]) == (7 if fault in {'address_stale', 'address_null'} else 5 if fault == 'review_null' else 2 if fault in {'unit_null', 'target_null', 'review_nonnull'} else 6)
+            assert calls[-1] == ('plan' if fault == 'missing_meaningful' else 'address' if fault in {'address_stale', 'address_null'} else 'review' if fault == 'review_null' else 'unit-review' if fault in {'unit_null', 'target_null', 'review_nonnull'} else 'joint')
+            assert len([key for key in fake.values if key.startswith('v3-stage-result:')]) == (0 if fault == 'missing_meaningful' else 7 if fault in {'address_stale', 'address_null'} else 5 if fault == 'review_null' else 2 if fault in {'unit_null', 'target_null', 'review_nonnull'} else 6)
             return
         if interrupt_after:
             async def progress(_stage, completed, _total, _provider, _attempt):
@@ -204,6 +217,13 @@ async def test_v9_real_decoders_and_owned_cold_replay(monkeypatch, transport, in
         records = [value for key, value in fake.values.items() if key.startswith('v3-stage-result:')]
         assert len(records) == 7 + repaired and sum('author_custody' in row for row in records) == 6 + repaired
         review = first.diagnostics['simple_review']
+        if fault == 'format_break':
+            normalization = review['source_plan_normalization']
+            assert len(normalization['auto_excluded']) == 1
+            assert normalization['auto_excluded'][0]['text'].strip() == '<br>'
+            assert normalization['model_plan_fingerprint'] != normalization['normalized_plan_fingerprint']
+            raw_plan = next(row['response'] for row in records if row['response'].get('units'))
+            assert raw_plan == normalization['original_plan']
         assert review['editor_delta_receipts']['cards']['no_extra_model_call'] is True
         assert not review['revision_receipt']['unverified_source_questions']
         assert review['editor_delta_receipts']['body']['application_status'] == ('unapplied' if unapplied else 'applied')

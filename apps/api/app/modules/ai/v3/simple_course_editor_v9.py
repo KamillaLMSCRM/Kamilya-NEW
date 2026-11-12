@@ -18,6 +18,7 @@ from app.modules.ai.v3.simple_course_editor_v3 import course_media_safe
 from app.modules.ai.v3.simple_course_editor_v6 import run_simple_course_editor_v6, unrepresented_source_images
 from app.modules.ai.v3.simple_course_editor_v8 import _COMPARE, _GRAMMAR
 from app.modules.ai.v3.simple_editor_findings import compile_finding_dispositions, inventory
+from app.modules.ai.v3.simple_plan_formatting import complete_formatting_plan
 from app.modules.ai.v3.simple_semantic_source_plan import compile_semantic_plan, semantic_unit_request
 from app.modules.ai.v3.simple_source_origin import source_origin_blocks
 
@@ -290,19 +291,28 @@ async def apply_reviewed_course_v9(packet: Any, corpus: Any, intent: Any, origin
 async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, stage: Any, *,
                                       reference_decisions: tuple[Any, ...] = (), planned_callback: Any = None) -> Any:
     plan: dict[str, Any] | None = None
+    plan_normalization: dict[str, Any] | None = None
     selections_by_fp: dict[str, tuple[dict[str, Any], Any]] = {}
     records: list[dict[str, Any]] = []
 
     async def versioned(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
-        nonlocal plan
+        nonlocal plan, plan_normalization
         if ':plan:v6:' in group:
             plan_messages = copy.deepcopy(messages)
             system = plan_messages[0]['content']
             if not system.startswith(_COMMON):
                 raise ValueError('simple_v9_plan_instruction_invalid')
             plan_messages[0]['content'] = _SCOPED_COMMON + system[len(_COMMON):]
-            wire = await stage(name, group.replace(':v6:', ':v9:', 1), plan_messages, fmt, validator)
-            plan = validator(wire)
+            def validated_plan(value: Any) -> dict[str, Any]:
+                nonlocal plan_normalization
+                completed, receipt = complete_formatting_plan(value, packet, corpus)
+                if receipt['auto_excluded'] or plan_normalization is None:
+                    plan_normalization = receipt
+                canonical: dict[str, Any] = validator(completed)
+                return canonical
+
+            wire = await stage(name, group.replace(':v6:', ':v9:', 1), plan_messages, fmt, validated_plan)
+            plan = validated_plan(wire)
             for unit in plan['units']:
                 _, _, selected = semantic_unit_request(packet, corpus, intent, plan, unit['id'],
                                                        reference_decisions=reference_decisions)
@@ -312,7 +322,7 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
                 selections_by_fp[identity] = (unit, selected)
             if planned_callback:
                 await planned_callback(2 * len(plan['units']) + 3)
-            return wire
+            return plan
         if plan is None or ':author-unit:v6:' not in group:
             raise ValueError('simple_v9_stage_invalid')
         selection_fp = group.rsplit(':unit=', 1)[-1]
@@ -398,4 +408,4 @@ async def run_simple_course_editor_v9(packet: Any, corpus: Any, intent: Any, sta
                 'source_fingerprint': packet.fingerprint, 'draft_fingerprint': fingerprint}
         receipt['unapplied_review_findings'] = list(unapplied.values())
     return replace(result, review={**result.review, 'method': 'semantic-unit-source-reviews-joint-block-editor-v1',
-                                   'revision_receipt': receipt})
+                                   'source_plan_normalization': plan_normalization, 'revision_receipt': receipt})

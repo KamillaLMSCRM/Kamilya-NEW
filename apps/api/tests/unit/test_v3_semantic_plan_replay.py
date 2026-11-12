@@ -11,7 +11,7 @@ import pytest
 from app.modules.ai.managed_luna_client import ManagedLunaError
 from app.modules.ai.v3 import retained_author_replay as replay
 from app.modules.ai.v3.response_contracts import response_contract_hash
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V6_POLICY
+from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY
 from app.modules.ai.v3.simple_semantic_source_plan import (
     compile_semantic_plan,
     matches_semantic_plan,
@@ -55,10 +55,27 @@ def test_supporting_accounting_remains_fail_closed(fault):
         compile_semantic_plan(plan, packet, corpus)
 
 
+def test_typed_transport_does_not_approve_incomplete_legacy_plan():
+    from app.modules.ai.v3.response_contracts import matches_response_contract
+
+    corpus, packet, plan, fmt = context_only_plan()
+    plan['units'][0]['supporting_slices'] = []
+    # The shared wire format describes owned structure, not teaching completeness.
+    # Legacy consumers remain strict; only V9 may complete verified formatting.
+    assert matches_response_contract(plan, fmt)
+    assert not matches_semantic_plan(plan, fmt)
+    with pytest.raises(ValueError, match='semantic_plan_invalid'):
+        compile_semantic_plan(plan, packet, corpus)
+    for version in (6, 9):
+        stage = {'stage': 'review', 'group_id': f'practical:simple:plan:v{version}:' + 'a' * 64 + ':output=32768'}
+        assert not replay.retained_phase_allowed(stage, 'stage_finalize')
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize('version', [6, 9])
 @pytest.mark.parametrize('fault', [None, 'missing_plan', 'group', 'stage', 'tenant', 'user', 'job',
     'source', 'route', 'request', 'phase', 'body', 'wire', 'format_echo', 'incomplete', 'status'])
-async def test_semantic_plan_replay_is_bound_and_never_sends(setup, fault):  # noqa: F811 -- pytest fixture
+async def test_semantic_plan_replay_is_bound_and_never_sends(setup, fault, version):  # noqa: F811 -- pytest fixture
     client, tenant, user, _, requests = setup
     corpus, packet, value, fmt = context_only_plan()
     messages, actual_format = semantic_plan_request(packet, corpus, {})
@@ -72,7 +89,7 @@ async def test_semantic_plan_replay_is_bound_and_never_sends(setup, fault):  # n
     capability = await client.prepare(messages, max_output_tokens=32768,
                                       ownership_checkpoint=checkpoint, response_format=fmt)
     plan = {'schema': 'v3-stage-checkpoint-v1', 'tenant_id': str(tenant), 'job_id': 'job',
-        'stage': 'review', 'group_id': 'practical:simple:plan:v6:' + packet.fingerprint + ':output=32768',
+        'stage': 'review', 'group_id': f'practical:simple:plan:v{version}:' + packet.fingerprint + ':output=32768',
         'source_sha256': 'b' * 64, 'route_fingerprint': client.cache_fingerprint(),
         'request_sha256': _digest([messages, fmt])}
     receipt = {'policy': 'managed-response-quarantine-v1', 'accepted': False, 'complete_http_response': True,
@@ -83,7 +100,7 @@ async def test_semantic_plan_replay_is_bound_and_never_sends(setup, fault):  # n
         'body_sha256': hashlib.sha256(raw).hexdigest()}
     changes = {'group': ('group_id', 'practical:simple:author-unit:v6:' + packet.fingerprint + ':output=32768'),
         'stage': ('stage', 'lesson'), 'tenant': ('tenant_id', str(uuid4())), 'job': ('job_id', 'other'),
-        'source': ('group_id', 'practical:simple:plan:v6:' + '0' * 64 + ':output=32768'),
+        'source': ('group_id', f'practical:simple:plan:v{version}:' + '0' * 64 + ':output=32768'),
         'route': ('route_fingerprint', 'c' * 64), 'request': ('request_sha256', 'c' * 64)}
     if fault in changes:
         key, changed = changes[fault]
@@ -114,11 +131,12 @@ async def test_semantic_plan_replay_is_bound_and_never_sends(setup, fault):  # n
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('fault', [None, 'policy', 'stage', 'phase', 'claim', 'body', 'owner', 'result'])
-async def test_owned_semantic_candidate_requires_exact_policy_and_receipt(monkeypatch, fault):
+@pytest.mark.parametrize('version', [6, 9])
+@pytest.mark.parametrize('fault', [None, 'policy', 'cross_policy', 'stage', 'phase', 'claim', 'body', 'owner', 'result'])
+async def test_owned_semantic_candidate_requires_exact_policy_and_receipt(monkeypatch, fault, version):
     tenant, actor, job_id = str(uuid4()), uuid4(), str(uuid4())
     plan = {'schema': 'v3-stage-checkpoint-v1', 'tenant_id': tenant, 'job_id': job_id,
-            'stage': 'review', 'group_id': 'practical:simple:plan:v6:' + 'f' * 64 + ':output=32768',
+            'stage': 'review', 'group_id': f'practical:simple:plan:v{version}:' + 'f' * 64 + ':output=32768',
             'route_fingerprint': 'a' * 64}
     if fault == 'stage':
         plan['stage'] = 'lesson'
@@ -131,8 +149,10 @@ async def test_owned_semantic_candidate_requires_exact_policy_and_receipt(monkey
         'raw_base64': base64.b64encode(raw).decode(), 'body_sha256': hashlib.sha256(raw).hexdigest(),
         'byte_count': len(raw)}
     reference = {k: v for k, v in receipt.items() if k != 'raw_base64'} | {'checkpoint_key': replay.private_key(digest)}
+    expected = SIMPLE_COURSE_REVIEW_V6_POLICY if version == 6 else SIMPLE_COURSE_REVIEW_V9_POLICY
+    other = SIMPLE_COURSE_REVIEW_V9_POLICY if version == 6 else SIMPLE_COURSE_REVIEW_V6_POLICY
     job = SimpleNamespace(id=job_id, tenant_id=tenant, user_id=actor, course_id=None,
-        params={'source_analysis': {'v3_review_policy': 'wrong' if fault == 'policy' else SIMPLE_COURSE_REVIEW_V6_POLICY}},
+        params={'source_analysis': {'v3_review_policy': 'wrong' if fault == 'policy' else other if fault == 'cross_policy' else expected}},
         result={'v3_pending_stages': {'policy': 'v3-pending-stages-v1', 'entries': {digest: entry}},
                 replay.KEY: {'policy': replay.POLICY, 'entries': {digest: reference}}})
     marker = {'identity': digest, 'claim_token': 'wrong' if fault == 'claim' else entry['token']}

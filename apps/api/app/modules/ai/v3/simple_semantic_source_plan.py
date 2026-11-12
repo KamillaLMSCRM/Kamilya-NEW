@@ -90,7 +90,7 @@ def is_semantic_plan_format(fmt: Any) -> bool:
         return False
 
 
-def matches_semantic_plan(value: Any, fmt: Any) -> bool:
+def _matches_semantic_plan(value: Any, fmt: Any, *, complete: bool) -> bool:
     if not is_semantic_plan_format(fmt) or not _matches(value, fmt['json_schema']['schema']):
         return False
     ids = set(fmt['json_schema']['schema']['properties']['units']['items']['properties']['primary_slices']['items']['enum'])
@@ -115,7 +115,16 @@ def matches_semantic_plan(value: Any, fmt: Any) -> bool:
         excluded.update(refs)
     # Referenced parent/definition context is accounted input, not missing
     # primary teaching. This check establishes ownership, never semantic coverage.
-    return not primary.intersection(excluded) and accounted | excluded == ids
+    return not primary.intersection(excluded) and (not complete or accounted | excluded == ids)
+
+
+def matches_semantic_plan(value: Any, fmt: Any) -> bool:
+    return _matches_semantic_plan(value, fmt, complete=True)
+
+
+def matches_semantic_plan_structure(value: Any, fmt: Any) -> bool:
+    """Typed, owned plan structure; complete source accounting belongs to the consumer."""
+    return _matches_semantic_plan(value, fmt, complete=False)
 
 
 def semantic_plan_request(packet: Any, corpus: Any, intent: Any) -> tuple[list[dict[str, str]], dict[str, Any]]:

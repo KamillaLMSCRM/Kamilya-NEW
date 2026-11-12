@@ -42,9 +42,18 @@ def is_focused_author_plan(plan: Any) -> bool:
 
 
 def is_semantic_plan_stage(plan: Any) -> bool:
-    return bool(isinstance(plan, dict) and plan.get('stage') == 'review'
-        and isinstance(plan.get('group_id'), str) and re.fullmatch(
-            r'practical:simple:plan:v6:[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id']))
+    return semantic_plan_review_policy(plan) is not None
+
+
+def semantic_plan_review_policy(plan: Any) -> str | None:
+    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY
+
+    if not (isinstance(plan, dict) and plan.get('stage') == 'review' and isinstance(plan.get('group_id'), str)):
+        return None
+    match = re.fullmatch(r'practical:simple:plan:v(6|9):[a-f0-9]{64}:output=(8192|16384|32768)', plan['group_id'])
+    if not match:
+        return None
+    return SIMPLE_COURSE_REVIEW_V6_POLICY if match[1] == '6' else SIMPLE_COURSE_REVIEW_V9_POLICY
 
 
 def retained_phase_allowed(plan: dict[str, Any], phase: Any) -> bool:
@@ -93,10 +102,10 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
             if not isinstance(analysis, dict) or analysis.get(REVIEW_KEY) != FOCUSED_EDITORIAL_REVIEW_POLICY:
                 return None
         if is_semantic_plan_stage(plan):
-            from app.modules.ai.v3.revision_policy import REVIEW_KEY, SIMPLE_COURSE_REVIEW_V6_POLICY
+            from app.modules.ai.v3.revision_policy import REVIEW_KEY
             params = job.params if isinstance(getattr(job, 'params', None), dict) else {}
             analysis = params.get('source_analysis')
-            if not isinstance(analysis, dict) or analysis.get(REVIEW_KEY) != SIMPLE_COURSE_REVIEW_V6_POLICY:
+            if not isinstance(analysis, dict) or analysis.get(REVIEW_KEY) != semantic_plan_review_policy(plan):
                 return None
         marker = await journal.read_owned_value_in_session(db, entry["claim_key"], plan)
         if marker != {"identity": digest, "claim_token": entry["token"]}:

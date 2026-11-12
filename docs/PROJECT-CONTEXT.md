@@ -1,3 +1,7 @@
+# Current 2026-11-12T11:35:31.037627+00:00 - candidate101 local, deployedDEV100 held at saved plan
+
+DEV100 exact5c71e89b/image926bc4/soleworker7a7f remains deployed; standards job e156803f-03b8-4b80-b00b-33c65899d62e reconciliation_required before authoring. One complete Luna6HIGH plan response is preserved, no repeat request. Unpublished101 fixes formatting-only accounting and exact owned V9 replay. Full8375unit/370critical/616CI-script/quality/legacy33checksPASS; live101 recovery and three full courses remain OPEN. Production90/API16504/nativefrontend86 unchanged; schema0187, customer data/provider plans/rollback unchanged. Detailed state: docs/CODEX_HANDOFF.md and ENG-065/CHG-L101A. Same final DeepSeekUSD1spent0.
+
 # Local candidate100; deployed DEV99b and production90 unchanged — 2026-11-12T10:20:45.646640+00:00
 
 V9 candidate100 passed retained three-document editor controls, not fresh full native acceptance. New admissions selected locally; deployed DEV still c04/version99 and production16504/version90. Current exact state/source hashes/processes/gates at CODEX_HANDOFF top and CHG-L100K–O; ENG064 owns finding-custody defect. Pending model evidence is unverified, never human approval. No external model process now. Three fresh LunaHIGH DEV courses then same approved finalDeepSeekUSD1spent0 and protected production/live remain mandatory. Old paragraphs below historical.

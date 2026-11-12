@@ -1,3 +1,7 @@
+# Current 2026-11-12T11:35:31.037627+00:00 - candidate101 local, deployedDEV100 held at saved plan
+
+DEV100 exact5c71e89b/image926bc4/soleworker7a7f remains deployed; standards job e156803f-03b8-4b80-b00b-33c65899d62e reconciliation_required before authoring. One complete Luna6HIGH plan response is preserved, no repeat request. Unpublished101 fixes formatting-only accounting and exact owned V9 replay. Full8375unit/370critical/616CI-script/quality/legacy33checksPASS; live101 recovery and three full courses remain OPEN. Production90/API16504/nativefrontend86 unchanged; schema0187, customer data/provider plans/rollback unchanged. Detailed state: docs/CODEX_HANDOFF.md and ENG-065/CHG-L101A. Same final DeepSeekUSD1spent0.
+
 # Candidate100 acceptance boundary — 2026-11-12T10:20:45.646640+00:00
 
 LOCAL saved editor controls standards5L17Q/PDF16L63Q/cash7L23Q with10sourceillustrations are practically accepted after independent source QA. They do not prove fresh native generation, actual image-pixel rendering or deployment. V9 is selected only in the local candidate; deployed DEV99b/c04 and production90/16504 remain current. Three fresh complete native LunaHIGH DEV courses, final complete DeepSeek DEV within approvedUSD1, exact protected release/rollback and live synthetic workflow remain OPEN. Current handoff owns immutable identities; historical GO claims below never apply to this candidate.

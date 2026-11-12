@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.101] - 2026-11-12
+
+### Fixed
+- Account for unassigned literal line-break markup from verified document text without changing model-selected teaching units, source content or requests. Visual observations and missing meaningful text remain subject to strict source accounting.
+- Reuse an exact owned V9 plan response through the existing authorized completed-response recovery path, preserving original delivery, source, route and request evidence instead of generating the plan again.
+
 ## [0.11.100] - 2026-11-12
 
 ### Changed

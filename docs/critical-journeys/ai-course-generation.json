@@ -93,7 +93,13 @@
         "apps/api/tests/unit/test_semantic_block_assessment.py::test_source_scope_excludes_other_sections_and_supporting_catalog",
         "apps/api/tests/unit/test_evidence_course_application.py::test_application_seam_ignores_provider_selected_answer_key",
         "apps/api/tests/test_ai_pipeline_existing_course.py::test_generated_single_answer_questions_are_saved_as_mcq",
-        "scripts/ci/test_kb_rag_schema_contract.py::test_valid_snapshot_returns_sanitized_ci_contract"
+        "scripts/ci/test_kb_rag_schema_contract.py::test_valid_snapshot_returns_sanitized_ci_contract",
+        "apps/api/tests/unit/test_v3_semantic_plan_replay.py::test_typed_transport_does_not_approve_incomplete_legacy_plan",
+        "apps/api/tests/unit/test_v9_retained_plan_continuation.py::test_retained_v9_plan_continues_without_model_post",
+        "apps/api/tests/unit/test_simple_plan_formatting.py::test_unassigned_break_is_completed_without_mutation",
+        "apps/api/tests/unit/test_simple_plan_formatting.py::test_visual_asset_or_unverified_origin_is_not_excluded",
+        "apps/api/tests/unit/test_simple_plan_formatting.py::test_missing_meaningful_slice_is_never_excluded",
+        "apps/api/tests/unit/test_simple_plan_formatting.py::test_unrelated_invalidity_still_fails_when_break_missing"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"
