@@ -1864,6 +1864,7 @@ async def generate_v3_course_from_corpus(
         SIMPLE_COURSE_REVIEW_V7_POLICY,
         SIMPLE_COURSE_REVIEW_V8_POLICY,
         SIMPLE_COURSE_REVIEW_V9_POLICY,
+        SIMPLE_COURSE_REVIEW_V10_POLICY,
         is_practical_policy,
         is_scoped_policy,
     )
@@ -1956,7 +1957,7 @@ async def generate_v3_course_from_corpus(
             raise ValueError('v3_nonpractical_response_invalid')
         return value
 
-    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY}:
+    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY}:
         from app.modules.ai.v3.simple_course_service import generate_simple_course
 
         return await generate_simple_course(corpus, intent=intent, invoke=invoke_payload,

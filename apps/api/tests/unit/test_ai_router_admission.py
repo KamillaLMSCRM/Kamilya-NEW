@@ -93,10 +93,10 @@ async def test_full_tenant_queue_maps_submission_limit_to_http_429(monkeypatch, 
     from app.modules.ai.v3.revision_policy import (
         REVIEW_POLICY,
         SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY,
-        SIMPLE_COURSE_REVIEW_V9_POLICY,
+        SIMPLE_COURSE_REVIEW_V10_POLICY,
     )
 
-    expected = (SIMPLE_COURSE_REVIEW_V9_POLICY if qa_marker is None else
+    expected = (SIMPLE_COURSE_REVIEW_V10_POLICY if qa_marker is None else
                 SEPARATED_DOMAINS_PRACTICAL_REVIEW_POLICY if qa_marker == 'qa-managed-luna-diversity-v1'
                 else REVIEW_POLICY)
     assert submit.await_args.kwargs['params']['source_analysis']['v3_review_policy'] == expected

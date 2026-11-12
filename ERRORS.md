@@ -10815,3 +10815,18 @@ CHG-L98F rollouthelper correction BEFORE retry: initial worker-start98r rejected
 
 
 2026-11-12T13:05:15.330595+00:00 Acceptance-harness follow-up102: nativeHTTP fixture must use an unconsumed AsyncByteStream, not a pre-read httpx.Response(json=...), because managedclient reads aiter_raw. A projected GenerationArtifacts has content/assessment/diagnostics, not course; query assertions inspect UUID boundparams rather than dialect-dependent literal formatting. These harness mistakes failed locally before any external call; fixed against actual interfaces without loosening gates. Limit autofix to intended rules/paths: broadRuff autofix touched legacy router timezone expressions; exact unrelated hunks reverted beforefreeze. Python snippets use normal spaced syntax and compile before mutations, not compressed notin/elseNone spellings. No engine content patch or model rerun for harness defects.
+
+
+2026-11-12T13:20:49.365543+00:00 DEV102 preflight caller rejected locally exact_correlation_id_required: caller guessed READ-PREFLIGHTR2 while generated image script header is IMAGE-PREFLIGHTR3. No SSH/provider/container action occurred. Preserve original intent/BLOCKED receipt; same reviewed bytes in new r2 evidence filename, derive correlation directly from script header for execution. Do not guess labels from predecessor names.
+
+
+## QA-001 — Technical replay proof substituted for local semantic review of available answers
+
+- Date: 2026-11-12T13:51:41.716893+00:00. Agent-process error, separate from ENG058 course defects.
+- Symptom: two semantic defects were discussed only after DEV102 completion even though both were already present in the 13 saved pre-102 successful stages.
+- Cause: root proved exact request/cache/metadata replay and used older accepted editorial controls as confidence, but did not read the CURRENT retained lesson/card content before DEV transfer. Technical equality proves that the same content survives; it cannot prove that the content is correct. DEV was necessary for native recovery/locks, not for detecting these meanings.
+- Evidence: H24/pre-dev102-semantic-availability-proof.json identifies saved author1 and author5 stages. Native102 root+independent full7L26Q verdict is NO_GO, preserved separately from technical recovery PASS. One local existingv16 question-scope review later detected the hidden-context card without hints.
+- Fix: perform current saved-response semantic checks before any further engine-content transfer. Restore the already measured visible-card operation on these saved outputs; do not regenerate lessons to find or repair these errors.
+- Prevention: for an engine-content candidate, the local evidence must identify actual current input/output hashes and source/matrix/reference verdicts for available content; old-control PASS or replay equality is not that gate. Native DEV then verifies real worker, persistence, ownership and recovery plus a final content readback. A transport-only DEV recovery may be tested separately, but must never be presented as course quality acceptance.
+
+- Verification: (2026-11-12) actual assembled L103E saved7L26Q root+independent LOCAL_CONTENT_GO, exact19stage offline replay0calls, one model-corrected card only; native DEV103 not yet accepted. RD wording original material severity subsequently withdrawn as advisory at accepted-reference calibration, while hidden-context question remains the confirmed original material defect.

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.11.103] - 2026-11-12
+
+### Changed
+- Review the final learner-visible question bank independently against the approved source after the existing lesson reviews and joint editor. Preserve frozen earlier policies and completed-stage requests.
+- Apply at most one addressed correction to flagged complete cards. Preserve good lesson bodies, titles, illustrations, unrelated questions and source navigation.
+- Preserve distinct unresolved findings and upstream source holds, revalidate prior correction evidence against the final fields, and retain unsolicited card-editor source suggestions as visible observations.
+- Register the new stages through admission, transport, response custody, recovery and persistence; cover cold replay, interruption and invalid proposals locally.
+
+
 ## [0.11.102] - 2026-11-12
 
 ### Fixed
