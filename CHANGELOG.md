@@ -2,11 +2,18 @@
 
 ## [Unreleased]
 
-### Fixed — 0.11.106 candidate
+## [0.11.107] - 2026-11-13
+
+### Fixed
 
 - Preserve multi-finding evidence custody across PostgreSQL JSONB key ordering without changing original model requests or learning content.
 - Preserve receipt and replay history across successive recoveries; permit one explicitly acknowledged DEV QA retry of a lost V11 metadata-only result while keeping completed stages immutable.
 
+
+## [0.11.106] - 2026-11-13
+
+### Release status
+- Superseded before production: immutable106 release failed packaging validation. Use107 with the same accepted engine code and corrected release identity.
 
 ## [0.11.105] - 2026-11-13
 
