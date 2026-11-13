@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "APPROVED",
+  "review_status": "APPROVED",
+  "approved_by": "root",
+  "approved_at": "2026-11-13T15:50:31.874068+00:00",
+  "media_folder": "methodologist-qwen-male-20261113",
+  "chapter_ids": [
+    "01-sources",
+    "02-generation",
+    "03-lessons",
+    "04-tests",
+    "05-publication",
+    "06-staff",
+    "07-assignment",
+    "08-results"
+  ],
+  "verified_step_count": 33,
+  "verified_image_count": 33,
+  "verified_capture_receipt_count": 33,
+  "verified_highlight_count": 101,
+  "verified_overlay_screen_count": 33,
+  "source_manifest_sha256": "111ac4ce9f4cf814271c424fa6726ec2fa6a6e727c6b7842294ad8c01863c1ab",
+  "media_manifest_sha256": "58ac64e9b25d07104913cddf45d5228c30c30613ac29f99fb1ca60974d9312aa",
+  "html_sha256": {
+    "methodologist.html": "24842c32419c8bb3b454d91f373d22506a05f67cc5b5a92d3d417a7d83b18f8c",
+    "methodologist-text.html": "515b84d590bc84e2e01e0614fe6fe76ab33b3ba9620a32753aa45f1b45ca2e97"
+  },
+  "approval_scope": "LOCAL instructional content and media; DEV and production acceptance separate",
+  "capture_baseline": "1ef4fb274b0bc37ac728eaa2402df3c70c16fafb",
+  "ui_source_snapshot_sha256": "147026965e9c44a5fcc9424d15f69303ee12e72b87c656ac94dff1112609b860",
+  "synthetic_data_only": true,
+  "source_panel_truth": "unresolved question prevents approval; opened original and working text",
+  "human_listening": "NOT_CLAIMED; all33 modeltext/hash/audio/ASR reviewed, material fidelity accepted",
+  "author": "owner-selected ASUS DeepSeek; Qwen3TTS syntheticmale, root no instructional writing",
+  "preserved_guidance": "conditional separate quiz approval; learner completion; result form SECTION nested in results flow; actual UI/browser/offline verified",
+  "byte_normalization": "Reviewed CRLF-to-LF only; all8MP4/8JPG bytes identical; text content/scripts/styles unchanged, deterministic LF writer regression14 tests."
+}

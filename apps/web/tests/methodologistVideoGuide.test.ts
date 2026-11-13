@@ -11,18 +11,42 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 
 const guideDir = path.resolve(__dirname, '../public/guides');
 const html = fs.readFileSync(path.join(guideDir, 'methodologist.html'), 'utf8');
-const mediaDir = path.join(guideDir, 'methodologist-qwen-male');
-const manifest = JSON.parse(fs.readFileSync(path.join(mediaDir, 'manifest.json'), 'utf8'));
+const mediaDir = path.join(guideDir, 'methodologist-qwen-male-20261113');
+const mediaManifestBytes = fs.readFileSync(path.join(mediaDir, 'manifest.json'));
+const manifest = JSON.parse(mediaManifestBytes.toString('utf8'));
+const sourceManifestPath = path.resolve(__dirname, '../../../scripts/docs/methodologist_walkthrough.json');
+const sourceManifestBytes = fs.readFileSync(sourceManifestPath);
+const sourceManifest = JSON.parse(sourceManifestBytes.toString('utf8'));
+const approvalPath = path.resolve(__dirname, 'fixtures/methodologist-guide-approval.json');
+const approval = JSON.parse(fs.readFileSync(approvalPath, 'utf8'));
 const sha = (data: Buffer) => crypto.createHash('sha256').update(data).digest('hex');
-const expectedSteps = [12, 8, 7, 9, 7, 10, 9, 7];
+const expectedSteps = sourceManifest.chapters.map((chapter: { segments: unknown[] }) => chapter.segments.length);
+const expectedSegmentCount = expectedSteps.reduce((total: number, steps: number) => total + steps, 0);
 
 describe('published male Qwen methodologist video guide', () => {
-  it('contains the complete approved eight-process, 69-step series', () => {
+  it('is covered by the root-owned approval record', () => {
+    expect(approval.schema_version).toBe(1);
+    expect(approval.status).toBe('APPROVED');
+    expect(approval.review_status).toBe('APPROVED');
+    expect(approval.media_folder).toBe('methodologist-qwen-male-20261113');
+    expect(approval.chapter_ids).toEqual(sourceManifest.chapters.map((chapter: { id: string }) => chapter.id));
+    expect(approval.verified_step_count).toBe(expectedSegmentCount);
+    expect(approval.verified_image_count).toBe(expectedSegmentCount);
+    expect(approval.verified_capture_receipt_count).toBe(expectedSegmentCount);
+    expect(approval.source_manifest_sha256).toBe(sha(sourceManifestBytes));
+    expect(approval.media_manifest_sha256).toBe(sha(mediaManifestBytes));
+    expect(approval.html_sha256['methodologist.html']).toBe(sha(Buffer.from(html)));
+    const textHtml = fs.readFileSync(path.join(guideDir, 'methodologist-text.html'));
+    expect(approval.html_sha256['methodologist-text.html']).toBe(sha(textHtml));
+  });
+
+  it('contains the complete approved eight-process, current-manifest step series', () => {
     document.documentElement.innerHTML = html;
     expect(document.querySelectorAll('video')).toHaveLength(8);
-    expect(document.querySelectorAll('button[data-seek]')).toHaveLength(69);
+    expect(document.querySelectorAll('button[data-seek]')).toHaveLength(expectedSegmentCount);
     expect(document.querySelectorAll('track[kind="captions"][srclang="ru"]')).toHaveLength(8);
     expect(html).toContain('Мужской синтетический голос Qwen3-TTS');
+    expect(manifest.media_folder).toBe('methodologist-qwen-male-20261113');
     expect(manifest.videos.map((v: { steps: number }) => v.steps)).toEqual(expectedSteps);
     for (const [index, video] of [...document.querySelectorAll('video')].entries()) {
       const buttons = document.querySelectorAll(`button[data-video="${manifest.videos[index].id}"]`);
@@ -39,7 +63,7 @@ describe('published male Qwen methodologist video guide', () => {
   it('serves exactly the approved media bytes and valid caption intervals', () => {
     expect(manifest.assets).toHaveLength(32);
     for (const asset of manifest.assets) {
-      expect(asset.name).toMatch(/^[0-9]{2}-[a-z]+(?:-poster)?\.(mp4|jpg|srt|vtt)$/);
+      expect(asset.name).toMatch(/^[0-9]{2}-[a-z0-9-]+\.(mp4|jpg|srt|vtt)$/);
       const bytes = fs.readFileSync(path.join(mediaDir, asset.name));
       expect(bytes.length).toBe(asset.bytes);
       expect(sha(bytes)).toBe(asset.sha256);
@@ -51,7 +75,8 @@ describe('published male Qwen methodologist video guide', () => {
     for (const video of manifest.videos) {
       const vtt = fs.readFileSync(path.join(mediaDir, `${video.id}.vtt`), 'utf8');
       expect(vtt.startsWith('WEBVTT')).toBe(true);
-      expect(vtt.match(/ --> /g)).toHaveLength(video.steps);
+      expect(vtt.match(/ --> /g)!.length).toBeGreaterThanOrEqual(video.steps);
+      expect(vtt).toContain('-->');
       expect(sha(fs.readFileSync(path.join(mediaDir, `${video.id}.mp4`)))).toBe(video.sha256);
     }
   });
@@ -82,7 +107,7 @@ describe('published male Qwen methodologist video guide', () => {
     const closingHtml = html.toLowerCase().lastIndexOf('</html>');
     expect(closingHtml).toBeGreaterThan(-1);
     expect(html.slice(closingHtml + '</html>'.length).trim()).toBe('');
-    const resultsStart = html.indexOf('<section id="08-results">');
+    const resultsStart = html.indexOf('id="08-results"');
     const resultsEnd = html.indexOf('</section><footer>', resultsStart);
     const results = html.slice(resultsStart, resultsEnd);
     expect((results.match(/Настройку бланка выполняет администратор/g) ?? [])).toHaveLength(1);

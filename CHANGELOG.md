@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.11.109] - 2026-11-13
+
+### Changed
+
+- Refresh the methodologist video and self-contained text instruction against the current five-section workspace, source review, saved jobs, lesson/question editing, publication, staff import, recipient-first assignment and training history.
+- Refresh six contextual help topics in Russian, Kazakh and English; preserve role boundaries and the distinction between link validity and completion time after first access.
+- Add source-bound capture, per-cue resumable Qwen narration and media tooling, with a separate reviewer approval record. This is a frontend/instructional release; the deployed generation engine and database are unchanged.
+
 ## [0.11.108] - 2026-11-13
 
 ### Fixed

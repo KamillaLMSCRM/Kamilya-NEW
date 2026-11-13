@@ -1,3 +1,14 @@
+## Auxiliary narration tool, 2026-11-13
+
+Owner-authorized Qwen3-TTS installed in an isolated CPU-only venv on existing
+GX10-4 (`gx10-a721`, pinned SSH alias `gx10-4`, `10.66.66.7`). Task prefix:
+`/home/gx10-4/.local/share/kamilya-guide-tts-20261113`. No public service or LMS
+runtime dependency; production/DEV providers unchanged. One synthetic male voice
+sample synthesized and transcribed successfully; full tutorial media is not yet
+accepted or deployed. Exact versions, limits, usage and recovery:
+[`runbooks/asus-guide-tts.md`](runbooks/asus-guide-tts.md). Existing GX10-7 DeepSeek
+remains the owner-selected content writer; root only reviews/integrates/releases.
+
 ## CURRENT 2026-11-13T08:07:43.005792+00:00 — production 0.11.108 accepted
 
 API/threeworkers/nativeCT137 frontend exact `dc23b69cf5d1b5af4a85a21a064472bec98adfd4`, image`ad45056c84cf5a369c8cd1d437f1d5a5544ae1be9f44593f80549cfd9d594a7d`, activegreen/restart0/schema0187. Actual protected image also accepted in DEV; soleworker4247797d. Production107blue/native86 rollback retained. Same107-generated syntheticcourse7cdc46f9 completed on108 through real methodologist review/publication, QA018 assignment via link/PIN withoutemail,5lessons18answers/5quiz100%,activecertificate/publicverification/PDF/journal30columnCSV. Originalteaching content/source18 unchanged; six Lombard cohorts unchanged. No modelcalls108 or clientwrites. Full details and restore-helper BLOCKED/UNKNOWNfinally + separate bounded readiness reconciliation are preserved in current CODEX_HANDOFF; do not infer executedapplicationrollback or fresh108 generation. Prior current headers below are history, not current topology. Standing recoverable minimum cleanup authority is committed inAGENTS/OPS012; actually removed only obsoletefrontend82 and stoppedDEV104 after preservation/recovery proof. H18/production108-closeout/final-course-proof.json and prod108-closeout-read.executed.json.

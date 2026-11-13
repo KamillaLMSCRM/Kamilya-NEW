@@ -7199,3 +7199,123 @@ Exactdc23b69c DEV RELEASE_OK,0newmodelcalls/0businesswrites. Three retainednativ
 - Exactdc23/0.11.108/imagead450/native108 accepted; fresh finalrootread4servicesrunning/restart0/201sourcefiles/schema0187/settingshistoryunchanged/watchdogtimeractive/6459957248bytesfree. Actual DEVworker4247797d uses same image, accepted32L127QLuna+9L35QDS retained, not fresh108 inference.
 - Ordinarymethodologist resolved revision-bound source review and approved/published same107-generated7cdc46f9; assigned1existingQA018 personal-linkPIN/noemail; actualstudent5L18answers/5real100%attempts/100%complete, activecertificate, downloaded1pagePDFvisualPASS and anonymousverify200/validtrue/active. JournalAPI exactenrollmentcdeae849 andGUI/CSV30cols5QA018rows1exactcourse agree. Allbody/fullcards/source18 unchanged; independentofflinePASS. Six Lombard cohort hashes identical,0customerwrites.
 - Evidence H18/production108-closeout and prod108-closeout-read.executed.json. Originalwronghelper predicates/restoreBLOCKED preserved, corrected scoped readback does not rewrite failed receipts. No modelcalls or content edits108; signedcopy awaitingreturn is separate documentary state. No executedapplicationrollback or autonomousperfectQA claim.
+
+
+## GUIDE-20261113-ASUS-LOCAL — methodologist tutorial refresh (LOCAL, open)
+
+- Source: linked `methodologist-guide-refresh-20261113`, baseline
+  `1ef4fb274b0bc37ac728eaa2402df3c70c16fafb` plus explicit dirty model-owned help.
+  Scope is instructional media/help only, no engine prompts or backend change.
+- Author: owner-selected ASUS `DeepSeek-V4.1-Flash-1017`, reasoning high;
+  root reviews/integrates/tests/releases. All product copy remains model-authored.
+  Request-only reasoning budget/output receipts retained; no cloud API billing.
+- Six core RU/KK/EN help topics: final 23 focused tests, 195 files/1766 full web
+  tests, typecheck, scoped lint and original 67/67 build PASS. Three initial
+  semantic failures preserved; useful first-access/absolute-link deadlines
+  restored by model, stale heading/imperative assertions corrected narrowly.
+- TTS: owner-authorized isolated GX10-4 CPU Qwen3-TTS 0.1.1, pinned 0.6B Base;
+  torch/torchaudio newest matching ARM64 CPU pair 2.11.0+cpu. Synthetic male
+  reference is from the previously published Qwen voice, not a human recording.
+  One 4.16s sample: 21.889s elapsed including 3.543s load, 7,222,696 KiB peak RSS;
+  Whisper-base reproduced all words under punctuation/ё normalization. This is
+  sample fidelity, not full-guide listening or semantic acceptance.
+- Media tools: actual Windows 10 PASS/1 privilege-specific symlink SKIP;
+  GX10-4 Linux 11/11 PASS. Independent real ffmpeg private tone/colored-frame
+  smoke: eight chapters/32 fixture segments in 12.078s, captions retain all words,
+  each video starts captions at zero, standalone text HTML embeds PNGs. These are
+  deliberately non-product fixtures, not user-guide screenshots or accepted media.
+- Failed candidates remain in private evidence: caption word loss, incomplete
+  partial receipts, size-only model identity, whole-manifest clip invalidation,
+  missing caller changes, nonembedded images and temporary-container extension.
+  Model corrections applied only to private candidates before retesting.
+- Capture build: canonical four flags true, API loopback3024; initial wrong local
+  staff flag build stopped before acceptance, correct 67/67 build PASS. Runtime
+  source snapshot is in `capture-source-snapshot.json`, not a route-derived hash.
+  First capture probe exposed unlisted onboarding GET; comprehensive independent
+  scene diagnostic is RUNNING/HOLD. No bypass of SyntheticWorkspace isolation.
+- Current narration batch: task scope `kamilya-guide-narration-r5-20261113.scope`,
+  CPUQuota 4s and MemoryMax 10 GiB read back active; no GPU/public listener/global
+  environment change. Completed clips have atomic per-text receipts; full batch
+  remains UNREVIEWED. Do not restart or duplicate without reading its exact state.
+- Network interruption affected both ASUS nodes; existing route later recovered
+  without root changes. Post-recovery readback confirms protected container
+  IDs/images/start times/restarts/running unchanged. No cause attributed to TTS.
+- Boundary: public tutorial, DEV and production unchanged. No customer/course,
+  enrollment, email, tariff, provider-plan or capacity mutation. Acceptance/release
+  remains OPEN until real current UI captures, actual full narration, all-frame/
+  subtitle/mobile/keyboard/download checks, DEV and native frontend readback.
+- Evidence: private `.release-evidence/guide-refresh-20261113/`, especially
+  `help-full-web-tests.json`, `tts-sample-local-reviewed.json`,
+  `tts-after-network-recovery-readback.json`, `tts-batch-tools-linux-tests.json`,
+  `real-render-smoke-r5-result.json`, and original intent/raw/result/custody files.
+
+
+### GUIDE-20261113-ASUS-COMPLETE-NARRATION (LOCAL media production, not release)
+
+- Owner-selected author: existing ASUS DeepSeek-V4.1-Flash-1017; narrator: isolated
+  pinned Qwen3-TTS CPU on GX10-4. No new paid/cloud inference or service changes.
+- Full33 synthetic male clips completed, 297.04s speech /1190.014s CPU. Every copied
+  local WAV digest matches original per-text receipt. RMS -22.81..-20.75dBFS,
+  clipped samples0 in all33. These measurements are not a human listening verdict.
+- Independent base ASR checked all33, small ASR checked five flagged clips. Three
+  potential negative-instruction ASR errors resolved or narrowed. Both recognizers
+  still fail the final negation in m08-s03; root HOLD on that cue, feedback given
+  to the ASUS manifest author for positive, source-faithful wording and changed-cue
+  synthesis only. No full-batch regeneration authorized by this finding.
+- Post-batch live host readback: all3 protected containers retain exact identity,
+  image, start, restart count and running state. Local evidence:
+  `.release-evidence/guide-refresh-20261113/tts-full-batch-host-readback.json`.
+- Refreshed guide screenshot/HTML approval, DEV and production remain pending.
+
+
+### GUIDE-20261113-PRIVATE-BROWSER-CONTRACT (not final guide acceptance)
+
+- Actual IAB browser exercised the model-authored HTML on private color/tone media.
+  Text progress/reset, zoom, Escape/focus return and standalone HTML download PASS.
+- First video seek stayed0 because root's stdlib HTTP server returned200 for Range
+  and did not support byte ranges. Diagnostic retained; do not modify product JS
+  for this environment mismatch. Root verification-only range server3050 then
+  allowed every one of8chapters to seek to2.4s while paused, with no media errors.
+- Same exact HTML bytes; no instructional/product code changed to fix this false
+  alarm. This establishes controls under real CSP/media loading, not actual33frame
+  quality, reviewed audio, DEV or production acceptance. Private result and exact
+  HTML digests: `.release-evidence/guide-refresh-20261113/private-browser-contract-result.json`.
+
+
+### GUIDE-20261113-CHANGED-CUE-AND-GEOMETRY (LOCAL only)
+
+- Exact per-text Qwen resume generated3changedclips and reused30unchangedclips.
+  Original complete remote and local batches preserved. All33 current local WAVs
+  match the current receipt. Base ASR reused old exact-WAV checks and read only3
+  new clips: first-task/nav wording WER.0556, learner-preview wording.0625,
+  historical-record preservation0. No changed clip clips samples. Root accepts
+  material text fidelity; no human-listening claim and no final guide approval.
+- Root actual-browser non-square overlay fixture exposed normalized-square SVG
+  drift and oversized numbering. ASUS changed to real PNG pixel-space geometry
+  and added a non-square regression. Actual inline expected x83.2/w249.6 versus
+  x83/w249; mobile zoom expected x192.2/w576.6 versus x192.2/w576.6. Maximum
+  measured alignment error.6px; active highlight, zoom/Escape/focus return PASS.
+- Previous actual-browser mobile zoom regression resolved by ASUS; 1920px source
+  retains1922px border-inclusive size at390px viewport and scrolls horizontally.
+  Contract/UI fixtures remain explicitly separate from real33frame acceptance.
+- Source author: ASUS DeepSeek only; root authored zero instructional/product copy.
+  Refreshed public assets/approval fixture/DEV/production are still pending.
+
+## 2026-11-13 — methodologist guide final capture verification (LOCAL only)
+
+- Owner-selected author: ASUS DeepSeek-V4.1-Flash-1017; root reviews/mechanically integrates/tests/releases. No root-written instructional copy/code; no real backend/customer writes.
+- Full final capture `.release-evidence/guide-refresh-20261113/full-final-capture-r5.json`: 34/34 expected, zero unexpected/flaky/skipped, 33 fresh PNG/receipt pairs, actual sticky-header/center-hit/viewport checks. Earlier R3 technical PASS with hidden checkbox remains HOLD for media acceptance; R4 exposed six real/false-positive capture issues, not erased.
+- Actual synthetic path: upload, source review/history, one armed generation command, saved job, body-preserving lesson and question save/reopen, separate approval/publication, import proposal/approve/commit, newly created exact-user assignment with PIN absent from final frame, completed/certificate/signed-copy separation, historical-row inspection and return, downloaded CSV header+102 records while page limit100.
+- Media tooling: 13 local unit tests, one optional environment skip; previous real ffmpeg8chapter contract PASS. TypeScript PASS before final helper; final web/media/DEV/prod gates still open.
+- TTS R7: one changed cue/32 byte-identical reuse; R8/R9: metadata binding only, zero new synthesis/33 reuse. All33 local WAV SHA verified; material ASR checked, no human-listening claim. Exact3 ASUS protected containers unchanged, scopes inactive after earlier final audio check.
+- No current-task commit/push/deployment yet. Version109 source metadata prepared; deployed engine108 preserved. Native85 offhost recovery pair downloaded from exact successful42780644349 and validated by canonical inspect_native_artifact; no host cleanup performed.
+
+## 2026-11-13T15:52:07.384121+00:00 — methodologist guide final accepted LOCAL bytes and release109 preparation
+
+- Owner-selected ASUS DeepSeek authored all guide/help/tooling; Qwen isolated GX10-4 CPU generated synthetic-male narration. Root reviewed/mechanically integrated, no instructional authoring. Protected ASUS containers unchanged; no cloud inference or provider plan/resource changes.
+- Final capture R7: 34/34 PASS, 33 fresh screenshots/receipts, 101 highlights, actual source text open, unresolved source approval disabled and optional peer approval policy explicit. R10 audio 33 reused/zero new synthesis, hashes verified. Earlier failed/HOLD capture/render/author attempts preserved.
+- All8 MP4/8JPG unchanged through final static guidance and LF fix. DeepSeek restored separate quiz approval and learner completion guidance without weakening tests. Cross-platform writer defect fixed by same model; 14 media unittest cases, one environment skip, PASS. Exact LF bytes/asset manifest reviewed after SRT/VTT Git normalization risk, approval fixture owns byte hashes. Offline single-file browser R3 PASS:33 decoded images,0HTTP requests/page errors, progress/reset,390px intrinsic zoom/Escape/focus and downloaded HTML reopening. Actual IAB seek8/8 and final guidance previously verified; no human-listening claim.
+- Focused frontend33 PASS; typecheck/scopedlint PASS. Initial full suite1767PASS/1FAIL was existing assignment async-read race (heading precedes selected-course ready); unchanged assignment-only40PASS. Full bounded-worker retry/build still pending at this entry. Keep original failure.
+- Evidence: .release-evidence/guide-refresh-20261113/root-local-guide-approval-final-lf.json, root-offline-guide-result-r3.json, full-final-capture-r7.json, media-unit-final-r4.txt, direct-deterministic-newlines-*.json. Source manifests109 metadata only; API/workers108 not deployed by this frontend package. DEV/production release not claimed yet.
+
+2026-11-13T15:53:23.123728+00:00 Final LOCAL gates: bounded-worker fullweb195files/1768tests PASS280.62s; Nextproductionbuild67/67PASS; type/scopedlint/diffcheck PASS; media14tests/1envskipPASS. Original full1767/1FAIL preserved, isolated unchanged assignment40PASS. No frontend/runtime assignment edits. DEV/prod pending.

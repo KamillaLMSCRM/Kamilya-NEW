@@ -44,7 +44,8 @@ describe('contextual help registry', () => {
       for (const locale of ['ru', 'kk', 'en']) {
         const help = getContextualHelp(path, role, locale);
         expect(help, `${role} ${path} ${locale}`).not.toBeNull();
-        expect(help?.steps).toHaveLength(3);
+        expect(help?.steps.length).toBeGreaterThanOrEqual(3);
+        expect(help?.steps.length).toBeLessThanOrEqual(6);
         expect(help?.steps.every(Boolean)).toBe(true);
         expect(help?.important).toBeTruthy();
       }
@@ -83,7 +84,9 @@ describe('contextual help registry', () => {
     for (const path of METHODOLOGIST_PATHS) {
       const help = getContextualHelp(path, 'methodologist', 'ru');
       expect(help, path).not.toBeNull();
-      expect(help?.steps).toHaveLength(3);
+      expect(help?.steps.length).toBeGreaterThanOrEqual(3);
+      expect(help?.steps.length).toBeLessThanOrEqual(6);
+      expect(help?.steps.every(Boolean)).toBe(true);
       expect(help?.example.length).toBeGreaterThan(20);
     }
   });
@@ -161,7 +164,8 @@ describe('contextual help registry', () => {
         expect(help, `${role} ${path}/${locale}`).not.toBeNull();
         expect(help?.title).toBeTruthy();
         expect(help?.purpose).toBeTruthy();
-        expect(help?.steps).toHaveLength(3);
+        expect(help?.steps.length).toBeGreaterThanOrEqual(3);
+        expect(help?.steps.length).toBeLessThanOrEqual(6);
         expect(help?.steps.every(Boolean)).toBe(true);
         expect(help?.example).toBeTruthy();
         expect(help?.result).toBeTruthy();
@@ -192,9 +196,9 @@ describe('contextual help registry', () => {
   });
 
   it('matches dashboard headings in all locales', () => {
-    expect(getContextualHelp('/dashboard', 'methodologist', 'ru')?.title).toBe('Обзор обучения');
-    expect(getContextualHelp('/dashboard', 'methodologist', 'kk')?.title).toBe('Оқу шолуы');
-    expect(getContextualHelp('/dashboard', 'methodologist', 'en')?.title).toBe('Learning overview');
+    expect(getContextualHelp('/dashboard', 'methodologist', 'ru')?.title).toBe('Задачи');
+    expect(getContextualHelp('/dashboard', 'methodologist', 'kk')?.title).toBe('Тапсырмалар');
+    expect(getContextualHelp('/dashboard', 'methodologist', 'en')?.title).toBe('Tasks');
   });
 
   it('describes the source-backed controls without invented workflow steps', () => {
@@ -258,7 +262,7 @@ describe('contextual help registry', () => {
     expect(documents?.steps[0]).not.toContain('с владельцем');
 
     const staff = getContextualHelp('/staff', 'methodologist', 'ru');
-    expect(staff?.steps.join(' ')).toContain('Импортируйте');
+    expect(staff?.steps.join(' ')).toMatch(/импорт/i);
     expect(staff?.steps.join(' ')).not.toContain('только вручную');
 
     const reports = getContextualHelp('/training-log', 'admin', 'ru');

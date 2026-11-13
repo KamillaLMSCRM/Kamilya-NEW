@@ -1,3 +1,84 @@
+## GUIDE-WORKER-002 — auxiliary author transport and verification assumptions
+
+- Date: 2026-11-13; local tutorial task, not a generation-engine change.
+- Symptom: OpenCode's large-context audit produced no usable report; the first
+  compact direct worker spent its entire 16,384-token output on reasoning and
+  returned no content. A later complete JSON proposal had one surplus closing
+  brace. The first TTS installer scope rejected `Nice=10`; optional ASR failed
+  on PyAV 19's incompatible `metadata_errors` argument. A root carrier also
+  mixed Windows-relative and POSIX keys and correctly failed before product writes.
+- Cause: unmeasured tool/context overhead, treating reasoning effort as a token
+  budget, strict carrier assumptions, unsupported scope/dependency interfaces,
+  and inconsistent path normalization. These are operator/tool integration
+  defects, not proof that generated instructional content is poor.
+- Fix: stopped only the identity-verified task OpenCode client; retained its
+  last unknown request outcome without replay. Same ASUS DeepSeek model/high
+  effort uses a verified request-only `thinking_budget=2048`, output 32,768 and
+  compact named source packets. Preserve raw replies; normalize only a provable
+  transport suffix, never rewrite localized model strings. Carrier canonicalizes
+  owned relative paths before preparing all exact hunks, then writes after all
+  assertions pass. Scope uses command `/usr/bin/nice -n 10`; isolated ASR gets
+  verified 16 kHz mono PCM16 as a NumPy array, with no global decoder downgrade.
+- Verification: six three-locale topics authored by ASUS DeepSeek applied with
+  custody receipts and zero root manual copy changes; three initial semantic
+  test failures retained, useful access-deadline guidance restored by the model;
+  final focused 23 tests PASS. TTS sample 4.16 seconds/21.889 seconds CPU,
+  ASR words match after punctuation/ё normalization. Existing three GX10-4
+  container IDs/starts/restarts/running states unchanged at the post-install
+  check. Final post-sample host readback is UNKNOWN after both ASUS hosts became
+  unreachable over the existing VPN route; no host-restart cause is established.
+  Full media, DEV and production release remain separate open gates.
+- Prevention: test the actual effort/budget and scope/API interfaces with small
+  probes; inspect saved completion and process ownership before any retry.
+  Never label unknown as failed, technical success as semantic acceptance, or a
+  passing pre-edit suite as validation of a later applied proposal. New copy is
+  reviewed against live controls, not only old literal-word tests. Source/voice
+  runbook: `docs/runbooks/asus-guide-tts.md`; private evidence:
+  `.release-evidence/guide-refresh-20261113/`.
+
+### 2026-11-13 — subsequent recovery and native-author verification
+
+- Existing ASUS route recovered without host/VPN/container restart by this task.
+  Three protected containers remained identical after the complete33clip CPU batch.
+  Earlier UNKNOWN reachability remains a historical observation, not current failure.
+- Native OpenCode authors use task-only loopback3048 permissions and the same ASUS
+  model. Initial30step runs spent excessive calls rereading source; capture fixed
+  TSC, shell made no edits. Preserve their logs; resume the known completed session
+  with a bounded edit-first objective rather than replaying a large unknown request.
+- Chapter capture checks originally inherited120s locator timeouts, which let the
+  test teardown remove the DOM before a useful failure snapshot. Root checker now
+  bounds scenes at45s and provides exact failure DOM paths/verified fresh receipts.
+  Selected-chapter PASS is independent of intentional whole-series HOLD; complete
+  acceptance still requires all33 current-manifest shots and the full browser run.
+- Source review found per-control scrolling could make earlier stored rectangles
+  stale. Root feedback requires simultaneous final-viewport visibility and fresh
+  bounds at screenshot time. A renderer's fallback full-frame rectangle is not a
+  useful verified control highlight; actual capture rectangles must be used.
+- Independent ASR of all33clips plus five small-model checks leaves one crucial
+  negation unclear in m08-s03. Root HOLD; ASUS author must rephrase the cue without
+  changing meaning. Exact-text resume preserves other clips. Signal measurements
+  and ASR do not establish a human listening verdict.
+- New guide output needs a consistent renderer/media-manifest/web-test contract
+  and separate root approval of exact bytes. Preserve qa.UNREVIEWED and old guide
+  rollback; do not fabricate approval, accept only easy scenes, or ship test frames.
+
+### 2026-11-13 — proven Windows CMD multiline-argument loss
+
+- A native OpenCode resume passed a multiline packet through the npm `.cmd` shim.
+  The new run emitted plain text instead of requested JSON, and its custom agent
+  flags were not retained. Inert argv-only reproduction preserved only2 arguments
+  instead of the complete expected list. This is an operator transport error.
+- Stop identity-verified task-owned tree2640 only; protected model services and
+  other OpenCode clients stay running. Both owned source files predate the faulty
+  attempt: no source edits from that run were accepted. Raw stdout/stderr and any
+  unknown inference outcome are retained, not silently labelled successful.
+- Correct carrier: invoke verified installed npm `opencode-ai/bin/opencode.exe`
+  directly via Python argument list, bypassing `.cmd`; retain process-only provider
+  and permission config. Before sending any new structured/multiline task, verify
+  exact argv preservation with an inert carrier and inspect initial JSON event,
+  exact selected model/agent/permission receipt. Do not infer flags from launcher
+  source alone. No model-key/global-config or production change is needed.
+
 ## AGENT-COLD-PREFLIGHT-001 — проверочный запуск потерял штатную конфигурацию
 
 - Date:2026-11-11. Scope: локальная подготовка DEV92/20a5d281, не дефект генерации.
@@ -9504,6 +9585,27 @@ refresh traffic separately and preserve the ordinary session across UI navigatio
 
 ## GUIDE-SCREENSHOT-001 - Guide annotations and sticky controls needed real visual checks
 
+### 2026-11-13 recurrence — viewport inclusion was not actual visibility
+
+The first full 34-scenario guide run passed while a history checkbox at y=7.5
+was hidden by the sticky top bar ending at y=73. This repeats the known class:
+rectangle-inside-viewport is insufficient, and root must not stop at technical
+PASS. An unscoped document-name textbox also selected the dimmed background
+search field behind an open modal. The private first render is retained on HOLD.
+
+ASUS DeepSeek authored the fix: measure the actual data-workspace-topbar bounds,
+reserve its height, floor scroll offsets to avoid fractional clipping, grow only
+the real capture viewport when required (max1600), remeasure after resize, and
+hit-test control centers. Disabled saved-state buttons may hit a containing
+non-root ancestor because pointer-events are disabled; unrelated overlays still
+fail. The document-name locator is scoped to the actual dialog. The authoritative final path/result is
+`.release-evidence/guide-refresh-20261113/full-final-capture-r5.json`:
+34 expected, zero unexpected/flaky/skipped, all33 fresh source/hash-bound frames.
+Root visually checked the affected six frames, including the visible history
+checkbox and two distinct records. Text/image/media approval and DEV/production
+remain separate. Preserve the earlier false-positive run and original frames.
+
+
 - Date: 2026-10-13.
 - Symptom: initially cropped browser captures showed misplaced numbered marks;
   desktop guide download/reset controls were below a tall sticky navigation panel.
@@ -10893,3 +10995,5 @@ Binary/source helper followup106 2026-11-13T01:56:46.587558+00:00: ignored paidc
 2026-11-13 release108 operational preservation: original restore helperBLOCKED in finally despite successful signeddrill/current107reader remains failure with UNKNOWNcause; independent separate READONLY reconciliation verified originalarchive/signature/report, ownedtargetDB0/plaintexttemp0 and protected10projection unchanged. Mount-order cause not proven (rawvariants1), do not invent it or relabel helperPASS/applicationrollback. Prepared R1 stale restore temporary timestamp was caught beforeexecution; R2 derives validated archiveUTCname at runtime. LF embedded payload and CRLF savedfile hashes are separate facts. Native release first execute lost session beforedownloadfinished (0files/noactiveprocess/current86 unchanged); durable second runner completed0/RELEASE_OK. Do not rerun unknown execution before persisted state/process/readback reconciliation. Emptyjoblist duringqueuedworkflow is pending, not failure/permission to redispatch.
 
 2026-11-13 OPS-012 standing cleanup executed minimally: CT137 obsoleteaccepted82 only after originaloffhostarchive/manifests/historicalsuccess proof, current86/rollback85/extras299+359 retained; free758516→1430412KiB. VM manifest optional104/105: only stopped104/no-volumes and soleunreferenced image removed after registry16blobproof/lease; stopped immediatelyat6GiB,105 retained,104othercontainers andrelease unchanged. H18/native108-cleanup-receipt.json and dev108-old104105-cleanup-r2.executed.json. Future qualifying batches use ownerstanding13Novauthority; no newask, noforce/prune/threshold/billing/clientdata changes.
+
+2026-11-13 GUIDE-WORKER-002 follow-up: Windows atomic_write_text emitted CRLF, while repository SRT/VTT eol=lf would change reviewed asset bytes. Caught before staging/release. ASUS author changed writer to deterministic normalized UTF-8 LF bytes and added exact-byte regression;14cases/1environmentSkip PASS. Rerender resume reused all8MP4/8JPG byte-identically, public caption/HTML/manifest and root approval hashes reconciled; offline33images PASS. Root initially invoked unittest as package from repo root and hit missing sibling import; canonical direct script invocation passes. Preserve failed command, no dependency install or runtime product workaround. Initial full frontend suite one assignment test read before async selected-course ready; isolated unchanged40PASS, full bounded-worker retry pending.
