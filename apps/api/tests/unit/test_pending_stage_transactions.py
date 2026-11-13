@@ -125,6 +125,50 @@ async def test_retained_replay_audit_is_atomic_and_bound_to_original_marker(outp
 
 
 @pytest.mark.asyncio
+async def test_retained_replay_audit_keeps_distinct_history():
+    from app.modules.ai.v3.managed_rejection_quarantine import KEY as QUARANTINE_KEY
+    from app.modules.ai.v3.retained_author_replay import AUTHORIZATION_KEY, AUTHORIZATION_POLICY
+
+    journal = TxJournal()
+    first = args(journal, "first")
+    first["plan"].update({"stage": "lesson", "group_id": "practical:author:editorial:v31:output=8192",
+                           "route_fingerprint": "a" * 64})
+    first_digest = _digest(first["plan"])
+    first["marker"]["identity"] = first_digest
+    first["validate"] = lambda value: value["response"] if value["identity"] == first_digest else pytest.fail("wrong identity")
+    await claim_with_pending(**first)
+    first_receipt = {"body_sha256": "1" * 64, "wire_request_sha256": "2" * 64, "route_fingerprint": "a" * 64}
+    second = args(journal, "second")
+    second["plan"].update({"stage": "lesson", "group_id": "practical:author:editorial:v31:output=8192",
+                            "route_fingerprint": "b" * 64})
+    second_digest = _digest(second["plan"])
+    second["marker"]["identity"] = second_digest
+    second["validate"] = lambda value: value["response"] if value["identity"] == second_digest else pytest.fail("wrong identity")
+    second_receipt = {"body_sha256": "3" * 64, "wire_request_sha256": "4" * 64, "route_fingerprint": "b" * 64}
+    journal.job.result[QUARANTINE_KEY] = {"entries": {first_digest: first_receipt, second_digest: second_receipt}}
+    audit1 = {"policy": AUTHORIZATION_POLICY, "stage_sha256": first_digest, "body_sha256": first_receipt["body_sha256"],
+              "wire_request_sha256": first_receipt["wire_request_sha256"], "model": "gpt-6-luna"}
+    journal.job.params[AUTHORIZATION_KEY] = {"policy": AUTHORIZATION_POLICY, "stage": first_digest,
+        "body_sha256": first_receipt["body_sha256"], "pending_sha256": _digest(journal.job.result[KEY]), "delivery_id": None}
+    from app.modules.ai.v3.pending_stage_transactions import _valid_replay_audit
+    from app.modules.ai.v3.retained_author_replay import is_retained_stage_plan
+    assert _valid_replay_audit(audit1, stage=first_digest)
+    assert is_retained_stage_plan(first["plan"])
+    assert journal.job.params[AUTHORIZATION_KEY]["pending_sha256"] == _digest(journal.job.result[KEY])
+    assert await finalize_pending(**first, value={"identity": first_digest, "response": {"ok": 1}}, replay_audit=audit1) == {"ok": 1}
+    assert journal.job.result["v3_retained_author_replay_audit"] == audit1
+    await claim_with_pending(**second)
+    audit2 = {"policy": AUTHORIZATION_POLICY, "stage_sha256": second_digest, "body_sha256": second_receipt["body_sha256"],
+              "wire_request_sha256": second_receipt["wire_request_sha256"], "model": "gpt-6-luna"}
+    journal.job.params[AUTHORIZATION_KEY] = {"policy": AUTHORIZATION_POLICY, "stage": second_digest,
+        "body_sha256": second_receipt["body_sha256"], "pending_sha256": _digest(journal.job.result[KEY]), "delivery_id": None}
+    assert await finalize_pending(**second, value={"identity": second_digest, "response": {"ok": 2}}, replay_audit=audit2) == {"ok": 2}
+    assert journal.job.result["v3_retained_author_replay_audit"] == audit1
+    assert journal.job.result["v3_retained_author_replay_audit_history"]["entries"] == {
+        first_digest: audit1, second_digest: audit2}
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("group", ["practical:author:editorial:v31", "practical:review:editorial:v31:output=16384",
                                     "practical:author:editorial:v31:output=016384", "practical:author:editorial:v31:output=32768"])
 async def test_retained_audit_rejects_foreign_or_malformed_group(group):

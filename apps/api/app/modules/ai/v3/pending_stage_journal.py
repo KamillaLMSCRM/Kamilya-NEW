@@ -115,6 +115,9 @@ class PendingStageJournal(WorkerCycleJournal):
             custody_value = author_custody(received) if author_custody is not None else None
             if custody_value is not None:
                 value['author_custody'] = custody_value
+            else:
+                from app.modules.ai.v3.stage_checkpoint import ordered_response_fields
+                value.update(ordered_response_fields(response))
             if _direct_metadata is not None:
                 from app.modules.ai.v3.direct_usage_metadata import checked_metadata
                 metadata = checked_metadata(_direct_metadata())

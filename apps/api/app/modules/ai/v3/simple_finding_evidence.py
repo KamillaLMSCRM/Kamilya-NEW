@@ -33,7 +33,15 @@ def is_evidence_format(fmt: Any) -> bool:
     try:
         props = fmt['json_schema']['schema']['properties']
         fingerprints = {key: props[key]['enum'][0] for key in _FINGERPRINTS}
-        bindings = {key: value['enum'][:-1] for key, value in props['bindings']['properties'].items()}
+        binding_schema = props['bindings']
+        order = binding_schema['required']
+        properties = binding_schema['properties']
+        # JSONB reorders object keys, while the schema's required array retains
+        # its original order. Reconstruct that exact schema without changing it.
+        if (type(order) is not list or len(order) != len(set(order))
+                or set(order) != set(properties)):
+            return False
+        bindings = {key: properties[key]['enum'][:-1] for key in order}
         return bool(fmt == evidence_format(fingerprints, bindings))
     except (KeyError, TypeError, ValueError, IndexError, AttributeError):
         return False

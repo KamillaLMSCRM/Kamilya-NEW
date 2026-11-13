@@ -78,3 +78,62 @@ async def test_private_candidate_is_exact_and_fail_closed(monkeypatch, mutation,
     unchanged = mutation is None or mutation == 'policy' and not focused
     phase_allowed = failure_phase == ('stage_finalize' if focused else 'structured_shape')
     assert (candidate is not None) is (unchanged and allowed and phase_allowed)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("malformed", [False, True])
+async def test_active_candidate_ignores_only_valid_historical_receipts(monkeypatch, malformed):
+    """A later pending digest may be selected without authorizing old history."""
+    tenant, actor, job_id = str(uuid4()), uuid4(), str(uuid4())
+    group = "practical:simple:repair-evidence:v11:" + "a" * 64 + ":unit=" + "b" * 64 + ":proposal=" + "c" * 64 + ":output=16384"
+    plan = {"schema": "v3-stage-checkpoint-v1", "tenant_id": tenant, "job_id": job_id,
+            "stage": "repair", "group_id": group, "source_sha256": "d" * 64,
+            "route_fingerprint": "e" * 64, "request_sha256": "f" * 64}
+    digest = _digest(plan)
+    old = "1" * 64
+    entry = {"claim_key": "v3-stage-claim:" + digest, "result_key": "v3-stage-result:" + digest,
+             "token": "2" * 32}
+    raw = b"active"
+    receipt = {"policy": replay.POLICY, "accepted": False, "complete_http_response": True, "status": 200,
+               "phase": "stage_finalize", "stage_sha256": digest, "route_fingerprint": "e" * 64,
+               "wire_request_sha256": "3" * 64, "body_sha256": hashlib.sha256(raw).hexdigest(),
+               "byte_count": len(raw), "raw_base64": base64.b64encode(raw).decode()}
+    old_ref = {**receipt, "stage_sha256": old, "checkpoint_key": replay.private_key(old),
+               "body_sha256": "4" * 64, "wire_request_sha256": "5" * 64}
+    if malformed:
+        old_ref["accepted"] = True
+    job = SimpleNamespace(id=job_id, tenant_id=tenant, user_id=actor, course_id=None,
+        params={"source_analysis": {"v3_review_policy": "v3-simple-unit-context-plan-accounting-editor-v11"}},
+        result={"v3_pending_stages": {"policy": "v3-pending-stages-v1", "entries": {digest: entry}},
+                    replay.KEY: {"policy": replay.POLICY, "entries": {old: old_ref,
+                                                                           digest: {k: v for k, v in receipt.items() if k != "raw_base64"} | {"checkpoint_key": replay.private_key(digest)}}}})
+    marker = {"identity": digest, "claim_token": entry["token"]}
+
+    class Journal:
+        def __init__(self, tenant_id, user_id, job_id, sessions):
+            self.tenant_id, self.job_id = tenant_id, job_id
+            self.repository = self
+        def _owned_key(self, key): return key
+        async def load_plan(self, *_args, **_kwargs):
+            return SimpleNamespace(plan_payload=plan, source_job_id=job_id, plan_revision="v1", lessons=("lesson",))
+        async def read_owned_value_in_session(self, _db, key, _plan):
+            if key == entry["claim_key"]:
+                return marker
+            if key == entry["result_key"]:
+                return None
+            return receipt
+
+    monkeypatch.setattr(replay, "PendingStageJournal", Journal)
+    candidate = await replay.owned_candidate(object(), job)
+    assert (candidate is not None) is (not malformed)
+    if candidate is not None:
+        assert candidate["stage"] == digest and candidate["receipt"] == receipt
+
+
+def test_v11_evidence_replay_frontier_is_narrow():
+    assert replay.is_simple_evidence_stage({
+        "stage": "repair", "group_id":
+        "practical:simple:repair-evidence:v11:" + "a" * 64 + ":unit=" + "b" * 64
+        + ":proposal=" + "c" * 64 + ":output=32768"})
+    assert not replay.is_simple_evidence_stage({
+        "stage": "repair", "group_id": "practical:simple:repair-cards:v11:" + "a" * 64})

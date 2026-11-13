@@ -21,6 +21,23 @@ KEY = "v3_pending_stages"
 POLICY = "v3-pending-stages-v1"
 REPAIR_SLOTS_KEY = "v3_diversity_repair_attempts"
 REPAIR_SLOTS_POLICY = "v3-diversity-repair-slot-v1"
+REPLAY_AUDIT_KEY = "v3_retained_author_replay_audit"
+REPLAY_AUDIT_HISTORY_KEY = "v3_retained_author_replay_audit_history"
+_SAFE_FINALIZE_CODES = frozenset({
+    "v3_pending_marker_mismatch", "v3_pending_claim_mismatch",
+    "v3_pending_result_unverified", "v3_pending_replay_audit_invalid",
+    "v3_pending_replay_audit_conflict",
+})
+
+
+def _valid_replay_audit(value: Any, *, stage: str | None = None) -> bool:
+    return (isinstance(value, dict)
+            and set(value) == {"policy", "stage_sha256", "body_sha256", "wire_request_sha256", "model"}
+            and value.get("policy") == "v3-retained-author-replay-v1"
+            and (stage is None or value.get("stage_sha256") == stage)
+            and all(isinstance(value.get(key), str) and re.fullmatch(r"[0-9a-f]{64}", value[key]) is not None
+                    for key in ("stage_sha256", "body_sha256", "wire_request_sha256"))
+            and value.get("model") in {"gpt-5.6-luna", "gpt-6-luna"})
 
 
 def verify_repair_slot(job: Any, plan: dict[str, Any], *, required: bool = False) -> bool:
@@ -276,8 +293,7 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
                 )
                 reference = job.result.get(QUARANTINE_KEY, {}).get("entries", {}).get(digest, {})
                 authorization = (job.params or {}).get(AUTHORIZATION_KEY, {})
-                if (not isinstance(replay_audit, dict)
-                        or set(replay_audit) != {"policy", "stage_sha256", "body_sha256", "wire_request_sha256", "model"}
+                if (not _valid_replay_audit(replay_audit, stage=digest)
                         or replay_audit.get("policy") != AUTHORIZATION_POLICY or replay_audit.get("stage_sha256") != digest
                         or replay_audit.get("body_sha256") != reference.get("body_sha256")
                         or replay_audit.get("wire_request_sha256") != reference.get("wire_request_sha256")
@@ -289,9 +305,6 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
                         or authorization.get("pending_sha256") != _digest(job.result[KEY])
                         or authorization.get("delivery_id") != delivery_id.get()
                         or reference.get("route_fingerprint") != plan.get("route_fingerprint")
-                        or any(not isinstance(replay_audit.get(k), str)
-                               or re.fullmatch(r"[0-9a-f]{64}", replay_audit[k]) is None
-                               for k in ("body_sha256", "wire_request_sha256"))
                         or not is_retained_stage_plan(plan)):
                     raise ValueError("v3_pending_replay_audit_invalid")
             verify_repair_slot(job, plan, required=True)
@@ -315,10 +328,38 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
             del entries[digest]
             updated = dict(job.result)
             if replay_audit is not None:
-                audit_key = "v3_retained_author_replay_audit"
-                if audit_key in updated and updated[audit_key] != replay_audit:
-                    raise ValueError("v3_pending_replay_audit_conflict")
-                updated[audit_key] = dict(replay_audit)
+                audit_key = REPLAY_AUDIT_KEY
+                previous_audit = updated.get(audit_key)
+                if previous_audit is None:
+                    updated[audit_key] = dict(replay_audit)
+                elif previous_audit == replay_audit:
+                    pass
+                else:
+                    if not _valid_replay_audit(previous_audit):
+                        raise ValueError("v3_pending_replay_audit_conflict")
+                    history = updated.get(REPLAY_AUDIT_HISTORY_KEY)
+                    history_entries = history.get("entries") if isinstance(history, dict) else None
+                    if history is None:
+                        history_entries = {previous_audit["stage_sha256"]: dict(previous_audit)}
+                    elif (not isinstance(history, dict) or set(history) != {"policy", "entries"}
+                          or history.get("policy") != AUTHORIZATION_POLICY
+                          or not isinstance(history_entries, dict)):
+                        raise ValueError("v3_pending_replay_audit_conflict")
+                    checked_history: dict[str, dict[str, str]] = {}
+                    for stage_id, audit in history_entries.items():
+                        if (not isinstance(stage_id, str) or not _valid_replay_audit(audit, stage=stage_id)
+                                or stage_id in checked_history):
+                            raise ValueError("v3_pending_replay_audit_conflict")
+                        checked_history[stage_id] = dict(audit)
+                    if checked_history.get(previous_audit["stage_sha256"]) != previous_audit:
+                        raise ValueError("v3_pending_replay_audit_conflict")
+                    existing = checked_history.get(replay_audit["stage_sha256"])
+                    if existing is not None and existing != replay_audit:
+                        raise ValueError("v3_pending_replay_audit_conflict")
+                    checked_history[replay_audit["stage_sha256"]] = dict(replay_audit)
+                    updated[REPLAY_AUDIT_HISTORY_KEY] = {
+                        "policy": AUTHORIZATION_POLICY, "entries": checked_history,
+                    }
             if entries:
                 updated[KEY] = {"policy": POLICY, "entries": entries}
             else:
@@ -332,8 +373,11 @@ async def finalize_pending(*, journal: Any, user_id: Any, plan: dict[str, Any], 
                 job = str(UUID(journal.job_id))
             except (ValueError, TypeError, AttributeError):
                 job = "unknown"
-            logging.getLogger(__name__).info("v3_finalize job=%s stage=%s phase=%s outcome=unknown",
-                                             job, digest, phase)
+            safe_reason = type(exc).__name__
+            if isinstance(exc, ValueError) and str(exc) in _SAFE_FINALIZE_CODES:
+                safe_reason = str(exc)
+            logging.getLogger(__name__).info("v3_finalize job=%s stage=%s phase=%s outcome=unknown reason=%s",
+                                             job, digest, phase, safe_reason)
         except Exception:
             pass
         raise ExtractionOutcomeUnknownError("v3_pending_finalize_unknown") from exc

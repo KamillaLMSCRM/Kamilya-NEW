@@ -17,7 +17,7 @@ from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.pending_stage_transactions import checked_entries
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY
+from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY
 from app.modules.ai.v3.stage_checkpoint import _digest, _validate_direct_metadata
 
 KEY = 'v3_explicit_stage_retries'
@@ -65,7 +65,24 @@ def _plan_valid(plan: Any) -> bool:
         r'(?::proposal=[a-f0-9]{64})?:output=(8192|16384|32768)', plan.get('group_id', ''))
     expected = {'plan': 'review', 'author-unit': 'lesson', 'review-unit': 'review',
                 'review-content': 'review', 'editor-joint': 'repair', 'repair-address': 'repair'}
-    return bool(match and plan.get('stage') == expected[match[1]])
+    if match and plan.get('stage') == expected[match[1]]:
+        return True
+    # These extra plans are inventory members, never arbitrary retry frontiers.
+    group = plan.get('group_id', '')
+    if re.fullmatch(r'practical:simple:plan:v11:[a-f0-9]{64}:output=(8192|16384|32768)', group):
+        return plan.get('stage') == 'review'
+    if re.fullmatch(r'practical:simple:plan-accounting:v11:[a-f0-9]{64}:unit=[a-f0-9]{64}:output=(8192|16384|32768)', group):
+        return plan.get('stage') == 'repair'
+    return _metadata_frontier(plan)
+
+
+def _metadata_frontier(plan: Any) -> bool:
+    from app.modules.ai.v3.retained_author_replay import is_simple_evidence_stage
+    return bool(isinstance(plan, dict) and is_simple_evidence_stage(plan))
+
+
+def _retry_frontier(plan: Any) -> bool:
+    return bool(_plan_valid(plan) and (':v9:' in plan['group_id'] or _metadata_frontier(plan)))
 
 
 def checked_ledger(params: Any) -> dict[str, Any] | None:
@@ -77,7 +94,7 @@ def checked_ledger(params: Any) -> dict[str, Any] | None:
         raise ValueError('explicit_stage_retry_ledger_invalid')
     for digest, entry in ledger['entries'].items():
         if (not isinstance(digest, str) or not _HEX.fullmatch(digest) or not isinstance(entry, dict)
-                or entry.get('original_stage_sha256') != digest or not _plan_valid(entry.get('original_plan'))
+                or entry.get('original_stage_sha256') != digest or not _retry_frontier(entry.get('original_plan'))
                 or _digest(entry['original_plan']) != digest or entry.get('prior_outcome') != 'UNKNOWN'
                 or entry.get('prior_usage') != 'UNKNOWN' or entry.get('prior_cost') != 'UNKNOWN'
                 or not isinstance(entry.get('pending_sha256'), str) or not _HEX.fullmatch(entry['pending_sha256'])):
@@ -130,7 +147,7 @@ async def retry_candidate(db: Any, job: Any, actor_id: Any, settings: Any) -> di
         params = job.params if isinstance(job.params, dict) else {}
         analysis = params.get('source_analysis')
         if (not isinstance(analysis, dict) or analysis.get('generation_engine') != 'evidence_v3'
-                or analysis.get('v3_review_policy') != SIMPLE_COURSE_REVIEW_V9_POLICY
+                or analysis.get('v3_review_policy') not in {SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}
                 or analysis.get(QA_KEY) != MANAGED_POLICY
                 or 'source_reference_review_required' in (job.errors or [])):
             return None
@@ -148,7 +165,10 @@ async def retry_candidate(db: Any, job: Any, actor_id: Any, settings: Any) -> di
         saved = await journal.repository.load_plan(db, tenant_id=journal.tenant_id,
                                                   generation_key=journal._owned_key(entry['claim_key']))
         plan = dict(saved.plan_payload)
-        if (not _plan_valid(plan) or _digest(plan) != digest or plan['job_id'] != str(job.id)
+        if (not _retry_frontier(plan)
+                or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V9_POLICY and ':v9:' not in plan['group_id']
+                or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V11_POLICY and not _metadata_frontier(plan)
+                or _digest(plan) != digest or plan['job_id'] != str(job.id)
                 or plan['tenant_id'] != str(job.tenant_id)
                 or job.result.get('v3_owned_route_binding') != {
                     'policy': 'v3-owned-route-binding-v1', 'fingerprint': plan['route_fingerprint']}):
@@ -212,11 +232,16 @@ async def completed_inventory(db: Any, job: Any, actor_id: UUID) -> dict[str, An
     result = {}
     for saved in rows:
         plan = dict(saved.plan_payload)
-        if not _plan_valid(plan):
+        if plan.get('schema') != 'v3-stage-checkpoint-v1':
             continue
         digest = _digest(plan)
         key = 'v3-stage-result:' + digest
         if saved.generation_key != journal._owned_key(key):
+            continue
+        if not _plan_valid(plan):
+            analysis = (job.params or {}).get('source_analysis', {})
+            if analysis.get('v3_review_policy') == SIMPLE_COURSE_REVIEW_V11_POLICY:
+                raise ValueError('explicit_stage_retry_inventory_invalid')
             continue
         value = await journal.read_owned_value_in_session(db, key, plan)
         if value is None:
@@ -242,7 +267,7 @@ async def guard_recovery_stage(journal: Any, original: dict[str, Any]) -> None:
     assert checked is not None
     entry = next(iter(checked['entries'].values()))
     inventory = entry['completed_stages']
-    if original['group_id'].startswith('practical:simple:plan:v9:'):
+    if original['group_id'].startswith(('practical:simple:plan:v9:', 'practical:simple:plan:v11:')):
         journal.explicit_retry_seen = set()
         journal.explicit_retry_reached = False
     seen = getattr(journal, 'explicit_retry_seen', None)

@@ -1,3 +1,15 @@
+# Current 2026-11-13T00:10:18.396331+00:00 — LOCAL106 final integration; DEV105/PDF held; production90 unchanged
+
+Canonical handoff top overrides stale historical headers below. BrowserQA methodologist login/exactheldjob works;0newgenerations. Full8755localtests/quality/contracts/actual38+35+14descriptors0calls passed before final retained-metadata transport completion; final gates pending. Nine existing runtime files, no semantic prompt/source/schema change. Nativecash/DS/protectedprod/live OPEN, sameDSUSD1spent0/cleanupauthority0.
+
+# Current 2026-11-12T23:40:24.108130+00:00 — LOCAL106 fix pending; DEV105 PDF held; production90 unchanged
+
+Read CURRENT CODEX_HANDOFF top: actual Postgres JSONB reordered dynamic evidence keys and rejected stored custody; LOCAL106 primary recognizer fix and exact38request0call proof pass, retention/history fix under independent implementation. No106commit/deploy/nativeacceptance yet. PDF content17L68Q pre-final practicalGO but last metadata response lost; preserve38completed/originalclaim/knownusage, one narrowacknowledgedDEVmetadata retry onlyafter106gates. Cash/DS/prod/live OPEN; samefinalDSUSD1spent0/cleanupauthority0. Older paragraphs below arehistorical.
+
+# Current 2026-11-12T22:35:55.109199+00:00 — DEPLOYED DEV105; production90 retained; full course gates pending
+
+DEV105 is deployed and independently read back at exact66107151bfccbbb4981ffc92407c5bd968f98dca/imagebba2e5f0/soleworker747e91b1/env97b9b3dc. CI43315960959/build43317144400success, cold201files/rollback/restart/RELEASE_OK passed. Native standards1045L19Q accepted with exact105equivalence; SAMEPDF23716495 recoveredcapturedplan105 and currentlyordinarycontinues91722 with14savedstages; cash/DeepSeek/protectedproduction/live pending. This supersedes earlier LOCAL105/no-commit paragraphs below. Production90/API16504/nativefrontend86/schema0187 has not been changed by this work. Use currentCODEX_HANDOFF top and immutableH18/H26 receipts for exact active state and bounds; no source/customer edits, plan changes or cleanup authority.
+
 ## CURRENT 2026-11-12T21:59:54.083678+00:00 — LOCAL105 technical recovery PASS; PDF retained, no new model calls
 
 result: Native104standards remainsCONTENT_GO5L19Q/coursecfafbd34/14LunaHIGHcalls268685IN29731OUT; all12oldstages preserved0repeatedHTTP. NativePDF23716495-11a2-40bf-900c-560ab6f86841 interrupted/reconciliation afterONEknowncompleteHTTP200 plan64545IN2804OUT/17units/0authors; original7245bytes SHA5eddf884 retained. No actual newmodelcalls since this knownplan. DoNOTrestart/replanPDF or regenerate acceptedstandards.

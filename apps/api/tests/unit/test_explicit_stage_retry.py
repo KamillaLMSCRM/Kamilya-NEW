@@ -14,7 +14,7 @@ from app.modules.ai.v3 import explicit_stage_retry as retry
 from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as ROUTE_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY
+from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY
 from app.modules.ai.v3.stage_checkpoint import _digest
 from app.modules.source_editorial_review.service import SOURCE_PINS
 from tests.unit.test_ai_job_admission import _CommitSession
@@ -141,6 +141,86 @@ def owned_case(monkeypatch):
         resolve_pins=resolve_pins,
         inventory=inventory,
     )
+
+
+def metadata_case(case):
+    case.job.params['source_analysis']['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V11_POLICY
+    case.plan = {**case.plan, 'stage': 'repair',
+        'group_id': 'practical:simple:repair-evidence:v11:'+'c'*64+':unit='+'e'*64+':proposal='+'f'*64+':output=32768'}
+    case.digest = _digest(case.plan)
+    case.claim, case.result = 'v3-stage-claim:'+case.digest, 'v3-stage-result:'+case.digest
+    case.fake.plans.update({case.claim: copy.deepcopy(case.plan), case.result: copy.deepcopy(case.plan)})
+    case.fake.values[case.claim] = {'identity': case.digest, 'claim_token': '9'*32}
+    case.job.result[PENDING_KEY]['entries'] = {case.digest: {
+        'claim_key': case.claim, 'result_key': case.result, 'token': '9'*32}}
+    return case
+
+
+@pytest.mark.asyncio
+async def test_v11_metadata_retry_preserves_original_claim_and_authorizes_one_nonce(owned_case):
+    c = metadata_case(owned_case)
+    before = copy.deepcopy((c.fake.plans, c.fake.values))
+    assert (await retry.retry_candidate(None, c.job, c.actor, c.settings))['stage'] == c.digest
+    request = retry.UnknownStageRetryRequest(stage_sha256=c.digest, recovery_id=uuid4(), acknowledge_unknown_outcome=True)
+    entry = await retry.authorize_retry(None, c.job, c.actor, c.settings, request)
+    assert (c.fake.plans, c.fake.values) == before
+    assert entry['original_plan'] == c.plan and PENDING_KEY not in c.job.result
+    changed = retry.retry_plan(c.plan, c.job.params[retry.KEY])
+    assert changed['explicit_recovery']['original_stage_sha256'] == c.digest
+    assert _digest(changed) != c.digest
+    assert await retry.retry_candidate(None, c.job, c.actor, c.settings) is None
+    with pytest.raises(ValueError, match='explicit_stage_retry_unverified'):
+        await retry.authorize_retry(None, c.job, c.actor, c.settings, request)
+
+
+@pytest.mark.asyncio
+async def test_v11_does_not_enable_unknown_author_or_plan_retries(owned_case):
+    c = owned_case
+    c.job.params['source_analysis']['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V11_POLICY
+    assert await retry.retry_candidate(None, c.job, c.actor, c.settings) is None
+
+
+@pytest.mark.asyncio
+async def test_v9_does_not_enable_metadata_retry_from_another_policy(owned_case):
+    c = metadata_case(owned_case)
+    c.job.params['source_analysis']['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V9_POLICY
+    assert await retry.retry_candidate(None, c.job, c.actor, c.settings) is None
+
+
+@pytest.mark.asyncio
+async def test_v11_frontier_requires_exact_entire_saved_prefix(owned_case):
+    c = metadata_case(owned_case)
+    inventory = {}
+    groups = [
+        ('review', 'practical:simple:plan:v11:'+'c'*64+':output=32768'),
+        ('repair', 'practical:simple:plan-accounting:v11:'+'c'*64+':unit='+'e'*64+':output=32768'),
+        ('lesson', 'practical:simple:author-unit:v9:'+'c'*64+':plan='+'e'*64+':unit='+'f'*64+':output=32768')]
+    metadata = {'model': 'gpt-6-luna', 'usage': {'input_tokens': 12, 'output_tokens': 3,
+        'cached_input_tokens': None, 'reasoning_tokens': None}}
+    plans = []
+    for index, (stage, group) in enumerate(groups):
+        plan = {**c.plan, 'stage': stage, 'group_id': group}
+        digest = _digest(plan)
+        value = {'identity': digest, 'response': {'cached': index}, 'direct_metadata': metadata,
+            'response_sha256': _digest({'cached': index}), 'direct_metadata_sha256': _digest(metadata)}
+        c.fake.plans['v3-stage-result:'+digest] = plan
+        c.fake.values['v3-stage-result:'+digest] = value
+        inventory[digest] = {'plan': plan, 'response_sha256': value['response_sha256'],
+            'direct_metadata_sha256': value['direct_metadata_sha256']}
+        plans.append(plan)
+    c.inventory.return_value = inventory
+    await retry.authorize_retry(None, c.job, c.actor, c.settings,
+        retry.UnknownStageRetryRequest(stage_sha256=c.digest, recovery_id=uuid4(), acknowledge_unknown_outcome=True))
+    c.fake.explicit_stage_retries = c.job.params[retry.KEY]
+    await retry.guard_recovery_stage(c.fake, plans[0])
+    with pytest.raises(ValueError, match='explicit_stage_retry_prefix_incomplete'):
+        await retry.guard_recovery_stage(c.fake, c.plan)
+    for plan in plans[1:]:
+        await retry.guard_recovery_stage(c.fake, plan)
+    await retry.guard_recovery_stage(c.fake, c.plan)
+    c.fake.values['v3-stage-result:'+_digest(plans[1])]['response'] = {'changed': True}
+    with pytest.raises(ValueError, match='explicit_stage_retry_cached_result_changed'):
+        await retry.guard_recovery_stage(c.fake, plans[1])
 
 
 @pytest.mark.asyncio

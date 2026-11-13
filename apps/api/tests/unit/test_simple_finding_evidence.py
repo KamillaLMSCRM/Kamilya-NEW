@@ -1,4 +1,5 @@
 import copy
+import json
 from dataclasses import replace
 
 import pytest
@@ -120,6 +121,39 @@ def test_unrelated_pending_entry_is_not_removed(example):
     result = apply_evidence(packet, base, context, proposal)
     assert result.review['revision_receipt']['unapplied_review_findings'] == [{'id': 'unrelated', 'finding': {'problem': 'Peer'}}]
     validate_evidence(packet, result)
+
+
+def test_multiple_evidence_bindings_survive_jsonb_custody_without_schema_change():
+    from app.modules.ai.v3.practical_author_transport import (
+        author_custody,
+        normalize_practical_author,
+        validate_author_custody,
+    )
+    from app.modules.ai.v3.simple_finding_evidence import evidence_format, is_evidence_format
+    from tests.unit.qa_journal_test_support import jsonb_roundtrip
+    fingerprints = {key: 'a' * 64 for key in (
+        'source_fingerprint', 'draft_fingerprint', 'result_fingerprint', 'inventory_fingerprint')}
+    fmt = evidence_format(fingerprints, {'finding-z': ['SRC2', 'SRC1'], 'finding-a': ['SRC1']})
+    original = copy.deepcopy(fmt)
+    value = {**fingerprints, 'bindings': {'finding-z': 'SRC2', 'finding-a': 'UNRESOLVED'}}
+    artifact = normalize_practical_author(json.dumps(value), fmt)
+    custody = author_custody(artifact, fmt)
+    restored = jsonb_roundtrip(custody)
+    assert list(restored['format']['json_schema']['schema']['properties']['bindings']['properties']) == ['finding-a', 'finding-z']
+    assert is_evidence_format(restored['format'])
+    assert validate_author_custody(restored, value, fmt)
+    assert fmt == original
+
+
+@pytest.mark.parametrize('required', [None, [], ['finding-z'], ['finding-z', 'finding-z'],
+                                      ['finding-z', 'foreign'], 'finding-z'])
+def test_binding_required_array_must_own_each_property_exactly_once(required):
+    from app.modules.ai.v3.simple_finding_evidence import evidence_format, is_evidence_format
+    fmt = evidence_format({key: 'a' * 64 for key in (
+        'source_fingerprint', 'draft_fingerprint', 'result_fingerprint', 'inventory_fingerprint')},
+        {'finding-z': ['SRC1'], 'finding-a': ['SRC2']})
+    fmt['json_schema']['schema']['properties']['bindings']['required'] = required
+    assert not is_evidence_format(fmt)
 
 
 @pytest.mark.parametrize('value', [None, 'not allowed'])

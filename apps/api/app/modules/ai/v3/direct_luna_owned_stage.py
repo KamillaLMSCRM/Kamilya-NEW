@@ -237,6 +237,9 @@ async def run_direct_owned_stage(
             custody_value = author_custody(result.content) if author_custody is not None else None
             if custody_value is not None:
                 value['author_custody'] = custody_value
+            else:
+                from app.modules.ai.v3.stage_checkpoint import ordered_response_fields
+                value.update(ordered_response_fields(response))
             audit = {"policy": AUTHORIZATION_POLICY, "stage_sha256": _digest(plan),
                      "body_sha256": candidate["body_sha256"],
                      "wire_request_sha256": candidate["receipt"]["wire_request_sha256"], "model": result.model}

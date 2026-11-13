@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed — 0.11.106 candidate
+
+- Preserve multi-finding evidence custody across PostgreSQL JSONB key ordering without changing original model requests or learning content.
+- Preserve receipt and replay history across successive recoveries; permit one explicitly acknowledged DEV QA retry of a lost V11 metadata-only result while keeping completed stages immutable.
+
+
 ## [0.11.105] - 2026-11-13
 
 ### Fixed

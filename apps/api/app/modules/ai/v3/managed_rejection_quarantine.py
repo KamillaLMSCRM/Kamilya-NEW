@@ -5,10 +5,12 @@ AIJob.result; raw bytes never enter job DTOs, course content or usage accounting
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from app.modules.ai.generation_checkpoint import PlannedLesson
 from app.modules.ai.lesson_cycle import POLICY_VERSION
+from app.modules.ai.managed_response_rejection import _PHASES as MANAGED_RESPONSE_PHASES
 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_assessment_plan import PLAN_POLICY
 from app.modules.ai.v3.pending_stage_transactions import (
@@ -18,10 +20,35 @@ from app.modules.ai.v3.pending_stage_transactions import (
     verify_repair_slot,
     verify_source_safely,
 )
+from app.modules.ai.v3.rejected_artifact import _PHASES as NATIVE_ARTIFACT_PHASES
 from app.modules.ai.v3.stage_checkpoint import _digest
 
 KEY = "v3_managed_response_quarantine"
 POLICY = "managed-response-quarantine-v1"
+
+
+def _valid_reference(digest: str, value: Any) -> bool:
+    if (not isinstance(value, dict) or value.get("stage_sha256") != digest
+            or value.get("checkpoint_key") != private_key(digest)
+            or value.get("accepted") is not False
+            or not isinstance(value.get("phase"), str)
+            or value.get("phase") not in MANAGED_RESPONSE_PHASES | NATIVE_ARTIFACT_PHASES
+            or type(value.get("byte_count")) is not int or value["byte_count"] < 0
+            or not isinstance(value.get("body_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["body_sha256"]) is None
+            or not isinstance(value.get("route_fingerprint"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["route_fingerprint"]) is None):
+        return False
+    if value.get("complete_http_response") is True:
+        wire = value.get("wire_request_sha256")
+        return (value["phase"] in MANAGED_RESPONSE_PHASES
+                and type(value.get("status")) is int and value["status"] == 200 and isinstance(wire, str)
+                and re.fullmatch(r"[0-9a-f]{64}", wire) is not None)
+    request = value.get("request_sha256")
+    return (value.get("complete_http_response") is False
+            and value["phase"] in NATIVE_ARTIFACT_PHASES
+            and value.get("capture_kind") == "model_content_text" and value.get("status") is None
+            and isinstance(request, str) and re.fullmatch(r"[0-9a-f]{64}", request) is not None)
 
 
 def private_key(stage: str) -> str:
@@ -91,7 +118,9 @@ async def _retain(*, journal: Any, plan: dict[str, Any], result_key: str, claim_
         previous = job.result.get(KEY, {"policy": POLICY, "entries": {}})
         if (not isinstance(previous, dict) or set(previous) != {"policy", "entries"}
                 or previous.get("policy") != POLICY or not isinstance(previous.get("entries"), dict)
-                or len(previous["entries"]) > 1 or any(key != digest for key in previous["entries"])):
+            or not all(isinstance(key, str) and re.fullmatch(r"[0-9a-f]{64}", key) is not None
+                           and _valid_reference(key, value)
+                           for key, value in previous["entries"].items())):
             raise ValueError("managed_quarantine_existing_invalid")
         entries = dict(previous["entries"])
         key = private_key(digest)

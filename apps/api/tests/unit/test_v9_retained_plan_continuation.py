@@ -144,3 +144,72 @@ async def test_retained_v9_plan_continues_without_model_post(monkeypatch, missin
     finally:
         delivery_id.reset(context)
         client.close()
+
+
+@pytest.mark.asyncio
+async def test_retained_v11_evidence_stage_replays_captured_body_without_post(monkeypatch):
+    from app.modules.ai.v3.simple_finding_evidence import evidence_format, matches_evidence
+
+    fake = setup_journal()
+    tenant, actor = uuid4(), uuid4()
+    fake.tenant_id = str(tenant)
+    fake.job.user_id, fake.job.tenant_id, fake.job.id, fake.job.course_id = actor, tenant, fake.job_id, None
+    fake.job.params['source_analysis']['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V11_POLICY
+    async def verify(_session, _job, _plan):
+        return True
+    async def verify_cap():
+        return True
+    journal = PendingStageJournal(str(tenant), actor, fake.job_id, fake.sessions, verify_source=verify)
+    journal.repository = fake
+    journal._lock_delivery = fake._lock_delivery
+    journal._owned_key = fake._owned_key
+    journal.read_owned_value_in_session = fake.read_owned_value_in_session
+    journal.review_policy_bound = True
+    journal.expected_review_policy = SIMPLE_COURSE_REVIEW_V11_POLICY
+    monkeypatch.setattr('app.modules.ai.v3.retained_author_replay.PendingStageJournal', lambda *_: journal)
+    client = ManagedLunaClient(base_url='http://10.77.77.2:18999/v1', api_key='synthetic',
+        tenant_id=tenant, user_id=actor, job_id=fake.job_id, credential_revision='r1')
+    packet_fp, working_fp = 'e' * 64, 'a' * 64
+    fmt = evidence_format({'source_fingerprint': packet_fp, 'draft_fingerprint': 'b' * 64,
+        'result_fingerprint': 'c' * 64, 'inventory_fingerprint': 'd' * 64},
+        {'finding-1': ['SRC1', 'SRC2'], 'finding-2': ['SRC2', 'SRC1']})
+    messages = [{'role': 'user', 'content': 'Synthetic evidence source.'}]
+    value = {'source_fingerprint': packet_fp, 'draft_fingerprint': 'b' * 64,
+        'result_fingerprint': 'c' * 64, 'inventory_fingerprint': 'd' * 64,
+        'bindings': {'finding-1': 'SRC2', 'finding-2': 'SRC1'}}
+    group = 'practical:simple:repair-evidence:v11:' + packet_fp + ':unit=' + 'c' * 64 + ':proposal=' + 'd' * 64 + ':output=16384'
+    plan = stage_plan(journal, stage='repair', group_id=group, source_sha256=working_fp,
+        route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt)
+    digest = _digest(plan)
+    cap = await client.prepare(messages, max_output_tokens=16384, ownership_checkpoint=verify_cap, response_format=fmt)
+    wire_hash = hashlib.sha256(client._prepared[cap]).hexdigest()
+    client.discard(cap)
+    raw = json.dumps({'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+        'response_format_sha256': response_contract_hash(fmt),
+        'choices': [{'message': {'content': json.dumps(value)}}],
+        'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}).encode()
+    receipt = {'policy': POLICY, 'accepted': False, 'complete_http_response': True, 'status': 200,
+        'phase': 'stage_finalize', 'stage_sha256': digest, 'route_fingerprint': client.cache_fingerprint(),
+        'wire_request_sha256': wire_hash, 'raw_base64': base64.b64encode(raw).decode(),
+        'byte_count': len(raw), 'body_sha256': hashlib.sha256(raw).hexdigest()}
+    claim_key, result_key = 'v3-stage-claim:' + digest, 'v3-stage-result:' + digest
+    fake.plans.update({claim_key: copy.deepcopy(plan), result_key: copy.deepcopy(plan), private_key(digest): private_plan(plan)})
+    fake.values.update({claim_key: {'identity': digest, 'claim_token': 'c' * 32}, private_key(digest): receipt})
+    fake.job.result[PENDING_KEY] = {'policy': 'v3-pending-stages-v1', 'entries': {digest: {
+        'claim_key': claim_key, 'result_key': result_key, 'token': 'c' * 32}}}
+    fake.job.result[KEY] = {'policy': POLICY, 'entries': {digest: {
+        **{k: v for k, v in receipt.items() if k != 'raw_base64'}, 'checkpoint_key': private_key(digest)}}}
+    fake.job.params[AUTHORIZATION_KEY] = {'policy': AUTHORIZATION_POLICY, 'stage': digest,
+        'body_sha256': receipt['body_sha256'], 'pending_sha256': _digest(fake.job.result[PENDING_KEY]),
+        'delivery_id': None}
+    marker = delivery_id.set(None)
+    try:
+        result = await stage_once(journal, stage='repair', group_id=group, source_sha256=working_fp,
+            route_fingerprint=client.cache_fingerprint(), messages=messages, response_format=fmt,
+            invoke=lambda: pytest.fail('model POST forbidden'), direct_client=client,
+            direct_max_output_tokens=16384, response_validator=lambda item: None if matches_evidence(item, fmt) else pytest.fail('invalid'))
+    finally:
+        delivery_id.reset(marker)
+        client.close()
+    assert result == value and result_key in fake.values and PENDING_KEY not in fake.job.result
+    assert fake.job.result['v3_retained_author_replay_audit']['stage_sha256'] == digest

@@ -571,3 +571,63 @@ async def test_focused_finalization_replay_is_bound_and_never_sends(setup, fault
     with pytest.raises(ManagedLunaError):
         await client.replay_completed(capability, **options)
     assert not requests
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('fault', [None, 'phase', 'source', 'plan'])
+async def test_v11_evidence_finalization_replay_is_bound_and_never_sends(setup, fault):
+    from app.modules.ai.v3.response_contracts import response_contract_hash
+    from app.modules.ai.v3.simple_finding_evidence import evidence_format
+    from app.modules.ai.v3.stage_checkpoint import _digest
+
+    client, tenant, actor, _, requests = setup
+    packet_fp, source_fp, draft_fp, result_fp, inventory_fp = (
+        'e' * 64, 'a' * 64, 'b' * 64, 'c' * 64, 'd' * 64)
+    fmt = evidence_format(
+        {'source_fingerprint': packet_fp, 'draft_fingerprint': draft_fp,
+         'result_fingerprint': result_fp, 'inventory_fingerprint': inventory_fp},
+        {'finding-1': ['SRC1']})
+    messages = [{'role': 'user', 'content': 'Synthetic evidence source.'}]
+    value = {'source_fingerprint': packet_fp, 'draft_fingerprint': draft_fp,
+             'result_fingerprint': result_fp, 'inventory_fingerprint': inventory_fp,
+             'bindings': {'finding-1': 'SRC1'}}
+    body = {'model': client.model, 'structured_output_policy': 'typed-json-object-v1',
+            'response_format_sha256': response_contract_hash(fmt),
+            'choices': [{'message': {'content': json.dumps(value)}}],
+            'usage': {'prompt_tokens': 8, 'completion_tokens': 2}}
+    raw = json.dumps(body).encode()
+    checkpoint = AsyncMock(return_value=True)
+    cap = await client.prepare(messages, max_output_tokens=16384,
+                               ownership_checkpoint=checkpoint, response_format=fmt)
+    source_group = ('practical:simple:repair-evidence:v11:' + packet_fp + ':unit=' + 'f' * 64
+                    + ':proposal=' + 'f' * 64 + ':output=16384')
+    plan = {'schema': 'v3-stage-checkpoint-v1', 'tenant_id': str(tenant), 'job_id': 'job',
+            'stage': 'repair', 'group_id': source_group, 'source_sha256': source_fp,
+            'route_fingerprint': client.cache_fingerprint(),
+            'request_sha256': _digest([messages, fmt])}
+    stage_id = _digest(plan)
+    receipt = {'policy': 'managed-response-quarantine-v1', 'accepted': False, 'complete_http_response': True,
+        'status': 200, 'phase': 'stage_finalize', 'stage_sha256': stage_id,
+        'route_fingerprint': client.cache_fingerprint(),
+        'wire_request_sha256': hashlib.sha256(client._prepared[cap]).hexdigest(),
+        'raw_base64': base64.b64encode(raw).decode(), 'byte_count': len(raw),
+        'body_sha256': hashlib.sha256(raw).hexdigest()}
+    if fault == 'phase':
+        receipt['phase'] = 'structured_shape'
+    elif fault == 'source':
+        plan['group_id'] = plan['group_id'].replace(packet_fp, '0' * 64, 1)
+    elif fault == 'plan':
+        plan['stage'] = 'lesson'
+    # Coherent digests make these cases exercise the group/format guards,
+    # rather than succeeding only because a previous digest became stale.
+    stage_id = _digest(plan)
+    receipt['stage_sha256'] = stage_id
+    options = dict(receipt=receipt, tenant_id=tenant, user_id=actor, job_id='job', stage_id=stage_id,
+                   ownership_checkpoint=checkpoint, stage_plan=plan)
+    if fault is None:
+        result = await client.replay_completed(cap, **options)
+        assert result.content.normalized_value == value
+    else:
+        with pytest.raises(ManagedLunaError, match='replay_unverified'):
+            await client.replay_completed(cap, **options)
+    assert not requests

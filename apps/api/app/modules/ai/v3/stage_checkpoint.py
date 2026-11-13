@@ -18,6 +18,44 @@ def _digest(value: Any) -> str:
     ).hexdigest()
 
 
+def ordered_response_capture(response: dict[str, Any]) -> str:
+    return json.dumps(response, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+
+
+def ordered_response_fields(response: dict[str, Any]) -> dict[str, str]:
+    raw = ordered_response_capture(response)
+    return {'response_ordered_json': raw, 'response_ordered_sha256': hashlib.sha256(raw.encode('utf-8')).hexdigest()}
+
+
+def restore_ordered_response(value: dict[str, Any], response: dict[str, Any]) -> dict[str, Any]:
+    if 'response_ordered_json' not in value:
+        if 'response_ordered_sha256' in value:
+            raise ValueError('v3_stage_checkpoint_invalid')
+        return response
+    if 'author_custody' in value or type(value['response_ordered_json']) is not str:
+        raise ValueError('v3_stage_checkpoint_invalid')
+
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, item in items:
+            if key in result:
+                raise ValueError('v3_stage_checkpoint_invalid')
+            result[key] = item
+        return result
+
+    try:
+        raw = value['response_ordered_json']
+        ordered = json.loads(raw, object_pairs_hook=pairs,
+                             parse_constant=lambda _: (_ for _ in ()).throw(ValueError('invalid_constant')))
+        if (type(ordered) is not dict or ordered_response_capture(ordered) != raw
+                or hashlib.sha256(raw.encode('utf-8')).hexdigest() != value.get('response_ordered_sha256')
+                or _digest(ordered) != _digest(response) or _digest(ordered) != value.get('response_sha256')):
+            raise ValueError('v3_stage_checkpoint_invalid')
+        return ordered
+    except (TypeError, ValueError, OverflowError, RecursionError, UnicodeError) as exc:
+        raise ValueError('v3_stage_checkpoint_invalid') from exc
+
+
 def _validate_direct_metadata(value: dict[str, Any]) -> None:
     if "direct_metadata" in value or "direct_metadata_sha256" in value:
         from app.modules.ai.v3.direct_usage_metadata import checked_metadata
@@ -70,7 +108,8 @@ async def read_verified_stage_result(journal: ExtractionJournal, plan: dict[str,
         # This helper has no request format; it checks internal custody only.
         if not validate_author_custody(value['author_custody'], response):
             raise ValueError("v3_stage_checkpoint_invalid")
-    return cast(dict[str, Any], json.loads(json.dumps(response, ensure_ascii=False, allow_nan=False)))
+        response = json.loads(value['author_custody']['normalized_text'])
+    return restore_ordered_response(value, cast(dict[str, Any], json.loads(json.dumps(response, ensure_ascii=False, allow_nan=False))))
 
 
 async def stage_once(
@@ -202,9 +241,12 @@ async def stage_once(
             from app.modules.ai.v3.practical_author_transport import validate_author_custody
             if not is_practical_author_stage(stage, group_id) or not validate_author_custody(value['author_custody'], response, response_format):
                 raise ValueError("v3_stage_checkpoint_invalid")
+            # JSONB may reorder objects. The validated immutable capture retains
+            # their original normalized order for historical request strings.
+            response = json.loads(value['author_custody']['normalized_text'])
         if value.get("response_sha256") != _digest(response):
             raise ValueError("v3_stage_checkpoint_invalid")
-        return response
+        return restore_ordered_response(value, response)
 
     from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
 
@@ -221,9 +263,10 @@ async def stage_once(
                 from app.modules.ai.v3.practical_author_transport import validate_author_custody
                 if not is_practical_author_stage(stage, group_id) or not validate_author_custody(value['author_custody'], response, response_format):
                     raise ValueError("v3_stage_checkpoint_invalid")
+                response = json.loads(value['author_custody']['normalized_text'])
             if value.get("response_sha256") != _digest(response):
                 raise ValueError("v3_stage_checkpoint_invalid")
-            return response
+            return restore_ordered_response(value, response)
 
         if direct_client is not None:
             from app.modules.ai.direct_luna_responses_client import DirectLunaResponsesClient
@@ -361,7 +404,8 @@ async def stage_once(
     custody_value = custody(received)
     await journal.save_value(
         result_key, {"identity": signature, "response": response, "response_sha256": _digest(response),
-                     **({'author_custody': custody_value} if custody_value is not None else {})}
+                     **({'author_custody': custody_value} if custody_value is not None else
+                        ordered_response_fields(response))}
     )
     saved = await load_result()
     if saved is None:
