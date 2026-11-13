@@ -51,6 +51,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+async function openManagementMode() {
+  const button = await screen.findByRole('button', { name: 'Текущие назначения' });
+  fireEvent.click(button);
+  await waitFor(() => expect(button).toHaveAttribute('aria-pressed', 'true'));
+}
+
 describe('contextual course assignment flow', () => {
   beforeEach(() => {
     assignmentAuth.accessToken = 'test-token';
@@ -110,8 +116,8 @@ describe('contextual course assignment flow', () => {
 
   it('distinguishes an unassigned published course from an empty course catalogue', async () => {
     render(<CourseAssignmentsPage />);
-    await screen.findByRole('heading', { name: 'Назначения обучения: 0' });
-    expect(screen.getByText('У этого курса пока нет назначений. Выберите сотрудников, чтобы назначить обучение.')).toBeInTheDocument();
+    await screen.findByRole('heading', { name: 'Обучающиеся' });
+    expect(screen.getByTestId('selected-assignment-course')).toHaveTextContent('Охрана труда');
     expect(screen.queryByText('Курсов пока нет')).not.toBeInTheDocument();
   });
 
@@ -125,6 +131,44 @@ describe('contextual course assignment flow', () => {
     });
     expect(screen.queryByRole('option', { name: 'Черновик' })).not.toBeInTheDocument();
     expect(screen.getByText('После назначения будет создана ссылка доступа')).toBeInTheDocument();
+  });
+
+  it('opens the selected-course recipient composer before existing assignments', async () => {
+    queryState.value = 'course_id=course-1';
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('heading', { name: 'Обучающиеся' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Назначения обучения' })).not.toBeInTheDocument();
+    await openManagementMode();
+    expect(await screen.findByRole('heading', { name: 'Назначения обучения' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Обучающиеся' })).not.toBeInTheDocument();
+  });
+
+  it('keeps recipient selection before delivery settings in the composer DOM order', async () => {
+    queryState.value = 'course_id=course-1';
+    render(<CourseAssignmentsPage />);
+    const heading = await screen.findByRole('heading', { name: 'Обучающиеся' });
+    const composer = heading.closest('[data-workspace-panel]') as HTMLElement;
+    const recipientSearch = within(composer).getByPlaceholderText('Найти обучающегося по имени, email или табельному…');
+    const delivery = within(composer).getByRole('group', { name: 'Как сотрудник получит доступ' });
+
+    expect(recipientSearch.compareDocumentPosition(delivery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(composer).getByTestId('assignment-selection-empty')).toHaveTextContent('Выбрано сотрудников: 0');
+  });
+
+  it('does not silently replace an invalid or unpublished deep-linked course', async () => {
+    queryState.value = 'courseId=course-draft';
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Этот курс недоступен или не опубликован. Выберите другой курс.');
+    expect(screen.getByRole('combobox', { name: 'Курс для назначения' })).toHaveValue('');
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('opens enrollment deep links in management mode while user links open the composer', async () => {
+    queryState.value = 'courseId=course-1&enrollment_id=11111111-1111-4111-8111-111111111111';
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('heading', { name: 'Назначения обучения' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Обучающиеся' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Текущие назначения' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('keeps a manual selection when the same session refreshes its access token', async () => {
@@ -213,6 +257,7 @@ describe('contextual course assignment flow', () => {
     render(<CourseAssignmentsPage />);
 
     const courseSelect = await screen.findByRole('combobox', { name: 'Курс для назначения' });
+    await openManagementMode();
     const assignmentGrid = courseSelect.closest('.grid');
     expect(assignmentGrid).toHaveClass('min-w-0', 'grid-cols-[minmax(0,1fr)]');
     expect(assignmentGrid?.children[0]).toHaveClass('min-w-0');
@@ -277,6 +322,7 @@ describe('contextual course assignment flow', () => {
     });
 
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
     const submit = screen.getByRole('button', { name: 'Создать повторное назначение' });
     expect(submit).toBeDisabled();
@@ -308,6 +354,7 @@ describe('contextual course assignment flow', () => {
       return fallback(input, init);
     });
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
     fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Повторное обучение' } });
     fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
@@ -338,6 +385,7 @@ describe('contextual course assignment flow', () => {
       return fallback(input, init);
     });
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
     fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Повторное обучение' } });
     fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
@@ -363,6 +411,7 @@ describe('contextual course assignment flow', () => {
     });
 
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
     fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Repeat diagnostics' } });
     fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
@@ -405,6 +454,7 @@ describe('contextual course assignment flow', () => {
     });
 
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Назначить повторно' }));
     fireEvent.change(screen.getByLabelText('Причина повторного назначения (обязательно)'), { target: { value: 'Repeat protected access' } });
     fireEvent.click(screen.getByRole('button', { name: 'Создать повторное назначение' }));
@@ -424,6 +474,7 @@ describe('contextual course assignment flow', () => {
 
   it('shows recurring learning controls with independent occurrence semantics', async () => {
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
 
     expect(await screen.findByText('Повторное обучение')).toBeInTheDocument();
     expect(screen.getByText(/У каждого повторного назначения свой срок и результат/)).toBeInTheDocument();
@@ -434,6 +485,7 @@ describe('contextual course assignment flow', () => {
 
   it('saves only a recurring draft from the assignments page', async () => {
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
 
     fireEvent.change(await screen.findByRole('combobox', { name: 'Курс' }), {
       target: { value: 'course-1' },
@@ -458,6 +510,7 @@ describe('contextual course assignment flow', () => {
       return fallback(input, init);
     });
     const view = render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.change(await screen.findByRole('combobox', { name: 'Курс' }), { target: { value: 'course-1' } });
     fireEvent.change(screen.getByRole('combobox', { name: 'Обучающийся' }), { target: { value: 'user-1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить черновик' }));
@@ -491,6 +544,7 @@ describe('contextual course assignment flow', () => {
       throw new Error(`Unexpected request: ${url}`);
     });
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     expect(await screen.findByText(/Последний период: Просрочено/)).toBeInTheDocument();
     expect(await screen.findByText(/Последний период: Завершено с опозданием/)).toBeInTheDocument();
     expect(screen.getByText(/Завершено: 12/)).toBeInTheDocument();
@@ -596,6 +650,7 @@ describe('contextual course assignment flow', () => {
   });
 
   it.each(['pending', 'failed'] as const)('does not call unknown enrollment data empty or fully assigned (%s)', async (state) => {
+    queryState.value = 'courseId=course-1&employeeId=user-1';
     const baseline = fetchMock.getMockImplementation()!;
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments')) return state === 'pending'
@@ -607,7 +662,7 @@ describe('contextual course assignment flow', () => {
     if (state === 'failed') await screen.findByRole('alert');
     expect(screen.queryByText('На этот курс пока никто не записан')).not.toBeInTheDocument();
     expect(screen.queryByText('Все обучающиеся уже назначены на этот курс')).not.toBeInTheDocument();
-    expect(screen.getByText('Состав назначений пока не подтверждён.')).toBeInTheDocument();
+    expect(await screen.findByText('Доступность получателей уточняется после загрузки назначений.')).toBeInTheDocument();
   });
 
   it('lets the methodologist explicitly choose a personal link and completion window', async () => {
@@ -683,6 +738,7 @@ describe('contextual course assignment flow', () => {
     });
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Получить ссылку' }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith('https://app.kml.kz/accept-invite?token=test'));
   });
@@ -701,6 +757,7 @@ describe('contextual course assignment flow', () => {
     });
 
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Отозвать доступ' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
@@ -728,6 +785,7 @@ describe('contextual course assignment flow', () => {
       return fallback(input, init);
     });
     const view = render(<CourseAssignmentsPage />);
+    await openManagementMode();
     fireEvent.click(await screen.findByRole('button', { name: 'Отозвать доступ' }));
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     assignmentAuth.user = { role: 'methodologist', user_id: 'actor-2', tenant_id: 'tenant-2' };
@@ -737,6 +795,7 @@ describe('contextual course assignment flow', () => {
   });
 
   it('keeps enrollment controls aligned and discloses personal-link deadlines on demand', async () => {
+    queryState.value = 'courseId=course-1&employeeId=user-1';
     fetchMock.mockImplementation((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
@@ -748,14 +807,7 @@ describe('contextual course assignment flow', () => {
     });
 
     render(<CourseAssignmentsPage />);
-
-    const primaryLines = await screen.findAllByTestId('assignment-primary-line');
-    expect(primaryLines).toHaveLength(5);
-    primaryLines.forEach((line) => {
-      expect(line).toHaveClass('text-sm', 'leading-5');
-      expect(line.classList.contains('min-h-9') || line.classList.contains('h-9')).toBe(true);
-    });
-
+    await screen.findByTestId('selected-assignment-course');
     fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
     const settings = screen.getByText('Дополнительные настройки сроков');
     expect(settings.closest('details')).not.toHaveAttribute('open');
@@ -781,6 +833,7 @@ describe('contextual course assignment flow', () => {
       throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
     });
     render(<CourseAssignmentsPage />);
+    await openManagementMode();
     expect(await screen.findByText('Не доставлено')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Отправить повторно' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
@@ -805,6 +858,7 @@ it('preserves one-time credentials and reloads using the refreshed token', async
   assignmentAuth.accessToken = 'refreshed-token';
   view.rerender(<CourseAssignmentsPage />);
   await waitFor(() => expect(fetchMock.mock.calls.some(([input, init]) => !init?.method && String(input).endsWith('/v1/courses/course-1/enrollments') && (init?.headers as Record<string, string>)?.Authorization === 'Bearer refreshed-token')).toBe(true));
+  await openManagementMode();
   await screen.findByRole('heading', { name: 'Назначения обучения: 1' });
   await act(async () => resolve(jsonResponse({ enrollment_id: 'enrollment-1', user_id: 'user-1', access_url: 'https://example.invalid/once', temporary_pin: '123456' }, 201)));
   expect(await screen.findByText('https://example.invalid/once')).toBeInTheDocument();

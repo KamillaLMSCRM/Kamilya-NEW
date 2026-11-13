@@ -71,7 +71,7 @@ def test_v9_editor_dispositions_remain_visible_and_bound_to_final_course(resolve
     result = SimpleCourseResult(original, final, {}, [], [], {'proposals': [], 'revision_receipt': receipt},
                                 [{'lesson_id': 'lesson', 'source_refs': [block.block_id]}])
     artifact = simple_course_artifacts(result, corpus, packet, 'a' * 64, review_policy=SIMPLE_COURSE_REVIEW_V9_POLICY)
-    issue = next(row for row in artifact.diagnostics['draft_review']['issues']
+    issue = next(row for row in artifact.diagnostics['draft_review']['observations' if resolved else 'issues']
                  if row['message'].startswith(finding['problem']))
     assert issue['blocking'] is not resolved and issue['evidence']['unverified'] is True
     if resolved:

@@ -31,6 +31,28 @@ def corpus_fixture():
         conversion_fidelity=fidelity),))
 
 
+def test_resolved_model_findings_are_serialized_as_observations_not_issues():
+    from app.modules.ai.v3.simple_course_editor import _digest
+
+    corpus = corpus_fixture()
+    packet = build_practical_source_packet(corpus)
+    ref = packet.blocks[0].block_id
+    raw = course(ref=ref)
+    receipt = {'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(raw),
+        'review_finding_dispositions': [{'id': 'finding-1', 'model_resolved': True,
+            'source_fingerprint': packet.fingerprint, 'draft_fingerprint': _digest(raw),
+            'result_fingerprint': _digest(raw), 'claimed_status': 'NOT_MATERIAL',
+            'finding': {'target': {'kind': 'lesson', 'id': 'lesson'}, 'problem': 'A possible omission',
+                        'source_refs': [ref]}, 'decision': {'reason': 'Already taught in this course.'}}]}
+    result = SimpleCourseResult(copy.deepcopy(raw), raw, {}, [], [],
+        {'proposals': [], 'revision_receipt': receipt}, [{'lesson_id': 'lesson', 'source_refs': [ref]}])
+    artifacts = simple_course_artifacts(result, corpus, packet, 'd' * 64)
+    manifest = artifacts.diagnostics['draft_review']
+    assert all(row['blocking'] is True for row in manifest['issues'])
+    assert manifest['observations'][0]['id'] == 'simple-v9-model-finding-1'
+    assert read_draft_review({'evidence_v3': artifacts.diagnostics}) == manifest
+
+
 def test_long_lesson_provenance_is_not_limited_by_a_separate_correction_tool():
     corpus = corpus_fixture()
     doc = corpus.documents[0]

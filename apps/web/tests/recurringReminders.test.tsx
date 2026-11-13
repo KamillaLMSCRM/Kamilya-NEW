@@ -61,6 +61,9 @@ function installFetchMock(overrides: Partial<Record<string, () => Promise<Respon
 
 async function renderRule() {
   render(<CourseAssignmentsPage />);
+  const manage = await screen.findByRole('button', { name: 'Текущие назначения' });
+  fireEvent.click(manage);
+  await waitFor(() => expect(manage).toHaveAttribute('aria-pressed', 'true'));
   return await screen.findByText('Охрана труда · Алия Садыкова');
 }
 
@@ -169,6 +172,9 @@ describe('recurring reminder settings', () => {
       history: () => new Promise(() => {}),
     });
     const view = render(<CourseAssignmentsPage />);
+    const manage = await screen.findByRole('button', { name: 'Текущие назначения' });
+    fireEvent.click(manage);
+    await waitFor(() => expect(manage).toHaveAttribute('aria-pressed', 'true'));
     await screen.findByText('Охрана труда · Алия Садыкова');
     fireEvent.click(screen.getByRole('button', { name: 'Показать статусы напоминаний' }));
     historySignal = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/reminders'))?.[1]?.signal as AbortSignal;
@@ -192,6 +198,9 @@ describe('recurring reminder settings', () => {
     let resolvePatch: ((response: Response) => void) | undefined;
     installFetchMock({ patch: () => new Promise((resolve) => { resolvePatch = resolve; }) });
     const view = render(<CourseAssignmentsPage />);
+    const manage = await screen.findByRole('button', { name: 'Текущие назначения' });
+    fireEvent.click(manage);
+    await waitFor(() => expect(manage).toHaveAttribute('aria-pressed', 'true'));
     await screen.findByText('Охрана труда · Алия Садыкова');
     fireEvent.click(screen.getByRole('checkbox', { name: 'Включить напоминание' }));
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить напоминание' }));
@@ -222,6 +231,9 @@ describe('recurring reminder settings', () => {
       throw new Error(`Unexpected request: ${url} ${init?.method || 'GET'}`);
     });
     render(<CourseAssignmentsPage />);
+    const manage = await screen.findByRole('button', { name: 'Текущие назначения' });
+    fireEvent.click(manage);
+    await waitFor(() => expect(manage).toHaveAttribute('aria-pressed', 'true'));
     expect(await screen.findByText('Программа обучения · Бек Иманов')).toBeInTheDocument();
     expect(screen.queryByText(/path-2/)).not.toBeInTheDocument();
     const showButtons = screen.getAllByRole('button', { name: 'Показать статусы напоминаний' });

@@ -87,12 +87,16 @@ describe('delivery rendered compositions', () => {
     assignmentReads();
     window.history.replaceState({}, '', '/assignments?courseId=course');
     render(<CourseAssignmentsPage />);
+    const manage = await screen.findByRole('button', { name: 'Current assignments' });
+    fireEvent.click(manage);
+    await waitFor(() => expect(manage).toHaveAttribute('aria-pressed', 'true'));
     fireEvent.click(await screen.findByRole('button', { name: /Полная таблица|Full table/ }));
     const table = await screen.findByRole('table');
     const existing = panel('courses.enrollments');
-    const audience = panel('courseAssignments.ui.learners');
     expect(existing).toContainElement(table);
-    expect(existing).not.toContainElement(screen.getByRole('checkbox', { name: 'New Learner' }));
+    expect(existing).not.toContainElement(screen.queryByRole('checkbox', { name: 'New Learner' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Assign' }));
+    const audience = await waitFor(() => panel('courseAssignments.ui.learners'));
     expect(audience).toContainElement(screen.getByRole('checkbox', { name: 'New Learner' }));
     expect(audience).toContainElement(screen.getByRole('group', { name: 'courseAssignments.ui.deliveryLegend' }));
     expect(screen.getByLabelText('courseAssignments.ui.courseLabel').closest('[data-workspace-toolbar]')).not.toBeNull();

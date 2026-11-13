@@ -359,7 +359,8 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
         if unapplied:
             assert any(i["id"] == "simple-v10-card-application" and i["blocking"] for i in issues)
         if fault == "two_findings":
-            rows = [i for i in issues if i["id"].startswith("simple-v10-post-")]
+            rows = [i for i in [*issues, *first.diagnostics['draft_review']['observations']]
+                    if i["id"].startswith("simple-v10-post-")]
             assert len(rows) == 2 and len({i["id"] for i in rows}) == 2 and sum(i["blocking"] for i in rows) == 1
         if fault == "body_finding":
             assert any("Unsupported body finding" in i["message"] and i["blocking"] for i in issues)
@@ -395,7 +396,7 @@ async def test_v10_assembled_owned_stages_and_cold_replay(monkeypatch, transport
             assert row["result_fingerprint"] == post["result_fingerprint"]
             assert any(
                 i["message"].startswith("Synthetic observation") and i["blocking"] == (fault == "parent_unresolved")
-                for i in issues
+                for i in first.diagnostics['draft_review']['observations' if fault == 'parent_resolved' else 'issues']
             )
     finally:
         client.close()

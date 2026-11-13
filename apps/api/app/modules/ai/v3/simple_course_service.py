@@ -334,6 +334,7 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
             'source_refs': finding['source_refs'], 'blocking': True,
             'evidence': {'unverified': True, 'source_fingerprint': packet.fingerprint,
                          'reviewed_draft_fingerprint': _digest(result.draft)}})
+    model_observations = []
     for row in receipt.get('review_finding_dispositions', []):
         if (row.get('source_fingerprint') != packet.fingerprint
                 or row.get('draft_fingerprint') != _digest(result.draft)
@@ -342,7 +343,7 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
         if not row.get('model_resolved'):
             continue  # The blocking unresolved issue is already materialized above.
         finding = row['finding']
-        issues.append({'id': 'simple-v9-model-' + row['id'], 'kind': 'editorial_review',
+        model_observations.append({'id': 'simple-v9-model-' + row['id'], 'kind': 'editorial_review',
             'target_id': finding['target']['id'] if finding['target']['kind'] in {'lesson', 'question'} else '',
             'message': finding['problem'] + '\nРешение ИИ-редактора: ' + row['decision']['reason'],
             'source_refs': finding['source_refs'], 'blocking': False,
@@ -381,6 +382,7 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
         'target_id': row['target_id'], 'message': row['correction'], 'source_refs': row['source_refs'],
         'blocking': False, 'evidence': {'unverified': True, 'reviewed_draft_fingerprint': _digest(result.draft)}}
         for i, row in enumerate(result.review['proposals'])]
+    observations.extend(model_observations)
     observations.extend(post_observations)
     diagnostics = {'generation_engine': 'v3_cogen', 'v3_review_policy': review_policy,
         'document_sha256': source_sha256, 'source_packet_fingerprint': packet.fingerprint,
@@ -398,6 +400,10 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
             'source_clarification_required': source_hold, 'content_review_required': True,
             'issues': issues, 'observations': observations}}
     title = course['title']
+    # Exercise the actual publication consumer before persisting generation metadata.
+    from app.modules.courses.draft_review import read_draft_review
+
+    read_draft_review({'evidence_v3': diagnostics})
     return GenerationArtifacts(
         CourseStructure(title=title, modules=[StructureModule(title=title, lessons=structures)]),
         CourseContent(title=title, modules=[ModuleContent(title=title, lessons=contents)]),

@@ -4,24 +4,102 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from app.modules.ai.v3.revision_policy import is_autonomous_editorial_policy
+from app.modules.ai.v3.revision_policy import (
+    SIMPLE_COURSE_REVIEW_V9_POLICY,
+    SIMPLE_COURSE_REVIEW_V10_POLICY,
+    SIMPLE_COURSE_REVIEW_V11_POLICY,
+    is_autonomous_editorial_policy,
+)
 
 DRAFT_REVIEW_VERSION = 'p30-editorial-draft-v1'
+
+
+def _legacy_model_observation(owner: dict[str, Any], manifest: dict[str, Any], row: object) -> bool:
+    """Recognize only the old serializer's misplaced, receipt-backed observation.
+
+    This is a read projection, never a resolution or a rewrite of stored evidence.
+    A false blocking flag alone cannot downgrade an unresolved finding.
+    """
+    if not isinstance(row, dict) or row.get('blocking') is not False:
+        return False
+    review = owner.get('simple_review')
+    if owner.get('v3_review_policy') not in (
+        SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY,
+    ) or not isinstance(review, dict):
+        return False
+    source = manifest.get('source_fingerprint')
+    result = manifest.get('draft_fingerprint')
+    post = review.get('postedit_card_review')
+    post_row = isinstance(row.get('id'), str) and row['id'].startswith('simple-v10-post-')
+    if post_row:
+        if (not isinstance(post, dict) or post.get('policy') != 'simple-postedit-card-review-v1'
+                or post.get('source_fingerprint') != source or post.get('result_fingerprint') != result
+                or post.get('semantic_approval') is not False):
+            return False
+        receipt = post.get('repair_receipt')
+        draft = post.get('reviewed_course_fingerprint')
+        receipt_key, prefix = 'finding_dispositions', 'simple-v10-post-'
+    else:
+        receipt = review.get('revision_receipt')
+        draft = review.get('draft_fingerprint')
+        receipt_key, prefix = 'review_finding_dispositions', 'simple-v9-model-'
+    if not isinstance(receipt, dict) or not isinstance(receipt.get(receipt_key), list):
+        return False
+    if (any(not isinstance(v, str) or len(v) != 64 for v in (source, draft, result))
+            or review.get('source_fingerprint') != source
+            or receipt.get('source_fingerprint') != source or receipt.get('draft_fingerprint') != draft):
+        return False
+    if post_row and (receipt.get('result_fingerprint') != result or receipt.get('semantic_approval') is not False):
+        return False
+    matches = [v for v in receipt[receipt_key] if isinstance(v, dict)
+               and isinstance(v.get('id'), str) and v['id']
+               and row.get('id') == prefix + v['id']]
+    if len(matches) != 1:
+        return False
+    disposition = matches[0]
+    finding, decision = disposition.get('finding'), disposition.get('decision')
+    if (disposition.get('model_resolved') is not True or disposition.get('evidence_valid') is not True
+            or disposition.get('semantic_approval') is not False or disposition.get('status') != 'UNVERIFIED'
+            or disposition.get('claimed_status') not in ('CORRECTED', 'ALREADY_SATISFIED', 'NOT_MATERIAL')
+            or disposition.get('source_fingerprint') != source or disposition.get('draft_fingerprint') != draft
+            or disposition.get('result_fingerprint') != result
+            or not isinstance(finding, dict) or not isinstance(decision, dict)
+            or not isinstance(finding.get('target'), dict)
+            or not isinstance(finding.get('problem'), str) or not isinstance(decision.get('reason'), str)
+            or decision.get('finding_id') != disposition['id']
+            or decision.get('status') != disposition.get('claimed_status')):
+        return False
+    expected = {'id': prefix + disposition['id'], 'kind': 'editorial_review',
+        'target_id': finding['target'].get('id') if finding['target'].get('kind') in ('lesson', 'question') else '',
+        'message': finding['problem'] + ('\n' if post_row else '\nРешение ИИ-редактора: ') + decision['reason'],
+        'source_refs': finding.get('source_refs'), 'blocking': False,
+        'evidence': {'unverified': True, 'model_disposition': disposition['claimed_status'],
+            'semantic_approval': False, 'source_fingerprint': source,
+            'reviewed_draft_fingerprint': draft, 'result_fingerprint': result}}
+    return row == expected
 
 
 def read_draft_review(analysis: object) -> dict[str, Any] | None:
     if not isinstance(analysis, dict):
         return None
+    raw = [analysis[key]['draft_review'] for key in ('evidence_v3', 'diagnostics')
+           if isinstance(analysis.get(key), dict) and 'draft_review' in analysis[key]]
+    if raw and any(value != raw[0] for value in raw):
+        raise ValueError('draft_review_manifest_conflict')
     found = []
     for key in ('evidence_v3', 'diagnostics'):
         owner = analysis.get(key)
         if isinstance(owner, dict) and 'draft_review' in owner:
-            value = owner['draft_review']
+            value = deepcopy(owner['draft_review'])
             if (not isinstance(value, dict) or value.get('version') != DRAFT_REVIEW_VERSION
                     or value.get('generation_status') != 'draft_prepared'
-                    or value.get('self_review_status') not in {'passed', 'needs_attention'}
+                    or value.get('self_review_status') not in ('passed', 'needs_attention')
                     or value.get('human_review_required') is not True):
                 raise ValueError('draft_review_manifest_invalid')
+            if isinstance(value.get('issues'), list) and isinstance(value.get('observations'), list):
+                projected = [row for row in value['issues'] if _legacy_model_observation(owner, value, row)]
+                value['issues'] = [row for row in value['issues'] if row not in projected]
+                value['observations'].extend(projected)
             if value.get('content_review_required') is False:
                 receipt = value.get('automated_acceptance')
                 if (not is_autonomous_editorial_policy(owner.get('v3_review_policy'))

@@ -15,6 +15,7 @@ import { Archive, ArrowRight, BookOpen, ChevronDown, GraduationCap, MoreVertical
 import { LoadError } from '@/components/ui/LoadError';
 import { RecordList } from '@/features/workspace-design/RecordList';
 import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
+import { CourseProvenance } from '@/features/course-catalog/CourseProvenance';
 
 type BlueprintLocale = 'ru' | 'kk';
 type ComplianceMode = 'lms_only' | 'blended' | 'external_certified';
@@ -43,6 +44,9 @@ interface CatalogCourse extends CourseWithBlueprintSource {
   review_status?: string;
   delivery_type?: string;
   current_release_id?: string | null;
+  author_name?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 type CourseResult = {
@@ -309,6 +313,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
         <Link href={`/courses/${course.id}`} className="rounded-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{course.title}</Link>
       </h3>
       {course.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{course.description}</p>}
+      <CourseProvenance authorName={course.author_name} createdAt={course.created_at} updatedAt={course.updated_at} lang={lang} />
       <div className="mt-3 flex flex-wrap gap-2">
         {course.ai_generated && <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">AI</span>}
         {getSourceBlueprintId(course) && <span className="rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{t('courses.blueprint.badge')}</span>}

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.11.108] - 2026-11-13
+
+### Fixed
+
+- Keep resolved model observations separate from blocking review findings. Read previously saved, exactly receipt-bound observations without rewriting source history, content or outstanding approval requirements. Validate the publication manifest before saving generated artifacts.
+
+### Changed
+
+- Show recorded course author and creation/update timestamps in the course catalog.
+- Open course-context assignment directly on recipient selection, retain the exact course, and separate new assignments from current enrollment and recurring management.
+
 ## [0.11.107] - 2026-11-13
 
 ### Fixed

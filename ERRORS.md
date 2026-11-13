@@ -8205,6 +8205,18 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
 
 ## OPS-012 - Unused API images exhausted host headroom and failed watchdog closeout
 
+- **Действующее разрешение владельца, 13.11.2026:** при необходимости выполнять
+  штатную очистку устаревших остановленных DEV-копий без томов и неиспользуемых
+  локальных образов с проверенной registry-восстановимостью без нового ожидания
+  подтверждения каждого списка. Границы, сохранение рабочих сервисов/откатов/данных,
+  manifest, lease и проверки до/после обязательны по `AGENTS.md`. Исторические
+  запросы отдельных разрешений ниже сохраняются как история, а не требование
+  снова останавливать такую очистку. Разрешение на прежние три101/102/103 уже
+  выполнено; новая запись владельца даёт самостоятельное основание для будущей
+  проверенной штатной очистки, не для повторного исполнения старого manifest.
+
+- 2026-11-13 candidate107: after attested image pull actualfree5.50GiB correctlyblocked unchanged6GiBpreflight before worker drain; production90/currentDEV106 unchanged. Exact oldDEV101/102/103 cleanup prepared with0mounts/soleimage refs/registry3manifest+blobproof, current106/immediate105/additional104 preserved. Fresh ownerapproval requested; prior8+4+4 permissions consumed. No cleanup performed pending answer. Do not rerun unchangedfailedpreflight or remove more snapshots implicitly.
+
 - Date: 2026-10-01.
 - Symptom: production25 runtime was healthy but VM126 disk90% made the installed
   watchdog critical; guarded identity update restored its exact old config.
@@ -10867,3 +10879,8 @@ Binary/source helper followup106 2026-11-13T01:56:46.587558+00:00: ignored paidc
 
 
 2026-11-13T02:26:32.595882+00:00 OwnedDEVmodelapplication106: bothPATCHs200committed, post-write localguard incorrectly expected updated_at unchanged. No PATCH retry. SeparateGETonlyreconciliation proves exacttwo modelbodies/7peers/35questionrecords/source22 unchanged except intendedprose+legitimate targetupdated_at. Originalguardfailurepreserved. Read-onlyautonomous profile probe was hypotheticalmax65536, not actualnativefingerprint9e; r3coldprofilematchunavailable, neverclaim actualnativecap65536 or changeproviderprofile; actualV11sourceforces thinkingON/LOW and paidrouteproof22Deepseekcompletions. No extra paidcall.
+
+
+2026-11-13 CHG-L107A delivery-helper recurrences (AGENT-ACCEPTANCE-HARNESS-001 / AI-REALIZATION-001): cloned same-SHA image handoff incorrectly set expected_previous_sha==release_sha; canonicalload_packet rejected beforeprovideractions. Preservefailure; actualnewworkerwasalreadyhealthy. Keep originalprior106sourceSHA for107 reconciliation, validatepacketLOCALLY beforehandoff; r2controllerRELEASE_OK. Isolatedrestorehelper retained temporary canonicalbasenameNov11 whileactualencryptedbackupwasNov13: actualunchangedtoolRPO24h rejected; DB/temp/reportabsence0/0/0 verifiedREADONLY, then derivecanonicalUTCsuffixfromactualbackup (noencryptionbyte/ageguardchange), newR2signedrestorePASS/ownedcleanup. Approvalhelper guessedmissing blockerskey inindependentreviewartifact: stoppedbeforeapprovalintent/POST; requireactualresult+sevenexplicittruechecks. Postreadback expectedsourcefullhex metadata triggeredtelephonepatternLOCALLY; preserveblockedreceipt, reusecanonical8chardigestchunks withall201digestsequal, secretfilterunchanged. These areoperatorhelpererrors, notmodel/course regressions; no engine/prompts/reasoningchanges ornewmodelcallsfromfixes.
+
+2026-11-13T05:50:03.243885+00:00 QA-001 producer/consumer recurrence: earlier full managed/cold replay tests asserted model observations in the wrong issues bucket without exercising the actual strict publication reader. Production107 live acceptance found deterministic manifest failure despite contentGO. Fix executes real shared publication consumer before persistence and adds saved-manifest full snapshot/HTTPinspect/resolve/audit regression, not another model critic; initial9 stale assertions retained asfailed evidence then updated to preserve allsameIDs/flags/evidence in correctbucket. Operatordiagnostic r1 omitted ORMregistryimport and r2 emitted anglebracket frame labels forbiddenbyexisting EVIDENCE contract; bothreadonly0writes/0modelcalls failures retained, r3importsappregistry/sanitizesframecharacters then provesactualValueError. Existing secretfilter/capsunchanged. LocalfrontendUI againstDEV failed403browser_origin_forbidden; not passwordfailure and not authoritytochangeCORS. CanonicaldeployedDEVbrowser isnextpath.

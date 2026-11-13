@@ -39,6 +39,7 @@ class CourseResponse(BaseModel):
     source_combination_goal: str | None = None
     source_analysis: dict = Field(default_factory=dict)
     created_by: UUID | None = None
+    author_name: str | None = None
     created_at: datetime
     updated_at: datetime
     published_at: datetime | None = None

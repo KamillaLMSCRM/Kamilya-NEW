@@ -264,6 +264,8 @@ def postedit_review_state(result: SimpleCourseResult, packet: Any) -> tuple[list
             'message': 'Правки вопросов не применены. Проверьте сохранённые вопросы.',
             'source_refs': [next(b.block_id for b in packet.blocks if b.text.strip())],
             'blocking': True, 'evidence': {**common, 'application_error': post['application_error']}})
+    observations.extend(row for row in issues if row['blocking'] is False)
+    issues = [row for row in issues if row['blocking'] is True]
     return issues, observations, source_hold
 
 

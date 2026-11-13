@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
@@ -94,6 +95,19 @@ async def _hydrate_reviewer(db: AsyncSession, course: Course) -> CourseReviewer 
     return CourseReviewer.model_validate(user)
 
 
+async def _hydrate_course_authors(db: AsyncSession, courses: Sequence[Course], tenant_id: object) -> None:
+    """One tenant-filtered name projection; never expose foreign authors or emails."""
+    ids = {course.created_by for course in courses if course.created_by}
+    names = {}
+    if ids:
+        rows = (await db.execute(select(User.id, User.first_name, User.last_name).where(
+            User.tenant_id == tenant_id, User.id.in_(ids)))).all()
+        names = {row.id: ' '.join(part.strip() for part in (row.first_name, row.last_name)
+                                  if isinstance(part, str) and part.strip()) or None for row in rows}
+    for course in courses:
+        cast(Any, course).author_name = names.get(course.created_by)
+
+
 @router.get("", response_model=list[CourseResponse])
 async def list_courses(
     status: str | None = Query(None, description="Filter by status: draft, published, archived"),
@@ -127,6 +141,7 @@ async def list_courses(
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
     courses = result.scalars().all()
+    await _hydrate_course_authors(db, courses, user.tenant_id)
     # Hydrate reviewer info on each course
     out = []
     for c in courses:
@@ -196,6 +211,7 @@ async def get_course(
     user: User = Depends(get_current_user),
 ):
     course = await require_course_access(db, course_id, user)
+    await _hydrate_course_authors(db, [course], user.tenant_id)
     course.reviewer = await _hydrate_reviewer(db, course)
     return course
 

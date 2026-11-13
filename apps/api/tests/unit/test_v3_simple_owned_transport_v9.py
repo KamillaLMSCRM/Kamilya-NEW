@@ -232,7 +232,8 @@ async def test_v9_real_decoders_and_owned_cold_replay(monkeypatch, transport, in
             row = review['revision_receipt']['review_finding_dispositions'][0]
             assert row['model_resolved'] == (fault == 'finding_resolved')
             assert row['semantic_approval'] is False
-            issue = next(issue for issue in first.diagnostics['draft_review']['issues']
+            bucket = 'observations' if fault == 'finding_resolved' else 'issues'
+            issue = next(issue for issue in first.diagnostics['draft_review'][bucket]
                          if issue['message'].startswith('Synthetic observation'))
             assert issue['blocking'] == (fault == 'finding_unresolved')
         assert first.diagnostics['requires_source_review'] == any(

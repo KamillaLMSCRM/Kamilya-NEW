@@ -158,9 +158,10 @@ async def test_safe_card_fix_retains_distinct_findings_and_upstream_holds(base_c
     assert result.course["lessons"][0]["content"] == base.course["lessons"][0]["content"]
     assert result.course["lessons"][0]["title"] == base.course["lessons"][0]["title"]
     assert result.course["lessons"][0]["questions"][1:] == base.course["lessons"][0]["questions"][1:]
-    qissues = [i for i in issues if i["target_id"] == qid]
+    qissues = [i for i in [*issues, *observations] if i["target_id"] == qid]
     assert len(qissues) == 2 and len({i["id"] for i in qissues}) == 2
     assert any(not i["blocking"] for i in qissues) and any(i["blocking"] for i in qissues)
+    assert all(i['blocking'] for i in issues) and all(not i['blocking'] for i in observations)
     assert any(o["message"] == "Editor speculation" and not o["blocking"] for o in observations)
 
 
@@ -181,9 +182,9 @@ async def test_noop_not_material_is_unverified_model_claim(base_case):
     qid = base.course["lessons"][0]["questions"][0]["id"]
     stage, _ = stage_for(packet, base, findings=[finding(qid)], edit=False, decision="NOT_MATERIAL")
     result = await complete_card_review_v10(packet, corpus, {}, base, stage)
-    issues, _, _ = postedit_review_state(result, packet)
-    assert result.course == base.course and len(issues) == 1 and not issues[0]["blocking"]
-    assert issues[0]["evidence"]["unverified"] and not issues[0]["evidence"]["semantic_approval"]
+    issues, observations, _ = postedit_review_state(result, packet)
+    assert result.course == base.course and not issues and len(observations) == 1 and not observations[0]["blocking"]
+    assert observations[0]["evidence"]["unverified"] and not observations[0]["evidence"]["semantic_approval"]
 
 
 @pytest.mark.asyncio

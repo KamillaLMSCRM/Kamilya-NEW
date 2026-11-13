@@ -138,6 +138,7 @@ interface RecurringOccurrence {
 // возвращает все записи разом — фильтрация дешевле клиентом).
 type StatusFilter = 'all' | 'enrolled' | 'in_progress' | 'completed';
 type DeliveryMode = 'email' | 'personal_link';
+type AssignmentMode = 'compose' | 'manage';
 
 // ── helpers ────────────────────────────────────────────────
 
@@ -229,6 +230,7 @@ function AssignmentsContent() {
   const [repeating, setRepeating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [enrollmentReadState, setEnrollmentReadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [invalidCourseSelection, setInvalidCourseSelection] = useState<string | null>(null);
   const enrollmentRequest = useRef(0);
   const alive = useRef(true);
   const assignmentCommand = useRef(false);
@@ -249,6 +251,9 @@ function AssignmentsContent() {
   const [savingReminderRuleIds, setSavingReminderRuleIds] = useState<Set<string>>(new Set());
   const [reminderHistories, setReminderHistories] = useState<Record<string, ReminderHistoryState>>({});
   const searchParams = useSearchParams();
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>(() => (
+    searchParams.get('enrollment_id') ? 'manage' : 'compose'
+  ));
   const [enrollmentFocus, setEnrollmentFocus] = useState<string | null>(() => {
     const value = searchParams.get('enrollment_id');
     return value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null;
@@ -421,8 +426,17 @@ function AssignmentsContent() {
     // Do not mark contextual preselection complete until every referenced
     // entity is present. Fetch effects can commit their collections in
     // separate renders, and an early ref flip would strand an empty picker.
-    if ((courseId && !courses.some((course) => course.id === courseId)) || userIds.some((id) => !users.some((user) => user.id === id))) return;
+    if (courseId && !courses.some((course) => course.id === courseId)) {
+      // A deep link must never silently fall back to another published course.
+      setInvalidCourseSelection(courseId);
+      setAssignmentMode('compose');
+      preselectionApplied.current = true;
+      return;
+    }
+    if (userIds.some((id) => !users.some((user) => user.id === id))) return;
     if (courseId && courses.some((course) => course.id === courseId)) {
+      setInvalidCourseSelection(null);
+      if (searchParams.get('enrollment_id')) setAssignmentMode('manage');
       void fetchEnrollments(courseId);
     }
     if (userIds.length) {
@@ -521,6 +535,7 @@ function AssignmentsContent() {
         toast.success(t('courseAssignments.success.personalLinkReady'));
         setSelectedUsers(new Set());
         await fetchEnrollmentsRef.current(selectedCourse);
+        if (commandIsCurrent()) setAssignmentMode('manage');
         return;
       }
       const res = await fetch(`${API_URL}/v1/courses/${selectedCourse}/enrollments`, {
@@ -553,6 +568,7 @@ function AssignmentsContent() {
       }
       setSelectedUsers(new Set());
       await fetchEnrollmentsRef.current(selectedCourse);
+      if (commandIsCurrent()) setAssignmentMode('manage');
     } catch (err: any) {
       if (commandIsCurrent()) toast.error(t('common.saveFailed'), { description: err?.message });
     } finally {
@@ -1194,6 +1210,7 @@ function AssignmentsContent() {
               value={selectedCourse}
               onChange={(e) => {
                 setAccessLinks([]);
+                setInvalidCourseSelection(null);
                 setEnrollmentFocus(null);
                 void fetchEnrollments(e.target.value, !selectedCourse);
               }}
@@ -1216,8 +1233,29 @@ function AssignmentsContent() {
             </div>
       </WorkspaceToolbar>
 
-      <div className="min-w-0 space-y-6">
-        <WorkspacePanel title={t('courses.enrollments')} padded={false} bodyClassName="min-w-0 space-y-4 p-4 sm:p-6">
+      {invalidCourseSelection && (
+        <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          {lang === 'kk'
+            ? 'Бұл курс қолжетімсіз немесе жарияланбаған. Басқа курсты таңдаңыз.'
+            : lang === 'en'
+              ? 'This course is unavailable or unpublished. Choose another course.'
+              : 'Этот курс недоступен или не опубликован. Выберите другой курс.'}
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3" role="group" aria-label={lang === 'en' ? 'Assignment mode' : lang === 'kk' ? 'Тағайындау режимі' : 'Режим назначения'}>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant={assignmentMode === 'compose' ? 'default' : 'outline'} aria-pressed={assignmentMode === 'compose'} onClick={() => { setAssignmentMode('compose'); setEnrollmentFocus(null); }}>
+              {lang === 'en' ? 'Assign' : lang === 'kk' ? 'Тағайындау' : 'Назначить'}
+            </Button>
+            <Button type="button" size="sm" variant={assignmentMode === 'manage' ? 'default' : 'outline'} aria-pressed={assignmentMode === 'manage'} onClick={() => setAssignmentMode('manage')}>
+              {lang === 'en' ? 'Current assignments' : lang === 'kk' ? 'Ағымдағы тағайындаулар' : 'Текущие назначения'}
+            </Button>
+          </div>
+        </div>
+
+        {assignmentMode === 'manage' && <WorkspacePanel title={t('courses.enrollments')} padded={false} bodyClassName="min-w-0 space-y-4 p-4 sm:p-6">
 
             {selectedCourse && (
               <>
@@ -1306,10 +1344,10 @@ function AssignmentsContent() {
                 )}
               </>
             )}
-        </WorkspacePanel>
+        </WorkspacePanel>}
 
         {/* New audience and delivery settings stay separate from existing enrollments. */}
-        <WorkspacePanel title={t('courseAssignments.ui.learners')} bodyClassName="space-y-5" actions={
+        {assignmentMode === 'compose' && <WorkspacePanel title={t('courseAssignments.ui.learners')} bodyClassName="space-y-5" actions={
               <Button
                 onClick={handleEnroll}
                 disabled={
@@ -1322,7 +1360,76 @@ function AssignmentsContent() {
                   : t('courseAssignments.ui.assignCount', { count: selectedUsers.size })}
               </Button>
         }>
+          {selectedCourse && (
+            <div data-testid="selected-assignment-course" className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+              <span className="font-medium">{lang === 'en' ? 'Course' : lang === 'kk' ? 'Курс' : 'Курс'}:</span>{' '}
+              {courses.find((course) => course.id === selectedCourse)?.title || selectedCourse}
+            </div>
+          )}
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
+            <div className="min-w-0 space-y-4">
+            {enrollmentReadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
+            {enrollmentReadState === 'error' && <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 p-3 text-sm"><p>{t('common.loadFailed')}</p><Button type="button" variant="outline" size="sm" onClick={() => void fetchEnrollments(selectedCourse)}>{m.retry}</Button></div>}
+            <p className="text-sm text-muted-foreground">
+              {selectedCourse && enrollmentReadState !== 'ready' ? m.recipientsUnknown : selectedCourse
+                ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
+                : t('courseAssignments.ui.selectCourseHint')}
+            </p>
+            <SearchInput
+              value={userSearch}
+              onChange={setUserSearch}
+              placeholder={t('courseAssignments.ui.searchLearner')}
+            />
+            <div className="max-h-96 overflow-y-auto space-y-2 rounded-xl border border-border p-2">
+              {selectedCourse && enrollmentReadState !== 'ready' ? null : availableUsers.length === 0 && users.length > 0 ? (
+                <p className="text-xs text-muted-foreground p-2">
+                  {selectedCourse
+                    ? t('courseAssignments.ui.allAlreadyAssigned')
+                    : t('courseAssignments.ui.selectCourseToList')}
+                </p>
+              ) : (
+                availableUsers.map((user) => (
+                  <label
+                    key={user.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer ${
+                      selectedUsers.has(user.id)
+                        ? 'bg-primary/10'
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      aria-label={`${user.first_name} ${user.last_name}`.trim()}
+                      checked={selectedUsers.has(user.id)}
+                      onChange={() => toggleUser(user.id)}
+                      disabled={!selectedCourse}
+                      className="rounded"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">
+                        {user.first_name} {user.last_name}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {user.position_name && `${user.position_name} · `}
+                        {user.email || t('courseAssignments.ui.emailMissing')}
+                        {user.personnel_number && ` · ${user.personnel_number}`}
+                      </div>
+                      {user.has_login_access === false && (
+                        <div className="mt-1 text-xs font-medium text-warning">
+                          {t('courseAssignments.ui.accessLinkAfterAssignment')}
+                        </div>
+                      )}
+                      {deliveryMode === 'email' && !user.email?.trim() && (
+                        <div className="mt-1 text-xs font-medium text-warning">
+                          {t('courseAssignments.ui.personalLinkRequired')}
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+            </div>
             <div className="min-w-0 space-y-4 rounded-xl bg-muted/25 p-4">
             <fieldset className="space-y-3 rounded-md border border-border p-3">
               <legend className="px-1 text-sm font-medium">{t('courseAssignments.ui.deliveryLegend')}</legend>
@@ -1407,83 +1514,26 @@ function AssignmentsContent() {
                 </p>
               )}
             </fieldset>
-            <AssignmentSelectionPreview
-              lang={lang}
-              courseTitle={courses.find((course) => course.id === selectedCourse)?.title}
-              names={users.filter((learner) => selectedUsers.has(learner.id)).map((learner) => `${learner.first_name} ${learner.last_name}`.trim())}
-              existingCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse).map((item) => item.user_id)).size : null}
-              completedCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse && item.status === 'completed').map((item) => item.user_id)).size : null}
-              deliveryLabel={t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email')}
-            />
-            </div>
-            <div className="min-w-0 space-y-4">
-            {enrollmentReadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
-            {enrollmentReadState === 'error' && <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 p-3 text-sm"><p>{t('common.loadFailed')}</p><Button type="button" variant="outline" size="sm" onClick={() => void fetchEnrollments(selectedCourse)}>{m.retry}</Button></div>}
-            <p className="text-sm text-muted-foreground">
-              {selectedCourse && enrollmentReadState !== 'ready' ? m.recipientsUnknown : selectedCourse
-                ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
-                : t('courseAssignments.ui.selectCourseHint')}
-            </p>
-            <SearchInput
-              value={userSearch}
-              onChange={setUserSearch}
-              placeholder={t('courseAssignments.ui.searchLearner')}
-            />
-            <div className="max-h-96 overflow-y-auto space-y-2 rounded-xl border border-border p-2">
-              {selectedCourse && enrollmentReadState !== 'ready' ? null : availableUsers.length === 0 && users.length > 0 ? (
-                <p className="text-xs text-muted-foreground p-2">
-                  {selectedCourse
-                    ? t('courseAssignments.ui.allAlreadyAssigned')
-                    : t('courseAssignments.ui.selectCourseToList')}
-                </p>
-              ) : (
-                availableUsers.map((user) => (
-                  <label
-                    key={user.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer ${
-                      selectedUsers.has(user.id)
-                        ? 'bg-primary/10'
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      aria-label={`${user.first_name} ${user.last_name}`.trim()}
-                      checked={selectedUsers.has(user.id)}
-                      onChange={() => toggleUser(user.id)}
-                      disabled={!selectedCourse}
-                      className="rounded"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">
-                        {user.first_name} {user.last_name}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {user.position_name && `${user.position_name} · `}
-                        {user.email || t('courseAssignments.ui.emailMissing')}
-                        {user.personnel_number && ` · ${user.personnel_number}`}
-                      </div>
-                      {user.has_login_access === false && (
-                        <div className="mt-1 text-xs font-medium text-warning">
-                          {t('courseAssignments.ui.accessLinkAfterAssignment')}
-                        </div>
-                      )}
-                      {deliveryMode === 'email' && !user.email?.trim() && (
-                        <div className="mt-1 text-xs font-medium text-warning">
-                          {t('courseAssignments.ui.personalLinkRequired')}
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                ))
-              )}
-            </div>
+            {selectedUsers.size > 0 ? (
+              <AssignmentSelectionPreview
+                lang={lang}
+                courseTitle={courses.find((course) => course.id === selectedCourse)?.title}
+                names={users.filter((learner) => selectedUsers.has(learner.id)).map((learner) => `${learner.first_name} ${learner.last_name}`.trim())}
+                existingCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse).map((item) => item.user_id)).size : null}
+                completedCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse && item.status === 'completed').map((item) => item.user_id)).size : null}
+                deliveryLabel={t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email')}
+              />
+            ) : (
+              <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-testid="assignment-selection-empty">
+                {lang === 'en' ? '0 employees selected' : lang === 'kk' ? '0 қызметкер таңдалды' : 'Выбрано сотрудников: 0'}
+              </p>
+            )}
             </div>
           </div>
-        </WorkspacePanel>
+        </WorkspacePanel>}
       </div>
 
-      <WorkspacePanel title={t('courseAssignments.ui.recurringTitle')} description={t('courseAssignments.ui.recurringDescription')} bodyClassName="space-y-4">
+      {assignmentMode === 'manage' && <WorkspacePanel title={t('courseAssignments.ui.recurringTitle')} description={t('courseAssignments.ui.recurringDescription')} bodyClassName="space-y-4">
           <WorkspaceToolbar className="bg-muted/25 shadow-none">
             <label className="min-w-0 max-w-full text-sm">
               {t('courseAssignments.ui.course')}
@@ -1620,7 +1670,7 @@ function AssignmentsContent() {
               );
             })}
           </div>
-      </WorkspacePanel>
+      </WorkspacePanel>}
 
       {dialog}
     </WorkspacePage>

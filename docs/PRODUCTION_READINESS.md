@@ -1,3 +1,7 @@
+## CURRENT 2026-11-13T05:55:35.368558+00:00 — LOCAL108 accepted; production107 content GO, live approval blocked
+
+Production107652393db/image08fd and nativefrontend86 remain active; source107/new5L18Q contentGO but fullflow notaccepted: source review409 due ENG072 serializer manifest defect. LOCAL108 fixes metadata buckets and exactreceipt-only legacy reading without source/course/history rewrite, prompts or newinference. Fullbackend8799PASS1skip, web195files1766PASS, final67pagebuild/type/scopedlint/quality1004-2174/version20PASS; saved3native+newprod manifests recovered0calls. ActualDEV108 and protectedproduction/nativefrontend108 remain pending. Ownernewcourseauthor/dates and recipientfirstassignment UX included. See latestCODEX_HANDOFF and H18/local108-root-review.json; do not use older statusheaders asruntime truth. Standingroutinecleanupauthority inAGENTS/OPS01213Nov preservesalllive/currentrollback/extra recovery/DB/volumes/customer/backups.
+
 # Current 2026-11-13T00:10:18.396331+00:00 — LOCAL106 final integration; DEV105/PDF held; production90 unchanged
 
 Canonical handoff top overrides stale historical headers below. BrowserQA methodologist login/exactheldjob works;0newgenerations. Full8755localtests/quality/contracts/actual38+35+14descriptors0calls passed before final retained-metadata transport completion; final gates pending. Nine existing runtime files, no semantic prompt/source/schema change. Nativecash/DS/protectedprod/live OPEN, sameDSUSD1spent0/cleanupauthority0.
