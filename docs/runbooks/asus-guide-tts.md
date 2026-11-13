@@ -113,3 +113,7 @@ retained exact IDs/images/start times/restart counts/running states. Host free
 space 58,929,659,904 bytes; MemAvailable 37,299,855,360 bytes at that observation.
 Do not infer a live capacity guarantee from this historical sample. The guide
 still requires separate screenshot/media/browser acceptance before publication.
+
+## Completed publication snapshot
+
+Frontend0.11.109/91f359cd36ca2ea9a1cce6bd2e53e068003bb612 published13November2026 after local, DEV and live production guide/help acceptance. Eight videos/33steps; actual release evidence and minor initial-poster advisory are in CODEX_HANDOFF and TEST_RUN_LEDGER. TTS remains a one-shot offline production tool; no runtime listener/daemon was installed. Task-only workstation proxies were stopped; existing ASUS containers remain unchanged.

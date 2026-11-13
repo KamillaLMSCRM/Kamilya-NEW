@@ -1,3 +1,9 @@
+## Current methodologist instruction/help frontend109 — 2026-11-13T17:04:48.037324+00:00
+
+Native production frontend and stable DEV frontend: `91f359cd36ca2ea9a1cce6bd2e53e068003bb612`, product0.11.109. Production API/workers remain0.11.108; this was frontend-only, no database or business-data changes. DEV project existingHobby `kamilya-lms-dev`, current `dpl_FAXBhSJhnVfFNN4EvhnGSZPDyPJN`; original108deployment retained. Gitdev remainsdc23; API/worker unchanged. Reserveprojectweb also exact91f/READY. Actual ordinary synthetic methodologist help/media accepted.
+
+Eight new Qwen syntheticmale videos/33source screenshots and six localized help topics were authored by ASUS DeepSeek. Isolated Qwen TTS on `gx10-4` is an offline media-production tool, not an LMS runtime dependency; see [ASUS guide TTS runbook](runbooks/asus-guide-tts.md). Native109 retains108/86/explicitextras; only recoverableobsolete85 removed under standingcapacity authority. Full evidence/currentadvisory in CODEX_HANDOFF and TEST_RUN_LEDGER. Unknown Vercel preview origins remain forbidden by CORS; do not interpret a generic login message as password failure or expand origins for QA. StableDEV origin login works with the canonical documented QA identity.
+
 ## Auxiliary narration tool, 2026-11-13
 
 Owner-authorized Qwen3-TTS installed in an isolated CPU-only venv on existing
