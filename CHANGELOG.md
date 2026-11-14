@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.110] - 2026-11-14
+
+### Fixed
+
+- Show the selected methodologist video step immediately, including before the first Play, while preserving paused navigation and native playback.
+
 ## [0.11.109] - 2026-11-13
 
 ### Changed

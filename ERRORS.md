@@ -1,3 +1,12 @@
+## GUIDE-SEEK-001 — nominal audio starts did not match encoded scene frames
+
+- Date: 2026-11-14. Scope: methodologist guide frontend, not engine/media content.
+- Symptom: first step selection changes currentTime/captions but still shows the previous scene until Play. Production109 and local screenshot regression: selected-frame error67.11 versus initial-frame error1.76.
+- Cause: segment_starts sums WAV durations; MP4 concat includes video frame quantization/AAC priming. Step2 nominal17.280 precedes actual encoded clip start17.309310. ffmpeg seek screenshots choose the next frame, so the original root diagnosis of native show-poster behavior was incorrect. The independent actual-keyframe probe shows correct paused frames across8chapters without Play.
+- Fix: use actual encoded segment-start keyframe timestamps, rounded up to the button millisecond precision, with validated bounded unique mapping. Keep existing pause/native seek; remove rejected poster/canvas/priming workarounds and temporary embedded previews. Preserve all32accepted media bytes.
+- Verification: original red screenshot and all failed proposals retained in .release-evidence/guide-step-seek-20261114. Encoded-boundaries.json plus actual-boundary-probe-r2 proves the cause, not full release acceptance. LOCAL fullstep/DEV/production gates remain open.
+- Prevention: compare actual displayed pixels with an independently decoded frame before any Play. Validate button times against encoded media rather than WAV durations; include regular keyframes immediately before a scene boundary. Timing/readyState alone is insufficient. Never hide a failed hypothesis or relabel a root diagnosis as proven without discriminating probes.
+
 ## GUIDE-WORKER-002 — auxiliary author transport and verification assumptions
 
 - Date: 2026-11-13; local tutorial task, not a generation-engine change.
@@ -899,7 +908,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-13.
+Current as of: 2026-11-14.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.

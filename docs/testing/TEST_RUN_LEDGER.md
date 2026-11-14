@@ -1,3 +1,9 @@
+## RUN-20261114-GUIDE-SEEK110-LOCAL
+
+- ASUS DeepSeek authored final encoded_step_starts/render_index change. Root technical review/tests only. Previous poster/canvas/priming proposals rejected and retained privately; no such workaround remains. Actual MP4 clip boundaries differ from cumulative WAV starts by about20–43ms; original secondstep17.280 precedes17.309310 actualframe. Correctceil17.310 passes the previously red pixel comparison.
+- LOCAL:19Python cases/1optional skip (18passed), typecheck/scopedlint PASS. Real browser42pixelchecks cover33unique steps/8chapters: eachfirststep2beforeanyPlay, zero, rapidlatest, nativeplay and onevideoatatime, returntopaused; noautomaticPlayevents/pageerrors. ActualIABuploadframecorrect at17.310 paused, screenshot retained. All32media and textguide bytes unchanged. Rootapprovalfixturehash refreshed ONLY for corrected videoHTML.
+- Scope/evidence: .release-evidence/guide-step-seek-20261114/local-r6-full-result.json, python-tests.log, encoded-boundaries.json, local-correct-first-step.png. Fullfrontend/build/DEV/production remain separate OPEN gates until explicit receipts.
+
 ## RUN-20261111-SOURCE-UNIT93-LOCAL
 
 -30focused tests PASS1.52s; pure source-unit actual ManagedLuna.prepare/shipped

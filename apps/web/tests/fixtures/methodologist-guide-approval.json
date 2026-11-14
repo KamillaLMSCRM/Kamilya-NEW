@@ -3,7 +3,7 @@
   "status": "APPROVED",
   "review_status": "APPROVED",
   "approved_by": "root",
-  "approved_at": "2026-11-13T15:50:31.874068+00:00",
+  "approved_at": "2026-11-14T06:03:29.962471+00:00",
   "media_folder": "methodologist-qwen-male-20261113",
   "chapter_ids": [
     "01-sources",
@@ -23,7 +23,7 @@
   "source_manifest_sha256": "111ac4ce9f4cf814271c424fa6726ec2fa6a6e727c6b7842294ad8c01863c1ab",
   "media_manifest_sha256": "58ac64e9b25d07104913cddf45d5228c30c30613ac29f99fb1ca60974d9312aa",
   "html_sha256": {
-    "methodologist.html": "24842c32419c8bb3b454d91f373d22506a05f67cc5b5a92d3d417a7d83b18f8c",
+    "methodologist.html": "716c3f30ed5ac9e1b56c19da89b8823ddbb313f9fffc889e91005d5def814115",
     "methodologist-text.html": "515b84d590bc84e2e01e0614fe6fe76ab33b3ba9620a32753aa45f1b45ca2e97"
   },
   "approval_scope": "LOCAL instructional content and media; DEV and production acceptance separate",
@@ -34,5 +34,6 @@
   "human_listening": "NOT_CLAIMED; all33 modeltext/hash/audio/ASR reviewed, material fidelity accepted",
   "author": "owner-selected ASUS DeepSeek; Qwen3TTS syntheticmale, root no instructional writing",
   "preserved_guidance": "conditional separate quiz approval; learner completion; result form SECTION nested in results flow; actual UI/browser/offline verified",
-  "byte_normalization": "Reviewed CRLF-to-LF only; all8MP4/8JPG bytes identical; text content/scripts/styles unchanged, deterministic LF writer regression14 tests."
+  "byte_normalization": "Reviewed CRLF-to-LF only; all8MP4/8JPG bytes identical; text content/scripts/styles unchanged, deterministic LF writer regression14 tests.",
+  "step_navigation": "LOCAL110 all33steps/42actual pixelchecks/8firstclickbeforePlay, zero and rapidlatest, nativePlay/onevideo/noautoplay PASS. Timings from encoded clip keyframes ceil-to-ms; original32media unchanged. DEV/production separate."
 }

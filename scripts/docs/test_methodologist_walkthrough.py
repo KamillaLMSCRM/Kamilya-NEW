@@ -332,7 +332,14 @@ class RenderContracts(unittest.TestCase):
 
             with mock.patch.object(renderer, "ffmpeg_concat", side_effect=fake_ffmpeg_concat), \
                  mock.patch.object(renderer, "poster", side_effect=fake_poster), \
-                 mock.patch.object(renderer, "media_metadata", side_effect=fake_media_metadata):
+                 mock.patch.object(renderer, "media_metadata", side_effect=fake_media_metadata), \
+                 mock.patch.object(
+                     renderer,
+                     "encoded_step_starts",
+                     side_effect=lambda path, segments, clip_durations: renderer.segment_starts(
+                         segments, clip_durations
+                     ),
+                 ):
                 self.assertEqual(renderer.main([
                     "--manifest", str(args.manifest),
                     "--screens", str(screens),
@@ -341,6 +348,35 @@ class RenderContracts(unittest.TestCase):
                     "--source-revision", "rev",
                     "--resume",
                 ]), 0)
+
+
+class EncodedStepBoundaryContracts(unittest.TestCase):
+    def mapped(self, nominal: float, timestamps: list[str]) -> list[dict]:
+        segments = [{"shot_id": "first"}, {"shot_id": "second"}]
+        clips = {"first": {"duration_seconds": nominal}, "second": {"duration_seconds": 4.0}}
+        result = subprocess.CompletedProcess([], 0, json.dumps({"frames": [{"best_effort_timestamp_time": value} for value in timestamps]}), "")
+        with mock.patch.object(renderer, "FFPROBE", "ffprobe"), mock.patch.object(renderer.subprocess, "run", return_value=result):
+            return renderer.encoded_step_starts(Path("accepted.mp4"), segments, clips)
+
+    def test_rounds_up_actual_scene_start_instead_of_nominal_audio(self) -> None:
+        steps = self.mapped(17.28, ["0.042643", "8.375977", "16.709310", "17.309310"])
+        self.assertEqual([step["start"] for step in steps], [0.0, 17.310])
+
+    def test_regular_keyframe_before_nominal_is_not_a_scene_start(self) -> None:
+        steps = self.mapped(8.4, ["0.042643", "8.375977", "8.442643"])
+        self.assertEqual([step["start"] for step in steps], [0.0, 8.443])
+
+    def test_missing_boundary_is_rejected(self) -> None:
+        with self.assertRaises(SystemExit):
+            self.mapped(8.4, ["0.042643"])
+
+    def test_ambiguous_boundary_is_rejected(self) -> None:
+        with self.assertRaises(SystemExit):
+            self.mapped(8.4, ["0.042643", "8.410000", "8.440000"])
+
+    def test_nonfinite_timestamp_is_rejected(self) -> None:
+        with self.assertRaises(SystemExit):
+            self.mapped(8.4, ["0.042643", "NaN"])
 
 
 if __name__ == "__main__":

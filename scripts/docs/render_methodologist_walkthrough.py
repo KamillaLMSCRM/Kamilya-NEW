@@ -14,6 +14,7 @@ import base64
 import hashlib
 import html
 import json
+import math
 import os
 import re
 import shutil
@@ -477,6 +478,80 @@ def segment_starts(chapter_segments: list[dict[str, Any]], clips: dict[str, dict
     return result
 
 
+def encoded_step_starts(chapter_mp4: Path, chapter_segments: list[dict[str, Any]], clips: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    nominal_starts = segment_starts(chapter_segments, clips)
+    if not nominal_starts:
+        return []
+    if FFPROBE is None:
+        fail("ffprobe is not available")
+    probe = subprocess.run(
+        [
+            FFPROBE,
+            "-v", "error",
+            "-select_streams", "v:0",
+            "-skip_frame", "nokey",
+            "-show_entries", "frame=best_effort_timestamp_time,pts_time",
+            "-of", "json",
+            str(chapter_mp4),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        fail(f"ffprobe failed for {chapter_mp4}: {probe.stderr.strip()}")
+    try:
+        payload = json.loads(probe.stdout)
+    except json.JSONDecodeError as exc:
+        fail(f"ffprobe returned invalid JSON for {chapter_mp4}: {exc}")
+    frames = payload.get("frames", [])
+    keyframes: list[float] = []
+    for frame in frames:
+        raw = frame.get("best_effort_timestamp_time", frame.get("pts_time"))
+        if raw is None:
+            fail(f"ffprobe keyframe timestamp missing in {chapter_mp4}")
+        try:
+            timestamp = float(raw)
+        except (TypeError, ValueError):
+            fail(f"ffprobe keyframe timestamp is not numeric in {chapter_mp4}")
+        if not math.isfinite(timestamp):
+            fail(f"ffprobe keyframe timestamp is not finite in {chapter_mp4}")
+        keyframes.append(timestamp)
+    if not keyframes:
+        fail(f"ffprobe found no keyframes in {chapter_mp4}")
+    if any(right < left for left, right in zip(keyframes, keyframes[1:])):
+        fail(f"ffprobe keyframes are not ordered in {chapter_mp4}")
+
+    tolerance = (len(chapter_segments) / 30.0) + 0.05
+    result: list[dict[str, Any]] = []
+    used: set[float] = set()
+    previous: float | None = None
+    for item in nominal_starts:
+        if item["index"] == 1:
+            start = 0.0
+        else:
+            nominal = float(item["start"])
+            candidates = [
+                timestamp
+                for timestamp in keyframes
+                if timestamp not in used
+                and nominal <= timestamp <= nominal + tolerance
+            ]
+            if len(candidates) != 1:
+                fail(
+                    f"segment {item['index']} in {chapter_mp4} has {len(candidates)} "
+                    f"keyframe candidates in [{nominal:.6f}, {nominal + tolerance:.6f}]"
+                )
+            chosen = candidates[0]
+            start = math.ceil(chosen * 1000.0) / 1000.0
+            if previous is not None and start <= previous:
+                fail(f"segment {item['index']} in {chapter_mp4} has nonmonotonic start {start:.3f}")
+            used.add(chosen)
+        result.append({**item, "start": start})
+        previous = start
+    return result
+
+
 def media_href(name: str) -> str:
     return f"{MEDIA_FOLDER}/{name}"
 
@@ -552,7 +627,7 @@ def render_index(output: Path, manifest: dict[str, Any], chapters: list[dict[str
     cards: list[str] = []
     for chapter in chapters:
         chapter_id = chapter["id"]
-        starts = segment_starts(chapter["segments"], chapter["clip_durations"])
+        starts = encoded_step_starts(Path(chapter["media"]), chapter["segments"], chapter["clip_durations"])
         buttons = "".join(
             f'<button type="button" data-video="{html_escape(chapter_id)}" data-seek="{item["start"]:.3f}">'
             f'Шаг {item["index"]} · {item["start"]:.1f} с</button>'

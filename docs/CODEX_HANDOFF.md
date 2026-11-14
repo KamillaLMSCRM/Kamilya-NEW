@@ -1,3 +1,19 @@
+## ACTIVE 2026-11-14T06:08Z — encoded scene boundary fix110 LOCAL accepted, release pending
+
+result: Actual cause proven: nominal WAV offsets precede encoded concat clip frames; not a browser poster defect. Root retracted earlier hypothesis in GUIDE-SEEK-001. ASUS finalR6 authored renderer helper; root scoped review proves runtime HTML differs only in seek timestamps/labels, originalJS/CSP/media/textguide identical.
+changed: encoded_step_starts probes realMP4 keyframes, excludes regular keys BEFORE nominal, requires one bounded monotonic nonreused boundary, ceil-to-ms. All rejected poster/canvas/priming/embeddedpreview code removed. Sourceversion110 prepared; backend stays108. Evidence .release-evidence/guide-step-seek-20261114.
+verified: 19Pythoncases/1optionalSkip PASS;5new regressions include17.280→17.310 and08regular8.375977 excluded→8.443. Actualbrowser42pixelchecks/33unique/8firstseekbeforePlay PASS;zero/rapidlatest/nativeplay/onevideo/pause/noautoPlay/noerrors. ActualIABuploadframe at17.310 visiblycorrect paused. All32media bytes unchanged. Type/lint/build67/contracts PASS. Fullfrontend62956 active, no duplicate.
+blockers: Fullfrontend/CI/stableDEV/nativeproduction stillopen; no110push/deploy yet. No paid/cloudmodelinference or business/providerconfigwrites.
+next: Finishfullsuite, commit/pushfeature+develop via canonicalprojectaccount with exactreadback/memoryreceipt. DEV frontendONLY existingHobby stableorigin with separate rollback109sha91f (Gitdev remains108dc23). Rootprivate dev110-stable-web-only.py handles independentoldfrontendSHA. AfterDEVall33/livepass, master/tag/nativebuildexacthead. Frozenpacket + actualartifactbudget beforecleanup: old86candidatequalifiedoffhost withoriginalRELEASE_OK, rollback108/current109/extras299+359 protected. Never cleanup beforecapacityproof. Keepoldfailedproposals/reports.
+
+## ACTIVE 2026-11-14 — first paused step preview correction110
+
+result: Owner authorized fix, DEV and production. Live baseline master/develop/native/stableDEV109 exact91f359cd36ca2ea9a1cce6bd2e53e068003bb612; API/workers108 retained. Product fix not yet accepted.
+changed: R=methodologist-guide-refresh-20261113; A=.release-evidence/guide-step-seek-20261114. ASUS DeepSeek sole product author; root integration/technical verification/ops. Single known render_index path KEEP LOCAL; no graph-dependent analysis. R1 priming proposal rejected beforeapply; R2 canvas proposal actualpixelFAIL and retained; R3 staticpreview proposal tightened beforeapply.
+verified: Original production and local firstclick show initialposter at17.28, paused/ready4; sourceframecorrect. Red-capable verify-step-pixels.cjs baseline selectedError67.11/initialError1.76. R2 still67.10/1.75. No media/TTS regeneration, paid cloud inference, business data writes or infrastructurechanges.
+blockers: Corrected proposal, localallsteps/nativeplay, fullfrontend gates, stableDEV/live and canonicalproduction OPEN.
+next: Apply reviewed exacthunks, generate HTML/CSP and rootbyteapproval; preserve32media identical. Existing frontend-only stableDEV path avoids unknownoriginCORS and backend redeploy. ExactCI/nativeprovenance and standingminimalrecoverablecapacitycleanup ifneeded; current109/rollback108/extras299+359 protected.
+
 ## COMPLETE 2026-11-13T17:04:48.037324+00:00 — methodologist instruction/help109 released and live accepted
 
 result: Frontend109 exact91f359cd36ca2ea9a1cce6bd2e53e068003bb612 is current nativeproduction, stableDEV and reserveVercel. MasterCI43463694666/nativebuild43463777167SUCCESS; tagv0.11.109 matcheslocal+remote. Canonicalnativeexecute RELEASE_OK; root liveacceptance accepted WITH one minor initial-poster UX advisory. BackendAPI/workers remain accepted108; no schema/business/customer/rights/provider-plan writes. This bounded guide/help task is complete.
