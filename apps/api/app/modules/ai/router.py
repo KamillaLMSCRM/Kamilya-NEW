@@ -1190,41 +1190,11 @@ async def job_progress_ws(websocket: WebSocket, job_id: str, token: str = Query(
 # ── AI chat assistant (methodologist review) ──────────────────────────────
 
 
-async def _fetch_course_summary(db: AsyncSession, course_id: UUID, tenant_id: UUID) -> str:
-    """Compact course outline (modules → lessons titles + quiz count)."""
-    from app.modules.lessons.models import Lesson, Module
-
-    course_q = await db.execute(
-        select(Course).where(Course.id == course_id, Course.tenant_id == tenant_id)
-    )
-    course = course_q.scalar_one_or_none()
-    if not course:
-        return ""
-
-    modules_q = await db.execute(
-        select(Module).where(Module.course_id == course_id).order_by(Module.order_index)
-    )
-    modules = modules_q.scalars().all()
-    lines = [
-        f"Курс: {course.title}",
-        f"Описание: {course.description or '(пусто)'}",
-        f"Статус: {course.status}; review_status: {course.review_status}",
-        f"Модулей: {len(modules)}",
-    ]
-    for m in modules:
-        lessons_q = await db.execute(
-            select(Lesson)
-            .where(Lesson.module_id == m.id, Lesson.tenant_id == tenant_id)
-            .order_by(Lesson.order_index)
-        )
-        lessons = lessons_q.scalars().all()
-        lines.append(f"  Модуль {m.order_index+1}: {m.title}")
-        for lesson in lessons:
-            lesson_content = (lesson.content or "").strip()
-            lines.append(f'    Урок «{lesson.title}»:')
-            lines.append(lesson_content[:2000] or "(содержание отсутствует)")
-
-    return "\n".join(lines)
+async def _fetch_course_summary(
+    db: AsyncSession, course_id: UUID, tenant_id: UUID, *, include_sources: bool = True,
+) -> str:
+    from app.modules.ai.assistant_context import load_course_context
+    return await load_course_context(db, course_id, tenant_id, include_sources=include_sources)
 
 
 async def _fetch_target_context(
@@ -1244,7 +1214,7 @@ async def _fetch_target_context(
         lessons = lessons_q.scalars().all()
         body = [f"Фокус: модуль «{m.title}» (id={target_id})", f"Описание: {m.description or '(пусто)'}"]
         for l in lessons:
-            body.append(f"  Урок «{l.title}»:\n{(l.content or '')[:1500]}")
+            body.append(f"  Урок «{l.title}»:\n{l.content or ''}")
         return "\n".join(body)
 
     if context == "lesson":
@@ -1260,7 +1230,7 @@ async def _fetch_target_context(
             f"Модуль: {m.title}",
             f"Длительность: {l.duration_seconds or '?'} сек",
             "",
-            (l.content or "")[:4000],
+            (l.content or ""),
         ]
         return "\n".join(body)
 
@@ -1300,12 +1270,12 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
     """Methodologist assistant — short LLM reply grounded in the course.
 
     NOT a streaming endpoint — we await the full reply and return it.
-    Target latency budget: ~6s on a healthy Qwen 3.5.
+    Full tenant-owned course, quizzes and pinned source edition; no silent text clipping.
 
     Scopes:
-    - context='course': assistant gets the whole outline.
+    - context='course': assistant gets complete lessons, quizzes and source text.
     - context='module' or 'lesson': assistant also gets the focus body
-      (lesson content truncated to first ~4 KB).
+      (complete lesson content).
     """
     if req.context in ("module", "lesson") and not req.target_id:
         raise HTTPException(
@@ -1325,7 +1295,7 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
     if request_refusal is not None:
         # Preserve the normal 404 boundary: a refusal must not confirm whether
         # a course belonging to another tenant exists.
-        visible_summary = await _fetch_course_summary(db, req.course_id, tenant_id)
+        visible_summary = await _fetch_course_summary(db, req.course_id, tenant_id, include_sources=False)
         if not visible_summary:
             raise HTTPException(status_code=404, detail="Course not found")
         return AIChatResponse(reply=request_refusal, history_eligible=False)
@@ -1370,8 +1340,8 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
         target_block = await _fetch_target_context(
             db, req.course_id, req.context, req.target_id, tenant_id
         )
-    if release_reads and req.context == "lesson" and not target_block:
-        raise HTTPException(404, "Lesson not found")
+    if req.context in ("lesson", "module") and not target_block:
+        raise HTTPException(404, "Selected course material not found")
 
     system_prompt = get_renderer().render("router/system_methodology_review.md")
     response_language = {"ru": "русский", "kk": "қазақша", "en": "English"}[req.language]
@@ -1395,10 +1365,12 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
         # Durable reservation is already committed. Release this read-only
         # transaction before external inference; persistence rebinds RLS later.
         await db.commit()
+    from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+    policy = await resolve_runtime_settings()
     llm = await ResilientLLMClient.from_settings_async(
         tenant_id=tenant_id,
         temperature=0.4,
-        max_tokens=1500,
+        max_tokens=policy.integer("generation.editorial_luna_max_tokens"),
     )
     try:
         resp = await llm.ainvoke(
@@ -1407,7 +1379,12 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
                 {"role": "user", "content": user_block},
             ]
         )
+        if (getattr(resp, "finish_reason", None) == "length"
+                or getattr(resp, "content_is_reasoning", False) or not (resp.content or "").strip()):
+            raise HTTPException(422, detail={"code": "assistant_response_incomplete"})
         reply = (resp.content or "").strip()
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("AI chat LLM call failed error_type=%s", type(e).__name__)
         raise HTTPException(
@@ -1442,6 +1419,17 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
     # phone-shaped UUID must not trip the PII detector, but every user-visible
     # field and every proposed edit still passes the same fail-closed policy.
     public_reply = reply or "(пустой ответ)"
+    try:
+        source_status = json.loads(summary)["sources"]["status"]
+    except (ValueError, KeyError, TypeError):
+        source_status = None
+    if source_status == "unavailable":
+        notice = {
+            "ru": "Исходная редакция недоступна. Ответ основан на уроках и тестах; сверка с исходником не выполнена.",
+            "kk": "Бастапқы редакция қолжетімсіз. Жауап сабақтар мен тесттерге негізделген; дереккөзбен салыстырылмады.",
+            "en": "The source edition is unavailable. This reply uses lessons and quizzes; source verification was not performed.",
+        }[req.language]
+        public_reply = notice + "\n\n" + public_reply
     reply_parts = [public_reply]
     if apply_content is not None:
         reply_parts.append(apply_content)
@@ -1474,6 +1462,8 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
             "kk": "Ұсыныс дайын, бірақ қолданылған жоқ. Өзгерісті енгізу үшін оны тексеріп, «Қолдану» түймесін басыңыз.",
             "en": "The proposal is ready but has not been applied. Review it and select Apply to make the change.",
         }[req.language]
+        if source_status == "unavailable":
+            public_reply = notice + "\n\n" + public_reply
         if not assistant_reply_is_safe(public_reply):
             logger.warning("AI chat acknowledgement blocked by public response policy")
             return AIChatResponse(reply=assistant_scope_refusal(req.language), history_eligible=False)

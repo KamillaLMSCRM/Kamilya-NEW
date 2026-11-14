@@ -87,7 +87,7 @@ async def test_followup_receives_prior_proposal_as_untrusted_data_and_current_co
     assert json.dumps({'role': 'user', 'content': 'Предложи пример приёмки'}, ensure_ascii=False) in body
     assert response.reply == 'Проверь накладную перед приёмкой.'
     assert response.apply_lesson_id is None
-    assert factory.await_args.kwargs == dict(tenant_id=TENANT, temperature=0.4, max_tokens=1500)
+    assert factory.await_args.kwargs == dict(tenant_id=TENANT, temperature=0.4, max_tokens=32768)
 
 
 @pytest.mark.asyncio

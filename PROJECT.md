@@ -225,3 +225,13 @@ Docker и обращается к `https://api.kml.kz/api`. Vercel project `web`
 
 Исторические отчёты и ТЗ доступны в Git history и не хранятся рядом с
 действующей документацией.
+
+
+### Assistant complete-context candidate111 (2026-11-14)
+
+The methodologist course-editor assistant reads complete course lessons and quiz
+cards (including authored keys/explanations) with the course-pinned approved source
+edition. Draft keys/history are not source authority. An unavailable source edition
+is explicit; the provider receives the full context without local clipping. Advice/proposals do
+not edit or publish content. Existing source-checked correction and human confirmation
+remain required. Delivery is pending exact DEV/model and production acceptance.

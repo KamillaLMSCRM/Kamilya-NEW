@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -34,6 +35,41 @@ async def test_general_chat_requires_content_authoring_role(
 
     assert response.status_code == 403
     provider_factory.assert_not_awaited()
+
+
+async def test_complete_editor_context_keeps_long_text_and_quiz_keys_tenant_owned(
+    client, make_tenant, make_user, make_course, make_module, make_lesson, make_quiz,
+    db_session, auth_headers,
+) -> None:
+    from app.modules.quizzes.models import Question, QuizChoice
+
+    tenant = await make_tenant(name="Full assistant context A")
+    actor = await make_user(tenant, role="methodologist")
+    course = await make_course(tenant, actor)
+    module = await make_module(course)
+    lesson = await make_lesson(module, content="Visible material. " * 500 + "OWN_LONG_TEXT_TAIL")
+    quiz = await make_quiz(lesson)
+    question = Question(quiz_id=quiz.id, text="OWN_QUESTION", type="MCQ", explanation="OWN_EXPLANATION")
+    db_session.add(question)
+    await db_session.flush()
+    db_session.add(QuizChoice(question_id=question.id, text="OWN_AUTHORED_KEY", is_correct=True))
+    await db_session.flush()
+
+    other = await make_tenant(name="Full assistant context B")
+    other_actor = await make_user(other, role="methodologist")
+    other_course = await make_course(other, other_actor)
+    other_module = await make_module(other_course)
+    await make_lesson(other_module, content="FOREIGN_PRIVATE_MATERIAL")
+    invoke = AsyncMock(return_value=SimpleNamespace(content="Review prepared."))
+    with patch("app.modules.ai.router.ResilientLLMClient.from_settings_async",
+               new=AsyncMock(return_value=SimpleNamespace(ainvoke=invoke))):
+        response = await client.post("/api/v1/ai/chat", headers=auth_headers(actor),
+            json={"course_id": str(course.id), "message": "Проверь уроки и вопросы"})
+    assert response.status_code == 200, response.text
+    prompt = invoke.await_args.args[0][1]["content"]
+    assert all(value in prompt for value in ("OWN_LONG_TEXT_TAIL", "OWN_QUESTION", "OWN_EXPLANATION", "OWN_AUTHORED_KEY"))
+    assert "FOREIGN_PRIVATE_MATERIAL" not in prompt
+    assert "Исходная редакция недоступна" in response.json()["reply"]
 
 
 async def test_general_chat_hides_course_across_tenants_before_refusal(

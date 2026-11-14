@@ -301,7 +301,12 @@ export function AIChatPanel({
           } : {}),
         }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const failure = await res.json().catch(() => null);
+        const code = failure?.detail?.code;
+        if (code === 'assistant_response_incomplete') throw new Error(code);
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data = await res.json();
       if (!isCurrent()) return;
       if (durableLesson) setDurableInterrupted(false);
@@ -332,13 +337,19 @@ export function AIChatPanel({
     } catch (e) {
       if (!isCurrent()) return;
       toast.error(t('aiAssistant.errorToast'));
+      const incompleteFailure = e instanceof Error && e.message === 'assistant_response_incomplete';
+      const knownFailure = incompleteFailure ? {
+        ru: 'Модель не завершила ответ. Неполный вариант не принят и не применён. Обновите историю урока перед следующим запросом.',
+        kk: 'Модель жауабын аяқтамады. Толық емес нұсқа қабылданбады және қолданылмады. Келесі сұрау алдында сабақ тарихын жаңартыңыз.',
+        en: 'The model did not complete its reply. No partial proposal was accepted or applied. Reload the lesson history before the next request.',
+      }[lang] : null;
       if (durableEnabled && !intent) {
         session.durableHistoryBlocked = true;
         setHistoryError(true);
       }
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: durableEnabled && !intent ? ({ ru: 'Запрос не подтверждён. Обновите историю урока, чтобы проверить результат; новый запрос автоматически не отправляется.', kk: 'Сұрау расталмады. Нәтижені тексеру үшін сабақ тарихын жаңартыңыз; жаңа сұрау автоматты түрде жіберілмейді.', en: 'The request outcome is unknown. Reload the lesson history to reconcile it; no new request was sent automatically.' }[lang]) : t('aiAssistant.errorReply') },
+        { role: 'assistant', content: knownFailure ?? (durableEnabled && !intent ? ({ ru: 'Запрос не подтверждён. Обновите историю урока, чтобы проверить результат; новый запрос автоматически не отправляется.', kk: 'Сұрау расталмады. Нәтижені тексеру үшін сабақ тарихын жаңартыңыз; жаңа сұрау автоматты түрде жіберілмейді.', en: 'The request outcome is unknown. Reload the lesson history to reconcile it; no new request was sent automatically.' }[lang]) : t('aiAssistant.errorReply')) },
       ]);
     } finally {
       session.requests.delete(controller);

@@ -18,3 +18,20 @@ Require marker-only language regressions RED then GREEN, existing policy/history
 neighbors and fresh exact-SHA DEV/production gates. The model's response to an
 exact sentence-count instruction remains a reviewed probabilistic quality result,
 not a new guaranteed formatter contract.
+
+
+## Proposed complete-context addendum — 2026-11-14 / assistant111
+
+Same endpoint, authoring roles, tenant/actor history, untrusted-history admission,
+selected-lesson marker and source-checked correction authority. No new mutation
+or publication authority. Load complete owned lesson text and quiz cards, authored
+keys/explanations as untrusted claims, and course-pinned approved working text as
+source evidence. Never silently substitute a newer source for a bad/missing pin.
+Unavailable editions produce an explicit server notice; no full-source pass may
+be claimed. Native provider context limits remain authoritative; no local input clipping
+is permitted. Incomplete model output returns422 without an applicable partial proposal.
+Use the existing generation.editorial_luna_max_tokens budget for compatible editorial
+replies without new database keys or migrations. History budgets
+and existing proposal/application size constraints remain unchanged. No schema,
+provider plan/order or customer-course mutation. LOCAL regressions and real DEV /
+production model acceptance are separate gates; current delivery pending.

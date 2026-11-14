@@ -39,6 +39,18 @@ describe('AI chat context lifecycle', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it.each([
+    ['assistant_response_incomplete', 'The model did not complete its reply. No partial proposal was accepted or applied. Reload the lesson history before the next request.'],
+  ])('shows the known %s cause without replaying a model request', async (code, message) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 422, json: async () => ({ detail: { code } }) });
+    installFetch(fetchMock);
+    render(<AIChatPanel open onClose={vi.fn()} courseId="course-1" focusLessonId="lesson-1" />);
+    await send();
+    await screen.findByText(message);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+  });
+
   it('uses server-owned lesson history for follow-up without client authority metadata', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(response({ reply: 'Here is the proposed version', apply_lesson_id: 'lesson-1', apply_lesson_content: 'Check the delivery note before accepting goods' })).mockResolvedValue(response({ reply: 'Check the note first' }));
     installFetch(fetchMock);

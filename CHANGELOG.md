@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.11.111] - 2026-11-14
+
+### Changed
+
+- Give the methodologist assistant complete lesson texts, course-bound quizzes with authored keys and explanations, and the immutable approved source edition. Distinguish source evidence from draft claims and retain the existing explicit correction review.
+- Remove silent input clipping, reject incomplete model output, and show clear assistant errors. Use the existing audited editorial output budget without adding runtime settings or changing the database.
+
+
 ## [0.11.110] - 2026-11-14
 
 ### Fixed
