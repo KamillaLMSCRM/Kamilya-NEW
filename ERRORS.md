@@ -7,6 +7,13 @@
 - Verification: original red screenshot and all failed proposals retained in .release-evidence/guide-step-seek-20261114. Encoded-boundaries.json plus actual-boundary-probe-r2 proves the cause, not full release acceptance. LOCAL fullstep/DEV/production gates remain open.
 - Prevention: compare actual displayed pixels with an independently decoded frame before any Play. Validate button times against encoded media rather than WAV durations; include regular keyframes immediately before a scene boundary. Timing/readyState alone is insufficient. Never hide a failed hypothesis or relabel a root diagnosis as proven without discriminating probes.
 
+### 2026-11-14 verified closure and test-seam corrections
+
+- Final110 exact44a4e203 released after LOCAL1768web/19media1skip and DEV/liveproduction33step/42pixel acceptance. Production actualframe comparison(top75percent excludingnativecontrols)42PASS, no firstPlay; original32media/JS/CSP unchanged. Native source44/current, previous109retained, backend108unchanged. Rootretracted initialposterdiagnosis; codecWAV-vs-MP4 timestamp evidence and rejected proposals retained.
+- A paused video needs HAVE_CURRENT_DATA(readyState>=2) to display its frame; requiring HAVE_ENOUGH_DATA(4) conflated future playback buffering with the selected-frame criterion. Retain failedR1; use actualpixeloracle and separately prove nativePlay advances. ParallelassetGET45s/oneindependentSSHinventorytimeout occurred during QA; serialassetGET120s and quietcanonicalSSHreadbacks passed. Do not attribute exactnetworkcause without evidence or retry model generation for a QA transport issue.
+- Desktop updater removed the expected Playwright browser revision; browser launch failed before application requests. Regression used installedChrome157 with isolatedtemporaryprofiles, no userprofile/config edits or broadbrowser install. Earlynativebufferindicator cleared withoutPlay in timed2.5sscreens; selectedframe alreadycorrect. Normalpublicguide and businessauthentication are separate proof scopes.
+- Root capacity guard briefly used agent-tools Python with HTTPX absent and failed before any write. Use agent-tools interpreter for canonical Paramiko helpers and projectvenv for HTTPX guards; no credential/network/service reset. Preserve originalfailure. Source/bodyhealthz is plain text, not JSON: parse headers/source marker and use JSON only for APIhealth.
+
 ## GUIDE-WORKER-002 — auxiliary author transport and verification assumptions
 
 - Date: 2026-11-13; local tutorial task, not a generation-engine change.

@@ -1,3 +1,9 @@
+## Current guide navigation frontend110 — 2026-11-14T07:05:12.325146+00:00
+
+Native production frontend, stableDEV and reserve: `44a4e203be72eaa57ae0e1511933d453c0a23317`, version0.11.110. API/workers remain0.11.108/dc23; Gitdev remainsdc23. DEVdeployment `dpl_FhPjvHoEzJGdrMgrqKwkBaNFP72K`, reserve `dpl_EWoTcQsHmyf75CHKFzr49G5BPyMz`; previous109deployments READYretained. Native immediate rollback109/91f and older108/dc23 plus explicit299/359 recovery retained. Only obsolete86andmatchingstagepair removed under standingminimalrecoverablecleanup after finalartifactbudget proof; offhost recovery retained, no furthercleanup.
+
+Guide step times now use actualencodedMP4 clip boundaries, roundedup to ms; originalnominalWAV offsets could land in the previous scene. RuntimeHTMLonlytimestamps/labels changed, all32media/audio/captions/textguide andJS/CSP unchanged. ActualLOCAL/DEV/production33steps/8chapters/42pixelchecks andnormalPlay/paused/390px accepted. SourceSCA nowpinsdnspython2.9.2; noAPIdeployment in this frontendfix. Exactreceipts andtruefailedattempts in CODEX_HANDOFF/TEST_RUN_LEDGER and .release-evidence/guide-step-seek-20261114/root110-final-readback.json. IAB became unavailable afterdesktopupdate; actualdeployedQA used installedChrome157 withfreshisolatedprofiles, not the user's signed-in session. No browserplugin/globalconfig change.
+
 ## Current methodologist instruction/help frontend109 — 2026-11-13T17:04:48.037324+00:00
 
 Native production frontend and stable DEV frontend: `91f359cd36ca2ea9a1cce6bd2e53e068003bb612`, product0.11.109. Production API/workers remain0.11.108; this was frontend-only, no database or business-data changes. DEV project existingHobby `kamilya-lms-dev`, current `dpl_FAXBhSJhnVfFNN4EvhnGSZPDyPJN`; original108deployment retained. Gitdev remainsdc23; API/worker unchanged. Reserveprojectweb also exact91f/READY. Actual ordinary synthetic methodologist help/media accepted.

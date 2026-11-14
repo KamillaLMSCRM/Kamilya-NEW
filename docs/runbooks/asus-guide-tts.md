@@ -117,3 +117,9 @@ still requires separate screenshot/media/browser acceptance before publication.
 ## Completed publication snapshot
 
 Frontend0.11.109/91f359cd36ca2ea9a1cce6bd2e53e068003bb612 published13November2026 after local, DEV and live production guide/help acceptance. Eight videos/33steps; actual release evidence and minor initial-poster advisory are in CODEX_HANDOFF and TEST_RUN_LEDGER. TTS remains a one-shot offline production tool; no runtime listener/daemon was installed. Task-only workstation proxies were stopped; existing ASUS containers remain unchanged.
+
+## Frame-aligned step navigation, verified 2026-11-14
+
+Frontend110 derives per-step seek timestamps from the actual encoded chapter MP4 via encoded_step_starts, rather than cumulative WAV durations.30fps quantization/AAC priming can place a nominal audio boundary before the new video scene. Exclude regular keyframes before nominal, require a unique bounded clip boundary and round up to button milliseconds. If mapping is missing/ambiguous, fail generation rather than silently use the old time or the initial poster. Keep accepted media bytes and native paused seeking.
+
+Verify the real displayed frame before any Play; currentTime alone is insufficient. A paused frame requires readyState>=2, while4describes future buffering. Pixel regression compares decoded source content independently, then tests nativePlay separately. Guide110 LOCAL/DEV/production33steps/8chapters accepted; no new TTS batch or cloud runtime dependency was introduced. Earlier109poster advisory was a preliminary diagnosis corrected by this actual encoded-clock evidence.
