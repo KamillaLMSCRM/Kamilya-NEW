@@ -32,7 +32,7 @@ preservation requirements, stop conditions, and rollback operation.
 - Push only through the official process-local helper:
   `py -3 scripts/ops/with_project_github_token.py --repo . -- git -c
   credential.helper= -c "credential.helper=!gh auth git-credential" push origin
-  <exact-sha>:<exact-branch>`.
+  <exact-sha>:refs/heads/<exact-branch>`.
 - Never create a custom askpass script, use a browser/device login, put the token
   in a URL/command/config, or treat another account's 403 as token evidence.
 - Declare the canonical token invalid only when this exact helper-bound

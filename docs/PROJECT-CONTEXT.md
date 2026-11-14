@@ -1,3 +1,9 @@
+## Current assistant111 DEV capability — 2026-11-15
+
+DEV API and stablefrontend exacta9b16911/0.11.111; APIdep-dbsaploae00c73d2gbp0/frontenddpl_53sqHsCMzUxihqEnT9QdFSF6e7gf. Production API/workers108dc23/ad450 and nativefrontend11044 unchanged; DEVworker1084247797d unchanged. Assistant source-first full pinnedcontext, tests/keys/explanations; no schema/config/provider/resource change. Actual blind DEVerrors detected and sourcecheckedmodel correction explicitly applied to separateQA draft; source template untouched. Full evidence/budget/remainingrelease gates at CODEX_HANDOFF top and A=.release-evidence/assistant-context111-20261114.
+
+Canonical DEVmethodologist: fixed documented methodologist@kamilya-dev-qa.example.com with primary.env DEV_QA_METHODOLOGIST_PASSWORD, exactactor5187fa5f-c046-4e35-945e-5c95f469a886/tenanta7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0. Do not infer identity from DEV_QA_METHODOLOGIST_EMAIL: currentvalue belongs to another fixture. Verify role+tenant+actor before requests/mutations; login TokenResponse.user.user_id and users/me.id are different DTO fields. No credentials or account settings were changed to resolve this QA harness mismatch.
+
 ## Current guide navigation frontend110 — 2026-11-14T07:05:12.325146+00:00
 
 Native production frontend, stableDEV and reserve: `44a4e203be72eaa57ae0e1511933d453c0a23317`, version0.11.110. API/workers remain0.11.108/dc23; Gitdev remainsdc23. DEVdeployment `dpl_FhPjvHoEzJGdrMgrqKwkBaNFP72K`, reserve `dpl_EWoTcQsHmyf75CHKFzr49G5BPyMz`; previous109deployments READYretained. Native immediate rollback109/91f and older108/dc23 plus explicit299/359 recovery retained. Only obsolete86andmatchingstagepair removed under standingminimalrecoverablecleanup after finalartifactbudget proof; offhost recovery retained, no furthercleanup.
