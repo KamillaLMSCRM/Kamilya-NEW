@@ -70,7 +70,7 @@ def test_dnspython_runtime_requirements_and_lock_pin_the_verified_security_relea
     api = WORKFLOW.parents[2] / "apps" / "api"
     project = tomllib.loads((api / "pyproject.toml").read_text(encoding="utf-8"))
     lock = tomllib.loads((api / "poetry.lock").read_text(encoding="utf-8"))
-    assert project["tool"]["poetry"]["dependencies"]["dnspython"] == "2.9.0"
+    assert project["tool"]["poetry"]["dependencies"]["dnspython"] == "2.9.2"
     package = next(item for item in lock["package"] if item["name"] == "dnspython")
-    assert package["version"] == "2.9.0"
-    assert "dnspython==2.9.0" in (api / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    assert package["version"] == "2.9.2"
+    assert "dnspython==2.9.2" in (api / "requirements.txt").read_text(encoding="utf-8").splitlines()

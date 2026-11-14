@@ -1,3 +1,11 @@
+## ACTIVE 2026-11-14 — guide110 LOCAL all gates pass; refreshed SCA dependency correction
+
+result: Guide110 fullfrontend195files/1768tests PASS312.42s, build67/type/lint/contracts PASS,19media cases/1skip. Actual33step/42pixel/8firstclick/nav/nativePlay LOCAL PASS. No DEV110 or production switch yet.
+changed: Firstsourcefa9cd2dc feature/develop exactreadbacks/memoryreceipts retained. CI43564874974 reports new CVE-2026-128089 ondnspython2.9.0, fixed2.9.2. Mechanically pin2.9.2 in3source surfaces usingPoetry1.8.5 lock; ONLYdnspython version changed.6pin/workflowtests, lockcheck and isolatedofficialwheelhash/import/DNSparse PASS. ProductionAPI108 notdeployed. No SCAignore/allowlist/gatechange.
+verified: A=.release-evidence/guide-step-seek-20261114; full-web-tests.log, build.log, local-r6-full-result.json, dnspython-wheel-smoke.json, python-audit-job-sanitized.log. Originalfalseposterdiagnosis/rejectedproposals retained and corrected; runtimeHTMLonlytimestamps/labels.
+blockers: Need fresh exactSHA CI afterdependencyfix, stableDEV fullguide/UI, master/tag/nativebuild thencanonicalrelease. Desktop updater stopped ownedlocalrange server/browsertool; inspect currenttool beforeUI, no duplicate processes. ExistingstableDEV/native109sha91f and backend108 remain current.
+next: Push amendedcandidate feature/develop with independentreceipts; replace DEVpacketSHA/CI onlybeforeanyPOST (nonecreated), preserve originalfailedpacket. Existing DEVHobby/web-only stableorigin route. Nativecapacity minimumcleanup ONLYafter frozenpacket/finalartifactproof; qualifiedold86offhostreceipt verified, current109/rollback108/extras299+359 preserved.
+
 ## ACTIVE 2026-11-14T06:08Z — encoded scene boundary fix110 LOCAL accepted, release pending
 
 result: Actual cause proven: nominal WAV offsets precede encoded concat clip frames; not a browser poster defect. Root retracted earlier hypothesis in GUIDE-SEEK-001. ASUS finalR6 authored renderer helper; root scoped review proves runtime HTML differs only in seek timestamps/labels, originalJS/CSP/media/textguide identical.

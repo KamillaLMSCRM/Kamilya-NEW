@@ -2648,6 +2648,10 @@ cause is retroactively promoted to fact.
 - Prevention: re-audit the exact exported production graph for each release;
   retain blocking advisories and keep all three dependency surfaces aligned.
 
+### 2026-11-14 recurrence — new dnspython advisory
+
+- CI43564874974 exactfa9cd2dc reports CVE-2026-128089 for2.9.0, fixed2.9.2. Preserve original failed audit; no suppression/allowlist/gate bypass. Official PyPI2.9.2 checked; exactpin in pyproject/requirements plus Poetry1.8.5 generated lock update changes only dnspython2.9.0→2.9.2. New source dependency pin does not deploy the productionAPI108. Local pinnedcontract/lock/import/audit and freshexactCI required before frontend110 release.
+
 ## SECURITY-019 - multidict6.7.1 failed refreshed image dependency audit
 
 - Date:2026-10-06; original master CI37399182927 retained; no public migration

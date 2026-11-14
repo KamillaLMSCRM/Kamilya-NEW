@@ -1,3 +1,8 @@
+## RUN-20261114-GUIDE110-FULL-LOCAL-AND-SCA
+
+- Fullfrontend195files/1768tests PASS312.42s; productionbuild67pages/type/scopedlint/contracts PASS. Runtimepatch remains exactLOCAL pixelaccepted33steps/8chapters/42checks. No frontend source change after fullsuite.
+- CI43564874974 originalfa9cd2dc blocked by newly reported dnspythonCVE-2026-128089. Officialfixed2.9.2 checked; Poetrygeneratedlock onlythisversiondiff;6SCApin/workflowcontracts/lockcheck and isolatedhashverifiedwheelimport/DNSparse PASS. No productionAPIdeployment, advisorysuppression or scopeexpansion. NewexactCI and DEV/prod remainOPEN.
+
 ## RUN-20261114-GUIDE-SEEK110-LOCAL
 
 - ASUS DeepSeek authored final encoded_step_starts/render_index change. Root technical review/tests only. Previous poster/canvas/priming proposals rejected and retained privately; no such workaround remains. Actual MP4 clip boundaries differ from cumulative WAV starts by about20–43ms; original secondstep17.280 precedes17.309310 actualframe. Correctceil17.310 passes the previously red pixel comparison.
