@@ -1,3 +1,9 @@
+## Current production assistant112 — 2026-11-15
+
+API/threeworkers/nativeCT137frontend:0.11.112 exact `b3bc46986e00b1d915b2d60641adc24b8fa4e957`, imagefb4b4f2e. Protected43704968063, CI43704339066, native43704413627 and ordinary-role live tests PASS. Lossless full source/citation context and explicit whole-course model adjudication; optional existingLuna selection without fallback or global order changes. Production routing DeepSeek thenLuna remains exact previous111 snapshot; schema0187/runtime-settings-history92c636 preserved. No customer-course writes.
+
+DEV API/stablefrontend bbee0eb6/112 accepted samecash8L31Q with nativeLuna self-rejection; all3694non-documentation Git objects equal finalrelease. VMDEVworker1084247797d unchanged. Retained QAclonece8537c2 is unpublished approved-text projection, not an ingestion/OCR acceptance. Current native112 retains111/110/explicit299+359; backend111blue/de6 rollback ready. Nativeobsolete109 alone removed with offhost accepted recovery and capacity proof. Full source/receipts/limits at current CODEX_HANDOFF and .release-evidence/assistant-release112-final-20261115/REVIEW.md. Older current-state headings below are historical.
+
 ## COMPLETE 2026-11-14T19:54:05.773902+00:00 — assistant111 released and live accepted
 
 result: Production API/three workers and native frontend0.11.111 exact `966ad998995ab28e30a9c0f53e8a34dd6b50f116`; protected43632490804, masterCI43631590264, nativebuild43631701283 SUCCESS. Public/private/four running containers restart0 and watchdog111 independently read back. Backend108dc23/ad450 rollback retained; native previous11044/retained10991/extras299+359 retained. No migration/customer-course edit/model order/billing change.
