@@ -1,3 +1,23 @@
+## 2026-11-15 — visual lesson editor113 LOCAL candidate
+
+Owner-authorized first authoring package on existing Markdown/PATCH/renderer.
+Plan docs/plans/2026-10-16_ispring-functional-comparison.md; baseline runtime112
+b3bc read back independently, existing DEV bbee/Hobby unchanged at preflight.
+LOCAL full196files/1795web PASS; after image/empty-field corrections focused150
+PASS, typecheck/lint/build67 PASS. Browser built Chrome:34PASS/4old assignment
+expectation failures; corrected current conditional-preview test4PASS, app
+assignments unchanged. Final consolidated browser38/38PASS/45.5s. Screenshot
+review then identified unstyled headings/lists in visual cards: replaced unused
+prose classes with the exact existing preview styles shared as a constant and
+added actual computed heading/list style assertions. Final build passes67pages;
+updated browser/style acceptance and CI remain explicit follow-up gates.
+Root preserved paragraph terminators/CRLF, source ordinals and image references;
+independent read-only Luna reviewer identified image-picker and intermediate
+empty-field gaps, both fixed with regressions. Graph preflight NOT_READY (local
+runtime absent); bounded exact source fallback. No model inference, migration,
+provider changes or customer data writes. DEV / production OPEN; source review
+and local checks are not live acceptance. Private .release-evidence/visual-editor113-20261115.
+
 ## 2026-11-14T19:54:05.773902+00:00 — assistant111 COMPLETE
 
 Exact production966/0.11.111, masterCI43631590264/devCI43631596730/native43631701283/protected43632490804 SUCCESS. LOCAL8812backend/1skip plus final135API/98web/build/types/lint/quality1004-2174; CI includes actual PostgreSQL tenant gate. DEV two known negativecontrols detected; existing sourcechecked model proposal applied with confirmation, no good-card/template loss. Production actual ordinary methodologist1547source/5L18Q contextfull64331bytes -> review3.430s, four source-backed keys and true related lesson independently verified, no automatic writes; desktop1440/mobile390/history PASS. Source/structure unchanged. Fresh signed restore RPO88s/RTO18s/131tables127FORCE/current108restrictedreader PASS; disposableDB/plaintext0, schema0187/settingshistory unchanged, rollback retained. USD0.50 approved;3freshoperations/USD0.4109346 conservative reserve, actualinvoice/tokensUNKNOWN. A=.release-evidence/assistant-context111-20261114. Scopeassistant only; no new full generation or perfectreview claim.

@@ -26,6 +26,11 @@ describe('source image routes', () => {
     expect(sourceImageLine('![Caption](https://example.com/a.png)')).toBeNull();
     expect(sourceImageLine(`prefix ![Caption](${lesson})`)).toBeNull();
   });
+  it('decodes escaped caption brackets without extending the image URL allowlist', () => {
+    expect(sourceImageLine(`![Field \\[A\\]](${lesson})`)).toEqual({ alt: 'Field [A]', url: lesson });
+    expect(sourceImageLine('![Field \\[A\\]](https://example.com/a.png)')).toBeNull();
+    expect(sourceImageLine('![' + '\\'.repeat(32000) + '(invalid)')).toBeNull();
+  });
   it('fetches a protected blob and revokes its object URL on unmount', async () => {
     mocks.get.mockResolvedValueOnce({ data: new Blob(['image'], { type: 'image/png' }) });
     const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:source');

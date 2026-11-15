@@ -30,8 +30,10 @@ import {
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 import { coursePublicationError } from '@/lib/coursePublicationError';
-import { LessonContent } from '@/features/course-authoring/LessonContent';
+import { LessonContent, lessonContentClassName } from '@/features/course-authoring/LessonContent';
 import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
+import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
+import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
 import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel';
 import { WorkspacePage, WorkspacePageHeader, WorkspaceToolbar } from '@/features/workspace-design';
@@ -125,6 +127,7 @@ export default function CourseEditPage() {
   const [savedLessonTitle, setSavedLessonTitle] = useState('');
   const [savedLessonContent, setSavedLessonContent] = useState('');
   const [lessonView, setLessonView] = useState<'edit' | 'preview'>('edit');
+  const [contentEditor, setContentEditor] = useState<'visual' | 'markdown'>('visual');
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [creationBusy, setCreationBusy] = useState(false);
   const creationPending = useRef<symbol | null>(null);
@@ -983,7 +986,14 @@ export default function CourseEditPage() {
                       <Input value={editLessonTitle} onChange={(event) => setEditLessonTitle(event.target.value)} name="lesson-title" autoComplete="off" placeholder={t('authenticatedUi.editor.lessonTitlePlaceholder')} />
                     </label>
                     <div className="flex min-h-0 flex-1 flex-col gap-2">
-                      <label htmlFor="author-lesson-content" className="text-sm font-medium">{t('authenticatedUi.editor.lessonContent')}</label>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-medium">{t('authenticatedUi.editor.lessonContent')}</span>
+                        <div role="group" aria-label={t('authenticatedUi.editor.lessonContent')} className="flex flex-wrap gap-1 rounded-md border border-border p-1">
+                          {(['visual', 'markdown'] as const).map(mode => <Button key={mode} type="button" size="sm" variant={contentEditor === mode ? 'secondary' : 'ghost'} aria-pressed={contentEditor === mode} onClick={() => setContentEditor(mode)}>{visualLessonCopy(lang)[mode]}</Button>)}
+                        </div>
+                      </div>
+                      {contentEditor === 'visual' ? <VisualLessonEditor key={`${editingLessonId}:${session.generation}`} value={editLessonContent} onChange={setEditLessonContent} lang={lang} disabled={savingLesson || correctionBusy} /> : <>
+                      <label htmlFor="author-lesson-content" className="sr-only">{t('authenticatedUi.editor.lessonContent')}</label>
                       <MarkdownToolbar value={editLessonContent} onChange={setEditLessonContent} textareaRef={lessonTextareaRef} lang={lang} />
                       <textarea
                         id="author-lesson-content"
@@ -995,6 +1005,7 @@ export default function CourseEditPage() {
                         className="min-h-[500px] w-full flex-1 resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-7 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
                         placeholder={t('authenticatedUi.editor.lessonContentPlaceholder')}
                       />
+                      </>}
                     </div>
                   </div>
                 ) : (
@@ -1003,7 +1014,7 @@ export default function CourseEditPage() {
                     <LessonContent
                       text={editLessonContent}
                       omitFirstHeading={editLessonTitle}
-                      className="space-y-5 text-base leading-7 text-foreground [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc"
+                      className={lessonContentClassName}
                     />
                   </article>
                 )}

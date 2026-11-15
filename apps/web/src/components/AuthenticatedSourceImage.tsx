@@ -21,8 +21,20 @@ export function ReviewSourceImageProvider({ attemptId, lessonId, token, children
 
 export function isAllowedSourceImageUrl(url: string): boolean { return allowed.test(url); }
 export function sourceImageLine(line: string): { alt: string; url: string } | null {
-  const match = line.match(/^\s*!\[([^\]\n]*)\]\(([^\s()]+)\)\s*$/);
-  return match && isAllowedSourceImageUrl(match[2]) ? { alt: match[1], url: match[2] } : null;
+  const text = line.trim();
+  const boundary = text.lastIndexOf('](');
+  if (!text.startsWith('![') || !text.endsWith(')') || boundary < 2 || /[\r\n]/.test(text)) return null;
+  const url = text.slice(boundary + 2, -1);
+  if (!isAllowedSourceImageUrl(url)) return null;
+  const raw = text.slice(2, boundary);
+  let alt = '';
+  for (let index = 0; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (char === '\\' && /[\\[\]]/.test(raw[index + 1] ?? '')) alt += raw[++index];
+    else if (char === ']') return null;
+    else alt += char;
+  }
+  return { alt, url };
 }
 
 export function AuthenticatedSourceImage({ url, alt, loadingLabel, errorLabel, openLabel }: {

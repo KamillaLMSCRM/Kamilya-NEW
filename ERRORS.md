@@ -1,3 +1,22 @@
+## AGENT-VISUAL-QA-001 — browser suite used an unspecified build API
+
+- Date: 2026-11-15; local visual-editor113 acceptance, no external writes.
+- Symptom: synthetic browser auth never issued its intercepted refresh request;
+  two initial cases stopped at login despite a successful Next build.
+- Cause: root omitted the explicit canonical NEXT_PUBLIC_API_URL from the local
+  build. CSP/auth preparation therefore did not match the synthetic fixture.
+- Fix: rebuild with explicit canonical DEV API and the four existing controlled
+  feature flag names; stop the failed browser run instead of repeating cases.
+  The lesson-editor Playwright config now checks the compiled API URL and requires
+  the root-owned loopback server before collection.
+- Verification: initial failure retained in visual-editor-browser2.log; final
+  compiled build3 and browser3 passed34 cases, including new visual editor at
+  390/1024/1440. Four pre-existing assignment checks expected a preview before
+  selection; corrected tests match current UI and passed4/4 without app changes.
+  Source URL/image allowlist and production configuration were not loosened.
+- Prevention: inspect the actual build configuration, preserve current flag names,
+  and perform the compiled-config preflight before browser acceptance.
+
 ## GUIDE-SEEK-001 — nominal audio starts did not match encoded scene frames
 
 - Date: 2026-11-14. Scope: methodologist guide frontend, not engine/media content.

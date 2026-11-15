@@ -174,8 +174,9 @@ function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverri
   vi.stubGlobal('fetch', fetchMock);
 }
 
-function openLessonEditor() {
+async function openLessonEditor() {
   fireEvent.click(screen.getByRole('button', { name: 'Введение' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Markdown' }));
 }
 
 describe('course lesson editor', () => {
@@ -188,7 +189,7 @@ describe('course lesson editor', () => {
     expect(checks.open).toBe(false);
     expect(screen.getByRole('button', { name: 'Открыть замечания и источники' })).toBeVisible();
     expect(screen.getByText('Проверка и публикация — подробности')).toBeVisible();
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Unsaved lesson' } });
     expect(container.querySelector('[data-redesign-page="course-editor"] > fieldset > p[role="status"]')).toBeVisible();
     fireEvent.click(checks.querySelector('summary')!);
@@ -298,7 +299,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' });
     expect(screen.getAllByRole('heading', { name: 'courseApproval.policyTitle' })).toHaveLength(1);
-    openLessonEditor();
+    await openLessonEditor();
     expect(screen.getAllByRole('heading', { name: 'courseApproval.policyTitle' })).toHaveLength(1);
   });
 
@@ -310,7 +311,7 @@ describe('course lesson editor', () => {
     await screen.findByRole('button', { name: 'Введение' });
     const inspect = screen.getByRole('button', { name: 'Открыть замечания и источники' });
     expect(inspect).toBeEnabled();
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'A changed source-bound lesson.' } });
     expect(inspect).toBeDisabled();
     expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/source-uncertainty'))).toBe(false);
@@ -338,7 +339,7 @@ describe('course lesson editor', () => {
     expect(confirmMock).not.toHaveBeenCalled();
   });
   it('preserves an unsaved lesson through same-actor token rotation and uses the latest token to save', async () => {
-    setupFetch(); render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    setupFetch(); render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Keep dirty lesson on refresh' } });
     act(() => useAuthStore.setState({ accessToken: 'rotated-token' }));
     expect(screen.getByDisplayValue('Keep dirty lesson on refresh')).toBeInTheDocument();
@@ -362,7 +363,7 @@ describe('course lesson editor', () => {
       }
       return implementation(input, init);
     });
-    render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    render(<CourseEditPage />); await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Saved edit' } });
     fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
     await waitFor(() => expect(courseReads).toBe(2));
@@ -407,7 +408,7 @@ describe('course lesson editor', () => {
       return implementation(input, init);
     });
     const view = render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Saved before scope change' } });
     fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
     await waitFor(() => expect(courseReads).toBe(2));
@@ -440,7 +441,7 @@ describe('course lesson editor', () => {
 
   it('formats selected canonical text, keeps the dirty guard, and renders it with the existing preview', async () => {
     setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     const textarea = await screen.findByRole('textbox', { name: 'Содержание урока' }) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'Сохранить смысл' } });
     textarea.setSelectionRange(0, 9);
@@ -456,7 +457,7 @@ describe('course lesson editor', () => {
 
   it('keeps the selected lesson and its quiz context when next-lesson navigation is declined', async () => {
     setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Unsaved' } });
     expect(screen.getByRole('link', { name: 'Вопросы этого урока' })).toHaveAttribute('href', '/quizzes?lessonId=lesson-1');
     fireEvent.click(screen.getByRole('button', { name: 'Следующий урок' }));
@@ -468,6 +469,7 @@ describe('course lesson editor', () => {
   it('opens only a lesson from the loaded structure for a context deep link', async () => {
     window.history.replaceState({}, '', '/courses/course-1/edit?lessonId=lesson-2');
     setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Markdown' }));
     expect(await screen.findByDisplayValue('## Практика')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Практика' })).toHaveAttribute('aria-current', 'true');
   });
@@ -490,7 +492,7 @@ describe('course lesson editor', () => {
       return implementation(input, init);
     });
     render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Saved edit' } });
     fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument());
@@ -579,7 +581,7 @@ describe('course lesson editor', () => {
 
   it('keeps lesson actions wrapped and reserves a wide editor before placing properties beside it', async () => {
     setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     const save = screen.getByRole('button', { name: 'common.save' });
     expect(save.parentElement).toHaveClass('flex-wrap', 'max-w-full');
@@ -623,7 +625,7 @@ describe('course lesson editor', () => {
 
   it('integrates a verified fresh correction without issuing a manual PATCH', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.click(await screen.findByRole('button', { name: 'Apply synthetic correction' }));
     expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toHaveValue('# AI-правка');
     expect(screen.queryByText('Есть несохранённые изменения')).not.toBeInTheDocument();
@@ -632,7 +634,7 @@ describe('course lesson editor', () => {
 
   it('keeps the feature-OFF editor controls in a labeled accessible group', async () => {
     setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     expect(screen.getByRole('group', { name: 'courses.editCourse' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Apply synthetic correction' })).not.toBeInTheDocument();
@@ -640,7 +642,7 @@ describe('course lesson editor', () => {
 
   it('suppresses only an exact duplicate first-level title in the editor preview', async () => {
     setupFetch(200, structure, { ...lesson, content: '# Введение\r\n\r\nТекст урока' }); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     fireEvent.click(screen.getByRole('button', { name: 'Предпросмотр' }));
     expect(screen.getAllByRole('heading', { level: 1, name: 'Введение' })).toHaveLength(1);
@@ -649,7 +651,7 @@ describe('course lesson editor', () => {
 
   it('preserves later manual changes even if a correction callback arrives', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Поздняя ручная правка' } });
     fireEvent.click(screen.getByRole('button', { name: 'Apply synthetic correction' }));
     expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toHaveValue('# Поздняя ручная правка');
@@ -658,7 +660,7 @@ describe('course lesson editor', () => {
 
   it('disables editor and lesson navigation during a correction write', async () => {
     correctionHarness.enabled = true; setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     fireEvent.click(await screen.findByRole('button', { name: 'Begin correction' }));
     expect(screen.getByRole('textbox', { name: 'Содержание урока' })).toBeDisabled();
     expect(screen.getByRole('textbox', { name: 'Название урока' })).toBeDisabled();
@@ -667,7 +669,7 @@ describe('course lesson editor', () => {
 
   it('clears only the previous correction pointer on accepted lesson selection', async () => {
     correctionHarness.enabled = true; setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
-    await screen.findByRole('button', { name: 'Введение' }); openLessonEditor();
+    await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();
     await screen.findByRole('button', { name: 'Apply synthetic correction' });
     window.history.replaceState({}, '', '/courses/course-1/edit?correction_plan=opaque-old-plan&other=keep#editor');
     fireEvent.click(screen.getByRole('button', { name: 'Практика' }));
@@ -681,7 +683,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByText('Введение');
-    openLessonEditor();
+    await openLessonEditor();
 
     await screen.findByText('Рабочая область урока');
     expect(fetchMock).toHaveBeenCalledWith(
@@ -717,7 +719,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByText('Введение');
-    openLessonEditor();
+    await openLessonEditor();
     await screen.findByText('Рабочая область урока');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Содержание урока' }), {
@@ -734,7 +736,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -755,7 +757,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -783,7 +785,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -808,7 +810,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), {
       target: { value: '# Несохранённый текст' },
     });
@@ -834,7 +836,7 @@ describe('course lesson editor', () => {
     render(<CourseEditPage />);
 
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     await screen.findByRole('textbox', { name: 'Содержание урока' });
     fireEvent.click(screen.getByRole('button', { name: 'Удалить урок {title}' }));
 
@@ -854,7 +856,7 @@ describe('course lesson editor', () => {
     confirmMock.mockResolvedValueOnce(true);
     render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' });
-    openLessonEditor();
+    await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: '# Несохранённый текст' } });
     fireEvent.click(screen.getByRole('button', { name: 'Удалить урок {title}' }));
     await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Не удалось удалить'));

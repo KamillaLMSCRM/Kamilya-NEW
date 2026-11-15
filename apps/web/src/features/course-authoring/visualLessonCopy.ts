@@ -1,0 +1,32 @@
+const en = {
+  visual: 'Visual editor', markdown: 'Markdown', blocks: 'Lesson blocks', add: 'Add block',
+  text: 'Text', heading: 'Heading', image: 'Source illustration', rule: 'Key rule', steps: 'Process steps',
+  edit: 'Edit block', done: 'Done', up: 'Move up', down: 'Move down', remove: 'Delete block',
+  confirm: 'Delete this block?', cancel: 'Cancel', empty: 'No blocks', body: 'Block content',
+  caption: 'Caption', selectImage: 'Illustration', noImages: 'There are no source illustrations in this lesson.',
+  newText: 'New text', newHeading: 'New heading', newRule: 'Key rule', newSteps: '1. First step\n2. Second step',
+  preview: 'Block preview', removed: 'Block deleted', moved: 'Block moved', added: 'Block added',
+  raw: 'This block is edited as Markdown. Its existing content is retained.',
+};
+type Copy = { [K in keyof typeof en]: string };
+const ru: Copy = {
+  visual: 'Визуальный редактор', markdown: 'Markdown', blocks: 'Блоки урока', add: 'Добавить блок',
+  text: 'Текст', heading: 'Заголовок', image: 'Иллюстрация из источника', rule: 'Важное правило', steps: 'Шаги процесса',
+  edit: 'Изменить блок', done: 'Готово', up: 'Переместить выше', down: 'Переместить ниже', remove: 'Удалить блок',
+  confirm: 'Удалить этот блок?', cancel: 'Отмена', empty: 'Блоков пока нет', body: 'Содержание блока',
+  caption: 'Подпись', selectImage: 'Иллюстрация', noImages: 'В этом уроке нет иллюстраций из источника.',
+  newText: 'Новый текст', newHeading: 'Новый заголовок', newRule: 'Важное правило', newSteps: '1. Первый шаг\n2. Второй шаг',
+  preview: 'Предпросмотр блока', removed: 'Блок удалён', moved: 'Блок перемещён', added: 'Блок добавлен',
+  raw: 'Этот блок редактируется в Markdown. Исходное содержание сохранено.',
+};
+const kk: Copy = {
+  visual: 'Көрнекі редактор', markdown: 'Markdown', blocks: 'Сабақ блоктары', add: 'Блок қосу',
+  text: 'Мәтін', heading: 'Тақырып', image: 'Дереккөз суреті', rule: 'Маңызды ереже', steps: 'Процесс қадамдары',
+  edit: 'Блокты өңдеу', done: 'Дайын', up: 'Жоғары жылжыту', down: 'Төмен жылжыту', remove: 'Блокты жою',
+  confirm: 'Осы блок жойылсын ба?', cancel: 'Болдырмау', empty: 'Блоктар әлі жоқ', body: 'Блок мазмұны',
+  caption: 'Сурет атауы', selectImage: 'Сурет', noImages: 'Бұл сабақта дереккөз суреттері жоқ.',
+  newText: 'Жаңа мәтін', newHeading: 'Жаңа тақырып', newRule: 'Маңызды ереже', newSteps: '1. Бірінші қадам\n2. Екінші қадам',
+  preview: 'Блокты алдын ала қарау', removed: 'Блок жойылды', moved: 'Блок жылжытылды', added: 'Блок қосылды',
+  raw: 'Бұл блок Markdown пішімінде өңделеді. Бастапқы мазмұн сақталған.',
+};
+export function visualLessonCopy(lang?: string): Copy { return lang === 'en' ? en : lang === 'kk' ? kk : ru; }

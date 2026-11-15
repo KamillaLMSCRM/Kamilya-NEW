@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.11.113] - 2026-11-15
+
+### Added
+
+- Visual lesson composition on the existing Markdown save path: text, headings, source illustrations, key rules and process steps; explicit block ordering/deletion and retained Markdown editing.
+- Lossless legacy-content round trips and shared author/learner rendering, with source-image selection and escaped image captions.
+
+### Preserved
+
+- Existing generation, source ownership, review/publication guards, questions, progress and history. Frontend-only release; no API/worker rollout, database migration, provider change or customer-course edits.
+
 ## [0.11.112] - 2026-11-15
 
 ### Changed

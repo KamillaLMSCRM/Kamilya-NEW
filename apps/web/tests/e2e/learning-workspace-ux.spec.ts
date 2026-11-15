@@ -169,6 +169,7 @@ for (const viewport of [
     test('author edits canonical Markdown, checks preview and guards dirty navigation', async ({ page, workspace }, info) => {
       workspace.author();
       await page.goto(`/courses/${ids.course}/edit?lessonId=${ids.lesson}`);
+      await page.getByRole('button', { name: 'Markdown', exact: true }).click();
       const content = page.getByRole('textbox', { name: 'Lesson content', exact: true });
       await expect(content).toHaveValue(lessons[0].content);
       await page.locator('[data-publication-checks] > summary').click();
@@ -262,10 +263,11 @@ for (const viewport of [
       await page.goto('/assignments');
       await page.getByRole('combobox', { name: 'Course to assign', exact: true }).selectOption(ids.course);
       const preview = page.getByRole('region', { name: 'Review recipients before confirming', exact: true });
-      await expect(preview.locator('dl > div').filter({ hasText: 'Already assigned' }).locator('dd')).toHaveText('1');
-      await expect(preview.locator('dl > div').filter({ hasText: 'Of these, completed' }).locator('dd')).toHaveText('1');
+      await expect(preview).toHaveCount(0);
       await expect(page.getByRole('checkbox', { name: 'Existing Graduate', exact: true })).toHaveCount(0);
       await page.getByRole('checkbox', { name: 'Synthetic Learner', exact: true }).check();
+      await expect(preview.locator('dl > div').filter({ hasText: 'Already assigned' }).locator('dd')).toHaveText('1');
+      await expect(preview.locator('dl > div').filter({ hasText: 'Of these, completed' }).locator('dd')).toHaveText('1');
       await expect(preview.locator('dl > div').filter({ hasText: /^Selected/ }).locator('dd')).toHaveText('1');
       await expect(preview.getByRole('listitem')).toHaveText('Synthetic Learner');
       await expect(preview.getByText('Creation starts only after confirmation. The server response determines the final count.', { exact: true })).toBeVisible();
@@ -285,9 +287,11 @@ for (const viewport of [
       });
       await confirmation.getByRole('button', { name: 'Assign', exact: true }).click();
       await expect(confirmation).toBeHidden();
-      await expect(preview.locator('dl > div').filter({ hasText: 'Already assigned' }).locator('dd')).toHaveText('2');
-      await expect(preview.locator('dl > div').filter({ hasText: 'Of these, completed' }).locator('dd')).toHaveText('1');
+      await expect(preview).toHaveCount(0);
+      await expect(page.getByTestId('assignment-selection-empty')).toHaveText('0 employees selected');
       await expect(page.getByRole('checkbox', { name: 'Synthetic Learner', exact: true })).toHaveCount(0);
+      await page.getByRole('button', { name: 'Current assignments', exact: true }).click();
+      await expect(page.getByRole('heading', { name: /: 2$/ })).toBeVisible();
       expect(workspace.matching('POST', `/v1/courses/${ids.course}/enrollments`)).toHaveLength(1);
       expect(workspace.matching('POST', `/v1/courses/${ids.course}/enrollments`)[0].body).toEqual({
         user_ids: [audience[0].id], delivery_mode: 'email', completion_window_minutes: null, due_at: null,
