@@ -1,3 +1,36 @@
+## COMPLETE 2026-11-15 — standalone checks114 accepted in DEV and production
+
+Runtime/tag v0.11.114 exacte3f0296ddd2c50ac5df3bf4545d975282a4eef8f, image922e5ad9.
+MasterCI43732232759/dev43732590800/protected43732980566/native43732505736 SUCCESS;
+protected plane upgrade43731387573 and independently installed4d85d234 controller
+accepted. Exact final DEV controller/API/frontend/sole VMworker5f973b83 and
+production four-service/public/private/native readback PASS, both databases0188,
+three new FORCE RLS tables/restricted lms_app, original settings/history unchanged.
+
+Ordinary non-demo QA roles tested author creation/publication/employee assignment,
+saved answers/reload,0% first attempt/100% retry and retained history. Production
+also changed a question and key in currentrev2: old assignedrev1, old question
+and grades remained. No course/lesson/enrollment created: DEV125/652/17 and
+production35/135/50 unchanged. No customer-course write/model call/new paid tier.
+Local8843APIpass1skip before final6role tests; final14focused,187controller/
+bundle/workflow,21version/workflow,1806web,7new and33old built browser scenarios,
+69-page build, types/lint/quality/real Supabase migration+RLS+concurrency passed.
+
+Fresh postartifact encrypted archive bce3c2fa restored/signed:131tables127FORCE,
+18s; current112 restricted reader passed, owned restore DB/temp absent separately.
+Production112green retained and reads against0188, native113 recovery/112 rollback
+and extras299/359 retained. Watchdog only expected SHA/image updated; independent
+configuration/timer/oneshot readback passed. Actual traffic rollback not invoked.
+
+Failures retained: missing epoch and notes caught before production application
+dispatch; CI now checks both against real repo. No tag moved. Original live PROD
+harness stopped on author-results timeout (cause UNKNOWN); fresh same-record
+ordinary author API/UI readback passed. Continuation textarea matcher/UTF8 clone
+errors were harness-only, corrected without repeating assignment/attempts; final
+R2 continuation PASS. This is not a claim that the original timeout was diagnosed.
+Private A=.release-evidence/knowledge-checks114-20261115, final product/structural
+gates, ledger and handoff; runtime/tag remain e3 after metadata closeout.
+
 ## COMPLETE 2026-11-15 — visual editor113 accepted
 
 Native/frontend0.11.113 exact37cad08cc231bc4d49d26442de2ffe672c85f61a, masterCI43714502503/native43714546786 SUCCESS. Canonical native RELEASE_OK plus independent host/public/provider readback PASS; existing API/workers112b3bc and DEV API bbee/worker108/gitdev preserved. Final196files/1796web,150focused/type/lint/build67;38browser+3finalstyle cases PASS. Actual ordinary QA methodologists each saved/reloaded one new owned lesson in DEV and production, with exact expected Markdown/table/CRLF/ordinals and draft/source state. Three actual protected source images per environment passed picker/caption/reload with0writes; independent evidence/screenshot review accepted bounded V1. No customer/course generation/model/provider/schema change. New image upload, accordions and standalone assessment remain separate.

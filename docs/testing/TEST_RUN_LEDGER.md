@@ -1,3 +1,54 @@
+## 2026-11-15 — standalone114 COMPLETE, actual DEV and production accepted
+
+Immutable sourcee3f0296ddd2c50ac5df3bf4545d975282a4eef8f/tagv0.11.114;
+masterCI43732232759/dev43732590800/protected43732980566/native43732505736 PASS.
+Attested finalimage922e5ad9 checked992Git files, finalDEV source/controller/API/
+frontend/sole worker5f973b83 and productionblue API+three workers/native e3 independently
+read back. DEV/CT1250188, new FORCE RLS3/lms_app restricted; settings/history92c636
+unchanged. Existing free/Hobby tiers, suspended legacy worker and reserve retained.
+
+Actual ordinary DEV author5187/studentcbeb in a7a2 created09c53fb5/assignedeecef335,
+saved/reloaded answers/fail0/retry100/newrev2/history PASS. c487 application objects
+2481 equal finale3; final e3 no-write ordinary-role UI/API reload PASS. Actual
+production author2f49/student7181 in83552 created58f9c042/assignedb8ad6137, saved/
+reloaded/fail0 (f3f25359)/retry100 (ac2a0575) PASS. Initial author-results step
+timed out; cause UNKNOWN, first BLOCKED receipt retained. Fresh same-record author
+API/UI readback PASS. Scoped continuation only changed question text/key and
+publishedrev2; old rev1/title/question/grades retained, keys never exposed to
+student. R1 continuation exact label failed because stored textarea contributes
+initial text to label textContent; read-only inspection matched0 exact labels,
+1 owned Question1 group. Scoped group+originalvalue assertion and explicit UTF8
+copy fixed harness; R2 continuation PASS with0new attempt/assignment mutations.
+No completed writes replayed. Screens390/1440 root reviewed.
+
+Course/lesson/enrollment counts before/after unchanged: DEV125/652/17,
+production35/135/50. Direct production runtime metadata query correctly42501;
+removed unnecessary alembic_version SELECT, no grants/role changes. Schema source
+is independent CT125 read. Current112 old reader also reads against0188. Actual
+traffic rollback not invoked. Backupbce3c2fa postartifact signed restore PASS,
+131tables/127FORCE/RTO18s, owned DB/temp absent in independent final read.
+Watchdog expectede3/922 onlytwo keys, other bytes/timers/thresholds unchanged;
+oneshot+independent readback PASS. Native113 recovery/112rollback/extras retained.
+
+Minimal cleanup: one stopped105 and one stopped106/no mounts plus sole images,
+each registry config/rootfs/16blob recovery checked; all other104 containers
+preserved. Native111/staging pair only removed after exact capacity1360579681B,
+historical success/offhost archive/tree binding; independent free1415712768B.
+First106 generated heredoc delimiter joined its final Python line, parsed no
+statements; failed source/output retained. Corrected exact delimiter and new
+private wrapper actual-payload AST check, R2 cleanup PASS. Quiet control probe
+once failed before pull/drain; separate global/destination replies showed one
+idle node/all queues0, bounded reconciled preflight passed. Cause UNKNOWN, no
+invented provider fix or model replay. No customer data, model, tier or plan write.
+
+Prior full local8843PASS1skip +final14focused, quality1004/2174,
+final197files1806web/build69/type/lint/new7+old33browser and real isolated RLS/
+concurrency/migration gate remain valid; API/web/package objects unchanged through
+epoch/release-note finalization.187controller/bundle/workflow and21version/workflow
+PASS; normal CI now asserts current epoch=head and real release notes complete.
+No published tag moved; metadata closeout does not redeploy or regenerate.
+A=.release-evidence/knowledge-checks114-20261115/REVIEW.md and final product gate.
+
 ## 2026-11-15T15:35Z — standalone114 release-plane epoch preflight
 
 Before production dispatch root found controller target0187 vs new head0188,

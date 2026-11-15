@@ -1,5 +1,14 @@
 # Standalone knowledge checks V1
 
+Status 2026-11-15: COMPLETE in DEV and production0.11.114,
+immutable source/tag e3f0296ddd2c50ac5df3bf4545d975282a4eef8f/v0.11.114.
+Actual ordinary QA role journeys, retained failed/successful attempts and changed
+question/key revision isolation passed. No fake course/lesson/enrollment or
+customer-course mutation; no model call. Exact CI/image/schema/native/worker,
+signed restore/cleanup/rollback readiness and independent public readback are in
+the current canonical ledger/handoff and private knowledge-checks114 evidence.
+Original failed harness checkpoints remain retained and are not relabelled PASS.
+
 Approved by: product owner, direct instruction 2026-11-15: create standalone
 employee knowledge checks, assign, preserve results, DEV then conditional production.
 Root owns contracts, integration, migrations, release and readback. Bounded backend

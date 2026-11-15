@@ -1,3 +1,31 @@
+## Current production standalone checks114 — 2026-11-15
+
+Production native frontend/API/three workers and DEV frontend/API/VMworker are
+sourcee3f0296ddd2c50ac5df3bf4545d975282a4eef8f, version0.11.114. API/worker
+image922e5ad98959487fcd55910e690b61694261096439942aae0ac8141fc745dd19;
+CT125/Supabase DEV0188. Three new tables FORCE RLS, runtime lms_app no BYPASS.
+Exact CI43732232759/dev43732590800/protected43732980566/native43732505736 and
+canonical rollout plus independent readback passed. DEV worker5f973b83 sole/
+env e71d832e...; legacy Render worker remains suspended Free, Vercel Hobby and
+Render API Free retained. No provider/model/voice/reserve/billing change.
+
+New ordinary-role standalone QA completed in permanent non-demo DEV a7a2 and
+production83552 tenants: create/publish/assign/save/reload/fail/retry/pass and
+version-preserving results. Production check58f9c042, assignmentb8ad6137,
+attempts f3f25359=0/ac2a0575=100; currentrev2 changed question/key while employee
+kept rev1 and original score. Fixtures retained. QA course/lesson/enrollment
+counts unchanged (DEV125/652/17, production35/135/50); customer courses untouched,
+zero model calls. Methodologist entry Courses→Knowledge checks; student entry
+My tests→Standalone knowledge checks. Old course quizzes/generation remain.
+
+Production active blue114; green112/fb4b API and stopped three workers retained
+for rollback. Native114 current,113 previous/112 rollback/extras299+359 retained.
+Controller4d85d234... supports0187→0188. Fresh signed restore/owned cleanup and
+watchdog e3/922/oneshot/timers verified. Metadata-only closeout must preserve
+immutable runtime/tag e3. Current handoff, ledger and A=.release-evidence/
+knowledge-checks114-20261115 own exact receipts and retained harness failures.
+Older current headers below are historical.
+
 ## Current production visual editor113 — 2026-11-15
 
 Native CT137 frontend0.11.113 exact `37cad08cc231bc4d49d26442de2ffe672c85f61a`, masterCI43714502503/native43714546786 and canonical RELEASE_OK/independent actual QA UI acceptance PASS. Public API112b3bc independently read back; API/worker rollout, DB migration and routing/settings/billing changes were not performed. Prior schema0187/VM worker identities are preserved context, not a fresh DB/worker probe in this frontend-only task. DEV stable frontend37/dpl_WDqaS3yUrSkQPowtC5WVN4nmS4SP; DEV API bbee112, legacy Render-worker deployment and Gitdev bbee read back unchanged. VMworker108 was not touched or freshly probed. Permanent synthetic actors/tenants used ordinary methodologist roles; no customer writes/model calls. New retained unpublished QA courses: productionb24ea804, DEV6d291be5. Existing image QA courses unchanged after local picker/caption/reload.

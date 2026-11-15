@@ -1,3 +1,89 @@
+## COMPLETE 2026-11-15 — standalone knowledge checks114 live accepted
+
+result: Production and DEV accepted version0.11.114, immutable source/tag
+e3f0296ddd2c50ac5df3bf4545d975282a4eef8f/v0.11.114. Production API/three workers
+and DEV worker use attested image922e5ad98959487fcd55910e690b61694261096439942aae0ac8141fc745dd19;
+native CT137 frontend/public app is the same e3 source. Public/private/container/
+CT125 schema0188/three new FORCE RLS tables and restricted lms_app independently
+read back. No customer-course/model/provider-plan change. This closeout is only
+documentation; never move the published tag or redeploy a metadata-only child.
+changed: Independent author /knowledge-checks from Courses, learner
+/my-knowledge-checks from My tests, three question kinds, published versions,
+staff assignments, server-owned saved attempts/deadlines/retries/weighted results.
+Completed evidence is immutable; old course quizzes and learning history remain.
+Exact release epoch and real-repository release-note CI checks prevent the
+omissions caught during preparation. Existing five-section sidebar retained.
+verified: Source masterCI43732232759/dev43732590800, protected43732980566 and
+native43732505736 PASS. Plane upgrade43731387573/installed4d85d234... independent
+PASS, only controller changed. Final DEV controller RELEASE_OK/API dep-dbstk1mc6qcc73a52ig0,
+frontend dpl_D4Jk8qTxgHx2aMQx6U9G796NeRUf, sole VMworker5f973b83/env e71d832e...
+PASS. Ordinary DEV full create/publish/assign/save/reload/fail0/retry100/newrev
+on c487 and final exact e3 ordinary-role no-write reload PASS;2481 application
+Git objects equal. DEV courses125/lessons652/enrollments17 unchanged. Ordinary
+production roles2f49/7181 in permanent83552 tenant created check58f9c042 and
+assignmentb8ad6137; attempts f3f25359=0 and ac2a0575=100 retained. Scoped
+continuation changed question text AND key, published rev2; assigned rev1/old
+text/old grades and no-key student responses retained. Screens390/1440 reviewed.
+Production courses35/lessons135/enrollments50 unchanged via restricted reader;
+0 course/lesson writes,0 inference. Original full harness author-results timeout
+is retained UNKNOWN cause; fresh ordinary author API/UI readback passed. Exact
+stored-textarea label matcher and copied UTF8 harness failures were corrected
+in harness only; no assignment/attempt replay. Final continuation R2 PASS.
+blockers: None for this bounded manual standalone-check V1. AI generation,
+certificates and recurring standalone cycles are outside this package. Actual
+traffic rollback was not performed;112green remains verified recovery and read
+old course data against0188. Native113 immediate recovery/112 distinct rollback
+and extras299/359 retained. Watchdog expected e3/922, both timers/oneshot success,
+all other configuration bytes and runtime_settings/history92c636... preserved.
+next: No more inference, deployment or repeat creation required. Retain QA checks/
+attempts and original failures. A=.release-evidence/knowledge-checks114-20261115;
+REVIEW.md, product-acceptance-ready114.json and final signoff own the evidence.
+Fresh encrypted backup bce3c2fa... was restored/signed (131 tables,127 FORCE,
+18s); owned restore DB/plaintext absent independently after QA. Only obsolete
+stopped DEV105/106 and native111/staging pair were minimally removed after exact
+registry/offhost recovery proof. Current DEV/rollback108+prior114 and production
+data/volumes/reserve retained. Normal CI now tests current schema epoch and
+release-note identity before another version can repeat these omissions.
+
+## IN PROGRESS 2026-11-15 — standalone114 final source frozen, actual DEV flow PASS
+
+result: Final application candidate e3f0296ddd2c50ac5df3bf4545d975282a4eef8f,
+version0.11.114, release-mode validation and21version/workflow tests PASS before
+push. Current actual business-flow acceptance is c48744a8 DEV; all2481 API/web/
+package/supervisor Git objects are identical in final e3. Production application
+and schema have NOT been changed: native11337cad/API+workers112b3bc/schema0187.
+changed: Full independent check module plus exact >=114 release-plane epoch0187
+to0188, complete release notes and CI tests preventing missing epoch/notes. No
+model, provider or customer-course change. New exact final source is on feature,
+develop/master/dev with project-account readback receipts. Final DEV identities
+are deliberately pending, not accepted from source equivalence alone.
+verified: c487 actual DEV controller RELEASE_OK, schema0188, sole worker1145ac/
+image6717/env931b. Ordinary author5187/studentcbeb in permanent a7a2 tenant
+created check09c53fb5, assigned eecef335, saved/reloaded answers, failed0 and
+retried100, then edited/published revision2; old revision1/two attempts retained.
+Courses125/lessons652/enrollments17 unchanged via restricted lms_app/noBYPASS;
+three new tables FORCE RLS independently verified. Screens390/1440 reviewed.
+Full local/API/web/RLS proof remains below. CI c487 develop43725217160/dev43729790826
+and a01 develop43730427826/master43731079815 SUCCESS. a01 plane upgrade43731387573
+SUCCESS; independent installed controller4d85d234.../other7payloads unchanged,
+protected production/reserve ten projection ab1cb... unchanged. Current e3
+masterCI43732232759/devCI43732590800 and native43732505736 are separate gates.
+blockers: Final exact e3 CI/image/worker/DEV reconciliation and no-write history
+reload, then protected production0188/four-service/native rollout and actual
+production ordinary-role full journey remain OPEN. Do not rerun the completed
+live-knowledge.cjs dev: it intentionally refuses existing intents/results.
+next: Continue in R=.worktrees/methodologist-guide-refresh-20261113,
+A=.release-evidence/knowledge-checks114-20261115. Active publish-and-build-ready114.py
+waits masterCI, creates exact114 tag/release and protected BUILD only; production
+approval remains held until final DEV+fresh signed backup/restore/rollback gates.
+Reuse the retained fixture for final no-write reload. a01 image3e785/native archive
+are superseded candidates, not final e3. Old worker108424 remains stopped rollback;
+only obsolete105 and106 plus sole images were minimally removed after recovery
+proof; all other104 containers preserved, free6547406848B is dated. First106
+heredoc payload failed parsing before any Python statement; R2 executed PASS,
+actual-heredoc AST validation now added to private wrapper. Final e3 env staged
+e71d832e...,45keys, only RELEASE_SHA changed. No cold/drain/start for e3 yet.
+
 ## IN PROGRESS 2026-11-15T14:34Z — standalone employee knowledge checks114
 
 result: LOCAL114 implementation accepted for CI/DEV; no DEV/public schema or application deployment yet. User authorizes standalone checks without fake courses, employee assignments and retained results, then DEV and conditional production. Current production remains native11337cad08c/API+workers112b3bc; DEV frontend37/APIbbee/worker108 preserved.

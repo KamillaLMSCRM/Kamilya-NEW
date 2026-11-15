@@ -206,6 +206,30 @@
 
 ## AGENT-ACCEPTANCE-HARNESS-001 — unverified fixture assumptions and lost diagnostics
 
+- Follow-up2026-11-15 standalone114: preserve the first production author-results
+  timeout as UNKNOWN cause; it did not invalidate acknowledged create/assign or
+  the two saved0/100 attempts. Fresh ordinary author GET/results/UI passed on
+  the same IDs. Continue only the unperformed revision PUT/publish, never repeat
+  creation or attempts. A fresh stored textarea made its initial content part of
+  the wrapping label textContent, so exact getByLabel('Question') matched0 while
+  the owned Question1 group matched1. Scope that group, assert the original value,
+  then edit its known textarea. Explicit UTF8 copying is mandatory: a diagnostic
+  clone repeated cp1251 corruption of the literal grade separator; not an app
+  defect. R2 scoped continuation passed, old question/key/grades preserved.
+  Store the failed step, sanitized error, URL/DOM/screenshot and response status
+  immediately; a bare TimeoutError cannot establish a product root cause.
+- Same task: production lms_app intentionally cannot SELECT alembic_version
+  (42501). Do not grant new privileges for an optional readback. Read own-tenant
+  course counts through the restricted runtime; get schema evidence separately
+  through the canonical CT125 reader. Existing FORCE RLS/role boundaries remain.
+- Same task: an adapted cleanup script joined the final Python line to its
+  heredoc delimiter. Bash syntax check only warned; Python parsed no statements.
+  Preserve the failed script, reconcile target state and compile the EXACT
+  delimited Python payload before dry-run/execution. The task's private wrapper
+  now checks delimiter count and AST, and reads structured failure JSON from
+  stderr when stdout is empty. This is not a change to the canonical trust route
+  or a permission to replay a partially completed mutation. Corrected R2 removed
+  only the same recovery-proven obsolete106 target and preserved104 others.
 - Recurrence2026-11-11: a read-only DEV91 preflight incorrectly required a custom production container label that does not exist, and introduced an8GiB threshold instead of the already accepted6GiB worker-image readiness rule. The script stopped before mutations. Initial output lacked phase detail. Fixed-format independent Docker readback proved production90/DEV90 identities; a phase-marked read proved the missing label and8.149GBdisk/8.128GBavailable memory. The exact existing readiness script establishes6GiB before and after pull; using it is a correction to the invented harness requirement, not a weakened product gate. Corrected preflight passed with empty DEV queues/sole idle consumer and unchanged production projection. Preserve all failed scripts/receipts. For every new harness, emit phase evidence before guards and derive resource/identity rules from the verified mechanism before adding assertions.
 
 - Date:2026-11-07. Scope:source-preparation82 acceptance scripts, not a product defect.
