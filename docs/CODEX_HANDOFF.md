@@ -1,3 +1,11 @@
+## READ-ONLY AUDIT COMPLETE 2026-11-15T08:56:19.540658+00:00 — Luna cash reviewer NO_GO; course unchanged
+
+result: Owner-requested existingLuna review of actualLombardpublishedb05421bb8L31Q/source113 complete; automatic semanticreview NOT_ACCEPTED. One confirmedminorwordingproposal retainedunapplied; falsecounts/quoteclaims remain aftergenericselfcheck; malformedID corrected. Production111966 and allclientcourse/source/quiz data unchanged.
+changed: Journals/privateevidence only; no appcode/settings/roles/reasoning/citations/content edits. SelectedLuna5.6 existingconnector with exactdeployedassistantprompt/fullsavedDTO/nativeLLMClient overcanonicalSSH TCP route; not production/ai/chat/history.
+verified: TwoactualLuna calls28.219s/33.250s,202110IN2857OUT/exactcostUNKNOWN,0DeepSeek. Fullsource31516chars plus approvedOCR10images;8testsets31questions, afterboth APIhashesexact, allquizsetverifiedagainsttenantlist. Repeatquotebytes275412/460826~60% measured; qualitycauseunproven.
+blockers: No blocker to read-onlytaskcompletion. Reviewerunreliability prevents unattendedapplication/fullcoursequalityGO. Originalimages not freshlyvision-reviewed.
+next: Private .release-evidence/assistant-cash-luna-20261115/REVIEW.md, bothrawreviews/root-audit-result/preservationproof. Do notapplyevenconfirmedproposal without owner instruction. ASSISTANT-REVIEW-002 and bothsavedruns must precede any future reviewer/context change. Previousrelease111 acceptedassistantcapability is historical boundedproof, not perfectreal-coursecritic guarantee.
+
 ## COMPLETE 2026-11-14T19:54:05.773902+00:00 — assistant111 released and live accepted
 
 result: Production API/three workers and native frontend0.11.111 exact `966ad998995ab28e30a9c0f53e8a34dd6b50f116`; protected43632490804, masterCI43631590264, nativebuild43631701283 SUCCESS. Public/private/four running containers restart0 and watchdog111 independently read back. Backend108dc23/ad450 rollback retained; native previous11044/retained10991/extras299+359 retained. No migration/customer-course edit/model order/billing change.
