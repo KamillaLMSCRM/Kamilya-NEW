@@ -934,7 +934,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-14.
+Current as of: 2026-11-15.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -2197,6 +2197,14 @@ Current as of: 2026-11-14.
 - Recurrence 2026-11-03: source-view candidate37ddf596 CI41513459436 failed because the new November3 entry left the header at November2. Header correction7ec09c61 passed the local contract and CI41513720375/all7. Run the local release-contract gate before any journal push; old CI failure was retained.
 
 - Recurrence 2026-11-13: guide109 firstcandidate3a9ee180 CI43457384058 failed because root added canonical November13 entries while leaving the header November12 and omitted the local release-contract gate. Reproduced locally; corrected only header to latest recognized date and ran full release-contract before repush. Original failed CI/log preserved. No guide/runtime change; fullweb1768/build67 evidence remains applicable to unchanged runtime.
+
+- Recurrence 2026-11-15: visual113 candidate2b79a891 CI43712721081 repeated the
+  stale-header mistake after adding AGENT-VISUAL-QA-001; root omitted the local
+  release-contract gate. Reproduced locally before correcting only the date.
+  Existing gate retained. Task push adapter now runs release-contract, version
+  and diff checks before transport, rather than relying on a remembered step.
+  Original CI/log retained; visual editor application bytes and accepted local
+  tests/browser outputs are unchanged by this metadata correction.
 
 ## DEV-WORKER-ENV-002 - Runtime list setting was flattened during secure migration
 
