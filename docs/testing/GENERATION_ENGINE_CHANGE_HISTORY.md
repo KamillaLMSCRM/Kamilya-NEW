@@ -1,5 +1,26 @@
 # История решений и доработок движка генерации
 
+## CHG-VISUAL113 — 2026-11-15: редактор поверх существующего Markdown
+
+UI-only consumer change, не новая версия генерационного пути: исходники,
+выбранные модели/reasoning, промпты, worker, сохранение ссылок и генерация вопросов
+не менялись. VisualLessonEditor использует прежний lesson PATCH, dirty/session/
+source/review/publication owners и общий LessonContent; режим Markdown сохранён.
+Формат БД не менялся; caption parser совместимо расширен для экранированных
+скобок с прежним URL allowlist. Основные Markdown-блоки читаются старым плеером;
+новые экранированные подписи требуют113 для полного отображения — это граница
+паритета при откате, не потеря исходного текста/ссылки. В проверках такие подписи
+менялись локально и отменялись, не записывались в старые опубликованные курсы.
+
+Source/runtime/tag `37cad08cc231bc4d49d26442de2ffe672c85f61a`/frontend113;
+backend112b3bc и worker rollout не выполнялись. Полный source37 web suite1796,
+38browser+3style, реальные DEV/prod save/reload и3protected image/no-save cases
+на среду PASS.0 application model calls,0 новых document/model-processing runs,
+0 клиентских правок; нет оснований повторять генерацию ради этого UI-пакета.
+План: docs/plans/2026-10-16_ispring-functional-comparison.md; отдельные ошибки
+действий root в ERRORS/AGENT-VISUAL-QA-001 и JOURNAL-DATE-001, не в engine errors.
+Подробные receipt/границы: TEST_RUN_LEDGER и .release-evidence/visual-editor113-20261115.
+
 Дата сборки: **11 ноября 2026**. Это отдельный канонический журнал изменений.
 Его задача — до очередной правки выяснить, делали ли это раньше, где находится
 результат, вызывается ли он сейчас и чем подтверждена его пригодность.

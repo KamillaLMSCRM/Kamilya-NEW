@@ -1,3 +1,9 @@
+## COMPLETE 2026-11-15 — visual editor113 accepted
+
+Native/frontend0.11.113 exact37cad08cc231bc4d49d26442de2ffe672c85f61a, masterCI43714502503/native43714546786 SUCCESS. Canonical native RELEASE_OK plus independent host/public/provider readback PASS; existing API/workers112b3bc and DEV API bbee/worker108/gitdev preserved. Final196files/1796web,150focused/type/lint/build67;38browser+3finalstyle cases PASS. Actual ordinary QA methodologists each saved/reloaded one new owned lesson in DEV and production, with exact expected Markdown/table/CRLF/ordinals and draft/source state. Three actual protected source images per environment passed picker/caption/reload with0writes; independent evidence/screenshot review accepted bounded V1. No customer/course generation/model/provider/schema change. New image upload, accordions and standalone assessment remain separate.
+
+Native113 current;112 immediate previous recovery,111 distinct rollback and explicit extras299/359 retained. Only110 release/staging pair removed under standing minimal cleanup after exact native budget1360078958B, original success/offhost archive+manifest hashes and independent readback; recovery remains local. Failed preflights retained, no guard relaxed. Runtime/tag/source stay37cad08c; closeout documentation only changes metadata. PrivateA=.release-evidence/visual-editor113-20261115, root final/product receipts and REVIEW.md; canonical handoff and plan own current continuation.
+
 ## COMPLETE 2026-11-15 — assistant112 released and live accepted
 
 result: Production API/three workers/native frontend0.11.112 exact b3bc46986e00b1d915b2d60641adc24b8fa4e957, imagefb4b4f2e; CI43704339066/protected43704968063/native43704413627 SUCCESS. Public/private/source/4runtime/readback PASS. Original Lombardb05421bb all8L8quizzes31cards/source113 unchanged. No migration/customer edits/provider or billing changes.

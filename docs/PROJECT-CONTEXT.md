@@ -1,3 +1,9 @@
+## Current production visual editor113 — 2026-11-15
+
+Native CT137 frontend0.11.113 exact `37cad08cc231bc4d49d26442de2ffe672c85f61a`, masterCI43714502503/native43714546786 and canonical RELEASE_OK/independent actual QA UI acceptance PASS. Public API112b3bc independently read back; API/worker rollout, DB migration and routing/settings/billing changes were not performed. Prior schema0187/VM worker identities are preserved context, not a fresh DB/worker probe in this frontend-only task. DEV stable frontend37/dpl_WDqaS3yUrSkQPowtC5WVN4nmS4SP; DEV API bbee112, legacy Render-worker deployment and Gitdev bbee read back unchanged. VMworker108 was not touched or freshly probed. Permanent synthetic actors/tenants used ordinary methodologist roles; no customer writes/model calls. New retained unpublished QA courses: productionb24ea804, DEV6d291be5. Existing image QA courses unchanged after local picker/caption/reload.
+
+Native113 retains112/111 and explicit299/359.110 only minimally removed with exact budget/success/recovery/independent proof; off-host recovery retained. Postdeploy free702124032B is a dated observation, not a future capacity promise. Runtime/tag stay37cad08c; final docs are metadata-only child. Updated authoring plan docs/plans/2026-10-16_ispring-functional-comparison.md and A=.release-evidence/visual-editor113-20261115/REVIEW.md. Earlier current headings below are historical.
+
 ## Current production assistant112 — 2026-11-15
 
 API/threeworkers/nativeCT137frontend:0.11.112 exact `b3bc46986e00b1d915b2d60641adc24b8fa4e957`, imagefb4b4f2e. Protected43704968063, CI43704339066, native43704413627 and ordinary-role live tests PASS. Lossless full source/citation context and explicit whole-course model adjudication; optional existingLuna selection without fallback or global order changes. Production routing DeepSeek thenLuna remains exact previous111 snapshot; schema0187/runtime-settings-history92c636 preserved. No customer-course writes.

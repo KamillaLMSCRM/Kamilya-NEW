@@ -17,6 +17,18 @@
 - Prevention: inspect the actual build configuration, preserve current flag names,
   and perform the compiled-config preflight before browser acceptance.
 
+- Release follow-up, 2026-11-15: actual DEV oracle initially compared textarea
+  DOM values with CRLF bytes, although HTML normalizes the DOM value to LF.
+  It stopped before writes. Normalize only the DOM assertion; keep API before/
+  after comparisons byte-exact. Native packet validation rejected identical
+  current/rollback identities before artifact operations; preparation now calls
+  the existing packet loader locally. Recovery CLI rejected generic manifest.json
+  before cleanup commands; an exact SHA-named byte-copy with the same digest
+  passed unchanged guards. UTF8 JSON read initially hit Windows cp1251; explicit
+  encoding fixed only the harness. Preserve these failed receipts. Final exact
+  CI/native/DEV/production checks passed; no unknown create/save replay, guard
+  relaxation, model rerun or customer write was used to repair these mistakes.
+
 ## GUIDE-SEEK-001 — nominal audio starts did not match encoded scene frames
 
 - Date: 2026-11-14. Scope: methodologist guide frontend, not engine/media content.

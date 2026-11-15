@@ -1,3 +1,11 @@
+## 2026-11-15 — visual lesson editor113 COMPLETE, DEV and production accepted
+
+Release source37cad08cc231bc4d49d26442de2ffe672c85f61a/tagv0.11.113, masterCI43714502503 and native43714546786 SUCCESS. Final full196files/1796web PASS/308.20s; focused150/type/lint/build67,38synthetic browser scenarios plus final3computed-style cases PASS. Native RELEASE_OK and separate host/public/provider readback PASS, frontend37/API112b3bc. DEV stable frontend37, API bbee112/worker108/gitdev retained. No DB/provider/billing/model operation or customer write.
+
+Actual ordinary methodologist DEV5187/a7a2 and production2f49/83552 each performed one PATCH on a newly owned QA lesson, reloaded and read exact expected content/table/CRLF/ordinals; draft/no publication/source state retained. Existing QA image lessons in both environments3real protected blobs/picker/caption/reload/no-save, original hashes and0business mutations. Root reviewed desktop/mobile; independent reader accepted recorded identities/before-after/screenshots, without claiming a fresh live rerun. New QA drafts6d291be5/b24ea804 retained unassigned/unpublished. A=.release-evidence/visual-editor113-20261115; actual scripts/results and final signoff are separate from mock acceptance.
+
+Native capacity preflight blocked at702267392B versus exact1360078958B. Only obsolete110/staging pair cleaned after historical RELEASE_OK/archive+manifest/tree-envelope proof and independent readback1416003584B;112/111/extras299+359 retained.113 installed with postreadback702124032B. Initial generic recovery manifest basename and non-distinct rollback packet rejected before cleanup/deployment; corrected local binding/byte-copy, no validator changes. First journal CI failure and native-preparation workflow with old head are retained and not accepted as release evidence; final exact CI/native runs above supersede them. Initial DOM CRLF assertion failed before write; normalize only DOM oracle, persisted bytes still compared exactly. Runtime/tag37 remain immutable; final docs-only child does not rerun generation or deploy.
+
 ## 2026-11-15 — visual lesson editor113 LOCAL candidate
 
 Owner-authorized first authoring package on existing Markdown/PATCH/renderer.
