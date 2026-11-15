@@ -32,6 +32,7 @@ MODEL_MODULES = (
     "app.modules.ai.dialogue_models",
     "app.modules.audit.models",
     "app.modules.candidate_assessments.models",
+    "app.modules.knowledge_checks.models",
     "app.modules.certificates.models",
     "app.modules.cohorts.models",
     "app.modules.competencies.models",

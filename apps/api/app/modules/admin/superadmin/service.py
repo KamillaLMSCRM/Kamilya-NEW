@@ -47,6 +47,11 @@ TENANT_ENROLLMENT_DELETE_SQL = [
 ]
 
 TENANT_DELETE_SQL = [
+    # Standalone evidence is removed only by the existing explicit whole-tenant
+    # deletion flow; methodologist/student DELETE is denied by the RLS policies.
+    "DELETE FROM knowledge_check_attempts WHERE tenant_id = :tenant_id",
+    "DELETE FROM knowledge_check_assignments WHERE tenant_id = :tenant_id",
+    "DELETE FROM knowledge_checks WHERE tenant_id = :tenant_id",
     """
     DELETE FROM quiz_choices
     WHERE question_id IN (

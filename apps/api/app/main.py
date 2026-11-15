@@ -60,6 +60,7 @@ from app.modules.enrollments.router import public_access_router as assignment_ac
 from app.modules.enrollments.router import router as enrollments_router
 from app.modules.enrollments.router import stats_router as enrollments_stats_router
 from app.modules.integrations.router import router as integrations_router
+from app.modules.knowledge_checks.router import router as knowledge_checks_router
 from app.modules.learner_assistant.router import router as learner_assistant_router
 from app.modules.learning_actions.router import router as learning_actions_router
 from app.modules.learning_cycles.router import router as learning_cycles_router
@@ -239,6 +240,7 @@ app.include_router(source_actuality_router, prefix=f"{settings.API_PREFIX}", tag
 app.include_router(youtube_transcript_router, prefix=f"{settings.API_PREFIX}", tags=["youtube-transcript"])
 app.include_router(quizzes_router, prefix=f"{settings.API_PREFIX}", tags=["quizzes"])
 app.include_router(quiz_assignments_router, prefix=f"{settings.API_PREFIX}", tags=["quiz-assignments"])
+app.include_router(knowledge_checks_router, prefix=f"{settings.API_PREFIX}", tags=["knowledge-checks"])
 app.include_router(certificates_router, prefix=f"{settings.API_PREFIX}", tags=["certificates"])
 app.include_router(student_router, prefix=f"{settings.API_PREFIX}", tags=["student"])
 app.include_router(learning_paths_router, prefix=f"{settings.API_PREFIX}", tags=["learning-paths"])

@@ -153,6 +153,8 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'learner-dashboard', href: '/student', capability: 'learn', labelKey: 'nav.dashboard', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'my-courses', href: '/my-courses', capability: 'learn', labelKey: 'student.enrolledCourses', section: 'learning', icon: 'book', order: 20, sidebar: true, commandPalette: true },
   { id: 'my-quizzes', href: '/my-quizzes', capability: 'learn', labelKey: 'sidebar.myTests', section: 'learning', icon: 'quiz', order: 30, sidebar: true, commandPalette: true },
+  { id: 'knowledge-checks', href: '/knowledge-checks', capability: 'manage_content', match: 'prefix', sidebar: false, commandPalette: false },
+  { id: 'my-knowledge-checks', href: '/my-knowledge-checks', capability: 'learn', match: 'prefix', sidebar: false, commandPalette: false },
   { id: 'certificates', href: '/certificates', capability: 'learn', match: 'prefix', labelKey: 'nav.certificates', section: 'learning', icon: 'certificate', order: 40, sidebar: true, commandPalette: true },
   { id: 'learner-course', href: '/courses', capability: 'learn', match: 'learner-course' },
   { id: 'learning-paths-learn', href: '/learning-paths', capability: 'learn', labelKey: 'learningPaths.title', section: 'learning', icon: 'route', order: 25, sidebar: true, commandPalette: true },

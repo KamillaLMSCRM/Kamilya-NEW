@@ -1,3 +1,23 @@
+## AGENT-ASSESSMENT-CONTRACT-001 - Standalone assignment omitted lock privileges and learner eligibility
+
+- Date: 2026-11-15; local standalone114 implementation, found before DEV rollout.
+- Symptom: review found that the new assignment row lock lacked PostgreSQL UPDATE
+  privilege; the audience also admitted active admins/methodologists who could not
+  open student-only attempt routes.
+- Cause: separate migration/API/UI contracts initially omitted lock privileges and
+  the complete assign-to-player role seam.
+- Fix: assignment UPDATE(id) permits row locking while the immutable trigger rejects
+  actual updates; API/DB enforce primary-role student, active status and tenant.
+  Selector uses paginated users with persisted status. Personal course-link tokens
+  cannot access standalone assignments. Downgrade uses locked owner visibility
+  without losing FORCE RLS, following MIGRATION-007.
+- Verification: knowledge-check unit role/answer/lifecycle tests and real lms_app
+  isolated Supabase migration/concurrency/history gate. Current task receipts
+  distinguish local/isolated proof from deployed acceptance.
+- Prevention: retain scripts/ops/knowledge_checks_dev_gate.py and knowledge-check
+  unit tests in CI. Exercise mixed audience, registered role dependencies, row-lock
+  privileges and preserved attempts before deployment; no owner-level RLS substitute.
+
 ## AGENT-VISUAL-QA-001 — browser suite used an unspecified build API
 
 - Date: 2026-11-15; local visual-editor113 acceptance, no external writes.

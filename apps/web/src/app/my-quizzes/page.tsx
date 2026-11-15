@@ -25,7 +25,7 @@ interface EnrolledQuiz {
 }
 
 export default function MyQuizzesPage() {
-  const { t, tp } = useT();
+  const { t, tp, lang } = useT();
   const [quizzes, setQuizzes] = useState<EnrolledQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -53,10 +53,15 @@ export default function MyQuizzesPage() {
 
   const pending = quizzes.filter((q) => !q.passed);
   const completed = quizzes.filter((q) => q.passed);
+  const standaloneLink = (
+    <Link href="/my-knowledge-checks" className="inline-flex min-h-11 items-center rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {lang === 'kk' ? 'Өздігінен білімді тексеру' : lang === 'en' ? 'Standalone knowledge checks' : 'Самостоятельные проверки знаний'}
+    </Link>
+  );
 
-  if (loading) return <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')}><WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
+  if (loading) return <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')}>{standaloneLink}<WorkspacePanel aria-busy="true"><p role="status">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
   if (loadError) return (
-    <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')}><WorkspacePanel role="alert" bodyClassName="space-y-3">
+    <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')}>{standaloneLink}<WorkspacePanel role="alert" bodyClassName="space-y-3">
       <p>{t('common.loadFailed')}</p>
       <Button type="button" onClick={() => setRetryNonce((value) => value + 1)}>{t('common.retry')}</Button>
     </WorkspacePanel></WorkspacePage>
@@ -64,6 +69,8 @@ export default function MyQuizzesPage() {
 
   return (
     <WorkspacePage id="my-quizzes" title={t('student.myQuizzes')} icon={<BookOpen />}>
+
+      {standaloneLink}
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3">

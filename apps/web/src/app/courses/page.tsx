@@ -382,6 +382,9 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
         {canManage && (
           <div className="flex flex-wrap items-center gap-2 xl:max-w-xl xl:justify-end">
             <ContextualNavigation section="courses" />
+            <Link href="/knowledge-checks" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              {lang === 'kk' ? 'Білімді тексеру' : lang === 'en' ? 'Knowledge checks' : 'Проверки знаний'}
+            </Link>
             <Link href="/ai/generate" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               {copy.generationJobs}

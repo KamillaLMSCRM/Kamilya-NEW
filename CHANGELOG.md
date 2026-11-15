@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.11.114] - 2026-11-15
+
+### Added
+
+- Standalone employee knowledge checks: manual choice-question authoring, published revisions, employee assignment, server-owned resumable attempts and retained results without creating a course or lesson.
+- Separate author and learner views with saved answers, deadlines, retries and revision-preserving result history. Existing course quizzes and learning results remain unchanged.
+
+### Database
+
+- Additive migration0188 with tenant isolation, frozen assignment/attempt evidence, immutable completed attempts and explicit whole-tenant purge integration. Application rollback retains the new records; populated schema downgrade is refused.
+
 ## [0.11.113] - 2026-11-15
 
 ### Added

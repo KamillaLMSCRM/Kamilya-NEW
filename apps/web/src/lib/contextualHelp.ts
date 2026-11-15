@@ -44,6 +44,24 @@ const topic = (
 ): HelpTopicDefinition => ({ id, paths, roles, title, purpose, steps, example, result, important });
 
 const TOPICS: readonly HelpTopicDefinition[] = [
+  topic('methodologist-knowledge-checks', ['/knowledge-checks'], ['methodologist'],
+    text('Проверки знаний', 'Білімді тексеру', 'Knowledge checks'),
+    text('Отдельные проверки сотрудников без курса.', 'Курссыз қызметкерлердің білімін тексеру.', 'Employee assessments without a course.'),
+    [text('Создайте проверку, добавьте вопросы и отметьте правильные ответы. Сохраните.', 'Тексеру құрып, сұрақтар мен дұрыс жауаптарды қосыңыз. Сақтаңыз.', 'Create a check, add questions and mark the answer keys. Save it.'),
+      text('Опубликуйте сохранённую редакцию, выберите сотрудников и назначьте проверку.', 'Сақталған нұсқаны жариялап, қызметкерлерді таңдап, тексеруді тағайындаңыз.', 'Publish the saved revision, select employees and assign it.'),
+      text('Откройте результаты: каждая попытка и редакция сохраняются отдельно.', 'Нәтижелерді ашыңыз: әр әрекет пен нұсқа бөлек сақталады.', 'Open results: each attempt and assigned revision is retained separately.')],
+    text('Повторная проверка по технике безопасности без учебного курса.', 'Оқу курсынсыз қауіпсіздік білімін қайта тексеру.', 'A safety knowledge check without a training course.'),
+    text('Назначенные сотрудники видят проверку в «Моих тестах».', 'Қызметкерлер тексеруді «Менің тесттерім» бөлімінен көреді.', 'Assigned employees find the check in My tests.'),
+    text('Правки создают новую редакцию и не меняют уже выданные проверки и результаты.', 'Өзгерістер жаңа нұсқа құрады; бұрынғы тағайындаулар мен нәтижелер өзгермейді.', 'Edits create a new revision and do not change earlier assignments or results.')),
+  topic('student-knowledge-checks', ['/my-knowledge-checks'], ['student'],
+    text('Мои проверки знаний', 'Менің білім тексерулерім', 'My knowledge checks'),
+    text('Назначенные проверки и история попыток.', 'Тағайындалған тексерулер және әрекеттер тарихы.', 'Assigned checks and attempt history.'),
+    [text('Откройте назначение и начните или продолжите попытку.', 'Тағайындауды ашып, әрекетті бастаңыз немесе жалғастырыңыз.', 'Open an assignment and start or resume an attempt.'),
+      text('Выберите ответы. Перед уходом со страницы нажмите «Сохранить ответы».', 'Жауаптарды таңдаңыз. Беттен шығу алдында «Жауаптарды сақтау» түймесін басыңыз.', 'Select answers. Select Save answers before leaving the page.'),
+      text('Нажмите «Завершить», подтвердите отправку и проверьте результат.', '«Аяқтау» түймесін басып, жіберуді растаңыз және нәтижені тексеріңіз.', 'Select Submit, confirm and read your result.')],
+    text('Незавершённая попытка откроется с сохранёнными ответами.', 'Аяқталмаған әрекет сақталған жауаптармен ашылады.', 'An unfinished attempt reopens with saved answers.'),
+    text('Результат и предыдущие попытки сохраняются.', 'Нәтиже және бұрынғы әрекеттер сақталады.', 'Your result and earlier attempts are retained.'),
+    text('После окончания времени учитываются только ранее сохранённые ответы. Личный доступ к одному курсу не даёт доступа к этим проверкам — войдите в учётную запись сотрудника.', 'Уақыт біткеннен кейін тек сақталған жауаптар есептеледі. Қызметкер тіркелгісіне кіріңіз.', 'After the deadline only previously saved answers count. A personal course link does not grant access; sign in with your employee account.')),
   {
     id: 'methodologist-dashboard', paths: ['/dashboard'], roles: ['methodologist'],
     title: text('Задачи', 'Тапсырмалар', 'Tasks'),

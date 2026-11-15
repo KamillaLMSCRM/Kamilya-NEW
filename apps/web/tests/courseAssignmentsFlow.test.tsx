@@ -117,7 +117,7 @@ describe('contextual course assignment flow', () => {
   it('distinguishes an unassigned published course from an empty course catalogue', async () => {
     render(<CourseAssignmentsPage />);
     await screen.findByRole('heading', { name: 'Обучающиеся' });
-    expect(screen.getByTestId('selected-assignment-course')).toHaveTextContent('Охрана труда');
+    expect(await screen.findByTestId('selected-assignment-course')).toHaveTextContent('Охрана труда');
     expect(screen.queryByText('Курсов пока нет')).not.toBeInTheDocument();
   });
 

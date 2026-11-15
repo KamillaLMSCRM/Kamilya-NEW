@@ -58,6 +58,7 @@ class UserResponse(BaseModel):
         "internal_error",
     ] | None = None
     is_active: bool
+    status: Literal["active", "inactive", "banned"] | None = None
     position_id: UUID | None = None
     telegram_id: int | None = None
     has_login_access: bool = False

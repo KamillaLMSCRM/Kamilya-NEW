@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "journeys": [
+    {
+      "id": "STANDALONE-CHECK-01",
+      "title": "Standalone employee assessment, assignment and retained results",
+      "trigger_paths": [
+        "apps/api/app/modules/knowledge_checks/**",
+        "apps/api/alembic/versions/0188_standalone_knowledge_checks.py",
+        "apps/web/src/features/knowledge-checks/**",
+        "apps/web/src/app/knowledge-checks/**",
+        "apps/web/src/app/my-knowledge-checks/**"
+      ],
+      "required_tests": [
+        "apps/api/tests/unit/test_knowledge_checks.py::test_oracle_and_public_snapshot",
+        "apps/api/tests/unit/test_knowledge_checks.py::test_submit_replay_and_expiry_uses_saved_answers",
+        "apps/api/tests/unit/test_knowledge_checks_roles.py::test_wrong_active_role_rejected_before_query",
+        "apps/api/tests/unit/test_knowledge_checks_roles.py::test_course_personal_link_cannot_open_independent_assessments"
+      ],
+      "database_tests": [
+        "apps/api/tests/integration/test_knowledge_checks_api_flow.py::test_standalone_check_http_journey"
+      ],
+      "runtime_gates": ["scripts/ops/knowledge_checks_dev_gate.py"],
+      "invariants": [
+        "Authoring and assignment create no course, lesson or enrollment.",
+        "Published assignment revisions and completed attempts remain immutable when current questions change.",
+        "Server start, frozen snapshot, saved answers, deadline and attempt limit own the result; concurrent requests and replays do not create duplicate attempts/results.",
+        "The assigned employee sees public questions without keys/explanations and only their own tenant-bound assignments.",
+        "Mixed invalid audience is rejected atomically; ordinary users cannot delete evidence; existing explicit whole-tenant purge remains ordered and scoped."
+      ],
+      "dev_gate": "Use permanent ordinary QA roles; create/publish/assign, fail/retry/pass/reload, edit revision and reconcile both retained histories. No model or course creation.",
+      "production_gate": "After exact image/schema/frontend and rollback gates, repeat the ordinary-role full journey in the permanent synthetic production tenant and retain fixtures. Customer data unchanged."
+    }
+  ]
+}
