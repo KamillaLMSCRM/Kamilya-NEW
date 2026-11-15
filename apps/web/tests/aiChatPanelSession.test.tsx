@@ -39,6 +39,21 @@ describe('AI chat context lifecycle', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
+  it('starts the explicit verified course review without a lesson mutation or automatic request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ reply: 'Review complete; no edits' }));
+    installFetch(fetchMock);
+    render(<AIChatPanel open onClose={vi.fn()} courseId="course-1" />);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Review entire course' }));
+    await screen.findByText('Review complete; no edits');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      course_id: 'course-1', context: 'course', target_id: null, intent: 'course_review',
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).durable_request_id).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'Apply' })).not.toBeInTheDocument();
+  });
+
   it.each([
     ['assistant_response_incomplete', 'The model did not complete its reply. No partial proposal was accepted or applied. Reload the lesson history before the next request.'],
   ])('shows the known %s cause without replaying a model request', async (code, message) => {

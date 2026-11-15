@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
+from app.modules.ai.assistant_context_compaction import compact_course_context
 from app.modules.courses.models import Course
 from app.modules.lessons.models import Lesson, Module
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
@@ -100,4 +101,4 @@ async def load_course_context(
                 for lesson in lessons if lesson.module_id == module.id]}
             for module in modules],
     }
-    return json.dumps(body, ensure_ascii=False, separators=(",", ":"))
+    return json.dumps(compact_course_context(body), ensure_ascii=False, separators=(",", ":"))

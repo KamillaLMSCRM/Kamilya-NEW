@@ -1282,6 +1282,8 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
             status_code=400,
             detail=f"target_id is required when context='{req.context}'",
         )
+    if req.intent == "course_review" and (req.context != "course" or req.target_id is not None):
+        raise HTTPException(400, "Course review requires course context")
     tenant_id = user.tenant_id
     if not isinstance(tenant_id, UUID):
         raise HTTPException(status_code=403, detail="Tenant context required")
@@ -1373,16 +1375,23 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
         max_tokens=policy.integer("generation.editorial_luna_max_tokens"),
     )
     try:
-        resp = await llm.ainvoke(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_block},
-            ]
-        )
-        if (getattr(resp, "finish_reason", None) == "length"
-                or getattr(resp, "content_is_reasoning", False) or not (resp.content or "").strip()):
-            raise HTTPException(422, detail={"code": "assistant_response_incomplete"})
-        reply = (resp.content or "").strip()
+        if req.intent == "course_review":
+            from app.modules.ai.assistant_review import ReviewProtocolError, review_course
+            try:
+                reply = await review_course(llm, json.loads(safe_summary), safe_message, req.language)
+            except ReviewProtocolError:
+                raise HTTPException(422, detail={"code": "assistant_response_incomplete"}) from None
+        else:
+            resp = await llm.ainvoke(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_block},
+                ]
+            )
+            if (getattr(resp, "finish_reason", None) == "length"
+                    or getattr(resp, "content_is_reasoning", False) or not (resp.content or "").strip()):
+                raise HTTPException(422, detail={"code": "assistant_response_incomplete"})
+            reply = (resp.content or "").strip()
     except HTTPException:
         raise
     except Exception as e:

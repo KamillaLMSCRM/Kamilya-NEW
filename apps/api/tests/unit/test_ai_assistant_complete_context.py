@@ -60,7 +60,7 @@ async def test_complete_course_sources_and_quiz_are_sent_without_clipping(monkey
     assert body['sources']['documents'][0]['approval_id'] == r.approved.approval_id
     question = lesson['quizzes'][0]['questions'][0]
     assert question['explanation'] == 'UNVERIFIED_EXPLANATION'
-    assert question['source_quote'] == 'CLAIMED_QUOTE'
+    assert body['quote_texts'][question['source_quote']['quote_ref']] == 'CLAIMED_QUOTE'
     assert [(c['text'], c['is_correct']) for c in question['choices']] == [
         ('WRONG_AUTHORED_KEY', True), ('ACTUAL_SOURCE_ACTION', False)]
     resolve.assert_awaited_once_with(db, r.tenant, [str(r.document.id)], ['pinned'])

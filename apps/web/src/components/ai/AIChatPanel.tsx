@@ -258,7 +258,7 @@ export function AIChatPanel({
     };
   }, [open]);
 
-  const sendMessage = async (messageOverride?: string, intent?: 'audience_recommendation') => {
+  const sendMessage = async (messageOverride?: string, intent?: 'audience_recommendation' | 'course_review') => {
     const session = sessionRef.current;
     const userText = (messageOverride ?? input).trim();
     if (!userText || !token || !session?.active || session.sending || session.durableHistoryBlocked || session.durablePending) return;
@@ -277,9 +277,10 @@ export function AIChatPanel({
         ? 'module'
         : 'course';
       const isAudienceIntent = intent === 'audience_recommendation';
-      const requestContext = isAudienceIntent ? 'course' : context;
-      const target_id = isAudienceIntent ? null : focusLessonId || focusModuleId || null;
-      const durableLesson = Boolean(durableEnabled && !isAudienceIntent);
+      const isCourseIntent = isAudienceIntent || intent === 'course_review';
+      const requestContext = isCourseIntent ? 'course' : context;
+      const target_id = isCourseIntent ? null : focusLessonId || focusModuleId || null;
+      const durableLesson = Boolean(durableEnabled && !isCourseIntent);
 
       const res = await fetch(`${API_URL}/v1/ai/chat`, {
         method: 'POST',
@@ -522,6 +523,11 @@ export function AIChatPanel({
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          {!focusLessonId && !focusModuleId && <Button type="button" size="sm" variant="outline"
+            disabled={sending || historyLoading || Boolean(durablePending)}
+            onClick={() => void sendMessage(({ ru: 'Проверь все уроки и тесты курса по исходнику. Предложи только подтверждённые исправления, ничего не применяй.', kk: 'Курстың барлық сабақтары мен тесттерін дереккөзбен салыстыр. Тек расталған түзетулерді ұсын, ештеңені өзгертпе.', en: 'Review all lessons and tests against the source. Propose only verified corrections; apply nothing.' }[lang]), 'course_review')}>
+            {({ ru: 'Проверить весь курс', kk: 'Курсты толық тексеру', en: 'Review entire course' }[lang])}
+          </Button>}
           {durableEnabled && durableInterrupted && <p className="text-sm text-muted-foreground" role="status">{{ ru: 'Предыдущий запрос прерван или не завершён. Сохранённая история ниже; повтор автоматически не выполнялся. Можно задать новый вопрос.', kk: 'Алдыңғы сұрау үзілді немесе аяқталмады. Сақталған тарих төменде; автоматты қайталау болған жоқ. Жаңа сұрақ қоюға болады.', en: 'The previous request was interrupted or did not complete. Saved history is below; it was not retried automatically. You may enter a new question.' }[lang]}</p>}
           {durableEnabled && historyLoading && <p className="text-sm text-muted-foreground" role="status">{{ ru: 'Загружаем историю урока…', kk: 'Сабақ тарихы жүктелуде…', en: 'Loading lesson history…' }[lang]}</p>}
           {durableEnabled && historyError && (
