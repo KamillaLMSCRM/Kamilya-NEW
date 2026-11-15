@@ -169,6 +169,15 @@
 
 ## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
 
+- Update 2026-11-15: standalone114 pre-production inspection caught the same
+  omitted epoch locally, before any production dispatch or schema mutation.
+  Candidate c487 retained the old 0187 target despite migration0188. Add the
+  explicit >=114 epoch0187-to-0188 and rebuild the exact candidate; keep the
+  unpublished114 version, never move a published tag. Controller/bundle/workflow
+  and activation suite187PASS. A new CI-executed regression compares current
+  VERSION's controller target to the sole actual Alembic head, so this omission
+  fails automatically without relying on the root remembering a manual check.
+  Installed-controller upgrade and actual DEV/production remain separate gates.
 - Date:2026-11-10. Scope: release orchestration, not generated content.
 - Symptom: protected0.11.84 workflow42778231944 stopped with v3_migration_revision_invalid while creating its manifest; the production deployment job was skipped. Production83/schema0186 remained unchanged.
 - Cause: migration0187 was present and DEV-tested, but the source and installed release controller still mapped every version>=82 to0185-to-0186. Root omitted the local exact-manifest check before dispatch.

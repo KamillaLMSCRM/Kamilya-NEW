@@ -1,3 +1,13 @@
+## 2026-11-15T15:35Z — standalone114 release-plane epoch preflight
+
+Before production dispatch root found controller target0187 vs new head0188,
+existing AGENT-RELEASE-EPOCH-001 recurrence. Added exact >=114 epoch0187->0188,
+preserved112/113 and older mappings;187controller/bundle/workflow/activation
+testsPASS. Added CI invariant currentVERSION epoch target equals sole actual
+Alembic head. No production migration, tag or deployment. Application API/web/
+migration byte-content is unchanged from c487; final exact candidate CI/image
+and deployed identities will be regenerated, not inferred from the old receipt.
+
 ## 2026-11-15T14:34Z — standalone114 LOCAL / isolated DB acceptance, deployed gates OPEN
 
 Source baseline d1eb5710, branchfeat/standalone-knowledge-checks-20261115. API8843unitPASS1skip/142.41s before6new dependency tests; final14focusedPASS/1.38s. Quality1004/2174, release186/head0188/journal392/version114PASS. Finalfrontend197files/1806PASS/120.33s, buildPASS;7new built browser cases390/1440 and33oldPASS. Initial full suite caught missing help/visual coverage, corrected37PASS; subsequent old assignment test waited unrelated employee heading before course response, changed to wait the same asserted selected-course element,40focused then fullPASS. No product expectation removed. Initial3browser failures were success-status oracle expecting role=alert; corrected role=status then7PASS. All failed logs retained.

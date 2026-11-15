@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import json
 import sys
@@ -90,7 +91,7 @@ def test_source_preparation_epoch_admits_only_0185_to_0186(flags):
             release_plane.ReleaseManifest.parse(data)
 
 
-@pytest.mark.parametrize('version', ['0.11.84', '0.11.85'])
+@pytest.mark.parametrize('version', ['0.11.84', '0.11.85', '0.11.112', '0.11.113'])
 @pytest.mark.parametrize('flags', [True, False])
 def test_editorial_settings_epoch_admits_only_0186_to_0187(version, flags):
     data = epoch_manifest(version, migration=False, flags=flags)
@@ -118,6 +119,62 @@ def test_editorial_settings_no_migration_checks_current_head(tmp_path, monkeypat
     else:
         with pytest.raises(release_plane.ReleasePlaneError, match='correction_schema_revision_mismatch'):
             controller.execute(parsed.release_id)
+    assert not any('upgrade' in call or 'up' in call or 'stop' in call for call, _ in runner.calls)
+
+
+@pytest.mark.parametrize('flags', [True, False])
+def test_knowledge_checks_epoch_requires_exact_0187_to_0188(flags):
+    data = epoch_manifest('0.11.114', migration=False, flags=flags)
+    assert release_plane.ReleaseManifest.parse(data).correction_revisions == ('0187', '0188')
+    data['migration'].update(mode='exact', from_revision='0187', to_revision='0188', rollback_compatible=True)
+    assert release_plane.ReleaseManifest.parse(data).migration.to_revision == '0188'
+    for source, target in [('0186', '0187'), ('0186', '0188'), ('0187', '0189'), ('0188', '0187')]:
+        data['migration'].update(from_revision=source, to_revision=target)
+        with pytest.raises(release_plane.ReleasePlaneError, match='v3_migration_revision_invalid'):
+            release_plane.ReleaseManifest.parse(data)
+
+
+def test_current_product_epoch_matches_sole_alembic_head():
+    root = MODULE_PATH.parents[2]
+    gate_path = root / 'scripts' / 'ci' / 'release-contract-gate.py'
+    spec = importlib.util.spec_from_file_location('release_contract_gate', gate_path)
+    assert spec and spec.loader
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    gate.check_alembic_chain()
+    revisions = {}
+    for path in gate.MIGRATIONS_DIR.glob('*.py'):
+        if path.name == '__init__.py':
+            continue
+        tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+        revisions[gate._assignment(tree, 'revision', path)] = gate._assignment(tree, 'down_revision', path)
+    heads = set(revisions) - {parent for parent in revisions.values() if parent is not None}
+    assert len(heads) == 1
+    version = (root / 'VERSION').read_text(encoding='utf-8').strip()
+    manifest = release_plane.ReleaseManifest.parse(epoch_manifest(version, migration=False, flags=False))
+    assert manifest.correction_revisions[1] == heads.pop()
+
+
+@pytest.mark.parametrize('flags', [True, False])
+@pytest.mark.parametrize('already_deployed', [True, False])
+@pytest.mark.parametrize('revision, accepted', [('0187 (head)', False), ('0188 (head)', True), ('0189 (head)', False)])
+def test_knowledge_checks_no_migration_requires_0188(tmp_path, monkeypatch, flags, already_deployed, revision, accepted):
+    parsed = release_plane.ReleaseManifest.parse(epoch_manifest('0.11.114', migration=False, flags=flags))
+    cfg = config(tmp_path)
+    if already_deployed:
+        Path(cfg.state_file).write_text(json.dumps({'schema_version': 1, 'active_slot': 'green',
+            'release_sha': NEW_SHA, 'image': NEW_IMAGE}), encoding='utf-8')
+    runner = FakeRunner(initial_revision=revision, fail_token='' if already_deployed else 'down --remove-orphans')
+    controller = release_plane.ReleasePlane(parsed, cfg, runner, FakeHealth())
+    monkeypatch.setattr(controller, '_verify_services', lambda *args, **kwargs: None)
+    monkeypatch.setattr(controller, '_wait_health', lambda *args, **kwargs: None)
+    if accepted and already_deployed:
+        assert controller.execute(parsed.release_id)['status'] == 'ALREADY_DEPLOYED'
+    else:
+        expected = 'synthetic_command_failure' if accepted else 'correction_schema_revision_mismatch'
+        with pytest.raises(release_plane.ReleasePlaneError, match=expected):
+            controller.execute(parsed.release_id)
+    assert any('current' in call for call, _ in runner.calls)
     assert not any('upgrade' in call or 'up' in call or 'stop' in call for call, _ in runner.calls)
 
 
