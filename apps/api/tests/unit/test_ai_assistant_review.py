@@ -175,3 +175,60 @@ async def test_real_router_dispatches_explicit_review_through_both_stages(monkey
     assert llm.ainvoke.await_count == 2
     assert "Требует дополнительной проверки" in result.reply
     assert result.apply_lesson_id is None and result.apply_lesson_content is None
+
+
+def test_provider_selection_cannot_enable_or_reorder_a_resolved_chain():
+    from app.modules.ai.llm_client import LLMProviderConfig, ResilientLLMClient
+    configs = [LLMProviderConfig(name=name, base_url="https://example.invalid", api_key="fixture", model="fixture")
+               for name in ("deepseek", "chatgpt-reserve")]
+    original = ResilientLLMClient(configs, temperature=0.4, max_tokens=32768)
+    before = original.cache_fingerprint()
+    selected = original.for_provider("chatgpt-reserve")
+    assert [c.name for c in selected._clients] == ["chatgpt-reserve"]
+    assert selected.max_tokens == 32768 and selected.temperature == 0.4
+    assert selected._clients[0].config.extra_body == configs[1].extra_body
+    assert original.cache_fingerprint() == before
+    with pytest.raises(ValueError, match="selected_provider_unavailable"):
+        ResilientLLMClient(configs[:1]).for_provider("chatgpt-reserve")
+
+
+@pytest.mark.parametrize("patch", [{"intent": None}, {"context": "lesson", "target_id": str(uuid4())},
+                                      {"review_provider": "deepseek"}, {"target_id": str(uuid4())}])
+def test_selected_review_provider_is_not_a_general_client_override(patch):
+    from pydantic import ValidationError
+
+    from app.modules.ai.schemas import AIChatRequest
+    with pytest.raises(ValidationError):
+        AIChatRequest.model_validate({"course_id": str(uuid4()), "message": "Review", "intent": "course_review",
+                                      "review_provider": "chatgpt_reserve", **patch})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("available", [True, False])
+async def test_native_review_selects_luna_without_default_fallback(monkeypatch, available):
+    from unittest.mock import Mock
+
+    from fastapi import HTTPException
+
+    from app.modules.admin.runtime_configuration import runtime
+    from app.modules.ai import router
+    from app.modules.ai.schemas import AIChatRequest
+    value = compact_course_context(body())
+    selected = SimpleNamespace(ainvoke=AsyncMock(return_value=response({"reviewed_lesson_ids": ["lesson"], "findings": []})))
+    choose = Mock(return_value=selected) if available else Mock(side_effect=ValueError("selected_provider_unavailable"))
+    default = SimpleNamespace(for_provider=choose, ainvoke=AsyncMock())
+    monkeypatch.setattr(router, "_fetch_course_summary", AsyncMock(return_value=json.dumps(value)))
+    monkeypatch.setattr(router.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=default))
+    monkeypatch.setattr(runtime, "resolve_runtime_settings", AsyncMock(return_value=SimpleNamespace(integer=lambda _:32768)))
+    req = AIChatRequest(course_id=uuid4(), message="Review", intent="course_review", review_provider="chatgpt_reserve")
+    args = {"db": SimpleNamespace(), "user": SimpleNamespace(tenant_id=uuid4(), role="methodologist")}
+    if available:
+        await router.chat(req, **args)
+        selected.ainvoke.assert_awaited_once()
+    else:
+        with pytest.raises(HTTPException) as error:
+            await router.chat(req, **args)
+        assert error.value.status_code == 503 and error.value.detail["code"] == "assistant_provider_unavailable"
+        selected.ainvoke.assert_not_awaited()
+    choose.assert_called_once_with("chatgpt-reserve")
+    default.ainvoke.assert_not_awaited()

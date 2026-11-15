@@ -94,6 +94,7 @@ export function AIChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [reviewProvider, setReviewProvider] = useState('');
   const [applying, setApplying] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(false);
@@ -296,6 +297,7 @@ export function AIChatPanel({
           message: userText,
           language: lang,
           intent,
+          ...(intent === 'course_review' && reviewProvider === 'chatgpt_reserve' ? { review_provider: reviewProvider } : {}),
           ...(durableLesson ? { durable_request_id: crypto.randomUUID() } : {}),
           ...(!durableLesson && session.history.length && !isAudienceIntent ? {
             history: { version: 1, course_id: courseId, context: requestContext, target_id, language: lang, turns: session.history },
@@ -305,7 +307,7 @@ export function AIChatPanel({
       if (!res.ok) {
         const failure = await res.json().catch(() => null);
         const code = failure?.detail?.code;
-        if (code === 'assistant_response_incomplete') throw new Error(code);
+        if (code === 'assistant_response_incomplete' || code === 'assistant_provider_unavailable') throw new Error(code);
         throw new Error(`HTTP ${res.status}`);
       }
       const data = await res.json();
@@ -339,7 +341,12 @@ export function AIChatPanel({
       if (!isCurrent()) return;
       toast.error(t('aiAssistant.errorToast'));
       const incompleteFailure = e instanceof Error && e.message === 'assistant_response_incomplete';
-      const knownFailure = incompleteFailure ? {
+      const unavailableProvider = e instanceof Error && e.message === 'assistant_provider_unavailable';
+      const knownFailure = unavailableProvider ? {
+        ru: 'Luna недоступна для этого кабинета. Проверка не выполнена; другая модель автоматически не вызывалась.',
+        kk: 'Бұл кабинетте Luna қолжетімсіз. Тексеру орындалмады; басқа модель автоматты шақырылмады.',
+        en: 'Luna is unavailable for this workspace. Review was not performed; no other model was called automatically.',
+      }[lang] : incompleteFailure ? {
         ru: 'Модель не завершила ответ. Неполный вариант не принят и не применён. Обновите историю урока перед следующим запросом.',
         kk: 'Модель жауабын аяқтамады. Толық емес нұсқа қабылданбады және қолданылмады. Келесі сұрау алдында сабақ тарихын жаңартыңыз.',
         en: 'The model did not complete its reply. No partial proposal was accepted or applied. Reload the lesson history before the next request.',
@@ -523,11 +530,19 @@ export function AIChatPanel({
         </header>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-          {!focusLessonId && !focusModuleId && <Button type="button" size="sm" variant="outline"
+          {!focusLessonId && !focusModuleId && <div className="flex flex-wrap items-center gap-2">
+          <label className="text-sm">{({ ru: 'Модель проверки', kk: 'Тексеру моделі', en: 'Review model' }[lang])}
+            <select className="ml-2 rounded-md border bg-background px-2 py-1" value={reviewProvider} disabled={sending}
+              onChange={(event) => setReviewProvider(event.target.value)}>
+              <option value="">{({ ru: 'По настройкам', kk: 'Баптаулар бойынша', en: 'Configured default' }[lang])}</option>
+              <option value="chatgpt_reserve">Luna</option>
+            </select>
+          </label>
+          <Button type="button" size="sm" variant="outline"
             disabled={sending || historyLoading || Boolean(durablePending)}
             onClick={() => void sendMessage(({ ru: 'Проверь все уроки и тесты курса по исходнику. Предложи только подтверждённые исправления, ничего не применяй.', kk: 'Курстың барлық сабақтары мен тесттерін дереккөзбен салыстыр. Тек расталған түзетулерді ұсын, ештеңені өзгертпе.', en: 'Review all lessons and tests against the source. Propose only verified corrections; apply nothing.' }[lang]), 'course_review')}>
             {({ ru: 'Проверить весь курс', kk: 'Курсты толық тексеру', en: 'Review entire course' }[lang])}
-          </Button>}
+          </Button></div>}
           {durableEnabled && durableInterrupted && <p className="text-sm text-muted-foreground" role="status">{{ ru: 'Предыдущий запрос прерван или не завершён. Сохранённая история ниже; повтор автоматически не выполнялся. Можно задать новый вопрос.', kk: 'Алдыңғы сұрау үзілді немесе аяқталмады. Сақталған тарих төменде; автоматты қайталау болған жоқ. Жаңа сұрақ қоюға болады.', en: 'The previous request was interrupted or did not complete. Saved history is below; it was not retried automatically. You may enter a new question.' }[lang]}</p>}
           {durableEnabled && historyLoading && <p className="text-sm text-muted-foreground" role="status">{{ ru: 'Загружаем историю урока…', kk: 'Сабақ тарихы жүктелуде…', en: 'Loading lesson history…' }[lang]}</p>}
           {durableEnabled && historyError && (

@@ -6,6 +6,7 @@
 
 ### Changed
 
+- Allow explicit Luna selection for whole-course review from the already enabled tenant route, without global routing changes or automatic provider fallback.
 - Deduplicate verbatim assistant citations without clipping source or teaching content. Provide server-owned lesson/question inventory.
 - Add explicit whole-course review with model adjudication of individual findings against the complete source and counterevidence. Keep rejected and unresolved findings distinct and retain explicit correction confirmation.
 - Preserve full source pins and all course/test content. Reviewer discovery remains fallible; zero findings do not certify a defect-free course.

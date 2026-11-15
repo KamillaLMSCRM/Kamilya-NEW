@@ -1069,6 +1069,14 @@ class ResilientLLMClient:
                 "Check that the configured generation provider route is available."
             )
 
+    def for_provider(self, provider_name: str) -> ResilientLLMClient:
+        """Restrict this resolved chain without enabling a route or fallback."""
+        selected = [replace(c.config, max_retries=0) for c in self._clients if c.name == provider_name]
+        if len(selected) != 1:
+            raise ValueError("selected_provider_unavailable")
+        return ResilientLLMClient(selected, temperature=self.temperature,
+                                  max_tokens=self.max_tokens, max_retries_per_provider=0)
+
     def cache_fingerprint(self) -> str:
         """Opaque identity of this resolved route; never return provider credentials.
 

@@ -253,11 +253,16 @@ class AIChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     language: Literal["ru", "kk", "en"] = "ru"
     intent: Literal["course_review", "content_revision", "audience_recommendation"] | None = None
+    review_provider: Literal["chatgpt_reserve"] | None = None
     history: AIChatHistory | None = None
     durable_request_id: UUID | None = None
 
     @model_validator(mode="after")
     def validate_history_scope(self) -> Self:
+        if self.review_provider is not None and (
+            self.intent != "course_review" or self.context != "course" or self.target_id is not None
+        ):
+            raise ValueError("Provider selection requires whole-course review")
         if self.durable_request_id is not None and (
             self.context != "lesson" or self.target_id is None or self.history is not None
             or self.intent == "audience_recommendation"

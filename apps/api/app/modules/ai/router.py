@@ -1374,6 +1374,11 @@ async def _chat_once(req: AIChatRequest, db: AsyncSession, user: User, release_r
         temperature=0.4,
         max_tokens=policy.integer("generation.editorial_luna_max_tokens"),
     )
+    if req.review_provider == "chatgpt_reserve":
+        try:
+            llm = llm.for_provider("chatgpt-reserve")
+        except ValueError:
+            raise HTTPException(503, detail={"code": "assistant_provider_unavailable"}) from None
     try:
         if req.intent == "course_review":
             from app.modules.ai.assistant_review import ReviewProtocolError, review_course
