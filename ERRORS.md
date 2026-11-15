@@ -6998,6 +6998,14 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RELEASE-002 - Local version check omitted the release-note identity contract
 
+- Recurrence 2026-11-15: root used the development-only check in the private
+  standalone114 push helper; sourcea01 was pushed before required114 notes.
+  Local release-mode validation caught this before any tag/application production
+  dispatch or migration. Added complete notes and a real-repository CI regression
+  calling validate_release, in addition to synthetic validator cases; future
+  omissions now fail normal CI. The private push helper also requires release
+  mode before pushing. API/web/migration content and accepted DEV history remain
+  unchanged; no published tag is moved and no generation is repeated.
 - Recurrence 2026-11-13: candidate106/c848cdf6 DEV content accepted, but root again omitted release-mode preflight. Protected43352472898 failed missing dated106 changelog and exact em-dash release-note identity before image/prod mutation. Immutable106 tag/release retained. Replacement107 carries identical engine code; local `validate_version.py --release --expected-version 0.11.107` and canonical version/workflow tests are required BEFORE first push. Ordinary development validation is insufficient. No new model calls or production changes.
 
 - Recurrence 2026-11-12: candidate99/5775fd77 passed8203APIunit tests but root omitted the canonical three-manifest validator beforepush; web package stayed98. CI43161267524 correctlyblocked both version gates before image/deploy. Fix web metadata99, execute validate_version.py --release --expected-version0.11.99 and20version/workflow tests before correctivepush. API/module source unchanged; no modelcalls. Preserve failedCI, stopobserver/build onfailure, do not rerun unchanged5775.

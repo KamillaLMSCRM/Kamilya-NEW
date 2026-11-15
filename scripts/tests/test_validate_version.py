@@ -47,6 +47,11 @@ def test_real_repo_versions_agree() -> None:
     assert validate(REPO_ROOT) == []
 
 
+def test_real_repo_release_identity_is_complete() -> None:
+    """CI must reject a version without the notes needed by protected release."""
+    assert validate_release(REPO_ROOT) == []
+
+
 def test_real_repo_version_file_is_semver() -> None:
     text = (REPO_ROOT / VERSION_FILE).read_text(encoding="utf-8").strip()
     assert re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", text) is not None
