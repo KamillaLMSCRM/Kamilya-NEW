@@ -7604,3 +7604,25 @@ Existingproduction111/courseb05421bb/currentapprovedsource113: all8L8Qz31cards/f
   rollback cleanup and timestamp-envelope NO_GO retained, not overwritten.
 - Detailed immutable receipts A=.release-evidence/source-autocorrect115-20261116;
   final-release115.json and post-deployment canonical final gate link exact proof.
+
+
+## RUN-SOURCE115-FOLLOWUP-20261116 — accepted deployed autocorrect recheck
+
+- Canonical PowerShell API wrapper, actual linked checkout b7001faf:98PASS/6.58s
+  across source admission, source analysis, custody and course-source hold tests.
+- Saved actual r4 reply:2unsafe reattachments withheld,2good edits retained.
+  Exact r6 original messages/replies and checkpoint match:3automatic edits,
+ 1unsafe edit withheld,0human questions;0network/DB/new model calls.
+- Fresh ordinary DEV role/actor/tenant verified, API8e7/115. Approved positive
+  ref16/3edits/0questions and unresolved conflict ref15/0edits/1question match
+  full saved DTO hashes. No approval/reopen/start/generation action repeated.
+- Fresh production native frontend/API8e7/115;2current/historical DI approval
+  hashes unchanged. No customer/source/course/employee write or provider call.
+- Original httpx login ReadTimeout retained; identical canonical target/Origin/
+  credentials urllib login200/2.27s, then bounded verified-TLS readback passed.
+  Cause of httpx timeout UNKNOWN. No credential/role/TLS/DB/product change.
+- DEV /healthz404 is a harness assumption; only native production exposes that
+  route. DEV /login200 does not prove exact frontend source; prior provider
+  deployment receipt remains separate. No local Docker; no new release/deploy.
+- A=.release-evidence/source-autocorrect115-followup-20261116 owns replay-result,
+  runtime-readback and original failures. App code equals accepted115/8e7.

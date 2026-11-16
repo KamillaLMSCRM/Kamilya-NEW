@@ -11216,3 +11216,16 @@ TIME_ORDER NO_GO, then reference actual OCI receipt/fresh independent runtime re
 never backdate data, skip dependency or relabel failed evidence. Metadata closeout
 must not move application tag or claim deployed child SHA. All new invocations
 remain economical and custody-aware; no unknown request or runtime action repeated.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-16 source115 recheck:
+Do not infer that native production /healthz exists on Vercel DEV. The erroneous
+DEV probe returned404 before auth/source operations; use documented public login
+availability and API identity, keeping provider exact-frontend provenance separate.
+Canonical DevClient/httpx login then reached ReadTimeout; the same target, Origin,
+identity and credential using verified-TLS urllib returned200/2.27s. The timeout
+root cause remains UNKNOWN, not a proven DB/password/product fault. Preserve both
+outcomes, never rotate credentials/restart services/redeploy as an unproven fix.
+Bounded follow-up source GETs and exact saved reply/checkpoint replay passed;
+no source/course/employee/model writes or local Docker use. Existing source115
+already deployed; duplicate deployment is not required for repeated verification.

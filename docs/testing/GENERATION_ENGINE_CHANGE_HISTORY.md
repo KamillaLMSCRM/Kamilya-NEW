@@ -2780,3 +2780,27 @@ only obsolete112 after offhost archive+manifest/previous successful receipt and
 root cleanup-tree proof; current114,113,extras preserved. No force/prune/volumes,
 new billable resources, provider plans, thresholds, voice or reserve changes.
 No traffic rollback drill or fresh production-provider inference claimed.
+
+
+CHG-SOURCE-AUTOCORRECT115 FOLLOW-UP ACCEPTED 2026-11-16:
+Owner asked to return from the landing release to the same autocorrect failure.
+Current handoff/source/receipts establish that the bounded repair already shipped
+as115/8e7ae2e8. Do not repeat completed inference or redeploy unchanged code.
+Fresh canonical-wrapper regressions98PASS/6.58s; actual saved r4 false-preservation
+vote through current native admission rejects both DI/contract reattachments and
+keeps two good edits. Exact r6 requests/replies and completed checkpoint replay
+match prior native output:3useful edits/1withheld/0human questions,0newcalls.
+Network is explicitly forbidden in that local replay. Fresh DEV ordinary-role GET
+confirms unchanged approved positive revision16/3edits/0questions and original
+conflict revision15/0edits/1question, both complete DTO hashes identical to the
+accepted115 receipts. Fresh DEV/API production and native production frontend
+identities8e7/115; both current/historical DI approvals match saved hashes.
+DEV frontend login200 is availability only; this follow-up does not infer its
+exact SHA from a nonexistent healthz endpoint. Prior Vercel identity receipt is
+separate.0model/source/course/employee writes,0localDocker, no new release needed.
+Navigation SOURCE_FALLBACK: exact CodeGraph search stopped at missing per-checkout
+runtime; direct bounded owner/test inspection used, no global tool changes.
+A=.release-evidence/source-autocorrect115-followup-20261116. Recorded initial
+acceptance-wire failures separately; neither proved an application regression.
+Limits retained: conservative over-withholding possible; no universal semantic
+guarantee or fresh production model-inference claim. Current runtime/tag unchanged.
