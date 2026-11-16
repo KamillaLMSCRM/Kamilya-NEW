@@ -2853,3 +2853,35 @@ Total9actual requests, model fields allgpt-5.6-luna,69212input/4994output,
  identity/config/start/restarts unchanged per execution. Runtime/tag stay115/8e7.
 
 Frozen sanitized nine-call/source fixtures committed at docs/testing/fixtures/source-autocorrect115-production-luna-20261116.json. Reuse them for ENG-073 regression before another model request. No customer data/keys/headers included.
+
+## CHG-SOURCE-JSON116 PROPOSED 2026-11-16 — ENG-073 ordinary-route JSON recovery
+
+Previous RUN-SOURCE115-PRODUCTION-FRESH-LUNA and ENG-073 prove the saved D reply
+is fully received invalid JSON; existing managed helper succeeds only when
+explicitly attached in E. Reuse that one document-wide helper for both transports:
+parse only a returned raw response, then issue at most one format-only corrective
+request. Move normal-provider send/custody inside a current-messages callback so
+the corrected bytes sent equal the recorded identity. Preserve original source,
+all semantic admission/review, valid managed behavior, existing token/reasoning
+settings, completed-result replay, and unknown/timeout fences. No new critic,
+regex JSON repair, global provider reorder, migration, or customer edits.
+Keep request/policy identities for unchanged messages so prior completed good
+parts stay reusable; corrective message bytes already produce a distinct key.
+Scope analysis.py, source-review unit tests, release metadata/docs only.
+First red replay frozen D/E, native non-managed custody test, bounded negatives;
+then standard DEV worker Luna and protected no-migration production116.
+Navigation SOURCE_FALLBACK: CodeGraph exact search reports missing pinned runtime;
+bounded owner/caller/tests inspected, no installer/config change or repeat query.
+A=.release-evidence/source-json116-20261116. Owner authorizes fix, Luna DEV and
+conditional production; only existing paid Luna for model tests, no DeepSeek.
+
+CHG-SOURCE-JSON116 LOCAL RESULT2026-11-16: one existing helper now decodes only a
+successfully returned raw value, normal and managed paths share its one-reissue
+budget. Normal provider callback receives/sends/custodies the exact current
+message bytes. Initial known identities and all semantic admission policies are
+unchanged. Exact frozen D/E request/response sequence and three-completion replay
+pass0newcalls; native worker facade preserves invalid raw reply+usage and records
+a distinct corrective request.106focused pass; full API8885pass/1skip/143.17s;
+quality1004/2174pass. No DB/provider/resource/customer mutation or local Docker.
+Original RED and intermediate assertion/import-order logs retained. Candidate
+version116, DEV/protected production pending; current deployed115 remains.

@@ -1,6 +1,7 @@
 import json
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -37,7 +38,8 @@ REPLACEMENT = "До 45 МРП включительно действует пер
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("source_cap", [16384, 32768])
-async def test_source_editor_native_managed_profile_keeps_source_token_cap(monkeypatch, source_cap):
+@pytest.mark.parametrize("invalid_first", [False, True])
+async def test_source_editor_native_managed_profile_keeps_source_token_cap(monkeypatch, source_cap, invalid_first):
     import asyncio
 
     from app.modules.source_editorial_review import analysis
@@ -90,7 +92,13 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     helper = Mock(return_value=(profile, 16384, 41))
     response = SimpleNamespace(content='{"ok":true}', provider_name="deepseek", model="synthetic",
                                prompt_tokens=3, completion_tokens=2, usage_complete=True)
-    model_call = AsyncMock(return_value=response)
+    if invalid_first:
+        fixture = json.loads((Path(__file__).resolve().parents[4] / 'docs/testing/fixtures/'
+                              'source-autocorrect115-production-luna-20261116.json').read_text(encoding='utf-8'))
+        bad = next(case for case in fixture['cases'] if case['case'] == 'D_FAILED')['model_records'][0]['content']
+        model_call = AsyncMock(side_effect=[SimpleNamespace(**{**vars(response), 'content': bad}), response])
+    else:
+        model_call = AsyncMock(return_value=response)
     client_factory = Mock(return_value=SimpleNamespace(ainvoke=model_call))
     timeouts = []
     original_timeout = asyncio.timeout
@@ -122,7 +130,19 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     queued = rows[-1]
     assert await analysis.run_analysis(tenant, document, queued.id) == "analyzed"
     helper.assert_called_once_with(initial, runtime, "course_generation")
-    client_factory.assert_called_once_with(profile, temperature=0.1, max_tokens=source_cap, max_retries=0)
+    assert client_factory.call_count == (2 if invalid_first else 1)
+    for call in client_factory.call_args_list:
+        assert call.args == (profile,)
+        assert call.kwargs == {'temperature': 0.1, 'max_tokens': source_cap, 'max_retries': 0}
+    if invalid_first:
+        first, corrective = [call.args[0] for call in model_call.await_args_list]
+        assert first[1:] == corrective[1:] and first[0] != corrective[0]
+        assert corrective[0]['content'].startswith(first[0]['content'])
+        assert rows[-1].payload['model_calls'] == 2
+        completed = [event.payload['result'] for event in rows
+                     if event.kind == 'analysis_block' and event.payload.get('key', '').endswith(':completed')]
+        assert len(completed) == 2
+        assert completed[0]['value'] == bad and all(value['status'] == 'ok' for value in completed)
     assert profile.extra_body == {"thinking": {"type": "enabled"}, "reasoning_effort": "low"}
     assert 41 in timeouts
     route = text_hash(json.dumps([profile.name, profile.model, profile.base_url, profile.endpoint, 41,
@@ -132,7 +152,7 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
                    policy=analysis._ANALYSIS_POLICY, route=route,
                    messages=[{"role": "system", "content": "review"}, {"role": "user", "content": "{}"}])
     assert any(event.payload.get("key") == f"{CUSTODY_POLICY}:{key}:initial:intent" for event in rows)
-    model_call.assert_awaited_once()
+    assert model_call.await_count == (2 if invalid_first else 1)
 
 
 @pytest.mark.parametrize(("error", "expected"), [

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.116] - 2026-11-16
+
+### Fixed
+
+- Recover one fully received invalid JSON source-review response through the same format-only retry on normal and managed providers. Preserve completed replies, usage and original text; never retry unknown or timed-out requests automatically.
+
 ## [0.11.115] - 2026-11-16
 
 ### Fixed

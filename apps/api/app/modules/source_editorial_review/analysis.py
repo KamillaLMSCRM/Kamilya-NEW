@@ -242,11 +242,22 @@ class _ManagedSourceJsonRecovery:
     def __init__(self) -> None:
         self.used = False
 
+    @staticmethod
+    def _decode_completed(value: object) -> object:
+        # A callback failure is not a completed response. Only decode the value
+        # after the transport/custody callback has returned successfully.
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                raise ManagedLunaCompletedJsonError("source_review_completed_invalid_json") from None
+        return value
+
     async def complete(
         self, messages: list[dict[str, str]], request: Callable[[list[dict[str, str]]], Awaitable[object]],
     ) -> object:
         try:
-            return await request(messages)
+            return self._decode_completed(await request(messages))
         except ManagedLunaCompletedJsonError:
             if self.used:
                 raise
@@ -255,7 +266,7 @@ class _ManagedSourceJsonRecovery:
             {**messages[0], "content": messages[0]["content"] + _REISSUE_JSON_INSTRUCTION},
             *messages[1:],
         ]
-        return await request(corrective)
+        return self._decode_completed(await request(corrective))
 
 
 def blocks(original: str) -> Iterator[tuple[int, str]]:
@@ -688,25 +699,30 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     route = text_hash(json.dumps([config.name, config.model, config.base_url, config.endpoint,
                                                    timeout, max_tokens, config.extra_body,
                                                    "source-review-single-attempt-v2"], sort_keys=True))
-                    async def call_provider(*, call_timeout: float = timeout, call_config: Any = config,
-                                            call_max_tokens: int = max_tokens) -> tuple[object, dict[str, Any] | None]:
-                        try:
-                            async with asyncio.timeout(call_timeout):
-                                reply = await LLMClient(call_config, temperature=0.1,
-                                    max_tokens=call_max_tokens, max_retries=0).ainvoke(
-                                        messages, response_format={"type": "json_object"})
-                        except ProviderFailedError as exc:
-                            if (isinstance(exc.last_exc, httpx.HTTPStatusError)
-                                    and exc.last_exc.response.status_code in (400, 401, 403, 404, 413, 422, 429)):
-                                raise RequestRejected("source_review_provider_rejected") from None
-                            raise
-                        return reply.content, {"stage": stage, "provider": reply.provider_name, "model": reply.model,
-                            "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens,
-                            "usage_complete": reply.usage_complete}
+                    async def request_provider(current: list[dict[str, str]], *,
+                                               call_timeout: float = timeout, call_config: Any = config,
+                                               call_max_tokens: int = max_tokens, call_route: str = route) -> object:
+                        async def call_provider() -> tuple[object, dict[str, Any] | None]:
+                            try:
+                                async with asyncio.timeout(call_timeout):
+                                    reply = await LLMClient(call_config, temperature=0.1,
+                                        max_tokens=call_max_tokens, max_retries=0).ainvoke(
+                                            current, response_format={"type": "json_object"})
+                            except ProviderFailedError as exc:
+                                if (isinstance(exc.last_exc, httpx.HTTPStatusError)
+                                        and exc.last_exc.response.status_code in (400, 401, 403, 404, 413, 422, 429)):
+                                    raise RequestRejected("source_review_provider_rejected") from None
+                                raise
+                            return reply.content, {"stage": stage, "provider": reply.provider_name, "model": reply.model,
+                                "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens,
+                                "usage_complete": reply.usage_complete}
+
+                        return await secured_request(current, call_route, call_timeout, call_provider)
+
                     try:
-                        raw = await secured_request(messages, route, timeout, call_provider)
+                        result = await json_recovery.complete(messages, request_provider)
                         phase = stage + "_response"
-                        return json.loads(raw) if isinstance(raw, str) else raw
+                        return result
                     except RequestRejected:
                         continue
                 raise ReviewConflictError("source_review_provider_unavailable")
