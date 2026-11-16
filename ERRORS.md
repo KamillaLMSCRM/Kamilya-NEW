@@ -11243,3 +11243,29 @@ Known D response is fully received invalid JSON, not unknown transport. Its
 explicit existing-helper recovery experiment must not be relabelled as normal
 production HTTP automation; current source API lacks operation-local Luna
 selection. Scoped native-code/Luna-only tests preserve all customer rows/config.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-16 source116:
+Copied115 generators included already corrected output-key/runtime assumptions.
+Uppercase original_DEV_unchanged rejected evidence after known staging/pull;
+reconcile verified existing env/image and replayed only network-none frozen data,
+never repeated install/pull. New local remote-wrapper AST guard rejects nonlowercase
+static evidence keys before SSH. Copy the final successful procedure, not its
+earlier failed producer; image@sha256 is allowed only in canonical image= field.
+115 creator used --restart=no but old drain expected unless-stopped. Rejected
+preflight proved the current exact85b5 worker still running/no before any signal;
+new named drain asserts that exact observed state and keeps all idle/identity/
+warm-exit/production guards. Read current restart policy in inventory next time.
+Canonical API venv lacks paramiko: controller transport uses existing agent-tools
+runtime. Windows default read_text decoded UTF8 helper asCP1251, corrupting copied
+Russian assertion literals (not API/source data). Restore those checks from UTF8
+canonical source; no approval intent or model rerun occurred before correction.
+All new helper reads must specify UTF8/UTF8-sig or invoke python-Xutf8; smoke its
+literal assertions against retained DTOs before network. Local-only producer
+errors and premature API115/116 timing assertions are harness failures, not
+product regressions. Original failure receipts retained privately in source116.
+Native cleanup planner refused unnecessary cleanup because capacity was already
+sufficient: independently proved1,462,956,032free >=1,360,574,539required; delete0.
+No local Docker, client writes, provider changes or unknown model call replay.
+
+Source116 harness follow-up: Windows write_text without newline=LF converted two whole canonical files to CRLF; diff --check rejected every new CR as trailing whitespace. Normalize only task-owned docs to original LF and keep original text. New producers explicitly write UTF8/LF. Capture broad diff-check output to private file and print a bounded summary, never hundreds of thousands of lines. No application/runtime/model changes.

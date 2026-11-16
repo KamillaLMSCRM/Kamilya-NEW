@@ -7647,3 +7647,48 @@ Existingproduction111/courseb05421bb/currentapprovedsource113: all8L8Qz31cards/f
   document/source/course/employee writes, deployment or local Docker.
 - Result: bounded semantic controls PASS; end-to-end automation PARTIAL,
   ENG-073 OPEN. Private exact artifacts A=source-autocorrect115-production-fresh-20261116.
+
+
+## RUN-SOURCE116-DEV-LUNA-20261116
+
+- Candidate68fc9109605fa06c195ed318f81a1ef639fcedb9, native DEV API/frontend/VM
+  worker, gpt-6-luna/HIGH unchanged. Positive076160f3... source1269dc17... ->
+  working1e9c2b37...,3necessary edits/0questions, approved16. Conflict14e564f9...
+  source/working identical,1genuine deadline conflict, retained15.
+- Both3calls: preparation/editor/independent_review, totals63307IN4154OUT.
+  Per-call receipts/hashes/timings and complete text in private A/dev-acceptance,
+  source inputs, final DTOs and read-only DB journals. Currency/reasoning breakdown
+  unavailable, not zero. Existing paid Luna only;0DeepSeek/embedding/course calls.
+- Local106focused, API8885pass/1skip, quality1004/2174; exact cold993file manifest,
+  saved D/E malformed JSON and three-completion second-run replay0freshcalls PASS.
+- Production pending. Do not reuse this DEV record as actual production HTTP
+  invalid JSON proof. Synthetic sources intentionally retained; customer writes0.
+- A=.release-evidence/source-json116-20261116. Operations harness failures are in
+  ERRORS.md, not counted as engine semantic defects or successful model calls.
+
+
+## RUN-SOURCE116-PRODUCTION-20261116
+
+- Source68fc9109605fa06c195ed318f81a1ef639fcedb9/tagv0.11.116; final image
+ 0c2ad75ef0a3a754de29bc36394adecdfbad7135a9b05ba30cd48aec26978947.
+ MasterCI43878299330/protected43879683371/native43875686597 SUCCESS. API and3
+ workers blue116/public+private health; native app.kml.kz exactmarker116; DEV116
+ e57f8ba2 unchanged. Separate independent readback after successful controllers.
+- Actual final image993sourcefiles/frozen malformed D/E and custody restart PASS,
+ 0fresh calls. Real ordinary DEV sources remain6Luna6 HIGH calls63307IN4154OUT,
+ positive approved16/3edits/0questions, conflict retained15/0edits/1question.
+ Fresh malformed JSON not observed; replay and HTTP proofs explicitly separate.
+- Fresh postartifact encrypted backup4d08bfc5..., signed isolated0188 restore
+ a5bb0a33..., RPO113s/RTO18s, current115 restricted reader/settings-history PASS.
+ Owned restore database/plaintext absence independently verified twice.
+-9customer course+structure and2approved-source hashes unchanged; no customer
+ source/course/employee writes. Source-only fixtures intentionally retained.
+ No fresh production provider inference, DeepSeek, local Docker, migration,
+ provider/model/reasoning/billing/settings/voice/reserve changes.
+- Three obsolete recoverable no-volume stopped DEV copies/images removed,
+ all76other containers unchanged at cleanup; production115/current116 DEV and
+ all specified recovery copies preserved. No native cleanup.115green backend
+ and115/114native readiness retained, extra113/299/359 retained; traffic drill
+ NOT RUN. Watchdog identity-only diff, both timers/oneshot independently pass.
+- A=.release-evidence/source-json116-20261116; final-release116 and final canonical
+ no_migration_final gate preserve exact receipts/hashes and proof boundaries.

@@ -2885,3 +2885,36 @@ a distinct corrective request.106focused pass; full API8885pass/1skip/143.17s;
 quality1004/2174pass. No DB/provider/resource/customer mutation or local Docker.
 Original RED and intermediate assertion/import-order logs retained. Candidate
 version116, DEV/protected production pending; current deployed115 remains.
+
+
+CHG-SOURCE-JSON116 DEV RESULT2026-11-16: exact68fc candidate accepted through
+ordinary-role HTTP source checks on the standard VM worker. Real Luna6/HIGH:
+positive076160f3-6ac2-4aec-8828-1d5f0e4262e9 approved16/3edits/0questions,
+conflict14e564f9-bd6b-43d4-83e1-c841d14e39aa retained15/0edits/1real question.
+Source/working hashes, exact per-stage model/usage and151.722141s/179.456664s
+queue-inclusive source timings in A/dev-acceptance.json;6calls63307IN4154OUT.
+Native0188 read-only lms_app/FORCE RLS journal read confirms3distinct completed
+calls each; no repeats, DeepSeek, course generation or customer changes.
+Correct schema label is0188, not a new revision. Cold image993files/frozen D/E
+and custody replay0freshcalls PASS. Current normal-provider raw JSON routing is
+covered by run_analysis regression; managed native Luna completion behavior is
+fresh HTTP proof, not a fabricated fresh non-managed invalid-JSON incident.
+Master candidate68fc pushed/read back at13:42:06UTC; CI/protected release pending.
+
+
+CHG-SOURCE-JSON116 FINAL2026-11-16: ACCEPTED/PRODUCTION. Exact68fc9109/version116,
+protected image0c2ad75e, masterCI43878299330/protected43879683371/native43875686597
+SUCCESS. Shared known-completion JSON recovery is attached to both actual
+transports; unchanged request/policy identities retain completed good parts.
+Saved D/E and real run_analysis raw-provider custody tests, final image993file
+manifest and network-none replay0freshcalls pass. Actual native DEV source-only
+Luna6/HIGH results and all6calls stay as recorded, no subsequent model call.
+Independent current production frontend/API/all3workers,115rollback,0188 settings
+and watchdog identity/timers pass.9customer courses/structures and2DI approval
+hashes match pre-release. Fresh signed restore RPO113s/RTO18s, restricted current115
+reader, final owned DB/plaintext absence pass.0customer/employee writes or local
+Docker. Cleanup removed minimum3recoverable obsolete DEV copies/images only;
+current/rollback/additional recovery resources preserved. No native cleanup.
+All final proofs A/final-release116.json, final116-preservation, root predeploy
+and post-closeout final gate. ENG-073 CLOSED, previous failed D remains immutable.
+Metadata closeout does not retag/rebuild/redeploy application68fc.

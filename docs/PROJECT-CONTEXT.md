@@ -1,4 +1,59 @@
-## CURRENT 2026-11-16 — fresh production-core Luna controls; JSON recovery gap open
+## COMPLETE 2026-11-16 — ENG-073 recovery116 accepted and in production
+
+result: ENG-073 CLOSED. Runtime/tag v0.11.116 exact
+68fc9109605fa06c195ed318f81a1ef639fcedb9. Production native frontend/API/three
+workers and DEV API/frontend/solee57f8ba2 worker independently read back exactsource.
+Production blue image0c2ad75ef0a3a754de29bc36394adecdfbad7135a9b05ba30cd48aec26978947;
+115green rollback retained. No schema migration, CT125/DEV0188 unchanged.
+
+changed: One existing document-wide JSON recovery helper now serves normal raw
+provider and managed completion. Only a fully returned invalid JSON reply may
+cause one format-only reissue; current corrective bytes match custody identity.
+Timeout/unknown/callback exceptions never trigger that retry. Completed good
+parts and original invalid reply/usage remain replayable, no new semantic critic.
+
+verified: Saved actual D/E and real normal run_analysis/custody regression PASS;
+993source-file final image and retained replay0freshcalls PASS. API8885pass/1skip,
+focused106, quality1004/2174. DEV ordinary Luna6/HIGH two new sources PASS:
+3useful corrections/0questions approved16 and intact genuine conflict/1question
+retained15;6calls63307IN4154OUT. MasterCI43878299330, protected43879683371,
+devCI43875623476, native dev43875686597 SUCCESS. Fresh encrypted backup/signed
+0188 restore RPO113s/RTO18s/current115 restricted reader and independent owned
+cleanup PASS. Watchdog identity-only/timers/oneshot PASS.9customer course+structure
+and2DI approval hashes unchanged;0customer document/course/employee writes.
+
+blockers: None for this bounded recovery fix. Fresh DEV replies were valid JSON;
+saved actual failure proves malformed recovery, native DEV proves the ordinary
+HTTP/worker/persistence flow. No claim of a fresh non-managed malformed HTTP
+incident or fresh production inference. Only existing paid Luna used, no DeepSeek,
+local Docker, provider/model/reasoning/plan/global-settings change. Three obsolete
+recoverable stopped DEV copies/images removed under standing minimum authority;
+no native cleanup, volumes or customer data removed. Traffic rollback not invoked.
+
+next: No duplicate generation/deployment required. Preserve fixtures, old failed
+D, exact immutable artifact and115rollback. Metadata-only closeout child must not
+move application tag or be represented as deployed. Canonical records:
+CHG-SOURCE-JSON116, RUN-SOURCE116-DEV-LUNA/PRODUCTION-20261116 and ENG-073.
+Private receipts A=.release-evidence/source-json116-20261116.
+
+## Historical pre-release116 — superseded by complete116 above
+
+Candidate116/68fc9109605fa06c195ed318f81a1ef639fcedb9 unifies known-completion
+JSON recovery for normal and managed source review. Saved actual D/E replay and
+the real run_analysis normal-provider custody seam pass; one format-only reissue
+per document, never unknown/timeout retries. Existing completed parts replay.
+Full API8885pass/1skip; focused106; quality1004/2174. DEV API/frontend/solee57f8ba2
+worker exactcandidate: CI43875623476, Renderdep-dbtgcoutlv9c73fa6v2g,
+Verceldpl_8QqxDec5EFet1R65bWUq9G63KiEK. Fresh ordinary-role Luna6/HIGH source
+checks PASS:3useful corrections/0questions approved16; real conflicting deadlines
+unchanged/1human question retained15.6calls63307IN4154OUT, usagecomplete.
+Fresh DEV did not produce malformed JSON: saved replay proves that path separately.
+Production remains115/8e7; masterCI43878299330/protected rollout pending. Do not
+declare production GO or repeat completed calls. No customer documents/courses,
+models/reasoning/plans/settings migration, DeepSeek calls or local Docker.
+Private A=.release-evidence/source-json116-20261116; canonical change CHG-SOURCE-JSON116.
+
+## Historical115 controls — JSON gap resolved by116 above
 
 Current runtime remains115/8e7ae2e8, no deployment/config/customer writes. Owner
 selected existing paid Luna only. Actual production-code isolated controls made

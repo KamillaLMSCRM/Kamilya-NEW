@@ -1823,3 +1823,25 @@ A3necessary fixes pass; C2real ambiguities remain. This is new actual inference,
 not saved replay, but E required the separately disclosed format-recovery helper.
 Root's B zero-question expectation overlooked a genuinely missing responsible
 actor; classify as fixture/oracle error, not a false model issue.
+
+
+ENG-073 follow-up2026-11-16, candidate116/68fc:
+LOCAL shared returned-raw decode/current-message custody repair PASS; saved actual
+D malformed reply plus corrective E/review/replay0calls and normal-provider native
+run_analysis tests cover the formerly disconnected path. Ordinary DEV Luna6/HIGH
+two new synthetic source checks PASS,6calls63307IN4154OUT; managed route did not
+newly emit malformed JSON. Production remains115 until protected acceptance.
+No new semantic critic, schema, token/reasoning change or customer edits.
+
+
+ENG-073 RESOLVED2026-11-16, production0.11.116/68fc9109/0c2ad75e:
+Existing format-only known-completion recovery is now wired to normal-provider
+run_analysis as well as managed completion. Corrective send and custody record
+receive identical current messages. Saved actual trailing-comma D/E exact replay
+and no-extra-call restart, native normal-provider seam, bounded retry negatives,
+fresh ordinary DEV Luna6/HIGH source/persistence checks and exact final production
+image/runtime readback PASS. Source and semantic admission unchanged. One retry
+budget shared per document; second malformed reply terminal; unknown/timeouts
+never retried. Not a claim that fresh DEV produced malformed JSON; source API
+provider selector remains absent and global routes unchanged. Customer writes0.
+State CLOSED for ENG-073; this does not promise every model response is valid.
