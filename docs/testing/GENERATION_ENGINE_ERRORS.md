@@ -1791,3 +1791,35 @@ current/historical DI approvals unchanged, API/native frontend still115/8e7.
 This confirms the already released bounded fix, not a new universal solution.
 Do not reopen approved fixtures or regenerate courses just to repeat this proof.
 Source/course/employee writes0; proof A=source-autocorrect115-followup-20261116.
+
+
+## ENG-073 — completed non-managed source reply lacks the managed JSON recovery path
+
+- Date:2026-11-16. Actual isolated production115core/Luna5.6 test D, one fully
+  received7396IN634OUT response contains a trailing comma before object closure.
+  JSONDecodeError stops before independent review; original remains intact.
+- Class: model-output contract failure plus pipeline recovery inconsistency,
+  not semantic text corruption, OCR, unknown transport or customer-data failure.
+- Source: normal Resilient source completion json.loads(raw) is outside the
+  existing _ManagedSourceJsonRecovery used by managed DEV. Static owner verified;
+  the isolated D adapter matches that decode seam. Ordinary HTTP failure was
+  NOT executed, so do not claim an actual failed customer job.
+- Experiment: E explicitly feeds the known completed D failure to the existing
+  managed helper. One format-only reissue and independent review2fresh calls;
+  no manual JSON/semantic edit. New unsafe referent change and false conflict
+  are rejected by the existing reviewer, original intact/0human questions.
+- State: OPEN. Experiment is not a deployed recovery fix or full HTTP acceptance.
+  Reuse one shared document-wide known-completion recovery across clients; never
+  retry unknown/timeouts or add a critic/regex/loop to solve this JSON failure.
+- Evidence:A=source-autocorrect115-production-fresh-20261116: D original failure,
+  raw1response/usage, actual-E, final-assessment. All9fresh Luna calls accounted.
+
+ENG-062 fresh production-core follow-up2026-11-16:
+New E writer spontaneously makes the same referent-class mistake on a different
+equipment source and invents a conflict. Existing independent reviewer identifies
+the ORIGINAL genitive terminal referent, rejects the actor change and dismisses
+the false clue without human input; native admission retains the rejection.
+A3necessary fixes pass; C2real ambiguities remain. This is new actual inference,
+not saved replay, but E required the separately disclosed format-recovery helper.
+Root's B zero-question expectation overlooked a genuinely missing responsible
+actor; classify as fixture/oracle error, not a false model issue.

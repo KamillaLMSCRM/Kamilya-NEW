@@ -11229,3 +11229,17 @@ outcomes, never rotate credentials/restart services/redeploy as an unproven fix.
 Bounded follow-up source GETs and exact saved reply/checkpoint replay passed;
 no source/course/employee/model writes or local Docker use. Existing source115
 already deployed; duplicate deployment is not required for repeated verification.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-16 fresh production autocorrect:
+DocumentResponse does not expose tenant_id: the initial readonly preparation
+asserted that nonexistent field and stopped before any model/content operation.
+Verify the canonical ordinary actor/tenant and server-scoped document endpoint;
+do not weaken RLS or fabricate a DTO field. Root's initial B negative-control
+oracle also omitted the responsible actor in its own source. The model correctly
+asked who records the refusal; preserve the bad oracle/result, add a distinct
+explicit-role control and never count the genuine issue as a false positive.
+Known D response is fully received invalid JSON, not unknown transport. Its
+explicit existing-helper recovery experiment must not be relabelled as normal
+production HTTP automation; current source API lacks operation-local Luna
+selection. Scoped native-code/Luna-only tests preserve all customer rows/config.

@@ -2804,3 +2804,52 @@ A=.release-evidence/source-autocorrect115-followup-20261116. Recorded initial
 acceptance-wire failures separately; neither proved an application regression.
 Limits retained: conservative over-withholding possible; no universal semantic
 guarantee or fresh production model-inference claim. Current runtime/tag unchanged.
+
+
+## RUN-SOURCE115-PRODUCTION-FRESH-LUNA-20261116 — completed with a format-recovery finding
+
+Owner requested new production-model examples and explicitly selected only the
+already-paid Luna. Current ordinary source-review API has no per-operation model
+selection and starts with DeepSeek; no global routing/flags were changed to evade
+that boundary. Used actual production115/8e7 green API image3b9, verified six source
+owner hashes, and its native analyze/admission code in isolated subprocesses.
+Existing from_settings_async().for_provider('chatgpt-reserve') resolved ONLY the
+already enabled Luna5.6; no fallback, provider-plan/key/resource change or local
+Docker. This is production-core/model evidence, NOT normal HTTP upload/worker/
+custody or frontend acceptance. No source/course/employee rows were created/edited.
+
+- A: novel receiving-equipment source,2fresh calls/32.736s;7333+8492input,
+ 452+901output. Exactly3required corrections (dispatcher transposition, plural
+ predicate, feminine agreement),0human questions, exact independent expected text.
+- B: novel referent/AND/count-boundary/negation source,2fresh calls/26.288s,
+ exact original retained. One human question correctly identifies an unassigned
+ refusal-recording actor. Root's initial zero-question oracle was INVALID;
+ preserved raw oracle and B-oracle-adjudication, never reclassified as model error.
+- C: contradictory15:00/17:00 single-report rules plus unclear singular approver,
+ 2fresh calls/18.949s;7376+7773input/327+368output. Original intact, exactly2
+ source-grounded questions (conflict,responsibility); no invented resolution.
+- D: B with only an explicit refusal-recording actor added.1fresh call/14.863s,
+ 7396input/634output. Fully received response contains a trailing comma; JSON
+ decode stopped before review. Original failed run/artifacts retained. No unknown
+ request or semantic manual repair was replayed; no source change was applied.
+- E: same D source/request identities, explicit experiment applying the EXISTING
+ _ManagedSourceJsonRecovery to the known completed invalid D result. Exactly one
+ format-only corrective prompt, then native independent review:2fresh calls/
+ 31.363s;7446+8487input/451+785output. Editor newly proposed unsafe прошедшего→
+ прошедшему and a false conflict. Reviewer independently rejected the transfer
+ and dismissed the clue using the original's explicit terminal reference.
+ Final text exact-original,0automatic edits/0human questions/1rejected cosmetic.
+ Native Resilient source route does not yet invoke that same automatic recovery;
+ E is NOT a relabelled ordinary production success. ENG-073 remains OPEN.
+
+Total9actual requests, model fields allgpt-5.6-luna,69212input/4994output,
+ usagecomplete;124.199s summed model stages, not whole task duration. Reasoning
+ token breakdown unavailable, currency UNKNOWN existing allocation;0DeepSeek.
+ Root supplied no expected findings/answers to the model and made no edits to
+ model replies. All actual input/reply/usage/checkpoint artifacts retained under
+ A=.release-evidence/source-autocorrect115-production-fresh-20261116 and owned
+ VM126 QA directories. Read-only postflight: global routing/runtime exact,
+ existing34QA document and35course/structure DTO hashes identical; container
+ identity/config/start/restarts unchanged per execution. Runtime/tag stay115/8e7.
+
+Frozen sanitized nine-call/source fixtures committed at docs/testing/fixtures/source-autocorrect115-production-luna-20261116.json. Reuse them for ENG-073 regression before another model request. No customer data/keys/headers included.

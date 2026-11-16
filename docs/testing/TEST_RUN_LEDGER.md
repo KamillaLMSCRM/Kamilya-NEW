@@ -7626,3 +7626,24 @@ Existingproduction111/courseb05421bb/currentapprovedsource113: all8L8Qz31cards/f
   deployment receipt remains separate. No local Docker; no new release/deploy.
 - A=.release-evidence/source-autocorrect115-followup-20261116 owns replay-result,
   runtime-readback and original failures. App code equals accepted115/8e7.
+
+
+## RUN-SOURCE115-PRODUCTION-FRESH-LUNA-20261116
+
+- Owner selects existing paid Luna only. Actual current production115/8e7/3b9
+  subprocesses; native analyze/admission and resolved Luna-only chain. No normal
+  source-review HTTP/worker/frontend acceptance claim; no routing/flag changes.
+- A exact3necessary corrections/0questions PASS; B original intact/1genuine
+  unassigned-actor question PASS with corrected root-oracle classification;
+  C original intact/2genuine conflicts/responsibility questions PASS.
+- D one completed malformed-JSON response is FAILED, retained and reconciled.
+  E existing managed-format-recovery experiment reuses that known failure and
+  makes2fresh calls; native reviewer rejects new unsafe edit/false issue,
+  final original intact/0questions PASS. Not automatic ordinary-route recovery.
+-9fresh gpt-5.6-luna calls,69212IN/4994OUT,124.199s summed model stages,
+  usagecomplete/reasoning breakdown unavailable; no DeepSeek or added paid API route.
+- Postflight runtime/global settings exact,34QA documents/35courses+structures
+  hashes unchanged; all production container fingerprints unchanged. No customer
+  document/source/course/employee writes, deployment or local Docker.
+- Result: bounded semantic controls PASS; end-to-end automation PARTIAL,
+  ENG-073 OPEN. Private exact artifacts A=source-autocorrect115-production-fresh-20261116.

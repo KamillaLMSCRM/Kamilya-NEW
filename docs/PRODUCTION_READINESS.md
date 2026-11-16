@@ -1,3 +1,20 @@
+## CURRENT 2026-11-16 — fresh production-core Luna controls; JSON recovery gap open
+
+Current runtime remains115/8e7ae2e8, no deployment/config/customer writes. Owner
+selected existing paid Luna only. Actual production-code isolated controls made
+9fresh Luna5.6 calls:3useful corrections, original referents retained, real source
+questions preserved, and a new unsafe writer edit/false conflict rejected by the
+native reviewer. One known malformed-JSON D response stopped safely; E required
+explicit use of the existing managed JSON helper. Bounded semantic PASS does NOT
+prove fully automatic ordinary HTTP source-review: ENG-073 is OPEN and the source
+API has no operation-local Luna selection. No DeepSeek fallback/global reorder.
+Full truth/usage/proof boundaries: RUN-SOURCE115-PRODUCTION-FRESH-LUNA-20261116 in
+GENERATION_ENGINE_CHANGE_HISTORY, GENERATION_ENGINE_ERRORS and TEST_RUN_LEDGER;
+private .release-evidence/source-autocorrect115-production-fresh-20261116.
+Do not repeat the completed9calls or overwrite D's failed outcome. New work should
+unify known-completion JSON recovery, using the saved D reply first; unknown
+requests must remain non-retryable. Prior115 release receipts below stay valid.
+
 ## COMPLETE 2026-11-16 — source autocorrect115 accepted and released
 
 Runtime/tag v0.11.115 exact8e7ae2e80cb9c719d8b951dafcf31885d463c233;
