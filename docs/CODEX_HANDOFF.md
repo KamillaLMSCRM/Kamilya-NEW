@@ -1,3 +1,84 @@
+## IN PROGRESS 2026-11-16 — source autocorrect115 LOCAL accepted, DEV/release pending
+
+result: Known DI source corruption reproduced RED, actual Luna false-necessity
+reply retained and now rejected by native admission without generation reruns.
+changed: Existing two-call source reviewer gains necessity/head witnesses and
+general dictionary negative veto for possible original adjective/participle
+inflection readings. Rejected cosmetics persist in checkpoints/analyzed journal,
+not human source issues. Ingressv3/analysisv5; old approvals/history retained.
+verified: Full API8876pass/1skip and web197files1806pass; focused90 then final
+28admission tests incl measured conservative boundary. Quality1004/2174 and release
+contracts/version115 PASS. Actual final LOCAL Luna5.6 blind2calls33.890s15968IN1580OUT:
+3useful edits/1bad edit withheld/0human questions. Exact messages/replies and
+checkpoint replay0calls PASS. Independent Luna6/medium review no critical blocker;
+over-withholding is explicit safety tradeoff, not universal semantic proof.
+blockers: DEV exact115 and protected production NOT YET tested/deployed. Existing
+runtime114/e3/customer corrections remain; no customer source/course/history
+changes. All6LOCALfresh calls and failed/partial controls retained; no DeepSeek,
+model plan/routing change or unacknowledged replay. Canonical DEV baseline reader
+must use -m scripts.deploy.dev_release_controller, root .release-evidence and
+workspace kz_remote_exec.DEFAULT_ENV_FILE; do not guess main API env for SSH.
+next: Freeze exact115 source/project-account refs/CI/attested image, canonical
+DEV API/frontend/sole worker then source-only synthetic review through real
+worker/API, preserved approvals/restore. Conditional protected production and
+synthetic changed-capability readback; keep customer courses/results untouched.
+PrivateA=.release-evidence/source-autocorrect115-20261116; temporary plan source-autocorrect.
+
+## COMPLETE 2026-11-16 — Lombard corrections published, employee history preserved
+
+result: Owner-authorized content corrections completed in production tenant
+46704e2f/too-lombard-sandyk. Four corrected published v2 releases independently
+read back; all9courses/74lessons/278questions retained. Application114/e3 unchanged.
+changed:10lessons+6questions across four published courses and existing cashdraft;
+all other teaching/test fields preserved. Exact source auto edit a0-dative_person
+undone through normal reopen/undo_auto/approve; source revision117/approval
+4a22b4e0-3d67-49b1-bcb8-25ebd056c421. Original and old approval unchanged.
+verified: Final API captures + restricted READ ONLY release projections PASS;
+four v2 releases:DI764d50d3,fullrules86e3aab2,fire03e32360,cash2045f5d5. Ten cash
+images200/byte-identical. Exact hashes of23enrollments/6attempts/6progress/1certificate
+and8old releases unchanged. Four untouched courses exact; draft remainsdraft.
+Atomic canonical release service retained published status, all publication gates,
+child/source locks, audit/idempotency; no unpublish/assignment refresh or result edits.
+blockers: None for bounded corrections. Twelve full-guide position assignments
+remain pinned to their old release, deliberately not silently reassigned. Semantic
+auto-editing failure class is NOT generally solved: original OCR was correct;
+grammar auto edit moved qualifier to person, independent review/approval missed it.
+Legacy August import has no proof of passing present generation review. No new
+model calls, app/prompt/routing changes, billing, deployment or notifications.
+next: No repeat mutations needed. Report docs/testing/2026-11-16_lombard-course-quality-audit.md;
+private A=.release-evidence/lombard-course-fixes-20261116/final-verification.json
+and root-cause.json. Journal ENG-062 records exact cause and limits. Future engine
+work must test this saved bad grammar edit plus valid edits in existing reviewer;
+another generic prompt or regex is not proven remediation. Current docs local only.
+
+## HISTORICAL COMPLETE 2026-11-16 — Lombard read-only course quality audit
+
+result: Actual production114/e3 Lombard46704e2f catalog reviewed:9courses,
+74lessons278questions,8published/1draft; complete with confirmed findings.
+changed: Audit report, TEST_RUN_LEDGER, ENG-062 follow-up and harness journal only;
+no customer course/test/source/assignment/result or runtime/provider change.
+verified: API GET capture and final all9 preservation PASS_UNCHANGED; read-only
+lms_app/noBYPASS comparison binds current8published snapshots,7exact projections,
+standards only first lesson title differs (1of515fields), all teaching/test fields
+same. All10cash images200/decoded/viewed. Original PDF directly proves qualifier
+«не связанного» innewDI vs savedworking/course/key «не связанному». Later correction
+trace above proves originalOCR correct and grammarautoedit wrong. Old full rules
+lose principal exclusion/strict rate boundary and misdefine guarantee; fire has
+untaught-role card. Standards/newer practical rules remain materially sound in
+the reviewed scope; no blanket generator-regression claim. Two separate Luna6
+host reviewers cover47L186Q,root27L92Q,0LMS-provider calls. All failed read harness
+receipts retained; no access bypass or mutation replay.
+blockers: None for audit; content corrections NOT APPLIED. Full current-law audit,
+full historical-assignment replay and complete source binding for old manual
+courses not claimed. Only cash has pinned editorial source; different source
+versions/generations coexist. Exact serving subagent model/usage not exposed.
+next: Findings and bounded corrections are in
+docs/testing/2026-11-16_lombard-course-quality-audit.md R01–R08; start with newDI
+qualifier (lesson+card+explanation) and old rules money/scope definitions. Preserve
+all good material/customer history; do not regenerate or republish from this
+read-only audit. PrivateA=.release-evidence/lombard-quality-20261116. Runtime/tag
+remain e3/v0.11.114; current documentation changes have not been committed/pushed.
+
 ## COMPLETE 2026-11-15 — standalone knowledge checks114 live accepted
 
 result: Production and DEV accepted version0.11.114, immutable source/tag

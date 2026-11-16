@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [0.11.115] - 2026-11-16
+
+### Fixed
+
+- Require necessity and source-bound attachment evidence before accepting source grammar/spelling changes. Keep valid or unproved originals rather than treating all-positive preservation flags as sufficient.
+- Withhold inflection changes that can discard an existing adjective/participle reading; preserve useful spelling, agreement and whitespace corrections. Keep rejected automatic proposals in the source-analysis journal without inventing human decisions.
+- Version fresh source analysis independently from historical approvals/checkpoints. Preserve prior source editions, courses and employee results.
+
 ## [0.11.114] - 2026-11-15
 
 ### Added

@@ -1,3 +1,24 @@
+## 2026-11-16 — Lombard course quality audit, READ ONLY
+
+Actual production114/e3, tenant46704e2f/too-lombard-sandyk: all9courses,
+74lessons278questions captured;8published+1draft. Root27/92 plus two separately
+requested GPT-6 Luna/medium read-only auditors47/186; full packs read, no model
+serving/usage inference,0application-provider calls. Root confirmed material
+findings against actual course text/keys and original PDF pages: newDI qualifier
+referent/OCR drift, old rules principal exclusion/rate boundary/guarantee definition,
+fire untaught control-role answer. Cash minor IIN typo remains, all10authenticated
+images200/decoded/visually inspected; old cash draft unsuitable. Newer practical
+rules/standards retain important distinctions; avoid blanket course NO_GO.
+Audit: [full report](2026-11-16_lombard-course-quality-audit.md), relatedENG-062.
+PrivateA=.release-evidence/lombard-quality-20261116. Final API preservation proof
+PASS_UNCHANGED all9metadata/structures/quizzes/keys,0contentwrites. Published
+projection restricted lms_app READ ONLY/noBYPASS PASS:7exact matches; standards
+diff only first lesson title,1of515fields. All teaching/cards/keys/settings match.
+Original profile403/console-codepage/ORM-read failures retained, safely scoped
+GET-resume/SQL read only, no role grant/bypass/unknown mutation replay. Source
+comparison coverage and lack of current-law/historical-assignment audit explicit.
+No deployment, course/source edit, assignment, learner attempt or regeneration.
+
 ## 2026-11-15 — standalone114 COMPLETE, actual DEV and production accepted
 
 Immutable sourcee3f0296ddd2c50ac5df3bf4545d975282a4eef8f/tagv0.11.114;
@@ -7494,3 +7515,67 @@ Existingproduction111/courseb05421bb/currentapprovedsource113: all8L8Qz31cards/f
 - ExactDEVbbee112 ordinaryQA samecash8L31Q55.296s/2Luna completions: own false multi-answer allegation rejected; no knownfinding hints, no apply/data edits. Finalreleaseb3bc differs only3docs/3694otherGitobjects equal; CI43704339066 fullunit/DB and security/dependency gates PASS. Local36affectedAPI,195files1772web/build67/type/lint/quality1004-2174PASS.
 - Protected43704968063, attestedOCI fb4b4f2e, cold983sources/97deps/networknone PASS; native43704413627/packet93723d02/RELEASE_OK. Actualproduction ordinarymethodologist fullsynthetic5L18Q18.256s/1Luna completion,0findings, noapply;1440/390actualscreens reviewed, complete before/aftermetadata/source/quizzes/keys equalityPASS. Wrongselectedscope422beforeinference inbothenvs. OriginalLombard8L31Q/source113 working36fa freshAPIunchanged; routingexactprevious111 andsettingshistory92c636 unchanged/schema0187.
 - Freshsignedrestore131tables127FORCE/current111lms_app restrictedreader, temporaryDB/plaintext0; onlyobsolete109native/stagedcopy cleaned with originalsuccess/offhostrecovery;111/110/extras299359 retained. Backend111blue/de6 rollbackready, watchdognew112/bothtimersactive. No schema/client edits/provider plans/paidresource changes or VMimage/volume cleanup. KnownminorblindIINtypo remainsopen; no perfectcritic/fullgeneration/newimage analysis claim. Nativeusage/invoiceunknown;3freshcalls total/0DeepSeek/0metadatainference replay. A=.release-evidence/assistant-release112-final-20261115/REVIEW.md/root112-live-acceptance.json.
+
+
+## RUN-20261116-LOMBARD-CORRECTIONS — production content PASS, history preserved
+
+- Runtime114/e3 unchanged, tenant46704e2f, exact actor57427dd3. Applied reviewed
+  packetR2 once:16CONFIRMED ordinary lesson/question edits,10lessons6questions;
+  six affected published quiz banks and four courses reviewed, normal source
+  hold decisions attributed, no silent waiver. No fresh generation/model calls.
+- R01 cause proven from original_text/working_text/automatic change journal:
+  original OCR correct, a0-dative_person grammar edit wrongly moved qualifier.
+  Normal reopen/undo_auto/approve once→source117/approval4a22b4e0; original and
+  oldapproval exact. Earlier OCR attribution withdrawn, not silently erased.
+- Atomic existing release service created4v2 snapshots retaining published status
+  and all normal gates. Independent R1 review found missing lesson-source locks;
+  correctedR2 check PASS before commit. Check SHA f9c0df6bc6606228a8d94f22b31a15949169ae3401510eee4ad7e028023b2740;
+  commit SHA f4aafc7920e119669bcbf50b2cbc216f7f4c21b588d3d9b2302ccaaf317e2cf8;
+  decoded payloads equal except explicit DO_WRITE mode, exact root GO retained.
+  One committed transaction, no unpublish/recompute/history mutations.
+- Final actual API capture all9courses74L278Q,8published1draft. Full-field local
+  assertions: all16patches exact; all other teaching/test fields/IDs/order/points/
+  correct flags preserved;4untouched courses byte-equivalent; sourcepins unchanged.
+  Restricted READ ONLY lms_app/noBYPASS independently compares all8current releases:
+  corrected4v2 exact,3other exact, standards existing first-title-only delta remains
+  (1of515fields), not a new regression. All10cash assets HTTP200/hash-identical.
+- Exact protected-data hashes before/after:23enrollments bfc025886df6fc0424efa3ce3b17468f4ab541909059a6e49753282d081c252f;
+  6attempts286b05e88d6e70337f55911f28aa52b25682061148eb9553559238b0b4983f1e;
+  6progress3b54dda326c34b88c46a3a49b724a4dd2eabf1d32fdf528c45cbdef6a1b1fc21;
+  1certificate01a86b45f312db7a67b0c7a66c87bd0292ea769ed65d51ebe38060361ea2f751;
+  all8original release hashes identical. Twelve full-guide position assignments
+  remain on old release; no reassignment/new attempt claimed. New catalog v2 valid
+  for new assignments. Existing draft cleaned but NOT published.
+- A=.release-evidence/lombard-course-fixes-20261116; final-verification.json PASS
+  2026-11-16T06:47:32Z, published-final-read-executed.json PASS, final-assets PASS.
+  Last truncated tool response reconciled using saved PASS receipts before any
+  follow-up; no unknown operation replay. Private inspection helper cp1251 print
+  failed locally after reading saved files; ASCII-only summaries corrected it,
+  zero network/content/model work repeated. Existing failures preserved.
+- No app code/deployment, DEV course run, billing/routing/plan change or browser
+  flow claimed. Source semantic judgment failure class remains open, not certified
+  fixed by these bounded corrections. Full legal-currentness audit outside scope.
+
+
+## RUN-20261116-SOURCE115-LOCAL — source-only autocorrect acceptance
+
+- Old9true flags RED on known DI; actual Luna false necessity/wrong head RED
+  preserved. Existing two-call path, current guarded-ingressv3/analysisv5 adds
+  necessity/native head anchors and dictionary negative veto, not extra critics.
+- Fullunit8876PASS1skip7warnings128.19s; web197files1806PASS145.56s. Focused90PASS,
+  then final28admission cases PASS4.63s after explicit conservative-boundary
+  fixture correction. Quality1004/2174, version-release115, release contracts PASS.
+  No local DockerDB. New test fixture and journal changes alone after full suite;
+  exact CI remains required. Source-only zero model exact replay2requests +
+  completed-checkpoint restore PASS0calls,3automatic1rejected0human issues.
+- Actual LOCAL Luna5.6 finalr6:13.796+20.094s15968IN1580OUT,2newcalls. Bad DI preserved,
+  good agreement/typo/whitespace corrected automatically; valid contract condition
+  retained. Exact priorr4 false reviewer replay0calls now withholds both unsafe
+  inflections while retaining good edits. Native current request equality verified.
+  Other original attempts (malformedJSON, false necessity, isolated incomplete
+  context/spelling-schema overwithhold) remain failed/partial, never relabeled.
+- PrivateA=.release-evidence/source-autocorrect115-20261116; model-controls r6 and
+  final-replay.json.6fresh LOCAL calls total across all experiments, zeroDeepSeek,
+  monetary allocationUNKNOWN on existing owner-approved Luna; exact per-call usage
+  in immutable response artifacts. No full-course generation, customer writes,
+  provider/routing/plan change, DEV or production acceptance yet.

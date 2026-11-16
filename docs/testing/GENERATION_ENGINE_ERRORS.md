@@ -1526,6 +1526,17 @@ LOCAL source outline and whole-row literal output were tested and rejected as se
 
 ## ENG-062 — literal qualification retained without its referent
 
+Follow-up 2026-11-16, read-only client audit: the published manual course
+2493476d/lesson a52e5107/question 0ecef7df still qualifies the person instead of
+the microcredit. Root directly inspected original PDF page4 §3.2.1: «не связанного»;
+the saved approved OCR and lesson/key say «не связанному». This is not an
+ambiguity in the scanned sentence, and the current manual course has no pinned
+editorial source revision, so its precise production pipeline origin is UNKNOWN.
+Do not label this a fresh failing run of engine114 or claim a fix. Original scan,
+current API snapshot and publication binding retained in lombard-quality-20261116;
+canonical audit docs/testing/2026-11-16_lombard-course-quality-audit.md R01.
+No source/course/question edits, generation or application-provider calls.
+
 2026-11-12 native98r PDF f4853681/course191114ef completed16L63Q,20Luna6HIGH calls600226IN39339OUT. Source3.2.1 qualifies the microcredit's non-business purpose; lesson ecf3762e and card8342bfaa qualify the person instead. Material scope narrowing, not a key-choice or transport/custody failure. Source reader retained exact phrase but conditions.applies_to named appraisal generally; author reassigned qualifier and two editors missed it. Root full-source comparison demonstrated the counterexample; independent initial blind GO withdrawn after adjudication. Original blind verdict is not evidence of autonomous detection. Current engine/file presence and literal quotes do not prove semantic relation comprehension. No manual content patch, fresh replacement admission or DeepSeek/prod release. CHG-L99A proposes an explicit-referent contract in the SAME reading role, saved-response control before integration; success not yet established. H18/native-dev98r-pdf/root-semantic-verdict.json and actual browser dev-course-ui.png preserve failure. Ordinary continuation separately PASS:20actual attempt signatures once each,9completed stages reused,0duplicate model attempts; no infra restart or unknown replay during this case.
 
 
@@ -1692,3 +1703,65 @@ ASSISTANT-REVIEW-002 follow-up 2026-11-15 — PARTIALLY RESOLVED LOCAL, producti
 - Private evidence: .release-evidence/assistant-review112-20261115 and assistant-review112b-20261115, especially final-replay-proof.json and preservation-proof.json. Same production course/source/quizzes byte-equivalent after tests, zero business writes. Original illustrations supplied as approved OCR/descriptions, no new pixel/vision acceptance. Independent discovery limitation remains OPEN; no new DEV/production deployment or complete semantic acceptance claim.
 
 ASSISTANT-REVIEW-002 follow-up2026-11-15 PRODUCTION112 bounded filtering accepted: lossless quote registry/server counts and candidate/adjudicator now deployedb3bc. Actual nativeDEV8L31Q self-rejected newly invented multiple-answer complaint by checking actual options, no root hints. Production5L18Q returned0confirmedmaterialfindings/no implicit edits. Threepriorfalsequote controls and1realpositive retained without repeated inference. Originalcourse8L31Q/source113 unchanged. Discovery limitation remains OPEN: knownminorIINlabeltypo missed inblind review; no perfect-critic or freshvision claim. Model stochastic semantic observations stay distinct from structural corruption and source ambiguity; no case-specific validator added.
+
+
+### ENG-062 follow-up 2026-11-16 — exact source auto-edit cause; corrections published
+
+This supersedes only the initial OCR attribution above, not the original audit
+observations. Original PDF blob d3c7cb3e... and saved original_text BOTH retain
+«не связанного». Applied grammar auto edit a0-dative_person (6568:6570, го→му)
+explicitly tried to agree with «лицу», changing the governing object. Working
+text, approval and course then carry the wrong scope. The source pipeline has
+an independent-review stage; this false positive passed it. Existing REVIEW_SYSTEM
+already asks to preserve objects/actions/conditions, so a missing generic prompt
+is NOT the established cause. Policy human-source-editorial-analysis-v4 / review-v1;
+historical13stages include5visual_reading/5visual_verification/preparation/editor/
+independent_review. Actual returned model alias unknown; no new model request.
+
+Bounded remedy completed: normal reopen→undo_auto(a0-dative_person)→approve,
+current source revision117 / approval4a22b4e0-3d67-49b1-bcb8-25ebd056c421;
+original_text and old approval9998c34f-e71b-4cae-ad2f-08c6cedf8f9b unchanged.
+Corrected DI lesson/card/key/explanation, old rules monetary scope/strict rate/
+guarantee/headings, missing fire teaching paragraph and cash field typo. Total
+10lessons6questions across4published courses+1existingdraft; draft remainsdraft.
+Four new v2 snapshots independently read under lms_app/noBYPASS and match reviewed
+content. All23enrollments/6attempts/6progress/1certificate and8old releases retain
+identical hashes. Twelve old full-guide assignments stay on their frozen version;
+new current versions apply to new assignments, no automatic reassignment.
+
+Diagnosis boundary: old full guide is August imported content with no recovered
+generator/editor version receipt; manual DI has no pinned source. Present review
+stages do not prove those old courses ran them. General semantic auto-edit failure
+class remains OPEN, no current prompt/code change or universal fixed claim.
+Future work should reuse the exact saved bad source patch AND legitimate grammar
+positives through the existing review path before any new full-course run; avoid
+new generic critics/regex. Private A=lombard-course-fixes-20261116/root-cause.json,
+final-verification.json; report2026-11-16_lombard-course-quality-audit.md.
+
+
+### ENG-062 remediation candidate115 — source auto-edit admission, 2026-11-16
+
+Known saved DI is RED under old nine-true-flags admission. New necessity/attachment
+witness alone FAILED on actual Luna: false original head/necessity still admitted.
+Do not repeat that hypothesis or declare a generic prompt fixed it. Current fix
+adds a general dictionary negative constraint: preserve a full adjective/participle
+inflection when the original has a compatible noun reading in the native paragraph.
+It cannot select the intended syntactic head, so it may withhold a useful edit;
+original text remains intact and no human source issue is invented from refusal.
+Missing dictionary abstains. No domain-specific word/tenant rule or extra critic.
+
+Native two-call reviewer now returns necessity and source-bound heads/relations;
+raw evidence retained and effective admission rechecked on restore. Layout-only
+repeated whitespace remains; spelling/transposition and necessary agreement
+positive controls retained. Existing source analysis explicitly distinguishes a
+rewritten hypothetical condition from a competing reading of the original.
+Rejected cosmetics are stored in analyzed/checkpoint rejected_automatic, separately
+from human material decisions. Ingressv3/analysisv5 invalidate fresh old-policy
+checkpoint reuse; historical approvals untouched. No DB migration.
+
+Real r6 source-only Luna two calls PASS15968IN1580OUT/33.890s: three good automatic
+edits, bad DI edit withheld, no human question; exact-message/reply/checkpoint
+replay0calls. Saved actual false r4 review0calls now rejects both referent changes
+and keeps useful corrections. Original malformed/false/partial controls retained
+as NO_GO with usage. Scope LOCAL until exact CI, DEV source-review and production
+readback; no claim all semantic model failures are solved. Private source-autocorrect115-20261116.

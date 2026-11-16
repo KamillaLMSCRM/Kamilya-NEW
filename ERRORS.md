@@ -206,6 +206,18 @@
 
 ## AGENT-ACCEPTANCE-HARNESS-001 — unverified fixture assumptions and lost diagnostics
 
+- Follow-up2026-11-16 content audit: the copied older reader again called
+  users/me in impersonation, which intentionally denies profile reads. Use the
+  existing impersonation response user+tenant+role DTO (prepare_cash_r2 already
+  demonstrates it); do not relabel403 as invalid credentials or bypass the guard.
+  Preserve partial snapshots when console cp1251 fails AFTER a successful file
+  save, resume only missing GET captures and use UTF8/ASCII-safe output. Separate
+  published-release ORM reader failed InvalidRequestError; exact model-bootstrap
+  cause was not recovered. The canonical restricted READ ONLY SQL join then
+  compared8published projections without grants or data changes. Retain failures
+  and distinguish snapshot equality from semantic correctness. See the dated
+  Lombard audit and private lombard-quality-20261116 evidence.
+
 - Follow-up2026-11-15 standalone114: preserve the first production author-results
   timeout as UNKNOWN cause; it did not invalidate acknowledged create/assign or
   the two saved0/100 attempts. Fresh ordinary author GET/results/UI passed on
@@ -11140,3 +11152,45 @@ AGENT-ACCEPTANCE-HARNESS-001 follow-up 2026-11-15 assistant review: do not guess
 AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-15 assistant112 release: typed ASCII hyphen in the required release-note heading instead of copying the canonical em dash. Development-mode version validation/CI passed; release-mode validation correctly blocked BEFORE tag intent/publication or production mutation. Initial subprocess text decoder assumed UTF8 while inherited Windows stderr used another encoding and masked the decisive validation error. Readback proved both tag/release absent; recaptured bytes with explicit UTF8 Python IO showed exact missing marker. Correct documentation only; run --release validator BEFORE freezing/pushing a release candidate. Capture raw subprocess bytes or use explicit encoding with errors=replace; persist process status before formatting logs. Preserve passed DEV operation and transfer its evidence only after exact all-application/prompt/scripts/workflow/VERSION Git-blob equality; never rerun inference for this metadata defect.
 
 AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-15 release112: native inventory captured as raw WindowsCRLF made multiline regex end anchors report an empty release set; exact splitlines ID-set equality fixed preparation before cleanup, original raw inventory retained. Restore guard adaptation replaced full old image reference but missed its separately stored digest suffix. It stopped before remote restore call; independent CT125 target/temp/report0 plus unchanged current111 image confirmed no creation, then corrected exact suffix guard ran one actual successful ownedrestore and cleanup. Future rebinding audits every serialized identity representation before execution; no broad numeric replacement, target guess, schema/security relaxation or blind retry. Legacy ops stdout watchdog_identity111 label was retained in immutable copied receipt; independent final read matched actual112SHA/image and two identity-key-only change, both timers active. All failures remain private receipts; successful model operations were not repeated.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up 2026-11-16 Lombard correction: initial
+root explanation labeled an observed wrong qualifier as OCR error before comparing
+original_text, working_text and per-change journal. Exact journal proves recognition
+correct and grammar auto edit a0-dative_person (го→му) wrong. Attribution withdrawn
+in report/handoff/ENG-062, exact source change undone through normal API while
+preserving original/old approval. Prevention: distinguish raw original, extracted
+original, working approved edition and generated lesson; identify the first actual
+divergent event before naming its layer. A model's 'grammar' label or successful
+independent review is not proof semantic scope was preserved. Historical manual/
+imported courses without run receipts do not prove current-generator regression.
+No new prompt/validator deployed to disguise an unproven general fix.
+
+Same closeout: local saved-JSON shape inspection used str(d) on Cyrillic/Kazakh text
+and hit cp1251 UnicodeEncodeError again after successful reads; use ensure_ascii
+summaries or explicit UTF8 before printing. This was local evidence formatting,
+not a product/inference failure. Final16edit/4publication/readback receipts and
+all history hashes independently reconciled; no replay. Publish check and commit
+necessarily have different explicit mode hashes: prove decoded body equivalence,
+never claim identical artifacts or substitute commit for check. Before maintaining
+published corrections inspect assignment scopes: unpublish/recompute could drop
+12position enrollments; existing canonical release service with full gates/locks
+preserved those rows. Existing assignments remain on old frozen versions; state
+this boundary explicitly rather than implying employee copies were updated.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-16 source115: source-only helper
+must load canonical API settings before importing analysis (db module validates
+JWT), without contacting a database. Existing LLMClient._request accepts payload
+as positional dict; it has no aclose method. Read actual producer before adapting
+transport. First two preparations failed before any intent/inference. Canonical
+pytest PowerShell wrapper uses process-only ExecutionPolicy Bypass (existing
+rule); do not change system policy. A later falsely constructed remote-noun
+fixture lacked compatible grammatical case and correctly allowed necessary edit;
+corrected fixture demonstrates conservative boundary, no product change to fake
+that expected result. Keep malformed/false model answers and exact stage usage.
+Canonical DEV controller runs as module; evidence root must be checkout root
+.release-evidence, and VM worker path requires workspace kz_remote_exec.DEFAULT_ENV_FILE,
+not main API .env used by frontend-only LiveProviders. Wrong-envelope preflights
+made no external writes; classified GateBlocked stack before correcting exact
+existing trust path. Do not broaden trust checks or use alternate credentials.

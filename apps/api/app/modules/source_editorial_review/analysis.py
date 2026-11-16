@@ -47,7 +47,7 @@ from app.modules.source_preparation.preparation import VisualRequestRejected, pr
 logger = logging.getLogger(__name__)
 _BLOCK_CHARS = 36_000
 _OUTLINE_LINE = re.compile(r"^\s*(?:#{1,6}\s|\d+(?:\.\d+)*(?:[.)]|\s)\s*)\S")
-_ANALYSIS_POLICY = "human-source-editorial-analysis-v4"
+_ANALYSIS_POLICY = "human-source-editorial-analysis-v5"
 _MATERIAL_CATEGORIES = frozenset({"boundary", "conflict", "reference", "responsibility", "exception", "unclear"})
 _REISSUE_JSON_INSTRUCTION = (
     "\nThe previous response was not a valid JSON object. Complete the same task once more. "
@@ -88,6 +88,11 @@ checking the original: disposition dismissed, a unique exact evidence_excerpt
 from the local original and a reason why the issue is absent, resolved or immaterial.
 Do not ask the owner to fix spelling, formatting, or an unapproved cosmetic
 edit. Ask only where the original cannot establish what a learner should do.
+An alternative obtained only by changing a grammatically valid original is
+NOT a second reading of the original. Do not ask the owner to choose between
+the original rule and a hypothetical editor's reattachment. Resolve grammar
+from the original inflection and surrounding role/section context. Ask about
+genuinely competing ORIGINAL rules or readings, not possible rewritten rules.
 
 Each source_questions row has only excerpt (a unique exact original quotation,
 up to 2000 characters), category (boundary|conflict|reference|responsibility|
@@ -287,6 +292,7 @@ async def analyze(
         outline_text = "\n".join(headings)[:24_000]
     questions: list[dict[str, Any]] = []
     auto: list[dict[str, Any]] = []
+    rejected_automatic: list[dict[str, Any]] = []
     calls = 0
     schema_reissue_used = False
     basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text)
@@ -299,6 +305,7 @@ async def analyze(
         if saved is not None:
             questions.extend(saved["questions"])
             auto.extend(saved["automatic"])
+            rejected_automatic.extend(saved.get("rejected_automatic", []))
             continue
 
         independent: _IndependentReview | None = None
@@ -383,6 +390,7 @@ async def analyze(
         calls += block_calls
         block_questions: list[dict[str, Any]] = []
         block_auto = []
+        block_rejected = []
         for n, finding in enumerate(independent.source_questions):
             start = local.index(finding.excerpt) if local.count(finding.excerpt) == 1 else None
             block_questions.append({"id": f"s{index}-{n}", "start": None if start is None else offset + start,
@@ -407,10 +415,18 @@ async def analyze(
                 block_auto.append({"id": f"a{index}-{patch.alias}", "start": offset + patch.start,
                     "end": offset + patch.end, "before": patch.before, "after": patch.after,
                     "reason": patch.reason, "category": patch.category})
+            elif patch.alias not in result.edition.applied_patch_aliases:
+                gap = next((gap for gap in result.edition.gaps if gap.alias == patch.alias), None)
+                block_rejected.append({"id": f"a{index}-{patch.alias}", "start": offset + patch.start,
+                    "end": offset + patch.end, "before": patch.before, "proposed_after": patch.after,
+                    "category": patch.category, "reason": gap.reason if gap else "source_editorial_edit_withheld",
+                    "applied": False, "requires_human_decision": False})
         if checkpoint is not None:
-            await checkpoint(key, {"questions": block_questions, "automatic": block_auto, "calls": block_calls})
+            await checkpoint(key, {"questions": block_questions, "automatic": block_auto,
+                                   "rejected_automatic": block_rejected, "calls": block_calls})
         questions.extend(block_questions)
         auto.extend(block_auto)
+        rejected_automatic.extend(block_rejected)
 
     # Restore literal coordinates before merging, including for resumed blocks.
     for question in questions:
@@ -441,7 +457,8 @@ async def analyze(
     )]
     render_text(original, auto)
     return {"original": original, "issues": [*grouped, *(q for q in questions if q["start"] is None)],
-            "automatic": auto, "model_calls": calls, "policy": POLICY, "analysis_policy": _ANALYSIS_POLICY}
+            "automatic": auto, "rejected_automatic": rejected_automatic,
+            "model_calls": calls, "policy": POLICY, "analysis_policy": _ANALYSIS_POLICY}
 
 
 async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> str:

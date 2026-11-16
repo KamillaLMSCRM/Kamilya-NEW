@@ -2626,3 +2626,110 @@ RUN-PROD112-SYNTHETIC-LUNA INTENT: actualordinaryproductionmethodologist2f49/ten
 
 RUN-PROD112-SYNTHETIC-LUNA RESULT2026-11-15: exactb3bc112 native/API, ordinarymethodologist2f49/tenanta83552 retainedcourse7cdc5L18Q,18.256s/HTTP200/1configuredLuna5.6 call,0findings/allcoverage/no apply. Source/metadata/structure/all5quizzes18cards exactbefore/after;1440+390actualscreens reviewed, wrongscope422 beforeinference. OriginalLombardb0548L8Qz31cards/source113/36fa freshAPIequal afterrelease. Current release3nativecalls total(DEV2+production1),0DeepSeek/0metadata-modelrepeat; nativeactualtokens/invoice/returnedaliasUNKNOWN. Local prior3controls not repeated. Defaultreasoninglow/currentbudgets/globalrouting unchanged.
 CHG-ASSISTANT112 RELEASE COMPLETE: b3bc46986e00b1d915b2d60641adc24b8fa4e957/version112 API+3workers green/fb4/nativeCT137. CI43704339066, protected43704968063, native43704413627 SUCCESS; all9installedchangedsourcehashes/public/private/frontend andwatchdog112 verified. Actual DEVbbee has3694identicalnon-docGitobjects; doc-onlymarker correction didnot triggermodelrerun. Local36affectedAPI/195files1772web/build67/types/lint/1004-2174PASS; finalCI fullDB/unitpassed. Signedfresh131table127FORCE restore/current111restrictedreader0187 andindependenttarget/tempabsencePASS, settings-history92c636unchanged. Onlyobsolete109nativecopy/stagedpair removed after originalacceptedartifact/offhostproof;111/110/extras299359 protected. VMimages/volumes/clientdata untouched. Backend111blue/de6 andnative111/110 rollbackretained; rollbackfront111 thenbackend111. BoundedreviewfilteringGO; blindminorlabeltypo stillmissed, nofullgeneration/vision/perfectcritic claim. PrivateAassistant-release112-final-20261115/root112-live-acceptance/REVIEW. Initialmetadata/CRLF/precreation-imageguard failures preserved/reconciled; no unknownmutation or inference replay.
+
+
+## CHG-LOMBARD-CONTENT-20261116 — completed source/content correction, no engine release
+
+Previous entries consulted: ENG-062, prior Lombard20261116audit, CHG-ASSISTANT112
+blind-review limitation; this is a retained-output correction, not another model
+or prompt experiment. Runtime/source remains0.11.114/e3f0296ddd2c50ac5df3bf4545d975282a4eef8f.
+No policy, role, prompt, routing or application file changed. No old workflow
+removed/bypassed, no new generation, model calls, tokens or provider spend.
+
+Owner authorized correcting found Lombard errors while preserving good content
+and employee history. Review packetR2 removes an unsupported broad claim about
+customer entrepreneurial status. Applied16confirmed API edits:10lessons6questions,
+4published courses+1draft. IDs/order/keys/points and unaffected content retained.
+Existing approvals/source holds resolved with attributable exact-source review;
+canonical create_course_release(require_usable_content=True) used in an atomic
+four-course transaction with normal publication gates, audit/idempotency and row
+locks, including lesson sources. No unpublish/assignment recompute/history edits.
+Current v2: DI764d50d3/fullrules86e3aab2/fire03e32360/cash2045f5d5. All4actual
+published projections match reviewed API content. Draft remainsdraft. Old8releases,
+23enrollments/6attempts/6progress/1certificate exact before/after hashes. Twelve
+position assignments intentionally stay on their old frozen full-guide release.
+
+Source diagnosis corrected: OCR original_text is correct. Grammar auto edit
+a0-dative_person changed го→му and referent; source independent review admitted
+it. Undo through normal editorial API produced revision117/approval4a22b4e0;
+old approval and all other edits retained. Existing preservation prompt already
+mentions scope: no claim that another general instruction fixes model judgment.
+Legacy import is not proven to have passed current generator. General failure
+class remains open; saved negative/positive editorial controls needed before
+claiming a model/prompt remedy. No model-run registry row is invented for this
+zero-inference operation. Historical13source stages observed, exact model unknown.
+
+LOCAL offline full-field/identity/preservation assertions PASS; actual production
+API/RLS published readbacks and10image byte comparisons PASS. No DEV generation,
+application build/deployment or UI interaction claimed for content-only edits.
+Application114 unchanged. Private .release-evidence/lombard-course-fixes-20261116
+holds exact before/after,16intents/outcomes, source undo, root-cause, check/commitR2
+hash/mode-equivalence proof, final-verification. Canonical report and ENG-062 link
+this record. No fresh model response, unknown retry, notification or employee reset.
+
+## CHG-SOURCE-AUTOCORRECT115 PROPOSED 2026-11-16
+
+Previous ENG-062, CHG-LOMBARD-CONTENT-20261116 and existing source-editorial-v4
+independent review inspected. Original DI was valid; grammar edit changed its
+qualifier head, yet nine generic flags admitted it. Preserve existing two calls,
+raw/source custody, typed proposal, independent review, human material questions,
+retained immutable approvals and source provenance. No new critic or semantic regex.
+Proposed general change: in the existing review require necessity/grammaticality
+and bound original/candidate head+dependent evidence for lexical edits; valid or
+uncertain originals/optional edits/changed attachments retain original and a
+nonblocking rejected-edit record. Layout-only word-identical edits keep existing
+checks. New analysis/ingress policy must prevent resuming old auto approvals as
+new-policy work while retaining historical readback. Add saved-DI and synthetic
+negative/positive controls before implementation; then real Luna source-only
+controls, exact DEV source-review and protected release. No full-course generation,
+customer content edits, new provider/billing settings or DeepSeek spend authorized
+for this task. Scope source_editorial_model.py, new pure admission helper, analysis.py
+and focused tests; transport/restore/native contracts and journals kept aligned.
+A=.release-evidence/source-autocorrect115-20261116. Independent Luna6/medium
+review recommends necessity+attachment proof but notes semantic judgments remain
+fallible; structural witnesses are not a universal semantic guarantee.
+
+RUN-SOURCE115-saved-proposal-review-1 INTENT 2026-11-16T07:16:45.381005+00:00: LOCAL source-only Luna/gpt-5.6-luna, existing default reasoning; source/wire/code hashes in luna-1-intent.json; no expected labels/findings supplied, zero course generation/writes, no fallback. OutcomePENDING.
+
+RUN-SOURCE115 saved-proposal-review-1 RESULT known200/25.625s/Luna5.6/8209IN1208OUT; completed content malformed JSON, no effective edit or course/source mutation. Original retained. Initial nested dependent-evidence schema not admitted; flattened witness to necessity/status and before/after head+relation, using native exact replacement instead of duplicating dependent text. Three native local regressions added before next controls; no new critic, no expected answer/hints. New request identity distinct; not an unknown repeat. Two earlier harness preparations failed before intent/inference (missing canonical env, then wrong private _request signature and nonexistent close method); corrected to actual producer. No invoice inferred.
+
+RUN-SOURCE115-saved-proposal-review-1 INTENT 2026-11-16T07:20:42.703953+00:00: LOCAL source-only Luna/gpt-5.6-luna, existing default reasoning; source/wire/code hashes in luna-1-intent.json; no expected labels/findings supplied, zero course generation/writes, no fallback. OutcomePENDING.
+
+RUN-SOURCE115-r4 RESULT: one actual Luna5.6 reply20.625s preserved contract reattachment negative but falsely admitted DI as necessary/same person head. Original outcome NO_GO retained, no product writes. Flattened witness alone REJECTED as sufficient. Added general dictionary-only negative guard: no inflection change of a known adjective/participle when original has a compatible noun reading in native paragraph. This never positively approves meaning, does not invent a source problem/human hold, and is category-independent; missing dictionary abstains safely. Existing installed morphology reused, no new dependency/critic/domain regex. Red actual-Luna regression proved false admission;88focused PASS including good necessary agreement, typo, spelling, unchanged layout, other attachment and unavailable dictionary. Next r5 replays exactly the known r4 author/reviewer0newcalls and runs only the still-unrun blind source-only author/reviewer2calls. No full course generation.
+
+RUN-SOURCE115-blind-author-and-review-1 INTENT 2026-11-16T07:25:39.877783+00:00: LOCAL source-only Luna/gpt-5.6-luna, existing default reasoning; source/wire/code hashes in luna-1-intent.json; no expected labels/findings supplied, zero course generation/writes, no fallback. OutcomePENDING.
+
+RUN-SOURCE115-blind-author-and-review-2 INTENT 2026-11-16T07:25:54.385116+00:00: LOCAL source-only Luna/gpt-5.6-luna, existing default reasoning; source/wire/code hashes in luna-2-intent.json; no expected labels/findings supplied, zero course generation/writes, no fallback. OutcomePENDING.
+
+RUN-SOURCE115-blind-author-and-review-1 INTENT 2026-11-16T07:29:16.442406+00:00: LOCAL source-only Luna/gpt-5.6-luna, existing default reasoning; source/wire/code hashes in luna-1-intent.json; no expected labels/findings supplied, zero course generation/writes, no fallback. OutcomePENDING.
+
+RUN-SOURCE115-blind-author-and-review-2 INTENT 2026-11-16T07:29:30.241571+00:00: LOCAL source-only Luna/gpt-5.6-luna, existing default reasoning; source/wire/code hashes in luna-2-intent.json; no expected labels/findings supplied, zero course generation/writes, no fallback. OutcomePENDING.
+
+CHG-SOURCE-AUTOCORRECT115 LOCAL RESULT2026-11-16: final guarded ingressv3/analysisv5
+implemented within existing author+independent reviewer2calls, no new critic.
+Raw votes preserved, native necessity/head-address checks plus dictionary-only
+negative veto; literal unknown-to-known same-letter spelling permutation retains
+obvious transpositions, never a positive semantic certificate. Applied/rejected
+cosmetic proposals persist in checkpoints/analyzed events; only original material
+questions use human workflow. Historical-v2 reads retained; removed/relabelled
+v3 serialization rejected; v5 request/basis identities do not resume v4 automatic
+acceptance. No customer content/history/provider/settings mutation.
+
+Final actual LOCAL Luna5.6 control r6:13.796s+20.094s,15968IN1580OUT, two calls,
+3useful corrections/1withheld bad agreement/0human questions. Same r4 false-positive
+review replayed with identical author/proposal0calls; both unsafe reattachments
+withheld, useful agreement/spelling retained. Exact native final request/reply
+and checkpoint replay PASS0newcalls (final-replay.json). Previous r5 savedreply
+replay also protects DI; blind isolated-clause control found over-withheld spelling
+and a context-dependent question, retained NO_GO; no manual result alteration.
+Existing source role heading added only to a separately identified synthetic
+complete-context control, never relabeled as identical request replay. Native
+spelling transposition exception and original-vs-hypothetical-source question rule
+were verified before r6. All original failed artifacts/usage remain.
+
+Full unit8876PASS/1skip/7warnings128.19s before final isolated conservative-boundary
+test; focused90PASS then additional measured false-positive boundary. Quality
+1004/2174PASS. Final frontend/CI/DEV/production pending. Independent Luna6/medium
+review no critical fresh-path blocker; possible over-withholding from an unrelated
+compatible noun is explicitly tested/documented, not called semantic proof.
+Canonical runtime/tag remains114/e3; candidate115 not deployed yet.
