@@ -2733,3 +2733,50 @@ test; focused90PASS then additional measured false-positive boundary. Quality
 review no critical fresh-path blocker; possible over-withholding from an unrelated
 compatible noun is explicitly tested/documented, not called semantic proof.
 Canonical runtime/tag remains114/e3; candidate115 not deployed yet.
+
+RUN-SOURCE115-DEV-positive INTENT 2026-11-16: exact candidate8e7ae2e80cb9c719d8b951dafcf31885d463c233/0.11.115, ordinary QA methodologist5187fa5f tenant a7a2c055. Synthetic source a9b49bc1-33b6-4ac3-9cd2-bf37a40cc8f5 SHA ff9cf14009225d888b227605c2b6be9439a43d3287a482080b2622e19bacdab5, same complete-context r6 native text. Existing managed Luna6/HIGH worker profile, no routing/settings change; actual model/stages/usage pending. Source preparation/author/independent review only; index cancelled before claim, no embedding/course/employee writes. Compare DI/contract referents, useful agreement/spelling/layout and human questions. Private A/dev-positive-* records exact request identities and readback. No unknown retry.
+
+RUN-SOURCE115-DEV-conflict INTENT 2026-11-16: exact8e7ae2e/0.11.115, same ordinary permanent QA role; synthetic source8c8ea609-f966-4c1f-8023-74e1f69d9165, exact native text/hash in A/dev-conflict-source.json. Existing managed Luna6/HIGH; source preparation/author/independent review only, original contradictory deadlines must remain and produce a material human issue. No model hints/expected findings in API request, no index/embedding/course/employee writes. Actual model/stages/usage pending; A/dev-conflict-* immutable identity receipts. No unknown retry.
+
+RUN-SOURCE115-DEV-positive RESULT 2026-11-16: ordinary API/sole VM worker exact8e7. Actual gpt-6-luna3fresh calls (preparation/editor/independent_review),32014IN2657OUT, reasoning tokens unavailable, configured HIGH unchanged, currency UNKNOWN existing Luna allocation; usage_complete=true. DI qualifier and contract referent byte-preserved,3useful automatic edits,0human questions. Source approved revision16 and independently reloaded; original SHA ff9cf140... unchanged. No full course/index/embedding generation or customer/history writes. Comparable final LOCAL Luna5.6 source preserved with same3useful corrections; models/reasoning differ and are not relabeled identical. Saved actual false-Luna negative remains separately verified by exact0call replay. A/dev-positive-final.json and controller RELEASE_OK.
+
+RUN-SOURCE115-DEV-conflict RESULT 2026-11-16: same exact native route gpt-6-luna3fresh calls,31110IN852OUT, configured HIGH, usage_complete=true. Original/working byte-identical,0automatic edits, exactly1unresolved conflict correctly references contradictory10:00/12:00 deadlines. Retained in_review revision15, not approved or manually resolved. No course/customer writes. A/dev-conflict-read-15.json. Both DEV controls semantic PASS; no new critic or full generation. Historical source approval compatibility still required for production readback.
+
+CHG-SOURCE-AUTOCORRECT115 DEV ACCEPTED: API dep-dbtc9voae00c73aav5l0, frontend dpl_DSLDUJGpaS8KC9Qah6KH8sjbehZN, sole worker85b5d9b7/image973b7330; exactsource8e7; dev CI43834192226 SUCCESS. Managed Luna flags/isolation unchanged, RenderFree/VercelHobby and suspended legacyworker unchanged. Two permanent synthetic sources retained; their unused index jobs cancelled before worker claim. Harness-only DTO correction questions vs issues occurred before approval POST; no duplicated mutation. Proceed conditional protected production, no database migration or customer edits.
+
+CHG-SOURCE-AUTOCORRECT115 PRODUCTION ACCEPTED 2026-11-16:
+exact8e7ae2e/version115, masterCI43836542603/protected43837537267/native43834202032
+SUCCESS. Final image3b9 differs from develop973: separately verified OCI provenance
+binds master/source/run,993cold files exact and retained source-only replay0calls
+PASS, no relabelled DEV image. Root envelope initially NO_GO due using late local
+binding-document mtime as artifact time and old preartifact rollback read. Original
+failure retained; R2 references actual successful OCI verification receipt and fresh
+independent runtime rollback proof, no backdating or omitted gate; structural GO
+and independent root reference check preceded protected approval.
+
+DEV native positive/ref16 and conflict/ref15 results above retained. Actual DEV
+editor never proposed bad DI change: rejected_automatic0 is observed, not1. Exact
+saved r4 false-necessity wire tests its rejection separately. Restricted lms_app
+SELECT-only custody read confirms0188/FORCE RLS,1analyzed event per fixture, native
+stages3+3, original/working/approval persisted. No prompt hints, manual model-result
+edits, full generation or DeepSeek calls. LOCAL6fresh calls and DEV6fresh calls
+are different records; production inference0. Money UNKNOWN existing Luna use.
+
+Production public/private API+3workers green3b9 and native version8e7 PASS;
+same unchanged9Lombard course/structure hashes and current/historical DI approvals
+read back through ordinary tenant context. No customer/employee/source mutation.
+Fresh encrypted backup be33fafa...2832f, signed isolated0188 restore+restricted114
+reader/settings-history match, RPO74/RTO19, owned DB/temp absent independently.
+114blue rollback retained; native114/113/extras299359, watchdog identity-only
+ed125f68...64a4b/both timers/oneshot, settings/history92c63625...3ff unchanged.
+
+Capacity standing OPS012: initial4retirements completed but insufficient space;
+next20 then final4old stopped no-volume DEV copies/images removed (28total),
+registry parent/child/blob recovery checked, all other containers/data protected.
+Each partial/final result independently reconciled, never replayed. Final78other
+containers preserved and free~7.1GB. Native initial proposed113 cleanup blocked
+because113 is actual rollback;0deletions. New exact packet preserves113, removes
+only obsolete112 after offhost archive+manifest/previous successful receipt and
+root cleanup-tree proof; current114,113,extras preserved. No force/prune/volumes,
+new billable resources, provider plans, thresholds, voice or reserve changes.
+No traffic rollback drill or fresh production-provider inference claimed.

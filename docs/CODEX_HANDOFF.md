@@ -1,28 +1,46 @@
-## IN PROGRESS 2026-11-16 — source autocorrect115 LOCAL accepted, DEV/release pending
+## COMPLETE 2026-11-16 — source autocorrect115 accepted and released
 
-result: Known DI source corruption reproduced RED, actual Luna false-necessity
-reply retained and now rejected by native admission without generation reruns.
-changed: Existing two-call source reviewer gains necessity/head witnesses and
-general dictionary negative veto for possible original adjective/participle
-inflection readings. Rejected cosmetics persist in checkpoints/analyzed journal,
-not human source issues. Ingressv3/analysisv5; old approvals/history retained.
-verified: Full API8876pass/1skip and web197files1806pass; focused90 then final
-28admission tests incl measured conservative boundary. Quality1004/2174 and release
-contracts/version115 PASS. Actual final LOCAL Luna5.6 blind2calls33.890s15968IN1580OUT:
-3useful edits/1bad edit withheld/0human questions. Exact messages/replies and
-checkpoint replay0calls PASS. Independent Luna6/medium review no critical blocker;
-over-withholding is explicit safety tradeoff, not universal semantic proof.
-blockers: DEV exact115 and protected production NOT YET tested/deployed. Existing
-runtime114/e3/customer corrections remain; no customer source/course/history
-changes. All6LOCALfresh calls and failed/partial controls retained; no DeepSeek,
-model plan/routing change or unacknowledged replay. Canonical DEV baseline reader
-must use -m scripts.deploy.dev_release_controller, root .release-evidence and
-workspace kz_remote_exec.DEFAULT_ENV_FILE; do not guess main API env for SSH.
-next: Freeze exact115 source/project-account refs/CI/attested image, canonical
-DEV API/frontend/sole worker then source-only synthetic review through real
-worker/API, preserved approvals/restore. Conditional protected production and
-synthetic changed-capability readback; keep customer courses/results untouched.
-PrivateA=.release-evidence/source-autocorrect115-20261116; temporary plan source-autocorrect.
+Runtime/tag v0.11.115 exact8e7ae2e80cb9c719d8b951dafcf31885d463c233;
+protected image3b9dd56693186ee93ca5fc95a49ecf027b7552d00f55299ebfd17d3948db7f4f.
+MasterCI43836542603, devCI43834192226, protected43837537267 and allowed dev native
+build43834202032 SUCCESS. DEV API/frontend/sole85b5d9b7 worker973b7330 exactsource;
+production green API+threeworkers3b9, public/private health and native frontend
+all exact115 independently read back. No schema migration, CT125/DEV0188.
+
+Known DI corruption is a grammar auto edit, not OCR. Saved actual false reviewer
+answers now withheld by guarded-ingressv3/analysisv5 without fresh inference;
+two existing author/reviewer stages retained, no added critic. Necessity/head
+witness plus conservative dictionary veto; unsure cosmetics retain original and
+are not invented human questions. Missing dictionary abstains. Possible excessive
+withholding is tested, not represented as universal semantic correctness.
+
+Actual ordinary DEV Luna6/HIGH source-only controls: positive3useful corrections,
+DI/contract referents retained,0human questions; real contradiction unchanged,
+exactly1human question. Each3calls including existing preparation; total63124IN/
+3509OUT, usagecomplete, currency UNKNOWN existing Luna allocation. Positive source
+approved revision16/reloaded; conflict retained revision15. Two synthetic fixtures
+persist in permanent QA; unrelated index jobs cancelled before any worker claim.
+No full course generation, embeddings or fresh production paid-model request.
+LOCAL final Luna5.6 controls and exact production-image replay0calls are separate
+evidence; native DEV model did not propose the DI corruption, so no claim that
+native rejected-proposal count is1 (it is0). Saved false-positive replay proves veto.
+
+Full LOCAL API8876pass/1skip, web197files1806pass, final28admission, quality1004/2174;
+exact masterCI passed. Final protected-image993sourcefiles and full source-review
+replay0calls PASS. Signed fresh0188 restore RPO74s/RTO19s, current114 restricted
+reader/settings-history equality PASS; owned restore DB/plaintext absent separately.
+Rollback114blue retained, native114 immediate recovery/113 additional rollback and
+extras299/359 retained. Monitoring identity-only update and both timers/oneshot PASS.
+Actual traffic rollback not invoked. Nine Lombard course+structure hashes and both
+current/historical DI approval hashes identical before/after;0customer/employee writes.
+Settings/history92c63625...3ff, provider configuration/plans/voice/reserve unchanged.
+
+Private A=.release-evidence/source-autocorrect115-20261116. final-release115.json,
+DEV custody/events, exact CI/attestation, predeployR2 GO, restore/cleanup, native
+technical and independent watchdog/runtime/public readback own granular proof.
+Temporary source-autocorrect plan removed after this canonical closeout. Do not
+retag the application for a later documentation-only commit or replay completed
+jobs/deployments. No further release or customer correction remains for this task.
 
 ## COMPLETE 2026-11-16 — Lombard corrections published, employee history preserved
 

@@ -1765,3 +1765,17 @@ replay0calls. Saved actual false r4 review0calls now rejects both referent chang
 and keeps useful corrections. Original malformed/false/partial controls retained
 as NO_GO with usage. Scope LOCAL until exact CI, DEV source-review and production
 readback; no claim all semantic model failures are solved. Private source-autocorrect115-20261116.
+
+ENG-062 follow-up2026-11-16 source-autocorrect115 RELEASED:
+Original DI recognition was correct; independent reviewer also falsely approved
+grammar reattachment. Added v3 admission necessity/head witnesses and conservative
+native dictionary-only negative veto in existing two-call path, analysisv5 cache
+identity, retained rejected cosmetics/checkpoint custody. Actual saved false
+Luna reply RED before/withheld after0newcalls, valid grammar/spelling/layout
+controls pass; case-compatible remote noun over-withholding measured explicitly.
+Missing/malformed witness never automatically approves, refusing cosmetic edit
+does not invent source ambiguity. Historical approvals stay unchanged/readable.
+Ordinary DEV Luna6/HIGH source-only positive3edits0questions and real conflict
+0edits1question passed on8e7; production exact115/3b9 source replay0calls and
+preserved customer approvals/course hashes PASS. Not universal semantic proof;
+fresh production model generation not run. See CHG-SOURCE-AUTOCORRECT115 and ledger.

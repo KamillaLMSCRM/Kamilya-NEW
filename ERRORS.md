@@ -11194,3 +11194,25 @@ Canonical DEV controller runs as module; evidence root must be checkout root
 not main API .env used by frontend-only LiveProviders. Wrong-envelope preflights
 made no external writes; classified GateBlocked stack before correcting exact
 existing trust path. Do not broaden trust checks or use alternate credentials.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-16 source115 release:
+Source review public DTO uses questions, not issues; AIJob upload status is
+pending/stagequeued. Assertions failed before any approval; reconcile the exact
+uploaded job and cancel only its unclaimed indexing message, never reupload.
+Native build must use master/dev, not develop: early successful develop bundle
+is preserved but ineligible; final dev43834202032 used. Bound remote output to50
+lowercase-key lines and never display full source manifest/JSON on one giant line.
+Phone-shaped public hashes may use exact8char chunk serialization, never mask real
+PII/secrets or relax sanitizer. Privileged helper timeout max300; output-contract
+failure may follow a completed mutation. Reconcile existing env/image and captured
+stderr evidence first, normalize append-only; no repeated install/pull/cleanup.
+Capacity cleanup can complete exact removals but miss final minimum: preserve
+partial identities and independently inventory, use a new bounded manifest.
+Native cleanup rollback_mismatch is authoritative; preserve actual rollback,
+select only independently recoverable obsolete copy in a new exact packet.
+Predeploy gate uses time of actual immutable artifact verification, not a later
+local binding-document mtime; rollback proof must be postartifact. Keep initial
+TIME_ORDER NO_GO, then reference actual OCI receipt/fresh independent runtime read;
+never backdate data, skip dependency or relabel failed evidence. Metadata closeout
+must not move application tag or claim deployed child SHA. All new invocations
+remain economical and custody-aware; no unknown request or runtime action repeated.
