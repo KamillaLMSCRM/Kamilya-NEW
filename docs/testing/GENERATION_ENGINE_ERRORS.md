@@ -2001,3 +2001,58 @@ CHG-SOURCE-QUESTIONS118 SUBJECT-SCOPE PROPOSED2026-11-17T12:15Z: native full-F d
 CHG-SOURCE-QUESTIONS118 SUBJECT-SCOPE LOCAL GREEN2026-11-17: existing independent reviewer now compares the same object/property/scope, distinguishes component from total and generic collection introduction from an explicit universal/product-specific assertion, treats absence as non-negation, and restores original-language reasons. No global extra critic or model dedupe stage added. Requestpolicy3/projection4 explicitly invalidates old table reviews; all19original author custody keys INCLUDING2known completed JSON corrections and the entire prose model contract match44b exactly0newcalls. Current deployed DEV remains G44b; no H native start/production change.
 Saved actual14 under new role kept3genuine conflicts and dismissed the generic introduction; actual18 (native16384 ceiling) returned0false part/whole questions18002IN360OUT10.266s.14first response had2013/3311/3492char excerpts:2literal/1nonliteral, one wrong known row hint. Finite36k candidate quote bound replaces preferred2k rejection; requested short quotes and response byte caps unchanged. G canonical override repairs wrong native hint; existing address formatter fixed ONLY nonliteral quotation0 in8.703s11254IN130OUT, all semantic fields/peers/source frozen. Final14projection3real/all bound/0fallback,18empty, no source facts chosen. Three paid Luna6HIGH calls63327IN6781OUT138.797s; all further replays0calls. Trial14semantic ceiling32768 differs from native16384 (actual6291output); not a controlled proof about that ceiling. No repeat semantic request to correct its citations.
 Final LOCAL full8936API/1skip130.76s,31focused incl normal+managed real run_analysis long-literal no-reissue and fabricated-evidence-visible cases, quality1004/2174PASS. Frontend unchanged from197files1808PASS/type/lint/build. Safety: long fabricated or wrong-scope quotation still unverified, not accepted automatically; raw refs/quotes/audit retained. H=.release-evidence/furniture-source117h-20261117/local-validation.json/author-contract-transfer.json. Full native H source/course/production acceptance pending. Real product facts remain human-owned; do not blanket approve the catalogue.
+
+
+## ENG-079 — source continuation database disconnect leaves an inert running review
+
+- Date:2026-11-17T14:27:33.864770+00:00, OPEN. NativeH42d full furniture review
+ 235->295 stored13of19blocks and18NEW complete Luna6HIGH responses. All18intents
+ have matching completed receipts, no unknown inference. Worker0d8b running/
+ restarts0/active0; source still reports running. No source/customer fact changes.
+- Runtime traceback proves run_analysis:1019 -> continue_later:744 ->
+ continuation.handoff:83 -> history:56 SELECT -> DBAPIError/asyncpg
+ ConnectionDoesNotExistError. This is a DB disconnect during continuation read,
+ not model503 or capacity. Cause of the underlying network disconnect UNKNOWN.
+- Confirmed code defect: BeforePostDeferred handler calls continue_later OUTSIDE
+ the main failure catch; a DB failure escapes without persisting a source failure.
+ Existing20min stale guard holds all interrupted claims as unknown, even when a
+ complete turn checkpoint proves no unsettled request. Do not weaken unknown
+ intent/visual/lease/tenant/actor/source/selection gates or manually forge events.
+- Proposed bounded correction: one fresh-session retry for invalidated DB
+ connection during handoff, reconcile any already committed exact successor
+ before a new write/dispatch. Catch exhausted deferred-handoff failures through
+ ordinary failure persistence with phase/cause class. Add ordinary revision-
+ guarded start capability for stale owned nonvisual terminal-turn checkpoints
+ only when every request intent is strictly terminal; preserve exact continuation
+ lineage/binding and all completed parts. No model retry or source approval.
+- First synthetic DB-disconnect/lost-commit/unknown-claim RED/GREEN and actual
+ normal+managed run_analysis failure-persistence tests, then saved actual295
+ zero-call recovery proof. Recovery release keeps H model/quote policy unchanged
+ so13stored blocks and all authors can resume without regenerated parts. The
+ explicit-reference context experiment remains preserved, NOT deployed or GO.
+- Private H/worker-frames117-executed.json and source-progress-1794924639130887900.json;
+ I=.release-evidence/furniture-source117i-20261117. Full source/course/prod pending.
+
+
+CHG-SOURCE-CONTINUATION117I LOCAL GREEN2026-11-17: handoff retries only ONE
+invalidated-connection transaction in a fresh session, first reconciling an
+already committed exact successor; no duplicate queue/model request. Exhausted
+deferred handoff failure now persists code source_review_continuation_failed,
+phase continuation_handoff and cause_class instead of leaving an inert running
+state. Ordinary start resumes ONLY the same actor's stale20min terminal-turn
+checkpoint, all text request intents strictly complete, verified original and
+exact nonvisual selected manifest; unknown/corrupt/orphan/live/foreign/visual
+receipts stay held. Same revision/request idempotency and continuation lineage.
+Actual H295 zero-call/zero-write SELECT-only proof PASS with lms_app/FORCE RLS.
+Two synthetic lost-read/lost-commit RED -> GREEN;65focused incl actual normal+
+managed failure persistence; full8952API/1skip146.25s/quality1004-2174 PASS.
+Analyze/blocks and all model roles/policies/quotes/custody byte/AST exact H;
+all19author and13complete table blocks remain reusable, no fresh inference for
+this fix. H native partial18fresh responses384133IN41263OUT/13blocks, NOT full
+source/course acceptance. Underlying network disconnect cause UNKNOWN.
+Input-context pilot47.64s31796IN2192OUT improved refs but omitted two prior
+genuine findings, NOT GO; exact own patch/reply retained outside recovery package.
+Do not silently replace good prior findings or repeat that pilot. No source/
+customer facts, production116, provider/plan/reasoning/limits/schema/local Docker
+changes. Native DEV recovery/full source/UI and all course/prod gates pending.
+Evidence I=.release-evidence/furniture-source117i-20261117; ENG079.

@@ -248,6 +248,38 @@ async def test_handoff_commits_before_dispatch_and_lost_ack_keeps_exact_queued_e
     assert len(rows) == 4
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize('lost_commit_ack', [False, True])
+async def test_handoff_reconnects_once_and_reconciles_a_committed_successor(monkeypatch, lost_commit_ack):
+    from sqlalchemy.exc import DBAPIError
+    actor, source = uuid4(), 'a' * 64
+    parent = row('queued', 1, actor, source)
+    claim = row('running', 2, actor, source, {'queued_event_id': str(parent.id)})
+    checkpoint = row('analysis_block', 3, actor, source, {'claim_id': str(claim.id)})
+    rows = [parent, claim, checkpoint]
+    disconnect = DBAPIError(None, None, Exception('synthetic disconnect'), connection_invalidated=True)
+    db = SimpleNamespace(commit=AsyncMock(side_effect=[disconnect, None] if lost_commit_ack else None))
+    doc = SimpleNamespace(content_sha256=source)
+    opened = []
+    @asynccontextmanager
+    async def locked():
+        opened.append(True)
+        yield db, doc
+    reads = AsyncMock(side_effect=(lambda _: rows) if lost_commit_ack else [disconnect, rows])
+    def add(_db, _doc, sequence, payload):
+        event = row('queued', sequence, actor, source, payload)
+        rows.append(event)
+        return event
+    dispatch = Mock()
+    monkeypatch.setattr('app.modules.source_editorial_review.continuation.verified_preparation_binding', lambda *_: True)
+    result = await handoff(claim=claim, binding={'binding': 'verified'}, pages=None, open_locked=locked,
+        read_rows=reads, add_queued=add, owns=lambda item: item.id == checkpoint.id, dispatch=dispatch)
+    assert result == 'continued' and len(opened) == 2 and len(rows) == 4
+    assert valid_continuation(rows, rows[-1], source)
+    dispatch.assert_called_once_with(rows[-1])
+    assert db.commit.await_count == 1
+
+
 def test_continuation_lineage_and_ack_are_exactly_bound():
     actor, source, request = uuid4(), "b" * 64, uuid4()
     failure = row("failed", 1, actor, source, {"code": "source_review_timeout", "phase": "editor_request"})

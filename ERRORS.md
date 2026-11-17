@@ -11345,3 +11345,21 @@ AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 ENG078: initial one-review conn
 2026-11-17 ENG078 source-contract migration follow-up: replacing the prose question suffix via a string split omitted its original-language instruction from the table contract; native F remarks in English exposed the loss. H table role restores that instruction and adds subject/property/scope reasoning; actual saved model cases establish the bounded result, not a prompt-text assertion. Review the complete contract-transfer matrix before replacing a role, including language, applicability, identity, good-content preservation and unknown-outcome fences. A bounded14success was not full-source semantic acceptance; the complete saved source/question set was already available and should have been checked for scope-class errors before another full DEV review. Do not infer a quotation is literal from visual similarity: the H14 first quotation omitted a middle clause, its third was literal but named a neighbouring reference. Failed local exact-span proof caught both0calls/0writes, original diagnostics retained. Also use explicit UTF-8 for JSON and inspect log encoding rather than guessing it; two local journal registration attempts failed before writes. Trial14 copied a32768output ceiling from the larger-query experiment, while native uses16384; record this boundary rather than claiming a controlled comparison. Trial18/address matched native16384 before dispatch. No failed or unknown model request was repeated.
 
 AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 source review: before final CI include ALL known residual classes in the local matrix, not only the first saved block. Premature source-only CI/image candidates6e/fe8 were superseded before source POST/worker staging after a second local block exposed quotation formatting; retain their receipts and do not call them accepted DEV. Complex Python bootstrap text failed in PowerShell quoting0network; replace with an AST-checked script file and stop dependent steps on nonzero exit. Copied block7 saved110/evidence-path labels were wrong metadata, not wrong model input; actual request/source/custody hashes verified and correction appended to the engine registry. Never print long one-line cold CONTROL assignments; AST-project only the required metadata/program. New cold script embeds synthetic fixtures only, customer replies remain private local custody. These operator errors do not authorize source fact changes or unknown request repetition.
+
+
+2026-11-17 ENG078 DEV117H release transport evidence: workstation TCP443 to both
+Render public prefixes timed out while GitHub/Vercel connected. Two canonical
+Render service GETs failed BEFORE intent/POST; do not call these unknown deploys
+or blindly submit again. Canonical VM126 read-only network probe connected to
+both Render hosts; first public health read timed out (cause not proven).
+Process-only allowlisted HTTPS route uses the same canonical proxy/VM126 SSH
+trust chain and locally verified end-to-end TLS (CERT_REQUIRED, hostname check,
+original Host/SNI); no VM bearer credentials, listener, hosts/DNS/firewall/global
+proxy change or persistent service. Public probe returned Render401 and DEV
+health200/exactG44b in0.782/0.546s. Existing guarded deploy helper then recorded
+oneH deployment dep-dbu5d53l550s73a06kn0. Prior failures remain retained; only
+GET reconcile on unknown mutation. Route evidence is not browser/network global
+repair or application semantic acceptance. Private H/render_tls_route.py and
+render-{network117-executed,routed-public-probe}.json preserve scope.
+
+2026-11-17 release-route harness recurrence: SSH-only Python cannot import native source driver dotenv; first wrapper attempt failed during import BEFORE source auth/intent/POST/model call. Use canonical API .venv for application/source drivers and add only existing agent-tool site-packages for Paramiko, no install or environment change. Existing source start was then sent once/known235. Diagnostic Python stdout also needs -X utf8 for literal × quotations; failed print was read-only0writes. Avoid guessed test-runner paths: enumerate scripts/dev/run_api_pytest.ps1 before invocation. These are operator harness failures, separate from ENG078 content.

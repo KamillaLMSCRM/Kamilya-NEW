@@ -25,6 +25,7 @@ from app.modules.source_editorial_review.domain import (
 from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PINS
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
 from app.modules.source_editorial_review.question_context import POLICY as QUESTION_CONTEXT_POLICY
+from app.modules.source_editorial_review.recovery import recoverable_turn
 from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
 from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
@@ -202,7 +203,8 @@ def can_recheck_questions(rows: Sequence[Event], state: ReviewState) -> bool:
                 and any(unit.kind == "table_row" for unit in plan_source_units(state.original)))
 
 
-def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receipt: Event | None = None) -> dict[str, Any]:
+def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receipt: Event | None = None,
+                *, actor_id: UUID | None = None) -> dict[str, Any]:
     journal: list[dict[str, Any]] = []
     analysis = None
     for row in rows:
@@ -223,19 +225,23 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
     failure_phase = rows[-1].payload.get("phase") if rows and rows[-1].kind == "failed" else None
     stale_preparation = (state.status == "in_review" and state.preparation is not None
                          and not verified_preparation_binding(rows, str(doc.content_sha256), state.preparation))
-    interrupted_unknown = bool(rows and rows[-1].kind in {"running", "analysis_block"}
+    recovery = recoverable_turn(rows, str(doc.content_sha256), actor_id,
+                               interrupted=latest_status(rows) == "interrupted")
+    if recovery is not None and not verified_preparation_binding(rows, str(doc.content_sha256), recovery[1].payload["preparation"]):
+        recovery = None
+    interrupted_unknown = bool(recovery is None and rows and rows[-1].kind in {"running", "analysis_block"}
                                and latest_status(rows) == "interrupted")
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
             "revision": state.revision, "status": latest_status(rows),
             "requires_retry_acknowledgement": requires_retry_acknowledgement(rows),
             "retry_blocked_unknown_visual": retry_blocked_unknown_visual(rows),
-            "continuation_pending": continuation_pending(rows, str(doc.content_sha256)),
+            "continuation_pending": recovery is not None or continuation_pending(rows, str(doc.content_sha256)),
             "can_recheck": can_recheck_questions(rows, state),
             "error": ("source_review_interrupted_outcome_unknown" if interrupted_unknown else
                       "source_review_preparation_stale" if stale_preparation else state.error),
             "failure_phase": failure_phase if failure_phase in (
                 "source_extraction", "source_contract", "provider_readiness", "editor_request", "editor_response",
-                "independent_review_request", "independent_review_response",
+                "independent_review_request", "independent_review_response", "continuation_handoff",
             ) else None,
             "pdf": str(doc.filename or "").lower().endswith(".pdf"),
             "pages": state.pages,
@@ -295,6 +301,23 @@ async def apply_command(
             raise ReviewConflictError("source_review_retry_ack_required")
     elif command.acknowledge_outcome_and_cost_unknown is True:
         raise ReviewConflictError("source_review_action_not_available")
+    recovery = recoverable_turn(rows, str(doc.content_sha256), actor_id,
+                               interrupted=latest_status(rows) == "interrupted")
+    if command.action == "start" and recovery is not None:
+        claim, parent = recovery
+        binding = parent.payload["preparation"]
+        if (command.pages is not None or command.acknowledge_outcome_and_cost_unknown is not None
+                or not verified_preparation_binding(rows, str(doc.content_sha256), binding)):
+            raise ReviewConflictError("source_review_action_not_available")
+        recovery_payload = {"continuation_from": str(claim.id), "preparation": binding,
+                            "recovered_terminal_checkpoint": str(rows[-1].id)}
+        if "pages" in parent.payload:
+            recovery_payload["pages"] = parent.payload["pages"]
+        event = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 1,
+                          kind="queued", payload=recovery_payload, command=command)
+        await db.flush()
+        state.apply(event.sequence, "queued", recovery_payload)
+        return [*rows, event], state, event, True
     if (latest_status(rows) == "interrupted" and rows[-1].kind in {"running", "analysis_block"}
             and command.action in {"start", "select_parts"}):
         raise ReviewConflictError("source_review_interrupted_outcome_unknown")

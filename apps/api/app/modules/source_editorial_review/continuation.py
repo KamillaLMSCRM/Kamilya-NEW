@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
+from sqlalchemy.exc import DBAPIError
+
 from app.modules.source_editorial_review.service import verified_preparation_binding
 
 
@@ -79,18 +81,33 @@ async def handoff(*, claim: Any, binding: dict[str, Any] | None, pages: object,
                   add_queued: Callable[[Any, Any, int, dict[str, Any]], Any],
                   owns: Callable[[Any], bool], dispatch: Callable[[Any], None]) -> str:
     """Commit a single source-bound successor before attempting delivery."""
-    async with open_locked() as (db, doc):
-        rows = await read_rows(db)
-        if (not rows or not owns(rows[-1]) or doc.content_sha256 != claim.original_blob_sha256
-                or binding is not None and not verified_preparation_binding(rows, claim.original_blob_sha256, binding)):
-            return "claim_changed"
-        payload: dict[str, Any] = {"continuation_from": str(claim.id)}
-        if binding is not None:
-            payload["preparation"] = binding
-        if pages is not None:
-            payload["pages"] = pages
-        event = add_queued(db, doc, rows[-1].sequence + 1, payload)
-        await db.commit()
+    for retry in range(2):
+        try:
+            async with open_locked() as (db, doc):
+                rows = await read_rows(db)
+                if (doc.content_sha256 != claim.original_blob_sha256 or binding is not None
+                        and not verified_preparation_binding(rows, claim.original_blob_sha256, binding)):
+                    return "claim_changed"
+                if (retry and rows and rows[-1].payload.get("continuation_from") == str(claim.id)
+                        and rows[-1].payload.get("preparation") == binding
+                        and rows[-1].payload.get("pages") == pages
+                        and valid_continuation(rows, rows[-1], claim.original_blob_sha256)):
+                    # A lost commit acknowledgement is not permission for a second queue.
+                    event = rows[-1]
+                elif not rows or not owns(rows[-1]):
+                    return "claim_changed"
+                else:
+                    payload: dict[str, Any] = {"continuation_from": str(claim.id)}
+                    if binding is not None:
+                        payload["preparation"] = binding
+                    if pages is not None:
+                        payload["pages"] = pages
+                    event = add_queued(db, doc, rows[-1].sequence + 1, payload)
+                    await db.commit()
+            break
+        except DBAPIError as error:
+            if retry or not error.connection_invalidated:
+                raise
     try:
         dispatch(event)
     except Exception:

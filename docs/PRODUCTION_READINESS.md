@@ -1,4 +1,16 @@
-## Current DEV117G source checkpoint —2026-11-17
+## Current gate —2026-11-17T14:40Z: production117 NOT GO
+
+Production116/68fc9109 preserved. DEV117H exact42d587ce is coherent, but native
+source is interrupted295 after13/19blocks/18known completions, no unsettled
+inference. ENG079 deferred continuation DB disconnect is locally corrected;
+recovery-only117I8952API/1skip/65focused/quality1004-2174 and actual295 zero-call
+proof PASS. NOT deployed or full-source accepted yet. Preserve H model contracts,
+all completed parts, current rollout and rollback. Explicit-reference context
+pilot is separately preserved NOT GO (it omitted prior genuine findings).
+Full course/all lessons/tests require verified owner product facts. Never
+reinterpret source-only or local technical checks as production acceptance.
+
+## Historical DEV117G source checkpoint —superseded by H above
 
 DEV API/frontend/sole VM worker exact44b7210166e5a1e94873093660f81bea25b505e3,
 version117 RELEASE_OK; latest actual source234 is F14043 full19blocks,

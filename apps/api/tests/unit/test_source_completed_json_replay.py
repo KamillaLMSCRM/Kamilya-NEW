@@ -67,7 +67,7 @@ async def test_two_known_corrected_replies_replay_before_and_after_the_single_ne
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('managed', [False, True])
-@pytest.mark.parametrize('quote_case', [False, True, 'reference', 'long_literal'])
+@pytest.mark.parametrize('quote_case', [False, True, 'reference', 'long_literal', 'handoff_failure'])
 async def test_native_worker_reuses_two_completed_corrections_without_provider_calls(monkeypatch, managed, quote_case):
     from contextlib import asynccontextmanager
     from datetime import UTC, datetime
@@ -134,6 +134,9 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     def add_event(_db, _doc, *, kind, payload, **_):
         return event(kind, payload)
     async def analyze_fixture(source, *, complete_json, **_):
+        if quote_case == 'handoff_failure':
+            from app.modules.source_editorial_review.request_custody import BeforePostDeferred
+            raise BeforePostDeferred()
         assert source == 'Source'
         for m in messages:
             assert await complete_json(m) == {'ok': True}
@@ -167,8 +170,12 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     monkeypatch.setattr(analysis, 'add_event', add_event)
     monkeypatch.setattr(analysis, 'review_enabled', lambda: True)
     monkeypatch.setattr(analysis, 'get_settings', lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=managed))
-    if not quote_case:
+    if not quote_case or quote_case == 'handoff_failure':
         monkeypatch.setattr(analysis, 'analyze', analyze_fixture)
+    if quote_case == 'handoff_failure':
+        from sqlalchemy.exc import DBAPIError
+        monkeypatch.setattr(analysis, 'handoff', AsyncMock(side_effect=DBAPIError(
+            None, None, Exception('synthetic disconnect'), connection_invalidated=True)))
     monkeypatch.setattr(analysis.ResilientLLMClient, 'from_settings_async',
                         AsyncMock(return_value=SimpleNamespace(_clients=[SimpleNamespace(config=config)])))
     monkeypatch.setattr('app.modules.admin.runtime_configuration.runtime.resolve_runtime_settings',
@@ -176,6 +183,15 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     monkeypatch.setattr('app.modules.ai.direct_luna_responses_factory.create_managed_qa_client',
                         AsyncMock(return_value=managed_client))
     monkeypatch.setattr('app.modules.ai.llm_client.LLMClient', lambda *_a, **_k: SimpleNamespace(ainvoke=network))
+    if quote_case == 'handoff_failure':
+        assert await analysis.run_analysis(tenant, document, queued.id) == 'failed'
+        assert rows[-1].kind == 'failed'
+        assert rows[-1].payload['code'] == 'source_review_continuation_failed'
+        assert rows[-1].payload['phase'] == 'continuation_handoff'
+        assert rows[-1].payload['cause_class'] == 'DBAPIError'
+        assert not rows[-1].payload.get('unknown_request_key')
+        network.assert_not_awaited()
+        return
     assert await analysis.run_analysis(tenant, document, queued.id) == 'analyzed'
     assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == source
     if quote_case == 'reference':

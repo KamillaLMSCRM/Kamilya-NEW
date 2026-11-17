@@ -7757,3 +7757,46 @@ CHG-SOURCE-QUESTIONS118 SUBJECT-SCOPE PROPOSED2026-11-17T12:15Z: native full-F d
 CHG-SOURCE-QUESTIONS118 SUBJECT-SCOPE LOCAL GREEN2026-11-17: existing independent reviewer now compares the same object/property/scope, distinguishes component from total and generic collection introduction from an explicit universal/product-specific assertion, treats absence as non-negation, and restores original-language reasons. No global extra critic or model dedupe stage added. Requestpolicy3/projection4 explicitly invalidates old table reviews; all19original author custody keys INCLUDING2known completed JSON corrections and the entire prose model contract match44b exactly0newcalls. Current deployed DEV remains G44b; no H native start/production change.
 Saved actual14 under new role kept3genuine conflicts and dismissed the generic introduction; actual18 (native16384 ceiling) returned0false part/whole questions18002IN360OUT10.266s.14first response had2013/3311/3492char excerpts:2literal/1nonliteral, one wrong known row hint. Finite36k candidate quote bound replaces preferred2k rejection; requested short quotes and response byte caps unchanged. G canonical override repairs wrong native hint; existing address formatter fixed ONLY nonliteral quotation0 in8.703s11254IN130OUT, all semantic fields/peers/source frozen. Final14projection3real/all bound/0fallback,18empty, no source facts chosen. Three paid Luna6HIGH calls63327IN6781OUT138.797s; all further replays0calls. Trial14semantic ceiling32768 differs from native16384 (actual6291output); not a controlled proof about that ceiling. No repeat semantic request to correct its citations.
 Final LOCAL full8936API/1skip130.76s,31focused incl normal+managed real run_analysis long-literal no-reissue and fabricated-evidence-visible cases, quality1004/2174PASS. Frontend unchanged from197files1808PASS/type/lint/build. Safety: long fabricated or wrong-scope quotation still unverified, not accepted automatically; raw refs/quotes/audit retained. H=.release-evidence/furniture-source117h-20261117/local-validation.json/author-contract-transfer.json. Full native H source/course/production acceptance pending. Real product facts remain human-owned; do not blanket approve the catalogue.
+
+
+CHG-SOURCE-QUESTIONS118 EXPLICIT-REFERENCE-TEXT LOCAL TECHNICAL GREEN 2026-11-17T13:58:23.469985+00:00:
+RED before fix: one whole-row source test fails KeyError complete_original_context.
+GREEN:32focused including actual normal+managed run_analysis transport capture;
+full8937API/1skip/7warnings142.93s, quality1004/2174. Only context.request now
+pairs EVERY ID with exact unit.text; requestpolicy4/projection5. Across actual19
+windows328reference associations,292new complete-row texts; all literal original
+spans/IDs/order/headers/offsets preserved. Entire analysis.py including writer,
+reviewer roles, prose and source grammar rules is byte-exact H42d. H exact19author
+custody transfer remains applicable. Critical journey includes the new input gate.
+No semantic regex, guessed product priority, new critic/provider/reasoning/billing
+or source/customer edit. Native H42d continues; this local delta is NOT deployed.
+One blind saved block1 review is prepared but NOT submitted: existing single-slot
+Luna runner is busy with native source, so no duplicate/concurrent inference.
+CodeGraph preflight NOT_READY runtime missing; bounded source fallback only,
+no installation/hooks/foreign index. Evidence I=.release-evidence/furniture-source117i-20261117
+and .release-evidence/furniture-source-reference-text-1-20261117. Full source/course
+and production gates remain OPEN; literal input correctness is not semantic GO.
+
+
+CHG-SOURCE-CONTINUATION117I LOCAL GREEN2026-11-17: handoff retries only ONE
+invalidated-connection transaction in a fresh session, first reconciling an
+already committed exact successor; no duplicate queue/model request. Exhausted
+deferred handoff failure now persists code source_review_continuation_failed,
+phase continuation_handoff and cause_class instead of leaving an inert running
+state. Ordinary start resumes ONLY the same actor's stale20min terminal-turn
+checkpoint, all text request intents strictly complete, verified original and
+exact nonvisual selected manifest; unknown/corrupt/orphan/live/foreign/visual
+receipts stay held. Same revision/request idempotency and continuation lineage.
+Actual H295 zero-call/zero-write SELECT-only proof PASS with lms_app/FORCE RLS.
+Two synthetic lost-read/lost-commit RED -> GREEN;65focused incl actual normal+
+managed failure persistence; full8952API/1skip146.25s/quality1004-2174 PASS.
+Analyze/blocks and all model roles/policies/quotes/custody byte/AST exact H;
+all19author and13complete table blocks remain reusable, no fresh inference for
+this fix. H native partial18fresh responses384133IN41263OUT/13blocks, NOT full
+source/course acceptance. Underlying network disconnect cause UNKNOWN.
+Input-context pilot47.64s31796IN2192OUT improved refs but omitted two prior
+genuine findings, NOT GO; exact own patch/reply retained outside recovery package.
+Do not silently replace good prior findings or repeat that pilot. No source/
+customer facts, production116, provider/plan/reasoning/limits/schema/local Docker
+changes. Native DEV recovery/full source/UI and all course/prod gates pending.
+Evidence I=.release-evidence/furniture-source117i-20261117; ENG079.

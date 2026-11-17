@@ -48,7 +48,7 @@ async def get_review(doc_id: UUID, db: Database, user: Actor) -> dict[str, Any]:
     doc = await owned_document(db, tenant, doc_id)
     rows = await history(db, tenant, doc_id)
     try:
-        return review_view(doc, rows, read_state(rows, doc.content_sha256))
+        return review_view(doc, rows, read_state(rows, doc.content_sha256), actor_id=UUID(str(user.id)))
     except ReviewConflictError as error:
         raise _conflict(error) from error
 
@@ -68,7 +68,7 @@ async def change_review(doc_id: UUID, command: ReviewCommand, db: Database, user
     doc = await owned_document(db, tenant, doc_id, lock=True)
     try:
         rows, state, event, dispatch = await apply_command(db, doc, UUID(str(user.id)), command)
-        response = review_view(doc, rows, state, event)
+        response = review_view(doc, rows, state, event, actor_id=UUID(str(user.id)))
     except ReviewConflictError as error:
         raise _conflict(error) from error
     if dispatch:

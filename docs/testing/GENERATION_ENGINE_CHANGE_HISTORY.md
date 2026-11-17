@@ -3221,3 +3221,136 @@ RUN-SOURCE-SUBJECT-SCOPE-14-ADDRESS-20261117 INTENT 2026-11-17T12:34:13.800383+0
 CHG-SOURCE-QUESTIONS118 SUBJECT-SCOPE LOCAL GREEN2026-11-17: existing independent reviewer now compares the same object/property/scope, distinguishes component from total and generic collection introduction from an explicit universal/product-specific assertion, treats absence as non-negation, and restores original-language reasons. No global extra critic or model dedupe stage added. Requestpolicy3/projection4 explicitly invalidates old table reviews; all19original author custody keys INCLUDING2known completed JSON corrections and the entire prose model contract match44b exactly0newcalls. Current deployed DEV remains G44b; no H native start/production change.
 Saved actual14 under new role kept3genuine conflicts and dismissed the generic introduction; actual18 (native16384 ceiling) returned0false part/whole questions18002IN360OUT10.266s.14first response had2013/3311/3492char excerpts:2literal/1nonliteral, one wrong known row hint. Finite36k candidate quote bound replaces preferred2k rejection; requested short quotes and response byte caps unchanged. G canonical override repairs wrong native hint; existing address formatter fixed ONLY nonliteral quotation0 in8.703s11254IN130OUT, all semantic fields/peers/source frozen. Final14projection3real/all bound/0fallback,18empty, no source facts chosen. Three paid Luna6HIGH calls63327IN6781OUT138.797s; all further replays0calls. Trial14semantic ceiling32768 differs from native16384 (actual6291output); not a controlled proof about that ceiling. No repeat semantic request to correct its citations.
 Final LOCAL full8936API/1skip130.76s,31focused incl normal+managed real run_analysis long-literal no-reissue and fabricated-evidence-visible cases, quality1004/2174PASS. Frontend unchanged from197files1808PASS/type/lint/build. Safety: long fabricated or wrong-scope quotation still unverified, not accepted automatically; raw refs/quotes/audit retained. H=.release-evidence/furniture-source117h-20261117/local-validation.json/author-contract-transfer.json. Full native H source/course/production acceptance pending. Real product facts remain human-owned; do not blanket approve the catalogue.
+
+
+RUN-SOURCE117H-NATIVE-20261117 INTENT 2026-11-17T13:32:30.850798+00:00:
+coherent DEV42d587ce34d38fab073749e4c20cba958a9308b2/version117 RELEASE_OK;
+CI44087095015/build44088165646/imagee540e361959fe31d2ead91aef1fed067d05860584e8becacbeaa2337e05d57c4.
+Renderdep-dbu5d53l550s73a06kn0/Verceldpl_483PTDzqsuFZhRLhtsCxorcfBvnA/
+sole0d8b4273worker exactH, oldG rollback retained; no plan/schema change.
+Ordinary QA sourcead336f44/revision234, binary00783869/text2ba5e28a/
+two selected parts and manifestde7261ad preserved. One existing start only;
+reuse all19author completions and both known JSON corrections. New table
+requestpolicy3/projection4 independent role only, optional existing quote-address
+repair; Luna6/HIGH/native16384 output unchanged, existing paid capacity only.
+No expected true/false labels, product answers or manual source repair supplied.
+No retry unknown inference/dispatch, no approval/column priority/customer writes.
+Record fresh versus cached stages and inspect full resulting human queue/UI;
+source-only result is not full-course/production acceptance. H private receipts.
+
+
+CHG-SOURCE-QUESTIONS118 EXPLICIT-REFERENCE-TEXT PROPOSED 2026-11-17T13:43:51.046796+00:00:
+H native block1 retained6semantic findings but3known row hints point to neighbours:
+reasons name00079199/00079284/00079280, reportedS63/S56/S61 instead ofS64/S57/S63.
+One v1 quote-address call cannot repair generic repeated excerpts inside the
+wrong row; unresolved author clues remain visible duplicates, not silently lost.
+Actual context.request references contain only id/start/end/kind for EVERY
+fully contained row. Literal id->text association is supplied ONLY for rows cut
+by a character window. This is a confirmed contract gap; its causal contribution
+to model row errors needs a blind saved-block comparison, not an assumption.
+Prior G unique-original-literal binding and H subject-scope/longquote controls
+remain useful and retained. Do not add a semantic regex, parse product numbers
+out of reasons, weaken evidence, or add another critic. Proposed systemic input
+fix: put exact complete_original_context on EVERY referenced unit, not only cut
+rows; preserve original text/header/coordinates, same existing reviewer/roles,
+authorpolicy5/prose/provider/reasoning, all known completions and unknown fences.
+Requestpolicy4/projection5 must version new table request bytes; known H source
+continues unchanged to collect replies. First0-call association regression and
+full contract transfer, then one actual block1 blind review on paid Luna6 HIGH
+native16384 with no expected rows/answers. No factual source edits/approval or
+customer writes. Do not repeat a whole-file review unless bounded evidence
+justifies it. Files question_context.py, table/native-route regression tests.
+
+
+CHG-SOURCE-QUESTIONS118 EXPLICIT-REFERENCE-TEXT LOCAL TECHNICAL GREEN 2026-11-17T13:58:23.469985+00:00:
+RED before fix: one whole-row source test fails KeyError complete_original_context.
+GREEN:32focused including actual normal+managed run_analysis transport capture;
+full8937API/1skip/7warnings142.93s, quality1004/2174. Only context.request now
+pairs EVERY ID with exact unit.text; requestpolicy4/projection5. Across actual19
+windows328reference associations,292new complete-row texts; all literal original
+spans/IDs/order/headers/offsets preserved. Entire analysis.py including writer,
+reviewer roles, prose and source grammar rules is byte-exact H42d. H exact19author
+custody transfer remains applicable. Critical journey includes the new input gate.
+No semantic regex, guessed product priority, new critic/provider/reasoning/billing
+or source/customer edit. Native H42d continues; this local delta is NOT deployed.
+One blind saved block1 review is prepared but NOT submitted: existing single-slot
+Luna runner is busy with native source, so no duplicate/concurrent inference.
+CodeGraph preflight NOT_READY runtime missing; bounded source fallback only,
+no installation/hooks/foreign index. Evidence I=.release-evidence/furniture-source117i-20261117
+and .release-evidence/furniture-source-reference-text-1-20261117. Full source/course
+and production gates remain OPEN; literal input correctness is not semantic GO.
+
+RUN-SOURCE-REFERENCE-TEXT-1-20261117 INTENT 2026-11-17T14:16:31.464755+00:00: one LOCAL existing-reviewer explicit id-to-full-row association verification on saved block1 author, paid Luna6/HIGH unchanged, no answer labels or owner fact answers, max1call/no retry/fallback, maxoutput16384 matching the existing native route. No source/course/DB writes. Original writer/proposal bytes remain exact, requestpolicy4/projection5 LOCAL candidate. Exact inputs and body hashes in .release-evidence/furniture-source-reference-text-1-20261117.
+
+
+CHG-SOURCE-QUESTIONS118 REFERENCE-TEXT PILOT RESULT2026-11-17T14:17Z:
+one blind paid Luna6HIGH/native16384 LOCAL saved block1 call47.64s31796IN2192OUT.
+All6reported questions now use correct source IDs S55/S64/S57/S54 (the three
+wrong-reference examples are fixed), no source/customer writes. It also omits
+two genuine extra findings previously found natively (00079280dimensions and
+boundary00079292description). Therefore NOT full-block semantic GO; do NOT
+replace successful prior findings with a fresh model response merely because
+its addresses are cleaner. No repeat of this pilot or fabricated missing answers.
+Exact context draft preserved in I/context-reference-draft.patch with file hashes;
+runtime/source tests/critical-journey delta reversed ONLY through that exact own
+patch, no unrelated work reset. This is deferred, not lost or deployed.
+Immediate recovery candidate retains H table policy3/projection4 and all H
+completed authors/reviews. Next contract work must preserve prior findings until
+explicitly verified/dismissed, using the existing reviewer rather than a new
+critic or SKU-specific validator. Current infrastructure failure ENG079 is
+independent: continuation history SELECT lost DB connection outside main catch.
+
+CHG-SOURCE-CONTINUATION117I PROPOSED
+## ENG-079 — source continuation database disconnect leaves an inert running review
+
+- Date:2026-11-17T14:27:33.864770+00:00, OPEN. NativeH42d full furniture review
+ 235->295 stored13of19blocks and18NEW complete Luna6HIGH responses. All18intents
+ have matching completed receipts, no unknown inference. Worker0d8b running/
+ restarts0/active0; source still reports running. No source/customer fact changes.
+- Runtime traceback proves run_analysis:1019 -> continue_later:744 ->
+ continuation.handoff:83 -> history:56 SELECT -> DBAPIError/asyncpg
+ ConnectionDoesNotExistError. This is a DB disconnect during continuation read,
+ not model503 or capacity. Cause of the underlying network disconnect UNKNOWN.
+- Confirmed code defect: BeforePostDeferred handler calls continue_later OUTSIDE
+ the main failure catch; a DB failure escapes without persisting a source failure.
+ Existing20min stale guard holds all interrupted claims as unknown, even when a
+ complete turn checkpoint proves no unsettled request. Do not weaken unknown
+ intent/visual/lease/tenant/actor/source/selection gates or manually forge events.
+- Proposed bounded correction: one fresh-session retry for invalidated DB
+ connection during handoff, reconcile any already committed exact successor
+ before a new write/dispatch. Catch exhausted deferred-handoff failures through
+ ordinary failure persistence with phase/cause class. Add ordinary revision-
+ guarded start capability for stale owned nonvisual terminal-turn checkpoints
+ only when every request intent is strictly terminal; preserve exact continuation
+ lineage/binding and all completed parts. No model retry or source approval.
+- First synthetic DB-disconnect/lost-commit/unknown-claim RED/GREEN and actual
+ normal+managed run_analysis failure-persistence tests, then saved actual295
+ zero-call recovery proof. Recovery release keeps H model/quote policy unchanged
+ so13stored blocks and all authors can resume without regenerated parts. The
+ explicit-reference context experiment remains preserved, NOT deployed or GO.
+- Private H/worker-frames117-executed.json and source-progress-1794924639130887900.json;
+ I=.release-evidence/furniture-source117i-20261117. Full source/course/prod pending.
+
+
+CHG-SOURCE-CONTINUATION117I LOCAL GREEN2026-11-17: handoff retries only ONE
+invalidated-connection transaction in a fresh session, first reconciling an
+already committed exact successor; no duplicate queue/model request. Exhausted
+deferred handoff failure now persists code source_review_continuation_failed,
+phase continuation_handoff and cause_class instead of leaving an inert running
+state. Ordinary start resumes ONLY the same actor's stale20min terminal-turn
+checkpoint, all text request intents strictly complete, verified original and
+exact nonvisual selected manifest; unknown/corrupt/orphan/live/foreign/visual
+receipts stay held. Same revision/request idempotency and continuation lineage.
+Actual H295 zero-call/zero-write SELECT-only proof PASS with lms_app/FORCE RLS.
+Two synthetic lost-read/lost-commit RED -> GREEN;65focused incl actual normal+
+managed failure persistence; full8952API/1skip146.25s/quality1004-2174 PASS.
+Analyze/blocks and all model roles/policies/quotes/custody byte/AST exact H;
+all19author and13complete table blocks remain reusable, no fresh inference for
+this fix. H native partial18fresh responses384133IN41263OUT/13blocks, NOT full
+source/course acceptance. Underlying network disconnect cause UNKNOWN.
+Input-context pilot47.64s31796IN2192OUT improved refs but omitted two prior
+genuine findings, NOT GO; exact own patch/reply retained outside recovery package.
+Do not silently replace good prior findings or repeat that pilot. No source/
+customer facts, production116, provider/plan/reasoning/limits/schema/local Docker
+changes. Native DEV recovery/full source/UI and all course/prod gates pending.
+Evidence I=.release-evidence/furniture-source117i-20261117; ENG079.

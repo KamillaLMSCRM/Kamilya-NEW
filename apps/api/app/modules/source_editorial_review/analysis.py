@@ -744,6 +744,19 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         return await handoff(claim=claim, binding=binding, pages=pages, open_locked=locked_document,
             read_rows=lambda db: history(db, tenant_id, document_id), add_queued=queue, owns=owns, dispatch=dispatch)
 
+    def failed_result(error: Exception) -> tuple[dict[str, Any], str]:
+        code = "source_review_continuation_failed" if phase == "continuation_handoff" else analysis_failure_code(error)
+        logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
+        failure: dict[str, Any] = {"code": code, "phase": phase, "cause_class": type(error).__name__,
+                                   "usage": usage, "usage_complete": False}
+        if unknown_request_key is not None:
+            failure["unknown_request_key"] = unknown_request_key
+        if visual_in_flight or str(error) == "source_preparation_visual_outcome_unknown":
+            failure["unknown_visual_outcome"] = True
+        if json_recovery.used:
+            failure["completed_json_retries"] = 1
+        return failure, "failed"
+
     try:
         async with asyncio.timeout(750):
             from app.core.storage import get_storage
@@ -1016,19 +1029,13 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
             payload["fidelity"] = fidelity
             kind = "analyzed"
     except (_VisualDeferred, BeforePostDeferred):
-        return await continue_later()
+        try:
+            return await continue_later()
+        except Exception as error:
+            phase = "continuation_handoff"
+            payload, kind = failed_result(error)
     except Exception as error:
-        code = analysis_failure_code(error)
-        logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
-        payload, kind = {"code": code, "phase": phase}, "failed"
-        if unknown_request_key is not None:
-            payload["unknown_request_key"] = unknown_request_key
-        if visual_in_flight or str(error) == "source_preparation_visual_outcome_unknown":
-            payload["unknown_visual_outcome"] = True
-        payload["usage"] = usage
-        payload["usage_complete"] = False
-        if json_recovery.used:
-            payload["completed_json_retries"] = 1
+        payload, kind = failed_result(error)
     async with async_session_factory() as db:
         await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
         doc = await owned_document(db, tenant_id, document_id, lock=True)

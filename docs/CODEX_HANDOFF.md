@@ -1,4 +1,19 @@
-## WAITING FOR VERIFIED SOURCE FACTS —2026-11-17 ENG074/077 DEV117D
+## Current —2026-11-17T14:40Z: ENG079 recovery ready locally
+
+result: DEV117H42d587ce coherent; native source interrupted295 after13/19blocks,
+18known-complete requests/no pending intent. Production116 untouched.
+changed: Local recovery-only117I handles invalidated DB handoff/reconciles lost
+commit, saves failure cause, resumes same actor's stale terminal text checkpoint.
+verified:8952API/1skip/65focused/quality1004-2174; actual295 restricted read proof
+PASS0calls0writes. All H model contracts/analyze/blocks remain exact;13completed
+parts reusable. Trace and next steps in ENG079 / CHG-SOURCE-CONTINUATION117I.
+blockers: Not deployed/full-source or course accepted. Product facts need owner
+confirmation. Reference-text pilot is NOT GO; preserved own patch/reply in I.
+next: Recovery-only exact CI/image/DEV rollout, ordinary start once on295, no
+re-selection or model replay of completed parts. I private receipts. Last detailed
+entry below is authoritative over all historical D/G rollout records.
+
+## Historical —2026-11-17 ENG074/077 DEV117D
 
 result: DEV117 exact70e4f9d12399450803b141434881dae467fbf0f3 successfully
 checked the FULL real Plus Excel:2parts/worksheets,291catalogue rows,19source
@@ -6792,3 +6807,45 @@ CHG-L98F LOCAL 2026-11-12T03:23:00.656880+00:00: actualSSHtimeout/exit255 caused
 - verified: G full source48EXACTreceipt reprojection0calls/0writes fixes3refs,120questions/12unbound/14verification-required. One blind global experiment caught8false concerns but suggested one cross-product merge; not applied. H saved14=3genuine/all bound/0fallback,18=0false;3Luna6HIGH calls63327IN6781OUT138.797s, then0call projections.14semantic ceiling32768 differs from native16384;18/address match native. H full8936API/1skip130.76s/31focused/quality1004-2174 PASS, all19author keys/prose contract EXACT. Frontend unchanged1808PASS/type/lint/build.
 - blockers: H is LOCAL/not committed or deployed yet. Source/courses/prod not accepted; real product values unknown, no blanket priority/approval. Root CUA part still open on IAB tab2, ordinary QA; final live H UI/screenshot pending. No paid DeepSeek/local Docker/plans/customer writes. CodeGraph NOT_READY/missing runtime, bounded source fallback.
 - next: Freeze H/commit/project-account source+dev push/readback notes, exactCI/attested image/synthetic cold including long literal and REQUESTpolicy3; warm idle G worker switch preserving rollback, synchronized DEV controller. Ordinary source start on SAME docad336 revision234 after exactH/verified can_recheck, preserve both parts/manifestde726/original007.19authors/2known corrections reused, ONLY revised role reviews/address requests may be fresh. Full native source/semantic QA and human queue before any course/prod claim. H=.release-evidence/furniture-source117h-20261117; F prior native/custody, G runtime. All local model calls have completed, no running generation to duplicate.
+
+
+## DEV117H transport / partial rollout —2026-11-17T13:28Z
+
+- result: H42d587ce34d38fab073749e4c20cba958a9308b2 worker running; API deploy
+  dep-dbu5d53l550s73a06kn0 submitted once and pending. No H native source POST,
+  no full-course/prod acceptance. Production116/customer content untouched.
+- changed: CI44087095015/build44088165646 successful; attested imagee540e361...
+  d57c4, cold995files/replay0calls PASS. SoleH worker0d8b4273, env21f9cf1d,
+  oldG6382edff warmstopped/retained. Disk6,662,782,976bytes, no cleanup needed.
+- verified: workstation Render TCP unavailable; canonical VM126+process-only
+  end-to-end verified TLS route public GETs Render401/API200 exactG. Existing
+  guarded free-plan deploy uses same credentials/identity checks, no resource,
+  plan, network, security or persistent service change.
+- blockers: API/Vercel/worker exactH reconciliation still pending. Current QA
+  source234/in_review/121questions/approvalNULL, both source parts retained.
+- next: Reconcile the known deployment (never repeatPOST), controller RELEASE_OK,
+  one ordinary QA source234 start, reuse all19authors/known JSON corrections;
+  inspect every actual question and UI. Genuine product facts need human values.
+  H=.release-evidence/furniture-source117h-20261117.
+
+
+## ENG079 recovery117I LOCAL ready —2026-11-17T14:36Z
+
+- result: H42d DEV source interrupted295,13/19blocks,18known-complete model calls,
+  no unsettled intent. Worker0d8b idle/running/restarts0. Production116 unchanged.
+- changed: Local bounded DB handoff retry/readback and ordinary same-actor,
+  stale20min terminal-turn resume. Full original/selected manifest and all source
+  model contracts unchanged;13completed blocks and all authors must replay.
+- verified:8952API/1skip/65focused/quality1004-2174 PASS. Actual295 restricted
+  lms_app/FORCE RLS SELECT-only recovery proof PASS0calls/0writes. Runtime trace
+  analysis1019->continue744->handoff83->history56 DB connection lost, outside
+  original catch. Exact cause phase now persisted; raw model unknowns stay held.
+- blockers: Not deployed; native recovery/full source/full course/prod gates OPEN.
+  Explicit-reference input draft is preserved in I/context-reference-draft.patch;
+  pilot corrects refs but misses2prior findings, NOT a semantic pass or deployment.
+- next: Commit/push recovery-only candidate; CI/attested image/cold unchanged-model
+  proof; synchronized DEV. Ordinary start ONCE on exact295 with new capability,
+  no re-selection or forged event. Preserve continuation lineage,13blocks and18
+  completed responses. Then inspect actual full source and UI. Product facts
+  still require owner confirmation. H monitoring helper stopped intentionally;
+  no remote model task stopped/restarted. I private recovery receipts.

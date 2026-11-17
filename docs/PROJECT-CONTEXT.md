@@ -1,4 +1,21 @@
-## Current DEV117G source checkpoint —2026-11-17
+## Current DEV117H / local recovery117I —2026-11-17T14:40Z
+
+DEV API/frontend/sole VM worker exact42d587ce34d38fab073749e4c20cba958a9308b2,
+117 RELEASE_OK (CI44087095015/build44088165646, Renderdep-dbu5d53l550s73a06kn0,
+Verceldpl_483PTDzqsuFZhRLhtsCxorcfBvnA, worker0d8b4273/env21f9cf1d).
+Native QA source235->295 is interrupted:13/19blocks,18completed requests,
+0unsettled intents, original/both selected parts intact. Worker idle/restarts0.
+ENG079 traceback: deferred handoff history SELECT lost DB connection outside
+failure catch. Local recovery117I passes8952API/1skip/65focused/quality1004-2174;
+actual295 stale/same-actor/terminal-custody/preparation proof PASS0calls0writes.
+Not deployed yet. It preserves ALL H model contracts and13processed blocks.
+Explicit-reference input experiment is preserved separately, NOT accepted or
+included. Production116/68fc9109 unchanged; full source/course/prod117 NOT GO.
+Next: exact recovery-only DEV rollout, ordinary start once on295, continue cached
+work; no source re-selection, forged events, unknown retries or factual guesses.
+Current detail: ENG079/CHG-SOURCE-CONTINUATION117I, I private recovery receipts.
+
+## Historical DEV117G source checkpoint —superseded by H above
 
 DEV API/frontend/sole VM worker exact44b7210166e5a1e94873093660f81bea25b505e3,
 version117, CI44077894211/build44078925904 RELEASE_OK. Full original Excel
