@@ -1,4 +1,78 @@
-## IN PROGRESS 2026-11-17 — ENG-074 catalogue117 local fix, native DEV pending
+## IN PROGRESS 2026-11-17 —117C source failed103; guarded ingress repair LOCAL
+
+result: DEV117/008b5585 full Excel review failed at block13 on saved author102
+oversized/nonliteral20230-char before ->86-char after. No source approved or
+course generated. Production116 untouched. Latest owner explicitly reiterates
+real source ambiguities must go to human correction before generation; do NOT
+blanket KEEP the catalogue questions or invent product dimensions/completeness.
+
+changed: LOCAL guard in source_editorial_model.py retains an oversized quoted
+model proposal as bounded non-source hash/length diagnostic; strict executable
+compiler still rejects. analysis.py persists nonapplied/nonhuman diagnostics.
+No new critic, factual correction, guessed span, source truncation or provider
+setting. Actual failed102/103 and all earlier receipts are retained in C.
+
+verified: Saved102 replay0fresh/network/DB calls PASS, original byte-preserved,
+13completed blocks remain compatible,6pending. First fullAPI8904/1skip PASS; final general oversized replacement control
+and complete API8905/1skip/129.81s PASS. Final quality1004/2174 PASS.
+Original117C native30freshcompleted calls(28ok/2invalid_json), known595636IN/
+81252OUT plus2unknown usage,37m58s; NOT semantic acceptance. Original older
+15/3calls/7002chars public projection is not117usage. Customer blob/course/all
+quizzes independently identical at07:19Z; no client/employee writes.
+
+blockers: Need finish local final checks, commit exact successor117(no117tag or
+production release yet), existing DEV update and ordinary select_parts retry
+from failed103 with same verified manifest/two IDs. Reuse all13blocks and
+author102; no duplicate classification/source start or unknown-call repeat.
+Then inspect complete genuine questions and expose them to knowledgeable human.
+Full course/all lessons/tests and conditional production remain blocked by real
+source decisions until supplied; no false source approval.
+
+next: C=.release-evidence/furniture-source117c-20261117. source-run-final.json
+is immutable FAILED103, saved102-replay-green.json is LOCAL only. New native
+resume gets a separate immutable evidence folder/run ID. Isolated DEV connector
+91103767/CLI.166/input8MiB already compatible and remains unchanged; shared
+production defaultLuna5.6/CLI.146/input512KiB was READ ONLY inspected, not updated.
+Its exact unchanged fingerprint a1728852 remains protected. IAB tab2 is logged
+in as ordinary DEV QA on the document review page; CUA part not summarized yet.
+
+## Historical117C running checkpoint — superseded by failed103 above
+
+## IN PROGRESS 2026-11-17 — ENG-074 exact117 in DEV, full Excel source review running
+
+result: Application008b5585e7317b5776cd40f2cd38d954649d829b/version117 is now
+coherent in DEV. Production remains116/68fc9109, unchanged and NOT approved117.
+
+changed: Existing sole DEV worker2842995c uses image7b4c1283; old116/e57f8ba2
+retained stopped for rollback. Existing isolated DEV connector/egress use exact
+image91103767 with CLI0.166.0 and input8MiB, preserving effective luna6 profile,
+auth mounts, network and capacity. Shared production connector is unchanged.
+
+verified: CI44027075571/APIbuild44028505343/connector44028523198 PASS. Exact
+DEV controller RELEASE_OK: Render dep-dbtv9akipgvc73a8qkp0 and Vercel
+dpl_5yyDXk8Si5EtmpwDyxjx5f7MbEGH both008b5585. Frozen993source/recovery and
+3connector source/CLI readbacks PASS with0calls before source-run intent. Full
+API8896pass/1skip and quality1004/2174 apply to unchanged app bytes. Workflow
+version gate separately9pass; earlier94/ea candidates remain NOT accepted.
+
+blockers: Actual full-workbook semantic acceptance still OPEN. Ordinary DEV QA
+ad336f44 review queued exactly once at revision16 with both part IDs, reusing
+valid de7261ad preparation (no repeated77k-token classification). Existing final
+view during running still projects prior15/7002chars/one part; do not misread
+that as current queued selection or completed117 output. Restricted READ ONLY
+lms_app custody confirms both IDs and automatic continuation with saved calls.
+Catalogue contains genuine dimension/shelf/description contradictions; do not
+guess replacement facts or pretend customer approval. No117course submitted yet.
+
+next: Reconcile active GET-only native_source.py poll/session1161 and immutable
+source-run-final.json, never repeat start. Inspect all source edits/questions;
+then one ordinary native full course and every lesson/question/key/explanation/
+catalogue citation. Only semantic GO permits protected production. Current
+private evidence C=.release-evidence/furniture-source117c-20261117; frozen source
+in furniture-large-excel-20261117, independent matrix in furniture-source117-20261117.
+Existing paid Luna6/HIGH only; no local Docker, DeepSeek, billing or client writes.
+
+## Historical117 R2 checkpoint — superseded by live DEV entry above
 
 R2 checkpoint2026-11-17: owner full-file offline preflight revealed ENG-075
 512KiB wire mismatch and ENG-076 spaced tables becoming2prose spans before any

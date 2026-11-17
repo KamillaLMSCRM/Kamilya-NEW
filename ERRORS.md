@@ -11322,3 +11322,19 @@ with that/all profiles, verify actual env before asserting it is empty. Both
 live DEV services already use effective luna6; global runner MODEL5.6 is only
 default before factory override. Do not infer selected runtime model from it.
 Production/shared reserve unchanged; no unknown model requests repeated.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 catalogue review:
+A private stdin reader again omitted python-Xutf8 and could not print the ×
+dimension character under Windows CP1251. Re-run only the read with explicit
+UTF8; no inference/state mutation was repeated. A second interim reader treated
+nullable receipt.usage as an iterable; real completed invalid_json receipts may
+have null usage. Inspect the actual typed receipt and retain usage UNKNOWN,
+never turn an absent metric into zero or discard the failed-format call. Use
+the final native lineage plus completed receipts for fresh/cache/replay counts.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 saved102 replay: private reader
+imported app settings without synthetic test JWT, stopping before any call; set
+process-only test config before imports. The bad model before text is itself
+nonliteral: do not locate source spans from its SKU/prefix. Replay used canonical
+analysis block keys to prove13completed blocks and first pending index13, then
+held original wire102 without an executable address. No network/inference used.

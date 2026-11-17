@@ -308,6 +308,18 @@ def _compile_editorial_author_response(
         try:
             start, end = _exact_span(source_text, row["before"], row["supporting_original_context_quotes"])
         except ValueError as exc:
+            before, after = row["before"], row["after"]
+            if (str(exc) == "source_editorial_author_quote_shape" and unbound_diagnostics is not None
+                    and isinstance(before, str) and len(before) > 2000
+                    and isinstance(after, str) and bool(after.strip())):
+                # An oversized model quotation cannot authorize an edit. Keep
+                # its identity as non-source diagnostic data, not a truncated
+                # or guessed executable span. The complete wire stays retained.
+                marker = f"[Rejected model quotation: length={len(before)} sha256={sha256(before.encode()).hexdigest()}]"
+                _record_unbound({**row, "before": marker,
+                    "reason": "source_editorial_author_quote_too_long; proposal withheld; original preserved"},
+                    quote_key="before", diagnostics=unbound_diagnostics)
+                continue
             supports = row["supporting_original_context_quotes"]
             if str(exc) != "source_editorial_author_quote_not_unique" or not isinstance(supports, list):
                 raise

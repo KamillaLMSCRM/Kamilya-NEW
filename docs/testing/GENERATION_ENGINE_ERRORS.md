@@ -1912,3 +1912,25 @@ State CLOSED for ENG-073; this does not promise every model response is valid.
 - Native full-course quality/production PENDING. Prior source/approval text and
   saved courses are not rewritten; no accepted historical source is reopened.
   A=furniture-source117-20261117/full-path-red.log and focused-green/contract.
+
+
+## ENG-077 — one oversized cosmetic proposal hides completed source questions
+
+- Date:2026-11-17, native117/ad336 review103 failed editor_response. Actual saved
+  response102 is valid JSON: one20230-char before/86-char after grammatical edit.
+  _exact_span rejects >2000 characters; guarded ingress only holds nonunique
+  quotations, so the whole source review stops before independent review despite
+  saved accepted blocks/genuine catalogue conflicts. No proposed edit was applied.
+- Class: deterministic guarded-ingress recovery/audit gap; model proposal is
+  invalid and must remain rejected, not normalized to a guessed short span.
+- Proposed: bounded non-source length/hash diagnostic for oversized before text
+  in guarded mode, preserve strict compiler and full original author custody,
+  continue existing reviewer; retain diagnostics as nonapplied/nonhuman audit.
+- LOCAL regression/saved replay, resumed DEV and production PENDING. No human
+  catalogue facts guessed, no source approval or117course submitted.
+
+ENG-077 LOCAL2026-11-17:2RED/109related GREEN, actual author102 replay0calls
+passes, strict compiler remains rejecting; guarded diagnostic rederives and
+records length/hash instead of executable or truncated source span. Model-owned
+source conflicts still require human decisions.13old blocks can replay under
+unchanged accepted source/custody contract; full regression/native resume pending.

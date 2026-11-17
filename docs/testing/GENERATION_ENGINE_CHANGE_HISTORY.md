@@ -3054,3 +3054,55 @@ Docker/model/network. Application source and runtime tests from EA remain
 unchanged; no duplicate full API LOCAL/model run needed for workflow-only child.
 Do not install the earlier mismatched-metadata connector image as accepted.
 New exact CI/image/CLI proof is required before native full-file acceptance.
+
+
+RUN-CATALOG117-FULL-XLSX-DEV-20261117 INTENT 2026-11-17T06:41:29.126153+00:00: exact008b5585/version117, ordinary DEV QAa7a2/documentad336, same original00783869 XLSX. API/Vercel/soleworker and isolated Luna6 receiver matched; controller RELEASE_OK. Reuse verified original preparation and explicitly select BOTH learning/supporting parts, not regenerate good manifest. Fresh initial auto predicate is separately proved by actual run_analysis RED/GREEN and saved native classification replay. Full source review then one full course/all lessons+tests/citations on existing paid Luna6 HIGH, no customer write/DeepSeek/billing/local Docker. A=.release-evidence/furniture-source117c-20261117/run-intent.json; failed earlier candidates retained,0new117model calls before this intent.
+
+
+CHG-SOURCE-CATALOG117 R4 PROPOSED 2026-11-17: native008 full Excel review
+failed103/editor_response after known returned editor JSON proposed a20230-char
+before ->86-char after as grammar. This is NOT the second JSON decode incident;
+raw reply102 is valid and preserved. Earlier115 source ingress correctly rejects
+unsafe changes and has a non-addressable diagnostic path, but a >2000-char before
+raises quote_shape before that path. One malformed cosmetic therefore prevents
+all real source questions reaching the human. No full source rerun or author
+request is justified:14complete blocks and the failed block author response are
+saved. Owner reiterates real catalogue facts must be corrected by a human; no
+blanket KEEP/source approval/course generation is allowed.
+Proposed extension: strict compiler still rejects oversized executable spans;
+guarded ingress retains a bounded length/hash diagnostic instead of applying the
+proposal. Existing source-only independent reviewer continues and real questions
+remain human-gated. Persist withheld diagnostics in analysis audit, not as source
+facts/human grammar questions. No new critic, quote-to-source guess, source
+truncation or schema/meaning relaxation. Synthetic and saved102 offline replay
+first; compatible completed block/custody contract stays unchanged so resume can
+reuse accepted blocks and author102. CodeGraph preflight NOT_READY/runtime absent;
+bounded source fallback follows analysis->prepare_source_working_edition->guarded
+compiler->restore verification plus exact regression owners.
+
+RUN-CATALOG117-FULL-XLSX-DEV-20261117 RESULT original117C FAILED103,
+2026-11-17T06:41:38Z--07:19:35Z (37m58s):30completed fresh Luna6/HIGH calls,
+28ok/2known invalid_json; known595636IN81252OUT plus2usageUNKNOWN. Earlier
+preparation77332IN is reused history, not fresh.13/19source blocks completed.
+Final public view still projects earlier15 source text7002chars/3oldcalls;
+actual immutable failed-event usage/custody owns current failure, not that view.
+Source not approved, no course submitted, customer blob/course/quizzes equal.
+Real cause is author102 oversized/nonliteral before, NOT JSON decode failure;
+root corrected initial mistaken diagnosis in commentary. Failed attempt retained.
+
+CHG-SOURCE-CATALOG117 R4 LOCAL:2synthetic RED,109related GREEN (includes8new
+controls), quality Ruff1004/Mypy2174 PASS after explicit dictionary typing. Real
+author102 replay0fresh/network/DB calls PASS: original retained, no executable
+patch, bounded hash/length diagnostic, rederivation/tamper controls. Strict direct
+compiler still rejects >2000before; guarded route holds only that known cosmetic
+shape, keeps ordinary useful corrections/real questions, no new critic. Full
+API/regression and resumed DEV remain pending. Existing completed block and
+request keys remain compatible; no accepted model finding is silently relabeled
+as human approval. Owner reiterated real ambiguities go to human correction.
+
+CHG-SOURCE-CATALOG117 R4 LOCAL FINAL2026-11-17: long replacement also withheld
+when before is oversized; strict malformed field/category/alias negatives remain
+terminal. API8905PASS/1skip/129.81s; final quality1004/2174 PASS. Existing native
+13block keys/custody remain compatible; app source changes only guarded quote
+admission and audit projection. All human conflict gates stay intact. New exact
+DEV candidate/CI/image and resumed source check remain next; no source approval.

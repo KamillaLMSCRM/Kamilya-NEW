@@ -7709,3 +7709,12 @@ Existingproduction111/courseb05421bb/currentapprovedsource113: all8L8Qz31cards/f
   XLSX, metadata, historical course and quiz hashes all unchanged. Historical
   29L109Q is not current-run output. ENG-074 OPEN; no application patch/release.
 - A=.release-evidence/furniture-large-excel-20261117 final-assessment/preservation.
+
+
+2026-11-17 ENG074/077 successor117 LOCAL: initial oversized-before2RED;
+109related GREEN before additional long-replacement variant; full final
+API8905PASS/1skip/129.81s, qualityRuff1004/Mypy2174 PASS. Actual native author102
+zero-fresh-call replay PASS, source644776chars/SHA2ba5e28a preserved,13completed
+blocks +6pending. Source117C native failed103 is retained, NOT accepted course
+or source approval. Owner requires genuine catalogue questions corrected by
+human before course generation. C=.release-evidence/furniture-source117c-20261117.

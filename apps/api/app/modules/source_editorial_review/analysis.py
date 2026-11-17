@@ -401,7 +401,10 @@ async def analyze(
         calls += block_calls
         block_questions: list[dict[str, Any]] = []
         block_auto = []
-        block_rejected = []
+        block_rejected: list[dict[str, Any]] = [{"id": f"a{index}-{item.alias}", "start": None, "end": None,
+            "before": item.reported_excerpt, "proposed_after": None, "category": item.category,
+            "reason": item.reason, "code": item.code, "not_a_source_span": True,
+            "applied": False, "requires_human_decision": False} for item in result.unbound_diagnostics]
         for n, finding in enumerate(independent.source_questions):
             start = local.index(finding.excerpt) if local.count(finding.excerpt) == 1 else None
             block_questions.append({"id": f"s{index}-{n}", "start": None if start is None else offset + start,
