@@ -3041,3 +3041,16 @@ other containers/state/volumes preserved, free7277912064bytes. No force/prune,
 customer/provider/plan/model/reasoning change. Existing isolated DEV connector
 2145d0bf/private19000 requires compatible receiver image before fresh full test;
 shared production connector/config is unchanged. Native quality/prod still OPEN.
+
+CHG-SOURCE-CATALOG117 R3 PROPOSED2026-11-17 (release proof only): existing
+build-codex-reserve workflow still asserted/recorded CLI0.146.1 while the pinned
+installer/runner are0.166.0. Inner sh-c lacked fail-fast, so a failing version
+test could be hidden by final successful environment check; image build reported
+success. Exact POSIX shell/stub regression proves wrong CLI erroneously returns0;
+two cross-source metadata checks also RED. Correct the two stale version fields
+and enable inner set-eu, preserve all hardening/credential/plan/model bounds.
+Nine focused workflow controls will execute actual extracted shell without
+Docker/model/network. Application source and runtime tests from EA remain
+unchanged; no duplicate full API LOCAL/model run needed for workflow-only child.
+Do not install the earlier mismatched-metadata connector image as accepted.
+New exact CI/image/CLI proof is required before native full-file acceptance.

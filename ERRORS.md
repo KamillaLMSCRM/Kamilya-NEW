@@ -11305,3 +11305,20 @@ no-volume DEV7b9d361a/image3aa2b4d1 removed under standing13Nov authority after
 matching offhost manifest/config/all16blobs. All75other containers/config/mounts/
 states and release-plane state identical,0volumes/customer writes, free7277912064.
 Current116/115rollback/114 and older recovery copies preserved, no force/prune.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 isolated connector:
+Inner docker sh-c build check had no set-eu: CLI mismatch test0.146.1 could fail
+and final clean-env command still return0. Artifact repeated stale CLI metadata
+although current installer/runner pin0.166.0. Before runtime mutation, exact
+extracted POSIX shell with synthetic wrong CLI reproduced false0; cross-file
+version/artifact checks red. Workflow-only repair adds fail-fast and current
+pin, with positive/negative shell controls, no Docker/provider/model calls.
+Public remote diagnostics must encode every dynamic evidence VALUE as well as
+key. Empty/comma/CLI-space values failed the strict output contract; source
+assumptions about compose profiles also failed read-only inspection. Typed safe
+emit now preserves short nonconforming public values reversibly as hex and
+hashes long diagnostics. Existing compose has manual-reserve profile: read config
+with that/all profiles, verify actual env before asserting it is empty. Both
+live DEV services already use effective luna6; global runner MODEL5.6 is only
+default before factory override. Do not infer selected runtime model from it.
+Production/shared reserve unchanged; no unknown model requests repeated.
