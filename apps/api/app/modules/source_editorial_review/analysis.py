@@ -31,6 +31,7 @@ from app.modules.source_editorial_review.question_context import (
     QuestionContextError,
     contexts,
 )
+from app.modules.source_editorial_review.question_quotes import repair_question_quotes
 from app.modules.source_editorial_review.request_custody import (
     POLICY as REQUEST_CUSTODY_POLICY,
 )
@@ -195,7 +196,8 @@ def _restore_table_quote_span(original: str, quote: str) -> tuple[int, int] | No
 
 
 def _unverified_clues(review: _IndependentReview, material: dict[int, Any], original: str,
-                      context: QuestionContext | None = None) -> list[int]:
+                      context: QuestionContext | None = None,
+                      bindings: list[dict[str, Any]] | None = None) -> list[int]:
     """An invalid disposition never dismisses a clue or invalidates other findings."""
     remaining = set(material)
     raw = review.source_clue_dispositions
@@ -227,13 +229,19 @@ def _unverified_clues(review: _IndependentReview, material: dict[int, Any], orig
                     span = context.bind(question, finding.source_refs, _restore_table_quote_span)
                 except QuestionContextError:
                     continue
-                if not isinstance(clue, str) or not context.same_row(clue, span):
+                strict_row = isinstance(clue, str) and context.same_row(clue, span)
+                confirmed_row = context.confirmed_row(clue, span) if isinstance(clue, str) else None
+                if not strict_row and confirmed_row is None:
                     # Cross-row/prose clues still require literal overlap.
                     if not isinstance(clue, str) or original.count(clue) != 1:
                         continue
                     start = context.offset + original.index(clue)
                     if max(start, span[0]) >= min(start + len(clue), span[1]):
                         continue
+                elif not strict_row and bindings is not None:
+                    bindings.append({"clue_id": clue_id, "question_index": item.question_index,
+                        "source_ref": confirmed_row, "binding": "row_local_literal_confirmation",
+                        "reported_clue_occurrences": original.count(clue)})
                 remaining.remove(clue_id)
                 continue
             if original.count(question) != 1:
@@ -378,6 +386,8 @@ async def analyze(
     auto: list[dict[str, Any]] = []
     rejected_automatic: list[dict[str, Any]] = []
     dismissed_questions: list[dict[str, Any]] = []
+    quotation_repairs: list[dict[str, Any]] = []
+    clue_bindings: list[dict[str, Any]] = []
     calls = 0
     schema_reissue_used = False
     basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text)
@@ -393,6 +403,8 @@ async def analyze(
             auto.extend(saved["automatic"])
             rejected_automatic.extend(saved.get("rejected_automatic", []))
             dismissed_questions.extend(saved.get("dismissed_questions", []))
+            quotation_repairs.extend(saved.get("question_quote_repairs", []))
+            clue_bindings.extend(saved.get("source_clue_bindings", []))
             continue
 
         question_context = question_contexts[index]
@@ -400,10 +412,14 @@ async def analyze(
         block_calls = 0
         candidate_questions: list[Any] = []
         unverified: list[int] = []
+        quote_changes: dict[int, dict[str, str]] = {}
+        quote_audit: dict[str, Any] = {}
+        block_bindings: list[dict[str, Any]] = []
 
         async def invoke(messages: list[dict[str, str]], source_block: str = local,
-                         row_context: QuestionContext | None = question_context) -> object:
-            nonlocal independent, block_calls, candidate_questions, unverified, schema_reissue_used
+                         row_context: QuestionContext | None = question_context,
+                         clue_links: list[dict[str, Any]] = block_bindings) -> object:
+            nonlocal independent, block_calls, candidate_questions, unverified, schema_reissue_used, quote_changes, quote_audit
             block_calls += 1
             payload = json.loads(messages[1]["content"])
             if visual_reading_notes:
@@ -463,7 +479,19 @@ async def analyze(
                     independent = _independent_review_reply(await complete_json(review_messages))
                 if independent.proposal_sha256 != payload["proposal_sha256"]:
                     raise ReviewConflictError("source_review_independent_proposal_changed")
-                unverified = _unverified_clues(independent, material, source_block, row_context)
+                if row_context is not None:
+                    async def locate_quotes(location_messages: list[dict[str, str]]) -> object:
+                        nonlocal block_calls
+                        block_calls += 1
+                        return await complete_json(location_messages)
+
+                    repaired, quote_changes, quote_audit = await repair_question_quotes(
+                        [q.model_dump() for q in independent.source_questions], context=row_context,
+                        proposal_sha256=independent.proposal_sha256, complete_json=locate_quotes,
+                        restore=_restore_table_quote_span)
+                    independent = independent.model_copy(update={"source_questions": [
+                        _SourceQuestion.model_validate(q) for q in repaired]})
+                unverified = _unverified_clues(independent, material, source_block, row_context, clue_links)
                 return independent.model_dump(exclude={"source_questions", "source_clue_dispositions"})
             authored = await complete_json([
                 {"role": "system", "content": messages[0]["content"] + _AUTHOR_CLUES}, messages[1],
@@ -504,11 +532,16 @@ async def analyze(
                 "category": finding.category, "reason": finding.reason}
             if finding.source_refs is not None:
                 row["source_refs"] = finding.source_refs
+                labels = question_context.labels(finding.source_refs) if question_context is not None else []
+                if labels:
+                    row["source_labels"] = labels
+            row.update(quote_changes.get(n, {}))
             if (finding.disposition == "dismissed" and span is not None
                     and (question_context is None or finding.source_refs is not None)):
                 block_dismissed.append({**row, "disposition": "dismissed"})
             else:
-                if finding.disposition == "dismissed" or (question_context is not None and finding.source_refs is None):
+                if (span is None or finding.disposition == "dismissed"
+                        or (question_context is not None and finding.source_refs is None)):
                     row["needs_source_verification"] = True
                 block_questions.append(row)
         block_has_unbound_clue = False
@@ -540,11 +573,16 @@ async def analyze(
             await checkpoint(key, {"questions": block_questions, "automatic": block_auto,
                                    "rejected_automatic": block_rejected, "dismissed_questions": block_dismissed,
                                    "source_clue_dispositions": independent.source_clue_dispositions,
+                                   "question_quote_repairs": [{"block": index, **quote_audit}] if quote_audit else [],
+                                   "source_clue_bindings": [{"block": index, **binding} for binding in block_bindings],
                                    "calls": block_calls})
         questions.extend(block_questions)
         auto.extend(block_auto)
         rejected_automatic.extend(block_rejected)
         dismissed_questions.extend(block_dismissed)
+        if quote_audit:
+            quotation_repairs.append({"block": index, **quote_audit})
+        clue_bindings.extend({"block": index, **binding} for binding in block_bindings)
 
     # Restore literal coordinates before merging, including for resumed blocks.
     for question in questions:
@@ -570,6 +608,9 @@ async def analyze(
                 last["reason"] += "\n" + row["reason"]
             if row.get("needs_source_verification"):
                 last["needs_source_verification"] = True
+            for field in ("source_refs", "source_labels"):
+                if row.get(field):
+                    last[field] = list(dict.fromkeys([*last.get(field, []), *row[field]]))
     auto = [row for row in auto if not any(
         row["start"] < question["end"] and question["start"] < row["end"] for question in grouped
     )]
@@ -577,6 +618,8 @@ async def analyze(
     return {"original": original, "issues": [*grouped, *(q for q in questions if q["start"] is None)],
             "automatic": auto, "rejected_automatic": rejected_automatic,
             "dismissed_questions": dismissed_questions,
+            "question_quote_repairs": quotation_repairs,
+            "source_clue_bindings": clue_bindings,
             **({"question_context_policy": QUESTION_CONTEXT_POLICY} if any(question_contexts) else {}),
             "model_calls": calls, "policy": POLICY, "analysis_policy": _ANALYSIS_POLICY}
 

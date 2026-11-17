@@ -32,6 +32,15 @@ describe('source editorial review', () => {
     mocks.approval = undefined;
   });
 
+  it('shows the literal source entry so a short quotation still identifies the product', async () => {
+    const data = fixture();
+    data.questions[0].source_labels = ['00000017'];
+    mocks.get.mockResolvedValue({ data });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText('Позиция в источнике: 00000017')).toBeVisible();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
   it('only explicitly rechecks an older table review and preserves the revision guard', async () => {
     mocks.get.mockResolvedValue({ data: { ...fixture(), can_recheck: true } });
     mocks.post.mockResolvedValue({ data: { ...fixture(), revision: 4, status: 'queued', can_recheck: false } });

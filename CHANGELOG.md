@@ -11,6 +11,7 @@
 - Recognize spaced Markdown tables without changing source bytes, preserving row/header associations and separate table boundaries.
 - Bind source-review questions and dismissal evidence to literal table rows and headers; keep dismissed findings in audit checkpoints and preserve independent issues on the same product. Offer an explicit review refresh for unapproved older table checks without discarding human text edits.
 - Reuse exact completed JSON corrections across source-review continuations without consuming the single new format-reissue allowance. Preserve custody, usage and unknown-outcome fences on both normal and managed provider routes.
+- Repair nonliteral source-question quotations once through the existing model route while freezing findings and source text. Require literal overlap with both the reported quote and owned row, retain original quotes/audit, and display the original source-entry identifier for human review.
 - Align bounded Luna request admission across client and receiver for full supported Unicode documents; preserve model, reasoning, output, ownership and execution restrictions.
 
 ## [0.11.116] - 2026-11-16

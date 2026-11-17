@@ -4437,3 +4437,5 @@ document/course journey remains a separate owner-controlled synthetic rehearsal.
   Qwen and GLM fallbacks are `NO-GO` for availability until VM126 connectivity is
   proven. Human methodologist review remains mandatory for generated courses and
   assessments.
+
+2026-11-17 ENG078 local117F candidate: source-only two-block QA and complete local suites PASS, full native source/course/prod not accepted. Deployed DEV70e/117D and production68fc/116 unchanged until exact child rollout. No plan/schema/provider changes. CODEX_HANDOFF latest entry and CHG-SOURCE-QUESTIONS118 own current pending work.

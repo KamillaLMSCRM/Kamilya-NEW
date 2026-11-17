@@ -5,9 +5,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from app.modules.ai.v3.source_units import SourceUnit, plan_source_units
+from app.modules.ai.v3.source_units import SourceUnit, plan_source_units, source_table_topic
 
-POLICY = "source-question-row-context-v1"
+POLICY = "source-question-row-context-v2"
 
 
 class QuestionContextError(ValueError):
@@ -64,6 +64,17 @@ class QuestionContext:
         return any(u.kind == "table_row" and u.start <= start < u.end
                    and end <= u.end and u.start <= span[0] < span[1] <= u.end
                    for u in self.references.values())
+
+    def confirmed_row(self, clue: str, span: tuple[int, int]) -> str | None:
+        """Link repeated literal clues to an OPEN question, never dismiss them."""
+        if not clue:
+            return None
+        return next((ref for ref, unit in self.references.items() if unit.kind == "table_row"
+                     and unit.start <= span[0] < span[1] <= unit.end and unit.text.count(clue) == 1), None)
+
+    def labels(self, refs: list[str]) -> list[str]:
+        return list(dict.fromkeys(label for ref in refs if ref in self.references
+                                 if (label := source_table_topic(self.references[ref]))))
 
 
 def contexts(original: str, windows: list[tuple[int, str]]) -> list[QuestionContext | None]:

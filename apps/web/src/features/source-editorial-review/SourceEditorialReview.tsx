@@ -284,6 +284,9 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             <h2 ref={detail} tabIndex={-1} className="font-semibold focus-visible:ring-2 focus-visible:ring-ring">{copy.question}</h2>
             {question.needs_source_verification && <p className="text-sm text-muted-foreground">{copy.needsSourceVerification}</p>}
             {question.reason && <p className="whitespace-pre-wrap break-words text-sm">{question.reason}</p>}
+            {question.source_labels?.length ? <p className="break-words text-sm font-medium">
+              {copy.sourceEntry}: {question.source_labels.join(', ')}
+            </p> : null}
             <div><p className="mb-1 text-xs font-medium text-muted-foreground">{question.start == null ? copy.unbound : copy.quote}</p>
               {question.quote && <blockquote className={code}>{question.quote}</blockquote>}</div>
             {question.resolution && <div className="space-y-2 text-sm">

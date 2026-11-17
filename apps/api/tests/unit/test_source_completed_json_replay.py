@@ -67,13 +67,15 @@ async def test_two_known_corrected_replies_replay_before_and_after_the_single_ne
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('managed', [False, True])
-async def test_native_worker_reuses_two_completed_corrections_without_provider_calls(monkeypatch, managed):
+@pytest.mark.parametrize('quote_case', [False, True])
+async def test_native_worker_reuses_two_completed_corrections_without_provider_calls(monkeypatch, managed, quote_case):
     from contextlib import asynccontextmanager
     from datetime import UTC, datetime
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, Mock
     from uuid import uuid4
 
+    from app.modules.ai.direct_luna_api import LunaUsage
     from app.modules.ai.qa_luna_dev_route import QA_TENANT
     from app.modules.source_editorial_review import analysis
     from app.modules.source_editorial_review.domain import text_hash
@@ -82,9 +84,10 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     from tests.unit.test_source_review_custody import row
 
     tenant, document, actor = QA_TENANT, uuid4(), uuid4()
+    source = '| Item | Rule |\n| --- | --- |\n| A | A has two units. Units: 1 |\n' if quote_case else 'Source'
     blob, block_id = 'a' * 64, 'block-' + 'b' * 24
     package = PreparedSource.model_validate({'original_blob_sha256': blob,
-        'blocks': [{'id': block_id, 'text': 'Source', 'kind': 'text'}],
+        'blocks': [{'id': block_id, 'text': source, 'kind': 'text'}],
         'parts': [{'id': 'part-' + digest(blob + block_id + block_id)[:24], 'title': 'Source', 'role': 'learning',
                    'reason': 'Relevant', 'first_block': block_id, 'last_block': block_id}]})
     binding = package.binding([package.parts[0].id])
@@ -130,16 +133,34 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
             assert await complete_json(m) == {'ok': True}
         return {'original': source, 'issues': [], 'automatic': [], 'model_calls': 0}
 
-    network = AsyncMock(side_effect=AssertionError('Completed repair was sent again'))
+    async def synthetic_provider(m, **_):
+        assert quote_case, 'Completed repair was sent again'
+        payload = json.loads(m[1]['content'])
+        if payload.get('task') == 'source-question-literal-quote-v1':
+            value = {'repairs': [{'question_index': 0, 'excerpt': 'A has two units.'}]}
+        elif 'proposal_sha256' not in payload:
+            value = {'patches': [], 'unresolved': []}
+        else:
+            ref = payload['source_question_context']['references'][0]['id']
+            value = {'proposal_sha256': payload['proposal_sha256'], 'rows': [], 'source_questions': [
+                {'excerpt': 'A has two units. ... Units: 1', 'category': 'conflict', 'reason': 'One or two units?',
+                 'source_refs': [ref], 'disposition': 'needs_human'}]}
+        return SimpleNamespace(content=value, provider_name='synthetic', model='fixture',
+                               prompt_tokens=1, completion_tokens=1, usage_complete=True, usage=LunaUsage(1, 1, None, None))
+    network = AsyncMock(side_effect=synthetic_provider)
+    async def prepare_messages(m, *, ownership_checkpoint, **_):
+        assert await ownership_checkpoint()
+        return m
     managed_client = SimpleNamespace(cache_fingerprint=lambda: route, generation_deadline_seconds=5,
-                                     prepare=AsyncMock(return_value=object()), discard=Mock(), invoke=network, close=Mock())
+                                     prepare=AsyncMock(side_effect=prepare_messages), discard=Mock(), invoke=network, close=Mock())
     monkeypatch.setattr(analysis, 'async_session_factory', sessions)
     monkeypatch.setattr(analysis, 'owned_document', AsyncMock(return_value=doc))
     monkeypatch.setattr(analysis, 'history', AsyncMock(side_effect=lambda *_: list(rows)))
     monkeypatch.setattr(analysis, 'add_event', add_event)
     monkeypatch.setattr(analysis, 'review_enabled', lambda: True)
     monkeypatch.setattr(analysis, 'get_settings', lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=managed))
-    monkeypatch.setattr(analysis, 'analyze', analyze_fixture)
+    if not quote_case:
+        monkeypatch.setattr(analysis, 'analyze', analyze_fixture)
     monkeypatch.setattr(analysis.ResilientLLMClient, 'from_settings_async',
                         AsyncMock(return_value=SimpleNamespace(_clients=[SimpleNamespace(config=config)])))
     monkeypatch.setattr('app.modules.admin.runtime_configuration.runtime.resolve_runtime_settings',
@@ -148,5 +169,12 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
                         AsyncMock(return_value=managed_client))
     monkeypatch.setattr('app.modules.ai.llm_client.LLMClient', lambda *_a, **_k: SimpleNamespace(ainvoke=network))
     assert await analysis.run_analysis(tenant, document, queued.id) == 'analyzed'
-    assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == 'Source'
-    network.assert_not_awaited()
+    assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == source
+    if quote_case:
+        assert network.await_count == 3
+        question, = rows[-1].payload['issues']
+        assert question['quote'] == 'A has two units.' and question['start'] == source.index(question['quote'])
+        assert question['reported_quote'] == 'A has two units. ... Units: 1'
+        assert rows[-1].payload['question_quote_repairs'][0]['accepted'] == [0]
+    else:
+        network.assert_not_awaited()

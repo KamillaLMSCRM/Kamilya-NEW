@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.modules.source_editorial_review.analysis import _independent_review_reply, _unverified_clues, analyze
-from app.modules.source_editorial_review.question_context import QuestionContextError, contexts
+from app.modules.source_editorial_review.question_context import POLICY, QuestionContextError, contexts
 
 SOURCE = ('| Product | Mass | Description | Attributes |\n| --- | --- | --- | --- |\n'
           '| A | 0 | A has two units. | Units: 1 |\n'
@@ -64,6 +64,7 @@ async def test_declined_comment_is_audited_and_does_not_hide_a_real_peer_conflic
     assert len(calls) == 2 and result['original'] == SOURCE and not result['automatic']
     issue, = result['issues']
     assert issue['quote'] == 'A has two units.' and issue['start'] == SOURCE.index(issue['quote'])
+    assert issue['source_labels'] == ['A']
     assert len(result['dismissed_questions']) == 1
     assert result['dismissed_questions'][0]['reason'] == 'There is no conflict.'
 
@@ -91,6 +92,26 @@ def test_other_product_or_missing_reference_cannot_dismiss_a_literal_clue(bad_ev
          'evidence_source_ref': refs.get(bad_evidence, bad_evidence), 'reason': 'Consistent within the product.'}]}
     clue = '| B | 0 | B has one unit. | Units: 1 |'
     assert _unverified_clues(_independent_review_reply(raw), {0: clue}, SOURCE, context) == [0]
+
+
+def test_repeated_clue_can_link_to_an_open_row_question_but_cannot_be_dismissed_on_another_product():
+    context, = contexts(SOURCE, [(0, SOURCE)])
+    assert context is not None
+    a = next(key for key, unit in context.references.items() if '| A |' in unit.text)
+    b = next(key for key, unit in context.references.items() if '| B |' in unit.text)
+    raw = {'proposal_sha256': 'a' * 64, 'rows': [], 'source_questions': [
+        {'excerpt': 'A has two units.', 'category': 'conflict', 'reason': 'Two or one?',
+         'disposition': 'needs_human', 'source_refs': [a]}],
+        'source_clue_dispositions': [{'clue_id': 0, 'disposition': 'confirmed', 'question_index': 0}]}
+    links = []
+    assert _unverified_clues(_independent_review_reply(raw), {0: 'Units: 1'}, SOURCE, context, links) == []
+    assert links == [{'clue_id': 0, 'question_index': 0, 'source_ref': a,
+                      'binding': 'row_local_literal_confirmation', 'reported_clue_occurrences': 2}]
+    raw['source_clue_dispositions'] = [{'clue_id': 0, 'disposition': 'dismissed', 'evidence_excerpt': 'B has one unit.',
+                                      'evidence_source_ref': b, 'reason': 'The other product agrees.'}]
+    assert _unverified_clues(_independent_review_reply(raw), {0: 'Units: 1'}, SOURCE, context) == [0]
+    raw['source_clue_dispositions'] = [{'clue_id': 0, 'disposition': 'confirmed', 'question_index': 0}]
+    assert _unverified_clues(_independent_review_reply(raw), {0: 'B has one unit.'}, SOURCE, context) == [0]
 
 
 @pytest.mark.asyncio
@@ -170,6 +191,43 @@ async def test_completed_row_review_checkpoint_replays_with_dismissal_audit_and_
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('repair_quote', ['A has two units.', 'B has one unit.'])
+async def test_model_repairs_only_nonliteral_quote_and_cannot_borrow_another_product(repair_quote):
+    calls = []
+    reported = 'A has two units. ... Units: 1'
+    async def complete(messages):
+        p = json.loads(messages[1]['content'])
+        calls.append(p)
+        if p.get('task') == 'source-question-literal-quote-v1':
+            assert len(p['items']) == 1 and p['items'][0]['question_index'] == 0
+            assert len(p['original_rows']) == 1 and '| B |' not in p['original_rows'][0]['text']
+            return {'repairs': [{'question_index': 0, 'excerpt': repair_quote}]}
+        if 'proposal_sha256' not in p:
+            return {'patches': [], 'unresolved': [{'alias': 'A', 'excerpt': '| A | 0 | A has two units. | Units: 1 |',
+                                                  'category': 'conflict', 'reason': 'Two or one?'}]}
+        a, b = ref(p, '| A |'), ref(p, '| B |')
+        return {'proposal_sha256': p['proposal_sha256'], 'rows': [], 'source_questions': [
+            {'excerpt': reported, 'category': 'conflict', 'reason': 'One or two units?',
+             'disposition': 'needs_human', 'source_refs': [a]},
+            {'excerpt': 'B has one unit.', 'category': 'unclear', 'reason': 'Independent peer stays open.',
+             'disposition': 'needs_human', 'source_refs': [b]}],
+            'source_clue_dispositions': [{'clue_id': 0, 'disposition': 'confirmed', 'question_index': 0}]}
+    result = await analyze(SOURCE, source_id='test', document_id='owned', complete_json=complete)
+    assert len(calls) == 3 and result['original'] == SOURCE and not result['automatic']
+    peer = next(q for q in result['issues'] if q['reason'] == 'Independent peer stays open.')
+    assert peer['quote'] == 'B has one unit.' and peer['start'] == SOURCE.index(peer['quote'])
+    if repair_quote.startswith('A '):
+        assert len(result['issues']) == 2
+        repaired = next(q for q in result['issues'] if q['reason'] == 'One or two units?')
+        assert repaired['quote'] == repair_quote and repaired['reported_quote'] == reported
+        assert repaired['quote_binding'] == 'source-question-literal-quote-v1'
+        assert repaired['start'] == SOURCE.index(repair_quote)
+    else:
+        invalid = next(q for q in result['issues'] if q['quote'] == reported)
+        assert invalid['start'] is None and invalid['needs_source_verification']
+
+
+@pytest.mark.asyncio
 async def test_explicit_recheck_is_revision_guarded_and_cannot_reopen_approved_or_edited_sources(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, Mock
@@ -182,7 +240,7 @@ async def test_explicit_recheck_is_revision_guarded_and_cannot_reopen_approved_o
     analyzed = SimpleNamespace(kind='analyzed', sequence=3, payload={}, request_id=None)
     state = ReviewState(revision=3, status='in_review', original=SOURCE)
     assert can_recheck_questions([analyzed], state)
-    analyzed.payload['question_context_policy'] = 'source-question-row-context-v1'
+    analyzed.payload['question_context_policy'] = POLICY
     assert not can_recheck_questions([analyzed], state)
     analyzed.payload.clear()
     for status in ['approved', 'failed', 'running', 'queued']:
