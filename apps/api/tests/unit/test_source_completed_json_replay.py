@@ -67,7 +67,7 @@ async def test_two_known_corrected_replies_replay_before_and_after_the_single_ne
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('managed', [False, True])
-@pytest.mark.parametrize('quote_case', [False, True, 'reference'])
+@pytest.mark.parametrize('quote_case', [False, True, 'reference', 'long_literal'])
 async def test_native_worker_reuses_two_completed_corrections_without_provider_calls(monkeypatch, managed, quote_case):
     from contextlib import asynccontextmanager
     from datetime import UTC, datetime
@@ -88,6 +88,9 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     literal = '| B | A shared introduction. Two units. Units: 1 |'
     if quote_case == 'reference':
         source = '| Item | Rule |\n| --- | --- |\n| A | A shared introduction. Units: 1 |\n' + literal + '\n'
+    elif quote_case == 'long_literal':
+        literal = '| A | ' + 'Source detail. ' * 180 + 'Two units. Units: 1 |'
+        source = '| Item | Rule |\n| --- | --- |\n' + literal + '\n'
     blob, block_id = 'a' * 64, 'block-' + 'b' * 24
     package = PreparedSource.model_validate({'original_blob_sha256': blob,
         'blocks': [{'id': block_id, 'text': source, 'kind': 'text'}],
@@ -148,7 +151,7 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
         else:
             ref = payload['source_question_context']['references'][0]['id']
             value = {'proposal_sha256': payload['proposal_sha256'], 'rows': [], 'source_questions': [
-                {'excerpt': literal if quote_case == 'reference' else 'A has two units. ... Units: 1', 'category': 'conflict', 'reason': 'One or two units?',
+                {'excerpt': literal if quote_case in ('reference', 'long_literal') else 'A has two units. ... Units: 1', 'category': 'conflict', 'reason': 'One or two units?',
                  'source_refs': [ref], 'disposition': 'needs_human'}]}
         return SimpleNamespace(content=value, provider_name='synthetic', model='fixture',
                                prompt_tokens=1, completion_tokens=1, usage_complete=True, usage=LunaUsage(1, 1, None, None))
@@ -181,6 +184,11 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
         assert question['quote'] == literal and question['start'] == source.index(literal)
         assert question['source_labels'] == ['B'] and question['reported_source_refs'] != question['source_refs']
         assert question['source_ref_binding'] == 'unique_original_literal_v1'
+    elif quote_case == 'long_literal':
+        assert network.await_count == 2
+        question, = rows[-1].payload['issues']
+        assert len(question['quote']) > 2000 and question['quote'] == literal
+        assert question['start'] == source.index(literal) and not question.get('needs_source_verification')
     elif quote_case:
         assert network.await_count == 3
         question, = rows[-1].payload['issues']

@@ -291,6 +291,34 @@ async def test_unique_literal_row_overrides_conflicting_known_hint_without_borro
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('literal', [True, False])
+async def test_long_quote_is_not_a_semantic_failure_but_fabricated_evidence_stays_unverified(literal):
+    text = 'Source detail. ' * 180
+    row = '| A | ' + text + 'Two units. Units: 1 |'
+    source = '| Item | Text |\n| --- | --- |\n' + row + '\n'
+    excerpt = row if literal else 'Invented assertion. ' * 140
+    calls = []
+    async def complete(messages):
+        data = json.loads(messages[1]['content'])
+        calls.append(data)
+        if data.get('task'):
+            return {'repairs': []}
+        if 'proposal_sha256' not in data:
+            return {'patches': [], 'unresolved': []}
+        return {'proposal_sha256': data['proposal_sha256'], 'rows': [], 'source_questions': [
+            {'excerpt': excerpt, 'category': 'conflict', 'reason': 'Two units or one?',
+             'source_refs': [ref(data, '| A |')], 'disposition': 'needs_human'}]}
+    result = await analyze(source, source_id='synthetic', document_id='owned', complete_json=complete)
+    assert result['original'] == source and not result['automatic']
+    question, = result['issues']
+    if literal:
+        assert len(calls) == 2 and question['quote'] == row
+        assert question['start'] == source.index(row) and not question.get('needs_source_verification')
+    else:
+        assert len(calls) == 3 and question['start'] is None and question['needs_source_verification']
+
+
+@pytest.mark.asyncio
 async def test_explicit_recheck_is_revision_guarded_and_cannot_reopen_approved_or_edited_sources(monkeypatch):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, Mock

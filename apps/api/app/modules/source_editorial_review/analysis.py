@@ -58,6 +58,10 @@ from app.modules.source_preparation.preparation import VisualRequestRejected, pr
 
 logger = logging.getLogger(__name__)
 _BLOCK_CHARS = 36_000
+# Requested short citations are a presentation preference. A longer candidate
+# still has to pass literal source/row binding; it must not restart semantic
+# review merely to satisfy that preference. Response byte limits remain intact.
+_MAX_QUESTION_QUOTE_CHARS = 36_000
 _OUTLINE_LINE = re.compile(r"^\s*(?:#{1,6}\s|\d+(?:\.\d+)*(?:[.)]|\s)\s*)\S")
 _ANALYSIS_POLICY = "human-source-editorial-analysis-v5"
 _MATERIAL_CATEGORIES = frozenset({"boundary", "conflict", "reference", "responsibility", "exception", "unclear"})
@@ -119,9 +123,24 @@ For this table-bearing source, source_question_context supplies stable literal
 reference IDs with offsets in original, complete rows if a window cuts a row,
 and the original table headers. Read cells under those headers: a weight column
 is not a price column. These references are navigation, never factual approval.
-Each source_questions row has excerpt (exact original quote, up to 2000 chars),
+Act as a subject editor, not a search for differences. Before reporting a finding,
+identify the SAME product/object, property and scope of every compared assertion.
+A component count need not equal a total; a description of one section need not
+enumerate the entire item. Missing detail is not a negation. Compatible statements
+do not require the owner to choose one. Do not infer a contradiction by treating a
+partial description as an exhaustive list.
+Distinguish collection-level introductory prose from explicit product-specific
+facts. A general introduction does not by itself assert that every individual
+item has each mentioned feature. An explicit universal rule can still conflict
+with a particular item: check the actual wording and any stated exceptions.
+Keep genuine incompatible product facts and genuinely undefined material readings;
+never select a true value or hide an independent peer problem. Ask only about an
+actual choice that affects understanding the source, not harmless background.
+Each source_questions row has excerpt (ONE contiguous exact original quote,
+up to 2000 chars; never splice cells/fragments or add ellipses),
 category (boundary|conflict|reference|responsibility|exception|unclear), reason
-(up to 700 chars), disposition (needs_human|dismissed), and source_refs (the IDs
+(a concrete owner question in the original language, up to 700 chars),
+disposition (needs_human|dismissed), and source_refs (the IDs
 of the original rows/paragraphs containing its quotation). Prefer one concrete
 question per factual discrepancy; merge repeated descriptions of the same issue,
 but retain distinct discrepancies even for the same product. Cross-row conflicts
@@ -141,7 +160,7 @@ Do not echo original or other request fields in the response.
 
 class _SourceQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
-    excerpt: str = Field(min_length=1, max_length=2000)
+    excerpt: str = Field(min_length=1, max_length=_MAX_QUESTION_QUOTE_CHARS)
     category: str = Field(pattern=r"^(boundary|conflict|reference|responsibility|exception|unclear)$")
     reason: str = Field(min_length=3, max_length=700)
     disposition: Literal["needs_human", "dismissed"] = "needs_human"

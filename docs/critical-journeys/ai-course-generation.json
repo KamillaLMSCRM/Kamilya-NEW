@@ -147,7 +147,8 @@
         "apps/api/tests/unit/test_source_question_context.py::test_repeated_clue_can_link_to_an_open_row_question_but_cannot_be_dismissed_on_another_product",
         "apps/api/tests/unit/test_source_question_context.py::test_unique_literal_row_overrides_conflicting_known_hint_without_borrowing_shared_text",
         "apps/api/tests/unit/test_source_question_context.py::test_unique_original_navigation_requires_one_literal_occurrence_inside_a_native_row",
-        "apps/api/tests/unit/test_source_question_context.py::test_literal_reference_correction_never_guesses_unknown_multirow_or_dismissed_hints"
+        "apps/api/tests/unit/test_source_question_context.py::test_literal_reference_correction_never_guesses_unknown_multirow_or_dismissed_hints",
+        "apps/api/tests/unit/test_source_question_context.py::test_long_quote_is_not_a_semantic_failure_but_fabricated_evidence_stays_unverified"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"

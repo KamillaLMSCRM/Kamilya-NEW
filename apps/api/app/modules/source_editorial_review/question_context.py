@@ -9,8 +9,8 @@ from app.modules.ai.v3.source_units import SourceUnit, plan_source_units, source
 
 # Projection changes must not invalidate a completed model request whose wire
 # contract is unchanged. The model-facing row inventory stays byte compatible.
-REQUEST_POLICY = "source-question-row-context-v2"
-POLICY = "source-question-row-context-v3"
+REQUEST_POLICY = "source-question-row-context-v3"
+POLICY = "source-question-row-context-v4"
 
 
 class QuestionContextError(ValueError):

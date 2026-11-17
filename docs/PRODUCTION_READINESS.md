@@ -1,11 +1,15 @@
-## Current DEV117D source checkpoint —2026-11-17
+## Current DEV117G source checkpoint —2026-11-17
 
-DEV API/frontend/sole VM worker exact70e4f9d12399450803b141434881dae467fbf0f3,
-version117; source139full Excel2sheets/291rows/19blocks completed. Ordinary QA
-source remains in_review/120open/approvalNULL; human verified product facts are
-required. Full native course/all lessons/tests and production117 are NOT accepted.
+DEV API/frontend/sole VM worker exact44b7210166e5a1e94873093660f81bea25b505e3,
+version117 RELEASE_OK; latest actual source234 is F14043 full19blocks,
+in_review/121questions/11cosmetic edits/approvalNULL. G literal-reference fix
+reprojects all48known receipts0calls/0writes, no native G recheck posted.
+LOCAL H subject-scope role and bounded quote handling pass8936API/1skip/31focused/
+quality1004-2174; saved14=3real/all bound,18=0false, native H pending.
+Human verified product facts remain required. Full native course/all lessons/tests
+and production117 are NOT accepted.
 Production remains116/68fc9109 with rollback preserved; no schema/provider/billing/
-customer changes. CI44040293248/build44041179724 and final exact DEV reconciliation
+customer changes. CI44077894211/build44078925904 and final exact DEV reconciliation
 PASS; current details and ENG078 residual question limitations are in CODEX_HANDOFF
 and CHG-SOURCE-CATALOG117. Do not relabel source-only acceptance as a full course
 or resume already completed source calls.
