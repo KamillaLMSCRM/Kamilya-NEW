@@ -1,28 +1,23 @@
-## Current —2026-11-17: DEV J2 full source321; K guard LOCAL ready
+## Current —2026-11-17: DEV117K guard verified; address117L LOCAL only
 
-DEV117 API/frontend/sole worker exactc2d985aa coherent (CI44120223671,
-build44121726460, image8909d157, worker185b9be8/env3cfa7a39,
-Renderdep-dbu7o05ckfvc73bbnso0,Verceldpl_4B1BzKCiJW8qztmEQUrnP8qDCNCU).
-Native original Excel source296->321 completed ALL19blocks.13old blocks reused;
-7fresh known Luna6 HIGH replies170472IN17331OUT,0unsettled.116questions/11safe
-cosmetic edits, original/both learning+catalogue parts intact, approvalNULL.
-17unbound/23verification-required questions remain: full-source completion is
-NOT semantic acceptance. Preserve real ambiguities for per-product owner facts;
-do not pick a column priority, blanket KEEP, drop catalogue or start a course.
-ENG081 orphan pre-claim I session2494588/xid101756 held exact QA source row;
-single own-role no-DML guarded termination removed it, no other session touched.
-Same UUID/existing296 then HTTP200 in10.329s; no new source job. J2 UI live321,
-55light polls/one terminal archive/0POST/0HTTPerrors. No heavy monitor remains.
-K LOCAL guard60s only idle source-row-lock transactions, plus stale-continuation
-polling passes8958API/1skip/1815web/types/lint/build69/69/quality; canonical DEV
-PG two-session lease/reset test PASS0business/model writes. All model policies,
-requests/analyze/custody exact J2. No migration/new DB setting/provider change.
-Not deployed yet. Next exact K CI/image/DEV once idle, actual app guard readback;
-address issues on saved replies only, preserve good findings/no new critic.
-Production116/68fc9109 and customer original/document/course/quizzes freshly
-unchanged17:07Z; employee results untouched but not separately freshly hashed.
-Full course/all lesson/test and production117 gates OPEN. K/J2 private evidence,
-ENG080/081 and CHG-SOURCE-LOCK117K are current; older headers below historical.
+DEV API/frontend/sole worker exactfc78bee9, CI44133951479/build44135931545,
+image948fbb09/worker e7e67075/env16292764; Renderdep-dbu8tttckfvc73cma2ig,
+Verceldpl_3Qmxa8iSyWt3Niy8LcedsYwwLGm8. Controller RELEASE_OK. Actual source
+row-lock guard60000ms/reset/lms_app/FORCE RLS/source321 unchanged PASS5.454s,
+0business/model writes. J2 worker retained warmstopped, production116 preserved.
+Ordinary methodologist read321: FULL19blocks/644776chars/both learning+catalogue
+parts,116questions/11cosmetic,approvalNULL,no error/continuation.40main author/
+reviewer receipts plus7old formatter replies reproduce entire result offline.
+Address117L LOCAL only: existing formatter v2 may correct wrong refs and literal
+quotes without changing/dropping findings or picking product values. One paid
+Luna6 HIGH23.969s21252IN/977OUT experiment:6/6same-object addresses,3wrongrefs
+corrected,3goodrefs retained.8965API/1skip/43focused/666critical/6CI contracts/quality PASS. Native L pending.
+Prior global critic and main reviewer full-reference-text experiments remain
+NOT GO, not reintroduced. Source original/customer courses/results untouched.
+17unbound/23verification-required321 and real product facts remain unresolved.
+Human answers per product; no blanket KEEP, fabricated values or column priority.
+Full course/all lessons/tests and production117 NOT accepted. ENG080/081/082,
+CHG-SOURCE-LOCK117K/ADDRESS117L, K and address-1 private receipts are current.
 
 ## Current —2026-11-17: DEV117I deployed; J I/O correction LOCAL ready
 

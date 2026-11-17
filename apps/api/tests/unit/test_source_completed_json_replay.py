@@ -145,9 +145,9 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     async def synthetic_provider(m, **_):
         assert quote_case, 'Completed repair was sent again'
         payload = json.loads(m[1]['content'])
-        if payload.get('task') == 'source-question-literal-quote-v1':
+        if payload.get('task') == 'source-question-evidence-address-v2':
             assert quote_case is True, 'A literal source reference must not acquire a new quote-repair call'
-            value = {'repairs': [{'question_index': 0, 'excerpt': 'A has two units.'}]}
+            value = {'repairs': [{'question_index': 0, 'source_refs': payload['items'][0]['reported_source_refs'], 'excerpt': 'A has two units.'}]}
         elif 'proposal_sha256' not in payload:
             value = {'patches': [], 'unresolved': ([{'alias': 'B', 'excerpt': literal,
                       'category': 'conflict', 'reason': 'Two or one?'}] if quote_case == 'reference' else [])}

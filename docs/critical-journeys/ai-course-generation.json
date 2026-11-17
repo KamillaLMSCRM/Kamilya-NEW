@@ -155,7 +155,9 @@
         "apps/api/tests/unit/test_source_review_history_io.py::test_history_stream_keeps_every_payload_in_order_and_closes_cursor",
         "apps/api/tests/unit/test_source_review_history_io.py::test_history_closes_cursor_and_does_not_return_partial_archive_on_disconnect",
         "apps/api/tests/unit/test_source_review_history_io.py::test_ownership_head_fetches_only_current_metadata_in_owned_scope",
-        "apps/api/tests/unit/test_source_row_lock_guard.py::test_only_source_row_lock_transactions_install_idle_cleanup_before_select"
+        "apps/api/tests/unit/test_source_row_lock_guard.py::test_only_source_row_lock_transactions_install_idle_cleanup_before_select",
+        "apps/api/tests/unit/test_source_question_addresses.py::test_wrong_hint_and_paraphrased_quote_are_repaired_without_rewriting_good_peer",
+        "apps/api/tests/unit/test_source_question_addresses.py::test_rejected_address_never_removes_or_resolves_the_finding"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent",

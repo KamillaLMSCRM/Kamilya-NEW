@@ -228,10 +228,10 @@ async def test_model_repairs_only_nonliteral_quote_and_cannot_borrow_another_pro
     async def complete(messages):
         p = json.loads(messages[1]['content'])
         calls.append(p)
-        if p.get('task') == 'source-question-literal-quote-v1':
-            assert len(p['items']) == 1 and p['items'][0]['question_index'] == 0
-            assert len(p['original_rows']) == 1 and '| B |' not in p['original_rows'][0]['text']
-            return {'repairs': [{'question_index': 0, 'excerpt': repair_quote}]}
+        if p.get('task') == 'source-question-evidence-address-v2':
+            assert len(p['items']) == 2 and p['items'][0]['question_index'] == 0
+            assert len(p['original_rows']) == 2 and p['items'][0]['finding_reason'] == 'One or two units?'
+            return {'repairs': [{'question_index': 0, 'source_refs': p['items'][0]['reported_source_refs'], 'excerpt': repair_quote}]}
         if 'proposal_sha256' not in p:
             return {'patches': [], 'unresolved': [{'alias': 'A', 'excerpt': '| A | 0 | A has two units. | Units: 1 |',
                                                   'category': 'conflict', 'reason': 'Two or one?'}]}
@@ -250,7 +250,7 @@ async def test_model_repairs_only_nonliteral_quote_and_cannot_borrow_another_pro
         assert len(result['issues']) == 2
         repaired = next(q for q in result['issues'] if q['reason'] == 'One or two units?')
         assert repaired['quote'] == repair_quote and repaired['reported_quote'] == reported
-        assert repaired['quote_binding'] == 'source-question-literal-quote-v1'
+        assert repaired['quote_binding'] == 'source-question-evidence-address-v2'
         assert repaired['start'] == SOURCE.index(repair_quote)
     else:
         invalid = next(q for q in result['issues'] if q['quote'] == reported)
@@ -269,7 +269,7 @@ async def test_unique_literal_row_overrides_conflicting_known_hint_without_borro
     async def complete(messages):
         data = json.loads(messages[1]['content'])
         calls.append(data)
-        if data.get('task') == 'source-question-literal-quote-v1':
+        if data.get('task') == 'source-question-evidence-address-v2':
             return {'repairs': [{'question_index': 0, 'excerpt': shared}]}
         if 'proposal_sha256' not in data:
             return {'patches': [], 'unresolved': [

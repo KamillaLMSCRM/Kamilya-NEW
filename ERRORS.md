@@ -11376,3 +11376,12 @@ release candidate. Before future manifest pushes run its loader/safety suite
 and emitted local journey, not only apps/api/tests/unit.
 
 Read-only diagnostic projection also accidentally used Get-Content on a compact30MB JSON line; output was truncated. Never bound structured evidence by line count: parse JSON and emit selected metadata/counts only. Original file intact, no business/model write.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17K: code inspection printed two
+embedded large constants in cold117.sh despite prior compact-payload warning;
+no secret/customer value mutation, but output exceeded useful context. Apply
+line-length filtering BEFORE all ad-hoc script inspections, not only JSON; parse
+constant metadata/AST or emit hashes/counts instead. A private literal validator
+also initially used Windows default cp1251 for UTF8 request evidence, failing
+before validation/network; rerun only saved response with -Xutf8, no model repeat.
+Preserve the original failures, require explicit UTF8 reads and bounded output.

@@ -7954,3 +7954,43 @@ Plus original/document/course/quizzes and116 runtime independently unchanged at
 Next: exact K CI/image/DEV only once idle, real app lock-guard readback without
 inference; remaining address issues investigated on retained answers, preserving
 good findings and no new critic. Human confirms only actual source ambiguities.
+
+CHG-SOURCE-LOCK117K DEV PASS 2026-11-17T17:41:23.884134+00:00: exact fc78bee95849c035245e44ce880c832f2676ec8e,
+CI44133951479/build44135931545 SUCCESS. Artifact download first503 Azure egress;
+idempotent read-only retry succeeded, no new build/plan/resource. GH attestation
+verified image948fbb09b961ea6f7a574c73be34e9356f77a562ec459c6096b1e2b6a5f9da8c.
+Cold exact996source + synthetic replay PASS0calls, free6557224960bytes>=6GiB;
+no cleanup. Sole DEV worker e7e67075/env16292764 ready/restarts0/restart=no;
+previous c2d985aa worker185b9be8 warmstopped exit0 retained rollback. Existing free
+Render dep-dbu8tttckfvc73cma2ig and Vercel Hobby dpl_3Qmxa8iSyWt3Niy8LcedsYwwLGm8
+exact fc78; canonical controller RELEASE_OK. No provider/model/schema/right/billing
+change and protected production fingerprint unchanged.
+Actual deployed owned_document(lock=True), own QA source under lms_app/FORCE RLS,
+installed60000ms idle guard, rollback reset and source321 metadata equality PASS
+in5.454s.0business writes/0model calls. Ordinary methodologist fresh API read:
+321in_review,644776chars,both parts intact,116questions/11cosmetic,approvalNULL,
+no continuation/error. Current 17unbound/23verification-required and factual owner
+answers remain acceptance holds; full course/production117 NOT GO. Evidence K.
+
+CHG-SOURCE-ADDRESS117L LOCAL PASS 2026-11-17T17:47:38.364576+00:00: red wrong-hint/paraphrased quote
+regression reproduced before change. Existing formatter v2 changes navigation
+only; projection5/mainREQUEST3/analysispolicy5. No semantic regex/critic or source
+facts. Actual current formatter on saved Luna reply preserves6findings/reasons,
+corrects3refs,keeps3goodrefs; marked projection test, NOT forged wire custody.
+All19saved blocks replay40exact author/reviewer receipts; only7new formatter
+requests remain, main writer/reviewer messages byte-exact. Full8965API/1skip,
+43focused,666critical cases/142explicit selectors,6CI contract, quality1004/2174PASS.
+First full run3FAIL/8962PASS retained: legacy questions without source_refs gained
+unneeded formatter calls. Restored prior no-ref local-span recovery, same strict
+assertions now PASS; fullr2 PASS122.52s. No checks weakened. Native normal+managed
+source route and exact-completion/unknown fences tested. Frontend byte-exact
+already deployed K; no repeated frontend suite claimed. Graph preflight
+NOT_READY pinned runtime missing, bounded actual source fallback, no installs.
+Initial private CI selector guessed absent filename and ran0tests; corrected via
+file discovery,6PASS; original failure preserved. Independent Git author correct.
+DEV remains Kfc78; L not deployed. Next exact CI/image/coherent DEV, ordinary source
+recheck321 ONCE: preserve40main request receipts and19author outputs, no new course,
+selected-part change, product truth choice or unknown retry. Seven new format-only
+known replies require full count/literal/same-object preservation readback. Owner
+fact packet8initial genuine discrepancies prepared privately, no value selected
+or customer write. Full-source semantic/full-course/production117 gates OPEN.
