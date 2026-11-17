@@ -7836,3 +7836,16 @@ in12.681s; this proves transport fidelity, not underlying network root cause.
 Next: exact J CI/image/DEV; same existing296 delivery only after idle/no-new-claim
 readback. No new source selection, generation, fact guesses, customer writes,
 production117, provider/billing/reasoning/limits/local Docker changes.
+
+
+CHG-SOURCE-IO117J CI packaging correction 2026-11-17T15:57:13.171059+00:00:
+55f57a18 CI44119197921 failed required_test_selector_missing because root added
+a bare file selector where the existing critical-journey contract requires
+file::function.8956API/1814web remain valid but did not cover that manifest
+consumer. Build helper stopped at CI_FAILED_NO_DISPATCH, no image dispatch,
+DEV deploy or model call. Replaced the single bare selector with all three
+explicit test functions; no runtime/model/source/schema change. Local exact
+CI syntax/safety48PASS; full emitted139selector journey also PASS (parameterized
+cases counted in private log). Keep55f failed receipts; J2 child is the corrected
+release candidate. Before future manifest pushes run its loader/safety suite
+and emitted local journey, not only apps/api/tests/unit.

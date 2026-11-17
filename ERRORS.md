@@ -11363,3 +11363,16 @@ repair or application semantic acceptance. Private H/render_tls_route.py and
 render-{network117-executed,routed-public-probe}.json preserve scope.
 
 2026-11-17 release-route harness recurrence: SSH-only Python cannot import native source driver dotenv; first wrapper attempt failed during import BEFORE source auth/intent/POST/model call. Use canonical API .venv for application/source drivers and add only existing agent-tool site-packages for Paramiko, no install or environment change. Existing source start was then sent once/known235. Diagnostic Python stdout also needs -X utf8 for literal × quotations; failed print was read-only0writes. Avoid guessed test-runner paths: enumerate scripts/dev/run_api_pytest.ps1 before invocation. These are operator harness failures, separate from ENG078 content.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 source I/O release: 55f57a18 CI44119197921 failed required_test_selector_missing because root added
+a bare file selector where the existing critical-journey contract requires
+file::function.8956API/1814web remain valid but did not cover that manifest
+consumer. Build helper stopped at CI_FAILED_NO_DISPATCH, no image dispatch,
+DEV deploy or model call. Replaced the single bare selector with all three
+explicit test functions; no runtime/model/source/schema change. Local exact
+CI syntax/safety48PASS; full emitted139selector journey also PASS (parameterized
+cases counted in private log). Keep55f failed receipts; J2 child is the corrected
+release candidate. Before future manifest pushes run its loader/safety suite
+and emitted local journey, not only apps/api/tests/unit.
+
+Read-only diagnostic projection also accidentally used Get-Content on a compact30MB JSON line; output was truncated. Never bound structured evidence by line count: parse JSON and emit selected metadata/counts only. Original file intact, no business/model write.
