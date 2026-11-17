@@ -2124,3 +2124,116 @@ in12.681s; this proves transport fidelity, not underlying network root cause.
 Next: exact J CI/image/DEV; same existing296 delivery only after idle/no-new-claim
 readback. No new source selection, generation, fact guesses, customer writes,
 production117, provider/billing/reasoning/limits/local Docker changes.
+
+
+RUN-SOURCE117J2-CONTINUE296 control transport reconciliation 2026-11-17T16:26:29.925971+00:00:
+Visible Continue and its existing same-body Check-save received no confirmed
+browser response; actual head stays296queued,0claims/0new inference. Exact UI
+Network.requestWillBeSent command captured without auth headers: start/expected
+296/request4c5dfe61-72f7-4cd7-ac6c-5deb915999a7. Browser navigated to Documents,
+cancelling local pending request; server outcome still reconciled through DB.
+Canonical process-only VM TLS path reads same API c2d/ordinary QA/status in5.609s.
+Saved295 read_state0.312s/review_view0.031s locally: lifecycle CPU not reproduced
+as cause. Own DEV DB wait projection shows one old idle-in-transaction session,
+no active blocker/claim; no session terminated. No network root cause asserted.
+Offline actual295+296 payload/lineage proof: apply_command dispatches EXACT
+existing dc150c5f event with0add_event/0flush/0model calls; APIrevision guard and
+worker single-claim retained. Next one canonical TLS delivery reuses EXACT
+observed UUID/body, not a new source job or provider retry; on unknown only
+readback, never repost. All13saved review blocks/18completed requests and both
+selected parts preserved. HTTP control timeout180 is private probe-only, not an
+application/model limit change. No global network/security/provider/billing,
+customer facts/course/production writes. Source UI stale queued continuation
+may require explicit snapshot refresh after claim; full live flow remains open.
+
+
+## ENG-081 — lost pre-claim connection leaves an orphan QA document row lock
+
+- 2026-11-17T16:37:36.342421+00:00, confirmed operational blocker, recurrence guard
+  still OPEN. Source control POST hangs at router.change_review68 ->
+  owned_document50 SELECT FOR UPDATE, not at model/semantic review. Render logs
+  DBAPIError; Render/canonical DEV DSN role/host/port/database/user all match.
+- Exact source QA ad336f44 / tenant a7a2c055 row xmax101756 matches only backend
+  PID2494588, lms_app, backendstart15:10:30.294340Z, xactstart15:12:04.719426Z,
+  idle-in-transaction ClientRead, final ordered editorial-history SELECT, no
+  RowExclusive or DDL relation lock. This matches old I pre-claim admission
+  failure after queue296. Old I worker27ff is warmstopped/exit0; no297claim or
+  new provider intent exists. Product/customer/source/employee data untouched.
+- Confirmed-PID-only canonical precedent: course_uncertainty_dev_concurrency_gate
+  terminate_lingering_test_sessions. Operational recovery executes as same
+  non-super/non-bypass lms_app. Single guarded pg_terminate_backend verifies
+  PID/start/xid/query hash/state/own tenant+doc row/no write or DDL locks in the
+  mutation statement. Exact backend closed16:36:36Z, absent on independent read;
+ 0businesswrites/0modelcalls/0other sessions closed. No broad query/schema kill,
+  role, DB global setting, provider, billing, customer or production mutation.
+- Read-only postproof: old source xmax has no live backend, source296 still
+  queued. Prior HTTP commands ended unconfirmed/RemoteDisconnected with no claim;
+  their source/custody state is preserved. Next one redelivery uses captured
+  EXACT UUID4c5dfe61 and expected296 through existing TLS route; not a new job,
+  selection or unknown inference retry.13completed blocks/18known replies replay.
+- Before further code: add regression and a bounded source-transaction lifetime/
+  lock-wait policy that leaves model work outside transactions and does not
+  weaken ownership/recovery. J2 archive/read and local lifecycle replay alone
+  did not detect an old server-side row lock; full acceptance needs lock-state
+  negative case. No prompt/critic/model change justified by this infrastructure
+  fault. Underlying initial TCP loss cause remains UNKNOWN.
+Evidence J2/source-row-lock*,render-diagnostic*,orphan-lock-release*; all saved
+network/CI failures retained. Full source/course/production117 NOT accepted.
+
+
+CHG-SOURCE-LOCK117K PROPOSED 2026-11-17T16:44:41.737246+00:00, ENG081:
+Operational orphan2494588 closed with exact PID/backend/xid/source-row/no-DML
+guards. Same queued296 accepted HTTP200 in10.329s; no new source event/selection.
+Current J2 native claim297 progresses through remaining source reviews on Luna6
+HIGH, all13completed blocks/cached authors retained. DO NOT restart its worker or
+repeat an in-flight model request while preparing this local correction.
+Previous ENG079 reconnect/custody and ENG080 streaming/head/status fixes remain
+exact and active. They do not bound a server-side transaction whose client is
+lost after SELECT FOR UPDATE. Existing source transactions never contain model
+inference; a fixed maximum60s of IDLE while holding a source row lock is a
+transport safety invariant, not a generation or operator policy knob. Add
+SET LOCAL idle_in_transaction_session_timeout='60s' before ONLY lock=True
+owned_document; resets on commit/rollback, no global DB config/env/migration/
+rights/provider/model change. No timeout on active model work.
+Regress real owned_document ordering; actual PostgreSQL two-session advisory
+lease proves idle-orphan release and LOCAL reset without touching any business
+table. Test accelerates only its own LOCAL timeout to1s after verifying actual
+60000ms guard. Canonical Supabase DEV through approved loader/PowerShell pytest
+wrapper, no local Docker or new resource. CI checks the same database regression.
+Also poll lightweight status for a safe interrupted continuation, treating its
+same interrupted state as waiting (no repeated full snapshot) and hiding stale
+Continue after a real running claim. No polling POST or new semantic critic.
+All model contracts/source originals/selected parts/custody/claim checks and
+source facts stay unchanged. Production117/full course acceptance still OPEN.
+
+
+CHG-SOURCE-LOCK117K LOCAL PASS 2026-11-17T17:09:40.535892+00:00: fixed source-row-lock idle guard
+SET LOCAL60s before lock=True; no model inside these transactions, no global
+setting/env/catalog/schema/right change. Local8958API/1skip/1815web/197files,
+types/lint/build69/69/quality1004-2174, CI safety48/critical659PASS. Combined
+unit/integration collection8PASS/1expected no-DSN skip; unique unit file basename
+prevents CI import collision. Native PG guard integration on canonical DEV
+lms_app/non-bypass PASS: verifies60000ms setting, LOCAL reset, server releases
+abandoned advisory lease; no business table/model writes. First fixture attempt
+failed teardown on deliberately dead socket, preserved; r2 explicitly invalidates
+dead test connection, warms both sockets and uses3s test-only timeout. Runtime
+guard60 unchanged. Two stale expected-one-DB-test checks caught LOCALLY before
+push; contract now strictly lists both DB gates. No weakened test or source gate.
+Frontend safe interrupted continuation uses lightweight polling; no repeated
+archive or command, stale Continue hidden after observed running claim.
+All model/analyze/blocks/custody/roles/quotation policies exact J2; no source
+re-generation needed for this guard. J2 resumed296->321 FULL19blocks;13saved
+blocks reused,7fresh known replies170472IN17331OUT,6new blocks/1literal formatter,
+0unsettled. H+J2 review-policy run totals25fresh known replies554605IN58594OUT;
+not47new calls (native total also includes cached/legacy unknown-usage receipts).
+321in_review/116open/11cosmetic, original/both parts intact, approvalNULL.
+Still17unbound/23verification-required source questions: not all116 are proved
+distinct factual errors; do NOT dump those model address defects onto a human
+as confirmed facts or choose catalogue values. Full course/production117 NOT GO.
+Live ordinary QA UI auto-refreshed to321; observed status-only GET55 / one terminal
+full snapshot /0POST/0HTTPerrors. Screenshot J2/source-reviewed321.jpg. Production
+Plus original/document/course/quizzes and116 runtime independently unchanged at
+17:07Z. Employee outcome tables not separately freshly hashed; no writes to them.
+Next: exact K CI/image/DEV only once idle, real app lock-guard readback without
+inference; remaining address issues investigated on retained answers, preserving
+good findings and no new critic. Human confirms only actual source ambiguities.

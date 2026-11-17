@@ -45,7 +45,10 @@ def test_ai_paths_resolve_the_complete_critical_journey() -> None:
         "apps/api/tests/unit/test_normalized_editorial_review.py::test_fake_and_extra_format_properties_rejected",
         "apps/api/tests/unit/test_v3_simple_source_finding_v9.py::test_v9_editor_dispositions_remain_visible_and_bound_to_final_course",
     } <= set(impacted[0].required_tests)
-    assert len(impacted[0].database_tests) == 1
+    assert set(impacted[0].database_tests) == {
+        "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent",
+        "apps/api/tests/integration/test_source_transaction_idle_guard.py::test_source_idle_guard_releases_an_abandoned_lease_and_does_not_change_global_settings",
+    }
     assert "apps/api/tests/unit/test_managed_luna_client.py::test_delta_editor_real_decode_preserves_raw_custody" in impacted[0].required_tests
     assert "scripts/ci/kb_rag_schema_contract.py" in impacted[0].runtime_gates
     assert (
@@ -98,9 +101,10 @@ def test_local_mode_emits_database_free_tests_and_defers_database_gate(tmp_path:
     assert result["journeys"] == ["AI-COURSE-01"]
     expected = pytest_selectors(load_contract(), REPO_ROOT / "apps" / "api", execution_profile="local")
     assert result["required_tests"] == len(expected)
-    assert result["deferred_database_tests"] == 1
+    assert result["deferred_database_tests"] == 2
     assert output.read_text(encoding="utf-8").splitlines() == list(expected)
     assert "test_document_reindex_worker_completes_and_is_idempotent" not in output.read_text(encoding="utf-8")
+    assert "test_source_idle_guard_releases_an_abandoned_lease" not in output.read_text(encoding="utf-8")
 
 
 def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) -> None:
@@ -118,6 +122,7 @@ def test_ci_mode_emits_database_tests_for_ephemeral_ci_postgres(tmp_path: Path) 
     assert result["required_tests"] == len(expected)
     assert result["deferred_database_tests"] == 0
     assert "test_document_reindex_worker_completes_and_is_idempotent" in output.read_text(encoding="utf-8")
+    assert "test_source_idle_guard_releases_an_abandoned_lease" in output.read_text(encoding="utf-8")
 
 
 def test_missing_required_test_fails_closed(tmp_path: Path) -> None:

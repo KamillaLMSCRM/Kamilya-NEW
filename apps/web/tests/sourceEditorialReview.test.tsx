@@ -136,6 +136,29 @@ describe('source editorial review', () => {
     expect(mocks.post).not.toHaveBeenCalled();
   });
 
+  it('observes a stale queued continuation becoming running without repeating the archive or a command', async () => {
+    vi.useFakeTimers();
+    let status = 'interrupted';
+    const endpoint = '/v1/documents/' + id + '/editorial-review';
+    mocks.get.mockImplementation(async (url: string) => ({ data: url === endpoint
+      ? { ...fixture(), revision: status === 'in_review' ? 20 : 3, status, continuation_pending: status === 'interrupted' }
+      : { required: true, documents: { [id]: status } } }));
+    render(<SourceEditorialReview />);
+    await act(async () => {});
+    expect(screen.getByRole('button', { name: 'Продолжить проверку' })).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(mocks.get.mock.calls.filter(([url]) => url === endpoint)).toHaveLength(1);
+    expect(mocks.get.mock.calls.filter(([url]) => url.includes('/editorial-review/status?'))).toHaveLength(2);
+    status = 'running';
+    await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
+    expect(screen.queryByRole('button', { name: 'Продолжить проверку' })).not.toBeInTheDocument();
+    status = 'in_review';
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(screen.getByText('Версия документа 1 · Редакция 20')).toBeVisible();
+    expect(mocks.get.mock.calls.filter(([url]) => url === endpoint)).toHaveLength(2);
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
   it('shows the literal source entry so a short quotation still identifies the product', async () => {
     const data = fixture();
     data.questions[0].source_labels = ['00000017'];

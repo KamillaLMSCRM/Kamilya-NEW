@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -42,10 +42,20 @@ def review_enabled() -> bool:
     return configured if configured is not None else settings.APP_ENV != "test"
 
 
+async def guard_source_transaction(db: AsyncSession) -> None:
+    """A lost pre-claim client must not leave a document locked indefinitely.
+
+    This bounds only idle row-lock transactions. Model work runs outside them;
+    active SQL/cursor fetches are unaffected. LOCAL resets on commit/rollback.
+    """
+    await db.execute(text("SET LOCAL idle_in_transaction_session_timeout = '60s'"))
+
+
 async def owned_document(db: AsyncSession, tenant_id: UUID, document_id: UUID, *, lock: bool = False) -> Document:
     query = select(Document).where(Document.id == document_id, Document.tenant_id == tenant_id,
                                    Document.lifecycle_status == "active")
     if lock:
+        await guard_source_transaction(db)
         query = query.with_for_update().execution_options(populate_existing=True)
     row = await db.scalar(query)
     if row is None:

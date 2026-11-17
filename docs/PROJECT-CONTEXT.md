@@ -1,3 +1,29 @@
+## Current —2026-11-17: DEV J2 full source321; K guard LOCAL ready
+
+DEV117 API/frontend/sole worker exactc2d985aa coherent (CI44120223671,
+build44121726460, image8909d157, worker185b9be8/env3cfa7a39,
+Renderdep-dbu7o05ckfvc73bbnso0,Verceldpl_4B1BzKCiJW8qztmEQUrnP8qDCNCU).
+Native original Excel source296->321 completed ALL19blocks.13old blocks reused;
+7fresh known Luna6 HIGH replies170472IN17331OUT,0unsettled.116questions/11safe
+cosmetic edits, original/both learning+catalogue parts intact, approvalNULL.
+17unbound/23verification-required questions remain: full-source completion is
+NOT semantic acceptance. Preserve real ambiguities for per-product owner facts;
+do not pick a column priority, blanket KEEP, drop catalogue or start a course.
+ENG081 orphan pre-claim I session2494588/xid101756 held exact QA source row;
+single own-role no-DML guarded termination removed it, no other session touched.
+Same UUID/existing296 then HTTP200 in10.329s; no new source job. J2 UI live321,
+55light polls/one terminal archive/0POST/0HTTPerrors. No heavy monitor remains.
+K LOCAL guard60s only idle source-row-lock transactions, plus stale-continuation
+polling passes8958API/1skip/1815web/types/lint/build69/69/quality; canonical DEV
+PG two-session lease/reset test PASS0business/model writes. All model policies,
+requests/analyze/custody exact J2. No migration/new DB setting/provider change.
+Not deployed yet. Next exact K CI/image/DEV once idle, actual app guard readback;
+address issues on saved replies only, preserve good findings/no new critic.
+Production116/68fc9109 and customer original/document/course/quizzes freshly
+unchanged17:07Z; employee results untouched but not separately freshly hashed.
+Full course/all lesson/test and production117 gates OPEN. K/J2 private evidence,
+ENG080/081 and CHG-SOURCE-LOCK117K are current; older headers below historical.
+
 ## Current —2026-11-17: DEV117I deployed; J I/O correction LOCAL ready
 
 DEV API/frontend/sole worker exact0655d790 coherent (CI44106279564,

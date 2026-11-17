@@ -100,8 +100,10 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
 
   const status = review?.status;
   const revision = review?.revision;
+  const continuationPending = Boolean(review?.continuation_pending);
   useEffect(() => {
-    if (approvalId || !status || !['queued', 'running'].includes(status)) return;
+    if (approvalId || !status || (!['queued', 'running'].includes(status)
+      && !(status === 'interrupted' && continuationPending))) return;
     const controller = new AbortController();
     let terminalRequested = false;
     const poll = async () => {
@@ -119,8 +121,9 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         const next = data?.documents?.[id];
         if (typeof data?.required !== 'boolean' || !next || !Object.prototype.hasOwnProperty.call(copy.statusLabels, next)) {
           setLoadError(true);
-        } else if (next === 'queued' || next === 'running') {
-          setReview(value => value && value.revision === observedRevision ? { ...value, status: next } : value);
+        } else if (next === 'queued' || next === 'running' || (next === 'interrupted' && continuationPending)) {
+          setReview(value => value && value.revision === observedRevision ? { ...value, status: next,
+            ...(next === 'running' ? { continuation_pending: false } : {}) } : value);
           setLoadError(false);
         } else {
           terminalRequested = true;
@@ -134,7 +137,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     };
     const timer = window.setInterval(() => void poll(), 4500);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [approvalId, id, load, revision, status, copy.statusLabels]);
+  }, [approvalId, id, load, revision, status, continuationPending, copy.statusLabels]);
 
   const submit = async (body: ReviewCommand) => {
     if (commandLock.current || approvalId) return false;
