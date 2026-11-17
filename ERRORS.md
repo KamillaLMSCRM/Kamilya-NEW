@@ -11385,3 +11385,10 @@ constant metadata/AST or emit hashes/counts instead. A private literal validator
 also initially used Windows default cp1251 for UTF8 request evidence, failing
 before validation/network; rerun only saved response with -Xutf8, no model repeat.
 Preserve the original failures, require explicit UTF8 reads and bounded output.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17L: a private combined CI invocation
+used an absent guessed syntax-test filename and collected0tests; find selectors
+with rg --files and invoke the actual critical-journey test (6PASS). Its original
+log retained; full API8965PASS/critical666PASS/quality are independently recorded.
+Do not treat an empty test run as success or repeat guessed paths. No deployment,
+model request or source/customer mutation resulted from this failed harness step.

@@ -2296,3 +2296,44 @@ selected-part change, product truth choice or unknown retry. Seven new format-on
 known replies require full count/literal/same-object preservation readback. Owner
 fact packet8initial genuine discrepancies prepared privately, no value selected
 or customer write. Full-source semantic/full-course/production117 gates OPEN.
+
+RUN-SOURCE-ADDRESS117L-NATIVE-20261117 RESULT 2026-11-17T18:24:50.900277+00:00: exact718d4f24 DEV117,
+CI44140916545/build44142297465, GH-attested image2b0d9bb0, sole worker033d49a5/
+env6aa9ce52 ready/restarts0; Renderdep-dbu9c08m7kps73bctrrg and Vercel
+Hobbydpl_5ecZKA3SzYF5ADJid6B9ScchhywN, controller RELEASE_OK. K rollback retained,
+no schema/provider/reasoning/rights/plan/billing/resource changes or local Docker.
+Cold exact996files+synthetic0-call replay PASS; free6526205952>=6GiB, no cleanup.
+Ordinary methodologist UI ONE POST start321 UUIDbb68f9f1 accepted200, queued322,
+native FULL19blocks analyzed357 in457.222s by event timestamps. Exactly7new known
+Luna6 HIGH FORMATTER replies150772IN/10529OUT,0unsettled; ZERO new main author/
+reviewer calls. Offline current-code replay independently reproduces all19 final
+blocks/issues/automatic/dismissed/quote audits/clue bindings byte-exact from40main
+known receipts+7newformatter receipts,0network/DB writes. Native model_calls47 is
+active cached+fresh receipt count, NOT47new calls; aggregate usage_complete=false
+retains known legacy unknown usage, no fabricated cumulative USD/token total.
+112open questions versus116;12unbound versus17;15verification-required versus23.
+Seven final ref corrections independently match the SAME object/property, including
+3wrong neighbour refs from saved block1 and2each in blocks3/6. ALL11good cosmetic
+edits EXACT, original644776chars/SHA and both selected learning/catalogue parts
+EXACT. Reasons/dispositions are immutable in formatter; cache-only replay confirms
+raw main response preservation. No product truth chosen, approvalNULL, no course.
+UI auto reached357; selected00079199 shows matching question, source label and
+literal original row; approval disabled, no recheck/continuation while current.
+Observed102light statusGET/1terminal fullGET/0extra POST/0HTTPerror, no truncation.
+Screenshot L/source-reviewed357.jpg, tab retained.0customer content writes; fresh
+18:01Z production116/68fc original/document/course/quizzes exactly unchanged.
+Employee results untouched, not separately freshly hashed. No production117 tag,
+release or full-course/all-lessons/tests semantic acceptance.
+Remaining address failure is explicit, not blamed on missing provider permission:
+one formatter quote changes original typography; one quote repeats TWICE inside
+its own product row; two findings quote the same phrase once in EACH of2/3listed
+rows. Current single-unique-span contract correctly refuses ambiguous edit anchors.
+Three unverified author fallbacks also carry cut/escaped source quotes. Real source
+facts still need owner confirmation; do not expose machine-address defects as
+confirmed owner ambiguities, guess column priority, blanket KEEP or launch course.
+Initial owner-fact packet8independent genuine discrepancies is private address-1/
+catalogue-owner-facts.md, no answers filled. Further source evidence work must use
+this exact saved357 and rejection-cause proof, preserve good findings and solve
+multiple literal evidence occurrences as a contract, not another blind semantic
+review/full generation or SKU regex. All native requests are settled; no work to
+retry and no unknown invocation. Full course/production117 gates remain OPEN.

@@ -1,23 +1,29 @@
-## Current —2026-11-17: DEV117K guard verified; address117L LOCAL only
+## Current —2026-11-17: DEV117L verified; native full Excel357 awaiting factual decisions
 
-DEV API/frontend/sole worker exactfc78bee9, CI44133951479/build44135931545,
-image948fbb09/worker e7e67075/env16292764; Renderdep-dbu8tttckfvc73cma2ig,
-Verceldpl_3Qmxa8iSyWt3Niy8LcedsYwwLGm8. Controller RELEASE_OK. Actual source
-row-lock guard60000ms/reset/lms_app/FORCE RLS/source321 unchanged PASS5.454s,
-0business/model writes. J2 worker retained warmstopped, production116 preserved.
-Ordinary methodologist read321: FULL19blocks/644776chars/both learning+catalogue
-parts,116questions/11cosmetic,approvalNULL,no error/continuation.40main author/
-reviewer receipts plus7old formatter replies reproduce entire result offline.
-Address117L LOCAL only: existing formatter v2 may correct wrong refs and literal
-quotes without changing/dropping findings or picking product values. One paid
-Luna6 HIGH23.969s21252IN/977OUT experiment:6/6same-object addresses,3wrongrefs
-corrected,3goodrefs retained.8965API/1skip/43focused/666critical/6CI contracts/quality PASS. Native L pending.
-Prior global critic and main reviewer full-reference-text experiments remain
-NOT GO, not reintroduced. Source original/customer courses/results untouched.
-17unbound/23verification-required321 and real product facts remain unresolved.
-Human answers per product; no blanket KEEP, fabricated values or column priority.
-Full course/all lessons/tests and production117 NOT accepted. ENG080/081/082,
-CHG-SOURCE-LOCK117K/ADDRESS117L, K and address-1 private receipts are current.
+DEV API/frontend/sole worker exact718d4f24ac8dcafea5f59a04b1d449544b222ac2,
+CI44140916545/build44142297465 SUCCESS; image2b0d9bb0/worker033d49a5/env6aa9ce52.
+Renderdep-dbu9c08m7kps73bctrrg,Verceldpl_5ecZKA3SzYF5ADJid6B9ScchhywN,
+controller RELEASE_OK. Previous K warmstopped retained; production116 unchanged.
+Native ordinary UI ONE start321->322 accepted200; ALL19source blocks completed357
+in457.222s. Forty main author/reviewer receipts reused, ONLY7new paid Luna6 HIGH
+formatter replies150772IN/10529OUT,0unsettled. Exact final all19 cached replay PASS
+0calls/DB writes. Not47fresh calls: native47includes cached/legacy unknown usage.
+Seven wrong row refs corrected; same-object/literal readback PASS.112questions
+versus116,12unbound versus17,15verification-required versus23. Original644776chars,
+both learning+catalogue parts and ALL11cosmetic edits EXACT. ApprovalNULL/no course.
+UI357 correct00079199 row/question/citation, approval disabled;102lightGET/1terminal
+archive/0extraPOST/0HTTPerrors. Screenshot/private L receipts retained.
+Remaining single-span evidence contract cannot represent repeated same-row or
+multi-row quotes; escaped/truncated author fallbacks remain unverified. Do not
+classify those machine address defects as proved product ambiguities. Continue
+on saved357/rejection-cause evidence; no blind repeat of author/review/generation,
+new critic or SKU regex. Human confirms actual per-product facts, never arbitrary
+column priority. Initial8genuine-discrepancy owner packet private address-1, blank
+answers. Full course/all lessons/tests and production117 gates OPEN. Production
+original/document/course/quizzes freshly unchanged18:01Z; employee results untouched
+but not separately freshly hashed. No local Docker, billing/provider/schema change.
+L local8965API/1skip/43focused/666critical/quality PASS; K orphan guard remains exact
+and real-PG verified. ENG080/081/082, CHG-SOURCE-LOCK117K/ADDRESS117L are current.
 
 ## Current —2026-11-17: DEV117I deployed; J I/O correction LOCAL ready
 
