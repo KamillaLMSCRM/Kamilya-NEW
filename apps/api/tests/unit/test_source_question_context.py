@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.modules.source_editorial_review.analysis import _independent_review_reply, _unverified_clues, analyze
-from app.modules.source_editorial_review.question_context import POLICY, QuestionContextError, contexts
+from app.modules.source_editorial_review.question_context import POLICY, REQUEST_POLICY, QuestionContextError, contexts
 
 SOURCE = ('| Product | Mass | Description | Attributes |\n| --- | --- | --- | --- |\n'
           '| A | 0 | A has two units. | Units: 1 |\n'
@@ -79,6 +79,36 @@ def test_partial_window_carries_full_literal_row_and_parent_headers_without_rewr
     assert '| B |' in payload['references'][0]['complete_original_context']
     assert 'Mass' in payload['table_headers'][0]['text']
     assert context.original[context.offset:context.end] == text
+
+
+def test_unique_original_navigation_requires_one_literal_occurrence_inside_a_native_row():
+    source = SOURCE + '\nA unique prose statement.\n'
+    context, = contexts(source, [(0, source)])
+    assert context is not None
+    assert context.unique_literal_row('Units: 1') is None
+    assert context.unique_literal_row('A unique prose statement.') is None
+    assert context.unique_literal_row('A HAS two units.') is None
+    assert context.unique_literal_row('| A | 0 | A has two units. | Units: 1 |\n| B |') is None
+    assert context.unique_literal_row('A has two units.') is not None
+    assert context.request()['policy'] == REQUEST_POLICY != POLICY
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['unknown_ref', 'multiple_refs', 'dismissed'])
+async def test_literal_reference_correction_never_guesses_unknown_multirow_or_dismissed_hints(kind):
+    from app.modules.source_editorial_review.question_quotes import repair_question_quotes
+    context, = contexts(SOURCE, [(0, SOURCE)])
+    assert context is not None
+    refs = {u.text.split('|')[1].strip(): k for k, u in context.references.items() if u.kind == 'table_row'}
+    reported = {'excerpt': 'A has two units.', 'reason': 'Two or one?', 'category': 'conflict',
+                'source_refs': ['foreign'] if kind == 'unknown_ref' else
+                    [refs['A'], refs['B']] if kind == 'multiple_refs' else [refs['B']],
+                'disposition': 'dismissed' if kind == 'dismissed' else 'needs_human'}
+    async def no_repairs(_):
+        return {'repairs': []}
+    repaired, changes, _ = await repair_question_quotes([reported], context=context,
+        proposal_sha256='a' * 64, complete_json=no_repairs, restore=lambda *_: None)
+    assert repaired == [reported] and not changes
 
 
 @pytest.mark.parametrize('bad_evidence', ['foreign', 'A', None])
@@ -225,6 +255,39 @@ async def test_model_repairs_only_nonliteral_quote_and_cannot_borrow_another_pro
     else:
         invalid = next(q for q in result['issues'] if q['quote'] == reported)
         assert invalid['start'] is None and invalid['needs_source_verification']
+
+
+@pytest.mark.asyncio
+async def test_unique_literal_row_overrides_conflicting_known_hint_without_borrowing_shared_text():
+    shared = 'A shared collection introduction.'
+    source = ('| Product | Description | Attributes |\n| --- | --- | --- |\n'
+              '| First | ' + shared + ' | Units: 1 |\n'
+              '| Second | ' + shared + ' Two units described. | Units: 1 |\n')
+    excerpt = '| Second | ' + shared + ' Two units described. | Units: 1 |'
+    calls = []
+
+    async def complete(messages):
+        data = json.loads(messages[1]['content'])
+        calls.append(data)
+        if data.get('task') == 'source-question-literal-quote-v1':
+            return {'repairs': [{'question_index': 0, 'excerpt': shared}]}
+        if 'proposal_sha256' not in data:
+            return {'patches': [], 'unresolved': [
+                {'alias': 'second', 'excerpt': excerpt, 'category': 'conflict', 'reason': 'Two or one?'}]}
+        wrong = ref(data, '| First |')
+        return {'proposal_sha256': data['proposal_sha256'], 'rows': [], 'source_questions': [
+            {'excerpt': excerpt, 'category': 'conflict', 'reason': 'Two or one?',
+             'disposition': 'needs_human', 'source_refs': [wrong]}],
+            'source_clue_dispositions': [{'clue_id': 0, 'disposition': 'confirmed', 'question_index': 0}]}
+
+    result = await analyze(source, source_id='synthetic', document_id='owned', complete_json=complete)
+    assert len(calls) == 2, 'A fully literal original quote needs no model shortening'
+    question, = result['issues']
+    assert question['quote'] == excerpt and question['start'] == source.index(excerpt)
+    assert question['source_labels'] == ['Second']
+    assert question['reported_source_refs'] != question['source_refs']
+    assert question['source_ref_binding'] == 'unique_original_literal_v1'
+    assert question['reason'] == 'Two or one?' and result['original'] == source and not result['automatic']
 
 
 @pytest.mark.asyncio

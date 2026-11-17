@@ -67,7 +67,7 @@ async def test_two_known_corrected_replies_replay_before_and_after_the_single_ne
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('managed', [False, True])
-@pytest.mark.parametrize('quote_case', [False, True])
+@pytest.mark.parametrize('quote_case', [False, True, 'reference'])
 async def test_native_worker_reuses_two_completed_corrections_without_provider_calls(monkeypatch, managed, quote_case):
     from contextlib import asynccontextmanager
     from datetime import UTC, datetime
@@ -85,6 +85,9 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
 
     tenant, document, actor = QA_TENANT, uuid4(), uuid4()
     source = '| Item | Rule |\n| --- | --- |\n| A | A has two units. Units: 1 |\n' if quote_case else 'Source'
+    literal = '| B | A shared introduction. Two units. Units: 1 |'
+    if quote_case == 'reference':
+        source = '| Item | Rule |\n| --- | --- |\n| A | A shared introduction. Units: 1 |\n' + literal + '\n'
     blob, block_id = 'a' * 64, 'block-' + 'b' * 24
     package = PreparedSource.model_validate({'original_blob_sha256': blob,
         'blocks': [{'id': block_id, 'text': source, 'kind': 'text'}],
@@ -137,13 +140,15 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
         assert quote_case, 'Completed repair was sent again'
         payload = json.loads(m[1]['content'])
         if payload.get('task') == 'source-question-literal-quote-v1':
+            assert quote_case is True, 'A literal source reference must not acquire a new quote-repair call'
             value = {'repairs': [{'question_index': 0, 'excerpt': 'A has two units.'}]}
         elif 'proposal_sha256' not in payload:
-            value = {'patches': [], 'unresolved': []}
+            value = {'patches': [], 'unresolved': ([{'alias': 'B', 'excerpt': literal,
+                      'category': 'conflict', 'reason': 'Two or one?'}] if quote_case == 'reference' else [])}
         else:
             ref = payload['source_question_context']['references'][0]['id']
             value = {'proposal_sha256': payload['proposal_sha256'], 'rows': [], 'source_questions': [
-                {'excerpt': 'A has two units. ... Units: 1', 'category': 'conflict', 'reason': 'One or two units?',
+                {'excerpt': literal if quote_case == 'reference' else 'A has two units. ... Units: 1', 'category': 'conflict', 'reason': 'One or two units?',
                  'source_refs': [ref], 'disposition': 'needs_human'}]}
         return SimpleNamespace(content=value, provider_name='synthetic', model='fixture',
                                prompt_tokens=1, completion_tokens=1, usage_complete=True, usage=LunaUsage(1, 1, None, None))
@@ -170,7 +175,13 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     monkeypatch.setattr('app.modules.ai.llm_client.LLMClient', lambda *_a, **_k: SimpleNamespace(ainvoke=network))
     assert await analysis.run_analysis(tenant, document, queued.id) == 'analyzed'
     assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == source
-    if quote_case:
+    if quote_case == 'reference':
+        assert network.await_count == 2
+        question, = rows[-1].payload['issues']
+        assert question['quote'] == literal and question['start'] == source.index(literal)
+        assert question['source_labels'] == ['B'] and question['reported_source_refs'] != question['source_refs']
+        assert question['source_ref_binding'] == 'unique_original_literal_v1'
+    elif quote_case:
         assert network.await_count == 3
         question, = rows[-1].payload['issues']
         assert question['quote'] == 'A has two units.' and question['start'] == source.index(question['quote'])

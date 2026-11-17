@@ -39,7 +39,22 @@ async def repair_question_quotes(
     questions: list[dict[str, Any]], *, context: QuestionContext, proposal_sha256: str,
     complete_json: Callable[[list[dict[str, str]]], Awaitable[object]],
     restore: Callable[[str, str], tuple[int, int] | None],
-) -> tuple[list[dict[str, Any]], dict[int, dict[str, str]], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[int, dict[str, Any]], dict[str, Any]]:
+    questions = list(questions)
+    changes: dict[int, dict[str, Any]] = {}
+    rebindings: list[dict[str, Any]] = []
+    for index, question in enumerate(questions):
+        refs = question.get("source_refs")
+        if (question.get("disposition") != "needs_human" or not refs or len(refs) != 1
+                or refs[0] not in context.references
+                or context.references[refs[0]].kind != "table_row"):
+            continue
+        canonical = context.unique_literal_row(question["excerpt"])
+        if canonical is not None and canonical != refs[0]:
+            questions[index] = {**question, "source_refs": [canonical]}
+            changes[index] = {"reported_source_refs": refs, "source_ref_binding": "unique_original_literal_v1"}
+            rebindings.append({"index": index, "reported_refs": refs, "source_refs": [canonical],
+                               "binding": "unique_original_literal_v1"})
     bad: dict[int, dict[str, Any]] = {}
     for index, question in enumerate(questions):
         refs = question.get("source_refs")
@@ -50,7 +65,8 @@ async def repair_question_quotes(
         except QuestionContextError:
             bad[index] = question
     if not bad:
-        return questions, {}, {}
+        return questions, changes, ({"policy": TASK, "status": "references_only",
+                                    "reference_rebindings": rebindings} if rebindings else {})
     refs = {ref for question in bad.values() for ref in question["source_refs"]}
     request = {"task": TASK, "proposal_sha256": proposal_sha256,
         "items": [{"question_index": index, "reported_excerpt": question["excerpt"],
@@ -59,13 +75,14 @@ async def repair_question_quotes(
     raw = await complete_json([{"role": "system", "content": _SYSTEM},
                                {"role": "user", "content": json.dumps(request, ensure_ascii=False)}])
     audit: dict[str, Any] = {"policy": TASK, "requested": list(bad), "accepted": [], "rejected": []}
+    if rebindings:
+        audit["reference_rebindings"] = rebindings
     try:
         response = _Repairs.model_validate(raw)
     except ValidationError:
         audit["status"] = "invalid_shape"
-        return questions, {}, audit
+        return questions, changes, audit
     repaired = list(questions)
-    changes: dict[int, dict[str, str]] = {}
     for row in response.repairs:
         if row.question_index not in bad or sum(item.question_index == row.question_index for item in response.repairs) != 1:
             audit["rejected"].append({"index": row.question_index, "code": "unknown_or_duplicate_index"})
@@ -79,7 +96,7 @@ async def repair_question_quotes(
             audit["rejected"].append({"index": row.question_index, "code": "quotation_not_literal_in_both"})
             continue
         repaired[row.question_index] = {**original, "excerpt": row.excerpt}
-        changes[row.question_index] = {"reported_quote": original["excerpt"], "quote_binding": TASK}
+        changes.setdefault(row.question_index, {}).update(reported_quote=original["excerpt"], quote_binding=TASK)
         audit["accepted"].append(row.question_index)
-    audit["status"] = "complete" if len(changes) == len(bad) else "partial_or_unverified"
+    audit["status"] = "complete" if len(audit["accepted"]) == len(bad) else "partial_or_unverified"
     return repaired, changes, audit

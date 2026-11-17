@@ -1,11 +1,14 @@
-## Current DEV117D source checkpoint —2026-11-17
+## Current DEV117F source checkpoint —2026-11-17
 
-DEV API/frontend/sole VM worker exact70e4f9d12399450803b141434881dae467fbf0f3,
-version117; source139full Excel2sheets/291rows/19blocks completed. Ordinary QA
-source remains in_review/120open/approvalNULL; human verified product facts are
-required. Full native course/all lessons/tests and production117 are NOT accepted.
+DEV API/frontend/sole VM worker exact14043f6dadeb72a8c0ad6323210fda98d975d87a,
+version117; ordinary QA139->140 full Excel2sheets/291rows/19blocks source recheck
+is RUNNING, both selected parts and immutable original retained. Source139 was
+in_review/120open/approvalNULL; that old count is not the new result. Human
+verified product facts remain required. A LOCAL literal-reference follow-up
+projection3/requestwire2 passes full8930API/1skip plus2native seam cases; it is
+not deployed yet. Full native course/all lessons/tests and production117 are NOT accepted.
 Production remains116/68fc9109 with rollback preserved; no schema/provider/billing/
-customer changes. CI44040293248/build44041179724 and final exact DEV reconciliation
+customer changes. CI44071274761/build44072485454 and final exact DEV reconciliation
 PASS; current details and ENG078 residual question limitations are in CODEX_HANDOFF
 and CHG-SOURCE-CATALOG117. Do not relabel source-only acceptance as a full course
 or resume already completed source calls.

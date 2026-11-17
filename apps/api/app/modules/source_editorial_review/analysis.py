@@ -412,7 +412,7 @@ async def analyze(
         block_calls = 0
         candidate_questions: list[Any] = []
         unverified: list[int] = []
-        quote_changes: dict[int, dict[str, str]] = {}
+        quote_changes: dict[int, dict[str, Any]] = {}
         quote_audit: dict[str, Any] = {}
         block_bindings: list[dict[str, Any]] = []
 

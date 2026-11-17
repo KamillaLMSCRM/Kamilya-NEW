@@ -7,7 +7,10 @@ from typing import Any
 
 from app.modules.ai.v3.source_units import SourceUnit, plan_source_units, source_table_topic
 
-POLICY = "source-question-row-context-v2"
+# Projection changes must not invalidate a completed model request whose wire
+# contract is unchanged. The model-facing row inventory stays byte compatible.
+REQUEST_POLICY = "source-question-row-context-v2"
+POLICY = "source-question-row-context-v3"
 
 
 class QuestionContextError(ValueError):
@@ -23,7 +26,7 @@ class QuestionContext:
     headers: tuple[SourceUnit, ...]
 
     def request(self) -> dict[str, Any]:
-        return {"policy": POLICY,
+        return {"policy": REQUEST_POLICY,
                 "references": [{"id": ref, "start": unit.start - self.offset,
                     "end": unit.end - self.offset, "kind": unit.kind,
                     **({"complete_original_context": unit.text}
@@ -75,6 +78,15 @@ class QuestionContext:
     def labels(self, refs: list[str]) -> list[str]:
         return list(dict.fromkeys(label for ref in refs if ref in self.references
                                  if (label := source_table_topic(self.references[ref]))))
+
+    def unique_literal_row(self, excerpt: str) -> str | None:
+        """Find a canonical row only from one exact original occurrence."""
+        if not excerpt or self.original.count(excerpt) != 1:
+            return None
+        start = self.original.index(excerpt)
+        end = start + len(excerpt)
+        return next((ref for ref, unit in self.references.items()
+                     if unit.kind == "table_row" and unit.start <= start < end <= unit.end), None)
 
 
 def contexts(original: str, windows: list[tuple[int, str]]) -> list[QuestionContext | None]:
