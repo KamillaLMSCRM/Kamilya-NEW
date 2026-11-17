@@ -7800,3 +7800,39 @@ Do not silently replace good prior findings or repeat that pilot. No source/
 customer facts, production116, provider/plan/reasoning/limits/schema/local Docker
 changes. Native DEV recovery/full source/UI and all course/prod gates pending.
 Evidence I=.release-evidence/furniture-source117i-20261117; ENG079.
+
+
+RUN-SOURCE117I-RESTORE295-20261117 INTENT: exact0655d790b2565c58bb22d22881dbe45f58c1b28f/
+117 RELEASE_OK; CI44106279564/build44108225262, image4ea8b119f70519edb32abeb62ff285839da2279dab42c1b4d922c9f9a03c0fa2,
+sole27fffd87worker/env185edf20, Renderdep-dbu6q449v7es73dj0slg/Verceldpl_AHEjc4ZAe8c36aSBp9CfYSdKx9PM.
+Cold996files/synthetic DB reconnect+unknown fence+saved JSON/quote tests PASS0calls;
+H0d8b warmstopped exit0 retained, protected production unchanged; disk6,620,946,432
+bytes, no cleanup. API preflight transient SSLEOF was GET-only before intent;
+one known deploy POST, no mutation retry. Ordinary QA UI resumes exact295 once,
+same source/both selected parts/actor, preserved H semantic policy3/projection4.
+All19authors/13processed blocks/18completed model responses reusable; remaining6
+reviews only plus necessary existing address calls, paid Luna6HIGH unchanged.
+No source truth decision/approval/client change, no unknown request reissued.
+Native UI recovery/full source/course/prod acceptance still PENDING.
+
+
+CHG-SOURCE-IO117J LOCAL PASS 2026-11-17T15:50:56.596290+00:00: service.history streams a single
+ordered SQL/MVCC result in eight-row transport fetches; no partial return after
+disconnect, all payloads/receipts retained, cursor always closed. Worker
+save_block/verify_claim/final append select latest id/sequence/kind/claim string
+only, preserving document locks/source hash/single-claim ownership. Normal and
+managed native replay regression now proves one archive read instead of nine.
+Frontend uses existing metadata-only status endpoint, at most one in-flight
+poll, full result only initially/after explicit command/once at terminal state.
+Aborts/version/session/tenant/pinned approval guards tested; no polling POST.
+Full8956API/1skip,1814web/197files,types/lint/build69/69 and quality PASS. Original
+red cases and first2failed catalog-contract tests retained in private J; unneeded
+catalog knob withdrawn BEFORE release, no schema or operator config change.
+All model roles/analyze/blocks/request bytes/custody/recovery exact I0655;
+13complete blocks/all authors/18known replies reusable,0fresh patch inference.
+DEV I0655 coherent, original continuation296 queued after admission DB failure,
+not claimed. Actual I VM read-only stream295/30MB matched immutable local SHA
+in12.681s; this proves transport fidelity, not underlying network root cause.
+Next: exact J CI/image/DEV; same existing296 delivery only after idle/no-new-claim
+readback. No new source selection, generation, fact guesses, customer writes,
+production117, provider/billing/reasoning/limits/local Docker changes.

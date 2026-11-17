@@ -1,7 +1,8 @@
 """Own the source-review lifecycle, admission, and historical snapshot readback."""
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -31,6 +32,8 @@ from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
 _SHA = re.compile(r"[0-9a-f]{64}")
 _ANALYSIS_STALE_AFTER = timedelta(minutes=20)
+# Cursor transport quantum only: every row/payload is still returned.
+_HISTORY_FETCH_ROWS = 8
 
 
 def review_enabled() -> bool:
@@ -54,7 +57,28 @@ async def history(db: AsyncSession, tenant_id: UUID, document_id: UUID, until: i
     query = select(Event).where(Event.tenant_id == tenant_id, Event.document_id == document_id)
     if until is not None:
         query = query.where(Event.sequence <= until)
-    return list((await db.scalars(query.order_by(Event.sequence))).all())
+    cursor = await db.stream_scalars(query.order_by(Event.sequence).execution_options(
+        yield_per=_HISTORY_FETCH_ROWS))
+    try:
+        return [row async for row in cursor]
+    finally:
+        await cursor.close()
+
+
+@dataclass(frozen=True)
+class EventHead:
+    id: UUID
+    sequence: int
+    kind: str
+    payload: Mapping[str, Any]
+
+
+async def latest_event(db: AsyncSession, tenant_id: UUID, document_id: UUID) -> EventHead | None:
+    """Ownership needs a claim identifier, never the source/custody archive."""
+    row = (await db.execute(select(Event.id, Event.sequence, Event.kind, Event.payload["claim_id"].astext)
+        .where(Event.tenant_id == tenant_id, Event.document_id == document_id)
+        .order_by(Event.sequence.desc()).limit(1))).one_or_none()
+    return EventHead(row[0], row[1], row[2], {"claim_id": row[3]}) if row is not None else None
 
 
 def read_state(rows: Sequence[Event], blob_sha: object) -> ReviewState:

@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SourceEditorialReview from '@/features/source-editorial-review/SourceEditorialReview';
 import type { SourceReview } from '@/features/source-editorial-review/contract';
 
-const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), role: 'methodologist', approval: undefined as string | undefined }));
+const mocks = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), role: 'methodologist', epoch: 1,
+  tenant: 'test-tenant', approval: undefined as string | undefined }));
 const id = '3021ee52-3387-46b2-a6c4-a7bd36136ffa';
 const approval = 'b5b93138-cf8e-4e06-a87b-278e21efe8e2';
 vi.mock('next/navigation', () => ({ useParams: () => ({ id, approvalId: mocks.approval }) }));
@@ -11,7 +12,7 @@ vi.mock('@/lib/api', () => ({ api: { get: mocks.get, post: mocks.post } }));
 vi.mock('@/i18n/useT', () => ({ useT: () => ({ lang: 'ru' }) }));
 vi.mock('@/store/authStore', () => ({
   useAuthStore: (select: (state: { sessionEpoch: number; user: { role: string; user_id: string; tenant_id: string } }) => unknown) =>
-    select({ sessionEpoch: 1, user: { role: mocks.role, user_id: 'actor', tenant_id: 'test-tenant' } }),
+    select({ sessionEpoch: mocks.epoch, user: { role: mocks.role, user_id: 'actor', tenant_id: mocks.tenant } }),
 }));
 
 const quote = 'До 45 МРП применяется порядок А.';
@@ -26,10 +27,113 @@ function fixture(): SourceReview {
 }
 
 describe('source editorial review', () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.role = 'methodologist';
+    mocks.epoch = 1;
+    mocks.tenant = 'test-tenant';
     mocks.approval = undefined;
+  });
+
+  it('polls only lightweight status while active and fetches the full terminal result once', async () => {
+    vi.useFakeTimers();
+    let status = 'queued';
+    const endpoint = '/v1/documents/' + id + '/editorial-review';
+    mocks.get.mockImplementation(async (url: string) => ({ data: url === endpoint
+      ? { ...fixture(), revision: status === 'in_review' ? 20 : 3, status }
+      : { required: true, documents: { [id]: status } } }));
+    render(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(mocks.get.mock.calls.filter(([url]) => url === endpoint)).toHaveLength(1);
+    expect(mocks.get.mock.calls.filter(([url]) => url === '/v1/documents/editorial-review/status?document_ids=' + id)).toHaveLength(2);
+    status = 'running';
+    await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
+    expect(screen.getByText('Версия документа 1 · Редакция 3')).toBeVisible();
+    status = 'in_review';
+    await act(async () => { await vi.advanceTimersByTimeAsync(13500); });
+    expect(mocks.get.mock.calls.filter(([url]) => url === endpoint)).toHaveLength(2);
+    expect(screen.getByText('Версия документа 1 · Редакция 20')).toBeVisible();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('never overlaps a slow status poll and ignores its response after unmount', async () => {
+    vi.useFakeTimers();
+    let settle!: (value: unknown) => void;
+    mocks.get.mockResolvedValueOnce({ data: { ...fixture(), status: 'running' } })
+      .mockImplementationOnce(() => new Promise(resolve => { settle = resolve; }));
+    const view = render(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(18000); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    const signal = mocks.get.mock.calls[1][1].signal;
+    view.unmount();
+    expect(signal.aborted).toBe(true);
+    await act(async () => { settle({ data: { required: true, documents: { [id]: 'in_review' } } }); });
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('does not apply an old poll after a continuation command changes the revision', async () => {
+    vi.useFakeTimers();
+    let settle!: (value: unknown) => void;
+    mocks.get.mockResolvedValueOnce({ data: { ...fixture(), status: 'queued', continuation_pending: true } })
+      .mockImplementationOnce(() => new Promise(resolve => { settle = resolve; }));
+    mocks.post.mockResolvedValue({ data: { ...fixture(), revision: 4, status: 'queued', continuation_pending: true } });
+    render(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Продолжить проверку' })); });
+    await act(async () => { settle({ data: { required: true, documents: { [id]: 'failed' } } }); });
+    expect(screen.getByText('Версия документа 1 · Редакция 4')).toBeVisible();
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(mocks.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the saved review and offers reload on malformed lightweight status', async () => {
+    vi.useFakeTimers();
+    mocks.get.mockResolvedValueOnce({ data: { ...fixture(), status: 'running' } })
+      .mockResolvedValue({ data: { required: true, documents: {} } });
+    render(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
+    expect(screen.getByRole('alert')).toBeVisible();
+    expect(screen.getByText('Версия документа 1 · Редакция 3')).toBeVisible();
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('discards an old tenant/session poll without loading its terminal snapshot', async () => {
+    vi.useFakeTimers();
+    let settle!: (value: unknown) => void;
+    mocks.get.mockResolvedValueOnce({ data: { ...fixture(), status: 'running' } })
+      .mockImplementationOnce(() => new Promise(resolve => { settle = resolve; }))
+      .mockResolvedValueOnce({ data: { ...fixture(), revision: 30, title: 'Другой кабинет' } });
+    const view = render(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
+    mocks.tenant = 'another-owned-test-tenant';
+    mocks.epoch = 2;
+    view.rerender(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { settle({ data: { required: true, documents: { [id]: 'in_review' } } }); });
+    expect(screen.getByText('Другой кабинет')).toBeVisible();
+    expect(screen.getByText('Версия документа 1 · Редакция 30')).toBeVisible();
+    expect(mocks.get).toHaveBeenCalledTimes(3);
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('does not poll a pinned historical approval', async () => {
+    vi.useFakeTimers();
+    mocks.approval = approval;
+    mocks.get.mockResolvedValueOnce({ data: { ...fixture(), status: 'running' } });
+    render(<SourceEditorialReview />);
+    await act(async () => {});
+    await act(async () => { await vi.advanceTimersByTimeAsync(18000); });
+    expect(mocks.get).toHaveBeenCalledTimes(1);
+    expect(mocks.get.mock.calls[0][0]).toBe('/v1/documents/' + id + '/editorial-review/' + approval);
+    expect(mocks.post).not.toHaveBeenCalled();
   });
 
   it('shows the literal source entry so a short quotation still identifies the product', async () => {

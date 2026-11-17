@@ -4,10 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
-import { sourceReviewHref, type SourceReviewStatus } from './contract';
+import { sourceReviewHref, type ReviewStatuses } from './contract';
 import { sourceReviewCopy } from './copy';
-
-type ReviewStatuses = { required: boolean; documents: Record<string, SourceReviewStatus> };
 
 export function useSourceReviewStatuses(ids: string[], scope: string) {
   const query = new URLSearchParams(ids.map(id => ['document_ids', id])).toString();

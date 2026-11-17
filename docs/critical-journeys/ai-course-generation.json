@@ -151,7 +151,8 @@
         "apps/api/tests/unit/test_source_question_context.py::test_long_quote_is_not_a_semantic_failure_but_fabricated_evidence_stays_unverified",
         "apps/api/tests/unit/test_source_review_custody.py::test_handoff_reconnects_once_and_reconciles_a_committed_successor",
         "apps/api/tests/unit/test_source_terminal_recovery.py::test_ordinary_resume_preserves_lineage_selection_receipts_and_idempotency",
-        "apps/api/tests/unit/test_source_terminal_recovery.py::test_unknown_request_stays_held_in_view_and_command"
+        "apps/api/tests/unit/test_source_terminal_recovery.py::test_unknown_request_stays_held_in_view_and_command",
+        "apps/api/tests/unit/test_source_review_history_io.py"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"

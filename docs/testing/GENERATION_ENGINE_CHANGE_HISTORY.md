@@ -3354,3 +3354,86 @@ Do not silently replace good prior findings or repeat that pilot. No source/
 customer facts, production116, provider/plan/reasoning/limits/schema/local Docker
 changes. Native DEV recovery/full source/UI and all course/prod gates pending.
 Evidence I=.release-evidence/furniture-source117i-20261117; ENG079.
+
+
+RUN-SOURCE117I-RESTORE295-20261117 INTENT: exact0655d790b2565c58bb22d22881dbe45f58c1b28f/
+117 RELEASE_OK; CI44106279564/build44108225262, image4ea8b119f70519edb32abeb62ff285839da2279dab42c1b4d922c9f9a03c0fa2,
+sole27fffd87worker/env185edf20, Renderdep-dbu6q449v7es73dj0slg/Verceldpl_AHEjc4ZAe8c36aSBp9CfYSdKx9PM.
+Cold996files/synthetic DB reconnect+unknown fence+saved JSON/quote tests PASS0calls;
+H0d8b warmstopped exit0 retained, protected production unchanged; disk6,620,946,432
+bytes, no cleanup. API preflight transient SSLEOF was GET-only before intent;
+one known deploy POST, no mutation retry. Ordinary QA UI resumes exact295 once,
+same source/both selected parts/actor, preserved H semantic policy3/projection4.
+All19authors/13processed blocks/18completed model responses reusable; remaining6
+reviews only plus necessary existing address calls, paid Luna6HIGH unchanged.
+No source truth decision/approval/client change, no unknown request reissued.
+Native UI recovery/full source/course/prod acceptance still PENDING.
+
+CHG-SOURCE-IO117J PROPOSED
+
+## ENG-080 — source-review polling and claim checks repeatedly fetch the full payload archive
+
+- Date:2026-11-17T15:35:17.608454+00:00, OPEN. Recovery I0655 DEV RELEASE_OK;
+  ordinary UI start created exact continuation296 for295, no selection/source fact
+  changed. Worker admission fails at analysis652->service.history57 SELECT with
+  DBAPIError/ConnectionDoesNotExistError BEFORE claim/provider call. Active0,
+  queued296 retained,0new model requests. Underlying TCP failure cause UNKNOWN.
+- Confirmed amplification:295event snapshot payload30,374,809bytes, including
+ 21,938,773bytes in19queued copies of the same prepared source. Source page
+ setInterval4500 calls FULL load, including while a preceding request is pending;
+ each API load calls full history. save_block/verify_claim/final persistence also
+ load full history only to inspect its last event. This is deterministic I/O
+ amplification, not a new semantic validation or a reason to repeat inference.
+- Previous work: ENG079 correctly handles handoff disconnect/stale known-turn
+ recovery, but not the bulk initial SELECT. No previous bounded history-reader/
+ lightweight source-page polling fix found in change journal. Preserve all I
+ recovery protections, H model contracts and13completed blocks/18responses.
+- Proposed systemic correction: streamed bounded history read (same ordered SQL
+ statement/MVCC result, all payload bytes preserved); current-event metadata-only
+ reader for ownership/checkpoints/final append; existing bulk status endpoint
+ for nonoverlapping UI polling, full snapshot only initially/after command/at
+ terminal status. Runtime batch parameter through existing runtime_settings
+ catalog/history, no new env/table. Keep tenant/source/revision/session/abort and
+ unknown-inference fences. No archive deletion, source truncation or model-role
+ change. Completed work must replay, not regenerate.
+- BEFORE code/deploy: actual current I worker READ ONLY lms_app/FORCE RLS stream8
+ reads all295events in12.681s; complete canonical content hash matches local
+ immutable30MBsnapshot.0DB/model/customer writes. Heavy source page navigated
+ away and local full-view monitor stopped intentionally; queued296 unchanged.
+- Next: local query-volume/no-overlap/terminal-refresh regressions, full suites,
+ exact J DEV rollout, redispatch existing296 only after no-active/no-new-claim
+ proof. Never create a new source job or redo13completed parts. Full source,
+ actual full course and production117 NOT GO. J/history-stream117b-executed.json.
+
+CHG-SOURCE-IO117J proposal refinement BEFORE final runtime edit: full LOCAL
+suite caught frozen SQL/runtime catalog equality (2fail/8954pass/1skip). The
+cursor fetch size is a transport implementation quantum, not an operator-facing
+source policy or result limit. Keep a fixed eight-row cursor batch; no new
+runtime knob is needed for correctness or acceptance. Withdraw the proposed
+catalog key instead of exposing an unbacked DB setting or changing frozen old
+migrations. Existing runtime_settings/history mechanism remains mandatory for
+actual configurable policies. No schema/operator configuration/API policy change.
+All rows and complete payloads retained; streaming close/fidelity/head/poll
+regressions remain mandatory. Original failed full-suite log preserved in J.
+
+
+CHG-SOURCE-IO117J LOCAL PASS 2026-11-17T15:50:56.596290+00:00: service.history streams a single
+ordered SQL/MVCC result in eight-row transport fetches; no partial return after
+disconnect, all payloads/receipts retained, cursor always closed. Worker
+save_block/verify_claim/final append select latest id/sequence/kind/claim string
+only, preserving document locks/source hash/single-claim ownership. Normal and
+managed native replay regression now proves one archive read instead of nine.
+Frontend uses existing metadata-only status endpoint, at most one in-flight
+poll, full result only initially/after explicit command/once at terminal state.
+Aborts/version/session/tenant/pinned approval guards tested; no polling POST.
+Full8956API/1skip,1814web/197files,types/lint/build69/69 and quality PASS. Original
+red cases and first2failed catalog-contract tests retained in private J; unneeded
+catalog knob withdrawn BEFORE release, no schema or operator config change.
+All model roles/analyze/blocks/request bytes/custody/recovery exact I0655;
+13complete blocks/all authors/18known replies reusable,0fresh patch inference.
+DEV I0655 coherent, original continuation296 queued after admission DB failure,
+not claimed. Actual I VM read-only stream295/30MB matched immutable local SHA
+in12.681s; this proves transport fidelity, not underlying network root cause.
+Next: exact J CI/image/DEV; same existing296 delivery only after idle/no-new-claim
+readback. No new source selection, generation, fact guesses, customer writes,
+production117, provider/billing/reasoning/limits/local Docker changes.

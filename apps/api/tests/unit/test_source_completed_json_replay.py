@@ -166,7 +166,9 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
                                      prepare=AsyncMock(side_effect=prepare_messages), discard=Mock(), invoke=network, close=Mock())
     monkeypatch.setattr(analysis, 'async_session_factory', sessions)
     monkeypatch.setattr(analysis, 'owned_document', AsyncMock(return_value=doc))
-    monkeypatch.setattr(analysis, 'history', AsyncMock(side_effect=lambda *_: list(rows)))
+    archive_read = AsyncMock(side_effect=lambda *_: list(rows))
+    monkeypatch.setattr(analysis, 'history', archive_read)
+    monkeypatch.setattr(analysis, 'latest_event', AsyncMock(side_effect=lambda *_: rows[-1]), raising=False)
     monkeypatch.setattr(analysis, 'add_event', add_event)
     monkeypatch.setattr(analysis, 'review_enabled', lambda: True)
     monkeypatch.setattr(analysis, 'get_settings', lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=managed))
@@ -193,6 +195,7 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
         network.assert_not_awaited()
         return
     assert await analysis.run_analysis(tenant, document, queued.id) == 'analyzed'
+    archive_read.assert_awaited_once()  # Completed receipts loaded once, not per claim/checkpoint.
     assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == source
     if quote_case == 'reference':
         assert network.await_count == 2

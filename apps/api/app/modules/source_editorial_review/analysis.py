@@ -47,6 +47,7 @@ from app.modules.source_editorial_review.request_custody import (
 from app.modules.source_editorial_review.service import (
     add_event,
     history,
+    latest_event,
     owned_document,
     read_state,
     review_enabled,
@@ -676,10 +677,10 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         async with async_session_factory() as db:
             await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
             doc = await owned_document(db, tenant_id, document_id, lock=True)
-            events = await history(db, tenant_id, document_id)
-            if not events or not owns(events[-1]) or doc.content_sha256 != claim.original_blob_sha256:
+            latest = await latest_event(db, tenant_id, document_id)
+            if not latest or not owns(latest) or doc.content_sha256 != claim.original_blob_sha256:
                 raise ReviewConflictError("source_review_analysis_claim_changed")
-            add_event(db, doc, actor_id=claim.actor_id, sequence=events[-1].sequence + 1, kind="analysis_block",
+            add_event(db, doc, actor_id=claim.actor_id, sequence=latest.sequence + 1, kind="analysis_block",
                       payload={"claim_id": str(claim.id), "key": key, "result": result})
             await db.commit()
             retained[key] = result
@@ -687,8 +688,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         async with async_session_factory() as db:
             await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
             current = await owned_document(db, tenant_id, document_id)
-            events = await history(db, tenant_id, document_id)
-            return bool(events and owns(events[-1]) and current.content_sha256 == claim.original_blob_sha256)
+            latest = await latest_event(db, tenant_id, document_id)
+            return bool(latest and owns(latest) and current.content_sha256 == claim.original_blob_sha256)
 
     phase = "source_extraction"
     json_recovery = _ManagedSourceJsonRecovery()
@@ -1039,9 +1040,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
     async with async_session_factory() as db:
         await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
         doc = await owned_document(db, tenant_id, document_id, lock=True)
-        rows = await history(db, tenant_id, document_id)
-        if not rows or not owns(rows[-1]) or doc.content_sha256 != claim.original_blob_sha256:
+        latest = await latest_event(db, tenant_id, document_id)
+        if not latest or not owns(latest) or doc.content_sha256 != claim.original_blob_sha256:
             return "claim_changed"
-        add_event(db, doc, actor_id=claim.actor_id, sequence=rows[-1].sequence + 1, kind=kind, payload=payload)
+        add_event(db, doc, actor_id=claim.actor_id, sequence=latest.sequence + 1, kind=kind, payload=payload)
         await db.commit()
     return kind

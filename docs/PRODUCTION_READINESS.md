@@ -1,3 +1,23 @@
+## Current —2026-11-17: DEV117I deployed; J I/O correction LOCAL ready
+
+DEV API/frontend/sole worker exact0655d790 coherent (CI44106279564,
+build44108225262, Renderdep-dbu6q449v7es73dj0slg,
+Verceldpl_AHEjc4ZAe8c36aSBp9CfYSdKx9PM, worker27fffd87/image4ea8b119).
+Ordinary UI recovery295->296 succeeded once; worker admission full-history
+SELECT then lost DB connection BEFORE claim/inference.296 queued, active0,
+13/19blocks/18known completed replies retained. ENG080: archive30MB with22MB
+queued source copies, old4500ms UI full-history polling and repeated worker
+claim reads. Heavy poll stopped by leaving source page; no model/task killed.
+J local stream/latest-metadata/light-status correction passes8956API/1skip,
+1814web/197files/types/lint/build69/69/quality. All model contracts exact I;
+no schema, source fact, provider/reasoning/billing/local Docker/customer change.
+Actual VM stream295 hash matches immutable snapshot, zero writes/calls.
+Next: exact J CI/image/coherent DEV, redispatch SAME296 after no-active proof;
+never regenerate13completed parts. Real product ambiguities require per-product
+owner facts. Full source/course/all lessons/tests and production117 NOT GO.
+Private evidence J=.release-evidence/furniture-source117j-20261117;
+ENG079/080, CHG-SOURCE-IO117J. All older current headings below are historical.
+
 ## Current gate —2026-11-17T14:40Z: production117 NOT GO
 
 Production116/68fc9109 preserved. DEV117H exact42d587ce is coherent, but native

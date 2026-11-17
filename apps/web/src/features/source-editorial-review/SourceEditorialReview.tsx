@@ -8,7 +8,7 @@ import { WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { sourceReviewHref, type ReviewCommand, type SourceReview } from './contract';
+import { sourceReviewHref, type ReviewCommand, type ReviewStatuses, type SourceReview } from './contract';
 import { sourceReviewCopy } from './copy';
 import { SourcePreparationPanel } from './SourcePreparationPanel';
 
@@ -73,6 +73,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const commandLock = useRef(false);
   const version = useRef(0);
   const requestVersion = useRef(0);
+  const pollInFlight = useRef(false);
 
   const accept = useCallback((data: SourceReview) => {
     if (data.document_id !== id || data.revision < version.current) return;
@@ -97,16 +98,48 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     return () => controller.abort();
   }, [load]);
 
+  const status = review?.status;
+  const revision = review?.revision;
   useEffect(() => {
-    if (approvalId || !review || !['queued', 'running'].includes(review.status)) return;
+    if (approvalId || !status || !['queued', 'running'].includes(status)) return;
     const controller = new AbortController();
-    const timer = window.setInterval(() => void load(controller.signal), 4500);
+    let terminalRequested = false;
+    const poll = async () => {
+      if (terminalRequested || pollInFlight.current || commandLock.current || controller.signal.aborted) return;
+      pollInFlight.current = true;
+      const observedRevision = version.current;
+      const observedRequest = requestVersion.current;
+      const current = () => !controller.signal.aborted && !commandLock.current
+        && version.current === observedRevision && requestVersion.current === observedRequest;
+      try {
+        const { data } = await api.get<ReviewStatuses>(
+          '/v1/documents/editorial-review/status?' + new URLSearchParams({ document_ids: id }),
+          { signal: controller.signal });
+        if (!current()) return;
+        const next = data?.documents?.[id];
+        if (typeof data?.required !== 'boolean' || !next || !Object.prototype.hasOwnProperty.call(copy.statusLabels, next)) {
+          setLoadError(true);
+        } else if (next === 'queued' || next === 'running') {
+          setReview(value => value && value.revision === observedRevision ? { ...value, status: next } : value);
+          setLoadError(false);
+        } else {
+          terminalRequested = true;
+          await load(controller.signal);
+        }
+      } catch {
+        if (current()) setLoadError(true);
+      } finally {
+        pollInFlight.current = false;
+      }
+    };
+    const timer = window.setInterval(() => void poll(), 4500);
     return () => { controller.abort(); window.clearInterval(timer); };
-  }, [approvalId, load, review]);
+  }, [approvalId, id, load, revision, status, copy.statusLabels]);
 
   const submit = async (body: ReviewCommand) => {
     if (commandLock.current || approvalId) return false;
     commandLock.current = true;
+    ++requestVersion.current;
     setSaving(true);
     setNotice(null);
     try {

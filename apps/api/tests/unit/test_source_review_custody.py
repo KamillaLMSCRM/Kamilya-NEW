@@ -358,6 +358,7 @@ async def test_worker_prepares_then_continues_and_cold_replays_without_extra_pos
     monkeypatch.setattr(analysis, "async_session_factory", sessions)
     monkeypatch.setattr(analysis, "owned_document", AsyncMock(return_value=doc))
     monkeypatch.setattr(analysis, "history", AsyncMock(side_effect=lambda *_: list(rows)))
+    monkeypatch.setattr(analysis, "latest_event", AsyncMock(side_effect=lambda *_: rows[-1]))
     monkeypatch.setattr(analysis, "add_event", add_event)
     monkeypatch.setattr(analysis, "review_enabled", lambda: True)
     monkeypatch.setattr(analysis, "get_settings", lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=False))

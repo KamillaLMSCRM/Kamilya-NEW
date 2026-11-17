@@ -1,4 +1,5 @@
 export type SourceReviewStatus = 'not_started' | 'queued' | 'running' | 'interrupted' | 'failed' | 'in_review' | 'approved' | 'source_changed';
+export type ReviewStatuses = { required: boolean; documents: Record<string, SourceReviewStatus> };
 
 export interface SourceReviewPin {
   document_id: string;
