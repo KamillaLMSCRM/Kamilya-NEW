@@ -6760,3 +6760,11 @@ CHG-L98F LOCAL 2026-11-12T03:23:00.656880+00:00: actualSSHtimeout/exit255 caused
 - verified:8917API/1skip;1807web/197files;83focused;16source UI; Ruff1004/Mypy2174/types/lint/build PASS. One actual110 saved-author/new Luna6HIGH review110.36s33848IN5869OUT ->3real questions/0unbound versus9old records. All19author custody identities match0newcalls. E=.release-evidence/furniture-source118review-20261117.
 - blockers: Full native updated review and actual full course/all lessons/tests not accepted. Source facts still belong to catalogue owner; no blanket KEEP, source approval or invented column priority. No customer writes, DeepSeek, local Docker, new paid resource or production mutation.
 - next: Commit/push exact candidate, existing CI/immutable image/zero-call cold replay, synchronized DEV API/web/sole worker, ordinary start on QA139 with retained two-part manifest and19completed authors. Review actual remaining questions, not the historical120count; course only after verified facts.
+
+### ENG078 pre-native replay follow-up2026-11-17
+
+- result:6e0dd5f5CI44056346261/build44057428505green but superseded before native QA/source start; known completed JSON pairs7/12 exposed a local second-repair counter regression. No worker or production switch occurred.
+- changed: Count only genuinely new format reissues; exact successful corrective receipts can replay on managed and normal routes with full custody identity/attempt/status/value/usage checks. Model prompts/reasoning/writer request bytes unchanged.
+- verified: Actual two-pair RED1read/secondrejected ->GREEN2read/0calls/0writes/no new quota;104focused including both native routes; final8920API/1skip146.20s,quality1004/2174. Previous1807web/type/lint/build still applies to unchanged frontend. E/actual-two-json-{red,green}.json and known-json-native.log.
+- blockers: No full updated native review/course acceptance; real product facts unknown. All19oldwriter keys match, two are cached known corrections. Do not mistake38stage reads for38freshcalls.
+- next: Push follow-up candidate, exactCI/image/offline synthetic cold gate and synchronized DEV. Fresh native table recheck of QA139 preserves two-part manifest; no approval or invented product priority. Native release evidence will be .release-evidence/furniture-source117e2-20261117.

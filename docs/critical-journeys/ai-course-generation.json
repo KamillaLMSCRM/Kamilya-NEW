@@ -140,7 +140,9 @@
         "apps/api/tests/unit/test_source_question_context.py::test_declined_comment_is_audited_and_does_not_hide_a_real_peer_conflict",
         "apps/api/tests/unit/test_source_question_context.py::test_other_product_or_missing_reference_cannot_dismiss_a_literal_clue",
         "apps/api/tests/unit/test_source_question_context.py::test_completed_row_review_checkpoint_replays_with_dismissal_audit_and_zero_calls",
-        "apps/api/tests/unit/test_source_question_context.py::test_explicit_recheck_is_revision_guarded_and_cannot_reopen_approved_or_edited_sources"
+        "apps/api/tests/unit/test_source_question_context.py::test_explicit_recheck_is_revision_guarded_and_cannot_reopen_approved_or_edited_sources",
+        "apps/api/tests/unit/test_source_completed_json_replay.py::test_two_known_corrected_replies_replay_before_and_after_the_single_new_reissue",
+        "apps/api/tests/unit/test_source_completed_json_replay.py::test_native_worker_reuses_two_completed_corrections_without_provider_calls"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"

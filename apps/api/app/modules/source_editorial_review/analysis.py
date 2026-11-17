@@ -32,6 +32,9 @@ from app.modules.source_editorial_review.question_context import (
     contexts,
 )
 from app.modules.source_editorial_review.request_custody import (
+    POLICY as REQUEST_CUSTODY_POLICY,
+)
+from app.modules.source_editorial_review.request_custody import (
     BeforePostDeferred,
     CompletedResponseRejected,
     RequestOutcomeUnknown,
@@ -301,7 +304,7 @@ def analysis_failure_code(error: Exception) -> str:
 
 
 class _ManagedSourceJsonRecovery:
-    """One document-wide retry only after a fully received, invalid JSON result."""
+    """One new format reissue per document; exact completed repairs remain readable."""
 
     def __init__(self) -> None:
         self.used = False
@@ -319,17 +322,22 @@ class _ManagedSourceJsonRecovery:
 
     async def complete(
         self, messages: list[dict[str, str]], request: Callable[[list[dict[str, str]]], Awaitable[object]],
+        *, completed_correction: Callable[[list[dict[str, str]]], bool] | None = None,
     ) -> object:
         try:
             return self._decode_completed(await request(messages))
         except ManagedLunaCompletedJsonError:
+            corrective = [
+                {**messages[0], "content": messages[0]["content"] + _REISSUE_JSON_INSTRUCTION},
+                *messages[1:],
+            ]
+            # Reading an exact successful corrective receipt is not a new
+            # model reissue. The caller must prove its custody before this read.
+            if completed_correction is not None and completed_correction(corrective):
+                return self._decode_completed(await request(corrective))
             if self.used:
                 raise
         self.used = True
-        corrective = [
-            {**messages[0], "content": messages[0]["content"] + _REISSUE_JSON_INSTRUCTION},
-            *messages[1:],
-        ]
         return self._decode_completed(await request(corrective))
 
 
@@ -740,9 +748,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                          "independent_review" if "proposal_sha256" in request_data else "editor")
                 phase = stage + "_request"
 
-                async def secured_request(current: list[dict[str, str]], route: str, seconds: float,
-                                          call: Callable[[], Awaitable[tuple[object, dict[str, Any] | None]]]) -> object:
-                    nonlocal unknown_request_key
+                def request_scope(current: list[dict[str, str]], route: str) -> tuple[str, str]:
                     selected = (text_hash(json.dumps(binding, ensure_ascii=False, sort_keys=True))
                                 if binding is not None else claim.original_blob_sha256)
                     key = identity(tenant=str(tenant_id), document=str(document_id),
@@ -751,6 +757,18 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     preceding = next((row for row in rows if row.sequence == root_queue.sequence - 1
                                       and row.kind == "failed"), None)
                     attempt = choose_attempt(key, retained, acknowledgement, acknowledged_failure, root_queue, preceding)
+                    return key, attempt
+
+                def completed_correction(current: list[dict[str, str]], route: str) -> bool:
+                    key, attempt = request_scope(current, route)
+                    kept = retained.get(f"{REQUEST_CUSTODY_POLICY}:{key}:{attempt}:completed")
+                    return bool(kept is not None and kept.get("identity") == key and kept.get("attempt") == attempt
+                                and kept.get("status") == "ok" and "value" in kept and "usage" in kept)
+
+                async def secured_request(current: list[dict[str, str]], route: str, seconds: float,
+                                          call: Callable[[], Awaitable[tuple[object, dict[str, Any] | None]]]) -> object:
+                    nonlocal unknown_request_key
+                    key, attempt = request_scope(current, route)
                     unknown_request_key = key
                     try:
                         result = await invoke_once(key=key, attempt=attempt, retained=retained, save=save_block,
@@ -782,7 +800,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                         finally:
                             managed.discard(prepared)
 
-                    result = await json_recovery.complete(messages, request)
+                    result = await json_recovery.complete(messages, request,
+                        completed_correction=lambda current: completed_correction(current, managed.cache_fingerprint()))
                     phase = stage + "_response"
                     return result
                 if llm is None or not await verify_claim():
@@ -800,6 +819,9 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     route = text_hash(json.dumps([config.name, config.model, config.base_url, config.endpoint,
                                                    timeout, max_tokens, config.extra_body,
                                                    "source-review-single-attempt-v2"], sort_keys=True))
+                    def known_provider_correction(current: list[dict[str, str]], correction_route: str = route) -> bool:
+                        return completed_correction(current, correction_route)
+
                     async def request_provider(current: list[dict[str, str]], *,
                                                call_timeout: float = timeout, call_config: Any = config,
                                                call_max_tokens: int = max_tokens, call_route: str = route) -> object:
@@ -821,7 +843,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                         return await secured_request(current, call_route, call_timeout, call_provider)
 
                     try:
-                        result = await json_recovery.complete(messages, request_provider)
+                        result = await json_recovery.complete(messages, request_provider,
+                            completed_correction=known_provider_correction)
                         phase = stage + "_response"
                         return result
                     except RequestRejected:

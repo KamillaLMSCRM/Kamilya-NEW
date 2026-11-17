@@ -1,0 +1,152 @@
+"""Reading fully completed corrective receipts does not spend a new retry."""
+import json
+
+import pytest
+
+from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError
+from app.modules.source_editorial_review.analysis import _REISSUE_JSON_INSTRUCTION, _ManagedSourceJsonRecovery
+from app.modules.source_editorial_review.request_custody import identity, invoke_once
+
+
+@pytest.mark.asyncio
+async def test_two_known_corrected_replies_replay_before_and_after_the_single_new_reissue():
+    retained = {}
+    wire_calls = []
+    usage = []
+
+    def key(messages):
+        return identity(tenant='owned', document='same-source', original_sha='a' * 64, selected_sha='b' * 64,
+                        policy='same-policy', route='same-route', messages=messages)
+
+    async def save(name, value):
+        retained[name] = value
+
+    def messages(label):
+        return [{'role': 'system', 'content': 'Review'}, {'role': 'user', 'content': label}]
+
+    def corrected(m):
+        return [{**m[0], 'content': m[0]['content'] + _REISSUE_JSON_INSTRUCTION}, *m[1:]]
+
+    # Exact fully completed custody from two different prior worker turns.
+    for label in ('saved-one', 'saved-two'):
+        m = messages(label)
+        retained[f'source-review-request-custody-v2:{key(m)}:initial:completed'] = {
+            'identity': key(m), 'attempt': 'initial', 'status': 'invalid_json', 'usage': None}
+        c = corrected(m)
+        retained[f'source-review-request-custody-v2:{key(c)}:initial:completed'] = {
+            'identity': key(c), 'attempt': 'initial', 'status': 'ok', 'usage': None,
+            'value': {'label': label}}
+
+    def completed(m):
+        value = retained.get(f'source-review-request-custody-v2:{key(m)}:initial:completed')
+        return bool(value and value.get('identity') == key(m) and value.get('status') == 'ok')
+
+    async def request(m):
+        async def network():
+            wire_calls.append(m)
+            assert m[1]['content'].startswith('fresh-'), 'A saved reply was sent to the model again'
+            if _REISSUE_JSON_INSTRUCTION not in m[0]['content']:
+                raise ManagedLunaCompletedJsonError('known_complete_bad_json')
+            return json.dumps({'label': m[1]['content']}), None
+        return await invoke_once(key=key(m), attempt='initial', retained=retained, save=save,
+                                 before_post=lambda: None, invoke=network, usage=lambda *u: usage.append(u))
+
+    recovery = _ManagedSourceJsonRecovery()
+    for label in ('saved-one', 'saved-two'):
+        assert await recovery.complete(messages(label), request, completed_correction=completed) == {'label': label}
+    assert not recovery.used and not wire_calls
+    assert await recovery.complete(messages('fresh-one'), request, completed_correction=completed) == {'label': 'fresh-one'}
+    assert recovery.used and len(wire_calls) == 2
+    assert await recovery.complete(messages('saved-two'), request, completed_correction=completed) == {'label': 'saved-two'}
+    assert len(wire_calls) == 2 and recovery.used
+    with pytest.raises(ManagedLunaCompletedJsonError):
+        await recovery.complete(messages('fresh-two'), request, completed_correction=completed)
+    assert len(wire_calls) == 3  # The second new invalid answer gets no new reissue.
+    assert len(usage) >= 8  # Cached invalid/corrected usage remains visible too.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('managed', [False, True])
+async def test_native_worker_reuses_two_completed_corrections_without_provider_calls(monkeypatch, managed):
+    from contextlib import asynccontextmanager
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, Mock
+    from uuid import uuid4
+
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+    from app.modules.source_editorial_review import analysis
+    from app.modules.source_editorial_review.domain import text_hash
+    from app.modules.source_preparation.domain import PreparedSource, digest
+    from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
+    from tests.unit.test_source_review_custody import row
+
+    tenant, document, actor = QA_TENANT, uuid4(), uuid4()
+    blob, block_id = 'a' * 64, 'block-' + 'b' * 24
+    package = PreparedSource.model_validate({'original_blob_sha256': blob,
+        'blocks': [{'id': block_id, 'text': 'Source', 'kind': 'text'}],
+        'parts': [{'id': 'part-' + digest(blob + block_id + block_id)[:24], 'title': 'Source', 'role': 'learning',
+                   'reason': 'Relevant', 'first_block': block_id, 'last_block': block_id}]})
+    binding = package.binding([package.parts[0].id])
+    config = SimpleNamespace(name='synthetic', model='fixture', base_url='local-test', endpoint='/test',
+                             timeout=5, extra_body={}, managed_evidence_profile=False)
+    route = 'managed-fixture' if managed else text_hash(json.dumps([
+        config.name, config.model, config.base_url, config.endpoint, 5.0, 1000, {},
+        'source-review-single-attempt-v2'], sort_keys=True))
+    rows = []
+    def event(kind, payload):
+        value = row(kind, len(rows) + 1, actor, blob, payload)
+        value.created_at = datetime.now(UTC)
+        rows.append(value)
+        return value
+    event('queued', {})
+    event('running', {'queued_event_id': str(rows[0].id)})
+    event('analysis_block', {'key': 'source-preparation-v1:manifest:' + blob,
+        'result': {'manifest': package.model_dump(), 'visual_review_policy': _VISUAL_REVIEW_POLICY}})
+    messages = [[{'role': 'system', 'content': 'review'},
+                 {'role': 'user', 'content': json.dumps({'saved': label})}] for label in ('one', 'two')]
+    for original in messages:
+        corrected = [{**original[0], 'content': original[0]['content'] + _REISSUE_JSON_INSTRUCTION}, original[1]]
+        for m, bad in ((original, True), (corrected, False)):
+            key = identity(tenant=str(tenant), document=str(document), original_sha=blob,
+                           selected_sha=text_hash(json.dumps(binding, ensure_ascii=False, sort_keys=True)),
+                           policy=analysis._ANALYSIS_POLICY, route=route, messages=m)
+            event('analysis_block', {'key': 'source-review-request-custody-v2:' + key + ':initial:completed',
+                'result': {'identity': key, 'attempt': 'initial', 'usage': None,
+                           'status': 'invalid_json' if bad and managed else 'ok',
+                           'value': '{bad' if bad else {'ok': True}}})
+    event('failed', {'code': 'source_review_invalid_response'})
+    queued = event('queued', {'preparation': binding})
+    doc = SimpleNamespace(id=document, tenant_id=tenant, content_sha256=blob, filename='source.txt', s3_key='fixture')
+    session = SimpleNamespace(execute=AsyncMock(), commit=AsyncMock())
+    @asynccontextmanager
+    async def sessions():
+        yield session
+    def add_event(_db, _doc, *, kind, payload, **_):
+        return event(kind, payload)
+    async def analyze_fixture(source, *, complete_json, **_):
+        assert source == 'Source'
+        for m in messages:
+            assert await complete_json(m) == {'ok': True}
+        return {'original': source, 'issues': [], 'automatic': [], 'model_calls': 0}
+
+    network = AsyncMock(side_effect=AssertionError('Completed repair was sent again'))
+    managed_client = SimpleNamespace(cache_fingerprint=lambda: route, generation_deadline_seconds=5,
+                                     prepare=AsyncMock(return_value=object()), discard=Mock(), invoke=network, close=Mock())
+    monkeypatch.setattr(analysis, 'async_session_factory', sessions)
+    monkeypatch.setattr(analysis, 'owned_document', AsyncMock(return_value=doc))
+    monkeypatch.setattr(analysis, 'history', AsyncMock(side_effect=lambda *_: list(rows)))
+    monkeypatch.setattr(analysis, 'add_event', add_event)
+    monkeypatch.setattr(analysis, 'review_enabled', lambda: True)
+    monkeypatch.setattr(analysis, 'get_settings', lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=managed))
+    monkeypatch.setattr(analysis, 'analyze', analyze_fixture)
+    monkeypatch.setattr(analysis.ResilientLLMClient, 'from_settings_async',
+                        AsyncMock(return_value=SimpleNamespace(_clients=[SimpleNamespace(config=config)])))
+    monkeypatch.setattr('app.modules.admin.runtime_configuration.runtime.resolve_runtime_settings',
+                        AsyncMock(return_value=SimpleNamespace(integer=lambda _: 1000)))
+    monkeypatch.setattr('app.modules.ai.direct_luna_responses_factory.create_managed_qa_client',
+                        AsyncMock(return_value=managed_client))
+    monkeypatch.setattr('app.modules.ai.llm_client.LLMClient', lambda *_a, **_k: SimpleNamespace(ainvoke=network))
+    assert await analysis.run_analysis(tenant, document, queued.id) == 'analyzed'
+    assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == 'Source'
+    network.assert_not_awaited()
