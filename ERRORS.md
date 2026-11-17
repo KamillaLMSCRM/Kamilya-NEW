@@ -11269,3 +11269,19 @@ sufficient: independently proved1,462,956,032free >=1,360,574,539required; delet
 No local Docker, client writes, provider changes or unknown model call replay.
 
 Source116 harness follow-up: Windows write_text without newline=LF converted two whole canonical files to CRLF; diff --check rejected every new CR as trailing whitespace. Normalize only task-owned docs to original LF and keep original text. New producers explicitly write UTF8/LF. Capture broad diff-check output to private file and print a bounded summary, never hundreds of thousands of lines. No application/runtime/model changes.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 furniture workbook:
+Repeated known /users/me403 under superadmin tenant impersonation before using
+the documented response tenant/as_role/user binding; no security/role relaxation.
+QuizResponse has neither tenant_id nor correct_answer: bind quiz lesson_id to
+exact owned structure, use choices[].is_correct and order_index. The erroneous
+None109-key report remains a harness failure; corrected109first-position finding
+is separate historical course data, not current116 generation or live-player proof.
+Initial httpx DEV login timeout was auth-only and recovered through known verified
+TLS stdlib fallback, no model POST repeated. Install offline socket-connect fence
+after Windows asyncio self-pipe creation. Read current successful receipt producer
+before adapting; do not repeat earlier uppercase-key/DTO/current-worker assumptions.
+Keep scripts on UTF8/LF, bound JSON output rather than dumping complete customer
+text. Source terminal is in_review, not automatic human approval or full-course
+acceptance. Model usage complete3calls; no unknown calls or source edits replayed.

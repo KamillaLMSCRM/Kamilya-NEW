@@ -792,9 +792,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                         persist_asset=persist_asset, retained=retained,
                         vision_batch_size=runtime.integer("source_preparation.vision_batch_size"),
                         preview_chars=runtime.integer("source_preparation.part_preview_chars"))
-                    selected_ids = [part.id for part in package.parts if part.role == "learning"]
-                    if not selected_ids:
-                        selected_ids = [part.id for part in package.parts if part.role == "supporting"]
+                    selected_ids = [part.id for part in package.parts if part.role in ("learning", "supporting")]
                     if not selected_ids:
                         raise ReviewConflictError("source_preparation_no_learning_content")
                     source_text = package.selected(selected_ids)[0]

@@ -1,3 +1,60 @@
+## IN PROGRESS 2026-11-17 — ENG-074 catalogue117 local fix, native DEV pending
+
+result: Owner authorizes ENG-074 repair, complete real-workbook DEV course and
+conditional production. Candidate117 keeps initial learning+supporting source;
+administrative and explicit historical selections remain unchanged.
+
+changed: analysis.py initial predicate; existing V11 planner task groups catalogue
+facts by meaningful skills/topics with supporting_refs, no lesson-per-SKU rule.
+Version117/release notes and actual run journals; no migration or provider change.
+
+verified: Red4/GREEN12 native preparation/resume regression,158focused tests,
+full API8893pass/1skip, quality1004/2174, release contracts/version/diff-check.
+Saved ENG-074 actual classification replay0calls selects both parts; workbook
+hash unchanged. Current production and DEV116 still exact68fc; no rollout yet.
+
+blockers: Native117 complete-file editorial review, generation, all lessons and
+tests, then conditional production remain unverified. No customer content writes.
+
+next: Publish exact candidate through project-account Git receipt path, deploy
+existing DEV API/frontend/sole VM worker. Fresh byte-identical retained QA copy
+must prove automatic selection includes catalogue; cancel only owned unclaimed
+embedding job while worker is safely drained. Existing paid Luna/HIGH only.
+Full actual per-stage usage and quality go to CHG-SOURCE-CATALOG117 and ledger;
+never label partial source, local replay or historical29L109Q as full acceptance.
+A=.release-evidence/furniture-source117-20261117, old frozen workbook/case in
+furniture-large-excel-20261117. Protected release only after semantic GO.
+
+## Historical check 2026-11-17 — furniture large Excel default scope NO_GO
+
+result: Owner-requested actual Plus XLSX check found ENG-074 OPEN. Current runtime
+0.11.116/68fc unchanged; whole-workbook acceptance failed at source selection,
+not at file reading. No application patch or release in this task.
+
+changed: Read-only client inventory and workbook/course/quizzes capture; retained
+byte-identical XLSX copy ad336f44-80ef-406f-b622-851aedac4994 in permanent DEV QA
+a7a2, ordinary source check once on existing paid Luna6/HIGH. Journals appended.
+
+verified:2sheets/291product rows; actual offline extraction0.953s/644776chars/
+1076chunks. Native source terminal in_review/ref15,0questions0edits;3completed
+calls102763IN1567OUT/usagecomplete. Default selects learning comparison7002chars
+and excludes supporting product catalogue. Current UI offers explicit override.
+Independent final original binary/metadata/course/quizzes hashes unchanged;
+QA source remains unapproved. Exact DEV worker resumed/config+production kept.
+
+blockers: Whole-file review/generation is NOT accepted. No fresh course created;
+historical29L109Q is baseline only. Supporting role itself need not be wrong:
+learning-first default scope is the confirmed deterministic cause. No customer
+edits, billing/provider/routing/reasoning change, embeddings or local Docker.
+
+next: Use ENG-074 saved package and original workbook before any new model call.
+If fixing scope, distinguish supporting context from administrative exclusions,
+retain explicit user selections/historical approvals and test generic mixtures.
+Do not approve/generate7002chars and label the entire Excel passed. Owner request
+was a check; no implementation undertaken. A=.release-evidence/furniture-large-
+excel-20261117/final-assessment.json and final-preservation.json. Completed116
+recovery/release proof below remains valid and is not reopened by this finding.
+
 ## COMPLETE 2026-11-16 — ENG-073 recovery116 accepted and in production
 
 result: ENG-073 CLOSED. Runtime/tag v0.11.116 exact

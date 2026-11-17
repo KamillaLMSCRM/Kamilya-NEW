@@ -2918,3 +2918,89 @@ current/rollback/additional recovery resources preserved. No native cleanup.
 All final proofs A/final-release116.json, final116-preservation, root predeploy
 and post-closeout final gate. ENG-073 CLOSED, previous failed D remains immutable.
 Metadata closeout does not retag/rebuild/redeploy application68fc.
+
+
+## RUN-FURNITURE-LARGE-XLSX-116-20261117 — PROPOSED native large-workbook check
+
+Owner requests checking the furniture tenant large Excel. Exact production Plus
+document153cc494-b0c3-4fa2-995f-8372d66eaebe, original SHA
+00783869f407800c94917053d84430091424de2cf36108d4e972540cf8bc52be.
+Original/customer content read-only; new retained copy/draft only in existing
+permanent DEV QA a7a2. Engine116/source68fc, existing managed gpt-6-luna/HIGH,
+no new DeepSeek/embeddings/tiers/routing/profile changes or local Docker.
+Previous large-Excel metadata/source-map and distractor failures (historical
+0.4.4/GENERAL quality) are navigation, not current runtime proof. Existing client
+draft29lessons109questions captured unchanged. Independent physical workbook:
+2sheets/291product rows/2183nonempty cells/636490text characters,0formulas/media,
+262180exact duplicate text characters. Actual116 local conversion/direct corpus
+644776characters/1076chunks,0.953s, verified openpyxl metadata/2tables,0network/DB/
+model calls. Full-scope source checker partitions into19blocks/minimum38writer+
+review calls (forecast, not actual usage). Native preparation may select a subset;
+check selected coverage before treating the full workbook as processed.
+First exact-copy upload with owned unclaimed index cancellation, source review,
+then course generation only after genuine issues are resolved/absent; no fake
+approval, manual course edits, discarded source, provider retries or publication.
+All intents/statuses/calls/tokens/currency UNKNOWN and comparison hashes stay in
+private A=.release-evidence/furniture-large-excel-20261117. API/worker116 and idle
+queue/protected production fingerprint reverified before isolated work.
+
+
+RUN-FURNITURE-LARGE-XLSX-116-20261117 RESULT2026-11-17: whole-workbook NO_GO,
+not a generation/semantic quality success. Exact original XLSX copy ad336f44 in
+permanent DEV QA a7a2; ordinary source-review HTTP/sole VM worker116, Luna6/HIGH
+unchanged. Native terminal in_review/ref15,0automatic edits/0human questions.
+3fresh known completed calls: preparation77332IN413OUT, editor12658IN765OUT,
+independent12773IN389OUT; total102763IN1567OUT/usagecomplete. First terminal
+observed112.501s after submission (queue/poll included), not summed model
+time; reasoning split/currency UNKNOWN, only already-paid Luna/0DeepSeek.
+Preparation correctly preserves both parts but auto-selects only learning
+part-d9b3213a11fc0e980fa7dd52. Supporting catalogue part-cd14f2f6ce83884b2ffc20e7
+is unselected: original/working review text7002chars of644776extracted (1.086%).
+This is code policy learning-first/fallback-supporting at analysis.py795-800,
+not Excel extraction loss or an unproved stochastic review failure. UI has an
+explicit part checkbox override; no claim exclusion is hidden from all users.
+ENG-074 OPEN: product-training scope is incomplete by default. No fake approval,
+full-catalogue recheck, fresh course, repeated request or application patch made.
+Prior38minimum model-call estimate applies only to full-source editorial path,
+NOT actual usage here. Existing historical draft29lessons/109questions is a
+separate baseline;109stored correct choices are position1 (same per-attempt
+rotation in current player, no live attempt created). No full semantic verdict
+on the historical course. Final production original binary/metadata/course/
+quizzes unchanged by independent GET+hash equality; DEV copy byte-identical,
+terminal state unchanged/unapproved. Same worker resumed with exact config and
+production fingerprint preserved. Persist QA copy and failed scope evidence.
+A=.release-evidence/furniture-large-excel-20261117, final-assessment/preservation.
+
+## CHG-SOURCE-CATALOG117 PROPOSED 2026-11-17 — ENG-074 supporting source retained
+
+Owner authorizes ENG-074 repair, complete real Excel DEV course acceptance and
+conditional production. Reuse RUN-FURNITURE-LARGE-XLSX-116-20261117 exact workbook,
+selected IDs, source custody and model outputs; current116 remains production.
+Change only the initial automatic selection to learning+supporting, excluding
+administrative. Existing queued explicit selections, approvals, source bindings,
+format recovery and unknown-call fences remain unchanged. Supporting catalogue
+rows remain source facts; existing V11 primary/supporting_refs and CONTEXT plan
+must group coherent themes rather than force one lesson per SKU. Add that task
+to the existing planner, no new critic, special filename or adjustable limit.
+Regression first exercises actual run_analysis preparation handoff and resumed
+review for learning/supporting/admin mixtures and supporting-only fallback.
+Then replay actual saved part classification and all workbook bytes offline;
+generic explicit-selection/history tests remain authoritative. Only existing
+paid Luna/HIGH for native DEV checks; no client edits, new providers, plans,
+embeddings, migrations or local Docker. Current permanent QA copy is unapproved;
+never silently widen it by replay: explicitly reselect both saved parts for the
+owner-requested complete-file check after corrected candidate is deployed.
+SOURCE_FALLBACK: checkout-local CodeGraph runtime missing per navigation preflight;
+known bounded owner/caller/tests inspected, no graph installation/watcher.
+Private evidence A=.release-evidence/furniture-source117-20261117; record every
+actual call/token/result and all unsuccessful attempts before claiming GO.
+
+CHG-SOURCE-CATALOG117 LOCAL2026-11-17: actual native run_analysis preparation/
+continuation regression RED4/GREEN12; mixed learning/supporting/admin retains
+both substantive parts, supporting-only still works, existing explicit-selection
+and approval controls unchanged.158focused PASS; full API8893PASS/1skip/162.33s;
+quality ruff1004/mypy2174 PASS, release version/contracts/diff-check PASS.
+Saved actual Luna parts replay selects both IDs0model calls, original SHA exact.
+Application delta: initial selection predicate plus existing planner task only;
+version117, no migration/schema/provider/reasoning/runtime setting changes.
+DEV/native full-workbook quality and protected production remain PENDING.

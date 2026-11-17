@@ -39,7 +39,8 @@ REPLACEMENT = "До 45 МРП включительно действует пер
 @pytest.mark.asyncio
 @pytest.mark.parametrize("source_cap", [16384, 32768])
 @pytest.mark.parametrize("invalid_first", [False, True])
-async def test_source_editor_native_managed_profile_keeps_source_token_cap(monkeypatch, source_cap, invalid_first):
+@pytest.mark.parametrize("part_roles", [("learning",), ("learning", "supporting", "administrative"), ("supporting",)])
+async def test_source_editor_native_managed_profile_keeps_source_token_cap(monkeypatch, source_cap, invalid_first, part_roles):
     import asyncio
 
     from app.modules.source_editorial_review import analysis
@@ -51,12 +52,17 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     from tests.unit.test_source_review_custody import row
 
     tenant, document, actor = uuid4(), uuid4(), uuid4()
-    source_sha, block_id = "a" * 64, "block-" + "b" * 24
-    part_id = "part-" + digest(source_sha + block_id + block_id)[:24]
+    source_sha = "a" * 64
+    blocks = [{"id": "block-" + str(index + 1) * 24, "text": text, "kind": "text"}
+              for index, text in enumerate(("Source", "Reference catalogue", "Administrative register")[:len(part_roles)])]
+    parts = [{"id": "part-" + digest(source_sha + block["id"] + block["id"])[:24],
+              "title": block["text"], "role": role, "reason": "Relevant",
+              "first_block": block["id"], "last_block": block["id"]}
+             for block, role in zip(blocks, part_roles, strict=True)]
     package = PreparedSource.model_validate({"original_blob_sha256": source_sha,
-        "blocks": [{"id": block_id, "text": "Source", "kind": "text"}],
-        "parts": [{"id": part_id, "title": "Source", "role": "learning", "reason": "Relevant",
-                   "first_block": block_id, "last_block": block_id}]})
+        "blocks": blocks, "parts": parts})
+    expected_ids = [part.id for part in package.parts if part.role != "administrative"]
+    expected_source = package.selected(expected_ids)[0]
     parent = row("queued", 1, actor, source_sha)
     parent.created_at = datetime.now(UTC)
     rows = [parent]
@@ -80,9 +86,10 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
         return package
 
     async def analyze_fixture(_source, *, complete_json, **_):
+        assert _source == expected_source
         assert await complete_json([{"role": "system", "content": "review"},
                                     {"role": "user", "content": "{}"}]) == {"ok": True}
-        return {"original": "Source", "issues": [], "automatic": [], "model_calls": 1}
+        return {"original": expected_source, "issues": [], "automatic": [], "model_calls": 1}
 
     initial = SimpleNamespace(name="deepseek", model="synthetic", base_url="local", endpoint="/test",
                               timeout=5, extra_body={}, managed_evidence_profile=True)
@@ -128,6 +135,7 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
 
     assert await analysis.run_analysis(tenant, document, parent.id) == "continued"
     queued = rows[-1]
+    assert queued.payload["preparation"]["selected_part_ids"] == expected_ids
     assert await analysis.run_analysis(tenant, document, queued.id) == "analyzed"
     helper.assert_called_once_with(initial, runtime, "course_generation")
     assert client_factory.call_count == (2 if invalid_first else 1)

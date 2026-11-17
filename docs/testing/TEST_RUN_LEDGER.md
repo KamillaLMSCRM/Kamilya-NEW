@@ -7692,3 +7692,20 @@ Existingproduction111/courseb05421bb/currentapprovedsource113: all8L8Qz31cards/f
  NOT RUN. Watchdog identity-only diff, both timers/oneshot independently pass.
 - A=.release-evidence/source-json116-20261116; final-release116 and final canonical
  no_migration_final gate preserve exact receipts/hashes and proof boundaries.
+
+
+## RUN-FURNITURE-LARGE-XLSX-116-20261117
+
+- Actual deployed116/68fc ordinary DEV source review on exact existing Plus XLSX;
+  local offline ingestion PASS0.953s/644776chars/1076chunks/2verified tables.
+- Whole-workbook scope NO_GO: default learning-first selection retains7002chars,
+  leaves291-row supporting catalogue unselected. UI override exists, not run.
+  Native review terminal ref15/0questions0automatic edits; not a full-course test.
+-3fresh Luna6/HIGH calls102763IN1567OUT/usagecomplete; first terminal observed
+  112.501s after submission, queue/poll included. Currency/reasoning split
+  UNKNOWN, existing paid Luna only.0unknown retries/DeepSeek/embeddings/Docker.
+- No source approval or course generation/publication; retained QA document
+  ad336f44-80ef-406f-b622-851aedac4994 in permanent a7a2 tenant. Final original
+  XLSX, metadata, historical course and quiz hashes all unchanged. Historical
+  29L109Q is not current-run output. ENG-074 OPEN; no application patch/release.
+- A=.release-evidence/furniture-large-excel-20261117 final-assessment/preservation.

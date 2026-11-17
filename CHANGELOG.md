@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.11.117] - 2026-11-17
+
+### Fixed
+
+- Keep learning and supporting document parts in the initial source selection so reference catalogues remain available to review and generation. Preserve explicit selections, historical approvals and administrative exclusions.
+- Plan catalogue-based training by coherent topics and skills, using relevant product rows as supporting sources rather than requiring a lesson for every article.
+
 ## [0.11.116] - 2026-11-16
 
 ### Fixed

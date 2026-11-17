@@ -1845,3 +1845,33 @@ budget shared per document; second malformed reply terminal; unknown/timeouts
 never retried. Not a claim that fresh DEV produced malformed JSON; source API
 provider selector remains absent and global routes unchanged. Customer writes0.
 State CLOSED for ENG-073; this does not promise every model response is valid.
+
+
+## ENG-074 — learning-first source preparation omits substantive catalogue context by default
+
+- Date:2026-11-17; OPEN, observed ordinary DEV116/source68fc on an exact read-only
+  copy of Plus customer XLSX153cc494. Original SHA00783869...8c52be.
+- Independent workbook2sheets/291product rows/2183cells/636490textchars. Actual
+  current converter preserves644776chars/1076chunks in0.953s, metadata verified.
+  Native preparation preserves two parts, marks comparison learning and product
+  catalogue supporting. analysis.py795-800 selects supporting ONLY when no
+  learning exists; selection is the entire source text passed onward.
+- Native source review therefore sees7002chars of comparison only;291catalogue
+  rows are outside the selected scope.3actual completed Luna6/HIGH calls total
+  102763IN1567OUT, terminal in_review/ref15/0questions0edits. This cannot prove
+  full-file review or course quality; no approval/generation was submitted.
+- Class: deterministic default-scope/product-policy gap, not reader truncation,
+  invalid JSON, random model quality or a requirement to teach every SKU. A
+  supporting role can be valid, while excluding all such context is unsuitable
+  for product training without an explicit scope decision. UI checkboxes permit
+  manual inclusion; no live browser acceptance or select-all run was performed.
+- Candidate direction, NOT IMPLEMENTED: retain relevant supporting material as
+  source context with learning sections, keep administrative exclusion and
+  explicit scope choices, show the selected coverage before review/generation.
+  Preserve historical approvals and their exact source bindings; no filename or
+  furniture-specific rule. First reproduce against retained selected package,
+  then generic mixed learning/supporting/admin fixtures before fresh inference.
+- A=furniture-large-excel-20261117/source-run-final.json, final-assessment.json,
+  independent-sheet-map.json and current-extraction.md. Customer original,
+  existing course29lessons/109questions and results not modified; hashes match.
+  No new application patch, release, DeepSeek, provider change or local Docker.
