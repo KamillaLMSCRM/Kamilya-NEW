@@ -11285,3 +11285,23 @@ before adapting; do not repeat earlier uppercase-key/DTO/current-worker assumpti
 Keep scripts on UTF8/LF, bound JSON output rather than dumping complete customer
 text. Source terminal is in_review, not automatic human approval or full-course
 acceptance. Model usage complete3calls; no unknown calls or source edits replayed.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-17 ENG074 candidate:
+Old prepare_cold116 producer retained original_DEV_unchanged in a concatenated
+output fragment although its final reconciliation was correct. Copied first-
+fragment-only AST evidence guard missed that later constant; helper rejected
+remote report after env staging/image pull. Preserve failure; inspect/replay only
+existing image/env without reinstall/pull/model request,993source hashes PASS.
+Local guard now scans every complete-script pipe-key, including concatenated
+fragments, before SSH. Never reuse failed producer as final verified procedure.
+Private transport fixture initially assumed packet.blocks equals model aliases;
+whitespace-only spans are intentionally not aliased. Check all meaningful spans,
+not raw count. A known UTF8 read omitted encoding and stopped locally before
+state mutation; use explicit UTF8 and python-Xutf8, not ambient CP1251.
+No unknown inference was retried, source/approvals not fabricated, gates unchanged.
+
+OPS-012 follow-up2026-11-17 ENG074 staging: minimum exact one oldest stopped
+no-volume DEV7b9d361a/image3aa2b4d1 removed under standing13Nov authority after
+matching offhost manifest/config/all16blobs. All75other containers/config/mounts/
+states and release-plane state identical,0volumes/customer writes, free7277912064.
+Current116/115rollback/114 and older recovery copies preserved, no force/prune.

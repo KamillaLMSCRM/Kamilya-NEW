@@ -10,6 +10,26 @@ from app.modules.ai.v3.source_units import (
 )
 
 
+@pytest.mark.parametrize('newline', ['\n', '\r\n'])
+def test_spaced_tables_keep_rows_headers_and_exact_source_spans(newline):
+    source = newline.join([
+        '# First catalogue', '', '| Article | Material |', '', '| --- | --- |', '',
+        '| A1 | First material |', '', '| A2 | ' + 'Complete long row ' * 3000 + ' |', '',
+        'Independent prose.', '', '| Item | Dimensions |', '', '| --- | --- |', '',
+        '| B1 | 10 × 20 × 30 |', '', '| B2 | 40 × 50 × 60 |', '', 'After tables.',
+    ])
+    units = plan_source_units(source)
+    assert ''.join(unit.text for unit in units) == source
+    assert all(unit.text == source[unit.start:unit.end] for unit in units)
+    headers = [unit for unit in units if unit.kind == 'table_header']
+    rows = [unit for unit in units if unit.kind == 'table_row']
+    assert len(headers) == 2 and len(rows) == 4
+    assert all('Article' in unit.context and 'Dimensions' not in unit.context for unit in rows[:2])
+    assert all('Dimensions' in unit.context and 'Article' not in unit.context for unit in rows[2:])
+    assert len({unit.container_id for unit in rows}) == 2
+    assert sum('Complete long row ' in unit.text for unit in units) == 1
+
+
 def test_hundred_section_source_inventory_preserves_every_boundary_and_marker():
     source = "".join(
         f"{index}. Section {index}\n\nMARKER_{index:03d} " + ("условие и действие; " * 130) + "\n\n"

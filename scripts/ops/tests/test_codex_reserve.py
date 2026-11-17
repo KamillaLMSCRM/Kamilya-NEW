@@ -133,7 +133,7 @@ def test_medium_capacity_retry_shares_one_deadline(worker, monkeypatch):
     {"model": "other"}, {"command": "synthetic"}, {"max_tokens": True}, {"max_tokens": -1},
     {"messages": [{"role": "tool", "content": "synthetic"}]},
     {"messages": [{"role": "user", "content": "synthetic", "extra": "not allowed"}]},
-    {"messages": [{"role": "user", "content": "x" * 524289}]},
+    {"messages": [{"role": "user", "content": "x" * 8388609}]},
 ])
 async def test_invalid_input_rejected_before_process(worker, modules, monkeypatch, changes):
     run = AsyncMock(side_effect=AssertionError("must not execute"))
@@ -151,6 +151,20 @@ async def test_one_execution_returns_compatible_reply_and_usage(worker, monkeypa
     assert result["usage"]["completion_tokens"] == 10
     assert run.await_count == 1
     assert not Path(run.call_args.kwargs["cwd"]).exists()
+
+
+async def test_large_utf8_source_reaches_runner_without_clipping(worker, modules, monkeypatch):
+    import ast
+    source = 'Каталог: материал и размер товара.\n' * 25000
+    assert len(source.encode('utf-8')) > 524288
+    tree = ast.parse((ROOT / 'apps/api/app/modules/ai/managed_luna_client.py').read_text(encoding='utf-8'))
+    client_bound = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == 'MAX_INPUT_BYTES' for t in n.targets))
+    assert client_bound == modules[0].MAX_INPUT_BYTES == modules[1].MAX_INPUT_BYTES == 8388608
+    run = AsyncMock(return_value=(0, output(), b''))
+    monkeypatch.setattr(worker, '_run', run)
+    result = await worker.complete(payload(messages=[{'role': 'user', 'content': source}]))
+    assert result['choices'][0]['message']['content'] == 'synthetic' and run.await_count == 1
 
 
 def test_exact_capacity_retries_once_with_identical_wire_and_returns_final_usage(worker, modules, monkeypatch):

@@ -25,7 +25,8 @@ from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
 MODEL = "gpt-5.6-luna"
 LUNA6_MODEL = "gpt-6-luna"
-MAX_INPUT_BYTES = 524288
+# Bounded wire bytes, not tokens: full supported Unicode documents exceed 512 KiB.
+MAX_INPUT_BYTES = 8388608
 MAX_RESPONSE_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
 logger = logging.getLogger(__name__)

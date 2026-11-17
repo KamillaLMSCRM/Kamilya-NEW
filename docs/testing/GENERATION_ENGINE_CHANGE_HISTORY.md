@@ -3004,3 +3004,40 @@ Saved actual Luna parts replay selects both IDs0model calls, original SHA exact.
 Application delta: initial selection predicate plus existing planner task only;
 version117, no migration/schema/provider/reasoning/runtime setting changes.
 DEV/native full-workbook quality and protected production remain PENDING.
+
+CHG-SOURCE-CATALOG117 R2 PROPOSED2026-11-17: full-size offline actual planner/
+producer/client.prepare probe caught two additional pipeline incompatibilities
+BEFORE fresh Luna use: complete644776char source produces1182129UTF8 message
+bytes against a shared512KiB transport cap (ENG-075), and source_units recognizes
+only2prose blocks because converter table rows have blank lines between them
+(ENG-076). Existing1000-small-paragraph schema tests did not exercise this size.
+Candidate94c845ff/devCI44020037203/image f02f07ba is technically green but NOT
+accepted or released; worker116 still running, source calls0for117. Keep it as
+failed acceptance history; no model retries, fake API approval or truncation.
+R2 will recognize spaced Markdown tables losslessly with exact row/header spans,
+preserving normal contiguous tables, prose and explicit approved text bytes.
+Align managed client/runner/server bounded input with supported full documents:
+8MiB structural wire bound, same model/reasoning/output cap/ownership/tool/timeout
+guards and original literal text. No DB/runtime key, provider plan or routing
+change. Update only the existing isolated DEV connector code after exact image
+proof; shared production connector stays unchanged until independent acceptance
+and separately scoped protected rollout. Generic native scope tests remain;
+add spaced/multiple-table and actual large UTF8 prepare/producer negatives first.
+No source semantic rewrite, registry substitution, new critic or SKU-specific rule.
+
+CHG-SOURCE-CATALOG117 R2 LOCAL2026-11-17:4new RED controls retained,261focused
+GREEN including actual managed client/CLI producer, generic spaced LF/CRLF tables,
+multiple table headers, long unsplit row and >8MiB rejection. Full API8896PASS/
+1skip/138.39s, quality1004/2174 and release contracts/diff-check PASS. Full exact
+Excel wire fixture now313literal spans (formerly2prose blocks),1305610message
+UTF8 bytes, actual prepare/discard+producer schema pass0network/DB/model calls.
+Fixture has explicitly synthetic approval DTO only; no native approval created.
+Initial94image/candidate remains NOT_ACCEPTED; no worker switch or model request.
+Its993file/frozen JSON recovery readback PASS after report-format reconciliation;
+original failed evidence retained, no second pull/env installation. Shared
+production/soleDEV116 kept. OPS-012 exact oldest stopped no-volume copy7b9d361a /
+image3aa2b4d1 removed after matching registry manifest+16available blobs; all75
+other containers/state/volumes preserved, free7277912064bytes. No force/prune,
+customer/provider/plan/model/reasoning change. Existing isolated DEV connector
+2145d0bf/private19000 requires compatible receiver image before fresh full test;
+shared production connector/config is unchanged. Native quality/prod still OPEN.

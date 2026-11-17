@@ -80,28 +80,42 @@ def plan_source_units(text: str) -> tuple[SourceUnit, ...]:
 
     prose_start = 0
     index = 0
+
+    def next_content(position: int) -> int:
+        while position < len(lines) and not lines[position].strip():
+            position += 1
+        return position
+
     while index + 1 < len(lines):
-        if not (lines[index].lstrip().startswith("|") and _TABLE_SEPARATOR.fullmatch(lines[index + 1].strip())):
+        separator = next_content(index + 1) if lines[index].lstrip().startswith("|") else len(lines)
+        if separator >= len(lines) or not _TABLE_SEPARATOR.fullmatch(lines[separator].strip()):
             index += 1
             continue
         if prose_start < offsets[index]:
             append_prose(prose_start, offsets[index])
         header_start = offsets[index]
-        header_end = offsets[index + 2]
+        header_end = offsets[separator + 1]
         header = text[header_start:header_end]
         container_id = f"table:{header_start}:{header_end}"
         units.append(SourceUnit(header_start, header_end, header, "table_header", container_id=container_id))
-        index += 2
+        header_cells = lines[index].strip().strip("|").split("|")
+        index = separator + 1
         row_context = header
-        header_cells = lines[index - 2].strip().strip("|").split("|")
-        if index < len(lines) and all(not cell.strip() for cell in header_cells):
-            first_cells = lines[index].strip().strip("|").split("|")
+        first_row = next_content(index)
+        if first_row < len(lines) and all(not cell.strip() for cell in header_cells):
+            first_cells = lines[first_row].strip().strip("|").split("|")
             if first_cells and all(re.fullmatch(r"\s*\*\*.+?\*\*\s*", cell) for cell in first_cells):
-                row_context += lines[index]
-        while index < len(lines) and lines[index].lstrip().startswith("|"):
-            start, end = offsets[index], offsets[index + 1]
+                row_context += text[offsets[index]:offsets[first_row + 1]]
+        while index < len(lines):
+            content = next_content(index)
+            if content >= len(lines) or not lines[content].lstrip().startswith("|"):
+                break
+            following = next_content(content + 1)
+            if content > index and following < len(lines) and _TABLE_SEPARATOR.fullmatch(lines[following].strip()):
+                break  # A separate table starts after the gap; retain its own header.
+            start, end = offsets[index], offsets[content + 1]
             units.append(SourceUnit(start, end, text[start:end], "table_row", row_context, container_id))
-            index += 1
+            index = content + 1
         prose_start = offsets[index]
     if prose_start < len(text):
         append_prose(prose_start, len(text))

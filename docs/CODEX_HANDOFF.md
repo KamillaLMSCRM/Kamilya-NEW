@@ -1,5 +1,23 @@
 ## IN PROGRESS 2026-11-17 — ENG-074 catalogue117 local fix, native DEV pending
 
+R2 checkpoint2026-11-17: owner full-file offline preflight revealed ENG-075
+512KiB wire mismatch and ENG-076 spaced tables becoming2prose spans before any
+fresh Luna call. Local successor preserves313exact spans and sends full1.305MB
+request through actual producer/prepare0network;8MiB bound now matches client/
+runner/server. Normal contiguous tables, source text and output/ownership/tool
+fences preserved.261focused and8896API/1skip, quality1004/2174 PASS. No117native
+course/source call yet. Candidate94c845ff CI44020037203/imagebuild44021236046
+passed but is NOT accepted and must not be deployed as final. Worker116/e57 and
+shared production remain; API auto-deploy identity is not yet reconciled. Before
+full DEV117, new exact commit/images and existing isolated Luna6 connector upgrade
+are required; current private19000 compose=/opt/kamilya-dev-codex/compose.yml,
+project kamilya-dev-codex, image2145d0bf,2services. Shared reserve is separate and
+unchanged. Existing QA original ad336 review15 remains unapproved/intact.
+OPS-012 one stopped no-volume7b9d361a/image3aa2b4d1 removed after16blob recovery
+proof; all75others and release state preserved; free7277912064. Evidence-format
+rejection from old cold template reconciled without pull/staging/model retry.
+Current task evidence remains furniture-source117-20261117; preserve failed files.
+
 result: Owner authorizes ENG-074 repair, complete real-workbook DEV course and
 conditional production. Candidate117 keeps initial learning+supporting source;
 administrative and explicit historical selections remain unchanged.

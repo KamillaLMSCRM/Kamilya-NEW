@@ -1875,3 +1875,40 @@ State CLOSED for ENG-073; this does not promise every model response is valid.
   independent-sheet-map.json and current-extraction.md. Customer original,
   existing course29lessons/109questions and results not modified; hashes match.
   No new application patch, release, DeepSeek, provider change or local Docker.
+
+## ENG-075 — full supported Unicode source exceeds the managed Luna wire bound
+
+- Date:2026-11-17, LOCAL reproduced before any fresh model call. After ENG-074
+  selection repair, complete644776char Excel creates1182129UTF8 message bytes
+  against client/runner/server524288byte bound. Native source check uses smaller
+  parts and therefore did not expose the full planner request mismatch.
+- Class: deterministic whole-pipeline size contract, not model capacity, source
+  ambiguity or output token exhaustion. Red actual client.prepare and generic
+  large UTF8 producer test; all sources remain literal and no API approval made.
+- LOCAL117R2 aligns both client and runner bound8388608; server imports runner
+  bound. Same reasoning/model/output/ownership/credentials/tool/timeout fences.
+  Full source after structural repair passes actual producer and client.prepare
+  at1305610message bytes/313source spans0network/DB/model calls. Generic >8MiB
+  negatives remain blocked. Isolated DEV receiver upgrade/native quality and
+  production are PENDING; existing connector changes must preserve shared
+  production and exact identity until separately accepted.
+- A=furniture-source117-20261117/offline-full-plan-size.json (old failure) and
+  offline-full-plan-contract.json (local successor). Do not confuse synthetic
+  immutable approval DTO fixture with a human/API source approval.
+
+## ENG-076 — spaced Markdown tables become whole-sheet prose in teaching inventory
+
+- Date:2026-11-17, LOCAL on the same exact source. plan_source_units required
+  adjacent header/separator/rows; actual XLSX converter separates table lines
+  with blank lines. Full workbook became2prose blocks, limiting meaningful
+  source ownership and losing row/header navigation before generation.
+- Class: generic structural parser mismatch, not spreadsheet-cell extraction
+  loss or a requirement to create a teaching unit per row.
+- LOCAL117R2 uses whitespace lookahead without altering source bytes, carries
+  exact row/header spans and stops before a distinct table after a gap. Normal
+  contiguous table boundaries stay unchanged. LF/CRLF, two spaced tables, one
+  long unsplit row, unrelated prose and source identity controls pass; full
+  actual source313spans and all sampled catalogue markers reach the planner.
+- Native full-course quality/production PENDING. Prior source/approval text and
+  saved courses are not rewritten; no accepted historical source is reopened.
+  A=furniture-source117-20261117/full-path-red.log and focused-green/contract.
