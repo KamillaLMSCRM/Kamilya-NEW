@@ -12,7 +12,8 @@
         "apps/api/app/modules/lessons/**",
         "apps/api/app/modules/quizzes/**",
         "scripts/ci/kb_rag_schema_contract.py",
-        "scripts/ops/kb_rag_application_dev_gate.py"
+        "scripts/ops/kb_rag_application_dev_gate.py",
+        "apps/api/app/modules/source_editorial_review/**"
       ],
       "required_tests": [
         "apps/api/tests/unit/test_simple_editor_findings.py::test_corrected_quote_must_be_new_in_changed_field",
@@ -135,7 +136,11 @@
         "apps/api/tests/unit/test_simple_course_editor_v10.py::test_prior_question_disposition_revalidates_after_edit_and_body_claim_survives",
         "apps/api/tests/unit/test_simple_course_editor_v10.py::test_tampered_postedit_ancestry_fails",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v10.py::test_v10_assembled_owned_stages_and_cold_replay",
-        "apps/api/tests/unit/test_simple_course_editor_v10.py::test_unsupported_source_target_stays_visible_beside_safe_card_fix"
+        "apps/api/tests/unit/test_simple_course_editor_v10.py::test_unsupported_source_target_stays_visible_beside_safe_card_fix",
+        "apps/api/tests/unit/test_source_question_context.py::test_declined_comment_is_audited_and_does_not_hide_a_real_peer_conflict",
+        "apps/api/tests/unit/test_source_question_context.py::test_other_product_or_missing_reference_cannot_dismiss_a_literal_clue",
+        "apps/api/tests/unit/test_source_question_context.py::test_completed_row_review_checkpoint_replays_with_dismissal_audit_and_zero_calls",
+        "apps/api/tests/unit/test_source_question_context.py::test_explicit_recheck_is_revision_guarded_and_cannot_reopen_approved_or_edited_sources"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent"

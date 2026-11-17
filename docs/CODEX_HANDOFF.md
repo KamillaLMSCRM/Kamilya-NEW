@@ -1,3 +1,92 @@
+## WAITING FOR VERIFIED SOURCE FACTS —2026-11-17 ENG074/077 DEV117D
+
+result: DEV117 exact70e4f9d12399450803b141434881dae467fbf0f3 successfully
+checked the FULL real Plus Excel:2parts/worksheets,291catalogue rows,19source
+blocks,644776original chars/SHA2ba5e28a. Source139in_review/120open/approvalNULL.
+No native course or production117 acceptance; production remains116/68fc9109.
+Owner says choose best: use per-product factual confirmation, never arbitrary
+column priority. No more approval question is needed; reliable product facts
+from source owner are the missing input. Do NOT invent them or blanket KEEP.
+
+changed: ENG074 default source retention/planner grouping and ENG075/076 wire/
+table parsing are in DEV; ENG077 guarded oversize model proposal/audit now
+natively passes. Five safe grammar/spelling edits in QA working text, original
+unchanged. Two proved no-conflict comments declined independently through QA
+resolve/KEEP138/139, no source text/fact change; all genuine questions retained.
+
+verified: API8905PASS/1skip/quality1004/2174; CI44040293248 and imagebuild
+44041179724 SUCCESS. Image00f1c8b0aaa10422c50291c930c185a78a735e97a40068fc6b87480065cb6457,
+soleworker576584a6b0bbfae137e4f46d9550ac17bedc7bbac62f41e8ef121cbb868bef91,
+env61aaec2e...524aa/restart0, APIdep-dbu0cq0ae00c73caar00,
+Verceldpl_8VPDebiPR45kCD14Ket8FxTqS8cm; final GET/probe RECONCILED.
+Native D source104->13715m15s/11fresh Luna6 HIGH calls237357IN31672OUT;13blocks
+and author102 reused, no repeated classification. Combined C+D41fresh completed
+calls known832993IN112924OUT plus2known invalid_json usageUNKNOWN. C failure103
+and all receipts retained. Old008/116 workers preserved stopped; current isolated
+Luna6 receiver91103767 unchanged, sharedproduction fingerprinta1728852 protected.
+Current production customer source/metadata/course/quizzes equal at08:15Z.
+
+blockers: Source has real conflicting product facts.122model records are not
+122proved distinct errors.120remain open; grouped review covers93navigation
+product rows,9unmapped records isolated. ENG078 OPEN: denied comments emitted
+as questions, repeated row evidence rejected globally, duplicates/addressability
+and weight misread as price. Two obvious denials adjudicated, NOT an automatic
+filter fix. No human/company factual answer supplied.
+
+next: D=.release-evidence/furniture-source117d-20261117. Review
+catalogue-human-review-by-product.md and source-human-open-questions.md; source
+139 remains unapproved. Use source-full-check-result.json/actual custody139.
+No active source poll/model run remains. IAB tab2 is ordinary QA, source139, both
+parts checked/120open/approvaldisabled; CUA completion_summary sent. Browser
+JPGs saved, tab marked deliverable. No course until factual source decisions;
+then native full course/all lessons/tests and protected production only on GO.
+Use saved110/112/137 for ENG078, no blanket regeneration/new critic. Metadata
+updates after application70e are intentionally dirty, not a new application tag.
+
+## Historical source resume checkpoint — superseded above
+
+## IN PROGRESS 2026-11-17 — guarded117D deployed; source resume104 active
+
+result: DEV API/frontend/sole worker now exact70e4f9d12399450803b141434881dae467fbf0f3,
+version117. Production116/68fc9109 remains unchanged; source/course NOT approved.
+Owner latest annotation f707f912 explicitly requires real catalogue ambiguities
+to human correction before generation. Never blanket KEEP them for a QA pass.
+
+changed: Guarded source ingress/audit fixes ENG-077, retaining bad oversized
+quotation as non-source hash/length diagnostic. Strict executable quote bound,
+originals, existing reviewer, human gates, accepted block/cache/custody keys stay
+unchanged. Both full catalogue and comparison are selected in queued binding.
+
+verified: Final LOCAL API8905PASS/1skip/129.81s, quality1004/2174 PASS. CI
+44040293248 and imagebuild44041179724 SUCCESS; image00f1c8b0aaa10422c50291c930c185a78a735e97a40068fc6b87480065cb6457
+attested,993source + actual102/frozen JSON replay0calls PASS. DEV controller
+RELEASE_OK: Renderdep-dbu0cq0ae00c73caar00, Verceldpl_8VPDebiPR45kCD14Ket8FxTqS8cm;
+sole worker576584a6b0bbfae137e4f46d9550ac17bedc7bbac62f41e8ef121cbb868bef91,
+env61aaec2e1b5b0edc19821f837b78b8bba733ed1a00c2d8932e3c5c381ba524aa, restarts0.
+Old008worker2842995c retained stopped for rollback;116/e57 also retained. Same
+isolated Luna6/.166/8MiB receiver91103767 unchanged, production/shared unchanged.
+Free6759833600bytes; no further cleanup. Render GET wait failed transiently,
+reconciled exact known deployment with GET-only, no second POST.
+
+blockers: Full source review restarted exactly once from FAILED103 via ordinary
+select_parts queued104; active GET poll session73540. Native event108 proves
+13previous blocks and author102 reused without reissue, bad patch held/nonhuman,
+existing reviewer returned12source findings and continued. Need all19blocks
+terminal, inspect all true source questions/automatic edits and show human queue.
+Full course/all lessons+tests and production remain conditional on real human
+source corrections; do not substitute a synthetic approval or ignore questions.
+
+next: D=.release-evidence/furniture-source117d-20261117; run ID
+RUN-CATALOG117D-SOURCE-RESUME-20261117. Read D/native-source-poll.log and
+source-run-final.json if present; NEVER repeat native_source start. Private
+export_source_questions.py prepares complete human queue after terminal review.
+C holds failed103/30freshcalls/13blocks and actual102 replay, not an accepted
+course. IAB tab2 ordinary QA source review page, CUA part remains active and
+needs final completion_summary after visible result. All tests use existing paid
+Luna6/HIGH, no DeepSeek/local Docker/plan/customer changes.
+
+## Historical117C failure checkpoint — superseded by resumed117D above
+
 ## IN PROGRESS 2026-11-17 —117C source failed103; guarded ingress repair LOCAL
 
 result: DEV117/008b5585 full Excel review failed at block13 on saved author102
@@ -6663,3 +6752,11 @@ RUN-native98-standards completed4874fefe/course24930130:6L23Q/10actualLuna6HIGHs
 2026-11-12 PDFunknownfence98: ordinary POSTabandon-unknown executedONCE andAPIreadbackstatus=abandoned/stageabandoned, cost/outcomeUNKNOWN, journal/reservationpreserved. Post-successhelperassert incorrectlycomparedAPIstatuswithDBfailed; correctedofflineusingretainedresponse, NO repeatPOST. This repeats APIprojection-vs-DB enumclass; beforefutureopsassertions useAIJobResponse projectorandactualschema. Modelcompletedresponses0retained, pendingclaimnotcleared/relabelled; samejob cannot safelyreplaywithoutproviderresponse. Nativefirstattempt remains unaccepted; onefreshPDFadmission onlyafterfixedruntime andalloldworkfenced.
 
 CHG-L98F LOCAL 2026-11-12T03:23:00.656880+00:00: actualSSHtimeout/exit255 caused14DEVworkerrestarts, notprovenOOM/modelerror. FixedVM-onlyoptionalbridge; strictRender/API anddisabled behavior unchanged. Knowntransients3sessions<=6SSHstarts, unknown/auth/pin quarantinedwithoutretry/consumerrestart; localkey/config/bind/foreignlisteners remainfatal. Nativehandoff/degradedcloud continuity stillpending. Ops156PASS2skip1.76s incl73supervisor tests; baseline1004/2174PASS; independentreview no materialdefect. Source appstree 850d0e9860af372cfd08165e5b9f40c948895c3a EXACTsameas accepted6b875a21; keepstandards6L23QGO, no newauthor/criticcalls. NavigationREADY23918e61. Release98notes+datedchangelog prevalidated. PDFoldjob ordinaryabandonUNKNOWN outcome/cost/pending/reservation retained; onlyonefreshacceptanceafterfixedworker, notmanualpendingreset. DeepSeekUSD1spent0; prod90unchanged. H21/ops98r-freeze.json andH18/dev98-*.executed.json.
+
+## ENG078 / candidate117E prepared2026-11-17
+
+- result: Local row-scoped source review PASS_BOUNDED. Current deployed DEV remains117D/70e4f9d1; production116 unchanged. Product VERSION stays117, private experiment118 is not a release.
+- changed: Existing reviewer gets literal rows/headers and explicit dispositions, keeps true peers, records dismissals; stale unapproved table review can explicitly start again with exact preparation/history/revision guards. Human replacements and undone auto edits are not reset by this capability.
+- verified:8917API/1skip;1807web/197files;83focused;16source UI; Ruff1004/Mypy2174/types/lint/build PASS. One actual110 saved-author/new Luna6HIGH review110.36s33848IN5869OUT ->3real questions/0unbound versus9old records. All19author custody identities match0newcalls. E=.release-evidence/furniture-source118review-20261117.
+- blockers: Full native updated review and actual full course/all lessons/tests not accepted. Source facts still belong to catalogue owner; no blanket KEEP, source approval or invented column priority. No customer writes, DeepSeek, local Docker, new paid resource or production mutation.
+- next: Commit/push exact candidate, existing CI/immutable image/zero-call cold replay, synchronized DEV API/web/sole worker, ordinary start on QA139 with retained two-part manifest and19completed authors. Review actual remaining questions, not the historical120count; course only after verified facts.

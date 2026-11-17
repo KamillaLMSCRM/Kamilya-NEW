@@ -32,6 +32,19 @@ describe('source editorial review', () => {
     mocks.approval = undefined;
   });
 
+  it('only explicitly rechecks an older table review and preserves the revision guard', async () => {
+    mocks.get.mockResolvedValue({ data: { ...fixture(), can_recheck: true } });
+    mocks.post.mockResolvedValue({ data: { ...fixture(), revision: 4, status: 'queued', can_recheck: false } });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText(/Повторная проверка пересоздаст список замечаний/)).toBeVisible();
+    expect(mocks.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить проверку' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
+    expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
+      expect.objectContaining({ action: 'start', expected_revision: 3 }));
+    expect(screen.queryByRole('button', { name: 'Повторить проверку' })).not.toBeInTheDocument();
+  });
+
   it('requires explicit acknowledgement of unknown outcome and cost before retry', async () => {
     const data = { ...fixture(), status: 'failed' as const, error: 'source_review_timeout',
       requires_retry_acknowledgement: true };

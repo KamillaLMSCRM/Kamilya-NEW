@@ -210,6 +210,11 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         <h2 className="break-words text-lg font-semibold">{review.title}</h2>
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
+        {review.can_recheck && !readOnly && <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">{copy.recheckHint}</p>
+          <Button variant="outline" disabled={disabled || selectionDraft || Boolean(reason || replacement || anchor || undoReason || manual.quote || manual.replacement || manual.reason)}
+            onClick={() => void action({ action: 'start' })}>{copy.retry}</Button>
+        </div>}
         {review.continuation_pending && !approvalId && <Button disabled={disabled}
           onClick={() => void action({ action: 'start' })}>{copy.continueReview}</Button>}
         {!review.continuation_pending && (['not_started', 'failed', 'interrupted'].includes(review.status) || review.error === 'source_review_preparation_stale') && !approvalId && <>

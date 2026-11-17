@@ -48,6 +48,7 @@ export interface SourceReview {
   requires_retry_acknowledgement?: boolean;
   retry_blocked_unknown_visual?: boolean;
   continuation_pending?: boolean;
+  can_recheck?: boolean;
   pdf?: boolean;
   pages?: ReviewPages | null;
   preparation?: SourcePreparation | null;

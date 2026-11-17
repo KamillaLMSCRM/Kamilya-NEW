@@ -1,4 +1,5 @@
 const ru = {
+  recheckHint: 'Доступна обновлённая проверка таблиц. Повторная проверка пересоздаст список замечаний; прежние решения сохранятся в журнале.',
   interruptedOutcomeHeld: 'Результат прерванной проверки и её стоимость неизвестны. Проверка приостановлена. Передайте этот статус в поддержку.',
   retryUnknownAck: 'Результат предыдущего запроса и его стоимость неизвестны. Повторная попытка может привести к повторному расходу. Я понимаю это и разрешаю новую попытку.',
   continueReview: 'Продолжить проверку',
@@ -61,6 +62,7 @@ const ru = {
 };
 
 const en: typeof ru = {
+  recheckHint: 'An updated table review is available. Rechecking replaces the findings list; previous decisions remain in the history.',
   interruptedOutcomeHeld: 'The result and cost of the interrupted review are unknown. The review is on hold. Contact support with this status.',
   retryUnknownAck: 'The previous request outcome and cost are unknown. A new attempt may incur duplicate usage. I understand and authorize a new attempt.',
   continueReview: 'Continue review',
@@ -120,6 +122,7 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  recheckHint: 'Кестелерді тексерудің жаңартылған нұсқасы қолжетімді. Қайта тексеру ескертулер тізімін жаңадан құрады; бұрынғы шешімдер журналда сақталады.',
   interruptedOutcomeHeld: 'Үзілген тексерудің нәтижесі мен құны белгісіз. Тексеру тоқтатылды. Осы мәртебені қолдау қызметіне хабарлаңыз.',
   retryUnknownAck: 'Алдыңғы сұраудың нәтижесі мен құны белгісіз. Жаңа әрекет қосымша шығынға әкелуі мүмкін. Мұны түсінемін және жаңа әрекетке рұқсат беремін.',
   continueReview: 'Тексеруді жалғастыру',

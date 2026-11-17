@@ -7718,3 +7718,17 @@ zero-fresh-call replay PASS, source644776chars/SHA2ba5e28a preserved,13completed
 blocks +6pending. Source117C native failed103 is retained, NOT accepted course
 or source approval. Owner requires genuine catalogue questions corrected by
 human before course generation. C=.release-evidence/furniture-source117c-20261117.
+
+2026-11-17 ENG074/077 native DEV117D70e4f9d1: CI44040293248,
+imagebuild44041179724, source993+actual102/frozen-recovery cold0calls PASS;
+API/Frontend/soleworker576584a6 exactsource independently RECONCILED, plans
+Free/Hobby unchanged. Source resume104->137 all19blocks/2sheets/291rows PASS
+(scope retention, NOT course quality).13blocks+author102 reused;11fresh
+Luna6/HIGH237357IN31672OUT.5safe source edits,23withheld;122model candidate
+records,2false independently declined,120open. Real human source decisions
+required; no course/job/approval or production release. Browser ordinary QA
+source139 shows both sources checked,120open, approvaldisabled; twoJPGs saved.
+ENG078 false/duplicate/addressability limitations OPEN. Original Plus workbook,
+metadata/course/quizzes hashes equal at08:15Z;0client/employee writes.
+
+2026-11-17 ENG078 local candidate117E: source row-context RED1failed/2passed ->83focused PASS; full8917API/1skip(220.18s),197files1807web(140.15s),16source-review UI, quality1004/2174/typecheck/scopedlint/build PASS. Actual saved110/112 block14 cold projection plus one fresh paid Luna6/HIGH review yielded3literal-bound real questions instead of9old projected records;19writers exact custody0newcalls. Bounded semantic PASS only; no full Excel native/course/prod acceptance. Evidence .release-evidence/furniture-source118review-20261117.

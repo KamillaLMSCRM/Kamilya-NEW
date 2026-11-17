@@ -3106,3 +3106,70 @@ terminal. API8905PASS/1skip/129.81s; final quality1004/2174 PASS. Existing nativ
 13block keys/custody remain compatible; app source changes only guarded quote
 admission and audit projection. All human conflict gates stay intact. New exact
 DEV candidate/CI/image and resumed source check remain next; no source approval.
+
+RUN-CATALOG117D-SOURCE-RESUME-20261117 INTENT 2026-11-17T07:53:00.599918+00:00: exact70e4f9d1/117, same source00783869/QAad336, failed103 retained. Ordinary DEV API/frontend/sole576584a6worker coherent, controller RELEASE_OK; CI44040293248/build44041179724/image00f1c8b0 verified993source and actual102/frozen JSON replay0calls. Reuse13complete blocks and known author102; only remaining6blocks/reviewer may call existing paid Luna6 HIGH unchanged. No source approval/course submission: owner requires genuine product ambiguities corrected by human first. No customer/employee/DeepSeek/provider/billing/local Docker change. D=.release-evidence/furniture-source117d-20261117.
+
+RUN-CATALOG117D-SOURCE-RESUME-20261117 RESULT2026-11-17: exact70e4f9d1/117
+DEV API/frontend/sole576584a6worker independently RECONCILED. Native source
+review104->137 completed all19blocks, both worksheets/parts selected, all291
+catalogue rows, original644776chars/SHA2ba5e28a.13accepted blocks and author102
+reused;11fresh Luna6/HIGH completed calls237357IN31672OUT, no new unknown outcome.
+Native analysis reports12usage receipts because it also includes cached author102;
+do not charge that again. Combined117C+117D full-source41fresh completed calls,
+known832993IN112924OUT plus2known invalid_json calls with usageUNKNOWN. Original
+classification3calls/77332preparation input is reused history, not fresh. C ran
+37m58s, D15m15s; rebuild/diagnosis interval is separate from processing time.
+Currency UNKNOWN existing paid Luna allocation; no DeepSeek or billing changes.
+
+Source result:5safe automatic edits (four С->Со, one Светлоый->Светлый),23
+withheld proposals including actual20230-char before. Root independently checked
+all5edits; no numeric/product fact changed. Model emitted122question records,
+NOT122distinct proved errors. Two same-row no-conflict comments (s14-5/u14-5)
+independently declined via existing ordinary QA resolve/KEEP, original/working
+bytes unchanged; source139still in_review/120open/approvalNULL. No genuine
+product ambiguity resolved by assumption. Human queue and source/no-course gate
+visibly read back in IAB as ordinary methodologist; approval button disabled.
+Actual customer original/metadata/course/all quizzes independently equal again
+at08:15Z, production116/68fc unchanged. No customer/employee writes.
+
+Owner chooses best resolution method: choose per-product confirmation, no blind
+column priority. Grouped private review covers93navigation-linked product rows;
+9unmapped remarks separated as an addressability limitation, never guessed. Raw
+model remarks/journal retained. Source columnC is weight, not price; raw s7-6/7
+price assertion corrected in supporting QA report, genuine description mismatch
+retained. ENG-078 tracks residual false/duplicate/unbound question contract and
+missing table-header scope; no claim of automatic resolution of these defects.
+Full native course/all lessons/tests and protected production remain PENDING
+verified source facts and semantic acceptance. Human data is now required; do
+not force synthetic approval or rerun completed source parts to bypass it.
+D/source-full-check-result.json, source-qa-readback.json, catalogue-human-review-by-product.md,
+source-human-open-questions.md and two browser JPGs own exact private details.
+
+
+## CHG-SOURCE-QUESTIONS118 PROPOSED2026-11-17 — ENG078 row-scoped review
+
+Owner continues ENG074 pipeline. Prior CHG-SOURCE-CATALOG117/ENG078, actual
+110/112/137 and source-row-context-proof reviewed BEFORE code changes. Current
+character checker omits source table headers; global quote uniqueness rejects
+row-local evidence and reviewer puts dismissed comments into human questions.
+Proposed: existing independent reviewer receives literal row/header context from
+existing lossless source_units inventory, emits explicit needs_human/dismissed
+question dispositions and source_refs. Bind quotes/evidence within proved source
+rows, not arbitrary nearest text or semantic regex. Confirmed author clues may
+share a source question when they concern one issue; preserve independent peer
+findings and all rejected decisions. No third critic or factual correction.
+Table-question checkpoint policy changes; existing raw author requests stay byte
+identical and replay through custody, so only affected reviewer calls may be fresh.
+Old accepted question checkpoints are not relabeled under new policy; old source
+approvals/history remain unchanged. First synthetic and saved-case0call controls,
+then bounded Luna14 review before native refresh. Human product facts remain
+unknown and no source approval/full course/production GO is inferred. CodeGraph
+NOT_READY/runtime absent, bounded source fallback analysis->source_units/context
+->existing reviewer->source question projection/custody tests. No global installs.
+
+RUN-SOURCE118-BLOCK14-REVIEW-20261117 INTENT 2026-11-17T09:05:39.532115+00:00: LOCAL saved110 author reused, one fresh existing paid Luna6/HIGH review; literal global row IDs/headers, no answer labels/manual findings added, max1call/no retry/fallback, no DB/customer/source writes. Code/source/wire hashes in .release-evidence/furniture-source118review-20261117/luna-1-intent.json. Outcome PENDING.
+CHG-SOURCE-QUESTIONS118 scope clarification2026-11-17: refreshed table-review checkpoints are incompatible, but an existing unapproved source currently cannot explicitly start the updated review without changing its selected parts. Add a narrow can_recheck capability for an in_review table whose last analyzed question_context_policy predates the current contract; start must preserve the exact verified preparation/pages and revision/idempotency guards. Existing approved revisions/prose/current-policy/running/unknown cases stay unchanged. UI uses the existing start route with explicit restart effect and disabled unsaved-input guard. This avoids dummy reselections/new documents or forensic DB event injection. It is preparation for DEV-only QA recheck, not authority to approve catalogue facts.
+RUN-SOURCE118-BLOCK14-REVIEW-20261117 RESULT2026-11-17: one fresh paid Luna6/HIGH completed110.360s,33848IN/5869OUT; no unknown call/new fallback. Saved110 writer reused; old112 projected9records (including duplicates/false/unbound), new reviewer3real discrepancies all literal row-bound/0fallback. Root checked every new question and dropped old class against exact source: title/door attribute conflict and two shelf-count conflicts preserved; collection introduction, compartment-versus-door inference, partial-versus-total shelves, explicit denial and duplicate author clues no longer human questions. No truthful product value selected. E=.release-evidence/furniture-source118review-20261117/root-semantic-verdict.json. PASS_BOUNDED only, not full-file/native/course/prod. All19current writer requests independently matched original completed custody keys on unchanged Luna6/HIGH route,0newcalls; full updated native check can reuse them.
+LOCAL118 naming is a private experiment/run ID; product VERSION stays0.11.117 while ENG074/078 DEV candidate117E is unaccepted. No118release/tag is created.
+
+CHG-SOURCE-QUESTIONS118 LOCAL GREEN2026-11-17:8917API PASS/1skip,197files1807web PASS,83focused source/recovery,16source-review UI, Ruff1004/Mypy2174, TypeScript/scopedESLint/build PASS. One fresh actual-block review33848IN5869OUT110.36s,19exact writer custody proofs0newcalls. Same-model reasoning HIGH unchanged. Explicit stale-table refresh keeps verified selection, revision/idempotency and old history; never auto-refreshes approved/prose/current/unknown jobs or sources with human replacement/undone auto edits. Critical journey owns new regressions. DEV117E rollout/full-file review still PENDING;116production protected.

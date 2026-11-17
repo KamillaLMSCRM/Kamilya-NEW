@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.document import Document
+from app.modules.ai.v3.source_units import plan_source_units
 from app.modules.source_editorial_review.domain import (
     POLICY,
     ApprovedEditorialDocument,
@@ -23,6 +24,7 @@ from app.modules.source_editorial_review.domain import (
 )
 from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PINS
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
+from app.modules.source_editorial_review.question_context import POLICY as QUESTION_CONTEXT_POLICY
 from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
 from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
@@ -190,13 +192,23 @@ def public_preparation(doc: Document, state: ReviewState) -> dict[str, Any] | No
                        for asset in manifest.assets]}
 
 
+def can_recheck_questions(rows: Sequence[Event], state: ReviewState) -> bool:
+    """An explicit, revision-guarded refresh of an unapproved legacy table review."""
+    if (state.status != "in_review" or state.disabled_auto
+            or any(row.get("decision") == "replace" for row in state.decisions.values())):
+        return False
+    analyzed = next((row for row in reversed(rows) if row.kind == "analyzed"), None)
+    return bool(analyzed is not None and analyzed.payload.get("question_context_policy") != QUESTION_CONTEXT_POLICY
+                and any(unit.kind == "table_row" for unit in plan_source_units(state.original)))
+
+
 def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receipt: Event | None = None) -> dict[str, Any]:
     journal: list[dict[str, Any]] = []
     analysis = None
     for row in rows:
         if row.kind == "analyzed":
             analysis = {key: row.payload.get(key) for key in ("model_calls", "usage", "policy", "analysis_policy",
-                                                               "usage_complete", "previous_failed_usage")}
+                                                               "usage_complete", "previous_failed_usage", "question_context_policy")}
             journal.extend({**public_event(row), **change, "kind": "automatic", "item_id": change["id"],
                             "actor_id": None, "policy": row.payload["policy"]}
                            for change in row.payload["automatic"])
@@ -218,6 +230,7 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
             "requires_retry_acknowledgement": requires_retry_acknowledgement(rows),
             "retry_blocked_unknown_visual": retry_blocked_unknown_visual(rows),
             "continuation_pending": continuation_pending(rows, str(doc.content_sha256)),
+            "can_recheck": can_recheck_questions(rows, state),
             "error": ("source_review_interrupted_outcome_unknown" if interrupted_unknown else
                       "source_review_preparation_stale" if stale_preparation else state.error),
             "failure_phase": failure_phase if failure_phase in (
@@ -290,7 +303,12 @@ async def apply_command(
     stale_in_review = (state.status == "in_review" and state.preparation is not None
                        and not verified_preparation_binding(rows, str(doc.content_sha256), state.preparation))
     payload: dict[str, Any]
-    if stale_in_review and command.action in {"start", "approve"}:
+    if command.action == "start" and not stale_in_review and can_recheck_questions(rows, state):
+        if command.pages is not None and command.pages.model_dump() != state.pages:
+            raise ReviewConflictError("source_review_preparation_changed")
+        kind, payload = "queued", {**({"preparation": state.preparation} if state.preparation is not None else {}),
+                                   **({"pages": state.pages} if state.pages else {})}
+    elif stale_in_review and command.action in {"start", "approve"}:
         if command.action == "approve":
             raise ReviewConflictError("source_review_preparation_stale")
         if command.pages is not None and command.pages.model_dump() != state.pages:

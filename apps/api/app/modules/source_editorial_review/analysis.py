@@ -23,6 +23,14 @@ from app.modules.ai.managed_response_rejection import ManagedResponseRejectedErr
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.continuation import handoff, lineage, valid_continuation
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
+from app.modules.source_editorial_review.question_context import (
+    POLICY as QUESTION_CONTEXT_POLICY,
+)
+from app.modules.source_editorial_review.question_context import (
+    QuestionContext,
+    QuestionContextError,
+    contexts,
+)
 from app.modules.source_editorial_review.request_custody import (
     BeforePostDeferred,
     CompletedResponseRejected,
@@ -102,12 +110,38 @@ material finding. Do not manufacture findings or resolve them yourself. If no
 human decision is needed, explicitly return an empty source_questions array.
 Do not echo original or other request fields in the response.
 """
+_TABLE_QUESTION_REVIEW = """
+For this table-bearing source, source_question_context supplies stable literal
+reference IDs with offsets in original, complete rows if a window cuts a row,
+and the original table headers. Read cells under those headers: a weight column
+is not a price column. These references are navigation, never factual approval.
+Each source_questions row has excerpt (exact original quote, up to 2000 chars),
+category (boundary|conflict|reference|responsibility|exception|unclear), reason
+(up to 700 chars), disposition (needs_human|dismissed), and source_refs (the IDs
+of the original rows/paragraphs containing its quotation). Prefer one concrete
+question per factual discrepancy; merge repeated descriptions of the same issue,
+but retain distinct discrepancies even for the same product. Cross-row conflicts
+can cite multiple IDs. Do not invent a truthful column priority.
+Only needs_human means an unresolved original ambiguity for the owner. A comment
+that the original is consistent, agrees, or has no conflict belongs to dismissed,
+not needs_human. Retain its literal evidence and explanation for the audit trail.
+An empty source_questions array is valid when all candidate clues were dismissed.
+For a confirmed author clue, question_index must identify a needs_human row about
+that same source passage/product. For a dismissed clue, include evidence_excerpt,
+evidence_source_ref (one reference ID), and reason. Evidence can repeat in other
+products, but must be unique within the identified row and belong to the SAME
+product row as the author's literal clue. Never use another product's attributes
+to dismiss a clue. Do not include question_index on a dismissed clue.
+Do not echo original or other request fields in the response.
+"""
 
 class _SourceQuestion(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     excerpt: str = Field(min_length=1, max_length=2000)
     category: str = Field(pattern=r"^(boundary|conflict|reference|responsibility|exception|unclear)$")
     reason: str = Field(min_length=3, max_length=700)
+    disposition: Literal["needs_human", "dismissed"] = "needs_human"
+    source_refs: list[str] | None = Field(default=None, min_length=1, max_length=256)
 
 
 class _VisualDeferred(VisualRequestRejected):
@@ -121,6 +155,7 @@ class _ClueDisposition(BaseModel):
     question_index: int | None = Field(default=None, ge=0, le=255)
     evidence_excerpt: str | None = Field(default=None, min_length=1, max_length=2000)
     reason: str | None = Field(default=None, min_length=3, max_length=700)
+    evidence_source_ref: str | None = Field(default=None, min_length=1, max_length=80)
 
 
 class _IndependentReview(BaseModel):
@@ -156,7 +191,8 @@ def _restore_table_quote_span(original: str, quote: str) -> tuple[int, int] | No
     return start, start + len(literal)
 
 
-def _unverified_clues(review: _IndependentReview, material: dict[int, Any], original: str) -> list[int]:
+def _unverified_clues(review: _IndependentReview, material: dict[int, Any], original: str,
+                      context: QuestionContext | None = None) -> list[int]:
     """An invalid disposition never dismisses a clue or invalidates other findings."""
     remaining = set(material)
     raw = review.source_clue_dispositions
@@ -175,19 +211,47 @@ def _unverified_clues(review: _IndependentReview, material: dict[int, Any], orig
             continue
         if item.disposition == "confirmed":
             if (item.question_index is None or item.question_index >= len(review.source_questions)
-                    or item.evidence_excerpt is not None or item.reason is not None):
+                    or item.evidence_excerpt is not None or item.reason is not None
+                    or item.evidence_source_ref is not None):
                 continue
-            question = review.source_questions[item.question_index].excerpt
+            finding = review.source_questions[item.question_index]
+            if finding.disposition != "needs_human":
+                continue
+            question = finding.excerpt
+            clue = material[clue_id]
+            if context is not None and finding.source_refs is not None:
+                try:
+                    span = context.bind(question, finding.source_refs, _restore_table_quote_span)
+                except QuestionContextError:
+                    continue
+                if not isinstance(clue, str) or not context.same_row(clue, span):
+                    # Cross-row/prose clues still require literal overlap.
+                    if not isinstance(clue, str) or original.count(clue) != 1:
+                        continue
+                    start = context.offset + original.index(clue)
+                    if max(start, span[0]) >= min(start + len(clue), span[1]):
+                        continue
+                remaining.remove(clue_id)
+                continue
             if original.count(question) != 1:
                 continue
-            clue = material[clue_id]
             if isinstance(clue, str) and clue and original.count(clue) == 1:
                 q_start, clue_start = original.index(question), original.index(clue)
                 if max(q_start, clue_start) >= min(q_start + len(question), clue_start + len(clue)):
                     continue
-        elif (item.question_index is not None or not item.evidence_excerpt or not item.reason
-                or original.count(item.evidence_excerpt) != 1):
-            continue
+        else:
+            if item.question_index is not None or not item.evidence_excerpt or not item.reason:
+                continue
+            if context is not None:
+                try:
+                    span = context.bind(item.evidence_excerpt, [item.evidence_source_ref or ""])
+                except QuestionContextError:
+                    continue
+                clue = material[clue_id]
+                if not isinstance(clue, str) or not context.same_row(clue, span):
+                    continue
+            elif original.count(item.evidence_excerpt) != 1 or item.evidence_source_ref is not None:
+                continue
         remaining.remove(clue_id)
     return sorted(remaining)
 
@@ -295,6 +359,7 @@ async def analyze(
 ) -> dict[str, Any]:
     render_text(original, [])
     bounded_blocks = list(blocks(original))
+    question_contexts = contexts(original, bounded_blocks)
     outline = [line.strip()[:400] for line in original.splitlines() if _OUTLINE_LINE.match(line)]
     outline_text = "\n".join(outline) if len(bounded_blocks) > 1 else ""
     # An outline supplements the full local blocks; it never replaces one.
@@ -304,9 +369,11 @@ async def analyze(
     questions: list[dict[str, Any]] = []
     auto: list[dict[str, Any]] = []
     rejected_automatic: list[dict[str, Any]] = []
+    dismissed_questions: list[dict[str, Any]] = []
     calls = 0
     schema_reissue_used = False
     basis = text_hash(_ANALYSIS_POLICY + ":" + source_id + ":" + text_hash(original) + ":" + text_hash(outline_text)
+        + (":" + QUESTION_CONTEXT_POLICY if any(question_contexts) else "")
         + (":" + text_hash(json.dumps(visual_reading_notes, ensure_ascii=False, sort_keys=True)) if visual_reading_notes else ""))
     for index, (offset, local) in enumerate(bounded_blocks):
         if not local.strip():
@@ -317,14 +384,17 @@ async def analyze(
             questions.extend(saved["questions"])
             auto.extend(saved["automatic"])
             rejected_automatic.extend(saved.get("rejected_automatic", []))
+            dismissed_questions.extend(saved.get("dismissed_questions", []))
             continue
 
+        question_context = question_contexts[index]
         independent: _IndependentReview | None = None
         block_calls = 0
         candidate_questions: list[Any] = []
         unverified: list[int] = []
 
-        async def invoke(messages: list[dict[str, str]], source_block: str = local) -> object:
+        async def invoke(messages: list[dict[str, str]], source_block: str = local,
+                         row_context: QuestionContext | None = question_context) -> object:
             nonlocal independent, block_calls, candidate_questions, unverified, schema_reissue_used
             block_calls += 1
             payload = json.loads(messages[1]["content"])
@@ -341,11 +411,18 @@ async def analyze(
                     payload["author_candidate_uncertainties"] = candidate_questions
                 if material:
                     payload["material_clue_ids"] = list(material)
+                review_contract = _SEMANTIC_REVIEW
+                if row_context is not None:
+                    payload["source_question_context"] = row_context.request()
+                    review_contract = _SEMANTIC_REVIEW.split("Each source_questions row has only excerpt", 1)[0]
+                    review_contract = review_contract.replace("a unique exact evidence_excerpt\nfrom the local original",
+                                                              "an exact evidence_excerpt\nfrom the referenced original row")
+                    review_contract += _TABLE_QUESTION_REVIEW
                 patch_contract = messages[0]["content"].replace(
                     'Output exactly {"proposal_sha256": supplied value, "rows": [...]}.', ""
                 ) if payload["patches"] else ""
                 review_messages = [
-                    {"role": "system", "content": _SEMANTIC_REVIEW + patch_contract},
+                    {"role": "system", "content": review_contract + patch_contract},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ]
                 reviewed = await complete_json(review_messages)
@@ -357,7 +434,7 @@ async def analyze(
                     schema_reissue_used = True
                     block_calls += 1
                     fields = {"proposal_sha256", "rows", "source_questions", "source_clue_dispositions",
-                              "excerpt", "category", "reason"}
+                              "excerpt", "category", "reason", "disposition", "source_refs", "evidence_source_ref"}
                     problems = []
                     for detail in error.errors(include_input=False, include_url=False)[:8]:
                         path = ".".join(str(part) if type(part) is int or part in fields else "extra_field"
@@ -378,7 +455,7 @@ async def analyze(
                     independent = _independent_review_reply(await complete_json(review_messages))
                 if independent.proposal_sha256 != payload["proposal_sha256"]:
                     raise ReviewConflictError("source_review_independent_proposal_changed")
-                unverified = _unverified_clues(independent, material, source_block)
+                unverified = _unverified_clues(independent, material, source_block, row_context)
                 return independent.model_dump(exclude={"source_questions", "source_clue_dispositions"})
             authored = await complete_json([
                 {"role": "system", "content": messages[0]["content"] + _AUTHOR_CLUES}, messages[1],
@@ -400,6 +477,7 @@ async def analyze(
                 raise ReviewConflictError("source_review_independent_proposal_changed")
         calls += block_calls
         block_questions: list[dict[str, Any]] = []
+        block_dismissed: list[dict[str, Any]] = []
         block_auto = []
         block_rejected: list[dict[str, Any]] = [{"id": f"a{index}-{item.alias}", "start": None, "end": None,
             "before": item.reported_excerpt, "proposed_after": None, "category": item.category,
@@ -407,9 +485,24 @@ async def analyze(
             "applied": False, "requires_human_decision": False} for item in result.unbound_diagnostics]
         for n, finding in enumerate(independent.source_questions):
             start = local.index(finding.excerpt) if local.count(finding.excerpt) == 1 else None
-            block_questions.append({"id": f"s{index}-{n}", "start": None if start is None else offset + start,
-                "end": None if start is None else offset + start + len(finding.excerpt),
-                "quote": finding.excerpt, "category": finding.category, "reason": finding.reason})
+            span = (offset + start, offset + start + len(finding.excerpt)) if start is not None else None
+            if question_context is not None and finding.source_refs is not None:
+                try:
+                    span = question_context.bind(finding.excerpt, finding.source_refs, _restore_table_quote_span)
+                except QuestionContextError:
+                    span = None
+            row: dict[str, Any] = {"id": f"s{index}-{n}", "start": span[0] if span else None,
+                "end": span[1] if span else None, "quote": original[span[0]:span[1]] if span else finding.excerpt,
+                "category": finding.category, "reason": finding.reason}
+            if finding.source_refs is not None:
+                row["source_refs"] = finding.source_refs
+            if (finding.disposition == "dismissed" and span is not None
+                    and (question_context is None or finding.source_refs is not None)):
+                block_dismissed.append({**row, "disposition": "dismissed"})
+            else:
+                if finding.disposition == "dismissed" or (question_context is not None and finding.source_refs is None):
+                    row["needs_source_verification"] = True
+                block_questions.append(row)
         block_has_unbound_clue = False
         for clue_id in unverified:
             clue = candidate_questions[clue_id]
@@ -437,14 +530,17 @@ async def analyze(
                     "applied": False, "requires_human_decision": False})
         if checkpoint is not None:
             await checkpoint(key, {"questions": block_questions, "automatic": block_auto,
-                                   "rejected_automatic": block_rejected, "calls": block_calls})
+                                   "rejected_automatic": block_rejected, "dismissed_questions": block_dismissed,
+                                   "source_clue_dispositions": independent.source_clue_dispositions,
+                                   "calls": block_calls})
         questions.extend(block_questions)
         auto.extend(block_auto)
         rejected_automatic.extend(block_rejected)
+        dismissed_questions.extend(block_dismissed)
 
     # Restore literal coordinates before merging, including for resumed blocks.
     for question in questions:
-        if question["start"] is not None:
+        if question["start"] is not None or question.get("source_refs") is not None:
             continue
         span = _restore_table_quote_span(original, question["quote"])
         if span is not None:
@@ -472,6 +568,8 @@ async def analyze(
     render_text(original, auto)
     return {"original": original, "issues": [*grouped, *(q for q in questions if q["start"] is None)],
             "automatic": auto, "rejected_automatic": rejected_automatic,
+            "dismissed_questions": dismissed_questions,
+            **({"question_context_policy": QUESTION_CONTEXT_POLICY} if any(question_contexts) else {}),
             "model_calls": calls, "policy": POLICY, "analysis_policy": _ANALYSIS_POLICY}
 
 

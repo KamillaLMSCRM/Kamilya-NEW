@@ -1934,3 +1934,50 @@ passes, strict compiler remains rejecting; guarded diagnostic rederives and
 records length/hash instead of executable or truncated source span. Model-owned
 source conflicts still require human decisions.13old blocks can replay under
 unchanged accepted source/custody contract; full regression/native resume pending.
+
+ENG-074/075/076 checkpoint2026-11-17: DEV117D/70e4f9d1 actual full-source
+review PASS_SCOPE_RETENTION, both parts/worksheets and291catalogue rows retained
+(original644776chars). Full native course plan/lessons/tests NOT GENERATED:120
+source question records still open pending verified product facts. 8MiB planner
+wire313-span offline contract remains separate from native course acceptance.
+No production117 release/tag; current116 protected. Initial default-selection
+run_analysis regression and saved classification replay are distinct from this
+explicit reselection/resume of an older QA copy.
+
+ENG-077 DEV2026-11-17: exact70e4f9d1 source104->137 completed all19blocks.
+13blocks and author102 reused; actual oversized proposal held as non-source
+length/hash diagnostic; independent reviewer continued. No destructive source
+edit or grammar question sent to human. Full local8905/1skip, quality1004/2174,
+CI44040293248/build44041179724/source993cold proof PASS. Production still pending.
+
+## ENG-078 — source question finalization leaks denials and loses row context
+
+- Date:2026-11-17, OPEN; actual native117D source137. Reviewer112 emitted a
+  source_question explicitly saying there is no contradiction (s14-5) while
+  dismissing that author clue. Global uniqueness check also rejected dismissal
+  evidence «Количество полок: 1» (7occurrences in local block), creating duplicate
+  fallback u14-5. Exact unique clue's complete native table row has that evidence
+  once; global-only evidence binding loses the row context. The short clue does
+  not itself contain the attribute: do not weaken the rule to any nearby quote.
+- Model/content class: mixing dismissed comments into confirmed questions;
+  deterministic context/contract class: global quotation uniqueness instead of
+  proved table-row scope. Other source issues include duplicates and9unmapped
+  records; their distinct semantic count is UNKNOWN, not122.
+- Actual source columnC is weight; s7-6/7 wrongly called zero a price despite no
+  price column. Source-check character blocks omit the parent table header;
+  source-unit planner has that context, but checker does not consume it. Header
+  absence is confirmed; its contribution to the field misread is an inference.
+- Two proved no-conflict records declined independently through ordinary DEV
+  resolve/KEEP events138/139, with original and working text unchanged. This is
+  QA adjudication, NOT an automatic engine fix. Raw remarks/receipts retained;
+  no genuine ambiguity bypassed and no source approval. Supporting report names
+  the weight/price error, preserving the real mismatched-description question.
+- Future fix must reuse existing independent review with explicit confirmed/
+  dismissed linkage and literal parent-row/header context. Never filter by
+  Russian wording/regex or drop all findings on a row merely because one clue
+  was dismissed. Use saved110/112/full137 and row-context proof before any fresh
+  inference; preserve real independent findings and exact original data.
+- D=.release-evidence/furniture-source117d-20261117; source-question-false-findings-proof.json
+  and source-row-context-proof.json are0call local evidence. Full-course quality
+  and production remain unaccepted; verified source facts are required next.
+ENG-078 LOCAL2026-11-17: existing reviewer now consumes literal source row IDs/full cut rows/real parent headers and explicit needs_human/dismissed fields. Row-local evidence solves repeated-quote dismissal without borrowing another product. Invalid/unbound/different-product references retain a visible issue; dismissal never removes independent peer findings. Completed table checkpoints get a new policy identity; old raw writer requests remain exact. Synthetic RED1failed/2passed ->66related GREEN; later service/recovery focused83PASS. One fresh paid Luna6/HIGH review of actual saved110 block14 ->3genuine/0unbound versus9old projected records; all19writer custody identities match0newcalls. Full-file native/DEV and production still pending, factual ambiguities remain human-owned. Source-only bounded verdict E/root-semantic-verdict.json.
