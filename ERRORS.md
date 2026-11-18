@@ -11599,3 +11599,10 @@ process. Static F821 catches helper missing imports before remote access. Remote
 inventory evidence must omit empty tag/digest fields and keep finite scalar grammar;
 raw list/comma/empty evidence rejected without deletion. All failed local/private
 receipts retained; none represented product scope failure or new model inference.
+
+LEARNER121 final evidence follow-up: the first pure final envelope correctly
+returned TIME_ORDER because canonical Git receipt was written just before the
+cleanup/preservation receipt. Retained NO_GO; no production/model/cleanup retry.
+Re-read canonical exact refs and blobs AFTER the already verified preservation
+receipt, then build a new r2 envelope with real timestamps. Never backdate or
+modify original evidence. Final canonical record is the last dependency node.
