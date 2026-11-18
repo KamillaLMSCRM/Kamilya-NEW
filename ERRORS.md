@@ -11564,3 +11564,38 @@ Configured DEV Luna18999 is not directly workstation-reachable; local model-prob
 connect/readiness failures are not provider/model rejection or successful inference.
 Stop this transport experiment and verify the exact candidate via the working DEV
 API, preserving failed intents. No paid fallback, listener or networking change.
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-18 learner121 closeout:
+Default Windows Path.read_text decoded UTF-8 model replies as cp1251 and falsely
+failed a literal QA assertion. Explicit UTF-8 recovered exact saved bytes, no model
+repeat. A chained PowerShell native command continued to an already-authorized
+source push despite the earlier assertion; protected deployment remained held and
+only proceeded after recorded semantic/UI acceptance and root gate. Use one Python
+check=True orchestration or explicit LASTEXITCODE stop after every native command.
+Do not use raw API DTO field guesses: bound_enrollment belongs to native-result,
+not dev-acceptance; read producer contract before assembling a final receipt.
+The protected workflow initially had zero jobs while pending; read-only fetch now
+waits boundedly for the exact build job, without any workflow redispatch.
+Native maintenance113/114 history already proved incomplete staging pairs must
+not be pruned blindly:115had only a remote manifest. Initial --prune-staged-copy
+preflight removed0; canonical tree-only cleanup used original accepted offhost115
+recovery. Subsequent public-read timeout was reconciled independently, no second
+cleanup. API121 first cold consumed headroom on image pull then hit unchanged6GiB
+guard; diagnostic replay stopped before cold runtime. Standing OPS012 removed only
+old unused111/de6badb5 after16GHCR blobs/digest proof and lease; all79container/config/
+state fingerprints exact,118/116/115extra/DEV120 retained. Same cold995source/full-tail
+controls passed after actual capacity restored. Never relax the floor or force/prune.
+Private evidence ACL restriction was incorrectly applied recursively with inheritance
+removal: existing files ended with empty DACLs. It interrupted scoped manifest access
+AFTER archive staging but BEFORE any frontend deploy. Restored child inheritance
+under unchanged owner+SYSTEM private root only; read back file ACLs and access before
+continuation. No permissions granted to other identities. Resume independently
+proved frontend118 unchanged and exact staged158574281byte archive/ec1a7057 hash,
+then reused canonical full preflight, staged only missing manifest and executed the
+first actual121 frontend deploy. No retransmission or unknown-deploy retry.
+For future private packet ACL changes: restrict root only, let children inherit,
+verify a representative existing child and newly created child before any release
+process. Static F821 catches helper missing imports before remote access. Remote
+inventory evidence must omit empty tag/digest fields and keep finite scalar grammar;
+raw list/comma/empty evidence rejected without deletion. All failed local/private
+receipts retained; none represented product scope failure or new model inference.

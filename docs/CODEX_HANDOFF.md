@@ -1,3 +1,47 @@
+## Current - 2026-11-18: learner assistant121 released and live accepted
+
+result: First learner-assistant package is accepted in DEV and production0.11.121,
+exact13f35694aa655b33fcc70d20c1c78b411b3fadad. API/all3workers and nativeCT137
+frontend coherent; imagec5a49eb8b852e340fec06f36ed06a7038baedea23363304985254bb958a3f1c8.
+Protected44301116067, masterCI44299562723, featureCI44297769021, native44299717407
+SUCCESS. Current production generation modules/migrations/packages equal accepted118;
+no deferred119/120 engine change included. No migration: CT1250188/settings/history
+and global DeepSeek->Luna order unchanged; model tests used already-paid Luna only.
+changed: Student-only chat/history require concrete assigned-course lesson_id;
+lesson/module tenant/course ownership checked; course-description/whole-course
+fallback and7000character clip removed. Full same Lesson.content as native player,
+no tenant RAG/source/test-key lookup. Histories separated by actor/course/lesson;
+legacy rows retained. Optional per-call Luna selection restricts an already enabled
+route, never activates it or falls back to paid DeepSeek. Native player renders
+public API message errors. Existing teacher instruction now uses explicit current
+facts before abstaining; no new critic or source-specific validator.
+verified:8998API+1skip/1818web(197files),33focusedAPI/39player, types/lint/quality and
+69page build PASS. Exact DEV Renderdep-dbup3iajnfac73du210g and stable Vercel
+ dpl_66Bc4nPvGTxNLHRVuyZTn6xH1ddv. New ordinary QA assigned learner/native API:
+3fresh Luna replies per DEV and production, all3 independently semantically accepted:
+11407char tail37minutes; other-lesson fact excluded; switch reads own fact. Real
+student UI desktop390/switch/reload/scoped histories PASS. Invalid missing/null
+lesson422, foreign lesson404, assignment-bound other course409, missing history
+lesson422 before model. Six accepted calls total plus3failed-A quality control
+calls retained; no paid model calls. Actual returned model alias/tokens/invoice NOT
+EXPOSED by native DTO; no invented usage. No browser default model POST was sent:
+Luna used via ordinary authenticated native HTTP; live UI showed its real history.
+blockers: None for first scoped/full-text package. Multi-turn tutor/history prompt
+and media support remain separate pending packages; full engine120 course QA was
+explicitly postponed by owner and is NOT accepted or released. DEV Git8b41cd91 and
+idle workerf8333194/image71159d6c/env56057e49/deferred drafts retained unchanged;
+API-only candidate used existing manual exact-source DEV route, no force/ours merge.
+next: Follow owner priority for the next assistant/media package; do not repeat
+accepted generation, A/B controls or paid calls to recreate metadata. Production
+rollback118/6a234b54 retained in backend and native; native116/68fc9109 and299/359
+retained too. Fresh encrypted0188 restore/restricted current118 reader/signed report
+and independent owned DB/plaintext absence PASS. Real customer source/course/quizzes
+hashes unchanged; no customer/old learning result writes. New synthetic courses and
+assignments retained in permanent QA tenants. No local Docker, plans, rights,
+voice, reserve, reasoning or global provider configuration change. Evidence:
+.worktrees/learner-assistant121-20261118/.release-evidence/learner121B-20261118;
+final-release121.json and production-acceptance.json. Prior headers below historical.
+
 ## Current — 2026-11-18: learner121 isolated LOCAL candidate, no engine120 source
 
 result: Implementing owner-approved first learner-assistant package from accepted production118 code. New branch fix/learner-assistant121-20261118 in .worktrees/learner-assistant121-20261118; version0.11.121. No119/120generation or0189migration code included. Deferred120branch and all saved QA replies/history remain preserved, not merged/discarded.

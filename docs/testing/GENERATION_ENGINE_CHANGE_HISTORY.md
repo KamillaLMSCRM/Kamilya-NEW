@@ -4098,3 +4098,43 @@ completed26ready/11L41Q,22old exact+4fresh; standardsab221594 failed15ready,
 Owner explicitly postponed course checks for media/learner-assistant readiness.
 Stopped local future-furniture admission waiter before anyintent orPOST; no new
 furnitureBjob. Native118production/source/customer preservation remain unchanged.
+
+
+CHG-LEARNER121 ACCEPTED 2026-11-18 / exact13f35694:
+This is an isolated learner/API package from accepted production118 app tree,
+not an engine path replacement. Student current-lesson-only/full text and scoped
+history replace optional lesson/whole-course-description fallback/7000clip. Native
+player and teacher share Lesson.content. Tenant/course/module/assignment boundaries
+and all good source/course/test/results data retained; no migrations. Existing
+single teacher instruction clarified explicit current facts before false abstention.
+No generic new critic, source-specific rule, retry of ready course generation,
+model/reasoning/billing/global order change, or engine119/120 code.
+Prior relevant evidence: learner121 LOCAL/33scope/39player and nativeA in TEST_RUN_LEDGER;
+existing learner_assistant router/access tests. No earlier engine editor experiment
+was reused as learner acceptance. Nine initial REDs, A false refusal and both local
+transport failures retained. Root rejected A despite substring protocol PASS.
+
+RUN-LEARNER121-A-DEV: source8da7f10c/current synthetic QA course21ef1fc2,11407chars,
+provider chatgpt-reserve/configured gpt-5.6-luna, reasoning inherited unchanged.
+3fresh native HTTP calls7.515/4.938/4.562s; tail and scope PASS, switched explicit
+fact false abstention NO_GO. Actual alias/tokens/invoice NOT_EXPOSED. No course edit.
+RUN-LEARNER121-B-DEV: source13f35694/same course+lesson bytes,3fresh native HTTP Luna
+calls8.719/4.531/4.328s, root content PASS for all3. Scoped histories retained+A
+failure visible; ordinary assigned student desktop390/reload/switch PASS. No source
+or quiz changes. DEV whole generation worker/deferred jobs NOT claimed accepted.
+RUN-LEARNER121-PRODUCTION: source13f35694/current0.11.121, permanentQA83552/new manual
+course06526063-25d3-452d-b3c2-bfc18b8eb832/two lessons11407chars+separate marker.
+3fresh native HTTP Luna calls4.782/3.906/4.953s; all3root semantic PASS. Full tail
+37minutes understood; other-lesson marker not used; own switched marker correct.
+Five pre-model boundary controls passed; normal personal-link student live desktop
+and390px UI/readback/switch/reload PASS.0DeepSeek calls.0customer or old result writes,
+no source/course/test edits; new QA progress remains0%. Returned alias/token counts/
+invoice UNKNOWN, not guessed. Native positive model POST used explicit Luna; UI
+send was only locally exercised to avoid an unapproved default DeepSeek call.
+Original retained responses/intents/hashes/fixtures/screens are in private B evidence;
+production-native-result and production-acceptance bind all facts to exact runtime.
+Protected44301116067/master44299562723/native44299717407/feature44297769021 allSUCCESS,
+995cold source hashes/network-none full-tail/scope checks PASS0calls; schema0188.
+Runtime release13f/imagec5a49eb8; backend/native current118 rollback and native116/
+299/359 kept. Encrypted backup94MB/signed owned restore/independent absence PASS.
+No traffic rollback drill was performed; no semantic certification of deferred120.

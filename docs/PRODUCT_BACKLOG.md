@@ -1,3 +1,14 @@
+## Status 2026-11-18: first learner package accepted and released
+
+First package COMPLETE in DEV and production0.11.121/exact13f35694: strict concrete
+assigned lesson, complete native-player lesson text, tenant/course scope and separate
+message histories. Three fresh native Luna cases per environment and real ordinary
+student desktop/390px/switch/reload accepted. No unaccepted119/120 engine code.
+Conversation/history prompting and media readiness below remain separate pending
+work; customer video/YouTube/presentation samples have not yet been accepted.
+The earlier diagnosis/pending wording below is historical; current release receipts
+are at CODEX_HANDOFF/PRODUCTION_READINESS and learner121B/final-release121.json.
+
 # Kamilya LMS: актуальный продуктовый backlog
 
 ## P1 — готовность видео/презентаций и строгий контекст помощника обучающегося
