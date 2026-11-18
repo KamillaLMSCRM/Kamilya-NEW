@@ -36,6 +36,43 @@ def _alias_patch(alias):
             "reason": "spacing", "supporting_original_context_quotes": ["A  B"]}
 
 
+def test_pending_correction_identity_survives_jsonb_object_key_order_without_changing_source():
+    args = dict(tenant='t', document='d', original_sha='a'*64, selected_sha='b'*64, policy='p', route='r')
+    reply = {'decisions': [{'id': 'q', 'disposition': 'needs_human', 'reason': 'Confirm count.',
+                           'evidence': [{'source_ref': 'S2', 'excerpt': 'Two doors.'}]}]}
+    # PostgreSQL jsonb emits object keys by length/bytes, not input insertion order.
+    def jsonb(value):
+        if isinstance(value, dict):
+            return {k: jsonb(value[k]) for k in sorted(value, key=lambda k: (len(k.encode()), k.encode()))}
+        return [jsonb(v) for v in value] if isinstance(value, list) else value
+    messages = [{'role': 'system', 'content': 'Review only pending evidence.'},
+                {'role': 'user', 'content': json.dumps({'task': 'source-question-evidence-review-v1',
+                                                       'original': 'Two doors.  Units: 3'})},
+                {'role': 'assistant', 'content': json.dumps(reply)},
+                {'role': 'user', 'content': json.dumps({'pending_ids': ['q']})}]
+    restored = deepcopy(messages)
+    restored[2]['content'] = json.dumps(jsonb(reply))
+    assert messages != restored and identity(**args, messages=messages) == identity(**args, messages=restored)
+    restored[1]['content'] = restored[1]['content'].replace('Two doors.  Units', 'Two doors. Units')
+    assert identity(**args, messages=messages) != identity(**args, messages=restored)
+    restored = deepcopy(messages)
+    restored[2]['content'] = restored[2]['content'].replace('Two doors.', 'Three doors.')
+    assert identity(**args, messages=messages) != identity(**args, messages=restored)
+
+
+def test_custody_identity_preserves_every_legacy_two_message_byte():
+    import hashlib
+
+    from app.modules.source_editorial_review.request_custody import POLICY
+    args = dict(tenant='t', document='d', original_sha='a'*64, selected_sha='b'*64, policy='p', route='r')
+    messages = [{'role': 'system', 'content': 'Original source reviewer.'},
+                {'role': 'user', 'content': '{"original":"Two  doors.", "task":"source-question-evidence-review-v1"}'}]
+    original = [POLICY, 't', 'd', 'a'*64, 'b'*64, 'p', 'r', messages]
+    expected = hashlib.sha256(json.dumps(original, ensure_ascii=False, sort_keys=True,
+                                        separators=(',', ':'), allow_nan=False).encode()).hexdigest()
+    assert identity(**args, messages=messages) == expected
+
+
 @pytest.mark.asyncio
 async def test_unicode_author_alias_is_canonical_for_review_and_custody():
     wire = {"patches": [_alias_patch("p_expert_ocenka_obязан")], "unresolved": []}

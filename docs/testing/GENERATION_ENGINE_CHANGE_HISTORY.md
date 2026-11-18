@@ -3811,3 +3811,30 @@ No transport unknown. New source_changes=None must be excluded from legacy
 request digest; regression keeps historical idempotency receipts readable.
 Explicit row-only all-occurrences, stale/foreign/overlap negative, approval pin
 and grouped undo regressions added. DEV/production acceptance still PENDING.
+
+RUN-SOURCE-EVIDENCE118-NATIVE INTENT 2026-11-18T02:23:08.978972+00:00: exact3c1eba22 coherent DEV controller RELEASE_OK. Ordinary QA source364 recheck once, all19blocks/644776chars/2selected parts;47main/formatter+6known completed pending replies restored with immutable provenance and independent364same-source readback. Expected0fresh inference, no product truth/source selection/course/customer edits. Unknown control/call readback, no repeat.
+
+CHG-SOURCE-EVIDENCE118B PROPOSED 2026-11-18T02:33:32.529440+00:00: native3c1eba22 source388 completed107questions/11exactauto/0unverified, NOT GO: one unexpected completed corrective review request08c0ce6b was sent because assistant JSON object key order changed across JSONB persistence. It reintroduced a false s6-1 and altered u6-2 while local accepted trial3 did not. All47main/formatter and5of6pending completed replies reused; original/selectedparts/good11 unchanged. Save actual388/rawreceipt/usage and failed equality first; no new whole generation. Fix only canonical identity/serialization of the quoted assistant JSON in this typed pending-evidence corrective transcript, leaving all2message author/reviewer/formatter wire/keys and source string values exact. Import equivalently-bound reviewed completed local corrective reply with explicit old/new identity provenance; do not import unknown or fabricate new completion. Retain rejected native08c reply. Projection7 invalidates only stale projected block results, not completed model calls. Add local actual JSONB-key-order roundtrip and unknown-hold/native custody regressions before DEV; no fresh inference expected. No new semantic critic, SKU condition, source facts or provider/reasoning changes.
+
+
+CHG-SOURCE-EVIDENCE118B LOCAL PASS 2026-11-18T02:38:36.291578+00:00: actual388 retained, one unexpected
+known Luna6 HIGH correction21868IN652OUT, invoiceUNKNOWN, not a regeneration of
+main/good parts. Native107 versus expected106: s6-1 asks two-versus-three while
+its literal proof says two; rejected. Existing LOCAL trial3 correctly dismisses
+this and preserves real u6-2, retained as the accepted model response. No manual
+source/course rewrite or owner factual answer. The fault is nested assistant
+JSON key order lost by JSONB, not source extraction or provider selection.
+Canonicalize ONLY quoted assistant JSON for the typed4message evidence correction
+in both wire and identity; original2messages/allsource-string bytes/47request
+keys unchanged. No fabricated completion or new provider response. Migrate the
+known accepted equivalent reply with explicit prior key/raw hash/equivalence
+proof; keep the rejected08c reply unchanged. Unknown handling/acknowledgement,
+ownership and literal guards unchanged and51focused/native tests PASS.
+Actual JSONB-order roundtrip now reproduces all53known replies/106issues/0unverified/
+11exactauto at LOCAL0freshcalls0DBwrites, including full native644776chars.
+8982API PASS1skip, qualitywrapper1004/2174 PASS. Frontend byte-identical3c already
+1817tests/197files/build69/type/lint accepted; no repeated frontend suite claimed.
+Pure analyze logical51 versus physical53receipts differs by2existing JSON repair
+responses inside complete_json; native run_analysis reports actual custody53.
+The initial LOCAL assertion conflated these counters; preserved failed log,
+corrected proof separates them. NativeB/production gates PENDING.

@@ -1,3 +1,23 @@
+## Current —2026-11-18: source118B LOCAL accepted; DEV388 semantic NO_GO
+
+DEV118 exact3c1eba22 coherent API/frontend/soleworker8ab0b6d2, imageea51c36e/
+env813d24f1; CI44219009564/build44220347805, Renderdep-dbugevkipgvc738rpdog,
+Verceldpl_A8Wn9aJcEEKB3DVu8eEKvhxwcBEa/controller RELEASE_OK. Source364->388
+completed;107questions/11good auto unchanged,0unverified. One unexpected new
+corrective call08c21868IN652OUT caused by nested assistant JSON key order after
+JSONB and returned false s6-1; NOT accepted. Main47 and5pending reused. No new
+course/source facts/customer edits, original644776chars and selected2parts exact.
+LOCALB canonical typed corrective assistant JSON wire/identity, old2messages and
+47keys exact, projection7. Actual JSONB-order53reply replay0calls PASS106issues/
+0unverified/11auto;8982API/1skip/quality PASS. Frontend unchanged from3c accepted
+1817tests/build69. Next exactB CI/image/DEV, equivalent known accepted corrective
+receipt restore with provenance, ordinary source388 recheck with0new modelcalls.
+Keep bad08c/history; unknown never retried. Production116 unchanged. Signed
+production/native116/rollback115 retained, K/116 extraDEV copies retained. Minimum
+standing cleanup3oldestno-volume images/16blobs each verified,81others preserved;
+currentDEV118 then added one container. Private A owns exact outcomes. No local
+Docker/provider/reasoning/billing/rights/voice/resource changes.
+
 ## Current —2026-11-17: DEV117L verified; native full Excel357 awaiting factual decisions
 
 DEV API/frontend/sole worker exact718d4f24ac8dcafea5f59a04b1d449544b222ac2,

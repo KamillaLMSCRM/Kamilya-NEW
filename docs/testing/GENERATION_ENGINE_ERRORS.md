@@ -2356,3 +2356,5 @@ exact/reusable. One corrected LOCAL trial max1newcall, same paid Luna6 HIGH;
 unknown is never retried. Failed literal-only technical pass remains NOT GO.
 
 ENG-082 continuation118 LOCAL: distinct readonly literal occurrences and unique editable anchors; source-row-scoped grouped decisions, full undo and approval provenance. Preserved author identity, targeted existing-review correction only for unverified findings, no unknown retry. Saved357 exact53reply replay PASS0calls,0unverified/11good automatic edits preserved. Native DEV/production PENDING. CHG-SOURCE-EVIDENCE118 owns outcomes and failed trials.
+
+ENG-082/118B: nested assistant JSON insertion order was part of a request key; JSONB reordered fields and caused an avoidable second known corrective request. Preserve actual388 false s6-1/08c response and usage. Typed corrective assistant JSON canonicalized without source string/legacy2message changes. Actual JSONB-order saved53replay PASS0calls; native/productionB pending.

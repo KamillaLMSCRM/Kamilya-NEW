@@ -11392,3 +11392,18 @@ with rg --files and invoke the actual critical-journey test (6PASS). Its origina
 log retained; full API8965PASS/critical666PASS/quality are independently recorded.
 Do not treat an empty test run as success or repeat guessed paths. No deployment,
 model request or source/customer mutation resulted from this failed harness step.
+
+TOOL-005 follow-up2026-11-18 source118: private remote-script AST rebinding
+handled str but missed bytes lease-owner, leaving a completed cold verification
+lease. Exact owner/mtime/inode proof allowed releasing only that own lease;
+independent DEV/production preservation passed. Typed synthetic CONTROL JSON
+first hit phone-like hash scanner, then referenced json before its import.
+Guard remained unchanged; structure-only serialization and LOCAL complete
+prelude execution now required before remote transport. Capacity inventory
+exceeded the50line evidence cap; bound candidate output to oldest3. A rewritten
+cleanup digest omitted stable mount sorting; it removed0 after registry proof.
+Reused canonical successful116algorithm with fresh84/SPEC/protected bindings,
+then removed minimum3/3verified16blob copies,81others unchanged,6.899GBfree.
+No force/prune/volumes/model/customer writes. Corrective source118B proves JSONB
+roundtrip locally before another DEV request; use actual persistence shape,
+not only in-memory replay. Preserve all blocked/failed receipts, never relabel.

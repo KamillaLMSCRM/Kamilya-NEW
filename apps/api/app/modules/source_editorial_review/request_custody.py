@@ -36,9 +36,32 @@ class CompletedResponseRejected(ValueError):  # noqa: N818 - compact module-loca
 
 def identity(*, tenant: str, document: str, original_sha: str, selected_sha: str,
              policy: str, route: str, messages: list[dict[str, Any]]) -> str:
-    payload = [POLICY, tenant, document, original_sha, selected_sha, policy, route, messages]
+    payload = [POLICY, tenant, document, original_sha, selected_sha, policy, route, _identity_messages(messages)]
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True,
                                      separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def _identity_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """JSONB key order is not a new completed-review transcript.
+
+    Only the quoted assistant JSON of this typed corrective exchange is
+    canonical. Source strings, both user messages, other stages and all legacy
+    two-message identities remain byte-exact. This does not synthesize a
+    completion or relax an unknown-outcome fence.
+    """
+    if len(messages) != 4 or [m.get('role') for m in messages] != ['system', 'user', 'assistant', 'user']:
+        return messages
+    try:
+        request = json.loads(messages[1]['content'])
+        if not isinstance(request, dict) or request.get('task') != 'source-question-evidence-review-v1':
+            return messages
+        reply = json.loads(messages[2]['content'])
+        if not isinstance(reply, dict) or set(reply) != {'decisions'}:
+            return messages
+        quoted = json.dumps(reply, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False)
+    except (TypeError, KeyError, ValueError):
+        return messages
+    return [*messages[:2], {**messages[2], 'content': quoted}, messages[3]]
 
 
 def choose_attempt(key: str, retained: Mapping[str, dict[str, Any]], acknowledgement: dict[str, Any] | None,

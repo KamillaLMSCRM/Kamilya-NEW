@@ -108,7 +108,8 @@ async def repair_pending_evidence(questions: list[dict[str, Any]], *, context: Q
                   "A reported evidence quotation failed literal binding or a decision is missing. "
                   "Correct its evidence or verdict; do not invent text or true values. "
                   "Preserve accepted decisions and omit them from the reply. Return the same decisions JSON schema."}
-    corrected = await complete_json([*messages, {'role': 'assistant', 'content': json.dumps(raw, ensure_ascii=False)},
+    corrected = await complete_json([*messages, {'role': 'assistant', 'content': json.dumps(raw, ensure_ascii=False,
+                                                    sort_keys=True, separators=(',', ':'))},
                                     {'role': 'user', 'content': json.dumps(correction, ensure_ascii=False)}])
     final, additional, correction_audit = _apply_reply(first, context=context, raw=corrected)
     return final, [*dismissed, *additional], {**audit, 'first_pass': audit,

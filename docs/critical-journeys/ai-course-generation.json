@@ -166,7 +166,9 @@
         "apps/api/tests/unit/test_source_evidence_review.py::test_unknown_outcome_is_never_retried_or_turned_into_a_human_question",
         "apps/api/tests/unit/test_source_evidence_review.py::test_ready_findings_never_invoke_another_model",
         "apps/api/tests/unit/test_source_review_parser_scope.py::test_spaced_table_navigation_does_not_change_generation_default",
-        "apps/api/tests/unit/test_source_review_parser_scope.py::test_compact_table_default_and_review_have_identical_units"
+        "apps/api/tests/unit/test_source_review_parser_scope.py::test_compact_table_default_and_review_have_identical_units",
+        "apps/api/tests/unit/test_source_review_custody.py::test_pending_correction_identity_survives_jsonb_object_key_order_without_changing_source",
+        "apps/api/tests/unit/test_source_review_custody.py::test_custody_identity_preserves_every_legacy_two_message_byte"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent",

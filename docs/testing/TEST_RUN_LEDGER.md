@@ -8060,3 +8060,26 @@ Explicit row-only all-occurrences, stale/foreign/overlap negative, approval pin
 and grouped undo regressions added. DEV/production acceptance still PENDING.
 
 118 LOCAL final:8980API PASS1skip,1817web/197files,676critical,build69/types/scopedlint/qualitywrapper1004/2174 PASS. Initial3failures were outdated test doubles/legacy digest fixture; replaced stub with real ReviewState and old wire fixture excludes absent source_changes. Production digest compatibility has explicit regression; grouped pin/undo verified. Direct absolute-runtime quality call was corrected to canonical PowerShell wrapper; wrong primary preflight path corrected to scripts/dev/check_primary_checkout.py LINKED_WORKTREE_OK. Navigation NOT_READY uses bounded source fallback. No native acceptance yet.
+
+
+CHG-SOURCE-EVIDENCE118B LOCAL PASS 2026-11-18T02:38:36.291578+00:00: actual388 retained, one unexpected
+known Luna6 HIGH correction21868IN652OUT, invoiceUNKNOWN, not a regeneration of
+main/good parts. Native107 versus expected106: s6-1 asks two-versus-three while
+its literal proof says two; rejected. Existing LOCAL trial3 correctly dismisses
+this and preserves real u6-2, retained as the accepted model response. No manual
+source/course rewrite or owner factual answer. The fault is nested assistant
+JSON key order lost by JSONB, not source extraction or provider selection.
+Canonicalize ONLY quoted assistant JSON for the typed4message evidence correction
+in both wire and identity; original2messages/allsource-string bytes/47request
+keys unchanged. No fabricated completion or new provider response. Migrate the
+known accepted equivalent reply with explicit prior key/raw hash/equivalence
+proof; keep the rejected08c reply unchanged. Unknown handling/acknowledgement,
+ownership and literal guards unchanged and51focused/native tests PASS.
+Actual JSONB-order roundtrip now reproduces all53known replies/106issues/0unverified/
+11exactauto at LOCAL0freshcalls0DBwrites, including full native644776chars.
+8982API PASS1skip, qualitywrapper1004/2174 PASS. Frontend byte-identical3c already
+1817tests/197files/build69/type/lint accepted; no repeated frontend suite claimed.
+Pure analyze logical51 versus physical53receipts differs by2existing JSON repair
+responses inside complete_json; native run_analysis reports actual custody53.
+The initial LOCAL assertion conflated these counters; preserved failed log,
+corrected proof separates them. NativeB/production gates PENDING.
