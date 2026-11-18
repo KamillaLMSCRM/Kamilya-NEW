@@ -182,6 +182,13 @@
 
 ## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
 
+- Update 2026-11-18: CONTEXT120 repeated the omission in candidate6061d7a0;
+  PR CI44266884388 caught0188-vs0189 before any public migration or DEV switch.
+  Root ran API units but omitted the existing controller regression locally.
+  Add exact120 epoch0188-to0189 and call the same actual controller mapping from
+  release-contract-gate.py, which is already a mandatory local pre-push command.
+  Preserve failed CI and new-SHA rerun; installed controller remains a separate
+  protected upgrade requirement before production.
 - Update 2026-11-15: standalone114 pre-production inspection caught the same
   omitted epoch locally, before any production dispatch or schema mutation.
   Candidate c487 retained the old 0187 target despite migration0188. Add the

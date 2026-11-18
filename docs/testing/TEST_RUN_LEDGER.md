@@ -8190,3 +8190,5 @@ economics/content matrix and protected production remain PENDING.
 Private evidence: catalog-context120-20261118/projection-benchmark.json,
 model-control-acceptance.json, isolated0189.json. Preserve published119course,
 approved521 and53source replies; rejected CHG-L100N is not restored.
+
+CHG-CONTEXT120 release preflight: candidate6061d7a0 PR CI44266884388 failed existing controller-epoch regression (0188vs0189), before any public migration/deployment. Added exact120epoch and wired actual controller/head comparison into mandatory local release-contract-gate; controller/bundle/workflow73PASS. New exact SHA CI required; failed run preserved.

@@ -156,6 +156,18 @@ def test_current_product_epoch_matches_sole_alembic_head():
 
 
 @pytest.mark.parametrize('flags', [True, False])
+def test_literal_access_epoch_only_accepts_exact_additive_0188_to_0189(flags):
+    data=epoch_manifest('0.11.120',migration=False,flags=flags)
+    assert release_plane.ReleaseManifest.parse(data).correction_revisions==('0188','0189')
+    data['migration'].update(mode='exact',from_revision='0188',to_revision='0189',rollback_compatible=True)
+    assert release_plane.ReleaseManifest.parse(data).migration.to_revision=='0189'
+    for source,target in [('0187','0188'),('0187','0189'),('0188','0190'),('0189','0188')]:
+        data['migration'].update(from_revision=source,to_revision=target)
+        with pytest.raises(release_plane.ReleasePlaneError,match='v3_migration_revision_invalid'):
+            release_plane.ReleaseManifest.parse(data)
+
+
+@pytest.mark.parametrize('flags', [True, False])
 @pytest.mark.parametrize('already_deployed', [True, False])
 @pytest.mark.parametrize('revision, accepted', [('0187 (head)', False), ('0188 (head)', True), ('0189 (head)', False)])
 def test_knowledge_checks_no_migration_requires_0188(tmp_path, monkeypatch, flags, already_deployed, revision, accepted):

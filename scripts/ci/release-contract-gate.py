@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import re
 import sys
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATIONS_DIR = REPO_ROOT / "apps" / "api" / "alembic" / "versions"
@@ -320,9 +322,33 @@ def check_errors_journal() -> str:
     return f"errors journal OK ({len(ids)} unique entries, secret-safe structure)"
 
 
+def check_current_release_epoch() -> str:
+    """Use the actual pure controller mapping, including in local pre-push checks."""
+    revisions = {}
+    for path in MIGRATIONS_DIR.glob('*.py'):
+        if path.name != '__init__.py':
+            tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+            revisions[_assignment(tree, 'revision', path)] = _assignment(tree, 'down_revision', path)
+    heads = set(revisions) - {v for v in revisions.values() if v is not None}
+    if len(heads) != 1:
+        raise ValueError('release epoch requires exactly one Alembic head')
+    spec = importlib.util.spec_from_file_location('kamilya_release_epoch_gate', REPO_ROOT/'scripts/deploy/release_plane.py')
+    if spec is None or spec.loader is None:
+        raise ValueError('release controller mapping unavailable')
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    version = (REPO_ROOT/'VERSION').read_text(encoding='utf-8').strip()
+    target = module.ReleaseManifest.correction_revisions.fget(SimpleNamespace(product_version=version))[1]
+    if target != heads.pop():
+        raise ValueError('current product release epoch differs from sole Alembic head')
+    return f'current product epoch OK ({version}, target={target})'
+
+
 def main() -> int:
     try:
         print(f"release-contract-gate: {check_alembic_chain()}")
+        print(f"release-contract-gate: {check_current_release_epoch()}")
         print(f"release-contract-gate: {check_celery_contract()}")
         print(f"release-contract-gate: {check_migration_owner()}")
         print(f"release-contract-gate: {check_render_runtime_dependencies()}")
