@@ -8231,3 +8231,14 @@ standards FAILED15ready,12old exact. Preserve all, no re-generation or acceptanc
 
 
 2026-11-18 LEARNER121 LOCAL: strict concrete lesson/full text;16new tests,33focused PASS; full8998API PASS1skip7warnings293.64s;1818web PASS197files183.11s;39player PASS; types/scopedlint PASS; Python quality ruff1004/mypy2175 PASS.9initialRED preserved; HTTP harness initially lacked active-user fixture override, corrected without product guard changes. No generation119/120 source, no schema mutation. Native player/assistant current Lesson.content audit; CodeGraph NOT_READY runtime missing, bounded source fallback. Exact candidate DEV/prod acceptance pending.
+
+
+LEARNER121 nativeA /8da7f10c:3actual DEV HTTP Luna calls, 7.515/4.938/4.562s.
+Long11407char tail37min PASS and adjacent-lesson exclusion PASS. Switching to the
+adjacent lesson produced a false abstention despite its explicit fact; root NO_GO,
+not accepted from substring checks. Source/courses/assignments unchanged except
+newQA conversation. B clarifies the single teacher task: explicit current text
+is evidence even if wording mentions another topic. No scope relaxation, new
+critic, source edits or generation retry. Local B direct configured18999 transport
+failed before inference; canonical SSH readiness path also disconnected before
+model intent/call. Preserve both, no blind repeat; native exact-B check still needed.

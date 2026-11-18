@@ -11550,3 +11550,17 @@ bootstrap as pytest conftest; first import stopped before any DB/model request.
 Known Windows LF→CRLF docs-writer recurrence: normalized only the six owned modified
 documents back to their original LF bytes before any staging. diff--check now0;
 capture potentially broad diagnostics to a bounded file, never flood tool output.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-18 learner121: native assignment-JWT
+wrong-course guard returns409assignment_enrollment_not_active, not ordinary-session
+404; preserve the existing actor-specific contract. First reader stopped before
+model intent; corrected harness bound the same assignment and then sent3known
+native calls. Canonical transport imports must be bound to current worktree before
+reusing a TLS adapter from an older checkout; first wrong-root guard stopped before
+remote execution. One read-only worker heartbeat failed without decisive cause;
+next independent same-identity probe passed, no worker restart/config change.
+Configured DEV Luna18999 is not directly workstation-reachable; local model-probe
+connect/readiness failures are not provider/model rejection or successful inference.
+Stop this transport experiment and verify the exact candidate via the working DEV
+API, preserving failed intents. No paid fallback, listener or networking change.
