@@ -10,7 +10,7 @@ from app.modules.ai.v3.source_units import SourceUnit, plan_source_units, source
 # Projection changes must not invalidate a completed model request whose wire
 # contract is unchanged. The model-facing row inventory stays byte compatible.
 REQUEST_POLICY = "source-question-row-context-v3"
-POLICY = "source-question-row-context-v5"
+POLICY = "source-question-row-context-v6"
 
 
 class QuestionContextError(ValueError):
@@ -58,6 +58,36 @@ class QuestionContext:
             raise QuestionContextError("source_question_reference_scope_changed")
         return span
 
+    def evidence(self, excerpt: str, refs: list[str],
+                 restore: Callable[[str, str], tuple[int, int] | None] | None = None) -> list[dict[str, Any]]:
+        """Read-only occurrences, distinct from the legacy unique edit anchor."""
+        if not excerpt or not refs or len(refs) != len(set(refs)) or any(ref not in self.references for ref in refs):
+            raise QuestionContextError("source_question_reference_invalid")
+        evidence: list[dict[str, Any]] = []
+        found: set[str] = set()
+        for ref in refs:
+            unit = self.references[ref]
+            position = 0
+            while (offset := unit.text.find(excerpt, position)) >= 0:
+                evidence.append(self._evidence(ref, unit.start + offset, unit.start + offset + len(excerpt)))
+                found.add(ref)
+                position = offset + len(excerpt)
+            if ref not in found and restore is not None and (span := restore(unit.text, excerpt)) is not None:
+                evidence.append(self._evidence(ref, unit.start + span[0], unit.start + span[1]))
+                found.add(ref)
+        if found == set(refs):
+            return sorted(evidence, key=lambda row: row["start"])
+        # A genuinely contiguous quotation may cross adjacent native units.
+        left, right = self.bind(excerpt, refs, restore)
+        if any(not (u.start < right and left < u.end) for ref in refs for u in [self.references[ref]]):
+            raise QuestionContextError("source_question_reference_scope_changed")
+        return [self._evidence(ref, max(left, self.references[ref].start), min(right, self.references[ref].end))
+                for ref in refs]
+
+    def _evidence(self, ref: str, start: int, end: int) -> dict[str, Any]:
+        return {"source_ref": ref, "source_label": source_table_topic(self.references[ref]) or ref,
+                "start": start, "end": end, "quote": self.original[start:end]}
+
     def same_row(self, clue: str, span: tuple[int, int]) -> bool:
         local = self.original[self.offset:self.end]
         if not clue or local.count(clue) != 1:
@@ -73,7 +103,7 @@ class QuestionContext:
         if not clue:
             return None
         return next((ref for ref, unit in self.references.items() if unit.kind == "table_row"
-                     and unit.start <= span[0] < span[1] <= unit.end and unit.text.count(clue) == 1), None)
+                     and unit.start <= span[0] < span[1] <= unit.end and clue in unit.text), None)
 
     def labels(self, refs: list[str]) -> list[str]:
         return list(dict.fromkeys(label for ref in refs if ref in self.references
@@ -90,7 +120,7 @@ class QuestionContext:
 
 
 def contexts(original: str, windows: list[tuple[int, str]]) -> list[QuestionContext | None]:
-    units = plan_source_units(original)
+    units = plan_source_units(original, allow_spaced_tables=True)
     if not any(unit.kind == "table_row" for unit in units):
         return [None] * len(windows)
     indexed = {f"S{index + 1}": unit for index, unit in enumerate(units)

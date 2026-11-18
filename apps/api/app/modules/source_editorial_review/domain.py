@@ -99,6 +99,21 @@ class ReviewPageRange(BaseModel):
         return self
 
 
+class ScopedSourceReplacement(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    source_ref: str = Field(min_length=1, max_length=80)
+    quote: str = Field(min_length=1, max_length=5000)
+    replacement: str = Field(min_length=1, max_length=5000)
+    all_occurrences: bool = False
+
+    @model_validator(mode="after")
+    def valid_text(self) -> "ScopedSourceReplacement":
+        if not self.replacement.strip() or "\x00" in self.replacement or "\r" in self.replacement:
+            raise ValueError("invalid replacement")
+        return self
+
+
 class ReviewCommand(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -110,6 +125,7 @@ class ReviewCommand(BaseModel):
     replacement: str | None = Field(default=None, min_length=1, max_length=5000)
     reason: str | None = Field(default=None, min_length=3, max_length=1500)
     quote: str | None = Field(default=None, min_length=1, max_length=5000)
+    source_changes: list[ScopedSourceReplacement] | None = Field(default=None, min_length=1, max_length=256)
     pages: ReviewPageRange | None = None
     selected_part_ids: list[str] | None = Field(default=None, min_length=1, max_length=5000)
     preparation_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
@@ -135,10 +151,15 @@ class ReviewCommand(BaseModel):
         elif self.item_id is not None or self.reason is not None:
             raise ValueError("unexpected item or reason")
         if self.action == "resolve":
-            if self.decision is None or (self.replacement is not None) != (self.decision == "replace"):
+            if (self.decision is None
+                    or (self.decision == "replace" and (self.replacement is None) == (self.source_changes is None))
+                    or (self.decision == "keep" and (self.replacement is not None or self.source_changes is not None))
+                    or (self.source_changes is not None and self.quote is not None)):
                 raise ValueError("an explicit decision and matching replacement are required")
         elif self.action != "add_edit" and (self.decision is not None or self.replacement is not None or self.quote is not None):
             raise ValueError("unexpected decision")
+        if self.source_changes is not None and self.action != "resolve":
+            raise ValueError("scoped changes only allowed when resolving an issue")
         if self.replacement and ("\x00" in self.replacement or "\r" in self.replacement):
             raise ValueError("invalid replacement")
         return self
@@ -226,8 +247,44 @@ class ReviewState:
     def active_edits(self) -> list[dict[str, Any]]:
         return [
             *(row for key, row in self.automatic.items() if key not in self.disabled_auto),
-            *(row for row in self.decisions.values() if row["decision"] == "replace"),
+            *(edit for row in self.decisions.values() if row["decision"] == "replace"
+              for edit in row.get("source_changes", [row])),
         ]
+
+    def decision_context(self) -> tuple[dict[str, Any], ...]:
+        return tuple({'item_id': edit.get('id', item), 'decision': row['decision'],
+                      'quote': edit['before'], 'reason': row['reason'], 'start': edit['start'], 'end': edit['end']}
+                     for item, row in sorted(self.decisions.items()) for edit in row.get('source_changes', [row]))
+
+    def scoped_changes(self, issue: dict[str, Any], command: ReviewCommand) -> list[dict[str, Any]]:
+        edits: list[dict[str, Any]] = []
+        for change in command.source_changes or []:
+            scopes = [s for s in issue.get('source_scopes', []) if s.get('source_ref') == change.source_ref]
+            if len(scopes) != 1:
+                raise ReviewConflictError('source_review_evidence_scope_invalid')
+            scope = scopes[0]
+            left, right = scope.get('start'), scope.get('end')
+            if (type(left) is not int or type(right) is not int or not 0 <= left < right <= len(self.original)
+                    or self.original[left:right] != scope.get('text')):
+                raise ReviewConflictError('source_review_evidence_scope_invalid')
+            text = self.original[left:right]
+            positions: list[int] = []
+            position = 0
+            while (found := text.find(change.quote, position)) >= 0:
+                positions.append(found)
+                position = found + len(change.quote)
+            if not positions or (not change.all_occurrences and len(positions) != 1):
+                raise ReviewConflictError('source_review_quote_not_unique')
+            if change.replacement == change.quote:
+                raise ReviewConflictError('source_review_replacement_requires_exact_change')
+            for position in positions:
+                if len(edits) >= 256:
+                    raise ReviewConflictError('source_review_too_many_changes')
+                edits.append({'id': f'{command.item_id}:{len(edits)}', 'item_id': command.item_id,
+                    'source_ref': change.source_ref, 'start': left + position,
+                    'end': left + position + len(change.quote), 'before': change.quote,
+                    'after': change.replacement, 'reason': command.reason})
+        return edits
 
     def working(self) -> tuple[str, list[dict[str, Any]]]:
         return render_text(self.original, self.active_edits())
@@ -273,7 +330,10 @@ class ReviewState:
         if command.action == "reopen_issue" and item in self.decisions:
             row = self.decisions[item]
             return "issue_reopened", {"item_id": item, "start": row["start"], "end": row["end"],
-                                      "before": row["after"], "after": row["before"], "reason": command.reason}
+                                      "before": row["after"], "after": row["before"], "reason": command.reason,
+                                      **({'source_changes': [{**edit, 'before': edit['after'], 'after': edit['before'],
+                                                              'reason': command.reason} for edit in row['source_changes']]}
+                                         if row.get('source_changes') else {})}
         if command.action == "add_edit":
             quote = command.quote or ""
             if not quote or self.original.count(quote) != 1:
@@ -295,6 +355,12 @@ class ReviewState:
         if command.action != "resolve" or item not in self.issues or item in self.decisions:
             raise ReviewConflictError("source_review_action_not_available")
         issue = self.issues[item]
+        if issue.get('source_scopes') and command.decision == 'replace' and command.source_changes is None:
+            raise ReviewConflictError('source_review_evidence_scope_invalid')
+        if command.source_changes is not None:
+            edits = self.scoped_changes(issue, command)
+            render_text(self.original, [*self.active_edits(), *edits])
+            return "resolved", {**edits[0], 'id': item, 'item_id': item, 'decision': 'replace', 'source_changes': edits}
         start, end, before = issue["start"], issue["end"], issue["quote"]
         if start is None and command.quote:
             if self.original.count(command.quote) != 1:

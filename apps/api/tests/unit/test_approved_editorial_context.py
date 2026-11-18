@@ -69,7 +69,8 @@ async def test_owned_approval_reader_preserves_the_recorded_decision(monkeypatch
     row = SimpleNamespace(document_id=document, id=approval, sequence=8, original_blob_sha256='a' * 64,
         payload={'working': approved.working_text, 'working_sha256': approved.working_sha256,
                  'spans': list(approved.spans)})
-    state = SimpleNamespace(original=approved.recognized_text, fidelity={}, preparation=None,
+    from app.modules.source_editorial_review.domain import ReviewState
+    state = ReviewState(original=approved.recognized_text, fidelity={}, preparation=None,
         decisions={decision['item_id']: dict(decision, before=decision['quote'])})
     monkeypatch.setattr(service, 'owned_document', AsyncMock(return_value=SimpleNamespace(id=document)))
     monkeypatch.setattr(service, 'read_approval', AsyncMock(return_value=(row, state)))

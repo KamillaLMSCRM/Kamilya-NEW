@@ -98,14 +98,14 @@ async def repair_question_quotes(
             continue
         original = questions[row.question_index]
         try:
-            context.bind(row.excerpt, row.source_refs)
+            context.evidence(row.excerpt, row.source_refs)
             canonical = context.unique_literal_row(original["excerpt"])
             if canonical is not None and row.source_refs != [canonical]:
                 raise QuestionContextError("unique_original_evidence_changed")
             if original.get("disposition") == "dismissed" and row.source_refs != original.get("source_refs"):
                 raise QuestionContextError("dismissal_evidence_scope_changed")
-        except QuestionContextError:
-            audit["rejected"].append({"index": row.question_index, "code": "source_evidence_not_bound"})
+        except QuestionContextError as error:
+            audit["rejected"].append({"index": row.question_index, "code": str(error)})
             continue
         if row.question_index not in bad and row.source_refs == original.get("source_refs"):
             continue  # Keep the already good quotation, including long ones.

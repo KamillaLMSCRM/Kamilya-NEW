@@ -23,6 +23,7 @@ from app.modules.ai.managed_response_rejection import ManagedResponseRejectedErr
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.continuation import handoff, lineage, valid_continuation
 from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
+from app.modules.source_editorial_review.evidence_review import repair_pending_evidence
 from app.modules.source_editorial_review.question_context import (
     POLICY as QUESTION_CONTEXT_POLICY,
 )
@@ -31,6 +32,7 @@ from app.modules.source_editorial_review.question_context import (
     QuestionContextError,
     contexts,
 )
+from app.modules.source_editorial_review.question_evidence import project_question
 from app.modules.source_editorial_review.question_quotes import repair_question_quotes
 from app.modules.source_editorial_review.request_custody import (
     POLICY as REQUEST_CUSTODY_POLICY,
@@ -246,9 +248,14 @@ def _unverified_clues(review: _IndependentReview, material: dict[int, Any], orig
             clue = material[clue_id]
             if context is not None and finding.source_refs is not None:
                 try:
-                    span = context.bind(question, finding.source_refs, _restore_table_quote_span)
+                    proofs = context.evidence(question, finding.source_refs, _restore_table_quote_span)
                 except QuestionContextError:
                     continue
+                matching = next((proof for proof in proofs if isinstance(clue, str)
+                                 and (context.same_row(clue, (proof['start'], proof['end']))
+                                      or context.confirmed_row(clue, (proof['start'], proof['end'])))), None)
+                proof = matching or proofs[0]
+                span = (proof['start'], proof['end'])
                 strict_row = isinstance(clue, str) and context.same_row(clue, span)
                 confirmed_row = context.confirmed_row(clue, span) if isinstance(clue, str) else None
                 if not strict_row and confirmed_row is None:
@@ -531,7 +538,6 @@ async def analyze(
             wire = await invoke(editorial_review_messages(local, result.proposal))
             if wire != result.review_wire or independent is None:
                 raise ReviewConflictError("source_review_independent_proposal_changed")
-        calls += block_calls
         block_questions: list[dict[str, Any]] = []
         block_dismissed: list[dict[str, Any]] = []
         block_auto = []
@@ -540,30 +546,14 @@ async def analyze(
             "reason": item.reason, "code": item.code, "not_a_source_span": True,
             "applied": False, "requires_human_decision": False} for item in result.unbound_diagnostics]
         for n, finding in enumerate(independent.source_questions):
-            start = local.index(finding.excerpt) if local.count(finding.excerpt) == 1 else None
-            span = (offset + start, offset + start + len(finding.excerpt)) if start is not None else None
-            if question_context is not None and finding.source_refs is not None:
-                try:
-                    span = question_context.bind(finding.excerpt, finding.source_refs, _restore_table_quote_span)
-                except QuestionContextError:
-                    span = None
-            row: dict[str, Any] = {"id": f"s{index}-{n}", "start": span[0] if span else None,
-                "end": span[1] if span else None, "quote": original[span[0]:span[1]] if span else finding.excerpt,
-                "category": finding.category, "reason": finding.reason}
-            if finding.source_refs is not None:
-                row["source_refs"] = finding.source_refs
-                labels = question_context.labels(finding.source_refs) if question_context is not None else []
-                if labels:
-                    row["source_labels"] = labels
-            row.update(quote_changes.get(n, {}))
-            if (finding.disposition == "dismissed" and span is not None
-                    and (question_context is None or finding.source_refs is not None)):
-                block_dismissed.append({**row, "disposition": "dismissed"})
-            else:
-                if (span is None or finding.disposition == "dismissed"
-                        or (question_context is not None and finding.source_refs is None)):
-                    row["needs_source_verification"] = True
-                block_questions.append(row)
+            projected = project_question(finding.model_dump(), item_id=f"s{index}-{n}", original=original,
+                offset=offset, local=local, context=question_context, restore=_restore_table_quote_span)
+            for row in projected:
+                row.update(quote_changes.get(n, {}))
+                if finding.disposition == "dismissed" and not row.get("needs_source_verification"):
+                    block_dismissed.append({**row, "disposition": "dismissed"})
+                else:
+                    block_questions.append(row)
         block_has_unbound_clue = False
         for clue_id in unverified:
             clue = candidate_questions[clue_id]
@@ -575,7 +565,19 @@ async def analyze(
             block_questions.append({"id": f"u{index}-{clue_id}", "start": None if start is None else offset + start,
                 "end": None if start is None else offset + start + len(quote), "quote": quote,
                 "category": clue["category"], "reason": explanation[:700] if isinstance(explanation, str) else "",
+                "author_candidate": {key: clue[key] for key in ('alias', 'excerpt', 'category', 'reason') if key in clue},
                 "needs_source_verification": True})
+        evidence_audit: dict[str, Any] = {}
+        if question_context is not None and any(q.source_refs is not None for q in independent.source_questions):
+            async def continue_evidence_review(messages: list[dict[str, str]]) -> object:
+                nonlocal block_calls
+                block_calls += 1
+                return await complete_json(messages)
+
+            block_questions, evidence_dismissed, evidence_audit = await repair_pending_evidence(
+                block_questions, context=question_context, proposal_sha256=independent.proposal_sha256,
+                complete_json=continue_evidence_review)
+            block_dismissed.extend(evidence_dismissed)
         # Failed cosmetic proposals keep their original text. They are not
         # human blockers; only the independent policy questions are shown.
         for patch in result.proposal.patches:
@@ -589,11 +591,13 @@ async def analyze(
                     "end": offset + patch.end, "before": patch.before, "proposed_after": patch.after,
                     "category": patch.category, "reason": gap.reason if gap else "source_editorial_edit_withheld",
                     "applied": False, "requires_human_decision": False})
+        calls += block_calls
         if checkpoint is not None:
             await checkpoint(key, {"questions": block_questions, "automatic": block_auto,
                                    "rejected_automatic": block_rejected, "dismissed_questions": block_dismissed,
                                    "source_clue_dispositions": independent.source_clue_dispositions,
-                                   "question_quote_repairs": [{"block": index, **quote_audit}] if quote_audit else [],
+                                   "question_quote_repairs": ([{"block": index, **quote_audit}] if quote_audit else [])
+                                       + ([{"block": index, **evidence_audit}] if evidence_audit else []),
                                    "source_clue_bindings": [{"block": index, **binding} for binding in block_bindings],
                                    "calls": block_calls})
         questions.extend(block_questions)
@@ -602,6 +606,8 @@ async def analyze(
         dismissed_questions.extend(block_dismissed)
         if quote_audit:
             quotation_repairs.append({"block": index, **quote_audit})
+        if evidence_audit:
+            quotation_repairs.append({"block": index, **evidence_audit})
         clue_bindings.extend({"block": index, **binding} for binding in block_bindings)
 
     # Restore literal coordinates before merging, including for resumed blocks.
@@ -631,6 +637,10 @@ async def analyze(
             for field in ("source_refs", "source_labels"):
                 if row.get(field):
                     last[field] = list(dict.fromkeys([*last.get(field, []), *row[field]]))
+            for field in ("source_evidence", "source_scopes"):
+                if row.get(field):
+                    last[field] = list({(item.get('source_ref'), item['start'], item['end']): item
+                                        for item in [*last.get(field, []), *row[field]]}.values())
     auto = [row for row in auto if not any(
         row["start"] < question["end"] and question["start"] < row["end"] for question in grouped
     )]

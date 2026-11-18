@@ -48,7 +48,7 @@ def source_table_topic(unit: SourceUnit) -> str:
     return label
 
 
-def plan_source_units(text: str) -> tuple[SourceUnit, ...]:
+def plan_source_units(text: str, *, allow_spaced_tables: bool = False) -> tuple[SourceUnit, ...]:
     """Partition exact source spans; table rows carry their literal header.
 
     This is a structural inventory, not proof that rows are semantically
@@ -82,6 +82,8 @@ def plan_source_units(text: str) -> tuple[SourceUnit, ...]:
     index = 0
 
     def next_content(position: int) -> int:
+        if not allow_spaced_tables:
+            return position
         while position < len(lines) and not lines[position].strip():
             position += 1
         return position

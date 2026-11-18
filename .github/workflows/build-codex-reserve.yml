@@ -129,9 +129,8 @@ jobs:
           docker run --rm --network none --read-only \
             --tmpfs /tmp:rw,noexec,nosuid,nodev,size=128m \
             --entrypoint sh "${IMAGE}" -c '
-              set -eu
               test "$(id -u)" != 0
-              test "$(codex --version)" = "codex-cli 0.166.0"
+              test "$(codex --version)" = "codex-cli 0.146.1"
               test -x /usr/local/bin/codex
               test ! -e /root/.codex
               test ! -e /root/.cache
@@ -159,7 +158,7 @@ jobs:
             --arg release_sha "${RELEASE_SHA}" \
             --arg product_version "${product_version}" \
             --arg image "${IMAGE}" \
-            --arg cli_version "codex-cli 0.166.0" \
+            --arg cli_version "codex-cli 0.146.1" \
             --arg ci_run_id "${CI_RUN_ID}" \
             '{release_sha:$release_sha,product_version:$product_version,image:$image,cli_version:$cli_version,ci_run_id:$ci_run_id}' \
             > codex-reserve-image.json

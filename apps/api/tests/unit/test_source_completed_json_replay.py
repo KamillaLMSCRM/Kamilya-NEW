@@ -145,7 +145,16 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     async def synthetic_provider(m, **_):
         assert quote_case, 'Completed repair was sent again'
         payload = json.loads(m[1]['content'])
-        if payload.get('task') == 'source-question-evidence-address-v2':
+        if payload.get('task') == 'source-question-evidence-review-v1':
+            assert quote_case == 'reference'
+            pending_clue = next(q for q in payload['findings'] if q['id'] == payload['pending_ids'][0])
+            assert pending_clue['author_candidate']['alias'] == 'B'
+            assert pending_clue['author_candidate']['excerpt'] == literal
+            ref = next(row['id'] for row in payload['original_rows'] if '| B |' in row['text'])
+            value = {'decisions': [{'id': payload['pending_ids'][0], 'disposition': 'covered',
+                     'covered_by': 's0-0', 'reason': 'The exact same original row remains an open finding.',
+                     'evidence': [{'source_ref': ref, 'excerpt': literal}]}]}
+        elif payload.get('task') == 'source-question-evidence-address-v2':
             assert quote_case is True, 'A literal source reference must not acquire a new quote-repair call'
             value = {'repairs': [{'question_index': 0, 'source_refs': payload['items'][0]['reported_source_refs'], 'excerpt': 'A has two units.'}]}
         elif 'proposal_sha256' not in payload:
@@ -198,7 +207,8 @@ async def test_native_worker_reuses_two_completed_corrections_without_provider_c
     archive_read.assert_awaited_once()  # Completed receipts loaded once, not per claim/checkpoint.
     assert rows[-1].kind == 'analyzed' and rows[-1].payload['original'] == source
     if quote_case == 'reference':
-        assert network.await_count == 2
+        assert network.await_count == 3  # Missing clue disposition repaired; no repeated author or review.
+        assert rows[-1].payload['model_calls'] == 3
         question, = rows[-1].payload['issues']
         assert question['quote'] == literal and question['start'] == source.index(literal)
         assert question['source_labels'] == ['B'] and question['reported_source_refs'] != question['source_refs']

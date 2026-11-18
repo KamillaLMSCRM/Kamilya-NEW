@@ -157,7 +157,16 @@
         "apps/api/tests/unit/test_source_review_history_io.py::test_ownership_head_fetches_only_current_metadata_in_owned_scope",
         "apps/api/tests/unit/test_source_row_lock_guard.py::test_only_source_row_lock_transactions_install_idle_cleanup_before_select",
         "apps/api/tests/unit/test_source_question_addresses.py::test_wrong_hint_and_paraphrased_quote_are_repaired_without_rewriting_good_peer",
-        "apps/api/tests/unit/test_source_question_addresses.py::test_rejected_address_never_removes_or_resolves_the_finding"
+        "apps/api/tests/unit/test_source_question_addresses.py::test_rejected_address_never_removes_or_resolves_the_finding",
+        "apps/api/tests/unit/test_source_question_evidence.py::test_repeated_quote_preserves_every_occurrence_and_product_identity",
+        "apps/api/tests/unit/test_source_question_evidence.py::test_explicit_all_occurrences_edits_only_the_owned_row_and_undoes_as_one_decision",
+        "apps/api/tests/unit/test_source_question_evidence.py::test_legacy_request_digest_remains_identical_when_scoped_changes_are_absent",
+        "apps/api/tests/unit/test_source_question_evidence.py::test_overlapping_batch_is_atomic_and_stale_scope_is_rejected",
+        "apps/api/tests/unit/test_source_evidence_review.py::test_known_bad_evidence_gets_one_corrective_input_without_repeating_good_decisions",
+        "apps/api/tests/unit/test_source_evidence_review.py::test_unknown_outcome_is_never_retried_or_turned_into_a_human_question",
+        "apps/api/tests/unit/test_source_evidence_review.py::test_ready_findings_never_invoke_another_model",
+        "apps/api/tests/unit/test_source_review_parser_scope.py::test_spaced_table_navigation_does_not_change_generation_default",
+        "apps/api/tests/unit/test_source_review_parser_scope.py::test_compact_table_default_and_review_have_identical_units"
       ],
       "database_tests": [
         "apps/api/tests/integration/test_document_operations.py::test_document_reindex_worker_completes_and_is_idempotent",

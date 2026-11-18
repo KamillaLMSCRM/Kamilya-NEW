@@ -25,7 +25,10 @@ export interface SourceQuestion {
   end: number | null;
   needs_source_verification?: boolean;
   source_labels?: string[];
-  resolution: (Change & { decision: 'replace' | 'keep' }) | null;
+  source_refs?: string[];
+  source_evidence?: Array<{ source_ref: string; source_label: string; start: number; end: number; quote: string }>;
+  source_scopes?: Array<{ source_ref: string; start: number; end: number; text: string; label: string }>;
+  resolution: (Change & { decision: 'replace' | 'keep'; source_changes?: Change[] }) | null;
 }
 
 export type ReviewPages = { first_page: number; last_page: number };
@@ -72,6 +75,7 @@ export interface ReviewCommand {
   decision?: 'replace' | 'keep';
   replacement?: string;
   quote?: string;
+  source_changes?: Array<{ source_ref: string; quote: string; replacement: string; all_occurrences: boolean }>;
   reason?: string;
   pages?: ReviewPages;
   selected_part_ids?: string[];

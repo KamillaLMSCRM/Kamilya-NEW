@@ -3717,3 +3717,97 @@ this exact saved357 and rejection-cause proof, preserve good findings and solve
 multiple literal evidence occurrences as a contract, not another blind semantic
 review/full generation or SKU regex. All native requests are settled; no work to
 retry and no unknown invocation. Full course/production117 gates remain OPEN.
+
+
+CHG-SOURCE-EVIDENCE118 PROPOSED 2026-11-18T00:52:22.065362+00:00, ENG082 continuation:
+Prior CHG-SOURCE-QUESTIONS118/G/H/ADDRESS117L remain active. Source357 and all47
+active request receipts (40author/reviewer+7formatter) are frozen. L fixed wrong
+row hints but one unique edit span cannot express identical quotations repeated
+within a row or across products. Exact saved rejection causes, NOT a new whole
+source run, are the reproduction. CodeGraph preflight NOT_READY runtime missing;
+use bounded source/test fallback, no install. No active duplicate local job found.
+Proposed contract separates readonly evidence occurrences from actual edits:
+source_ref plus exact original coordinates/quote per occurrence. Preserve repeated
+proofs, never choose an arbitrary first occurrence. Cross-product pending findings
+remain separately resolvable per native product row. Actual human edits use
+explicit row-scoped replacements, optional explicit all-occurrences choice,
+revision/original-text/overlap checks, immutable grouped history and full undo.
+Legacy single-span commands/approvals remain readable. No DB schema/RLS change.
+Only remaining unbound findings/clues get ONE bounded correction by the EXISTING
+source reviewer against frozen rows; good findings and all completed main replies
+are reused. It supplies per-row literal evidence, true ambiguity/dismissal/covered
+verdict and reasons. Missing/invalid/cross-object proof remains an INTERNAL
+verification item, never a proved human ambiguity or silently dropped warning.
+No new critic cascade, source-value guess, SKU-specific regex or rewritten course.
+First synthetic RED tests and actual357 replay0calls; then bounded paid Luna6 HIGH
+saved-pending correction, no unknown retry/fallback and no paid DeepSeek. Every
+fresh request gets intent/hash/usage/result. Native DEV then conditional protected
+production only with complete evidence/compatibility and source/customer rollback.
+Exact production patch scope must be checked before release; unaccepted unrelated
+engine behavior cannot hitchhike. Customer original/courses/results untouched;
+QA source only, no local Docker/provider/plan/capacity/right changes. Files expected:
+question evidence helper, analysis projection, source review domain/service/API
+DTO/UI and focused contracts. Details/test outcomes append to this same entry.
+
+RUN-SOURCE-EVIDENCE118-SAVED-BLOCK6-20261118 INTENT 2026-11-18T01:16:42.605696+00:00: one LOCAL pending-evidence continuation of existing source reviewer on three unresolved block6 findings, paid Luna6/HIGH unchanged, no answer labels or owner fact answers, max1call/no retry/fallback, maxoutput16384 matching the existing native route. No source/course/DB writes. LOCAL contract118 changed. Only supplied pending IDs may change verdict with literal per-object proof; no source edits or true values chosen. Exact inputs and wire hashes in .release-evidence/source-evidence118-20261118.
+
+CHG-SOURCE-EVIDENCE118 LOCAL trial1 NOT GO 2026-11-18T01:19:44.221557+00:00:
+Known Luna6/HIGH response20.344s21060IN945OUT, no source/DB writes. Literal JSON
+proofs pass but u6-1 chooses00079340 while saved author alias door_count_79336
+identifies a different original product. Source projection had DROPPED the alias
+and full author candidate, retaining only a generic English reason and repeated
+quote. The reviewer therefore lacked the original identity clue; no provider or
+reasoning change justified. Preserve trial1/input/output/unknown fence, NOT an
+accepted result. Amendment BEFORE fix: retain the original author_candidate
+(alias/excerpt/category/reason) in each unresolved projection and correction input;
+warn the existing reviewer that wrong reported refs alone do not dismiss the
+underlying finding. No SKU parser, guessed zero-padding, target answer or factual
+edit. Add an executable wire assertion through the actual projection/repair seam.
+Only new pending-correction wire changes; all47old main/formatter requests remain
+exact/reusable. One corrected LOCAL trial max1newcall, same paid Luna6 HIGH;
+unknown is never retried. Failed literal-only technical pass remains NOT GO.
+
+RUN-SOURCE-EVIDENCE118-SAVED-BLOCK6-R2-20261118 INTENT 2026-11-18T01:20:40.496511+00:00: one LOCAL pending-evidence continuation of existing source reviewer on three unresolved block6 findings, paid Luna6/HIGH unchanged, no answer labels or owner fact answers, max1call/no retry/fallback, maxoutput16384 matching the existing native route. No source/course/DB writes. LOCAL contract118 changed. Corrected lost author_candidate identity is preserved. Only supplied pending IDs may change verdict with literal per-object proof; no source edits or true values chosen. Exact inputs and wire hashes in .release-evidence/source-evidence118-20261118.
+
+RUN-SOURCE-EVIDENCE118-SAVED-BLOCK6-CORRECTION-20261118 INTENT 2026-11-18T01:25:41.812596+00:00: one LOCAL explicit literal-validation correction on two remaining block6 findings; the accepted third verdict is retained, paid Luna6/HIGH unchanged, no answer labels or owner fact answers, max1call/no retry/fallback, maxoutput16384 matching the existing native route. No source/course/DB writes. LOCAL contract118 changed. Corrected lost author_candidate identity is preserved. Only supplied pending IDs may change verdict with literal per-object proof; no source edits or true values chosen. Exact inputs and wire hashes in .release-evidence/source-evidence118-20261118.
+
+RUN-SOURCE-EVIDENCE118-FULL-LOCAL-20261118 INTENT 2026-11-18T01:35:02.374709+00:00: full-local-01 pending-only existing-review continuation, paid Luna6 HIGH, native source357 frozen/all47main+formatter receipts reused; no fact answers/source/DB/course edits, no unknown retry. Logical/wire/source/code hashes and exact messages private source-evidence118-20261118.
+
+RUN-SOURCE-EVIDENCE118-FULL-LOCAL-20261118 INTENT 2026-11-18T01:35:28.570761+00:00: full-local-02 pending-only existing-review continuation, paid Luna6 HIGH, native source357 frozen/all47main+formatter receipts reused; no fact answers/source/DB/course edits, no unknown retry. Logical/wire/source/code hashes and exact messages private source-evidence118-20261118.
+
+RUN-SOURCE-EVIDENCE118-FULL-LOCAL-20261118 INTENT 2026-11-18T01:35:47.172998+00:00: full-local-03 pending-only existing-review continuation, paid Luna6 HIGH, native source357 frozen/all47main+formatter receipts reused; no fact answers/source/DB/course edits, no unknown retry. Logical/wire/source/code hashes and exact messages private source-evidence118-20261118.
+
+RUN-SOURCE-EVIDENCE118-FULL-LOCAL-20261118 INTENT 2026-11-18T01:35:58.493059+00:00: full-local-04 pending-only existing-review continuation, paid Luna6 HIGH, native source357 frozen/all47main+formatter receipts reused; no fact answers/source/DB/course edits, no unknown retry. Logical/wire/source/code hashes and exact messages private source-evidence118-20261118.
+
+2026-11-18T01:40:34.536764+00:00
+CHG-SOURCE-EVIDENCE118 scoped release PROPOSED: only source-review contract,
+its checkpoint/idle-lock/history fixes and source-review UI are in release118.
+Unaccepted ENG074 course planning, oversized managed transport and Codex runner
+build changes are explicitly restored to production116 bytes. Spaced table
+parsing is opt-in ONLY for source review; the course-generation default must
+match116 on retained native sources. This is a scope isolation, not a new
+generation policy. All47 completed source receipts and six accepted pending-only
+review replies are reused for DEV. Add default-parser equivalence and scoped
+decision/history/approval/undo tests before release. Real source facts remain
+unanswered; no full catalogue course/production117 acceptance is inferred.
+
+
+CHG-SOURCE-EVIDENCE118 LOCAL RESULT 2026-11-18T01:46:36.937408+00:00: repeated same-row and cross-row
+proof restored from saved357, ALL47 main/formatter replies reused. Trial1 known
+NOT_GO20.344s21060IN945OUT retained (lost original author alias); trial2 PARTIAL
+26.484s21221IN1281OUT retained (two nonliteral proofs), trial3 corrective PASS
+18.937s21868IN902OUT on remaining2only, previous valid decision preserved.
+Full local pending completion4fresh calls92852IN2967OUT83.750s; trial2+3 reused.
+Final106owner questions,0machine-unverified,11prior cosmetic changes EXACT;
+no source facts chosen, source/DB/course writes0. Only paid Luna6/HIGH unchanged;
+monetary UNKNOWN, no paid DeepSeek. Replies/intent/raw hashes private current A.
+Scoped candidate reproduces all53known receipts exactly,0calls/DBwrites.
+Production116 generation parser equivalent on full native source plus4controls;
+source review sees308table units (307product/comparison rows plus native heading).
+First verifier guessed307total units (failed before inference); second included
+the run-intent in a numeric-stage glob (file-not-found); both local harness
+failures retained, fixed to explicit numeric stages and correct heading count.
+No transport unknown. New source_changes=None must be excluded from legacy
+request digest; regression keeps historical idempotency receipts readable.
+Explicit row-only all-occurrences, stale/foreign/overlap negative, approval pin
+and grouped undo regressions added. DEV/production acceptance still PENDING.

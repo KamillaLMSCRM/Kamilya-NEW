@@ -1,4 +1,7 @@
 const ru = {
+  evidence: 'Цитаты из исходника', occurrence: 'Вхождение', sourceRow: 'Строка исходника',
+  scopedAnchor: 'Фрагмент для изменения в этой строке', allOccurrences: 'Заменить все совпадения в этой строке',
+  systemQuestions: 'Автоматическая проверка замечаний',
   sourceEntry: 'Позиция в источнике',
   recheckHint: 'Доступна обновлённая проверка таблиц. Повторная проверка пересоздаст список замечаний; прежние решения сохранятся в журнале.',
   interruptedOutcomeHeld: 'Результат прерванной проверки и её стоимость неизвестны. Проверка приостановлена. Передайте этот статус в поддержку.',
@@ -22,7 +25,7 @@ const ru = {
   intro: 'Просмотрите найденные ошибки, спорные формулировки и предложенные исправления. Оригинал останется в документах.',
   list: 'Вопросы к источнику', question: 'Что нужно уточнить', quote: 'Цитата из оригинала',
   unbound: 'Анализ не смог точно найти этот фрагмент. Проверьте оригинал.',
-  needsSourceVerification: 'Замечание не удалось подтвердить автоматически. Сверьте его с оригиналом.',
+  needsSourceVerification: 'Автоматическая проверка этого замечания ещё не завершена. Решение методиста пока не требуется.',
   replacement: 'Согласованная формулировка', anchor: 'Точная цитата из оригинала',
   reason: 'Основание решения', reasonHint: 'Например, какой пункт или ответ владельца документа подтверждает решение.',
   replace: 'Заменить формулировку', keep: 'Оставить формулировку', save: 'Сохранить решение',
@@ -63,6 +66,9 @@ const ru = {
 };
 
 const en: typeof ru = {
+  evidence: 'Source quotations', occurrence: 'Occurrence', sourceRow: 'Original source row',
+  scopedAnchor: 'Text to change within this row', allOccurrences: 'Replace all matches within this row',
+  systemQuestions: 'Automatic verification of findings',
   sourceEntry: 'Source entry',
   recheckHint: 'An updated table review is available. Rechecking replaces the findings list; previous decisions remain in the history.',
   interruptedOutcomeHeld: 'The result and cost of the interrupted review are unknown. The review is on hold. Contact support with this status.',
@@ -124,6 +130,9 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  evidence: 'Түпнұсқадан дәйексөздер', occurrence: 'Кездесу', sourceRow: 'Түпнұсқа жолы',
+  scopedAnchor: 'Осы жолда өзгертілетін мәтін', allOccurrences: 'Осы жолдағы барлық сәйкестікті ауыстыру',
+  systemQuestions: 'Ескертулерді автоматты тексеру',
   sourceEntry: 'Дереккөздегі жазба',
   recheckHint: 'Кестелерді тексерудің жаңартылған нұсқасы қолжетімді. Қайта тексеру ескертулер тізімін жаңадан құрады; бұрынғы шешімдер журналда сақталады.',
   interruptedOutcomeHeld: 'Үзілген тексерудің нәтижесі мен құны белгісіз. Тексеру тоқтатылды. Осы мәртебені қолдау қызметіне хабарлаңыз.',

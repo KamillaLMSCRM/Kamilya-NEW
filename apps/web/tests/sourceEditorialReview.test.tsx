@@ -303,15 +303,15 @@ describe('source editorial review', () => {
     expect(screen.getByLabelText('Согласованная формулировка')).toHaveValue(updated);
   });
 
-  it('keeps an unconfirmed finding visible and requires an original quote for replacement', async () => {
+  it('keeps an unconfirmed finding visible without asking the human to repair its evidence', async () => {
     const review = fixture();
     review.questions[0] = { ...review.questions[0], start: null, end: null, quote: '',
       needs_source_verification: true };
     mocks.get.mockResolvedValue({ data: review });
     render(<SourceEditorialReview />);
-    expect(await screen.findByText('Замечание не удалось подтвердить автоматически. Сверьте его с оригиналом.')).toBeVisible();
+    expect(await screen.findByText('Автоматическая проверка замечаний: 1')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
-    expect(screen.getByLabelText('Точная цитата из оригинала')).toBeRequired();
+    expect(screen.queryByLabelText('Точная цитата из оригинала')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
   });
 
@@ -388,5 +388,41 @@ describe('source editorial review', () => {
     mocks.role = 'student';
     render(<SourceEditorialReview />);
     expect(mocks.get).not.toHaveBeenCalled();
+  });
+
+  it('shows all literal occurrences and submits an explicit row-scoped replacement', async () => {
+    const data = fixture();
+    data.questions = [{ id: 'repeated', quote: 'Two doors.', reason: 'Two or three doors?', start: null, end: null,
+      resolution: null, source_evidence: [
+        { source_ref: 'S2', source_label: 'A', start: 0, end: 10, quote: 'Two doors.' },
+        { source_ref: 'S2', source_label: 'A', start: 11, end: 21, quote: 'Two doors.' }],
+      source_scopes: [{ source_ref: 'S2', start: 0, end: 21, text: 'Two doors. Two doors.', label: 'A' }] }];
+    mocks.get.mockResolvedValue({ data });
+    mocks.post.mockResolvedValue({ data: { ...data, revision: 4, questions: [] } });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText('A · Вхождение 1')).toBeVisible();
+    expect(screen.getByText('A · Вхождение 2')).toBeVisible();
+    const all = screen.getByLabelText('Заменить все совпадения в этой строке');
+    expect(all).not.toBeChecked();
+    fireEvent.change(screen.getByLabelText('Фрагмент для изменения в этой строке'), { target: { value: 'Two doors.' } });
+    fireEvent.change(screen.getByLabelText('Согласованная формулировка'), { target: { value: 'Three doors.' } });
+    fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: 'Synthetic owner confirmation.' } });
+    fireEvent.click(all);
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить решение' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
+    expect(mocks.post.mock.calls[0][1]).toMatchObject({ action: 'resolve', expected_revision: 3,
+      source_changes: [{ source_ref: 'S2', quote: 'Two doors.', replacement: 'Three doors.', all_occurrences: true }] });
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('replacement');
+  });
+
+  it('keeps unverified machine findings outside the human decision form', async () => {
+    const data = fixture();
+    data.questions[0].needs_source_verification = true;
+    mocks.get.mockResolvedValue({ data });
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText('Автоматическая проверка замечаний: 1')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Сохранить решение' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
+    expect(mocks.post).not.toHaveBeenCalled();
   });
 });

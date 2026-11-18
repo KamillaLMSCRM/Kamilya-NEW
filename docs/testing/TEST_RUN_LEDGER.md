@@ -8037,3 +8037,26 @@ this exact saved357 and rejection-cause proof, preserve good findings and solve
 multiple literal evidence occurrences as a contract, not another blind semantic
 review/full generation or SKU regex. All native requests are settled; no work to
 retry and no unknown invocation. Full course/production117 gates remain OPEN.
+
+
+CHG-SOURCE-EVIDENCE118 LOCAL RESULT 2026-11-18T01:46:36.937408+00:00: repeated same-row and cross-row
+proof restored from saved357, ALL47 main/formatter replies reused. Trial1 known
+NOT_GO20.344s21060IN945OUT retained (lost original author alias); trial2 PARTIAL
+26.484s21221IN1281OUT retained (two nonliteral proofs), trial3 corrective PASS
+18.937s21868IN902OUT on remaining2only, previous valid decision preserved.
+Full local pending completion4fresh calls92852IN2967OUT83.750s; trial2+3 reused.
+Final106owner questions,0machine-unverified,11prior cosmetic changes EXACT;
+no source facts chosen, source/DB/course writes0. Only paid Luna6/HIGH unchanged;
+monetary UNKNOWN, no paid DeepSeek. Replies/intent/raw hashes private current A.
+Scoped candidate reproduces all53known receipts exactly,0calls/DBwrites.
+Production116 generation parser equivalent on full native source plus4controls;
+source review sees308table units (307product/comparison rows plus native heading).
+First verifier guessed307total units (failed before inference); second included
+the run-intent in a numeric-stage glob (file-not-found); both local harness
+failures retained, fixed to explicit numeric stages and correct heading count.
+No transport unknown. New source_changes=None must be excluded from legacy
+request digest; regression keeps historical idempotency receipts readable.
+Explicit row-only all-occurrences, stale/foreign/overlap negative, approval pin
+and grouped undo regressions added. DEV/production acceptance still PENDING.
+
+118 LOCAL final:8980API PASS1skip,1817web/197files,676critical,build69/types/scopedlint/qualitywrapper1004/2174 PASS. Initial3failures were outdated test doubles/legacy digest fixture; replaced stub with real ReviewState and old wire fixture excludes absent source_changes. Production digest compatibility has explicit regression; grouped pin/undo verified. Direct absolute-runtime quality call was corrected to canonical PowerShell wrapper; wrong primary preflight path corrected to scripts/dev/check_primary_checkout.py LINKED_WORKTREE_OK. Navigation NOT_READY uses bounded source fallback. No native acceptance yet.

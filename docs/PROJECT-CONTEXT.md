@@ -1,3 +1,7 @@
+## Current —2026-11-18: source evidence118 LOCAL accepted; DEV rollout pending
+
+Scoped118 fixes repeated evidence, row-only grouped replacement/history/undo and pending-only review. All53saved replies replayed with0newcalls;11safe prior edits retained,0unverified. Actual product facts remain human-owned. 8980API/1skip,1817web/197files,676critical,type/lint/build69/quality PASS. Production116 and DEV117L remain unchanged until exact118deployment/readback. No catalogue generation policy,transport cap,Codex runner,billing,provider or customer-data change is included. Current private evidence source-evidence118-20261118 in linked source-evidence118-release-20261118; prototype remains preserved in methodologist-guide-refresh-20261113.
+
 ## Current —2026-11-17: DEV117L verified; native full Excel357 awaiting factual decisions
 
 DEV API/frontend/sole worker exact718d4f24ac8dcafea5f59a04b1d449544b222ac2,

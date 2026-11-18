@@ -228,6 +228,8 @@ async def test_model_repairs_only_nonliteral_quote_and_cannot_borrow_another_pro
     async def complete(messages):
         p = json.loads(messages[1]['content'])
         calls.append(p)
+        if p.get('task') == 'source-question-evidence-review-v1':
+            return {'decisions': []}  # One bounded attempt; the original warning must survive.
         if p.get('task') == 'source-question-evidence-address-v2':
             assert len(p['items']) == 2 and p['items'][0]['question_index'] == 0
             assert len(p['original_rows']) == 2 and p['items'][0]['finding_reason'] == 'One or two units?'
@@ -243,7 +245,7 @@ async def test_model_repairs_only_nonliteral_quote_and_cannot_borrow_another_pro
              'disposition': 'needs_human', 'source_refs': [b]}],
             'source_clue_dispositions': [{'clue_id': 0, 'disposition': 'confirmed', 'question_index': 0}]}
     result = await analyze(SOURCE, source_id='test', document_id='owned', complete_json=complete)
-    assert len(calls) == 3 and result['original'] == SOURCE and not result['automatic']
+    assert len(calls) == (3 if repair_quote.startswith('A ') else 5) and result['original'] == SOURCE and not result['automatic']
     peer = next(q for q in result['issues'] if q['reason'] == 'Independent peer stays open.')
     assert peer['quote'] == 'B has one unit.' and peer['start'] == SOURCE.index(peer['quote'])
     if repair_quote.startswith('A '):
@@ -315,7 +317,8 @@ async def test_long_quote_is_not_a_semantic_failure_but_fabricated_evidence_stay
         assert len(calls) == 2 and question['quote'] == row
         assert question['start'] == source.index(row) and not question.get('needs_source_verification')
     else:
-        assert len(calls) == 3 and question['start'] is None and question['needs_source_verification']
+        assert len(calls) == 5 and question['start'] is None and question['needs_source_verification']
+        assert calls[-1]['task'] == 'source-question-evidence-review-v1'
 
 
 @pytest.mark.asyncio

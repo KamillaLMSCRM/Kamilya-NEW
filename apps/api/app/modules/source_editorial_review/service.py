@@ -234,7 +234,7 @@ def can_recheck_questions(rows: Sequence[Event], state: ReviewState) -> bool:
         return False
     analyzed = next((row for row in reversed(rows) if row.kind == "analyzed"), None)
     return bool(analyzed is not None and analyzed.payload.get("question_context_policy") != QUESTION_CONTEXT_POLICY
-                and any(unit.kind == "table_row" for unit in plan_source_units(state.original)))
+                and any(unit.kind == "table_row" for unit in plan_source_units(state.original, allow_spaced_tables=True)))
 
 
 def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receipt: Event | None = None,
@@ -250,9 +250,11 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
                            for change in row.payload["automatic"])
         elif row.kind in {"resolved", "issue_reopened", "auto_undone", "approved", "reopened"}:
             event_kind = "manual_edit" if row.kind == "resolved" and "manual_issue" in row.payload else row.kind
-            journal.append({**public_event(row), "kind": event_kind, **{key: row.payload[key] for key in
-                ("item_id", "start", "end", "before", "after", "reason", "decision", "working_sha256")
-                if key in row.payload}})
+            for edit in row.payload.get('source_changes', [row.payload]):
+                journal.append({**public_event(row), "kind": event_kind, **{key: edit[key] for key in
+                    ("item_id", "start", "end", "before", "after", "reason", "decision", "working_sha256")
+                    if key in edit}, **({'item_id': edit['id'], 'parent_item_id': row.payload['item_id']}
+                                       if row.payload.get('source_changes') else {})})
         elif row.kind == "queued" and row.request_id and row.payload.get("preparation"):
             journal.append({**public_event(row), "kind": "selection", "selected_part_ids": row.payload["preparation"]["selected_part_ids"]})
     working = state.working()[0] if state.original else None
@@ -291,7 +293,7 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
 
 def _command_digest(command: ReviewCommand) -> str:
     # Preserve the identity of requests recorded before page selection existed.
-    exclude = {name for name in ("pages", "selected_part_ids", "preparation_sha256", "acknowledge_outcome_and_cost_unknown")
+    exclude = {name for name in ("pages", "selected_part_ids", "preparation_sha256", "acknowledge_outcome_and_cost_unknown", "source_changes")
                if getattr(command, name) is None}
     return text_hash(command.model_dump_json(exclude=exclude))
 
@@ -469,10 +471,6 @@ async def resolve_pins(
             approval_id=str(event.id), recognized_text=state.original, working_text=event.payload["working"],
             working_sha256=event.payload["working_sha256"], spans=tuple(event.payload["spans"]),
             fidelity=state.fidelity, preparation=state.preparation,
-            decision_context=tuple(
-                {'item_id': item_id, 'decision': row['decision'], 'quote': row['before'],
-                 'reason': row['reason'], 'start': row['start'], 'end': row['end']}
-                for item_id, row in sorted(state.decisions.items())
-            ),
+            decision_context=state.decision_context(),
         )
     return result

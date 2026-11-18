@@ -2337,3 +2337,22 @@ this exact saved357 and rejection-cause proof, preserve good findings and solve
 multiple literal evidence occurrences as a contract, not another blind semantic
 review/full generation or SKU regex. All native requests are settled; no work to
 retry and no unknown invocation. Full course/production117 gates remain OPEN.
+
+ENG082 follow-up:
+CHG-SOURCE-EVIDENCE118 LOCAL trial1 NOT GO 2026-11-18T01:19:44.221557+00:00:
+Known Luna6/HIGH response20.344s21060IN945OUT, no source/DB writes. Literal JSON
+proofs pass but u6-1 chooses00079340 while saved author alias door_count_79336
+identifies a different original product. Source projection had DROPPED the alias
+and full author candidate, retaining only a generic English reason and repeated
+quote. The reviewer therefore lacked the original identity clue; no provider or
+reasoning change justified. Preserve trial1/input/output/unknown fence, NOT an
+accepted result. Amendment BEFORE fix: retain the original author_candidate
+(alias/excerpt/category/reason) in each unresolved projection and correction input;
+warn the existing reviewer that wrong reported refs alone do not dismiss the
+underlying finding. No SKU parser, guessed zero-padding, target answer or factual
+edit. Add an executable wire assertion through the actual projection/repair seam.
+Only new pending-correction wire changes; all47old main/formatter requests remain
+exact/reusable. One corrected LOCAL trial max1newcall, same paid Luna6 HIGH;
+unknown is never retried. Failed literal-only technical pass remains NOT GO.
+
+ENG-082 continuation118 LOCAL: distinct readonly literal occurrences and unique editable anchors; source-row-scoped grouped decisions, full undo and approval provenance. Preserved author identity, targeted existing-review correction only for unverified findings, no unknown retry. Saved357 exact53reply replay PASS0calls,0unverified/11good automatic edits preserved. Native DEV/production PENDING. CHG-SOURCE-EVIDENCE118 owns outcomes and failed trials.

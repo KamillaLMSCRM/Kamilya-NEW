@@ -64,6 +64,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const [reason, setReason] = useState('');
   const [replacement, setReplacement] = useState('');
   const [anchor, setAnchor] = useState('');
+  const [allOccurrences, setAllOccurrences] = useState(false);
   const [decision, setDecision] = useState<'replace' | 'keep'>('replace');
   const [undoItem, setUndoItem] = useState<string | null>(null);
   const [undoReason, setUndoReason] = useState('');
@@ -181,6 +182,9 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const question = review?.questions.find((item) => item.id === selected) ?? review?.questions.find((item) => !item.resolution)
     ?? review?.questions[0];
   const open = review?.questions.filter((item) => !item.resolution).length ?? 0;
+  const ownerQuestions = review?.questions.filter(item => !item.needs_source_verification) ?? [];
+  const systemQuestions = review?.questions.filter(item => item.needs_source_verification && !item.resolution) ?? [];
+  const sourceScope = question?.source_scopes?.[0];
   const readOnly = Boolean(approvalId) || review?.status !== 'in_review';
   const disabled = saving || Boolean(pending);
   const showQuestion = (item: string) => {
@@ -189,6 +193,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
       setReason('');
       setReplacement('');
       setAnchor('');
+      setAllOccurrences(false);
       setDecision('replace');
     }
     requestAnimationFrame(() => detail.current?.focus());
@@ -294,7 +299,8 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
       {notice && <WorkspacePanel role="alert" bodyClassName="space-y-2">
         <p>{copy[notice]}</p>
         {conflictInput && <details open><summary>{copy.savedDraft}</summary>
-          <p className={code}>{[conflictInput.replacement, conflictInput.quote, conflictInput.reason].filter(Boolean).join('\n')}</p>
+          <p className={code}>{[conflictInput.replacement, conflictInput.quote, conflictInput.reason,
+            ...(conflictInput.source_changes?.flatMap(change => [change.quote, change.replacement]) ?? [])].filter(Boolean).join('\n')}</p>
         </details>}
         {pending && <Button variant="outline" disabled={saving} onClick={() => void submit(pending)}>{copy.repeatCommand}</Button>}
       </WorkspacePanel>}
@@ -306,15 +312,20 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <WorkspacePanel bodyClassName="space-y-3">
             <h2 className="font-semibold">{copy.list}</h2>
-            <p className="text-sm text-muted-foreground">{copy.openCount}: {open}</p>
-            {review.questions.length === 0 ? <p className="text-sm">{copy.noQuestions}</p> :
-              <ol className="space-y-2">{review.questions.map((item, index) => <li key={item.id}>
+            <p className="text-sm text-muted-foreground">{copy.openCount}: {ownerQuestions.filter(item => !item.resolution).length}</p>
+            {ownerQuestions.length === 0 ? <p className="text-sm">{copy.noQuestions}</p> :
+              <ol className="space-y-2">{ownerQuestions.map((item, index) => <li key={item.id}>
                 <button type="button" onClick={() => showQuestion(item.id)} aria-current={item.id === question?.id}
                   className={`w-full break-words rounded-lg border px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring ${item.id === question?.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'}`}>
                   <span className="block font-medium">{index + 1}. {item.quote.length > 120 ? item.quote.slice(0, 120) + '…' : item.quote || copy.question}</span>
                   <span className="text-xs text-muted-foreground">{item.resolution ? copy.closed : copy.open}</span>
                 </button>
               </li>)}</ol>}
+            {systemQuestions.length > 0 && <details className="rounded-lg border border-border p-3 text-sm">
+              <summary>{copy.systemQuestions}: {systemQuestions.length}</summary>
+              <p className="my-2">{copy.needsSourceVerification}</p>
+              <ul className="space-y-2">{systemQuestions.map(item => <li key={item.id}>{item.reason}</li>)}</ul>
+            </details>}
           </WorkspacePanel>
           {question && <WorkspacePanel bodyClassName="space-y-4">
             <h2 ref={detail} tabIndex={-1} className="font-semibold focus-visible:ring-2 focus-visible:ring-ring">{copy.question}</h2>
@@ -325,18 +336,32 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             </p> : null}
             <div><p className="mb-1 text-xs font-medium text-muted-foreground">{question.start == null ? copy.unbound : copy.quote}</p>
               {question.quote && <blockquote className={code}>{question.quote}</blockquote>}</div>
+            {question.source_evidence && question.source_evidence.length > 1 && <div className="space-y-2">
+              <h3 className="text-sm font-medium">{copy.evidence}</h3>
+              {question.source_evidence.map((evidence, index) => <div key={evidence.source_ref + ':' + evidence.start}>
+                <p className="text-xs text-muted-foreground">{evidence.source_label} · {copy.occurrence} {index + 1}</p>
+                <blockquote className={code}>{evidence.quote}</blockquote>
+              </div>)}
+            </div>}
+            {sourceScope && <details className="rounded-lg border border-border p-3">
+              <summary className="cursor-pointer text-sm">{copy.sourceRow}: {sourceScope.label}</summary>
+              <p className={`mt-2 ${code}`}>{sourceScope.text}</p>
+            </details>}
             {question.resolution && <div className="space-y-2 text-sm">
               <p className="font-medium">{copy.closed}</p>
-              <p className={code}>{question.resolution.after}</p>
+              {(question.resolution.source_changes ?? [question.resolution]).map((change, index) =>
+                <p key={index} className={code}>{change.after}</p>)}
               <p>{question.resolution.reason}</p>
             </div>}
-            {!readOnly && <form className="space-y-3" onSubmit={async (event) => {
+            {!readOnly && (!question.needs_source_verification || question.resolution) && <form className="space-y-3" onSubmit={async (event) => {
               event.preventDefault();
               const args: Action = question.resolution
                 ? { action: 'reopen_issue', item_id: question.id, reason }
                 : { action: 'resolve', item_id: question.id, reason, decision,
-                    ...(decision === 'replace' ? { replacement, ...(question.start == null ? { quote: anchor } : {}) } : {}) };
-              if (await action(args)) { setReason(''); setReplacement(''); setAnchor(''); }
+                    ...(decision === 'replace' ? sourceScope
+                      ? { source_changes: [{ source_ref: sourceScope.source_ref, quote: anchor, replacement, all_occurrences: allOccurrences }] }
+                      : { replacement, ...(question.start == null ? { quote: anchor } : {}) } : {}) };
+              if (await action(args)) { setReason(''); setReplacement(''); setAnchor(''); setAllOccurrences(false); }
             }}>
               {!question.resolution && <>
                 <fieldset className="flex flex-wrap gap-4 text-sm">
@@ -344,8 +369,12 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
                   <label className="flex gap-2"><input type="radio" checked={decision === 'keep'} onChange={() => setDecision('keep')} />{copy.keep}</label>
                 </fieldset>
                 {decision === 'replace' && <>
-                  {question.start == null && <label className="block space-y-1 text-sm"><span>{copy.anchor}</span>
+                  {question.start == null && <label className="block space-y-1 text-sm"><span>{sourceScope ? copy.scopedAnchor : copy.anchor}</span>
                     <textarea className={field} value={anchor} onChange={(e) => setAnchor(e.target.value)} required maxLength={5000} /></label>}
+                  {sourceScope && <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" checked={allOccurrences} onChange={event => setAllOccurrences(event.target.checked)} />
+                    {copy.allOccurrences}
+                  </label>}
                   <label className="block space-y-1 text-sm"><span>{copy.replacement}</span>
                     <textarea className={field} value={replacement} onChange={(e) => setReplacement(e.target.value)} required maxLength={5000} rows={4} /></label>
                 </>}
