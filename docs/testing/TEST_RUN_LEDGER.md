@@ -8083,3 +8083,38 @@ Pure analyze logical51 versus physical53receipts differs by2existing JSON repair
 responses inside complete_json; native run_analysis reports actual custody53.
 The initial LOCAL assertion conflated these counters; preserved failed log,
 corrected proof separates them. NativeB/production gates PENDING.
+
+
+CHG-SOURCE-EVIDENCE118 /118B /118C ACCEPTED 2026-11-18:
+Current source6a234b54/prod0.11.118. Source evidence/unique edit-anchor separation,
+row-level grouped edits and pending-only existing reviewer preserve good parts.
+118B canonicalizes only typed corrective assistant JSON object key order; original
+user/source bytes and legacy2message keys exact. Actual JSONB replay and ordinary
+DEV390->412 PASS0fresh inference;53known replies reused,11good auto edits exact.
+118C only fixes false missing-citation UI label for a valid scoped repeated quote;
+existing26focused/UI regression and full1817web PASS. Backend code equals B7d.
+8982API/1skip/quality1004-2174,5exact CI/build runs PASS. No native author or
+ready course regenerated. Real product truth remains human-owned; no mass KEEP,
+column priority or approval bypass. No generic new critic or SKU-specific parser.
+
+RUN-SOURCE-EVIDENCE118B-NATIVE-412: ordinary DEV source review, QA copyad336f44,
+original2ba5e28a97e9292385acd4a5478f59e206ba99885397c516d40091139e0406b6,
+644776chars/all19blocks/2selected parts. EngineB7d346d95, Luna gpt-6-luna/HIGH
+unchanged. 390->412,186.365s,53known physical replies reused(47main+6pending),
+0fresh requests/0new input-output tokens; replayed historical usage is NOT new
+spend, historical invoice UNKNOWN.106owner questions/0unverified/11auto exact,
+full output equals accepted LOCAL. Bad A388/08c response retained, not relabelled.
+C6a234b54 re-read same412 and approved synthetic pin through real API/DB; backend
+bytes exact, no new worker dispatch or source selection. Evidence B/native118-
+acceptance.json and C/dev-acceptance.json. No full course generation acceptance.
+
+RUN-SOURCE-EVIDENCE118-PROD-QA: exactC6a234b54, permanent QA83552/source345a1eea,
+original54d54bf63a8680b9c994283cd7aa92cf89ace0a354c306dfef3a537cf2d0cc03.
+Explicit synthetic saved-review fixture compiled by real evidence projection,
+model NONE/0fresh/0tokens/0external provider cost, not a fresh model-quality trial.
+Native API1->5 save/undo/redo/approve,2unique child edits, neighbor/original exact,
+4negative409/cross-tenant404/download PASS; live methodologist UI and immutable
+approved snapshot PASS. C/prod-fixture-acceptance.json, prod-ui-acceptance.json,
+final-release118.json bind exact runtime/API/3workers/frontend and rollback116.
+All real customer course/source/test content preserved. Semantics of all catalogue
+facts are not newly independently certified; source owner decisions remain open.

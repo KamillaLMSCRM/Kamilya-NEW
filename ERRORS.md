@@ -11407,3 +11407,43 @@ then removed minimum3/3verified16blob copies,81others unchanged,6.899GBfree.
 No force/prune/volumes/model/customer writes. Corrective source118B proves JSONB
 roundtrip locally before another DEV request; use actual persistence shape,
 not only in-memory replay. Preserve all blocked/failed receipts, never relabel.
+
+TOOL-005 follow-up2026-11-18 release118: operational rebinding must use canonical
+GENERATORS with current receipts, not copy their previous generated artifacts.
+The protected cold slice removed env staging including the path alias still used
+by docker; failed before container invocation after image pull. r2 fixes the alias
+but safely stopped at6GiB after the pull. Read-only staged diagnostic confirmed
+production/DEV fingerprints; minimum OPS012 two-candidate cleanup restored budget;
+r3 cold998files/saved replay PASS0calls. A copied watchdog reader kept old CFG;
+its read-only check failed before mutation. Canonical prepare_watchdog_read bound
+actual current write receipt then independently passed; old failures retained.
+Existing CI receipt caused local exclusive-create collision before tag/publish;
+accept only same run/SHA/success and preserve it. A partial local preparation
+must compare exact already-produced bytes and read actual correlation header,
+not overwrite evidence or assume old label names. One complex PowerShell python-c
+quote failed parsing before action; use private .py plus explicit native exit
+checks for multi-step operations. Template labels current115_reader/rollback115
+are historical naming only: actual checked reader/rollback is116/68fc9109/image0c;
+bind semantic checks and report current identity, never repeat restore for a label.
+
+OPS-012 follow-up2026-11-18 release118: native114 staged-pair check failed because
+archive absent/manifest present; independent live inventory/status/public probes
+proved0deletion. Do not bypass that guard or delete staging-only artifacts.
+Explicitly superseded pending local packet118v1 optional113 on-host retention with
+118v2 offhost recovery; owner-protected current116,actual115,299/359 unchanged.
+Validated original accepted113/114archives, oldest-version predicate and canonical
+digest-bound RELEASE-ONLY cleanup113then114, re-evaluating budget after each.
+All staging remained exact; stop at1.859GB>=1.360GB. Recovery archives retained.
+VM final protected image crossed6GiB; validate all3oldest no-volume candidate
+manifests/16blobs, remove minimum2stopped copies,82others exact,free6.86GB. No
+force/prune/volumes, protected services, settings, customer or billing changes.
+
+TEST-INFRA-013 follow-up2026-11-18 source118 preservation: hashing the entire HTTP DTO
+reported two historical approval differences although all9courses were exact.
+Freeze the observed failure before diagnosis. Source diff identified ONLY added
+non-content can_recheck=false and analysis.question_context_policy=null; assert
+both values, remove ONLY those two keys and compare complete historical view hash.
+Both restored exact before hashes, including original/working text, spans, questions,
+decisions, journal and approval identity. Preserve coarse failed check and separate
+response-shape compatibility from immutable customer content; never ignore arbitrary
+fields or overwrite client data to make a preservation check green.

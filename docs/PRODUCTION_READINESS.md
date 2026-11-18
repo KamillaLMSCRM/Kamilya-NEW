@@ -1,3 +1,51 @@
+## Current — 2026-11-18: source evidence118 released and live accepted
+
+Production API/three workers/native CT137 and DEV API/frontend/sole worker are
+0.11.118, exact `6a234b54520a035a2285cf090b1b046d6e80335e`. DEV image10dd8a7f /
+worker65040e8e/env6759aa16, Renderdep-dbuhogojo6nc73a4tpe0,
+Verceldpl_GmdtnNYDEd5cmzjwjtdRB5tBXxDn/controller RELEASE_OK. MasterCI44229897186,
+DEVCI44229127067/build44230375530, protected44231840661/native44229376951 SUCCESS.
+Production image d5fb0600a908cd27addc17aadf812e33fc4bc08da9b8ab2bbe63260019b07fa0,
+green slot; blue116/68fc9109 retained. Native current6a234b54, previous116/68fc9109,
+additional115/8e7ae2e8 and explicit299/359 retained. Signed0188 restore/restricted
+current116 reader and independent owned DB/plaintext cleanup PASS; no migration.
+
+Repeated source evidence is separate from a unique edit anchor. All occurrences
+are retained; factual decisions split per source row. Explicit row-only grouped
+replacement/history/undo and approved-pin child identities passed. Unknown
+inference is never retried. Ordinary DEV390->412 full644776chars/19blocks reused
+all47main+6accepted pending replies,0new inference;186.365s,106owner questions,
+0machine-unverified,11prior safe auto edits EXACT. Real source conflicts still
+require per-item owner facts, never guessed column priority. This is source-review
+acceptance, NOT a newly generated full catalogue course or a three-course matrix.
+
+Final C backend bytes equal B7d346d95; only repeated-row UI label/regression and
+journal changed. 8982API/1skip and1817web/197files, focused26/type/lint/quality,
+69page native build PASS. C coherent DEV re-read412 without dispatch and validated
+real saved two-child approved pins. Production permanent QA83552 fixture345a1eea
+passed scoped2occurrence save/undo/redo/approve/download,4HTTP409 negatives and
+cross-tenant404,0modelcalls; live active-methodologist UI/pinned read-only snapshot
+PASS. Fixture retained intentionally; no emails/indexing/course generation.
+
+All9Lombard course metadata/structures exact; two legacy source approvals retain
+ALL original/working text, spans, questions, journal and approval identity. Whole
+response hash changed solely because new technical fields can_recheck=false and
+analysis.question_context_policy=null were added; stripping only these verified
+fields restores exact old full-response hashes. Failed coarse check retained.
+Furniture original binary00783869/source metadata/course/all quizzes unchanged.
+Employee results not separately freshly hashed; no employee/customer writes.
+
+Private evidence `.release-evidence/source-evidence118c-20261118` in linked
+`source-evidence118-release-20261118`; failed A388/B/C operational receipts remain.
+Bounded standing cleanup removed2old stopped/no-volume DEV copies after all3
+candidate16blob recovery checks;82other containers unchanged,6.86GBfree. CT137
+v1 staged-pair preflight deleted0. Explicit pending118packetv2 moves optional
+113/114 recovery offhost, keeps current116/actual115/299/359 on host; canonical
+oldest-first RELEASE-ONLY113 then114 cleanup, all staging unchanged, budget1.36GB
+met at1.859GB. Original accepted recovery archives retained. Current release now
+adds118. No local Docker, provider/model/reasoning/plan/voice/rights/reserve change.
+Current scope complete; full ENG-074 course still awaits genuine source facts.
+
 ## Current —2026-11-18: source118B LOCAL accepted; DEV388 semantic NO_GO
 
 DEV118 exact3c1eba22 coherent API/frontend/soleworker8ab0b6d2, imageea51c36e/
