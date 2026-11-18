@@ -3838,3 +3838,5 @@ Pure analyze logical51 versus physical53receipts differs by2existing JSON repair
 responses inside complete_json; native run_analysis reports actual custody53.
 The initial LOCAL assertion conflated these counters; preserved failed log,
 corrected proof separates them. NativeB/production gates PENDING.
+
+CHG-SOURCE-EVIDENCE118C PROPOSED 2026-11-18: B native ordinary QA390->412 PASS in186.365s;53known replies reused,0new requests,106issues/0unverified/11safe automatic exact. Follows118/118B, no model/analysis/custody change. Live synthetic repeated-row proof revealed old UI label incorrectly equates absent unique edit span with missing evidence although exact row and two occurrences are present. Change only the label predicate to accept a scoped row; preserve actual unbound warning and all enforcement. Existing repeated-row unit regression must assert absence of the false warning. Saved response result remains identical; no regeneration required. DEV/prod C acceptance pending.

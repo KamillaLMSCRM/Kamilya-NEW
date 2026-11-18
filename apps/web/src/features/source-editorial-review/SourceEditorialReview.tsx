@@ -334,7 +334,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             {question.source_labels?.length ? <p className="break-words text-sm font-medium">
               {copy.sourceEntry}: {question.source_labels.join(', ')}
             </p> : null}
-            <div><p className="mb-1 text-xs font-medium text-muted-foreground">{question.start == null ? copy.unbound : copy.quote}</p>
+            <div><p className="mb-1 text-xs font-medium text-muted-foreground">{question.start == null && !sourceScope ? copy.unbound : copy.quote}</p>
               {question.quote && <blockquote className={code}>{question.quote}</blockquote>}</div>
             {question.source_evidence && question.source_evidence.length > 1 && <div className="space-y-2">
               <h3 className="text-sm font-medium">{copy.evidence}</h3>

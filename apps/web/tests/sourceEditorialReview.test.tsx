@@ -402,6 +402,7 @@ describe('source editorial review', () => {
     render(<SourceEditorialReview />);
     expect(await screen.findByText('A · Вхождение 1')).toBeVisible();
     expect(screen.getByText('A · Вхождение 2')).toBeVisible();
+    expect(screen.queryByText('Анализ не смог точно найти этот фрагмент. Проверьте оригинал.')).not.toBeInTheDocument();
     const all = screen.getByLabelText('Заменить все совпадения в этой строке');
     expect(all).not.toBeChecked();
     fireEvent.change(screen.getByLabelText('Фрагмент для изменения в этой строке'), { target: { value: 'Two doors.' } });
