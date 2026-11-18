@@ -8282,3 +8282,12 @@ Protected44301116067/master44299562723/native44299717407/feature44297769021 allS
 Runtime release13f/imagec5a49eb8; backend/native current118 rollback and native116/
 299/359 kept. Encrypted backup94MB/signed owned restore/independent absence PASS.
 No traffic rollback drill was performed; no semantic certification of deferred120.
+
+LEARNER122 LOCAL:8new history tests, initial7RED retained;75focused PASS, full9006
+PASS1skip7warnings163.24s. SQL70messages includes4foreign scope negatives and ties.
+Fulltext/source-once/serverhistory/currentquestion/invalidrole/history-failure503
+controls PASS. Ruff1004/mypy2175, no baseline waiver. Cast-only ORM UUID annotations
+completed after full-run import; exact candidate CI will cover final bytes. First
+proposed catalog key failed frozen SQL contract locally; removed, all catalog/tests
+restored exact, existing60 protected API window retained/no new runtime knob.
+Index NOT_READY/missing runtime, exact source fallback;0model calls/no deployment.

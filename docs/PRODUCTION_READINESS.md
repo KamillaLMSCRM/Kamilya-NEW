@@ -1,3 +1,29 @@
+## Current - 2026-11-18: learner dialogue122 LOCAL; production121 unchanged
+
+result: Owner second learner-assistant package implemented locally from accepted
+master66480213/production121. No generation119/120 or migration added.
+changed: Server history filtered by tenant/user/course/current lesson, current full
+material once, original teacher role with history as conversational references,
+not organizational facts. Same existing recent60 window now newest chronological,
+with stable question-before-answer tie order; older rows remain stored. Explicit
+history503 before model/save; no new mutable setting, provider/global route change.
+verified:9006API+1skip PASS,75focused tests including8new history tests. Real local
+SQL70messages/4foreign scopes/same-time exchange ordering PASS; context contains
+full11000+chars once, server-only history, current question once, unknown roles
+rejected. Python baseline ruff1004/mypy2175 PASS without waiver. New CodeGraph
+checkout NOT_READY runtime missing; bounded exact-source fallback.0model calls yet.
+blockers: DEV and production122 are not yet accepted/deployed. Existing API/front121,
+DEVworker120/f833 and branch8b41 remain. Protected production backend-only122 is
+conditional on exact DEV Luna and ordinary learner UI acceptance; accepted frontend121
+application source remains compatible and requires no new native frontend build.
+next: Freeze candidate/CI, deploy only existing free DEV API, keep stable frontend121
+and worker/dev refs unchanged; same existing synthetic lesson dialogue on already-paid
+Luna, verify follow-up/switch/isolation/current-source authority, then protected
+backend122/no-migration release and ordinary production learner UI. No paid requests,
+local Docker, plan/rights/customer data edits or repeated ready generation.
+Evidence .worktrees/learner-dialogue122-20261118/.release-evidence/learner122-20261118.
+Prior headers below are historical and current121 remains the live accepted release.
+
 ## Current - 2026-11-18: learner assistant121 released and live accepted
 
 result: First learner-assistant package is accepted in DEV and production0.11.121,

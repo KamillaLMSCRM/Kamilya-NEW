@@ -147,6 +147,7 @@ async def test_luna_selection_is_request_local_without_paid_fallback(monkeypatch
                               ainvoke=AsyncMock())
     monkeypatch.setattr(router, "_assert_course_mutation_access", AsyncMock(return_value=SimpleNamespace(id=course)))
     monkeypatch.setattr(router, "_build_context", AsyncMock(return_value=("CURRENT_RULE", ["Lesson"])))
+    monkeypatch.setattr(router, "_recent_history", AsyncMock(return_value=[]))
     monkeypatch.setattr(router.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=default))
     db = SimpleNamespace(add=lambda _row: None, commit=AsyncMock())
     response = await router.learner_chat(
@@ -165,6 +166,7 @@ async def test_unavailable_selected_provider_never_calls_default(monkeypatch):
     default = SimpleNamespace(for_provider=unavailable, ainvoke=AsyncMock())
     monkeypatch.setattr(router, "_assert_course_mutation_access", AsyncMock(return_value=SimpleNamespace(id=course)))
     monkeypatch.setattr(router, "_build_context", AsyncMock(return_value=("CURRENT_RULE", [])))
+    monkeypatch.setattr(router, "_recent_history", AsyncMock(return_value=[]))
     monkeypatch.setattr(router.ResilientLLMClient, "from_settings_async", AsyncMock(return_value=default))
     db = SimpleNamespace(add=lambda _row: None, commit=AsyncMock())
     with pytest.raises(HTTPException) as error:

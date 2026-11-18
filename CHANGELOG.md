@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.11.122] - 2026-11-18
+
+### Changed
+- Learner explanations use only the authenticated learner's recent dialogue for the current lesson, with complete current material. Newest exchanges and tied question/answer ordering are stable; earlier rows remain stored. API-only release, compatible with accepted frontend121.
+
+
 ## [0.11.121] - 2026-11-18
 
 - Bind learner help/history to one accessible lesson, with complete text and no course-wide fallback.

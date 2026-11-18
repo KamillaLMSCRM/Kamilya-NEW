@@ -88,6 +88,7 @@ async def test_learner_assistant_forwards_authenticated_tenant_to_provider(
 ) -> None:
     tenant_id = uuid4()
     course_id = uuid4()
+    monkeypatch.setattr(learner_router, "_recent_history", AsyncMock(return_value=[]))
 
     class StubLLM:
         async def ainvoke(self, _messages):

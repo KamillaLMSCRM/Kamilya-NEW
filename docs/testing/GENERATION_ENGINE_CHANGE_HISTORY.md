@@ -4138,3 +4138,27 @@ Protected44301116067/master44299562723/native44299717407/feature44297769021 allS
 Runtime release13f/imagec5a49eb8; backend/native current118 rollback and native116/
 299/359 kept. Encrypted backup94MB/signed owned restore/independent absence PASS.
 No traffic rollback drill was performed; no semantic certification of deferred120.
+
+CHG-LEARNER122 PROPOSED 2026-11-18: owner requests lesson-scoped server dialogue
+history after accepted learner121. Previous CHG-LEARNER121 deliberately did not
+send history to the model. Add completed saved actor/tenant/course/lesson messages
+through the existing teacher/selected provider, with current full lesson once.
+History supplies conversational references/examples, never new organization facts
+or authority over current material. Fix oldest60 to newest chronological messages
+and stable user-before-assistant order for same-transaction timestamps. Retain all
+old rows/assignments/content; no schema rewrite, source/editor/generation changes.
+Move the existing60 window to runtime_settings catalog/default60; no DB override
+write. Tests cover actual query filters/order/limit, complete text/one source,
+follow-up context, role injection, failure/no paid fallback. Fresh Luna DEV then
+production only after acceptance. Existing frontend121 API-compatible; no visual
+change or new native frontend deployment required for this API-only package.
+Evidence .release-evidence/learner122-20261118; no delegation or model calls yet.
+
+CHG-LEARNER122 proposal amendment before native inference: the frozen SQL catalog
+test correctly caught that adding a configurable history key requires a separate
+DB validator migration. Do not ship an unusable admin setting or weaken that test.
+Keep the existing protected recent-message window60 as one shared API/transcript
+contract, preserving its size and all older stored rows. No new adjustable limit,
+runtime setting, schema migration or override write. The full lesson remains uncut.
+Runtime catalog and its tests restored byte-for-byte; actual new local SELECT
+regression checks70messages/4foreign scopes/tied turn timestamps without a model.
