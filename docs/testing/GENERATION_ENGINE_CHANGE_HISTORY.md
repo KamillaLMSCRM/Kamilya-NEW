@@ -4015,3 +4015,48 @@ model-control-acceptance.json, isolated0189.json. Preserve published119course,
 approved521 and53source replies; rejected CHG-L100N is not restored.
 
 CHG-CONTEXT120 release preflight: candidate6061d7a0 PR CI44266884388 failed existing controller-epoch regression (0188vs0189), before any public migration/deployment. Added exact120epoch and wired actual controller/head comparison into mandatory local release-contract-gate; controller/bundle/workflow73PASS. New exact SHA CI required; failed run preserved.
+
+## CHG-CONTEXT120 DEV execution — 2026-11-18, IN PROGRESS
+
+Exact07550a263749d3177fdbd6b90ebe85096198d57a coherent DEV120, PRCI44267394061,
+DEVCI44268978534/image44268928427 SUCCESS, image73e16ed2, controller RELEASE_OK.
+Public DEV0189 PASS; pre/post runtime_settings/history hash228a35e2 exact.
+
+| Run | Source / model | Observed result, not final acceptance |
+|---|---|---|
+| RUN-CONTEXT120-FURNITURE-NATIVE-DEV-20261118 | approved521/working95ee5166; Luna6 HIGH | Job06339b6f, eight fresh ready replies508628IN24349OUT; plan3units. Preclaim interruption, no pending/unknown; one ordinary UI resume, all ready responses must remain exact. |
+| RUN-CONTEXT120-CASH-NATIVE-DEV-20261118 | approved108/97abc070/working3c73b32e, original DOCX10assets; Luna6 HIGH | Job70473c0d accepted once, full course running; source reanalysis0. Full metrics/content verdict pending. |
+
+Root's cash admission before furniture completion means resumed furniture waits
+behind cash on the sole DEV-worker. This is QA-induced waiting, not inference
+latency. Preserve actual whole wall time and separately measured provider/queue
+time; do not claim timing from byte benchmark. First native final-content review
+autonomously flags narrowed Street compatibility and missing catalogue-use skill,
+without a root hint. Findings are not corrections until the editor returns.
+Standards approved18 pending admission, at most2active; no old course/source writes.
+Production118 remains unchanged; protected0189 controller/migration still gated.
+
+## CHG-CONTEXT120B — proposed 2026-11-18: match the editor's added-lesson contract
+
+Native120 furniture06339b6f completed11calls/711832IN33062OUT, but semantic NO_GO:
+the model's six useful addressed body corrections and catalogue lesson were all
+unapplied. Exact saved-output LOCAL replay,0freshcalls, reproduces
+simple_v9_question_count_invalid at apply_edit: the emitted block-editor schema
+allows a new lesson with1question whereas the inherited V9 application requires3.
+This is a deterministic producer/application contract mismatch, not a new source
+ambiguity or weak model. Generic simple_v9_correction_unapplied hid the concrete
+cause. Native draft9c6fba84 retained, never publish it as accepted.
+
+Prior CHG-L93/L104J and earlier unapplied-disposition entries preserve scoped
+edits/evidence; they did not align this added-lessons minimum. Keep atomic scope,
+immutable body addresses, source/draft IDs, all good original cards and the
+existing3-question requirement. No new critic or semantic validator. Add a closed
+block-editor V3 contract with min3 for added lessons, selected only by V12 at the
+actual producer; old V1/V2 formats and V1–V11 requests unchanged. Existing complete
+registered format recognition must cover managed/cloud/native ownership paths.
+Retain a safe concrete deterministic application code in the receipt. Bind the
+new format into the V12 request-context fingerprint; completed earlier8stages keep
+their unchanged identities. Test the exact saved1-question case locally plus
+complete3-question addition, all unaffected card/body bytes and both transports.
+Only the saved editor response needs new model work locally, not source parsing
+or course authors. Live cash/standards already-known parts remain retained.

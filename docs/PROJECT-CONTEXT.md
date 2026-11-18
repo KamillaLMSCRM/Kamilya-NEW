@@ -1,4 +1,27 @@
-## Current — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
+## Current — 2026-11-18: CONTEXT120B local correction, no new rollout
+
+Live DEV remains120A/07550a26; completed furniture draft9c6fba84 is NOT accepted.
+ENG083 saved replay proves an added-lesson min1-schema/min3-application mismatch.
+Local B aligns only the V12 emitted editor format (legacy unchanged),9033units/
+38focused/quality PASS; pending fresh retained-draft Luna/editor/DEV acceptance.
+Cash70473c0d22ready safely interrupted, standardsab221594 running. No paid DeepSeek
+tests authorized; owner selected existing paid Luna only. Production118/6a234b54
+and rollback116 remain unchanged. Current handoff owns receipts/next actions.
+
+## Historical — 2026-11-18: CONTEXT120 coherent DEV; acceptance in progress
+
+DEV API/web/soleworker is0.11.120/07550a263749d3177fdbd6b90ebe85096198d57a,
+image73e16ed2f56a57459f4293d7ba925c77c13aa8d78c4365cc49de73baa36c9856;
+controller RELEASE_OK, PRCI44267394061/DEVCI44268978534/build44268928427 SUCCESS.
+Renderdep-dbumhhqfngtc73d8cstg/Verceldpl_Ggatvy7BVRk9LskFyyaX8UjL2r4A live exactSHA.
+DEV public0189/settings+history unchanged, worker26f5fd7a/env edaf66e8; previous119
+warm-stopped rollback retained. Existing Luna6HIGH8MiB receiver untouched.
+Furniture06339b6f resumed once at safe preclaim after8ready responses, cash70473c0d
+running; standards not admitted until active<2. Full semantic acceptance pending.
+Current CODEX_HANDOFF and private catalog-context120-20261118 own exact progress.
+Production118/6a234b54/schema0188/DeepSeek→Luna unchanged, previous116 retained.
+
+## Historical — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
 
 V12 candidate0.11.120 reduces same15stage furniture message bytes85.46% while all
 291approved literal catalogue rows stay accessible. Fresh Luna6HIGH local blind

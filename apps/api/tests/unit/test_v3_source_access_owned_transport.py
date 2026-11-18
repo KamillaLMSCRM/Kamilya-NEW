@@ -28,7 +28,8 @@ from tests.unit.test_v3_simple_owned_transport_v8 import BetweenStagesError, fre
 @pytest.mark.asyncio
 @pytest.mark.parametrize("transport", ["managed", "cloud"])
 @pytest.mark.parametrize("interrupt", [0, 1, 3])
-async def test_v12_real_seam_with_lookup_and_no_duplicate_calls(monkeypatch, transport, interrupt):
+@pytest.mark.parametrize("added_lesson", [False, True])
+async def test_v12_real_seam_with_lookup_and_no_duplicate_calls(monkeypatch, transport, interrupt, added_lesson):
     fake, journal, _, _, _ = setup()
     journal.review_policy_bound = True
     journal.expected_review_policy = SIMPLE_COURSE_REVIEW_V12_POLICY
@@ -87,6 +88,9 @@ async def test_v12_real_seam_with_lookup_and_no_duplicate_calls(monkeypatch, tra
             inner = unit_course("SRC1", "Consultant checks the exact model. Preserve good body.")
         elif ":editor-joint:" in base:
             lessons = body["original_course"]["lessons"]
+            editor_schema = inner_format(fmt)
+            assert editor_schema['json_schema']['name'] == 'simple_course_block_editor_v3'
+            assert editor_schema['json_schema']['schema']['properties']['added_lessons']['items']['properties']['questions']['minItems'] == 3
             inner = {
                 "source_fingerprint": packet.fingerprint,
                 "draft_fingerprint": body["draft_fingerprint"],
@@ -99,6 +103,13 @@ async def test_v12_real_seam_with_lookup_and_no_duplicate_calls(monkeypatch, tra
             }
             if "finding_dispositions" in inner_format(fmt)["json_schema"]["schema"]["properties"]:
                 inner["finding_dispositions"] = []
+            if added_lesson:
+                added = unit_course('SRC2', 'Read the specific reference row, not a guessed product.')['lessons'][0]
+                added['id'] = 'added-reference-use'
+                for i, question in enumerate(added['questions']):
+                    question['id'] = f'added-question-{i}'
+                inner['added_lessons'] = [added]
+                inner['lesson_sources'].append({'lesson_id': added['id'], 'source_refs': ['SRC2']})
         elif ":repair-evidence:" in base:
             p = inner_format(fmt)["json_schema"]["schema"]["properties"]
             inner = {
@@ -179,5 +190,6 @@ async def test_v12_real_seam_with_lookup_and_no_duplicate_calls(monkeypatch, tra
         access = first.diagnostics["simple_review"]["literal_source_access"]
         assert access["reference_rows"] == 30 and access["stages"][0]["lookup_ids"]
         assert "Preserve good body." in first.content.modules[0].lessons[0].content
+        assert len(first.content.modules[0].lessons) == (2 if added_lesson else 1)
     finally:
         client.close()

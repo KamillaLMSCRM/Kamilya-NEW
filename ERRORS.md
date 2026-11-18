@@ -1,3 +1,20 @@
+## AGENT-EDITOR-SCHEMA-001 - producer seam omitted added-lesson application boundary
+
+- Date:2026-11-18.
+- Symptom: DEV120 accepted transport but left the model's useful edits unapplied.
+- Cause: Root's initial120 local owned transport matrix exercised a
+  no-op joint editor, not an actual lesson addition. Green transport and broad
+  units therefore missed a schema-valid1-question lesson rejected by min3 apply.
+- Fix: Exact saved native LOCAL replay reproduces the error without inference.
+  Correct the emitted V12 contract, preserve legacy contracts and min3 custody;
+  add a schema-valid/application-invalid negative and real added-lesson cases
+  through both transports, saved DTO and cold replay.
+- Verification:38focused/9033full units and quality PASS. This is not
+  DEV/production acceptance of the corrected SHA.
+- Prevention: for a generated object include its downstream application bounds
+  in the producer seam, not only a schema/no-op happy path. Preserve concrete
+  sanitized application causes; transport success never means edits applied.
+
 ## AGENT-MODEL-STATUS-001 - inferred semantic result from request ordinal
 
 - Date: 2026-11-18; CONTEXT120 local control.
@@ -8442,6 +8459,19 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
 
 ## OPS-012 - Unused API images exhausted host headroom and failed watchdog closeout
 
+- 2026-11-18 CONTEXT120: capacity6,439,673,856bytes missed unchanged6GiB by3MB.
+  Standing bounded cleanup removed exactly unused112imagefb4b4f2e after manifest
+  and16blob recovery. All77container/config/state/data fingerprints exact; free
+  7,006,613,504bytes. Failed read-only probes/guarded cleanup attempts retained.
+  Root initially used an evidence key other than image for a digest containing@,
+  then reconstructed a preservation hash without canonical Mounts sorting.
+  Both failed before deletion. Reuse canonical evidence schema and sort mounts
+  by Destination before comparing container fingerprints. Resolve ALL container
+  Config.Image references via image inspect, including tags; containerd may put
+  the exact digest reference in RepoTags. Only[]or[exactref] is eligible, never
+  force/prune or infer zero owners from a missing mutable tag. Successful receipt
+  catalog-context120-20261118/cleanup120-unused112-r4-executed.json.
+
 - **Действующее разрешение владельца, 13.11.2026:** при необходимости выполнять
   штатную очистку устаревших остановленных DEV-копий без томов и неиспользуемых
   локальных образов с проверенной registry-восстановимостью без нового ожидания
@@ -8667,6 +8697,14 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
   Post-cancellation zero-growth must never be promoted to active-stall evidence.
 
 ## AUTH-SMOKE-PACING-001 - Multi-role verification exceeded normal login burst
+
+- Recurrence2026-11-18: two course watchers refreshed by password login every
+  360seconds, plus independent QA captures; standards watcher stopped on429.
+  This did not fail or restart the native generation job. Do not bypass/reset
+  auth or reuse another account. Private watcher now schedules refresh from the
+  actual token exp minus90seconds (max780; configured access lifetime15minutes),
+  and current job observation uses minimal restricted DB reads during cooldown.
+  Preserve the failed watcher and separate its failure from model/job state.
 
 - Date: 2026-10-02. Status: RESOLVED test harness; production protections unchanged.
 - Symptom: two exact backend29 closeout packets stopped at429/Retry-After10;

@@ -278,6 +278,10 @@ async def apply_reviewed_course_v9(packet: Any, corpus: Any, intent: Any, origin
                     'source_questions': copy.deepcopy(proposal['source_questions'])}
         body_receipt.update({'application_status': 'unapplied', 'error_code': 'simple_v9_correction_unapplied',
                              'address_result': copy.deepcopy(address_value)})
+        code = str(exc)
+        if (code.startswith('simple_') and code.isascii() and len(code) <= 128
+                and all(c.islower() or c.isdigit() or c == '_' for c in code)):
+            body_receipt['application_error'] = code
         if address_value is not None:
             address_error = str(exc)
             body_receipt['address_error'] = (address_error if address_error.startswith('simple_address_repair_')

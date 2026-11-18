@@ -53,6 +53,10 @@ async def run_simple_course_editor_v12(
 
     async def access_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
         nonlocal additional
+        complete_editor = ':editor-joint:v9:' in group
+        if complete_editor:
+            from app.modules.ai.v3.simple_course_block_editor import complete_added_lesson_format
+            fmt = complete_added_lesson_format(fmt)
         requested: tuple[str, ...] = ()
         for attempt in range(lookup_rounds + 1):
             projected, fingerprint = source.project(messages, group, requested)
@@ -64,6 +68,11 @@ async def run_simple_course_editor_v12(
                     "taught in this lesson. Do not quiz a new reference example solely because it appears in "
                     "the catalogue. Include necessary new scenario data visibly and preserve independent cards."
                 )
+            if complete_editor:
+                projected[0]['content'] += (
+                    ' Each added lesson is a complete teaching unit with at least three useful questions '
+                    'based on its own teaching. Preserve all good existing questions and prepared corrections.'
+                )
             projected[0]["content"] += (
                 " Return the supplied closed source-access envelope. Put exactly one original-task response "
                 "in results and leave lookup_ids empty when evidence suffices. If literal data is missing, "
@@ -73,7 +82,10 @@ async def run_simple_course_editor_v12(
             )
             # Bind the final system task too; a prompt/rubric change cannot share
             # a completed native stage merely because its source view is equal.
-            fingerprint = _digest([fingerprint, projected])
+            identity = [fingerprint, projected]
+            if complete_editor:
+                identity.append(fmt)
+            fingerprint = _digest(identity)
             outer = access_format(fmt, packet.fingerprint, fingerprint, group, list(source.by_id))
             outer_group = (
                 f"practical:simple:lookup:v12:{packet.fingerprint}:base={_digest(group)}"

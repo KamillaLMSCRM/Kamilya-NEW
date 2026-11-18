@@ -1,4 +1,56 @@
-## Current — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
+## Current — 2026-11-18: CONTEXT120B LOCAL contract fix; DEV120A not accepted
+
+Native furniture06339b6f completed11Luna6HIGH calls711832IN33062OUT,3lessons12cards,
+but semantic NO_GO: its correct editor proposal (six body edits plus new catalogue
+lesson) is unapplied because the addition has1question. Exact0call saved replay
+proves producer min1 vs application min3 (ENG083). Closed V3 editor schema min3
+is now selected by V12 only; legacy V1/V2 and earlier eight-stage requests stay
+unchanged. Safe application cause retained.9033full/1skip and38focused including
+12managed/cloud added/no-added cold seams; quality1005/2174 PASS. Candidate B is
+LOCAL, not the deployed0755 image. New local modelB_control.py waits for current
+native jobs to become idle, then fresh editor/final-review only on saved first8;
+no concurrent use of the single-operation Luna receiver. Intent/results pending.
+
+Cash70473c0d is safely interrupted after22ready responses, no resume yet; standards
+ab221594 is running, source18 exact. Preserve both, never regenerate completed
+parts. API watcher429 is harness auth pacing, not a model/job failure; use minimal
+DB readback during cooldown. Production118 unchanged, only already-paid Luna
+per owner's explicit response; no new DeepSeek expense or route changes.
+
+Measured provider time119→120A:808652→642986ms, token3593279→711832 (-80.19%).
+This is NOT a32→10minute wall-time claim: native120A took31.41minutes including
+12.22minutes of initial/resume queue waiting introduced by parallel QA. Runtime
+and model metrics, quality and changed5→3lesson count must remain separate.
+Private evidence catalog-context120-20261118; local model process42165.
+
+## Historical — 2026-11-18: CONTEXT120 coherent DEV, full acceptance running
+
+Exact07550a263749d3177fdbd6b90ebe85096198d57a/version0.11.120 is live on DEV
+API/web/soleworker26f5fd7a; image73e16ed2f56a57459f4293d7ba925c77c13aa8d78c4365cc49de73baa36c9856.
+PRCI44267394061, DEVCI44268978534, image44268928427 SUCCESS; controller RELEASE_OK.
+Existing free Renderdep-dbumhhqfngtc73d8cstg and hobby Verceldpl_Ggatvy7BVRk9LskFyyaX8UjL2r4A.
+Public DEV0188→0189 PASS; settings/history bytes unchanged. Previous119 retained.
+Luna6HIGH/receiver8MiB unchanged, no paid fallback or customer edits.
+
+Furniture job06339b6f-7abc-4b81-a4e3-a0db2e583340 uses approved521 exact same119
+inputs; eight native ready replies508628IN24349OUT, three meaningful units.
+Ordinary preclaim pause has no pending/unknown; one UI resume is queued behind
+already-started cash regression70473c0d-1fef-4716-a3d3-74ba4016e102. Preserve all
+eight reply hashes; no fresh source check or new furniture job. This QA queue
+contaminates end-to-end wall time: report waiting separately, never relabel it
+as provider generation time. Cash is original DOCX/10assets, approved108; planned
+11units/26initial stages. Standards approved18 is NOT yet admitted: at most2active.
+Neither a draft nor runtime health establishes course semantic PASS.
+
+Production118/6a234b54/schema0188 and actual rollback116 remain unchanged.
+Read-only preflight verifies DeepSeek→Luna, controller4d85d234 and state54d09c5f.
+Protected controller upgrade is mandatory for new0189 epoch. New $0.50 optional
+DeepSeek DEV+production-smoke authority was declined: owner selected only already
+paid Luna. No paid DeepSeek test, global routing/BYOK override or DEV-only route
+activation in production. Customer preservation and complete course quality pending.
+Private evidence: catalog-context120-20261118, current watchers22527/62030.
+
+## Historical — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
 
 V12 candidate0.11.120 reduces same15stage furniture message bytes85.46% while all
 291approved literal catalogue rows stay accessible. Fresh Luna6HIGH local blind

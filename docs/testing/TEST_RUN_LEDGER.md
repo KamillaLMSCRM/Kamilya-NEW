@@ -8192,3 +8192,21 @@ model-control-acceptance.json, isolated0189.json. Preserve published119course,
 approved521 and53source replies; rejected CHG-L100N is not restored.
 
 CHG-CONTEXT120 release preflight: candidate6061d7a0 PR CI44266884388 failed existing controller-epoch regression (0188vs0189), before any public migration/deployment. Added exact120epoch and wired actual controller/head comparison into mandatory local release-contract-gate; controller/bundle/workflow73PASS. New exact SHA CI required; failed run preserved.
+
+2026-11-18 CONTEXT120A native furniture06339b6f:11Luna6HIGH fresh responses,
+711832IN33062OUT/642986provider ms,1lookup3rows; all8earlier responses exact after
+one ordinary resume. Old119:15responses3593279IN40860OUT/808652provider ms. Changed
+5→3lessons/20→12questions; source coverage still requires semantic acceptance.
+New wall31.41min includes12.22min initial/resume QA queue wait; active deliveries
+19.19min. Do not label model timing as whole-course latency. Full catalogue291
+rows retrievable; no source reanalysis or customer writes. Semantic NO_GO because
+all editor changes safely unapplied (ENG083). Completed is not accepted.
+
+CONTEXT120B LOCAL: actual saved full-chain0call replay RED
+simple_v9_question_count_invalid; missing new-helper regression RED then38focused
+PASS, including12actual managed/cloud owned seams with additions and cold replay.
+Full9033PASS1skip7warnings144.37s; qualityRuff1005/Mypy2174PASS, no baseline waiver.
+Closed V3 added-lesson min3 selected only by V12, legacy schemas unchanged. Fresh
+retained-draft Luna editor and live new-SHA DEV/production still pending. Native
+cash70473c0d22ready preserved, standardsab221594 active; watcher429 retained as
+harness failure, no generation repeat. Existing paid Luna only by owner response.

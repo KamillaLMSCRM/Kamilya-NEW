@@ -2442,3 +2442,28 @@ economics/content matrix and protected production remain PENDING.
 Private evidence: catalog-context120-20261118/projection-benchmark.json,
 model-control-acceptance.json, isolated0189.json. Preserve published119course,
 approved521 and53source replies; rejected CHG-L100N is not restored.
+
+## ENG-083 — added-lesson schema permits fewer questions than its application
+
+- Observed2026-11-18: DEV120 furniture06339b6f/approved521,11Luna6HIGH responses,
+  711832IN33062OUT, saves draft9c6fba84 with original3lessons12cards. The editor
+  actually proposed six good body edits plus a necessary catalogue-use lesson,
+  but added only1question. All edits were safely left unapplied, including those
+  independent corrections; final review did not recover the missing teaching.
+- Cause CONFIRMED LOCAL,0freshcalls: block-editor V2 added_lessons schema inherits
+  min1; V9 apply_edit requires min3. Saved full-chain fixture reproduces
+  simple_v9_question_count_invalid atline222; generic receipt masked exact code.
+  This is a deterministic producer/application contract mismatch, not a human
+  source ambiguity. Completed job is not semantic acceptance or publication.
+- Proposed/fix LOCAL: closed block-editor V3 min3 selected by V12 only, with a
+  schema/task-bound new editor context. Historical V1/V2 and earlier-stage
+  requests unchanged. Preserve min3, atomic custody, all good bodies/cards,
+  source and revision guards; no new critic or semantic regex. Retain sanitized
+  concrete application_error. Exact old1-question response now fails the emitted
+  contract before application; complete3/4/5-question additions accepted.
+- Regression: first missing-helper RED, then38focused PASS including12actual
+  managed/cloud producer→claim→decoder→saveDTO/cold-replay cases with andwithout
+  added lessons. Full suite/quality, fresh local editor on retained draft and DEV
+  candidate B remain pending. No production change or customer edits.
+- Evidence: private catalog-context120-20261118/native120-local-replay-red.json,
+  full native ready responses retained. CHG-CONTEXT120B owns development history.
