@@ -133,6 +133,8 @@ def source_unit_plan_request(packet: PracticalSourcePacket, corpus: DirectSource
         '"CONTEXT: " followed by a nonempty reason for non-teaching context. Unit IDs must not start with "CONTEXT:". '
         'Every unit needs at least one primary assignment. '
         'Group related operative material into coherent topics; never classify an operative instruction as auxiliary or non-teaching merely because it is brief. '
+        'Reference catalogues and tables remain factual source context: group lessons by meaningful topics or skills, not one lesson per row or article number. '
+        'Attach relevant catalogue rows through supporting_refs to the units that use them; repetitive lookup-only rows may be CONTEXT with a reason, without inventing a teaching unit for each. '
         'Prefer meaningful original section boundaries, combining short related subsections into one coherent practical lesson '
         'with 3–4 nonredundant questions; split only for distinct practical tasks, without an arbitrary count or size limit. '
         'Follow unambiguous textual references to the actual target procedures and conditions as supporting references, '

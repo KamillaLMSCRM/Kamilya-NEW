@@ -133,7 +133,7 @@ def test_medium_capacity_retry_shares_one_deadline(worker, monkeypatch):
     {"model": "other"}, {"command": "synthetic"}, {"max_tokens": True}, {"max_tokens": -1},
     {"messages": [{"role": "tool", "content": "synthetic"}]},
     {"messages": [{"role": "user", "content": "synthetic", "extra": "not allowed"}]},
-    {"messages": [{"role": "user", "content": "x" * 524289}]},
+    {"messages": [{"role": "user", "content": "x" * (8388608 + 1)}]},
 ])
 async def test_invalid_input_rejected_before_process(worker, modules, monkeypatch, changes):
     run = AsyncMock(side_effect=AssertionError("must not execute"))

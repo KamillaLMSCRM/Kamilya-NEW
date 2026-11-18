@@ -14,7 +14,8 @@ from typing import Any
 
 MODEL = "gpt-5.6-luna"
 CLI_VERSION = "codex-cli 0.166.0"
-MAX_INPUT_BYTES = 524288
+# Match the producer's bounded wire size; model context is a separate limit.
+MAX_INPUT_BYTES = 8388608
 MAX_OUTPUT_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
 CAPACITY_MESSAGE = "Selected model is at capacity. Please try a different model."

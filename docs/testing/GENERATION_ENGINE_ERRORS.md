@@ -2370,3 +2370,14 @@ preservation PASS. Production0new model calls, ready courses not regenerated.
 Real contradictory catalogue facts remain owner-owned; ENG-074 full-course gate
 is separate and OPEN. Keep failed A388/08c result, local failed trials, unknown
 fences and usage in prior records. Private C/final-release118.json is decisive.
+# ENG-082 follow-up — editable row omitted for a unique prefix (2026-11-18)
+
+Live QA source412 proves that a literal unique prefix can identify a correct
+product but omit the field mentioned in the finding. Existing row-scoped edits
+were exposed only for repeated quotes. HUMAN119 reconstructs a single exact
+canonical row from stored literal evidence for in-review questions; no new model
+call or presumed factual approval. Foreign/stale/unverified proof remains held;
+approved historical responses unchanged. Saved412and synthetic scope/undo/pin
+regressions PASS; local106human decisions/130edits preserve original and11auto.
+DEV full course acceptance remains open; this is a navigation/edit contract fix,
+not a new semantic critic or catalogue factual certification.

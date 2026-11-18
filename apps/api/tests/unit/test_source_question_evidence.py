@@ -6,6 +6,56 @@ from app.modules.source_editorial_review.question_context import QuestionContext
 SOURCE = '| Item | Text |\n| --- | --- |\n| A | Two doors. Two doors. |\n| B | Two doors. |\n'
 
 
+def test_unique_prefix_can_edit_another_field_in_its_exact_proven_row():
+    from app.modules.source_editorial_review.domain import ReviewState
+    from app.modules.source_editorial_review.question_evidence import project_question, verified_edit_scopes
+    source = '| Item | Text |\n| --- | --- |\n| A | Unique prefix. Two doors. |\n| B | Two doors. |\n'
+    context, = contexts(source, [(0, source)])
+    ref = next(iter(context.references))
+    question, = project_question({'excerpt': 'Unique prefix.', 'source_refs': [ref],
+        'category': 'contradiction', 'reason': 'Door count differs.'}, item_id='q', original=source,
+        offset=0, local=source, context=context, restore=lambda *_: None)
+    state = ReviewState()
+    state.apply(1, 'analyzed', {'original': source, 'issues': [question], 'automatic': []})
+    assert 'source_scopes' not in question
+    state.issues = verified_edit_scopes(source, state.issues)
+    kind, payload = state.plan(command(ref))
+    state.apply(2, kind, payload)
+    assert state.working()[0] == source.replace('| A | Unique prefix. Two doors.', '| A | Unique prefix. Three doors.')
+    assert 'source_scopes' not in question  # Stored model answer is not rewritten.
+
+
+@pytest.mark.parametrize('corruption', ['foreign', 'stale', 'unverified', 'wrong_span'])
+def test_row_scope_hydration_never_expands_invalid_proof(corruption):
+    from app.modules.source_editorial_review.question_evidence import verified_edit_scopes
+    state, ref = scoped_state()
+    q = {**state.issues['q'], 'source_refs': [ref]}
+    q.pop('source_scopes')
+    q['source_evidence'] = [dict(e) for e in q['source_evidence']]
+    if corruption == 'foreign':
+        q['source_refs'] = ['foreign']
+    elif corruption == 'stale':
+        q['source_evidence'][0]['quote'] = 'Invented proof.'
+    elif corruption == 'unverified':
+        q['needs_source_verification'] = True
+    else:
+        q['start'], q['end'] = 0, 3
+    assert 'source_scopes' not in verified_edit_scopes(SOURCE, {'q': q})['q']
+
+
+def test_completed_approval_does_not_gain_new_projected_metadata():
+    from types import SimpleNamespace
+
+    from app.modules.source_editorial_review.service import read_state
+    state, ref = scoped_state()
+    q = {**state.issues['q'], 'source_refs': [ref]}
+    q.pop('source_scopes')
+    events = [SimpleNamespace(sequence=1, kind='analyzed', original_blob_sha256='blob',
+        payload={'original': SOURCE, 'issues': [q], 'automatic': []}),
+        SimpleNamespace(sequence=2, kind='approved', original_blob_sha256='blob', payload={'working': SOURCE})]
+    assert 'source_scopes' not in read_state(events, 'blob').issues['q']
+
+
 def test_repeated_quote_preserves_every_occurrence_and_product_identity():
     context, = contexts(SOURCE, [(0, SOURCE)])
     first, second = context.references

@@ -10,7 +10,12 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.modules.ai.managed_luna_client import ManagedLunaClient, ManagedLunaCompletedJsonError, ManagedLunaError
+from app.modules.ai.managed_luna_client import (
+    MAX_INPUT_BYTES,
+    ManagedLunaClient,
+    ManagedLunaCompletedJsonError,
+    ManagedLunaError,
+)
 
 
 @pytest.mark.asyncio
@@ -377,7 +382,7 @@ def test_private_url_policy_and_fingerprint():
 async def test_oversized_and_injected_messages_block_before_send(setup):
     client, _, _, _, requests = setup
     for messages in ([{"role": "user", "content": "x", "reasoning_effort": "medium"}],
-                     [{"role": "user", "content": "x" * 524288}]):
+                     [{"role": "user", "content": "x" * MAX_INPUT_BYTES}]):
         with pytest.raises(ValueError):
             await client.prepare(messages, max_output_tokens=8, ownership_checkpoint=AsyncMock(return_value=True))
     assert not requests

@@ -3875,3 +3875,43 @@ approved snapshot PASS. C/prod-fixture-acceptance.json, prod-ui-acceptance.json,
 final-release118.json bind exact runtime/API/3workers/frontend and rollback116.
 All real customer course/source/test content preserved. Semantics of all catalogue
 facts are not newly independently certified; source owner decisions remain open.
+
+CHG-SOURCE-HUMAN119 PROPOSED 2026-11-18: follows CHG-SOURCE-EVIDENCE118/C and
+ENG-074. Live ordinary methodologist review412 has106 real owner questions but
+no SKU search. A unique prefix quotation also loses the existing row-edit form,
+making changes elsewhere in that same proven row impractical. Reuse existing
+scoped source_changes/undo/pin guards: hydrate a row scope only from a single
+canonical table reference with exact original literal evidence, for in-review
+questions only. No new source/model analysis, source truth, request identity,
+policy bump or completed-response invalidation. Add bounded searchable question
+navigation and expose its existing fragment field for every verified row scope.
+Saved412 replay must retain11 automatic edits, all106 questions and all source
+bytes; foreign/stale/unverified proof cannot gain editable scope. Then owner-
+authorized test-human choices on QA copy only, full native Luna HIGH course and
+independent all-lesson/all-question QA. Customer original stays read-only.
+CodeGraph preflight NOT_READY (runtime missing); direct source/tests fallback.
+
+CHG-CATALOG-HUMAN119 PREFLIGHT 2026-11-18: history confirms117 ENG-074 two-line
+catalogue planning guidance and paired8MiB managed client/receiver bound were
+intentionally excluded from118 source-review release, not semantically rejected.
+Restore only those3 deltas from4da94e88 after full native source prepare RED/GREEN;
+retain116 generation segmentation/default parsing, source proof/unknown fences,
+output/token/reasoning limits and all completed source receipts. Wire byte bound
+is transport safety, not an increased model spend allocation. No new critic or
+per-SKU validator. Both producer and actual private receiver must match before
+one native course; test source decisions remain explicitly human QA assumptions.
+
+CHG-SOURCE-HUMAN119 LOCAL 2026-11-18: saved412106questions/11safeautomatic
+edits retained, deterministic scope reconstruction0.203s; foreign/stale/unverified
+and approved-history regressions PASS. Actual full producer118 RED before POST:
+1182130UTF8 message bytes exceed524288. Paired8MiB bound GREEN with0network/
+0DBwrites. Existing private DEV receiver already8MiB/Luna6HIGH, confirmed by
+canonical VM read; no receiver/provider change needed. Human test packet:
+106explicit decisions/89product rows/130disjoint fragment edits,412->518 local
+domain replay, original exact/11auto enabled,0fresh model calls. Stored in private
+furniture-human-course-20261118 evidence; values are test assumptions only.
+204transport/focused PASS;10433API+ops PASS/550skipped(no liveDB claim), fullweb
+1818/197files PASS before final no-match copy; type/scopedlint/build69 PASS.
+First full API run had health version mismatch because agent changed VERSION
+during the running suite; unchanged-source rerun PASS, failed log retained.
+Python quality1004/2174 PASS. Live source still412; no approval/model dispatch yet.

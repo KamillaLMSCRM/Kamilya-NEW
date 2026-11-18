@@ -26,6 +26,7 @@ from app.modules.source_editorial_review.domain import (
 from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PINS
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
 from app.modules.source_editorial_review.question_context import POLICY as QUESTION_CONTEXT_POLICY
+from app.modules.source_editorial_review.question_evidence import verified_edit_scopes
 from app.modules.source_editorial_review.recovery import recoverable_turn
 from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
 from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
@@ -109,6 +110,8 @@ def read_state(rows: Sequence[Event], blob_sha: object) -> ReviewState:
                 raise ReviewConflictError("source_review_preparation_invalid")
             if result.get("visual_review_policy") == _VISUAL_REVIEW_POLICY:
                 state.hydrate_manifest(result["manifest"], str(blob_sha))
+    if state.status == 'in_review':
+        state.issues = verified_edit_scopes(state.original, state.issues)
     return state
 
 

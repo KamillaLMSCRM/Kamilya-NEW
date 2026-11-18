@@ -1,4 +1,6 @@
 const ru = {
+  findQuestion: 'Поиск по артикулу или замечанию',
+  noMatchingQuestions: 'Совпадений нет. Измените поисковый запрос.',
   evidence: 'Цитаты из исходника', occurrence: 'Вхождение', sourceRow: 'Строка исходника',
   scopedAnchor: 'Фрагмент для изменения в этой строке', allOccurrences: 'Заменить все совпадения в этой строке',
   systemQuestions: 'Автоматическая проверка замечаний',
@@ -66,6 +68,8 @@ const ru = {
 };
 
 const en: typeof ru = {
+  findQuestion: 'Search by item or finding',
+  noMatchingQuestions: 'No matches. Change your search.',
   evidence: 'Source quotations', occurrence: 'Occurrence', sourceRow: 'Original source row',
   scopedAnchor: 'Text to change within this row', allOccurrences: 'Replace all matches within this row',
   systemQuestions: 'Automatic verification of findings',
@@ -130,6 +134,8 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  findQuestion: 'Артикул немесе ескерту бойынша іздеу',
+  noMatchingQuestions: 'Сәйкестік жоқ. Іздеу сұрауын өзгертіңіз.',
   evidence: 'Түпнұсқадан дәйексөздер', occurrence: 'Кездесу', sourceRow: 'Түпнұсқа жолы',
   scopedAnchor: 'Осы жолда өзгертілетін мәтін', allOccurrences: 'Осы жолдағы барлық сәйкестікті ауыстыру',
   systemQuestions: 'Ескертулерді автоматты тексеру',
