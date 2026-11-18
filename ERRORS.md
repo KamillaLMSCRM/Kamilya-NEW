@@ -11447,3 +11447,11 @@ Both restored exact before hashes, including original/working text, spans, quest
 decisions, journal and approval identity. Preserve coarse failed check and separate
 response-shape compatibility from immutable customer content; never ignore arbitrary
 fields or overwrite client data to make a preservation check green.
+
+TOOL-005 follow-up2026-11-18 source118 closeout: first final structural envelope
+was NO_GO TIME_ORDER because the canonical Git readback file was created before
+the final owned-cleanup/preservation receipt. Runtime acceptance was already PASS;
+do not backdate/touch old evidence or change evaluator ordering. Preserve the
+failed envelope; re-read exact remote Git/tag, canonical blobs and public runtime
+AFTER cleanup evidence, save a distinct fresh canonical receipt, then evaluate a
+distinct final envelope. This is an agent evidence-order defect, not engine failure.
