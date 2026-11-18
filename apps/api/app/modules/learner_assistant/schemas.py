@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -6,8 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class LearnerAssistantChatRequest(BaseModel):
     course_id: UUID
-    lesson_id: UUID | None = None
+    lesson_id: UUID
     message: str = Field(..., min_length=1, max_length=1200)
+    provider: Literal["chatgpt_reserve"] | None = None
 
 
 class LearnerAssistantChatResponse(BaseModel):

@@ -1,4 +1,95 @@
-## Current — 2026-11-18: source evidence118 released and live accepted
+## Current — 2026-11-18: learner121 isolated LOCAL candidate, no engine120 source
+
+result: Implementing owner-approved first learner-assistant package from accepted production118 code. New branch fix/learner-assistant121-20261118 in .worktrees/learner-assistant121-20261118; version0.11.121. No119/120generation or0189migration code included. Deferred120branch and all saved QA replies/history remain preserved, not merged/discarded.
+changed: Student-only learner API; chat/history require lesson_id; lesson/module tenant/course checks; no whole-course/description fallback; full native-player Lesson.content, no7000clip. Explicit optional provider=chatgpt_reserve limits one request to an already enabled Luna, no global route change or paid fallback. Player shows actual API message errors. No schema/data rewrite. Conversation improvements remain second package.
+verified:9initial RED saved;33focused PASS, including16new scope/provider/HTTP tests. Full8998API PASS1skip,1818web PASS197files; types/scopedlint and quality1004/2175 PASS. Local production build PASS67pages. Reader audit: native player structure reads current scoped Lesson.content too; no new snapshot substitution or claim of immutable historical reader support. CodeGraph checkout preflight NOT_READY runtime missing; bounded source fallback and actual source/test paths used.
+blockers: No commit/push/DEV121 or production121 yet. DEV120B API/web and idle worker remain; full candidate deploy will use exact accepted-source feature commit on existing services, preserve dev branch8b41 and worker/deferred tasks. Production118 remains. Owner allows already-paid Luna only. Need actual normal learner DEV access/long-tail explanation/cross-scope controls, then separate protected production.
+next: Finish localbuild, exact featureCI, bounded existing DEV API+stableweb candidate deployment without force-moving dev or merging its unaccepted code; retain current worker120 unchanged for this API-only capability. New synthetic manual test course/assignment via normal APIs, no model generation/email/customer writes. Current root owns exact safeguards/rollback and native frontend/prod release only after acceptance. Evidence .release-evidence/learner121-20261118.
+
+## Current — 2026-11-18: owner deferred course QA; client media/learner readiness checked
+
+result: Current priority is incoming video/YouTube/presentation and learner-assistant scope; diagnosis completed, not a new release. Existing engine course QA is explicitly deferred by owner.
+changed: No app/provider/billing/customer mutation. Stopped only local auto-admission waiter61384 (exact helper processes20660/23420); no furniture120B admission intent/job exists. Existing native jobs were not killed or re-created. Production118/6a234b54 unchanged; DEV120B/8b41 coherent.
+verified: Production ordinary student200own history,404actual unassigned published/foreign-tenant/wrong-course lesson and nonexistent controls; MP4 MIME400. YouTube enabled=true.73API/38player PASS. Exact handler + standard client on already-paid Luna3fresh synthetic calls: explanation, cross-course refusal, no direct test-letter response PASS;29928IN145OUT17.063s. NOT native production /chat, global DeepSeek-first untouched. Private client-media-assistant-20261118/READINESS.md owns proof boundaries.
+blockers: Direct video ingestion absent; PPTX images not recognized; actual incoming YouTube link not tested. Learner API permits missing lesson_id→selected-course summary, silently clips lesson7000chars. No claim of all-tenant material retrieval. Engine cash70473c0d completed draftaf67d519 with11L41Q/26ready;22old exact +4fresh. Standardsab221594 FAILED after15ready;12old exact +3fresh, cause UNKNOWN/deferred, no retry. A furniture remains NO_GO. None of these is semantic acceptance or production readiness.
+next: Receive three actual client materials; first assess captions/text/visual dependence. Lesson-only/full-context gaps recorded in PRODUCT_BACKLOG; no unrequested provider/routing change. On returning to engine inspect saved standards failure before any inference; preserve15ready and approved source. Full course quality checks and conditional production remain outstanding, not abandoned.
+
+## Historical — 2026-11-18: CONTEXT120B coherent DEV, resumed native acceptance
+
+Exact8b41cd91c28182955c9c79ce616c62e1dc18a0be/version0.11.120 is live on DEV
+API/web/soleworker f8333194, image71159d6c3b3b4c0131a9f26bb3efa07fb581d155f163e5808c66d807fa8230ad.
+Controller RELEASE_OK; CI44283299795/build44281942741 SUCCESS; Renderdep-dbunphsipgvc739g6dp0,
+Verceldpl_EZT2qWccRKQs7kFqxC3HjvVsw3qY READY. No extra Vercel deployment needed.
+Cash70473c0d and standardsab221594 ordinary same-job resumes accepted202 on B;
+22/12 ready reply hashes bound in private catalog-context120B resume intents,
+no new source checks, no regenerated ready responses. Full result QA pending.
+Existing paid Luna6HIGH only, production118/currentrollback116 unchanged.
+Local B retained-draft model control PASS:4fresh/246472IN7697OUT155.608s, first8
+replies only LOCAL fixtures. Body corrections and one compatibility card applied,
+other11cards exact, no source ambiguity/review finding. Added-lesson seam proven
+by owned synthetic tests; real local control integrated teaching into existing lesson.
+Full native A furniture remains NO_GO; no hand edits or publication of its draft.
+
+## Historical — 2026-11-18: CONTEXT120B local correction, no new rollout
+
+Live DEV remains120A/07550a26; completed furniture draft9c6fba84 is NOT accepted.
+ENG083 saved replay proves an added-lesson min1-schema/min3-application mismatch.
+Local B aligns only the V12 emitted editor format (legacy unchanged),9033units/
+38focused/quality PASS; pending fresh retained-draft Luna/editor/DEV acceptance.
+Cash70473c0d22ready safely interrupted, standardsab221594 running. No paid DeepSeek
+tests authorized; owner selected existing paid Luna only. Production118/6a234b54
+and rollback116 remain unchanged. Current handoff owns receipts/next actions.
+
+## Historical — 2026-11-18: CONTEXT120 coherent DEV; acceptance in progress
+
+DEV API/web/soleworker is0.11.120/07550a263749d3177fdbd6b90ebe85096198d57a,
+image73e16ed2f56a57459f4293d7ba925c77c13aa8d78c4365cc49de73baa36c9856;
+controller RELEASE_OK, PRCI44267394061/DEVCI44268978534/build44268928427 SUCCESS.
+Renderdep-dbumhhqfngtc73d8cstg/Verceldpl_Ggatvy7BVRk9LskFyyaX8UjL2r4A live exactSHA.
+DEV public0189/settings+history unchanged, worker26f5fd7a/env edaf66e8; previous119
+warm-stopped rollback retained. Existing Luna6HIGH8MiB receiver untouched.
+Furniture06339b6f resumed once at safe preclaim after8ready responses, cash70473c0d
+running; standards not admitted until active<2. Full semantic acceptance pending.
+Current CODEX_HANDOFF and private catalog-context120-20261118 own exact progress.
+Production118/6a234b54/schema0188/DeepSeek→Luna unchanged, previous116 retained.
+
+## Historical — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
+
+V12 candidate0.11.120 reduces same15stage furniture message bytes85.46% while all
+291approved literal catalogue rows stay accessible. Fresh Luna6HIGH local blind
+review and model correction PASS:4calls/303823IN12239OUT236.125s, all5lesson bodies
+andother19cards exact. This reused earlier14replies only as LOCAL fixtures, not
+native acceptance. Isolated Supabase0189 settings-constraint expansion PASS,
+cleanup/public-schema neutrality; no public migration or provider change yet.
+DEV119/224f and production118/6a234b54 unchanged; approved521 and QA621b retained.
+Next: same-SHA CI/image, publicDEV schema gate, coherentDEV API/web/worker, actual
+complete course timing/token/lookup and every lesson/card QA; protected production
+only after acceptance. No paid API fallback, local Docker or customer-source edit.
+Details: CHG-CONTEXT120 and private catalog-context120-20261118 receipts.
+
+## Current — 2026-11-18: DEV119 furniture human-approval acceptance
+
+DEV API/frontend/soleworker is0.11.119/exact224f51294045148d919a08ff88c470486637ee92,
+image180463e28f20e67404be0972fa8883302c785392c00ef9355df4bd4e27078e44,
+worker9c65c49f/envc82490e6; controller RELEASE_OK. Existing free Render service
+and hobby Vercel only, no plan/resource/routing/reasoning changes. Previous118
+worker retained stopped. Production stays118/6a234b54 with previous116 rollback.
+
+Permanent DEV QA tenanta7a2c055, ordinary methodologist5187fa5f: real Excel copy
+ad336f44 approved521/be228b72, working95ee5166/originalbinary00783869. Root106
+human test assumptions/89products/130edits,11auto preserved; customer153cc494
+and existinge445720e course remain unchanged. Source53completed replies reused,
+0fresh source reanalysis. Full native Luna6HIGH course621b267a is approved and
+published:5lessons20questions, release147ab54d/version1/SHA958d629e. Every body,
+choice,key,explanation reviewed; one explicit HUMAN card improvement, not model
+discovery.15successful responses3593279IN40860OUT/30.86min, one safe resume with
+all9ready answers exact.2extra LOCAL503no text/usageUNKNOWN, no paid fallback.
+All5preview tests100PASS/75FAIL,0learner attempts; published snapshot parity PASS
+under restricted lms_app. No current inference/job pending. Full current handoff
+and private furniture-human-course-20261118 evidence own details/limits.119 not
+released to production by this task. Closeout docs are local, runtime224f exact.
+
+## Historical — earlier 2026-11-18: source evidence118 released and live accepted
 
 Production API/three workers/native CT137 and DEV API/frontend/sole worker are
 0.11.118, exact `6a234b54520a035a2285cf090b1b046d6e80335e`. DEV image10dd8a7f /

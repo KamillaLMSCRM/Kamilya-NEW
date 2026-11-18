@@ -1,3 +1,33 @@
+## AGENT-EDITOR-SCHEMA-001 - producer seam omitted added-lesson application boundary
+
+- Date:2026-11-18.
+- Symptom: DEV120 accepted transport but left the model's useful edits unapplied.
+- Cause: Root's initial120 local owned transport matrix exercised a
+  no-op joint editor, not an actual lesson addition. Green transport and broad
+  units therefore missed a schema-valid1-question lesson rejected by min3 apply.
+- Fix: Exact saved native LOCAL replay reproduces the error without inference.
+  Correct the emitted V12 contract, preserve legacy contracts and min3 custody;
+  add a schema-valid/application-invalid negative and real added-lesson cases
+  through both transports, saved DTO and cold replay.
+- Verification:38focused/9033full units and quality PASS. This is not
+  DEV/production acceptance of the corrected SHA.
+- Prevention: for a generated object include its downstream application bounds
+  in the producer seam, not only a schema/no-op happy path. Preserve concrete
+  sanitized application causes; transport success never means edits applied.
+
+## AGENT-MODEL-STATUS-001 - inferred semantic result from request ordinal
+
+- Date: 2026-11-18; CONTEXT120 local control.
+- Symptom: progress said the weak question was found before reading the payload;
+  the second request was actually a literal lookup, not an edit.
+- Cause: inferred intent from request count instead of typed result fields.
+- Fix: immediately corrected the update; inspected later finding, model edit and
+  exact applied delta before accepting it.
+- Verification: saved4responses prove2lookups, final finding and scoped edit;
+  all5bodies/other19cards exact. No customer/source/course mutation.
+- Prevention: semantic progress requires inspected results and actual applied
+  delta; never infer discovery/correction from stage count or model self-label.
+
 ## AGENT-ASSESSMENT-CONTRACT-001 - Standalone assignment omitted lock privileges and learner eligibility
 
 - Date: 2026-11-15; local standalone114 implementation, found before DEV rollout.
@@ -169,6 +199,13 @@
 
 ## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
 
+- Update 2026-11-18: CONTEXT120 repeated the omission in candidate6061d7a0;
+  PR CI44266884388 caught0188-vs0189 before any public migration or DEV switch.
+  Root ran API units but omitted the existing controller regression locally.
+  Add exact120 epoch0188-to0189 and call the same actual controller mapping from
+  release-contract-gate.py, which is already a mandatory local pre-push command.
+  Preserve failed CI and new-SHA rerun; installed controller remains a separate
+  protected upgrade requirement before production.
 - Update 2026-11-15: standalone114 pre-production inspection caught the same
   omitted epoch locally, before any production dispatch or schema mutation.
   Candidate c487 retained the old 0187 target despite migration0188. Add the
@@ -1011,7 +1048,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-15.
+Current as of: 2026-11-18.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -8422,6 +8459,19 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
 
 ## OPS-012 - Unused API images exhausted host headroom and failed watchdog closeout
 
+- 2026-11-18 CONTEXT120: capacity6,439,673,856bytes missed unchanged6GiB by3MB.
+  Standing bounded cleanup removed exactly unused112imagefb4b4f2e after manifest
+  and16blob recovery. All77container/config/state/data fingerprints exact; free
+  7,006,613,504bytes. Failed read-only probes/guarded cleanup attempts retained.
+  Root initially used an evidence key other than image for a digest containing@,
+  then reconstructed a preservation hash without canonical Mounts sorting.
+  Both failed before deletion. Reuse canonical evidence schema and sort mounts
+  by Destination before comparing container fingerprints. Resolve ALL container
+  Config.Image references via image inspect, including tags; containerd may put
+  the exact digest reference in RepoTags. Only[]or[exactref] is eligible, never
+  force/prune or infer zero owners from a missing mutable tag. Successful receipt
+  catalog-context120-20261118/cleanup120-unused112-r4-executed.json.
+
 - **Действующее разрешение владельца, 13.11.2026:** при необходимости выполнять
   штатную очистку устаревших остановленных DEV-копий без томов и неиспользуемых
   локальных образов с проверенной registry-восстановимостью без нового ожидания
@@ -8647,6 +8697,14 @@ Do not treat missing final reconciliation as failed deployment or blindly redepl
   Post-cancellation zero-growth must never be promoted to active-stall evidence.
 
 ## AUTH-SMOKE-PACING-001 - Multi-role verification exceeded normal login burst
+
+- Recurrence2026-11-18: two course watchers refreshed by password login every
+  360seconds, plus independent QA captures; standards watcher stopped on429.
+  This did not fail or restart the native generation job. Do not bypass/reset
+  auth or reuse another account. Private watcher now schedules refresh from the
+  actual token exp minus90seconds (max780; configured access lifetime15minutes),
+  and current job observation uses minimal restricted DB reads during cooldown.
+  Preserve the failed watcher and separate its failure from model/job state.
 
 - Date: 2026-10-02. Status: RESOLVED test harness; production protections unchanged.
 - Symptom: two exact backend29 closeout packets stopped at429/Retry-After10;
@@ -11455,3 +11513,40 @@ do not backdate/touch old evidence or change evaluator ordering. Preserve the
 failed envelope; re-read exact remote Git/tag, canonical blobs and public runtime
 AFTER cleanup evidence, save a distinct fresh canonical receipt, then evaluate a
 distinct final envelope. This is an agent evidence-order defect, not engine failure.
+2026-11-18 AGENT-ACCEPTANCE-HARNESS-001 follow-up HUMAN119: root initially
+mistook the two source containers for teaching units and tested an inactive
+legacy planner. Actual V11->V10->V9->V6 uses semantic_plan_request and627literal
+slices/291product rows. Corrected conclusion before inference; no new source
+segmentation policy or invalidation of completed work. Actual V11 transport and
+registered contract tested offline. Do not infer the active path from a filename.
+The private cold-script AST rebinder also transformed string correlation IDs but
+missed bytes: os.write retained old118Ctoken while unlock expectedHUMAN119. Cold
+checks passed but its own stale lease blocked the next read-only inventory0writes.
+Exact executed script/hash/exit0, task mtime range, root0600token/inode and eight-
+service fingerprint proved ownership; only that lease removed, all containers
+and production unchanged. Preserve failed inventory/cold bytes. Rebind bytes too
+and statically compare lease write/unlock/header before future remote execution.
+
+2026-11-18 HUMAN119 editorial acceptance follow-up: root initially called
+"matte metallic edge handles" an unsupported transfer of a facade attribute.
+The original comparison table's separate opening/handle row explicitly says
+metallic matte black edge handles. The concern was withdrawn BEFORE any edit;
+good model wording retained. Inspect all relevant source rows/properties before
+announcing a semantic defect; retain withdrawn findings separately from engine
+errors. Two one-card LOCAL Luna requests returned known503unavailable/no text;
+usage UNKNOWN, no further requests or paid fallback. Only one QA question was
+then explicitly edited by the authorized human methodologist, not attributed to
+autonomous model repair. A helper was first written at the owned worktree root;
+its exact verified path was moved into private evidence before executing it.
+
+
+AGENT-ACCEPTANCE-HARNESS-001 follow-up2026-11-18 client-readiness: production
+HTTP400 uses the actual error/message envelope, not FastAPI detail; the first
+extra-control reader failed after a known terminal400 and before saving its
+receipt. Read the producer/global envelope and persist response before assertions;
+corrected bounded negative-only pass confirms all404/400,0model or document writes.
+Standalone synthetic learner-context probe needs the same explicit test JWT/APP_ENV
+bootstrap as pytest conftest; first import stopped before any DB/model request.
+Known Windows LF→CRLF docs-writer recurrence: normalized only the six owned modified
+documents back to their original LF bytes before any staging. diff--check now0;
+capture potentially broad diagnostics to a bounded file, never flood tool output.

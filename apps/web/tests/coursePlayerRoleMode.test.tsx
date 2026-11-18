@@ -201,6 +201,22 @@ describe('course player role modes', () => {
     expect(routerPush).not.toHaveBeenCalled();
   });
 
+  it('shows the current lesson assistant error from the public API envelope', async () => {
+    const baseFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/v1/learner/assistant/chat')
+      ? Promise.resolve(jsonResponse({ error: 'unprocessable_entity', message: 'В этом уроке нет текста для объяснения.' }, 422))
+      : baseFetch(input, init));
+    useAuthStore.setState({ accessToken: 'student-token', user: { user_id: 'student-current', role: 'student' } as never, initialized: true });
+    render(<CoursePlayerPage />);
+    await screen.findByRole('heading', { name: 'Шестой урок' });
+    fireEvent.click(screen.getByRole('button', { name: 'Помощь по уроку' }));
+    fireEvent.change(screen.getByPlaceholderText('authenticatedUi.player.assistantPlaceholder'), { target: { value: 'Объясни' } });
+    fireEvent.click(screen.getByRole('button', { name: 'authenticatedUi.player.ask' }));
+    expect(await screen.findByText(/В этом уроке нет текста для объяснения/)).toBeInTheDocument();
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/v1/learner/assistant/chat'));
+    expect(JSON.parse(request![1].body)).toEqual({ course_id: 'course-1', lesson_id: 'lesson-1', message: 'Объясни' });
+  });
+
   it.each([200, 503])('ignores a delayed assistant HTTP%s result after the learner identity changes', async (status) => {
     let resolveReply!: (response: Response) => void;
     const baseFetch = fetchMock.getMockImplementation()!;

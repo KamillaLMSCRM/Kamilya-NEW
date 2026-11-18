@@ -1,3 +1,29 @@
+## 2026-11-18 — RUN-FURNITURE-HUMAN119-COURSE-DEV-20261118 — GO after human QA
+
+Real644776char Excel/291catalogue rows in permanent DEVQAad336f44; source521,
+approvalbe228b72,working95ee5166. Root106human decisions/89products/130edits,
+11auto preserved;0new source calls/all53ready source replies reused. ActualDEV
+119/224f/API+web+soleworker exact. Nativejob131484b5 completed15successful
+Luna6HIGH responses3593279IN40860OUT/30.86min including1safe pause;9previous
+responses exact on ordinaryresume, no duplicate generation. Cached/reasoning/
+invoice UNKNOWN; already-paid allocation.2extra LOCAL card-correction requests
+returned known503unavailable/no text;usageUNKNOWN, no paidfallback/more calls.
+
+Finalcourse621b267a:5lessons/5quizzes/20cards; every body/option/key/explanation
+read independently against approvedsource. All5model bodies preserved; one
+card improved explicitly by HUMAN, other19exact. Matte-handle concern withdrawn
+because original opening row explicitly supports it; good text retained. Current
+sourcefinding about roomcoverage already fixed in finalbody, verified/resolved
+through ordinary human UI, no weakened guards. Five explicitquizapprovals, course
+approval and QApublication:release147ab54d/version1/SHA958d629e. Readonlylms_app
+noBYPASS snapshot parity all5bodies/all20options/keys/order PASS. Each quizpreview
+100PASS and75FAIL at80,0learnerattempts/0modelcalls. Live source save/undo/redo,
+SKUsearch/draftretention/approval,390px overflownegative, all5course pages viewed.
+Customer original/course/quizzes preservation PASS; production118 unchanged.
+Private evidence: furniture-human-course-20261118/independent-course-review119.md.
+This is a usable HUMAN-accepted QA course, not proof of perfect autonomous review
+or optimized full-catalogue token economics.119 production rollout not performed.
+
 ## 2026-11-16 — Lombard course quality audit, READ ONLY
 
 Actual production114/e3, tenant46704e2f/too-lombard-sandyk: all9courses,
@@ -8118,3 +8144,90 @@ approved snapshot PASS. C/prod-fixture-acceptance.json, prod-ui-acceptance.json,
 final-release118.json bind exact runtime/API/3workers/frontend and rollback116.
 All real customer course/source/test content preserved. Semantics of all catalogue
 facts are not newly independently certified; source owner decisions remain open.
+# 2026-11-18 HUMAN119 LOCAL
+
+- Saved native source412:106questions/11auto, exact original;106test-human
+  commands/130fragment edits replay locally to518 without DB/model calls.
+- Full source transport RED524288/GREEN8MiB,1182130message bytes. Private receiver
+  already8MiB/Luna6HIGH; no configuration change. Approved historical DTO unchanged.
+- API+ops10433PASS/550SKIP; frontend1818PASS/197files; type/scopedlint/build69PASS;
+  Python quality baseline1004/2174PASS. Live DEV/user/course QA still pending.
+
+## RUN-CONTEXT120-FURNITURE-LOCAL — 2026-11-18
+
+Frozen approved supporting-row access, compact complete index, whole literal
+lookup, V12 envelope, same existing reviewers/editors. Managed/cloud decoders,
+owned group/claim/checkpoint/save DTO/cold replay tested. New admissions pin the
+runtime_settings revision and both budgets; stored/dispatched drift is fenced.
+V1–V11 producers and historical completed request identities unchanged. No new
+semantic critic, SKU validator, provider/model/reasoning/billing change.
+
+Actual approved521 resolved read-only under lms_app: packet0ca11644/working95ee,
+291products/1222origin slices. Earlier local reconstruction627slices had different
+spans despite same text; use immutable snapshot spans, never relabel old receipts.
+Actual whole-chain replay found canonical-vs-alias evidence stage and prepared
+row/newline boundary before DEV; fixed with regression. All291rows including late
+rows accessible.15saved-stage messages20884658->3037115bytes(-85.46%); schema
+47098->199111bytes. Zero inference benchmark, not actual token/time acceptance.
+
+Fresh LOCAL existing-paid Luna6HIGH: first14saved stages used only as fixture,
+then2literal lookups+final operational review+scoped correction,4calls,
+303823IN12239OUT236.125provider seconds; invoice/cache/reasoning count UNKNOWN.
+No supplied issue/questionID/desired answer or source edits. Model independently
+found original weak labelled zoning card and corrected it toward own-lesson
+request/position/parameter verification. Root checked all5bodies/titles andother
+19cards exact, literal article00079263/37kg/401x480x2201/group and matte-metal-handle
+positive control. Straightforward distractors/longer correct option accepted as
+practical draft, not a psychometric claim.0source/course writes.
+
+Full unit first run9016PASS/1SKIP/4obsolete current-admission V11 expectations;
+those assertions updated, affected77PASS, fragmented source9PASS. New managed/
+cloud owned cold seam6PASS. Quality1005/2174PASS. Isolated Supabase0189 PASS:
+non-BYPASS/FORCE RLS, upgrade/downgrade/reupgrade, audited bounds/revert/history,
+invalid SQL/active-override downgrade guards, cleanup/public-schema neutrality.
+No public migration/customer write/production change. DEV full new course actual
+economics/content matrix and protected production remain PENDING.
+Private evidence: catalog-context120-20261118/projection-benchmark.json,
+model-control-acceptance.json, isolated0189.json. Preserve published119course,
+approved521 and53source replies; rejected CHG-L100N is not restored.
+
+CHG-CONTEXT120 release preflight: candidate6061d7a0 PR CI44266884388 failed existing controller-epoch regression (0188vs0189), before any public migration/deployment. Added exact120epoch and wired actual controller/head comparison into mandatory local release-contract-gate; controller/bundle/workflow73PASS. New exact SHA CI required; failed run preserved.
+
+2026-11-18 CONTEXT120A native furniture06339b6f:11Luna6HIGH fresh responses,
+711832IN33062OUT/642986provider ms,1lookup3rows; all8earlier responses exact after
+one ordinary resume. Old119:15responses3593279IN40860OUT/808652provider ms. Changed
+5→3lessons/20→12questions; source coverage still requires semantic acceptance.
+New wall31.41min includes12.22min initial/resume QA queue wait; active deliveries
+19.19min. Do not label model timing as whole-course latency. Full catalogue291
+rows retrievable; no source reanalysis or customer writes. Semantic NO_GO because
+all editor changes safely unapplied (ENG083). Completed is not accepted.
+
+CONTEXT120B LOCAL: actual saved full-chain0call replay RED
+simple_v9_question_count_invalid; missing new-helper regression RED then38focused
+PASS, including12actual managed/cloud owned seams with additions and cold replay.
+Full9033PASS1skip7warnings144.37s; qualityRuff1005/Mypy2174PASS, no baseline waiver.
+Closed V3 added-lesson min3 selected only by V12, legacy schemas unchanged. Fresh
+retained-draft Luna editor and live new-SHA DEV/production still pending. Native
+cash70473c0d22ready preserved, standardsab221594 active; watcher429 retained as
+harness failure, no generation repeat. Existing paid Luna only by owner response.
+
+
+2026-11-18 CLIENT-MEDIA-LEARNER diagnostic: API tests/unit/test_pptx_learning_conversion.py,
+test_youtube_transcript.py,test_youtube_transcript_api.py,test_youtube_preview.py,
+test_youtube_remote_caption_adapter.py,test_youtube_public_caption_adapter.py,
+test_user_facing_ai_tenant_routing.py,test_completed_assignment_mutation_boundaries.py
+via canonical run_api_pytest.ps1:73PASS/2warnings6.26s. vitest coursePlayerRoleMode:
+38PASS15.53s. Same production118 source bytes for scoped modules. Synthetic context
+probe proves selected-only and404cross-course/tenant, but missing lesson fallback
+and7000tail omission remain. Ordinary production QAstudent actual assigned200,
+unassigned published/other tenant/wrong-course lesson404 before model. Production
+MP4upload400unsupported,0docwrites; error envelope is error/message not detail.
+3fresh already-paid Luna exact learner handler + standardclient, in-memory DB only:
+explain/current-source boundary/no test-letter PASS,29928IN145OUT17.063s. This is
+NOT native production POST /chat or client media/course acceptance; provider order
+unchanged, DeepSeek calls0. Private client-media-assistant-20261118/READINESS.md.
+Owner deferred engine course QA: Bcash26ready11L41Q complete,22old hashes exact;
+standards FAILED15ready,12old exact. Preserve all, no re-generation or acceptance.
+
+
+2026-11-18 LEARNER121 LOCAL: strict concrete lesson/full text;16new tests,33focused PASS; full8998API PASS1skip7warnings293.64s;1818web PASS197files183.11s;39player PASS; types/scopedlint PASS; Python quality ruff1004/mypy2175 PASS.9initialRED preserved; HTTP harness initially lacked active-user fixture override, corrected without product guard changes. No generation119/120 source, no schema mutation. Native player/assistant current Lesson.content audit; CodeGraph NOT_READY runtime missing, bounded source fallback. Exact candidate DEV/prod acceptance pending.

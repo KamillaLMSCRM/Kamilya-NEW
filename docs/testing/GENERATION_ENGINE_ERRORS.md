@@ -2370,3 +2370,123 @@ preservation PASS. Production0new model calls, ready courses not regenerated.
 Real contradictory catalogue facts remain owner-owned; ENG-074 full-course gate
 is separate and OPEN. Keep failed A388/08c result, local failed trials, unknown
 fences and usage in prior records. Private C/final-release118.json is decisive.
+# ENG-082 follow-up — editable row omitted for a unique prefix (2026-11-18)
+
+Live QA source412 proves that a literal unique prefix can identify a correct
+product but omit the field mentioned in the finding. Existing row-scoped edits
+were exposed only for repeated quotes. HUMAN119 reconstructs a single exact
+canonical row from stored literal evidence for in-review questions; no new model
+call or presumed factual approval. Foreign/stale/unverified proof remains held;
+approved historical responses unchanged. Saved412and synthetic scope/undo/pin
+regressions PASS; local106human decisions/130edits preserve original and11auto.
+DEV full course acceptance remains open; this is a navigation/edit contract fix,
+not a new semantic critic or catalogue factual certification.
+
+ENG-074 / HUMAN119 native acceptance2026-11-18: full approved Excel yielded
+5meaningful lessons20questions, not one perSKU. All291catalogue rows retained as
+source reference. Native15Luna6HIGH successful responses3593279IN40860OUT,
+30.86min including one safe pause; ordinaryresume reuses9completed replies exactly.
+Human QA found a pedagogically weak card about an example not explained in its
+lesson (the fact was supported by source and visible in the correct option, not
+a false manufacturer claim). Two bounded LOCAL Luna correction proposals returned
+known503unavailable/no text,usageUNKNOWN; no further calls/paidfallback. Authorized
+human methodologist replaced only that card with a practical taught-completeness
+question. All5model bodies/other19cards preserved. One unverified review receipt
+concerned coverage already fixed in finalbody; human compared exact final/source
+text and resolved through normal snapshot-bound form. No semantic validator or
+new critic added. Matte handles concern was root's false finding, withdrawn and
+recorded in ERRORS.md, not an engine defect.
+
+Final HUMAN-accepted QA course621b267a approved/published,release147ab54d/v1/
+958d629e; all5bodies20choices/keys/explanations independently checked and snapshot
+parity PASS. Full automated independence is not claimed. Remaining systemic
+economics: full catalogue context repeated across stages; input3.59M is recorded,
+cache/reasoning/invoice UNKNOWN, no assumption of zero cost from missing metrics.
+Customer original/course/quizzes unchanged; production118 unchanged. Current
+handoff/testledger/private independent-course-review119.md define exact limits.
+
+## ENG-074 CONTEXT120 local correction and economics — 2026-11-18
+
+Frozen approved supporting-row access, compact complete index, whole literal
+lookup, V12 envelope, same existing reviewers/editors. Managed/cloud decoders,
+owned group/claim/checkpoint/save DTO/cold replay tested. New admissions pin the
+runtime_settings revision and both budgets; stored/dispatched drift is fenced.
+V1–V11 producers and historical completed request identities unchanged. No new
+semantic critic, SKU validator, provider/model/reasoning/billing change.
+
+Actual approved521 resolved read-only under lms_app: packet0ca11644/working95ee,
+291products/1222origin slices. Earlier local reconstruction627slices had different
+spans despite same text; use immutable snapshot spans, never relabel old receipts.
+Actual whole-chain replay found canonical-vs-alias evidence stage and prepared
+row/newline boundary before DEV; fixed with regression. All291rows including late
+rows accessible.15saved-stage messages20884658->3037115bytes(-85.46%); schema
+47098->199111bytes. Zero inference benchmark, not actual token/time acceptance.
+
+Fresh LOCAL existing-paid Luna6HIGH: first14saved stages used only as fixture,
+then2literal lookups+final operational review+scoped correction,4calls,
+303823IN12239OUT236.125provider seconds; invoice/cache/reasoning count UNKNOWN.
+No supplied issue/questionID/desired answer or source edits. Model independently
+found original weak labelled zoning card and corrected it toward own-lesson
+request/position/parameter verification. Root checked all5bodies/titles andother
+19cards exact, literal article00079263/37kg/401x480x2201/group and matte-metal-handle
+positive control. Straightforward distractors/longer correct option accepted as
+practical draft, not a psychometric claim.0source/course writes.
+
+Full unit first run9016PASS/1SKIP/4obsolete current-admission V11 expectations;
+those assertions updated, affected77PASS, fragmented source9PASS. New managed/
+cloud owned cold seam6PASS. Quality1005/2174PASS. Isolated Supabase0189 PASS:
+non-BYPASS/FORCE RLS, upgrade/downgrade/reupgrade, audited bounds/revert/history,
+invalid SQL/active-override downgrade guards, cleanup/public-schema neutrality.
+No public migration/customer write/production change. DEV full new course actual
+economics/content matrix and protected production remain PENDING.
+Private evidence: catalog-context120-20261118/projection-benchmark.json,
+model-control-acceptance.json, isolated0189.json. Preserve published119course,
+approved521 and53source replies; rejected CHG-L100N is not restored.
+
+## ENG-083 — added-lesson schema permits fewer questions than its application
+
+- Observed2026-11-18: DEV120 furniture06339b6f/approved521,11Luna6HIGH responses,
+  711832IN33062OUT, saves draft9c6fba84 with original3lessons12cards. The editor
+  actually proposed six good body edits plus a necessary catalogue-use lesson,
+  but added only1question. All edits were safely left unapplied, including those
+  independent corrections; final review did not recover the missing teaching.
+- Cause CONFIRMED LOCAL,0freshcalls: block-editor V2 added_lessons schema inherits
+  min1; V9 apply_edit requires min3. Saved full-chain fixture reproduces
+  simple_v9_question_count_invalid atline222; generic receipt masked exact code.
+  This is a deterministic producer/application contract mismatch, not a human
+  source ambiguity. Completed job is not semantic acceptance or publication.
+- Proposed/fix LOCAL: closed block-editor V3 min3 selected by V12 only, with a
+  schema/task-bound new editor context. Historical V1/V2 and earlier-stage
+  requests unchanged. Preserve min3, atomic custody, all good bodies/cards,
+  source and revision guards; no new critic or semantic regex. Retain sanitized
+  concrete application_error. Exact old1-question response now fails the emitted
+  contract before application; complete3/4/5-question additions accepted.
+- Regression: first missing-helper RED, then38focused PASS including12actual
+  managed/cloud producer→claim→decoder→saveDTO/cold-replay cases with andwithout
+  added lessons. Full suite/quality, fresh local editor on retained draft and DEV
+  candidate B remain pending. No production change or customer edits.
+- Evidence: private catalog-context120-20261118/native120-local-replay-red.json,
+  full native ready responses retained. CHG-CONTEXT120B owns development history.
+
+ENG083 update2026-11-18:8b41cd91/CI44280214944 and attested image71159d6c.
+Retained-draft LOCAL Luna6HIGH control PASS:8fixtures,4fresh calls246472IN7697OUT
+155.608s. Model applies body corrections, adds catalogue teaching to existing
+lesson and changes one linked card; other11cards andthirdlesson exact. Unapplied0,
+source_questions0; allactual changed facts/choices independently checked. This
+does not relabel the earlier native NO_GO or prove new-SHA DEV/production. Current
+native22/12ready parts retained for normal continuation, no extra source review.
+
+
+## ENG-084 — DEV standards continuation failed after fifteen retained responses (unclassified)
+
+- Observed2026-11-18 on8b41cd91, jobab221594: ordinary same-job continuation,
+  final UI/API failed/generation_failed at15of16;15ready responses retained,
+  all12pre-resume responses byte-identical. New3responses, total283706IN30907OUT,
+  allLuna6HIGH; no source reanalysis, new job or unknown replay.
+- Cause: UNKNOWN; investigation and full-course QA deferred by explicit owner
+  steering to potential-client media and learner assistant. Do not attribute it
+  to editor/schema/provider without saved evidence. Production118 unchanged.
+- Preservation: catalog-context120-20261118/course120-db-standards-B-failed.json,
+  metrics120-standards-B-failed.json; catalog-context120B standards terminal and
+  ready-preservation receipts. Inspect the retained failure before new inference;
+  never repeat its fifteen ready stages. Fix/regression/DEV acceptance pending.

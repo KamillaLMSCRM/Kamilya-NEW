@@ -1,4 +1,122 @@
-## Current — 2026-11-18: source evidence118 released and live accepted
+## Current — 2026-11-18: learner121 isolated LOCAL candidate, no engine120 source
+
+result: Implementing owner-approved first learner-assistant package from accepted production118 code. New branch fix/learner-assistant121-20261118 in .worktrees/learner-assistant121-20261118; version0.11.121. No119/120generation or0189migration code included. Deferred120branch and all saved QA replies/history remain preserved, not merged/discarded.
+changed: Student-only learner API; chat/history require lesson_id; lesson/module tenant/course checks; no whole-course/description fallback; full native-player Lesson.content, no7000clip. Explicit optional provider=chatgpt_reserve limits one request to an already enabled Luna, no global route change or paid fallback. Player shows actual API message errors. No schema/data rewrite. Conversation improvements remain second package.
+verified:9initial RED saved;33focused PASS, including16new scope/provider/HTTP tests. Full8998API PASS1skip,1818web PASS197files; types/scopedlint and quality1004/2175 PASS. Local production build PASS67pages. Reader audit: native player structure reads current scoped Lesson.content too; no new snapshot substitution or claim of immutable historical reader support. CodeGraph checkout preflight NOT_READY runtime missing; bounded source fallback and actual source/test paths used.
+blockers: No commit/push/DEV121 or production121 yet. DEV120B API/web and idle worker remain; full candidate deploy will use exact accepted-source feature commit on existing services, preserve dev branch8b41 and worker/deferred tasks. Production118 remains. Owner allows already-paid Luna only. Need actual normal learner DEV access/long-tail explanation/cross-scope controls, then separate protected production.
+next: Finish localbuild, exact featureCI, bounded existing DEV API+stableweb candidate deployment without force-moving dev or merging its unaccepted code; retain current worker120 unchanged for this API-only capability. New synthetic manual test course/assignment via normal APIs, no model generation/email/customer writes. Current root owns exact safeguards/rollback and native frontend/prod release only after acceptance. Evidence .release-evidence/learner121-20261118.
+
+## Current — 2026-11-18: detailed learner-first assistant/media plan saved
+
+result: Owner requested a detailed plan and explicit distinction between methodologist and learner assistants. Updated existing canonical docs/plans/2026-10-13_ai-assistant-continuation.md, linked PRODUCT_BACKLOG; no application work or deployment implied by this planning turn.
+changed: Plan A strict assigned/current-lesson context + no7000clip; B scoped server conversation/history pagination/idempotency/UX; C PPTX/YouTube/video using existing source-preparation pipeline. Unaccepted engine120 remains separate. Existing learner button is «Помощь по уроку» inside assigned-course player, not a global dashboard chat.
+verified: Current source confirms separate author/learner routes, author full-course+tests+pinned-source scope/proposals, learner lesson UI and optional-ID/7000 issues. Learner also stores but does not send conversation history to model; GET returns first60, both are code-derived improvements, not fresh runtime defects. Previous73API/38player and3Luna readiness evidence remain narrowly scoped; not rerun for docs-only changes.
+blockers: Implementations A/B/C not started by this request. Native learner HTTP provider selection unavailable; owner allows existing paid Luna only, production order DeepSeek→Luna must not be changed implicitly. Client video/link/presentation still absent. Old standards failure15ready retained, investigation/course QA deferred; no fresh furnitureB job.
+next: On implementation begin with separate small A baseline from accepted release, preserve metadata/history/learning outcomes, local scope tests→actual DEV student/UI→conditional protected production. B separately; inspect actual client media before selecting C work. No broad critic/architecture rewrite or repeated course generation for assistant validation.
+
+## Historical — 2026-11-18: owner deferred course QA; client media/learner readiness checked
+
+result: Current priority is incoming video/YouTube/presentation and learner-assistant scope; diagnosis completed, not a new release. Existing engine course QA is explicitly deferred by owner.
+changed: No app/provider/billing/customer mutation. Stopped only local auto-admission waiter61384 (exact helper processes20660/23420); no furniture120B admission intent/job exists. Existing native jobs were not killed or re-created. Production118/6a234b54 unchanged; DEV120B/8b41 coherent.
+verified: Production ordinary student200own history,404actual unassigned published/foreign-tenant/wrong-course lesson and nonexistent controls; MP4 MIME400. YouTube enabled=true.73API/38player PASS. Exact handler + standard client on already-paid Luna3fresh synthetic calls: explanation, cross-course refusal, no direct test-letter response PASS;29928IN145OUT17.063s. NOT native production /chat, global DeepSeek-first untouched. Private client-media-assistant-20261118/READINESS.md owns proof boundaries.
+blockers: Direct video ingestion absent; PPTX images not recognized; actual incoming YouTube link not tested. Learner API permits missing lesson_id→selected-course summary, silently clips lesson7000chars. No claim of all-tenant material retrieval. Engine cash70473c0d completed draftaf67d519 with11L41Q/26ready;22old exact +4fresh. Standardsab221594 FAILED after15ready;12old exact +3fresh, cause UNKNOWN/deferred, no retry. A furniture remains NO_GO. None of these is semantic acceptance or production readiness.
+next: Receive three actual client materials; first assess captions/text/visual dependence. Lesson-only/full-context gaps recorded in PRODUCT_BACKLOG; no unrequested provider/routing change. On returning to engine inspect saved standards failure before any inference; preserve15ready and approved source. Full course quality checks and conditional production remain outstanding, not abandoned.
+
+## Historical — 2026-11-18: CONTEXT120B coherent DEV, resumed native acceptance
+
+Exact8b41cd91c28182955c9c79ce616c62e1dc18a0be/version0.11.120 is live on DEV
+API/web/soleworker f8333194, image71159d6c3b3b4c0131a9f26bb3efa07fb581d155f163e5808c66d807fa8230ad.
+Controller RELEASE_OK; CI44283299795/build44281942741 SUCCESS; Renderdep-dbunphsipgvc739g6dp0,
+Verceldpl_EZT2qWccRKQs7kFqxC3HjvVsw3qY READY. No extra Vercel deployment needed.
+Cash70473c0d and standardsab221594 ordinary same-job resumes accepted202 on B;
+22/12 ready reply hashes bound in private catalog-context120B resume intents,
+no new source checks, no regenerated ready responses. Full result QA pending.
+Existing paid Luna6HIGH only, production118/currentrollback116 unchanged.
+Local B retained-draft model control PASS:4fresh/246472IN7697OUT155.608s, first8
+replies only LOCAL fixtures. Body corrections and one compatibility card applied,
+other11cards exact, no source ambiguity/review finding. Added-lesson seam proven
+by owned synthetic tests; real local control integrated teaching into existing lesson.
+Full native A furniture remains NO_GO; no hand edits or publication of its draft.
+
+## Historical — 2026-11-18: CONTEXT120B LOCAL contract fix; DEV120A not accepted
+
+Native furniture06339b6f completed11Luna6HIGH calls711832IN33062OUT,3lessons12cards,
+but semantic NO_GO: its correct editor proposal (six body edits plus new catalogue
+lesson) is unapplied because the addition has1question. Exact0call saved replay
+proves producer min1 vs application min3 (ENG083). Closed V3 editor schema min3
+is now selected by V12 only; legacy V1/V2 and earlier eight-stage requests stay
+unchanged. Safe application cause retained.9033full/1skip and38focused including
+12managed/cloud added/no-added cold seams; quality1005/2174 PASS. Candidate B is
+LOCAL, not the deployed0755 image. New local modelB_control.py waits for current
+native jobs to become idle, then fresh editor/final-review only on saved first8;
+no concurrent use of the single-operation Luna receiver. Intent/results pending.
+
+Cash70473c0d is safely interrupted after22ready responses, no resume yet; standards
+ab221594 is running, source18 exact. Preserve both, never regenerate completed
+parts. API watcher429 is harness auth pacing, not a model/job failure; use minimal
+DB readback during cooldown. Production118 unchanged, only already-paid Luna
+per owner's explicit response; no new DeepSeek expense or route changes.
+
+Measured provider time119→120A:808652→642986ms, token3593279→711832 (-80.19%).
+This is NOT a32→10minute wall-time claim: native120A took31.41minutes including
+12.22minutes of initial/resume queue waiting introduced by parallel QA. Runtime
+and model metrics, quality and changed5→3lesson count must remain separate.
+Private evidence catalog-context120-20261118; local model process42165.
+
+## Historical — 2026-11-18: CONTEXT120 coherent DEV, full acceptance running
+
+Exact07550a263749d3177fdbd6b90ebe85096198d57a/version0.11.120 is live on DEV
+API/web/soleworker26f5fd7a; image73e16ed2f56a57459f4293d7ba925c77c13aa8d78c4365cc49de73baa36c9856.
+PRCI44267394061, DEVCI44268978534, image44268928427 SUCCESS; controller RELEASE_OK.
+Existing free Renderdep-dbumhhqfngtc73d8cstg and hobby Verceldpl_Ggatvy7BVRk9LskFyyaX8UjL2r4A.
+Public DEV0188→0189 PASS; settings/history bytes unchanged. Previous119 retained.
+Luna6HIGH/receiver8MiB unchanged, no paid fallback or customer edits.
+
+Furniture job06339b6f-7abc-4b81-a4e3-a0db2e583340 uses approved521 exact same119
+inputs; eight native ready replies508628IN24349OUT, three meaningful units.
+Ordinary preclaim pause has no pending/unknown; one UI resume is queued behind
+already-started cash regression70473c0d-1fef-4716-a3d3-74ba4016e102. Preserve all
+eight reply hashes; no fresh source check or new furniture job. This QA queue
+contaminates end-to-end wall time: report waiting separately, never relabel it
+as provider generation time. Cash is original DOCX/10assets, approved108; planned
+11units/26initial stages. Standards approved18 is NOT yet admitted: at most2active.
+Neither a draft nor runtime health establishes course semantic PASS.
+
+Production118/6a234b54/schema0188 and actual rollback116 remain unchanged.
+Read-only preflight verifies DeepSeek→Luna, controller4d85d234 and state54d09c5f.
+Protected controller upgrade is mandatory for new0189 epoch. New $0.50 optional
+DeepSeek DEV+production-smoke authority was declined: owner selected only already
+paid Luna. No paid DeepSeek test, global routing/BYOK override or DEV-only route
+activation in production. Customer preservation and complete course quality pending.
+Private evidence: catalog-context120-20261118, current watchers22527/62030.
+
+## Historical — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
+
+V12 candidate0.11.120 reduces same15stage furniture message bytes85.46% while all
+291approved literal catalogue rows stay accessible. Fresh Luna6HIGH local blind
+review and model correction PASS:4calls/303823IN12239OUT236.125s, all5lesson bodies
+andother19cards exact. This reused earlier14replies only as LOCAL fixtures, not
+native acceptance. Isolated Supabase0189 settings-constraint expansion PASS,
+cleanup/public-schema neutrality; no public migration or provider change yet.
+DEV119/224f and production118/6a234b54 unchanged; approved521 and QA621b retained.
+Next: same-SHA CI/image, publicDEV schema gate, coherentDEV API/web/worker, actual
+complete course timing/token/lookup and every lesson/card QA; protected production
+only after acceptance. No paid API fallback, local Docker or customer-source edit.
+Details: CHG-CONTEXT120 and private catalog-context120-20261118 receipts.
+
+## Current — 2026-11-18: furniture human approval → full published DEV QA course
+
+result: Full real-workbook QA path completed. DEV119 exact224f51294045148d919a08ff88c470486637ee92; production remains118/6a234b54520a035a2285cf090b1b046d6e80335e. New QA course621b267a-9942-4c78-bea0-669115194b96 is approved/published,5lessons/5quizzes/20questions. Customer furniture original/course/quizzes independently unchanged.
+
+changed:119 adds literal-proof row editing/search and paired8MiB transport. No active V11 segmentation change; restored legacy catalogue hints are NOT active V11 evidence. Root approved106test-source decisions/89product rows/130fragment edits;11auto preserved. QA sourcead336f44 revision521/approvalbe228b72/working95ee5166. Values are explicit test assumptions, never manufacturer certification. Original customer source153cc494 untouched.
+
+verified: CI44242148132/build44243310717 PASS; image180463e2, Renderdep-dbuja91srm7s73f27lr0, Verceldpl_28G27ySapSCGRFq4Madjo7do8W6b, soleworker9c65c49f/envc82490e6; previous118 stopped rollback retained.10433API+opsPASS550skip,1818webPASS before final copy plus27focused/type/lint/build69PASS, exactCI frontend/backend/qualityPASS. Native job131484b5 completed15Luna6HIGH responses3593279IN40860OUT in30.86min; one ordinary resume preserves9earlier responses exactly. Every final lesson/card independently reviewed. One card improved by HUMAN after2local known503s/no correction text, other19cards/all5model bodies exact. All5preview scores100PASS/75FAIL at80,0learnerattempts. Published release147ab54d-b3be-4b11-82ff-d46c325660df/version1/SHA958d629e matches all reviewed texts/options/keys under readonlylms_app/noBYPASS.
+
+blockers: No blocker for this completed DEV QA course.119 is NOT production-deployed. Automation alone is not accepted as perfect; card pedagogical review missed one improvement and one already-fixed finding required human evidence verification. Two local503usage UNKNOWN, no more inference/fallback. Full catalogue repetition creates3.59M input tokens; economics not optimized. CodeGraph NOT_READY/runtime missing; direct-source fallback used. All private evidence/failed attempts retained.
+
+next: User can inspect course in permanent DEV QA. Do not regenerate this job or source53completed replies. Any future production119 promotion needs its separate protected release/runtime gates; retain118/116 rollback and customer data. Private evidence `.release-evidence/furniture-human-course-20261118`, full106decisions report and independent-course-review119.md. Current closeout docs are local; runtime source remains exact224f.
+
+## Historical — earlier 2026-11-18: source evidence118 released and live accepted
 
 Production API/three workers/native CT137 and DEV API/frontend/sole worker are
 0.11.118, exact `6a234b54520a035a2285cf090b1b046d6e80335e`. DEV image10dd8a7f /

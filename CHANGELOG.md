@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.11.121] - 2026-11-18
+
+- Bind learner help/history to one accessible lesson, with complete text and no course-wide fallback.
+- Permit request-local use of an already enabled Luna reserve without paid fallback or global route changes.
+- Preserve accepted118 generation code and all learning data; no migration.
+
+
 ## [0.11.118] - 2026-11-18
 
 ### Fixed
