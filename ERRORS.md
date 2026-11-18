@@ -11606,3 +11606,11 @@ cleanup/preservation receipt. Retained NO_GO; no production/model/cleanup retry.
 Re-read canonical exact refs and blobs AFTER the already verified preservation
 receipt, then build a new r2 envelope with real timestamps. Never backdate or
 modify original evidence. Final canonical record is the last dependency node.
+
+AGENT-ACCEPTANCE-HARNESS-001 learner122 pre-DEV review: independent foreign-scope
+rows must each copy one known valid reference, not the last appended negative.
+The latter accidentally compounds wrong tenant/user/course dimensions and can
+mask a missing filter. Root caught it before deployment/model calls; fixed base
+reference, actual SQL8cases PASS. Existing all-four compiled scope guards already
+passed and runtime code is unchanged. Stopped only task-owned CI waiters before
+any provider intent, then replaced candidate test evidence; no model repeats.

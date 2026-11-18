@@ -4162,3 +4162,7 @@ contract, preserving its size and all older stored rows. No new adjustable limit
 runtime setting, schema migration or override write. The full lesson remains uncut.
 Runtime catalog and its tests restored byte-for-byte; actual new local SELECT
 regression checks70messages/4foreign scopes/tied turn timestamps without a model.
+
+CHG-LEARNER122 pre-DEV review: corrected only test fixture to independently vary
+each foreign scope from the same valid row. Runtime/router bytes exactly9f7d41e6;
+8history cases PASS. No native/model calls or provider deployments occurred.

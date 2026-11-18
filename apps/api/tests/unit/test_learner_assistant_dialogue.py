@@ -35,8 +35,9 @@ async def test_real_query_keeps_newest_sixty_and_never_crosses_any_scope():
                 records.append(dict(id=uuid4(), tenant_id=tenant, user_id=user, course_id=course,
                                     lesson_id=lesson, role=role, content=f'{label}{index}',
                                     created_at=start + timedelta(seconds=index)))
+        reference = records[-1]
         for field in ('tenant_id', 'user_id', 'course_id', 'lesson_id'):
-            foreign = {**records[-1], 'id': uuid4(), field: uuid4(), 'content': 'FOREIGN_SECRET',
+            foreign = {**reference, 'id': uuid4(), field: uuid4(), 'content': 'FOREIGN_SECRET',
                        'created_at': start + timedelta(days=1)}
             records.append(foreign)
         connection.execute(insert(LearnerAssistantMessage.__table__), records)
