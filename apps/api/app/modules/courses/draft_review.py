@@ -8,6 +8,7 @@ from app.modules.ai.v3.revision_policy import (
     SIMPLE_COURSE_REVIEW_V9_POLICY,
     SIMPLE_COURSE_REVIEW_V10_POLICY,
     SIMPLE_COURSE_REVIEW_V11_POLICY,
+    SIMPLE_COURSE_REVIEW_V12_POLICY,
     is_autonomous_editorial_policy,
 )
 
@@ -25,6 +26,7 @@ def _legacy_model_observation(owner: dict[str, Any], manifest: dict[str, Any], r
     review = owner.get('simple_review')
     if owner.get('v3_review_policy') not in (
         SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY,
+        SIMPLE_COURSE_REVIEW_V12_POLICY,
     ) or not isinstance(review, dict):
         return False
     source = manifest.get('source_fingerprint')

@@ -584,7 +584,7 @@ async def submit_course_generation(
         EDITORIAL_ORDINARY_EXTENDED_MARKER,
         EDITORIAL_ORDINARY_KEY,
         EDITORIAL_QA_KEY,
-        SIMPLE_COURSE_REVIEW_V11_POLICY,
+        SIMPLE_COURSE_REVIEW_V12_POLICY,
         SOURCE_CORE_QA_KEY,
         editorial_qa_admission_marker,
         practical_qa_admission,
@@ -592,6 +592,8 @@ async def submit_course_generation(
     analysis_payload.pop(SOURCE_CORE_QA_KEY, None)
     analysis_payload.pop(EDITORIAL_QA_KEY, None)
     analysis_payload.pop(EDITORIAL_ORDINARY_KEY, None)
+    from app.modules.ai.v3.source_access_config import KEY as SOURCE_ACCESS_KEY
+    analysis_payload.pop(SOURCE_ACCESS_KEY, None)
     if ((qa_pending_marker is None and req.course_id is None) or practical_qa_admission(
             settings=get_settings(), marker=qa_pending_marker,
             tenant_id=tenant_id, course_id=req.course_id)):
@@ -603,17 +605,21 @@ async def submit_course_generation(
         editorial_marker = editorial_qa_admission_marker(settings=get_settings(), marker=qa_pending_marker,
                                                         tenant_id=tenant_id, user_id=user.id, course_id=req.course_id)
         if editorial_marker is not None:
-            analysis_payload['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V11_POLICY
+            analysis_payload['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V12_POLICY
             analysis_payload[EDITORIAL_QA_KEY] = editorial_marker
         elif qa_pending_marker is None and req.course_id is None:
             from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
             if tenant_id != QA_TENANT and isinstance(user.id, UUID):
-                analysis_payload['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V11_POLICY
+                analysis_payload['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V12_POLICY
                 analysis_payload[EDITORIAL_ORDINARY_KEY] = EDITORIAL_ORDINARY_EXTENDED_MARKER
         if req.completed_extraction_parent_job_id is not None:
             raise HTTPException(status_code=422,
                 detail="completed_extraction_reuse_not_supported_for_practical_policy")
+    if analysis_payload.get('v3_review_policy') == SIMPLE_COURSE_REVIEW_V12_POLICY:
+        from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
+        from app.modules.ai.v3.source_access_config import pin_settings
+        analysis_payload[SOURCE_ACCESS_KEY] = pin_settings(await resolve_runtime_settings(db))
     if req.completed_extraction_parent_job_id is not None:
         from app.modules.ai.v3.completed_extraction_reuse import validate_parent_admission
         try:

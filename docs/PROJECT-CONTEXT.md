@@ -1,4 +1,40 @@
-## Current — 2026-11-18: source evidence118 released and live accepted
+## Current — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
+
+V12 candidate0.11.120 reduces same15stage furniture message bytes85.46% while all
+291approved literal catalogue rows stay accessible. Fresh Luna6HIGH local blind
+review and model correction PASS:4calls/303823IN12239OUT236.125s, all5lesson bodies
+andother19cards exact. This reused earlier14replies only as LOCAL fixtures, not
+native acceptance. Isolated Supabase0189 settings-constraint expansion PASS,
+cleanup/public-schema neutrality; no public migration or provider change yet.
+DEV119/224f and production118/6a234b54 unchanged; approved521 and QA621b retained.
+Next: same-SHA CI/image, publicDEV schema gate, coherentDEV API/web/worker, actual
+complete course timing/token/lookup and every lesson/card QA; protected production
+only after acceptance. No paid API fallback, local Docker or customer-source edit.
+Details: CHG-CONTEXT120 and private catalog-context120-20261118 receipts.
+
+## Current — 2026-11-18: DEV119 furniture human-approval acceptance
+
+DEV API/frontend/soleworker is0.11.119/exact224f51294045148d919a08ff88c470486637ee92,
+image180463e28f20e67404be0972fa8883302c785392c00ef9355df4bd4e27078e44,
+worker9c65c49f/envc82490e6; controller RELEASE_OK. Existing free Render service
+and hobby Vercel only, no plan/resource/routing/reasoning changes. Previous118
+worker retained stopped. Production stays118/6a234b54 with previous116 rollback.
+
+Permanent DEV QA tenanta7a2c055, ordinary methodologist5187fa5f: real Excel copy
+ad336f44 approved521/be228b72, working95ee5166/originalbinary00783869. Root106
+human test assumptions/89products/130edits,11auto preserved; customer153cc494
+and existinge445720e course remain unchanged. Source53completed replies reused,
+0fresh source reanalysis. Full native Luna6HIGH course621b267a is approved and
+published:5lessons20questions, release147ab54d/version1/SHA958d629e. Every body,
+choice,key,explanation reviewed; one explicit HUMAN card improvement, not model
+discovery.15successful responses3593279IN40860OUT/30.86min, one safe resume with
+all9ready answers exact.2extra LOCAL503no text/usageUNKNOWN, no paid fallback.
+All5preview tests100PASS/75FAIL,0learner attempts; published snapshot parity PASS
+under restricted lms_app. No current inference/job pending. Full current handoff
+and private furniture-human-course-20261118 evidence own details/limits.119 not
+released to production by this task. Closeout docs are local, runtime224f exact.
+
+## Historical — earlier 2026-11-18: source evidence118 released and live accepted
 
 Production API/three workers/native CT137 and DEV API/frontend/sole worker are
 0.11.118, exact `6a234b54520a035a2285cf090b1b046d6e80335e`. DEV image10dd8a7f /

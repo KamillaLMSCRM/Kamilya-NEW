@@ -19,6 +19,9 @@ VERSION = "practical-author-null-extras-v1"
 
 
 def is_practical_author_stage(stage: Any, group: Any) -> bool:
+    if type(group) is str and re.fullmatch(
+            r'practical:simple:lookup:v12:[0-9a-f]{64}:base=[0-9a-f]{64}:context=[0-9a-f]{64}:round=[0-3](?::output=[1-9][0-9]*)?', group):
+        return stage in {'lesson', 'review', 'repair'}
     if stage == 'repair' and type(group) is str and re.fullmatch(
             r'practical:simple:repair-evidence:v11:[0-9a-f]{64}:unit=[0-9a-f]{64}:proposal=[0-9a-f]{64}(?::output=[1-9][0-9]*)?', group):
         return True
@@ -162,6 +165,8 @@ def normalize_practical_author(raw_text: str, response_format: Any) -> Practical
     from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format, matches_simple_revision_v2
     from app.modules.ai.v3.simple_finding_evidence import is_evidence_format, matches_evidence
     from app.modules.ai.v3.simple_plan_accounting import is_accounting_format, matches_accounting
+    from app.modules.ai.v3.source_access_contract import is_access_format, matches_access
+    source_access = is_access_format(response_format)
     finding_evidence = is_evidence_format(response_format)
     plan_accounting = is_accounting_format(response_format)
     address_repair = is_address_repair_format(response_format)
@@ -170,15 +175,16 @@ def normalize_practical_author(raw_text: str, response_format: Any) -> Practical
     simple_editor = is_simple_editor_format(response_format)
     simple_revision = is_simple_revision_v2_format(response_format)
     simple_delta = is_simple_delta_editor_format(response_format)
-    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor or simple_revision or simple_delta or simple_block or normalized_review or address_repair or plan_accounting or finding_evidence):
+    if type(raw_text) is not str or not (is_practical_course_format(response_format) or simple_editor or simple_revision or simple_delta or simple_block or normalized_review or address_repair or plan_accounting or finding_evidence or source_access):
         raise ValueError("practical_author_transport_format_invalid")
     try:
         parsed = json.loads(raw_text, object_pairs_hook=_pairs, parse_constant=_constant, parse_float=_finite_float)
         if type(parsed) is not dict:
             raise ValueError("practical_author_transport_not_object")
         removed: list[str] = []
-        normalized = _normalize(parsed, response_format["json_schema"]["schema"], "", removed, unions=normalized_review)
-        valid = (matches_evidence(normalized, response_format) if finding_evidence else
+        normalized = _normalize(parsed, response_format["json_schema"]["schema"], "", removed, unions=normalized_review or source_access)
+        valid = (matches_access(normalized, response_format) if source_access else
+                 matches_evidence(normalized, response_format) if finding_evidence else
                  matches_accounting(normalized, response_format) if plan_accounting
                  else matches_address_repair_shape(normalized, response_format) if address_repair
                  else matches_simple_block_editor_shape(normalized, response_format) if simple_block

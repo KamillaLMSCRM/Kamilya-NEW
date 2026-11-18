@@ -2381,3 +2381,64 @@ approved historical responses unchanged. Saved412and synthetic scope/undo/pin
 regressions PASS; local106human decisions/130edits preserve original and11auto.
 DEV full course acceptance remains open; this is a navigation/edit contract fix,
 not a new semantic critic or catalogue factual certification.
+
+ENG-074 / HUMAN119 native acceptance2026-11-18: full approved Excel yielded
+5meaningful lessons20questions, not one perSKU. All291catalogue rows retained as
+source reference. Native15Luna6HIGH successful responses3593279IN40860OUT,
+30.86min including one safe pause; ordinaryresume reuses9completed replies exactly.
+Human QA found a pedagogically weak card about an example not explained in its
+lesson (the fact was supported by source and visible in the correct option, not
+a false manufacturer claim). Two bounded LOCAL Luna correction proposals returned
+known503unavailable/no text,usageUNKNOWN; no further calls/paidfallback. Authorized
+human methodologist replaced only that card with a practical taught-completeness
+question. All5model bodies/other19cards preserved. One unverified review receipt
+concerned coverage already fixed in finalbody; human compared exact final/source
+text and resolved through normal snapshot-bound form. No semantic validator or
+new critic added. Matte handles concern was root's false finding, withdrawn and
+recorded in ERRORS.md, not an engine defect.
+
+Final HUMAN-accepted QA course621b267a approved/published,release147ab54d/v1/
+958d629e; all5bodies20choices/keys/explanations independently checked and snapshot
+parity PASS. Full automated independence is not claimed. Remaining systemic
+economics: full catalogue context repeated across stages; input3.59M is recorded,
+cache/reasoning/invoice UNKNOWN, no assumption of zero cost from missing metrics.
+Customer original/course/quizzes unchanged; production118 unchanged. Current
+handoff/testledger/private independent-course-review119.md define exact limits.
+
+## ENG-074 CONTEXT120 local correction and economics — 2026-11-18
+
+Frozen approved supporting-row access, compact complete index, whole literal
+lookup, V12 envelope, same existing reviewers/editors. Managed/cloud decoders,
+owned group/claim/checkpoint/save DTO/cold replay tested. New admissions pin the
+runtime_settings revision and both budgets; stored/dispatched drift is fenced.
+V1–V11 producers and historical completed request identities unchanged. No new
+semantic critic, SKU validator, provider/model/reasoning/billing change.
+
+Actual approved521 resolved read-only under lms_app: packet0ca11644/working95ee,
+291products/1222origin slices. Earlier local reconstruction627slices had different
+spans despite same text; use immutable snapshot spans, never relabel old receipts.
+Actual whole-chain replay found canonical-vs-alias evidence stage and prepared
+row/newline boundary before DEV; fixed with regression. All291rows including late
+rows accessible.15saved-stage messages20884658->3037115bytes(-85.46%); schema
+47098->199111bytes. Zero inference benchmark, not actual token/time acceptance.
+
+Fresh LOCAL existing-paid Luna6HIGH: first14saved stages used only as fixture,
+then2literal lookups+final operational review+scoped correction,4calls,
+303823IN12239OUT236.125provider seconds; invoice/cache/reasoning count UNKNOWN.
+No supplied issue/questionID/desired answer or source edits. Model independently
+found original weak labelled zoning card and corrected it toward own-lesson
+request/position/parameter verification. Root checked all5bodies/titles andother
+19cards exact, literal article00079263/37kg/401x480x2201/group and matte-metal-handle
+positive control. Straightforward distractors/longer correct option accepted as
+practical draft, not a psychometric claim.0source/course writes.
+
+Full unit first run9016PASS/1SKIP/4obsolete current-admission V11 expectations;
+those assertions updated, affected77PASS, fragmented source9PASS. New managed/
+cloud owned cold seam6PASS. Quality1005/2174PASS. Isolated Supabase0189 PASS:
+non-BYPASS/FORCE RLS, upgrade/downgrade/reupgrade, audited bounds/revert/history,
+invalid SQL/active-override downgrade guards, cleanup/public-schema neutrality.
+No public migration/customer write/production change. DEV full new course actual
+economics/content matrix and protected production remain PENDING.
+Private evidence: catalog-context120-20261118/projection-benchmark.json,
+model-control-acceptance.json, isolated0189.json. Preserve published119course,
+approved521 and53source replies; rejected CHG-L100N is not restored.

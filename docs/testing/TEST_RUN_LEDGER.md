@@ -1,3 +1,29 @@
+## 2026-11-18 — RUN-FURNITURE-HUMAN119-COURSE-DEV-20261118 — GO after human QA
+
+Real644776char Excel/291catalogue rows in permanent DEVQAad336f44; source521,
+approvalbe228b72,working95ee5166. Root106human decisions/89products/130edits,
+11auto preserved;0new source calls/all53ready source replies reused. ActualDEV
+119/224f/API+web+soleworker exact. Nativejob131484b5 completed15successful
+Luna6HIGH responses3593279IN40860OUT/30.86min including1safe pause;9previous
+responses exact on ordinaryresume, no duplicate generation. Cached/reasoning/
+invoice UNKNOWN; already-paid allocation.2extra LOCAL card-correction requests
+returned known503unavailable/no text;usageUNKNOWN, no paidfallback/more calls.
+
+Finalcourse621b267a:5lessons/5quizzes/20cards; every body/option/key/explanation
+read independently against approvedsource. All5model bodies preserved; one
+card improved explicitly by HUMAN, other19exact. Matte-handle concern withdrawn
+because original opening row explicitly supports it; good text retained. Current
+sourcefinding about roomcoverage already fixed in finalbody, verified/resolved
+through ordinary human UI, no weakened guards. Five explicitquizapprovals, course
+approval and QApublication:release147ab54d/version1/SHA958d629e. Readonlylms_app
+noBYPASS snapshot parity all5bodies/all20options/keys/order PASS. Each quizpreview
+100PASS and75FAIL at80,0learnerattempts/0modelcalls. Live source save/undo/redo,
+SKUsearch/draftretention/approval,390px overflownegative, all5course pages viewed.
+Customer original/course/quizzes preservation PASS; production118 unchanged.
+Private evidence: furniture-human-course-20261118/independent-course-review119.md.
+This is a usable HUMAN-accepted QA course, not proof of perfect autonomous review
+or optimized full-catalogue token economics.119 production rollout not performed.
+
 ## 2026-11-16 — Lombard course quality audit, READ ONLY
 
 Actual production114/e3, tenant46704e2f/too-lombard-sandyk: all9courses,
@@ -8126,3 +8152,41 @@ facts are not newly independently certified; source owner decisions remain open.
   already8MiB/Luna6HIGH; no configuration change. Approved historical DTO unchanged.
 - API+ops10433PASS/550SKIP; frontend1818PASS/197files; type/scopedlint/build69PASS;
   Python quality baseline1004/2174PASS. Live DEV/user/course QA still pending.
+
+## RUN-CONTEXT120-FURNITURE-LOCAL — 2026-11-18
+
+Frozen approved supporting-row access, compact complete index, whole literal
+lookup, V12 envelope, same existing reviewers/editors. Managed/cloud decoders,
+owned group/claim/checkpoint/save DTO/cold replay tested. New admissions pin the
+runtime_settings revision and both budgets; stored/dispatched drift is fenced.
+V1–V11 producers and historical completed request identities unchanged. No new
+semantic critic, SKU validator, provider/model/reasoning/billing change.
+
+Actual approved521 resolved read-only under lms_app: packet0ca11644/working95ee,
+291products/1222origin slices. Earlier local reconstruction627slices had different
+spans despite same text; use immutable snapshot spans, never relabel old receipts.
+Actual whole-chain replay found canonical-vs-alias evidence stage and prepared
+row/newline boundary before DEV; fixed with regression. All291rows including late
+rows accessible.15saved-stage messages20884658->3037115bytes(-85.46%); schema
+47098->199111bytes. Zero inference benchmark, not actual token/time acceptance.
+
+Fresh LOCAL existing-paid Luna6HIGH: first14saved stages used only as fixture,
+then2literal lookups+final operational review+scoped correction,4calls,
+303823IN12239OUT236.125provider seconds; invoice/cache/reasoning count UNKNOWN.
+No supplied issue/questionID/desired answer or source edits. Model independently
+found original weak labelled zoning card and corrected it toward own-lesson
+request/position/parameter verification. Root checked all5bodies/titles andother
+19cards exact, literal article00079263/37kg/401x480x2201/group and matte-metal-handle
+positive control. Straightforward distractors/longer correct option accepted as
+practical draft, not a psychometric claim.0source/course writes.
+
+Full unit first run9016PASS/1SKIP/4obsolete current-admission V11 expectations;
+those assertions updated, affected77PASS, fragmented source9PASS. New managed/
+cloud owned cold seam6PASS. Quality1005/2174PASS. Isolated Supabase0189 PASS:
+non-BYPASS/FORCE RLS, upgrade/downgrade/reupgrade, audited bounds/revert/history,
+invalid SQL/active-override downgrade guards, cleanup/public-schema neutrality.
+No public migration/customer write/production change. DEV full new course actual
+economics/content matrix and protected production remain PENDING.
+Private evidence: catalog-context120-20261118/projection-benchmark.json,
+model-control-acceptance.json, isolated0189.json. Preserve published119course,
+approved521 and53source replies; rejected CHG-L100N is not restored.

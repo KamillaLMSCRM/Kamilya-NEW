@@ -1,4 +1,30 @@
-## Current — 2026-11-18: source evidence118 released and live accepted
+## Current — 2026-11-18: CONTEXT120 LOCAL PASS, DEV rollout pending
+
+V12 candidate0.11.120 reduces same15stage furniture message bytes85.46% while all
+291approved literal catalogue rows stay accessible. Fresh Luna6HIGH local blind
+review and model correction PASS:4calls/303823IN12239OUT236.125s, all5lesson bodies
+andother19cards exact. This reused earlier14replies only as LOCAL fixtures, not
+native acceptance. Isolated Supabase0189 settings-constraint expansion PASS,
+cleanup/public-schema neutrality; no public migration or provider change yet.
+DEV119/224f and production118/6a234b54 unchanged; approved521 and QA621b retained.
+Next: same-SHA CI/image, publicDEV schema gate, coherentDEV API/web/worker, actual
+complete course timing/token/lookup and every lesson/card QA; protected production
+only after acceptance. No paid API fallback, local Docker or customer-source edit.
+Details: CHG-CONTEXT120 and private catalog-context120-20261118 receipts.
+
+## Current — 2026-11-18: furniture human approval → full published DEV QA course
+
+result: Full real-workbook QA path completed. DEV119 exact224f51294045148d919a08ff88c470486637ee92; production remains118/6a234b54520a035a2285cf090b1b046d6e80335e. New QA course621b267a-9942-4c78-bea0-669115194b96 is approved/published,5lessons/5quizzes/20questions. Customer furniture original/course/quizzes independently unchanged.
+
+changed:119 adds literal-proof row editing/search and paired8MiB transport. No active V11 segmentation change; restored legacy catalogue hints are NOT active V11 evidence. Root approved106test-source decisions/89product rows/130fragment edits;11auto preserved. QA sourcead336f44 revision521/approvalbe228b72/working95ee5166. Values are explicit test assumptions, never manufacturer certification. Original customer source153cc494 untouched.
+
+verified: CI44242148132/build44243310717 PASS; image180463e2, Renderdep-dbuja91srm7s73f27lr0, Verceldpl_28G27ySapSCGRFq4Madjo7do8W6b, soleworker9c65c49f/envc82490e6; previous118 stopped rollback retained.10433API+opsPASS550skip,1818webPASS before final copy plus27focused/type/lint/build69PASS, exactCI frontend/backend/qualityPASS. Native job131484b5 completed15Luna6HIGH responses3593279IN40860OUT in30.86min; one ordinary resume preserves9earlier responses exactly. Every final lesson/card independently reviewed. One card improved by HUMAN after2local known503s/no correction text, other19cards/all5model bodies exact. All5preview scores100PASS/75FAIL at80,0learnerattempts. Published release147ab54d-b3be-4b11-82ff-d46c325660df/version1/SHA958d629e matches all reviewed texts/options/keys under readonlylms_app/noBYPASS.
+
+blockers: No blocker for this completed DEV QA course.119 is NOT production-deployed. Automation alone is not accepted as perfect; card pedagogical review missed one improvement and one already-fixed finding required human evidence verification. Two local503usage UNKNOWN, no more inference/fallback. Full catalogue repetition creates3.59M input tokens; economics not optimized. CodeGraph NOT_READY/runtime missing; direct-source fallback used. All private evidence/failed attempts retained.
+
+next: User can inspect course in permanent DEV QA. Do not regenerate this job or source53completed replies. Any future production119 promotion needs its separate protected release/runtime gates; retain118/116 rollback and customer data. Private evidence `.release-evidence/furniture-human-course-20261118`, full106decisions report and independent-course-review119.md. Current closeout docs are local; runtime source remains exact224f.
+
+## Historical — earlier 2026-11-18: source evidence118 released and live accepted
 
 Production API/three workers/native CT137 and DEV API/frontend/sole worker are
 0.11.118, exact `6a234b54520a035a2285cf090b1b046d6e80335e`. DEV image10dd8a7f /

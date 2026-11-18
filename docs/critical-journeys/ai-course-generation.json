@@ -16,6 +16,9 @@
         "apps/api/app/modules/source_editorial_review/**"
       ],
       "required_tests": [
+        "apps/api/tests/unit/test_v3_source_access_owned_transport.py::test_v12_real_seam_with_lookup_and_no_duplicate_calls",
+        "apps/api/tests/unit/test_literal_source_access.py::test_separately_prepared_rows_keep_all_late_literals_and_layout_is_not_evidence",
+        "apps/api/tests/unit/test_source_access_config.py::test_pin_is_a_copy_and_later_runtime_edits_do_not_change_job_context",
         "apps/api/tests/unit/test_simple_editor_findings.py::test_corrected_quote_must_be_new_in_changed_field",
         "apps/api/tests/unit/test_v3_simple_owned_transport_v9.py::test_v9_real_decoders_and_owned_cold_replay",
         "apps/api/tests/unit/test_simple_course_editor_v9.py::test_author_unit_reviews_global_review_and_joint_block_editor",

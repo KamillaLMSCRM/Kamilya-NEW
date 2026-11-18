@@ -3915,3 +3915,101 @@ furniture-human-course-20261118 evidence; values are test assumptions only.
 First full API run had health version mismatch because agent changed VERSION
 during the running suite; unchanged-source rerun PASS, failed log retained.
 Python quality1004/2174 PASS. Live source still412; no approval/model dispatch yet.
+
+
+RUN-FURNITURE-HUMAN119-COURSE-DEV-20261118 INTENT 2026-11-18T06:02:10.321881+00:00: exact224f5129/API+web+soleworker RELEASE_OK; QAad336approved521/be228b72, original2ba5e28a/working95ee5166. Root-human106decisions/89product rows/130edits and11auto preserved; original binary00783869 unchanged. One full ordinary-UI standard course on existing paid Luna6/HIGH only, no DeepSeek/model/plan changes; all lessons/questions/keys/explanations checked independently. Actual V11 preflight627slices/291products/1318609message bytes and registered decoder PASS0calls; two source containers are not two teaching units. Earlier legacy source_unit_plan_request preflight is not active V11 evidence. No new segmentation policy or ready-source reanalysis. Job/actual usage/quality PENDING; private furniture-human-course-20261118/course119-run-intent.json.
+
+RUN-FURNITURE-HUMAN119-COURSE-DEV-20261118 RESULT 2026-11-18: nativejob131484b5
+completed5L20Q/course621b267a with15successful Luna6/HIGH responses3593279IN/
+40860OUT/30.86min; one ordinary resume preserved9completed answers exactly.
+0new source calls/53known source replies retained. Source521/be228b72 is based
+on106explicit HUMAN test decisions/89products/130edits,11auto unchanged; root
+choices do not certify manufacturer facts. Catalogue remains complete reference,
+not291separate lessons. Same activeV11 plan/author/unitreview/jointeditor/card
+path; no new critic, regex or source-segmentation policy added.
+
+Independent final QA read all5bodies/20stems/allchoices/keys/explanations against
+approvedsource. Native editor corrected material omissions and kept good bodies.
+Root withdrew a false matte-handle concern after finding explicit source support.
+One card's pedagogy was improved by HUMAN after two additional LOCAL known503s
+returned no correction text;usageUNKNOWN/no further requests or paidfallback.
+All5model bodies/other19questions exact. Do not claim autonomous discovery/repair
+for that human step. One final finding already fixed in body was manually checked
+and resolved through normal snapshot-bound UI; source/publish guards unchanged.
+All5quiz previews100PASS/75FAIL at80 with0learnerattempts; all5approved, course
+approved/published in DEVQA only. Immutable release147ab54d/version1/SHA958d629e
+matches reviewed texts,all20options/keys/order under readonlylms_app/noBYPASS.
+
+DEV119224f coherent/CI44242148132/build44243310717/controller RELEASE_OK;
+production1186a234b54 unchanged/customer original+course+quizzes exact. Current
+handoff/context/testledger updated locally. This is HUMAN-accepted content GO,
+not perfect automatic semantic QA or optimized token economics. Full catalogue
+is repeated in model context, so3.59M input is an explicit remaining performance
+issue, not a reason to regenerate this accepted course. Live source UX search/
+scope/save/undo/redo/approval and390px PASS; full decision report/private evidence
+at furniture-human-course-20261118. No pending model/job;119prod not released.
+
+CHG-CONTEXT120 PROPOSED BEFORE CODE 2026-11-18: owner rejects119 full-course
+30.86min/3593279IN/40860OUT and requests bounded source access plus autonomous
+card correction, LOCAL->DEV->protected production. Preserve approved521 and
+published QA621b, original customer/source/results and53completed source calls.
+Actual V11 semantic unit requests duplicate full parent segments despite exact
+selected slices; planning and global roles also repeat reference descriptions.
+First capture red zero-inference wire-volume replay, then introduce a versioned
+source view: immutable complete approved store, compact reference inventory,
+explicit selected literal rows/dependency closure and exact source IDs. Keep
+operative prose/visual scope, source/tenant/revision bindings and unknown fences;
+never truncate silently or treat a search/index summary as factual evidence.
+New V12 request policy must not replay old V11 responses under changed prompts.
+
+Prior approaches checked: CHG-L100N visible-card unit review was MEASURED AND
+REJECTED; do not repeat that extra unit-review experiment. V10/V11 already has
+separate final operational body/cards review and scoped automatic postedit. Use
+that existing stage for explicit assessment-to-taught-skill comparison, not a new
+critic or SKU regex. Test original saved furniture card without human correction
+or issue hint; false matte-handle concern must stay rejected. Verify one owned
+model correction preserves good bodies/cards and closes its exact finding.
+Native transport/admission/claim/save/cold replay seams and source custody must
+pass locally before any full DEV run. Full catalogue remains retrievable, including
+late/unselected rows, exact table headers and original visual provenance. Model
+usage/time measured per stage; actual provider invoice/cache counters UNKNOWN
+when unavailable, already-paid Luna only. CodeGraph preflight NOT_READY/runtime
+missing; bounded source fallback. Current119 docs retained; no new inference yet.
+
+## CHG-CONTEXT120 LOCAL MEASURED — 2026-11-18
+
+Frozen approved supporting-row access, compact complete index, whole literal
+lookup, V12 envelope, same existing reviewers/editors. Managed/cloud decoders,
+owned group/claim/checkpoint/save DTO/cold replay tested. New admissions pin the
+runtime_settings revision and both budgets; stored/dispatched drift is fenced.
+V1–V11 producers and historical completed request identities unchanged. No new
+semantic critic, SKU validator, provider/model/reasoning/billing change.
+
+Actual approved521 resolved read-only under lms_app: packet0ca11644/working95ee,
+291products/1222origin slices. Earlier local reconstruction627slices had different
+spans despite same text; use immutable snapshot spans, never relabel old receipts.
+Actual whole-chain replay found canonical-vs-alias evidence stage and prepared
+row/newline boundary before DEV; fixed with regression. All291rows including late
+rows accessible.15saved-stage messages20884658->3037115bytes(-85.46%); schema
+47098->199111bytes. Zero inference benchmark, not actual token/time acceptance.
+
+Fresh LOCAL existing-paid Luna6HIGH: first14saved stages used only as fixture,
+then2literal lookups+final operational review+scoped correction,4calls,
+303823IN12239OUT236.125provider seconds; invoice/cache/reasoning count UNKNOWN.
+No supplied issue/questionID/desired answer or source edits. Model independently
+found original weak labelled zoning card and corrected it toward own-lesson
+request/position/parameter verification. Root checked all5bodies/titles andother
+19cards exact, literal article00079263/37kg/401x480x2201/group and matte-metal-handle
+positive control. Straightforward distractors/longer correct option accepted as
+practical draft, not a psychometric claim.0source/course writes.
+
+Full unit first run9016PASS/1SKIP/4obsolete current-admission V11 expectations;
+those assertions updated, affected77PASS, fragmented source9PASS. New managed/
+cloud owned cold seam6PASS. Quality1005/2174PASS. Isolated Supabase0189 PASS:
+non-BYPASS/FORCE RLS, upgrade/downgrade/reupgrade, audited bounds/revert/history,
+invalid SQL/active-override downgrade guards, cleanup/public-schema neutrality.
+No public migration/customer write/production change. DEV full new course actual
+economics/content matrix and protected production remain PENDING.
+Private evidence: catalog-context120-20261118/projection-benchmark.json,
+model-control-acceptance.json, isolated0189.json. Preserve published119course,
+approved521 and53source replies; rejected CHG-L100N is not restored.

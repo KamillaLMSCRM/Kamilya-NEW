@@ -1,3 +1,16 @@
+## AGENT-MODEL-STATUS-001 - inferred semantic result from request ordinal
+
+- Date: 2026-11-18; CONTEXT120 local control.
+- Symptom: progress said the weak question was found before reading the payload;
+  the second request was actually a literal lookup, not an edit.
+- Cause: inferred intent from request count instead of typed result fields.
+- Fix: immediately corrected the update; inspected later finding, model edit and
+  exact applied delta before accepting it.
+- Verification: saved4responses prove2lookups, final finding and scoped edit;
+  all5bodies/other19cards exact. No customer/source/course mutation.
+- Prevention: semantic progress requires inspected results and actual applied
+  delta; never infer discovery/correction from stage count or model self-label.
+
 ## AGENT-ASSESSMENT-CONTRACT-001 - Standalone assignment omitted lock privileges and learner eligibility
 
 - Date: 2026-11-15; local standalone114 implementation, found before DEV rollout.
@@ -1011,7 +1024,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-15.
+Current as of: 2026-11-18.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -11455,3 +11468,28 @@ do not backdate/touch old evidence or change evaluator ordering. Preserve the
 failed envelope; re-read exact remote Git/tag, canonical blobs and public runtime
 AFTER cleanup evidence, save a distinct fresh canonical receipt, then evaluate a
 distinct final envelope. This is an agent evidence-order defect, not engine failure.
+2026-11-18 AGENT-ACCEPTANCE-HARNESS-001 follow-up HUMAN119: root initially
+mistook the two source containers for teaching units and tested an inactive
+legacy planner. Actual V11->V10->V9->V6 uses semantic_plan_request and627literal
+slices/291product rows. Corrected conclusion before inference; no new source
+segmentation policy or invalidation of completed work. Actual V11 transport and
+registered contract tested offline. Do not infer the active path from a filename.
+The private cold-script AST rebinder also transformed string correlation IDs but
+missed bytes: os.write retained old118Ctoken while unlock expectedHUMAN119. Cold
+checks passed but its own stale lease blocked the next read-only inventory0writes.
+Exact executed script/hash/exit0, task mtime range, root0600token/inode and eight-
+service fingerprint proved ownership; only that lease removed, all containers
+and production unchanged. Preserve failed inventory/cold bytes. Rebind bytes too
+and statically compare lease write/unlock/header before future remote execution.
+
+2026-11-18 HUMAN119 editorial acceptance follow-up: root initially called
+"matte metallic edge handles" an unsupported transfer of a facade attribute.
+The original comparison table's separate opening/handle row explicitly says
+metallic matte black edge handles. The concern was withdrawn BEFORE any edit;
+good model wording retained. Inspect all relevant source rows/properties before
+announcing a semantic defect; retain withdrawn findings separately from engine
+errors. Two one-card LOCAL Luna requests returned known503unavailable/no text;
+usage UNKNOWN, no further requests or paid fallback. Only one QA question was
+then explicitly edited by the authorized human methodologist, not attributed to
+autonomous model repair. A helper was first written at the owned worktree root;
+its exact verified path was moved into private evidence before executing it.
