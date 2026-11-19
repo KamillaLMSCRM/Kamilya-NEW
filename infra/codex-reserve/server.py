@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from runner import MAX_INPUT_BYTES, CodexRunner, RunnerError
+from runner import MAX_INPUT_BYTES, MAX_VISUAL_INPUT_BYTES, CodexRunner, RunnerError
 
 
 class Connector:
@@ -18,11 +18,13 @@ class Connector:
         self.runner = runner
         self.token = token
         self.connections = 0
+        self.large_input = False
 
     async def handle(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         self.connections += 1
         status, data = 400, {"error": "invalid_input"}
         request_payload = None
+        owns_large_input = False
         try:
             if self.connections > 8:
                 raise RunnerError("busy")
@@ -49,8 +51,12 @@ class Connector:
                     status = 200
                 elif method == "POST" and path == "/v1/chat/completions":
                     length = int(headers.get("content-length", "0"))
-                    if not 1 <= length <= MAX_INPUT_BYTES or headers.get("content-type", "").split(";")[0] != "application/json":
+                    if not 1 <= length <= MAX_VISUAL_INPUT_BYTES or headers.get("content-type", "").split(";")[0] != "application/json":
                         raise RunnerError("invalid_input")
+                    if length > MAX_INPUT_BYTES:
+                        if self.large_input:
+                            raise RunnerError("busy")
+                        self.large_input = owns_large_input = True
                     payload = json.loads(await reader.readexactly(length))
                     if not isinstance(payload, dict):
                         raise RunnerError("invalid_input")
@@ -102,6 +108,8 @@ class Connector:
                 pass
             finally:
                 self.connections -= 1
+                if owns_large_input:
+                    self.large_input = False
 
 
 async def main() -> None:

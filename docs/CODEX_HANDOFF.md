@@ -1,3 +1,40 @@
+## 2026-11-19 — 122 backend live, PPTX and Luna vision candidate
+
+Learner dialogue 122 exact44d941f0 is live after protected workflow44315323970
+SUCCESS. API and all three workers independently match the attested digest,
+zero restarts. Native frontend121 remains the accepted compatible version.
+The immediately previous backend121 remains retained for rollback. Signed
+fresh0188 restore and isolated cleanup passed. Monitoring reports exact122 and
+both existing timers active. Current130 FORCE RLS checks and unchanged settings
+were independently read back. Customer source, course and quiz hashes match.
+
+Five fresh ordinary production QA student API turns on already paid Luna passed
+in scope. Follow-up uses its lesson conversation, another lesson answers from its
+own material, switching back retrieves the saved reference and 37-minute rule,
+and a false claim is corrected. History readback is ordered and source/course
+and learning results are preserved. Production built-in browser verified ordinary student PIN login, history per
+lesson, switching back and reload, desktop and 390px layout. Test used the
+browser extension runtime without Windows desktop input. DEV exact122 browser
+acceptance remains passed. The dedicated Release Runner lacked GitHub access;
+root released via the existing protected workflow and installed runner under the
+recorded executor exception. No workstation configuration was changed.
+
+Synthetic image control on the existing official DeepSeek API: one request,
+HTTP200, exact screenshot label and duration, 2.453s, 267 input/96 output tokens.
+Local private Luna connector HTTP200, exact same values, 3.891s. Fresh local PPTX
+through actual Luna connector: image reading, verification and source partition
+all HTTP200, total18.75s (27273 input/542 output), verified original raster hash,
+OCR text in slide1 and speaker notes retained. First harness mistyped the parsed
+partition input as text and was corrected; no deployed product failure inferred.
+
+PPTX and Luna vision require matching DEV API/documents worker and a versioned
+private connector accepting the same image grammar. Standard connector build
+requires exact successful CI on master/dev. Keep the deferred engine out of this
+production packet and preserve the existing DEV worker and connector as rollback.
+Use a synthetic upload and source review through Luna before enabling the media
+candidate in production. No client files or production-generation change in the
+Luna/DeepSeek verification.
+
 ## 2026-11-19 — PowerPoint source preparation, local candidate
 
 The next media slice passes embedded PPTX raster pictures to the existing

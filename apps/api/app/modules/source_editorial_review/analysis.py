@@ -17,7 +17,7 @@ from sqlalchemy import text
 from app.core.config import get_settings
 from app.core.db import async_session_factory
 from app.modules.ai.direct_source import DirectSourceError, load_direct_source_corpus
-from app.modules.ai.llm_client import AllProvidersFailedError, ResilientLLMClient
+from app.modules.ai.llm_client import AllProvidersFailedError, LLMProviderConfig, ResilientLLMClient
 from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, ManagedLunaError
 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
@@ -292,6 +292,23 @@ def _unverified_clues(review: _IndependentReview, material: dict[int, Any], orig
                 continue
         remaining.remove(clue_id)
     return sorted(remaining)
+
+
+def select_visual_config(
+    candidates: list[LLMProviderConfig], *, luna_qa: bool,
+) -> LLMProviderConfig:
+    preferred = ("chatgpt-reserve",) if luna_qa else ("deepseek", "chatgpt-reserve")
+    for name in preferred:
+        enabled = [candidate for candidate in candidates if candidate.name == name]
+        if len(enabled) > 1:
+            break  # One unambiguous identity must own the visual request.
+        if enabled:
+            selected = enabled[0]
+            extra = {**selected.extra_body, "reasoning_effort": "low"}
+            if name == "deepseek":
+                extra["thinking"] = {"type": "enabled"}
+            return replace(selected, extra_body=extra)
+    raise ReviewConflictError("source_visual_provider_unavailable")
 
 
 def analysis_failure_code(error: Exception) -> str:
@@ -945,19 +962,16 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 phase = "source_extraction"
                 if not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
-                # The text-only reserve is not a visual fallback. Never silently discard pixels.
                 visual_chain = llm or await ResilientLLMClient.from_settings_async(
                     temperature=0.1, max_tokens=runtime.integer("source_preparation.max_tokens"))
-                clients = [client for client in visual_chain._clients if client.config.name == "deepseek"]
-                if len(clients) != 1:
-                    raise ReviewConflictError("source_visual_provider_unavailable")
+                visual_config = select_visual_config(
+                    [client.config for client in visual_chain._clients], luna_qa=managed is not None,
+                )
                 import httpx
 
                 from app.modules.ai.llm_client import LLMClient, ProviderFailedError
 
                 try:
-                    visual_config = replace(clients[0].config, extra_body={**(clients[0].config.extra_body or {}),
-                        "thinking": {"type": "enabled"}, "reasoning_effort": "low"})
                     try:
                         reserve(float(visual_config.timeout))
                     except BeforePostDeferred as exc:
@@ -1000,7 +1014,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     package = await prepare_native_source(native, original_sha256=claim.original_blob_sha256,
                         complete=preparation_complete, visual_complete=visual_complete, checkpoint=save_block,
                         persist_asset=persist_asset, retained=retained,
-                        vision_batch_size=runtime.integer("source_preparation.vision_batch_size"),
+                        vision_batch_size=(1 if managed is not None else runtime.integer("source_preparation.vision_batch_size")),
                         preview_chars=runtime.integer("source_preparation.part_preview_chars"))
                     selected_ids = [part.id for part in package.parts if part.role in ("learning", "supporting")]
                     if not selected_ids:
