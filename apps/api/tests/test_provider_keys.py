@@ -6,7 +6,7 @@ Covers:
 - Test/probe endpoint logic (mock httpx)
 
 These tests intentionally do NOT exercise the actual DeepSeek/Voyage
-APIs or a real Postgres connection — they mock both.
+APIs or a real Postgres connection вЂ” they mock both.
 """
 from __future__ import annotations
 
@@ -20,16 +20,15 @@ from cryptography.fernet import Fernet
 
 from app.core import encryption as enc_module
 from app.core.config import get_settings
-from app.modules.admin.provider_keys.models import ProviderKey
 from app.modules.admin.provider_keys import repository as repo_module
-from app.modules.admin.provider_keys.service import ProviderKeyService
+from app.modules.admin.provider_keys.models import ProviderKey
 from app.modules.admin.provider_keys.schemas import (
     ProviderKeyCreate,
     ProviderKeyUpdate,
 )
+from app.modules.admin.provider_keys.service import ProviderKeyService
 
-
-# ── Fixtures ──────────────────────────────────────────────────────────
+# в”Ђв”Ђ Fixtures в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 
 @pytest.fixture(autouse=True)
@@ -97,7 +96,7 @@ class _FakeAsyncSession:
     """Bare-minimum stand-in for AsyncSession.
 
     The service uses only: add(), commit(), refresh(), flush(), delete(),
-    execute() — and the repository's spy intercepts execute() before the
+    execute() вЂ” and the repository's spy intercepts execute() before the
     service ever sees its return value. So this only needs to satisfy
     attribute access, not actually run SQL.
     """
@@ -123,13 +122,13 @@ class _FakeAsyncSession:
         # The repo is fully spied out, so execute() should never be
         # called directly on the session. If it is, raise so we notice.
         raise AssertionError(
-            "execute() called directly on session — repo spy should intercept"
+            "execute() called directly on session вЂ” repo spy should intercept"
         )
 
 
 @pytest.fixture
 def db_session():
-    """Fake AsyncSession — no Postgres required."""
+    """Fake AsyncSession вЂ” no Postgres required."""
     return _FakeAsyncSession()
 
 
@@ -146,7 +145,7 @@ def spy(monkeypatch):
     return spy
 
 
-# ── Encryption ────────────────────────────────────────────────────────
+# в”Ђв”Ђ Encryption в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 
 def test_encrypt_decrypt_roundtrip():
@@ -184,7 +183,7 @@ def test_mask_secret():
     assert "***" in masked
 
 
-# ── ProviderKeyService CRUD ───────────────────────────────────────────
+# в”Ђв”Ђ ProviderKeyService CRUD в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 
 @pytest.mark.asyncio
@@ -271,11 +270,19 @@ async def test_update_unknown_id_raises_lookup_error(db_session, spy):
         await svc.update_key(uuid.uuid4(), ProviderKeyUpdate(label="nope"))
 
 
-# ── test_key (network probe) ──────────────────────────────────────────
+# в”Ђв”Ђ test_key (network probe) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 
 @pytest.mark.asyncio
 async def test_test_key_success(db_session, spy, monkeypatch):
+    from app.modules.admin.provider_keys import service
+    from app.modules.admin.runtime_configuration.catalog import RuntimeSnapshot, effective_values
+
+    snapshot = RuntimeSnapshot(2, effective_values({
+        "provider.deepseek.model": "synthetic-deepseek",
+        "provider.deepseek.timeout_seconds": 45,
+    }))
+    monkeypatch.setattr(service, "resolve_runtime_settings", AsyncMock(return_value=snapshot))
     svc = ProviderKeyService(db_session)
     user_id = uuid.uuid4()
     created = await svc.create_key(
@@ -296,6 +303,7 @@ async def test_test_key_success(db_session, spy, monkeypatch):
     assert result.provider == "deepseek"
     assert result.error is None
     assert result.latency_ms is not None
+    assert fake_client.post.await_args.kwargs["json"]["model"] == "synthetic-deepseek"
 
 
 @pytest.mark.asyncio

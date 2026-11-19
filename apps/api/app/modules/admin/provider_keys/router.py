@@ -1,4 +1,4 @@
-"""HTTP endpoints for provider_keys — superadmin only."""
+"""HTTP endpoints for provider_keys вЂ” superadmin only."""
 from __future__ import annotations
 
 import uuid
@@ -17,6 +17,7 @@ from app.modules.admin.provider_keys.schemas import (
     ProviderKeyUpdate,
 )
 from app.modules.admin.provider_keys.service import ProviderKeyService
+from app.modules.admin.runtime_configuration.runtime import RuntimeSettingsUnavailable
 
 router = APIRouter(prefix="/admin/provider-keys", tags=["admin", "provider-keys"])
 
@@ -32,7 +33,7 @@ async def list_provider_keys(
 ):
     """List all global provider keys (superadmin only).
 
-    Returns the masked preview only — never the plaintext API key.
+    Returns the masked preview only вЂ” never the plaintext API key.
     """
     return await svc.list_providers()
 
@@ -99,6 +100,8 @@ async def test_provider_key(
     """
     try:
         return await svc.test_key(key_id)
+    except RuntimeSettingsUnavailable as exc:
+        raise HTTPException(503, "runtime_settings_unavailable") from exc
     except LookupError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
