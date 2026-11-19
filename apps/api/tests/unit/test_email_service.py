@@ -331,11 +331,16 @@ async def test_course_assignment_uses_stable_provider_idempotency_key(monkeypatc
         access_url="https://app.kml.kz/courses/123",
         activation_required=False,
         idempotency_key="course-assignment/00000000-0000-0000-0000-000000000001",
+        localized_titles={"ru": "Безопасность", "kk": "Қауіпсіздік"},
     )
 
     assert message_id == "msg_test_123"
     assert _FakeAsyncClient.headers is not None
     assert _FakeAsyncClient.headers["Idempotency-Key"] == ("course-assignment/00000000-0000-0000-0000-000000000001")
+    body = _FakeAsyncClient.payload
+    assert "Безопасность" in body["text"] and "Қауіпсіздік" in body["text"]
+    assert body["html"].count('href="https://app.kml.kz/courses/123"') == 1
+    assert 'lang="ru"' in body["html"] and 'lang="kk"' in body["html"]
 
 
 @pytest.mark.asyncio

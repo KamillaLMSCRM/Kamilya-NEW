@@ -8,6 +8,8 @@
   with an optional preference for an existing subtitle track.
 - Add an opt-in Kazakh KARLSKRONA certificate template with bundled branding
   and the same issue-time preservation and verification as existing templates.
+- Add Russian and Kazakh editions to a shared native course, with one
+  assignment, progress history, quiz attempt limit and certificate.
 
 ## [0.11.120] - 2026-11-18
 

@@ -567,6 +567,8 @@ async def submit_course_generation(
     # Every new job is bound to the active engine. Historical jobs
     # without this marker fail closed and must be submitted as a new generation.
     analysis_payload["generation_engine"] = CURRENT_GENERATION_ENGINE
+    if req.languages is not None:
+        analysis_payload["course_language_policy"] = {"primary": req.language, "requested": req.languages}
     from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_PENDING_KEY
     from app.modules.ai.v3.qa_luna_pending_policy import admission_marker
 

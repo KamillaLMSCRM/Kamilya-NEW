@@ -1030,11 +1030,14 @@ async def publish_course(
                 "message": ("Генерация курса по должностной инструкции ещё не завершена"),
             },
         )
+    from app.modules.courses.localizations import ensure_requested_languages
     from app.modules.courses.release_service import (
         CourseContentRequiredError,
         create_course_release,
         create_course_release_from_snapshot,
     )
+
+    await ensure_requested_languages(db, course, cast(dict[str, Any], approved_revision.snapshot) if approved_revision is not None else None)
 
     try:
         release = (

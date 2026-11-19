@@ -15,6 +15,8 @@ import { useIdleTimeout } from '@/lib/useIdleTimeout';
 import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 import { useLanguageStore } from '@/store/languageStore';
+import { contentLanguages, isCourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { useCourseLanguage } from '@/features/course-authoring/useCourseLanguage';
 import { studentDailyLearningCopy } from '@/features/student-daily-learning/nextAssignment';
 import { isTrustedScormBridgeMessage, type ScormBridgeStatus } from '@/features/scorm/bridge';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
@@ -139,6 +141,9 @@ export default function CoursePlayerPage() {
   const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
+  const courseLocale = useCourseLanguage(
+    courseId, user?.role === 'student' ? `${user.tenant_id}:${user.user_id}` : undefined, lang,
+  );
   const courseListHref = user?.role === 'student' ? '/my-courses' : '/courses';
   const isPrivilegedPreview = user?.role === 'admin'
     || user?.role === 'superadmin'
@@ -894,7 +899,16 @@ export default function CoursePlayerPage() {
           <Link href={courseListHref} className="flex items-center gap-1 text-sm text-primary hover:underline">
             <ChevronLeft className="w-4 h-4" /> {t('courses.title')}
           </Link>
-          <h2 className="mt-3 break-words font-semibold leading-6">{course.title}</h2>
+          <h2 className="mt-3 break-words font-semibold leading-6">{courseLocale.text('course', courseId, 'title', course.title)}</h2>
+          {courseLocale.available.length > 1 && <label className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            {lang === 'kk' ? 'Курс тілі' : lang === 'en' ? 'Course language' : 'Язык курса'}
+            <select className="rounded-lg border border-border bg-background p-2"
+              value={courseLocale.language} onChange={event => {
+                if (isCourseLanguage(event.target.value)) courseLocale.choose(event.target.value);
+              }}>
+              {courseLocale.available.map(language => <option key={language} value={language}>{contentLanguages[language]}</option>)}
+            </select>
+          </label>}
           <div className="mt-2 h-2 bg-muted rounded">
             <div className="h-2 bg-primary rounded transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
@@ -909,12 +923,12 @@ export default function CoursePlayerPage() {
         <nav id="learner-course-outline" aria-label={workspaceCopy.outline} className={`${outlineOpen ? 'block' : 'hidden'} max-h-[50dvh] xl:max-h-none xl:block flex-1 overflow-y-auto p-4 space-y-3`}>
           {modules.map((mod) => (
             <div key={mod.id}>
-              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{mod.title}</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">{courseLocale.text('module', mod.id, 'title', mod.title)}</p>
               {mod.lessons.map((lesson) => (
                 <button
                   type="button"
                   key={lesson.id}
-                  aria-label={`${workspaceCopy.lesson}: ${lesson.title}`}
+                  aria-label={`${workspaceCopy.lesson}: ${courseLocale.text('lesson', lesson.id, 'title', lesson.title)}`}
                   aria-current={selectedLesson?.id === lesson.id ? 'step' : undefined}
                   disabled={assignmentAccessBlocked}
                   className={`w-full text-left text-sm p-3 rounded flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-50 ${selectedLesson?.id === lesson.id ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-foreground'}`}
@@ -934,7 +948,7 @@ export default function CoursePlayerPage() {
                   <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-xs ${completedLessons.has(lesson.id) ? 'bg-success text-success-foreground border-success' : 'border-border'}`}>
                     {completedLessons.has(lesson.id) && <CheckCircle2 className="w-3 h-3" />}
                   </span>
-                  {lesson.title}
+                  {courseLocale.text('lesson', lesson.id, 'title', lesson.title)}
                 </button>
               ))}
             </div>
@@ -952,7 +966,7 @@ export default function CoursePlayerPage() {
             <WorkspacePanel bodyClassName="p-5 sm:p-8" padded={false}>
             <header className="mb-7 flex flex-wrap items-start justify-between gap-4 border-b border-border pb-6">
               <div className="min-w-0 flex-1">
-                <h1 ref={lessonHeadingRef} tabIndex={-1} className="break-words text-2xl font-semibold leading-tight tracking-tight focus:outline-none sm:text-3xl">{selectedLesson.title}</h1>
+                <h1 ref={lessonHeadingRef} tabIndex={-1} className="break-words text-2xl font-semibold leading-tight tracking-tight focus:outline-none sm:text-3xl">{courseLocale.text('lesson', selectedLesson.id, 'title', selectedLesson.title)}</h1>
                 <p className="mt-2 text-sm text-muted-foreground">{workspaceCopy.learningHint}</p>
                 {lessonCompleted && <p className="mt-2 text-xs font-medium text-success">{workspaceCopy.materialDone}</p>}
               </div>
@@ -962,8 +976,8 @@ export default function CoursePlayerPage() {
             <article className="prose min-w-0 max-w-none break-words text-base leading-8 [&_table]:block [&_table]:overflow-x-auto">
               {selectedLesson.content ? (
                 <LessonContent
-                  text={selectedLesson.content}
-                  omitFirstHeading={selectedLesson.title}
+                  text={courseLocale.text('lesson', selectedLesson.id, 'content', selectedLesson.content)}
+                  omitFirstHeading={courseLocale.text('lesson', selectedLesson.id, 'title', selectedLesson.title)}
                   className="space-y-4 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc"
                 />
               ) : (
@@ -995,7 +1009,7 @@ export default function CoursePlayerPage() {
                       </svg>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{lessonQuiz.title}</h3>
+                      <h3 className="font-semibold text-foreground">{courseLocale.text('quiz', lessonQuiz.id, 'title', lessonQuiz.title)}</h3>
                       <p className="text-sm text-muted-foreground">
                         {t('quiz.passScore')}: {lessonQuiz.pass_score}%
                         {` · ${t('quiz.attempts')}: ${lessonQuiz.attempt_limit}`}
@@ -1034,7 +1048,7 @@ export default function CoursePlayerPage() {
                         {assignmentAccessBlocked ? (
                           <Button disabled>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
                         ) : (
-                          <Link href={`/courses/quiz/${lessonQuiz.id}${canPreviewQuiz ? '/preview' : ''}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}`}>
+                          <Link href={`/courses/quiz/${lessonQuiz.id}${canPreviewQuiz ? '/preview' : ''}?courseId=${encodeURIComponent(courseId)}&lessonId=${encodeURIComponent(selectedLesson.id)}${courseLocale.language ? `&language=${courseLocale.language}` : ''}`}>
                             <Button>{t('quiz.startQuiz')} <ChevronRight className="w-4 h-4 ml-1" /></Button>
                           </Link>
                         )}

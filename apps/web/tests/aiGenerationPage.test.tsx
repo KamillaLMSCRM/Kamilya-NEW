@@ -520,7 +520,9 @@ describe('/ai/generate multi-document selection contract', () => {
     mockCatalogWith(readyDocuments);
     render(<AIGeneratePage />);
     expect(await screen.findByRole('textbox', { name: 'Целевая аудитория' })).toHaveAttribute('id', 'course-target-audience');
-    expect(screen.getByRole('combobox', { name: 'Язык' })).toHaveAttribute('id', 'course-output-language');
+    expect(screen.getByRole('checkbox', { name: 'Русский' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Қазақша' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'English' })).not.toBeChecked();
     expect(await screen.findByRole('combobox', { name: 'Формат курса' })).toHaveValue('automatic');
     expect(screen.queryByRole('spinbutton', { name: 'Количество модулей' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Расширенные настройки структуры'));

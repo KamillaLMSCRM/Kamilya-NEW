@@ -14,6 +14,7 @@ import { CheckCircle2, Download, Loader2, XCircle } from 'lucide-react';
 import { getRoleHome } from '@/lib/rolePolicy';
 import { isPdfPreview } from '@/lib/pdfPreview';
 import { useLanguageStore } from '@/store/languageStore';
+import { isCourseLanguage } from '@/features/course-authoring/courseLanguages';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
 
@@ -106,6 +107,8 @@ function ScopedQuizPlayer() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const parentCourseId = searchParams.get('courseId');
+  const requestedLanguage = searchParams.get('language');
+  const [courseLanguage] = useState(() => isCourseLanguage(requestedLanguage) ? requestedLanguage : undefined);
   const { t } = useT();
   const lang = useLanguageStore((state) => state.lang);
   const copy = getLearnerWorkspaceCopy(lang);
@@ -192,7 +195,7 @@ function ScopedQuizPlayer() {
     setAttemptsLoaded(false);
     try {
       const [quizRes, attemptsRes, structureRes, accessWindowRes] = await Promise.all([
-        fetch(`${API_URL}/v1/quizzes/${quizId}`, { headers: { Authorization: `Bearer ${requestToken}` } }),
+        fetch(`${API_URL}/v1/quizzes/${quizId}${courseLanguage ? `?language=${courseLanguage}` : ''}`, { headers: { Authorization: `Bearer ${requestToken}` } }),
         fetch(`${API_URL}/v1/quizzes/${quizId}/attempts`, { headers: { Authorization: `Bearer ${requestToken}` } }),
         parentCourseId
           ? fetch(`${API_URL}/v1/courses/${parentCourseId}/structure`, { headers: { Authorization: `Bearer ${requestToken}` } })
@@ -268,7 +271,7 @@ function ScopedQuizPlayer() {
     } finally {
       if (isCurrent()) setLoading(false);
     }
-  }, [quizId, API_URL, parentCourseId]);
+  }, [quizId, API_URL, parentCourseId, courseLanguage]);
 
   useEffect(() => {
     fetchQuiz();
