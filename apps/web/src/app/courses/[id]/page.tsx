@@ -737,7 +737,8 @@ export default function CoursePlayerPage() {
       if (!res.ok) {
         const detail = await res.json().catch(() => null);
         if (!isCurrentAction()) return;
-        throw new Error(typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`);
+        throw new Error(typeof detail?.message === 'string' ? detail.message
+          : typeof detail?.detail === 'string' ? detail.detail : `HTTP ${res.status}`);
       }
       const data = await res.json();
       if (!isCurrentAction()) return;

@@ -88,6 +88,7 @@ async def test_learner_assistant_forwards_authenticated_tenant_to_provider(
 ) -> None:
     tenant_id = uuid4()
     course_id = uuid4()
+    monkeypatch.setattr(learner_router, "_recent_history", AsyncMock(return_value=[]))
 
     class StubLLM:
         async def ainvoke(self, _messages):
@@ -117,7 +118,7 @@ async def test_learner_assistant_forwards_authenticated_tenant_to_provider(
     )
 
     response = await learner_router.learner_chat(
-        LearnerAssistantChatRequest(course_id=course_id, message="Объясни термин"),
+        LearnerAssistantChatRequest(course_id=course_id, lesson_id=uuid4(), message="Объясни термин"),
         db=StubDB(),  # type: ignore[arg-type]
         user=SimpleNamespace(id=uuid4(), tenant_id=tenant_id),
     )

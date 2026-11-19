@@ -257,7 +257,7 @@ async def test_completed_assignment_cannot_create_learner_assistant_messages(mon
 
     with pytest.raises(HTTPException) as exc_info:
         await assistant_router.learner_chat(
-            LearnerAssistantChatRequest(course_id=course_id, message="Можно задать вопрос после завершения?"),
+            LearnerAssistantChatRequest(course_id=course_id, lesson_id=uuid4(), message="Можно задать вопрос после завершения?"),
             db=db,
             user=user,
         )
