@@ -288,20 +288,25 @@ describe('learner quiz result navigation', () => {
     expect(routerPushMock).toHaveBeenCalledWith('/courses/course-1?lessonId=lesson-1#finish-course');
   });
 
-  it('rotates MCQ choices between attempts while keeping their ids selectable', async () => {
+  it('changes multiple-answer order on retry and keeps it after reopening the same attempt', async () => {
     quizPayload = {
       ...quiz,
       questions: [{
         ...quiz.questions[0],
-        order_index: 1,
+        type: 'multiple_choice',
         choices: [
-          { id: 'choice-a', text: 'Вариант A', order_index: 0 },
-          { id: 'choice-b', text: 'Вариант B', order_index: 1 },
-          { id: 'choice-c', text: 'Вариант C', order_index: 2 },
-          { id: 'choice-d', text: 'Вариант D', order_index: 3 },
+          ...quiz.questions[0].choices,
+          { id: 'choice-b', text: 'Другой вариант', order_index: 1 },
+          { id: 'choice-c', text: 'Третий вариант', order_index: 2 },
         ],
       }],
     };
+    const labels = () => screen.getAllByRole('checkbox').map(input => input.parentElement?.textContent);
+    const first = render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    const initialOrder = labels();
+    first.unmount();
+
     previousAttempts = [{
       id: 'attempt-previous',
       score_percent: 25,
@@ -310,17 +315,22 @@ describe('learner quiz result navigation', () => {
       completed_at: '2026-09-13T00:01:00Z',
     }];
 
-    render(<QuizPlayerPage />);
-
+    const second = render(<QuizPlayerPage />);
     await screen.findByText('Верный ответ?');
-    const labels = screen.getAllByRole('radio').map((radio) => radio.parentElement?.textContent);
-    expect(labels).toEqual(['Вариант B', 'Вариант C', 'Вариант D', 'Вариант A']);
-    fireEvent.click(screen.getAllByRole('radio')[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
+    const nextOrder = labels();
+    expect(nextOrder).not.toEqual(initialOrder);
+    expect([...nextOrder].sort()).toEqual([...initialOrder].sort());
+    second.unmount();
 
+    render(<QuizPlayerPage />);
+    await screen.findByText('Верный ответ?');
+    expect(labels()).toEqual(nextOrder);
+    const choice = quiz.questions[0].choices[0];
+    fireEvent.click(screen.getByRole('checkbox', { name: choice.text }));
+    fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining('/v1/quizzes/quiz-1/submit'),
-      expect.objectContaining({ body: expect.stringContaining('choice-b') }),
+      expect.objectContaining({ body: expect.stringContaining(choice.id) }),
     ));
   });
 
@@ -341,10 +351,12 @@ describe('learner quiz result navigation', () => {
     await screen.findByText('Верный ответ?');
     expect(screen.getAllByRole('radio')).toHaveLength(2);
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
-    fireEvent.click(screen.getAllByRole('radio')[0]);
-    fireEvent.click(screen.getAllByRole('radio')[1]);
-    expect(screen.getAllByRole('radio')[0]).not.toBeChecked();
-    expect(screen.getAllByRole('radio')[1]).toBeChecked();
+    const firstChoice = screen.getByRole('radio', { name: 'true' });
+    const secondChoice = screen.getByRole('radio', { name: 'false' });
+    fireEvent.click(firstChoice);
+    fireEvent.click(secondChoice);
+    expect(firstChoice).not.toBeChecked();
+    expect(secondChoice).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
 
     await screen.findByText('Тест пройден');
@@ -370,10 +382,12 @@ describe('learner quiz result navigation', () => {
     await screen.findByText('Верный ответ?');
     expect(screen.getAllByRole('radio')).toHaveLength(2);
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
-    fireEvent.click(screen.getAllByRole('radio')[0]);
-    fireEvent.click(screen.getAllByRole('radio')[1]);
-    expect(screen.getAllByRole('radio')[0]).not.toBeChecked();
-    expect(screen.getAllByRole('radio')[1]).toBeChecked();
+    const firstChoice = screen.getByRole('radio', { name: 'Первый' });
+    const secondChoice = screen.getByRole('radio', { name: 'Второй' });
+    fireEvent.click(firstChoice);
+    fireEvent.click(secondChoice);
+    expect(firstChoice).not.toBeChecked();
+    expect(secondChoice).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'quiz.finish' }));
 
     await screen.findByText('Тест пройден');

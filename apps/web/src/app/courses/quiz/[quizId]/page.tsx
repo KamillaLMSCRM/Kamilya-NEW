@@ -15,6 +15,7 @@ import { getRoleHome } from '@/lib/rolePolicy';
 import { isPdfPreview } from '@/lib/pdfPreview';
 import { useLanguageStore } from '@/store/languageStore';
 import { isCourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
 
@@ -423,11 +424,8 @@ function ScopedQuizPlayer() {
   const finishCourseHref = result?.passed && courseHref && currentLessonIndex >= 0 && !nextLesson && !assignmentBlocked
     ? `${courseHref}#finish-course`
     : null;
-  const choiceRotation = currentQ?.type === 'MCQ' && currentQ.choices.length > 1
-    ? attemptsUsed % currentQ.choices.length
-    : 0;
   const displayedChoices = currentQ
-    ? [...currentQ.choices.slice(choiceRotation), ...currentQ.choices.slice(0, choiceRotation)]
+    ? attemptChoiceOrder(currentQ.choices, JSON.stringify([user?.tenant_id, user?.user_id, quizId]), currentQ.id, attemptsUsed)
     : [];
   const visibleRemainingSeconds = assignmentRemainingSeconds ?? timeLeft;
 

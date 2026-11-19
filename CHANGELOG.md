@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- В тестах курсов и самостоятельных проверках знаний порядок ответов меняется между попытками и сохраняется при обновлении страницы.
+
 ### Added
 - Retain embedded PPTX screenshots with slide-level references and recognize them through the private Luna connector.
 - Native lesson content can embed a YouTube video over a specified time range,
