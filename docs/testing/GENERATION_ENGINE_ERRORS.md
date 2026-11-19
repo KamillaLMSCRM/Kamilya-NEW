@@ -2483,3 +2483,16 @@ approved521 and53source replies; rejected CHG-L100N is not restored.
   the hosted smoke check and artifact metadata still expected 0.146.1.
   The hardened smoke now compares the actual installed version with the
   runner's pin and feeds its result into the artifact receipt.
+
+## ENG-086 - PPTX screenshot-only slide lost its lesson illustration
+
+- Native DEV generated a correct transcription from the synthetic slide
+  without visible OOXML text and showed its original image in source review.
+  Its prepared asset was classified as a page scan, which intentionally kept
+  the image marker and course-serving allowlist entry out of the lesson path.
+- For placed PPTX pictures, preserve the slide anchor and illustration marker
+  while retaining the existing literal image reading and unreadable-page
+  check. Other document scan handling stays as before.
+- Regression reproduces the missing image marker with fixture visual replies,
+  then checks slide location, preserved OCR, the approved source inventory,
+  and the course/lesson asset URL. No regenerated model reply in this check.
