@@ -2501,3 +2501,8 @@ native22/12ready parts retained for normal continuation, no extra source review.
   the verified managed client. The general production provider order stays
   as configured. Regression control exercises Luna 6 in a scope where the
   generic reserve identity may differ. No failed model request was submitted.
+
+- Connector build preflight: the installer and runner pinned 0.166.0, while
+  the hosted smoke check and artifact metadata still expected 0.146.1.
+  The hardened smoke now compares the actual installed version with the
+  runner's pin and feeds its result into the artifact receipt.
