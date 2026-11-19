@@ -91,7 +91,7 @@ def _identity(document_sha: str, kind: str, locator: dict[str, Any], digest: str
 def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
                           max_image_bytes: int, max_image_pixels: int) -> NativeSource | None:
     suffix = PurePath(filename).suffix.lower()
-    if suffix not in (".docx", ".pdf"):
+    if suffix not in (".docx", ".pdf", ".pptx"):
         return None
     if hashlib.sha256(blob).hexdigest() != document_sha256:
         raise ValueError("native_source_sha256_mismatch")
@@ -137,6 +137,31 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
                                       data, width, height, locator))
             seen_assets.add(asset_id)
         return asset_id
+
+    if suffix == ".pptx":
+        from app.modules.ai.pptx_source import iter_presentation_slides
+
+        slide_count = 0
+        asset_by_member: dict[str, str] = {}
+        for slide in iter_presentation_slides(io.BytesIO(blob), max_image_bytes=max_image_bytes):
+            slide_count = slide.number
+            location = {"page": slide.number, "slide": slide.number, "member": slide.member}
+            picture_ids = []
+            for index, picture in enumerate(slide.pictures):
+                placement = {**location, "image": index, "media_member": picture.member}
+                if picture.member not in asset_by_member:
+                    asset_by_member[picture.member] = add_asset(picture.data, placement)
+                picture_ids.append((asset_by_member[picture.member], placement))
+            if slide.needs_text and picture_ids:
+                add_block("page", "", tuple(asset_id for asset_id, _ in picture_ids), slide.number, location)
+            if slide.text:
+                add_block("text", slide.text, (), slide.number, location)
+            if not slide.needs_text:
+                for asset_id, placement in picture_ids:
+                    add_block("image", "", (asset_id,), slide.number, placement)
+        if not assets:
+            return None  # Keep the existing path for presentations without visual material.
+        return NativeSource(tuple(blocks), tuple(assets), slide_count, ())
 
     if suffix == ".docx":
         from docx import Document

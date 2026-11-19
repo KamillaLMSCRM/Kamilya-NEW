@@ -1,3 +1,28 @@
+## 2026-11-19 — PowerPoint source preparation, local candidate
+
+The next media slice passes embedded PPTX raster pictures to the existing
+source-preparation pipeline. Slides retain presentation order, native text,
+tables, notes and slide locators. The original bytes and distinct placements
+survive when the same image is reused. Slides with pictures and no visible
+text use the OCR path. Text-only decks retain the existing source route.
+External picture links, material cropping and unsupported graphic frames stop
+preparation so the review does not silently discard their content.
+
+Local API unit suite: 9012 passed, 1 skipped. Focused conversion, extraction,
+visual preparation and source review suite: 141 passed. Python quality baseline
+1004/2175 passed. Synthetic visual responses tested the handoff, storage,
+transcription and slide locator. Actual model recognition and deployed DEV
+are pending. CodeGraph runtime was absent in the linked checkout, so callers
+were confirmed in the parser, preparation service and focused tests.
+
+Release order: finish and accept learner dialogue122 first. Next use a separate
+PPTX candidate with the same API and documents-worker revision. Include a
+text-only deck, a text-plus-screenshot deck and an image-only slide, and confirm
+that the reviewed image, note, table and slide locator survive through source
+approval. The existing visual path uses DeepSeek. Luna is currently text-only in
+that path. Live paid visual calls require separate owner authorization. BBB is
+tracked in PRODUCT_BACKLOG.md for the standalone BiOT delivery.
+
 ## Current - 2026-11-18: learner dialogue122 LOCAL; production121 unchanged
 
 result: Owner second learner-assistant package implemented locally from accepted

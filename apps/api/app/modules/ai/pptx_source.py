@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import posixpath
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import BinaryIO
 from xml.etree.ElementTree import Element
 from zipfile import ZipFile
 
@@ -27,6 +29,7 @@ _MAX_XML = 8 * 1024 * 1024
 _MAX_RENDERED = 4_000_000
 _SLIDE = re.compile(r'ppt/slides/[^/]+\.xml')
 _NOTES = re.compile(r'ppt/notesSlides/[^/]+\.xml')
+_MEDIA = re.compile(r'ppt/media/[^/]+')
 
 
 class PresentationNeedsTextError(RuntimeError):
@@ -38,6 +41,22 @@ class Presentation:
     markdown: str
     slides: int
     tables: int
+
+
+@dataclass(frozen=True)
+class SlidePicture:
+    member: str
+    data: bytes
+
+
+@dataclass(frozen=True)
+class PresentationSlide:
+    number: int
+    member: str
+    text: str
+    tables: int
+    needs_text: bool
+    pictures: tuple[SlidePicture, ...]
 
 
 def _tag(namespace: str, name: str) -> str:
@@ -55,9 +74,10 @@ def _xml(archive: ZipFile, name: str) -> Element:
             if ns in _STRICT:
                 node.tag = _tag(_STRICT[ns], local)
         for ns, normal in _STRICT.items():
-            key = _tag(ns, 'id')
-            if key in node.attrib:
-                node.set(_tag(normal, 'id'), node.attrib.pop(key))
+            for attribute in ('id', 'embed', 'link'):
+                key = _tag(ns, attribute)
+                if key in node.attrib:
+                    node.set(_tag(normal, attribute), node.attrib.pop(key))
     return root
 
 
@@ -111,44 +131,102 @@ def _shape_content(tree: Element) -> tuple[list[str], int]:
     return sections, tables
 
 
+def _slide_pictures(
+    archive: ZipFile, part: str, tree: Element, max_image_bytes: int, image_cache: dict[str, bytes],
+) -> tuple[SlidePicture, ...]:
+    for frame in tree.iter(_tag(_P, 'graphicFrame')):
+        if frame.find(f'.//{_tag(_A, "tbl")}') is None:
+            raise ValueError('native_source_unsupported_visual')
+    if any(node.tag in {_tag(_A, 'videoFile'), _tag(_A, 'audioFile'), _tag(_P, 'oleObj')}
+           for node in tree.iter()):
+        raise ValueError('native_source_unsupported_visual')
+    try:
+        targets = _links(archive, part, 'image', _MEDIA)
+    except ValueError as exc:
+        raise ValueError('native_source_unsupported_visual') from exc
+    pictures = []
+    used_blips = set()
+    for picture in tree.iter(_tag(_P, 'pic')):
+        blip = picture.find(f'{_tag(_P, "blipFill")}/{_tag(_A, "blip")}')
+        if blip is None or blip.get(_tag(_R, 'link')) or blip.get(_tag(_R, 'embed'), '') not in targets:
+            raise ValueError('native_source_unsupported_visual')
+        used_blips.add(blip)
+        crop = picture.find(f'{_tag(_P, "blipFill")}/{_tag(_A, "srcRect")}')
+        if crop is not None and any(value not in {'0', '0%'} for value in crop.attrib.values()):
+            raise ValueError('native_source_unsupported_visual')
+        member = targets[blip.get(_tag(_R, 'embed'), '')]
+        if member not in image_cache:
+            try:
+                entry = archive.getinfo(member)
+            except KeyError as exc:
+                raise ValueError('native_source_unsupported_visual') from exc
+            if not 0 < entry.file_size <= max_image_bytes:
+                raise ValueError('native_image_byte_limit')
+            image_cache[member] = archive.read(entry)
+        pictures.append(SlidePicture(member, image_cache[member]))
+    if any(blip not in used_blips for blip in tree.iter(_tag(_A, 'blip'))):
+        raise ValueError('native_source_unsupported_visual')
+    return tuple(pictures)
+
+
+def iter_presentation_slides(
+    source: BinaryIO, *, max_image_bytes: int | None = None,
+) -> Iterator[PresentationSlide]:
+    """Read slides in presentation order. Load embedded pictures only for source preparation."""
+    preflight_ooxml(source, '.pptx')
+    with ZipFile(source) as archive:
+        main = 'ppt/presentation.xml'
+        relations = _links(archive, main, 'slide', _SLIDE)
+        ids = _xml(archive, main).findall(f'{_tag(_P, "sldIdLst")}/{_tag(_P, "sldId")}')
+        order = [relations.get(node.get(_tag(_R, 'id'), '')) for node in ids]
+        if not order or None in order or len(set(order)) != len(order):
+            raise ValueError('PowerPoint slide order is missing or invalid')
+        characters = 0
+        image_cache: dict[str, bytes] = {}
+        for number, part in enumerate(order, start=1):
+            if part is None:
+                raise ValueError('Invalid PowerPoint slide target')
+            slide = _xml(archive, part)
+            tree = slide.find(f'{_tag(_P, "cSld")}/{_tag(_P, "spTree")}')
+            if tree is None:
+                raise ValueError('PowerPoint slide content is missing')
+            sections, tables = _shape_content(tree)
+            needs_text = not sections and any(node.tag in {_tag(_P, 'pic'), _tag(_P, 'graphicFrame')}
+                                             for node in tree.iter())
+            notes: list[str] = []
+            notes_parts = _links(archive, part, 'notesSlide', _NOTES)
+            if len(notes_parts) > 1:
+                raise ValueError('PowerPoint slide has multiple note sources')
+            for notes_part in notes_parts.values():
+                for shape in _xml(archive, notes_part).iter(_tag(_P, 'sp')):
+                    placeholder = shape.find(f'.//{_tag(_P, "ph")}')
+                    if placeholder is not None and placeholder.get('type') == 'body':
+                        notes.extend(_paragraphs(shape))
+            body = ''
+            if sections or notes:
+                body = '\n\n'.join([f'## [Slide {number}]', *sections,
+                                    *(['### [Speaker notes]', *notes] if notes else [])])
+                characters += len(body) + 2
+                if characters > _MAX_RENDERED:
+                    raise ValueError('PowerPoint content exceeds the safe conversion size')
+            pictures = (_slide_pictures(archive, part, tree, max_image_bytes, image_cache)
+                        if max_image_bytes is not None else ())
+            background = slide.find(f'{_tag(_P, "cSld")}/{_tag(_P, "bg")}')
+            if (max_image_bytes is not None and background is not None
+                    and background.find(f'.//{_tag(_A, "blip")}') is not None):
+                raise ValueError('native_source_unsupported_visual')
+            yield PresentationSlide(number, part, body, tables, needs_text, pictures)
+
+
 def read_presentation(path: str) -> Presentation:
+    blocks: list[str] = []
+    count = tables = 0
     with open(path, 'rb') as source:
-        preflight_ooxml(source, '.pptx')
-        with ZipFile(source) as archive:
-            main = 'ppt/presentation.xml'
-            relations = _links(archive, main, 'slide', _SLIDE)
-            ids = _xml(archive, main).findall(f'{_tag(_P, "sldIdLst")}/{_tag(_P, "sldId")}')
-            order = [relations.get(node.get(_tag(_R, 'id'), '')) for node in ids]
-            if not order or None in order or len(set(order)) != len(order):
-                raise ValueError('PowerPoint slide order is missing or invalid')
-            blocks: list[str] = []
-            characters = tables = 0
-            for number, part in enumerate(order, start=1):
-                if part is None:  # narrowed for type checkers; rejected above
-                    raise ValueError('Invalid PowerPoint slide target')
-                slide = _xml(archive, part)
-                tree = slide.find(f'{_tag(_P, "cSld")}/{_tag(_P, "spTree")}')
-                if tree is None:
-                    raise ValueError('PowerPoint slide content is missing')
-                sections, count = _shape_content(tree)
-                visual_only = not sections and any(node.tag in {_tag(_P, 'pic'), _tag(_P, 'graphicFrame')}
-                                                   for node in tree.iter())
-                if visual_only:
-                    raise PresentationNeedsTextError('PowerPoint slide needs a text source')
-                tables += count
-                notes: list[str] = []
-                notes_parts = _links(archive, part, 'notesSlide', _NOTES)
-                if len(notes_parts) > 1:
-                    raise ValueError('PowerPoint slide has multiple note sources')
-                for notes_part in notes_parts.values():
-                    for shape in _xml(archive, notes_part).iter(_tag(_P, 'sp')):
-                        placeholder = shape.find(f'.//{_tag(_P, "ph")}')
-                        if placeholder is not None and placeholder.get('type') == 'body':
-                            notes.extend(_paragraphs(shape))
-                if sections or notes:
-                    body = '\n\n'.join([f'## [Slide {number}]', *sections, *(['### [Speaker notes]', *notes] if notes else [])])
-                    characters += len(body) + 2
-                    if characters > _MAX_RENDERED:
-                        raise ValueError('PowerPoint content exceeds the safe conversion size')
-                    blocks.append(body)
-            return Presentation('\n\n'.join(blocks), len(order), tables)
+        for slide in iter_presentation_slides(source):
+            if slide.needs_text:
+                raise PresentationNeedsTextError('PowerPoint slide needs a text source')
+            if slide.text:
+                blocks.append(slide.text)
+            tables += slide.tables
+            count += 1
+    return Presentation('\n\n'.join(blocks), count, tables)
