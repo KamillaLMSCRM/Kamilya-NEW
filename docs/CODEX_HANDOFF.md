@@ -1,3 +1,10 @@
+## 2026-11-19 — PPTX visual sources, DEV integration
+
+The parser, source review and visual transport from the separate PPTX release
+candidate are integrated here over DEV 120. The DEV-only 8 MiB text transport
+limit remains intact. The production candidate is based on production 122.
+Live acceptance is pending.
+
 ## Current — 2026-11-18: CONTEXT120B LOCAL contract fix; DEV120A not accepted
 
 Native furniture06339b6f completed11Luna6HIGH calls711832IN33062OUT,3lessons12cards,

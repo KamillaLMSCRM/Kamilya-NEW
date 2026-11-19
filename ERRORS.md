@@ -7754,6 +7754,14 @@ fail-closed absence and ambient precedence removal. Never reconstruct a relative
 
 ## RELEASE-005 - Persistent runner used stale checkout policy and produced a false DEV access block
 
+- 2026-11-19: the owner reported Codex startup failure after setup touched the
+  workstation config. The exact startup error and cause were not independently
+  captured. A runner permission issue is executor-local. Preserve the workstation
+  config, use the existing authorized protected workflow/runner where appropriate,
+  and confirm actual app startup and effective chat permissions before claiming
+  a future configuration repair. The installed production runner and the
+  dedicated Release Runner chat are separate components.
+
 - Recurrence,2026-10-16: guide59 Release Runner's executor twice failed GitHub
   network access, while Root's canonical project-account helper reached the same
   provider. Preserve both failures, stop that executor after two identical results,

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Retain embedded PPTX screenshots with slide-level references and recognize them through the private Luna connector.
+
 ## [0.11.120] - 2026-11-18
 
 ### Fixed

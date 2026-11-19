@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
 import importlib.util
 import json
@@ -639,3 +640,39 @@ async def test_parent_exited_descendant_cannot_survive_windows_job_close(worker,
         await worker._run(["-c", parent_code], b"", cwd=tmp_path, timeout=0.3)
     await asyncio.sleep(1.6)
     assert not canary.exists()
+
+
+@pytest.mark.asyncio
+async def test_inline_image_bound_to_pinned_cli_and_removed_after_turn(worker, monkeypatch):
+    raster = b"\x89PNG\r\n\x1a\n" + b"fixture"
+    wire_image = base64.b64encode(raster).decode("ascii")
+    attachments = []
+
+    async def run(args, stdin, *, cwd, timeout):
+        assert args[-2:] == ["--", "-"]
+        path = Path(args[args.index("--image") + 1])
+        assert path.parent == cwd and path.read_bytes() == raster
+        assert wire_image.encode() not in stdin
+        assert json.loads(stdin)["messages"][0]["content"] == "Read exact values\n[Attached image 1]"
+        attachments.append(path)
+        return 0, output(), b""
+
+    monkeypatch.setattr(worker, "_run", run)
+    await worker.complete(payload(messages=[{"role": "user", "content": [
+        {"type": "text", "text": "Read exact values"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64," + wire_image}},
+    ]}]))
+    assert len(attachments) == 1 and not attachments[0].exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url", ["https://example.invalid/image.png", "data:image/png;base64,%%%%",
+                                 "data:image/png;base64,aGVsbG8=", "file:///not-allowed.png"])
+async def test_images_use_only_bounded_inline_png_or_jpeg(worker, modules, monkeypatch, url):
+    run = AsyncMock(side_effect=AssertionError("must not execute"))
+    monkeypatch.setattr(worker, "_run", run)
+    with pytest.raises(modules[0].RunnerError, match="invalid_input"):
+        await worker.complete(payload(messages=[{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": url}},
+        ]}]))
+    run.assert_not_awaited()
