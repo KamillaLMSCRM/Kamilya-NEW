@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import require_role
 from app.core.db import get_db
 from app.models.users import User
-from app.modules.admin.model_routing.chatgpt_reserve import ChatGPTReserveReadiness, check_readiness
+from app.modules.admin.model_routing.chatgpt_reserve import ChatGPTReserveReadiness, check_runtime_readiness
 from app.modules.admin.model_routing.schemas import (
     GenerationModelRoutingResponse,
     GenerationModelRoutingUpdate,
@@ -24,6 +24,7 @@ from app.modules.admin.model_routing.service import (
     RoutingReserveNotReadyError,
     RoutingRevisionConflictError,
 )
+from app.modules.admin.runtime_configuration.runtime import RuntimeSettingsUnavailable
 
 router = APIRouter(prefix="/admin/model-routing", tags=["admin", "model-routing"])
 
@@ -41,7 +42,10 @@ RoutingService = Annotated[GenerationModelRoutingService, Depends(_service)]
 
 @router.post("/chatgpt-readiness", response_model=ChatGPTReserveReadiness)
 async def get_chatgpt_reserve_readiness(user: SuperadminUser) -> ChatGPTReserveReadiness:
-    return await check_readiness()
+    try:
+        return await check_runtime_readiness()
+    except RuntimeSettingsUnavailable as exc:
+        raise HTTPException(503, "runtime_settings_unavailable") from exc
 
 
 @router.get("", response_model=GenerationModelRoutingResponse)

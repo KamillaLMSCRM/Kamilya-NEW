@@ -1011,10 +1011,18 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
 
             try:
                 if binding is None and native is not None:
+                    vision_batch_size = runtime.integer("source_preparation.vision_batch_size")
+                    if managed is not None or (native.assets and llm is not None
+                            and select_visual_config([client.config for client in llm._clients]).name == "chatgpt-reserve"):
+                        # A single allowed raster plus its base64 encoding and
+                        # envelope fit the private connector's request ceiling.
+                        vision_batch_size = 1
+                        if any(len(asset.data) > 16 * 1024 * 1024 for asset in native.assets):
+                            raise ReviewConflictError("source_review_unsupported_visual")
                     package = await prepare_native_source(native, original_sha256=claim.original_blob_sha256,
                         complete=preparation_complete, visual_complete=visual_complete, checkpoint=save_block,
                         persist_asset=persist_asset, retained=retained,
-                        vision_batch_size=(1 if managed is not None else runtime.integer("source_preparation.vision_batch_size")),
+                        vision_batch_size=vision_batch_size,
                         preview_chars=runtime.integer("source_preparation.part_preview_chars"))
                     selected_ids = [part.id for part in package.parts if part.role in ("learning", "supporting")]
                     if not selected_ids:

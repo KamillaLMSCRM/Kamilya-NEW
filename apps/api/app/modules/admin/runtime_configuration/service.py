@@ -7,6 +7,8 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.admin.model_routing.chatgpt_reserve import check_readiness
+
 from .catalog import BY_KEY, CATALOG, InvalidSettings, effective_values
 from .models import RuntimeSettings, RuntimeSettingsHistory
 
@@ -82,7 +84,14 @@ class RuntimeSettingsService:
             raise SettingsConflict("runtime_settings_revision_conflict")
         if len(reason.strip()) < 3 or len(reason) > 240:
             raise InvalidSettings("runtime_settings_reason_required")
-        effective_values(overrides)
+        values = effective_values(overrides)
+        current = effective_values(row.overrides)
+        new_luna_model = values["provider.chatgpt.model"]
+        if new_luna_model != current["provider.chatgpt.model"]:
+            assert isinstance(new_luna_model, str)
+            readiness = await check_readiness(model=new_luna_model)
+            if not readiness.ready:
+                raise InvalidSettings("runtime_settings_luna_connector_not_ready")
         if row.overrides == overrides:
             return self.response(row)
         self.db.add(RuntimeSettingsHistory(revision=row.revision + 1, before=dict(row.overrides),

@@ -10,7 +10,7 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from app.core.config import Settings
+from app.core.config import LEGACY_LUNA_MODEL, LUNA6_MODEL, Settings
 from app.modules.admin.model_routing import chatgpt_reserve as reserve
 from app.modules.admin.model_routing import service
 from app.modules.admin.model_routing.catalog import DEFAULT_GENERATION_MODEL_ORDER
@@ -24,6 +24,7 @@ def settings(**changes):
         "CHATGPT_RESERVE_URL": "http://127.0.0.1:18999/v1",
         "CHATGPT_RESERVE_TOKEN": "synthetic-gateway-credential",
         "CHATGPT_RESERVE_AUTH_MODE": "codex_cli",
+        "CHATGPT_RESERVE_MODEL": LEGACY_LUNA_MODEL,
         "DEEPSEEK_API_KEY": "synthetic-primary",
         **changes,
     })
@@ -295,3 +296,16 @@ def test_migration_only_expands_constraint_never_seeds_or_enables():
     assert "UPDATE " not in sql and "INSERT " not in sql and "POLICY" not in sql
     assert '"synthetic_test".generation_model_routing' in sql
     assert "ordered_model_ids ->> 2 <> ordered_model_ids ->> 3" in sql
+
+
+async def test_readiness_uses_effective_luna6_override_with_legacy_environment(monkeypatch):
+    from app.modules.admin.runtime_configuration.catalog import RuntimeSnapshot, effective_values
+    from app.modules.admin.runtime_configuration.runtime import runtime_settings_scope
+
+    monkeypatch.setattr(reserve, "get_settings", settings)
+    payload = {"ready": True, "model": LUNA6_MODEL, "authorization": "codex_cli", "protocol": reserve.PROTOCOL}
+    transport(monkeypatch, lambda request: httpx.Response(200, json=payload))
+    policy = RuntimeSnapshot(2, effective_values({"provider.chatgpt.model": LUNA6_MODEL}, settings=settings()))
+    with runtime_settings_scope(policy):
+        assert (await reserve.check_runtime_readiness()).ready is True
+    assert (await reserve.check_readiness()).reason == "protocol_mismatch"

@@ -4,6 +4,7 @@ from uuid import UUID
 
 import pytest
 
+from app.core.config import LUNA6_MODEL
 from app.modules.admin.model_routing import chatgpt_reserve
 from app.modules.ai import llm_client
 from app.modules.ai.qa_luna_dev_route import QA_TENANT, qa_luna_dev_client
@@ -40,7 +41,8 @@ async def test_enabled_qa_misconfiguration_fails_closed(changes):
 
 @pytest.mark.asyncio
 async def test_unavailable_worker_connector_never_falls_back(monkeypatch):
-    async def unavailable():
+    async def unavailable(*, model):
+        assert model == LUNA6_MODEL
         return SimpleNamespace(ready=False)
     monkeypatch.setattr(chatgpt_reserve, "check_readiness", unavailable)
     with pytest.raises(RuntimeError, match="dev_qa_luna_connector_not_ready"):
@@ -49,7 +51,8 @@ async def test_unavailable_worker_connector_never_falls_back(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_qa_single_reserve_provider_and_no_fallback(monkeypatch):
-    async def ready():
+    async def ready(*, model):
+        assert model == LUNA6_MODEL
         return SimpleNamespace(ready=True)
     config = llm_client.LLMProviderConfig(name="chatgpt-reserve", base_url="http://127.0.0.1:1234/v1",
         model="gpt-5.6-luna", api_key="synthetic", max_retries=0)
@@ -58,14 +61,15 @@ async def test_qa_single_reserve_provider_and_no_fallback(monkeypatch):
     client = await qa_luna_dev_client(settings=settings(), tenant_id=QA_TENANT, temperature=0.1)
     assert len(client._clients) == 1
     assert client._clients[0].config.name == "chatgpt-reserve"
-    assert client._clients[0].config.model == "gpt-5.6-luna"
+    assert client._clients[0].config.model == LUNA6_MODEL
     assert client._clients[0].config.extra_body["reasoning_effort"] == "medium"
     assert "reasoning_effort" not in config.extra_body
     assert client._clients[0].max_retries == 0
 
 @pytest.mark.asyncio
 async def test_vm_worker_exact_qa_route(monkeypatch):
-    async def ready():
+    async def ready(*, model):
+        assert model == LUNA6_MODEL
         return SimpleNamespace(ready=True)
     config = llm_client.LLMProviderConfig(name='chatgpt-reserve', base_url='http://127.0.0.1:1234/v1',
         model='gpt-5.6-luna', api_key='synthetic', max_retries=0)
@@ -73,7 +77,7 @@ async def test_vm_worker_exact_qa_route(monkeypatch):
     monkeypatch.setattr(llm_client, '_generation_fallback_providers', lambda ids: [config])
     client = await qa_luna_dev_client(settings=settings(DEPLOYMENT_ENVIRONMENT='vm-development-worker'), tenant_id=QA_TENANT, temperature=0.1)
     assert len(client._clients) == 1
-    assert client._clients[0].config.model == 'gpt-5.6-luna'
+    assert client._clients[0].config.model == LUNA6_MODEL
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('changes,tenant,should_raise', [

@@ -168,7 +168,7 @@ def _validate_luna_mode(values: dict[str, str]) -> None:
         present = {key for key in reserve_keys if values.get(key)}
         if present and (
             present != reserve_keys
-            or values.get("CHATGPT_RESERVE_MODEL") != "gpt-5.6-luna"
+            or values.get("CHATGPT_RESERVE_MODEL") not in {"gpt-6-luna", "gpt-5.6-luna"}
             or values.get("CHATGPT_RESERVE_AUTH_MODE") != "codex_cli"
             or values.get("CHATGPT_RESERVE_URL")
             not in (
@@ -201,7 +201,7 @@ def _validate_luna_mode(values: dict[str, str]) -> None:
                 if values.get("DEPLOYMENT_ENVIRONMENT") == "vm-development-worker"
                 else {"http://127.0.0.1:18999/v1"}
             )
-            or values.get("CHATGPT_RESERVE_MODEL") != "gpt-5.6-luna"
+            or values.get("CHATGPT_RESERVE_MODEL") not in {"gpt-6-luna", "gpt-5.6-luna"}
             or values.get("CHATGPT_RESERVE_AUTH_MODE") != "codex_cli"
         ):
             raise ValueError("luna_mode_invalid")

@@ -88,7 +88,8 @@ class GenerationModelRoutingService:
             )
 
         if CHATGPT_RESERVE_ROUTE_ID in order and CHATGPT_RESERVE_ROUTE_ID not in row.ordered_model_ids:
-            readiness = await check_readiness()
+            policy = await resolve_runtime_settings(self.db)
+            readiness = await check_readiness(model=policy.text("provider.chatgpt.model"))
             if not readiness.ready:
                 raise RoutingReserveNotReadyError(readiness.reason)
 

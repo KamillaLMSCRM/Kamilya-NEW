@@ -6,6 +6,8 @@ from dataclasses import replace
 from typing import Any
 from uuid import UUID
 
+from app.core.config import LUNA6_MODEL
+
 QA_TENANT = UUID("a7a2c055-fb0b-4f38-b17c-3ee47dd6cfb0")
 
 
@@ -28,11 +30,12 @@ async def qa_luna_dev_client(*, settings: Any, tenant_id: UUID, temperature: flo
     from app.modules.admin.model_routing.chatgpt_reserve import check_readiness
     from app.modules.ai.llm_client import ResilientLLMClient, _generation_fallback_providers
 
-    readiness = await check_readiness()
+    readiness = await check_readiness(model=LUNA6_MODEL)
     if readiness.ready is not True:
         raise RuntimeError("dev_qa_luna_connector_not_ready")
     providers = _generation_fallback_providers((CHATGPT_RESERVE_ROUTE_ID,))
-    if len(providers) != 1 or providers[0].model != "gpt-5.6-luna":
+    if len(providers) != 1:
         raise RuntimeError("dev_qa_luna_provider_not_configured")
-    provider = replace(providers[0], extra_body={**providers[0].extra_body, "reasoning_effort": "medium"})
+    provider = replace(providers[0], model=LUNA6_MODEL,
+                       extra_body={**providers[0].extra_body, "reasoning_effort": "medium"})
     return ResilientLLMClient([provider], temperature=temperature, max_retries_per_provider=0)

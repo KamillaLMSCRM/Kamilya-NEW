@@ -16,7 +16,7 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=128m
     environment:
-      CODEX_CONNECTOR_PROFILE: ${CODEX_CONNECTOR_PROFILE:-legacy-luna56}
+      CODEX_CONNECTOR_PROFILE: ${CODEX_CONNECTOR_PROFILE:-luna6}
       CODEX_CLI_BINARY: /usr/local/bin/codex
       CODEX_CLI_HOME: /codex-home
       CODEX_CLI_SHA256_FILE: /opt/codex-reserve/cli.sha256
@@ -58,7 +58,7 @@ services:
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=128m
     environment:
-      CODEX_CONNECTOR_PROFILE: ${CODEX_CONNECTOR_PROFILE:-legacy-luna56}
+      CODEX_CONNECTOR_PROFILE: ${CODEX_CONNECTOR_PROFILE:-luna6}
     entrypoint: ["python", "/opt/codex-reserve/egress.py"]
     ports:
       - "${CODEX_BIND_IP:-127.0.0.1}:18999:18999"

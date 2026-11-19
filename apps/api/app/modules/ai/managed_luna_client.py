@@ -16,6 +16,8 @@ from uuid import UUID
 
 import httpx
 
+from app.core.config import LEGACY_LUNA_MODEL, LUNA_CONNECTOR_MODELS
+from app.core.config import LUNA6_MODEL as LUNA6_MODEL
 from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocker
 from app.modules.ai.credential_content_guard import contains_credential
 from app.modules.ai.direct_luna_api import LunaUsage
@@ -24,8 +26,7 @@ from app.modules.ai.llm_client import LLMProviderConfig
 from app.modules.ai.source_first_response import parse_source_first_response
 from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
-MODEL = "gpt-5.6-luna"
-LUNA6_MODEL = "gpt-6-luna"
+MODEL = LEGACY_LUNA_MODEL
 MAX_INPUT_BYTES = 524288
 MAX_RESPONSE_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
@@ -114,7 +115,7 @@ class ManagedLunaClient:
                 or not isinstance(job_id, str) or not job_id.strip()
                 or not isinstance(credential_revision, str) or not credential_revision.strip()
                 or isinstance(deadline_seconds, bool) or not isinstance(deadline_seconds, int | float)
-                or type(model) is not str or model not in (MODEL, LUNA6_MODEL)
+                or type(model) is not str or model not in LUNA_CONNECTOR_MODELS
                 or not 0 < deadline_seconds <= (300 if model == LUNA6_MODEL else 120)
                 or type(reasoning_effort) is not str
                 or reasoning_effort not in (("low", "medium", "high") if model == LUNA6_MODEL else ("low", "medium"))

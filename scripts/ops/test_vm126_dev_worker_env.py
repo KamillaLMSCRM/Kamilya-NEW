@@ -500,15 +500,16 @@ def managed_payload() -> bytes:
     )
 
 
-def test_managed_payload_and_render_source_are_scoped_and_omit_direct_secrets() -> None:
-    body = managed_payload()
+@pytest.mark.parametrize("model", [b"gpt-5.6-luna", b"gpt-6-luna"])
+def test_managed_payload_and_render_source_are_scoped_and_omit_direct_secrets(model: bytes) -> None:
+    body = managed_payload().replace(b"gpt-5.6-luna", model)
     receiver.validate_payload(body, RELEASE, hashlib.sha256(body).hexdigest())
     source = dict(line.split("=", 1) for line in body.decode().splitlines())
     source["DEPLOYMENT_ENVIRONMENT"] = "render-development-worker"
     result = receiver.build_payload_from_render_values(source, RELEASE)
     assert b"AI_DIRECT_LUNA_QA_API_KEY=" not in result
     assert b"AI_DIRECT_LUNA_QA_CREDENTIAL_REVISION=" not in result
-    assert b"CHATGPT_RESERVE_MODEL=gpt-5.6-luna\n" in result
+    assert b"CHATGPT_RESERVE_MODEL=" + model + b"\n" in result
 
 
 @pytest.mark.parametrize(
@@ -529,6 +530,7 @@ def test_managed_payload_and_render_source_are_scoped_and_omit_direct_secrets() 
             b"http://127.0.0.1:18999/v1", b"http://127.0.0.2:18999/v1"
         ),
         managed_payload() + b"AI_DIRECT_LUNA_QA_API_KEY=secret\n",
+        managed_payload().replace(b"gpt-5.6-luna", b"unapproved-model"),
         managed_payload().replace(b"CHATGPT_RESERVE_TOKEN=synthetic\n", b""),
         managed_payload().replace(
             b"CHATGPT_RESERVE_AUTH_MODE=codex_cli",

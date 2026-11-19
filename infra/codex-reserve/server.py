@@ -113,7 +113,7 @@ class Connector:
 
 
 async def main() -> None:
-    profile = os.environ.get('CODEX_CONNECTOR_PROFILE', 'legacy-luna56')
+    profile = os.environ.get('CODEX_CONNECTOR_PROFILE', 'luna6')
     if profile not in {'legacy-luna56', 'luna6'}:
         raise RunnerError('not_configured')
     runner = CodexRunner(

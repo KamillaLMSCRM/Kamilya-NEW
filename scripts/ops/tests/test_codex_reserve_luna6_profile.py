@@ -90,7 +90,7 @@ def test_new_profile_readiness_rejects_wrong_cli_version(tmp_path):
 def test_compose_passes_one_matching_fixed_default_profile_without_resource_changes():
     data = yaml.safe_load((ROOT / 'infra/codex-reserve/compose.yml').read_text(encoding='utf-8'))
     connector, egress = data['services']['connector'], data['services']['egress']
-    expression = '${CODEX_CONNECTOR_PROFILE:-legacy-luna56}'
+    expression = '${CODEX_CONNECTOR_PROFILE:-luna6}'
     assert connector['environment']['CODEX_CONNECTOR_PROFILE'] == expression
     assert egress['environment'] == {'CODEX_CONNECTOR_PROFILE': expression}
     assert connector.get('ports') is None and egress['ports'] == ['${CODEX_BIND_IP:-127.0.0.1}:18999:18999']

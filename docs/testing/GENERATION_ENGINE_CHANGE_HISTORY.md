@@ -4166,3 +4166,19 @@ regression checks70messages/4foreign scopes/tied turn timestamps without a model
 CHG-LEARNER122 pre-DEV review: corrected only test fixture to independently vary
 each foreign scope from the same valid row. Runtime/router bytes exactly9f7d41e6;
 8history cases PASS. No native/model calls or provider deployments occurred.
+
+## CHG-LUNA6-20261119 - Audited connector model alignment
+
+Managed DEV source text and images use the same Luna 6 connector identity
+(ENG-085). The separate global candidate adds Luna 6 to the existing audited
+model setting, uses the effective model for administrative readiness, and
+requires matching connector readiness before a change is persisted. A model
+switch has no default fall-through to another provider. DeepSeek's admin key
+probe reads the effective model and timeout used by normal application requests.
+Legacy receipts and explicitly retained connector profiles remain readable.
+
+Source-only and isolated Supabase DEV checks passed, including rejection of
+downgrade while Luna 6 is active, audited rollback, retained history and
+re-upgrade. The disposable schema was removed. This is not proof of the
+shared production connector cutover. The earlier PPTX DEV course and release
+retain their own exact acceptance record.

@@ -169,7 +169,7 @@ class Ingress:
 
 
 async def main() -> None:
-    profile = os.environ.get('CODEX_CONNECTOR_PROFILE', 'legacy-luna56')
+    profile = os.environ.get('CODEX_CONNECTOR_PROFILE', 'luna6')
     profile_limits(profile)
     proxy = Egress(profile)
     ingress = Ingress(profile)

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Literal, cast
 
-from app.core.config import get_settings
+from app.core.config import LUNA6_MODEL, LUNA_CONNECTOR_MODELS, get_settings
 
 Value = int | float | str
 
@@ -62,7 +62,7 @@ CATALOG = (
     Setting("provider.qwen.timeout_seconds", "Qwen: транспортный таймаут, с", "number", 600, 30, 600, env="FREE_LLM_REQUEST_TIMEOUT_SECONDS"),
     Setting("provider.glm.model", "GLM: модель (не включает провайдер)", "model", "LibertAIDAI/GLM-5.3-Flash-NVFP4", env="GLM53_FLASH_MODEL"),
     Setting("provider.glm.timeout_seconds", "GLM: транспортный таймаут, с", "number", 600, 30, 600, env="FREE_LLM_REQUEST_TIMEOUT_SECONDS"),
-    Setting("provider.chatgpt.model", "ChatGPT: модель установленного коннектора", "model", "gpt-5.6-luna", env="CHATGPT_RESERVE_MODEL", choices=("gpt-5.6-luna",)),
+    Setting("provider.chatgpt.model", "ChatGPT: модель установленного коннектора", "model", LUNA6_MODEL, env="CHATGPT_RESERVE_MODEL", choices=LUNA_CONNECTOR_MODELS),
     Setting("provider.chatgpt.timeout_seconds", "ChatGPT: транспортный таймаут, с", "number", 60, 40, 120, env="CHATGPT_RESERVE_TIMEOUT_SECONDS"),
     Setting("outbox.assignment.batch_size", "Уведомления назначений: пакет восстановления", "integer", 20, 1, 50),
     Setting("outbox.reminders.batch_size", "Напоминания: пакет восстановления", "integer", 20, 1, 50),

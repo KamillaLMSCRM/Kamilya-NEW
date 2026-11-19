@@ -1,4 +1,4 @@
-"""Business logic for provider_keys — encryption, CRUD, key probing."""
+"""Business logic for provider_keys Р Р†Р вЂљРІР‚Сњ encryption, CRUD, key probing."""
 from __future__ import annotations
 
 import logging
@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.encryption import decrypt_secret, encrypt_secret, mask_secret
 from app.modules.admin.provider_keys import repository as repo
 from app.modules.admin.provider_keys.models import ProviderKey
@@ -19,9 +20,11 @@ from app.modules.admin.provider_keys.schemas import (
     ProviderKeyTestResult,
     ProviderKeyUpdate,
 )
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
 from app.modules.ai.llm_client import (
+    LLMProviderConfig,
     _cohere_embed_provider,
-    _deepseek_llm_provider,
+    _openai_base_url,
     _voyage_embed_provider,
 )
 
@@ -39,15 +42,15 @@ class ProviderKeyService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    # ── Read ─────────────────────────────────────────────────────────
+    # Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ Read Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ
 
     async def list_providers(self) -> ProviderKeyListResponse:
         """List global providers, with their source (db vs env).
 
         A provider may have:
-          - 0 rows in DB and no env var   → not configured
-          - 0 rows in DB, env var set      → source = 'env' (built from env)
-          - N rows in DB                   → source = 'db', one is active
+          - 0 rows in DB and no env var   Р Р†РІР‚В РІР‚в„ў not configured
+          - 0 rows in DB, env var set      Р Р†РІР‚В РІР‚в„ў source = 'env' (built from env)
+          - N rows in DB                   Р Р†РІР‚В РІР‚в„ў source = 'db', one is active
         """
         rows = await repo.list_global_keys(self.db)
         responses: list[ProviderKeyResponse] = []
@@ -70,7 +73,7 @@ class ProviderKeyService:
             )
         return ProviderKeyListResponse(providers=responses)
 
-    # ── Create / Update / Delete ─────────────────────────────────────
+    # Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ Create / Update / Delete Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ
 
     async def create_key(
         self, payload: ProviderKeyCreate, user_id: uuid.UUID | None
@@ -115,7 +118,7 @@ class ProviderKeyService:
             raise LookupError(f"ProviderKey {key_id} not found")
         if payload.api_key is not None:
             key.encrypted_key = encrypt_secret(payload.api_key)
-            # Replacing the key clears last_error — let the user retest.
+            # Replacing the key clears last_error Р Р†Р вЂљРІР‚Сњ let the user retest.
             key.last_error = None
         if payload.label is not None:
             key.label = payload.label
@@ -152,7 +155,7 @@ class ProviderKeyService:
         await self.db.commit()
         logger.info("provider_key.deleted id=%s provider=%s", key.id, key.provider)
 
-    # ── Test ─────────────────────────────────────────────────────────
+    # Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ Test Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ
 
     async def test_key(self, key_id: uuid.UUID) -> ProviderKeyTestResult:
         """Probe the provider API to confirm the key actually works."""
@@ -172,33 +175,23 @@ class ProviderKeyService:
         started = time.perf_counter()
         try:
             if provider == "deepseek":
-                cfg = _deepseek_llm_provider()
-                # If user has no env key, deepseek config is None — but we
-                # have a plaintext key from the DB, so rebuild config with it.
-                if cfg is None:
-                    from app.core.config import get_settings
-                    s = get_settings()
-                    from app.modules.ai.llm_client import LLMProviderConfig
-                    cfg = LLMProviderConfig(
-                        name="deepseek",
-                        base_url=s.DEEPSEEK_BASE_URL,
-                        api_key=api_key,
-                        model=s.DEEPSEEK_MODEL,
-                        timeout=15.0,
-                    )
-                else:
-                    # Override with DB key.
-                    from dataclasses import replace
-                    cfg = replace(cfg, api_key=api_key)
-                async with httpx.AsyncClient(timeout=cfg.timeout) as client:
+                policy = await resolve_runtime_settings(self.db)
+                deepseek_cfg = LLMProviderConfig(
+                    name="deepseek",
+                    base_url=_openai_base_url(get_settings().DEEPSEEK_BASE_URL),
+                    api_key=api_key,
+                    model=policy.text("provider.deepseek.model"),
+                    timeout=policy.number("provider.deepseek.timeout_seconds"),
+                )
+                async with httpx.AsyncClient(timeout=deepseek_cfg.timeout) as client:
                     resp = await client.post(
-                        f"{cfg.base_url}/chat/completions",
+                        f"{deepseek_cfg.base_url}/chat/completions",
                         json={
-                            "model": cfg.model,
+                            "model": deepseek_cfg.model,
                             "messages": [{"role": "user", "content": "ping"}],
                             "max_tokens": 1,
                         },
-                        headers={"Authorization": f"Bearer {cfg.api_key}"},
+                        headers={"Authorization": f"Bearer {deepseek_cfg.api_key}"},
                     )
                 latency_ms = int((time.perf_counter() - started) * 1000)
                 if resp.status_code == 200:
@@ -218,10 +211,8 @@ class ProviderKeyService:
                 )
             if provider == "voyage":
                 cfg = _voyage_embed_provider()
-                from app.core.config import get_settings
                 s = get_settings()
                 if cfg is None:
-                    from app.modules.ai.llm_client import LLMProviderConfig
                     cfg = LLMProviderConfig(
                         name="voyage",
                         base_url=s.VOYAGE_BASE_URL,
@@ -256,10 +247,8 @@ class ProviderKeyService:
                 )
             if provider == "cohere":
                 cfg = _cohere_embed_provider()
-                from app.core.config import get_settings
                 s = get_settings()
                 if cfg is None:
-                    from app.modules.ai.llm_client import LLMProviderConfig
                     cfg = LLMProviderConfig(
                         name="cohere",
                         base_url=s.COHERE_BASE_URL,
@@ -315,7 +304,7 @@ class ProviderKeyService:
                 provider=provider, error=f"network error: {type(e).__name__}",
             )
 
-    # ── Resolve helpers used by llm_client ───────────────────────────
+    # Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ Resolve helpers used by llm_client Р Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљР Р†РІР‚СњР вЂљ
 
     async def get_active_key_value(self, provider: str) -> str | None:
         """Return the plaintext active global key for a provider, or None.

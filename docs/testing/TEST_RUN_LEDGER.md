@@ -8291,3 +8291,15 @@ completed after full-run import; exact candidate CI will cover final bytes. Firs
 proposed catalog key failed frozen SQL contract locally; removed, all catalog/tests
 restored exact, existing60 protected API window retained/no new runtime knob.
 Index NOT_READY/missing runtime, exact source fallback;0model calls/no deployment.
+
+## 2026-11-19 - Luna 6 settings and DeepSeek config alignment
+
+- Local API unit: 9018 passed, 1 skipped. Focused provider/connector/receiver:
+  161 passed, 2 skipped. Protected release plane unit: 58 passed.
+- Isolated Supabase DEV runtime settings migration 0190: 22 checks passed,
+  non-bypass runtime, forced RLS, audited rejection/rollback with history,
+  re-upgrade and cleanup. The public DEV schema was read back unchanged.
+  The first two harness attempts failed on stale synthetic revisions and
+  independently cleaned up their disposable schema.
+- No document processing or model call took place in this settings exercise.
+  The separate live PPTX test owns model and document evidence.

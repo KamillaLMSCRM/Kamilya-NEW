@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.11.124] - 2026-11-19
+
+### Changed
+- The audited model selector supports Luna 6, checks the matching private
+  connector before changing the active model, and preserves earlier receipts.
+- DeepSeek key checks use the same effective model and timeout as application
+  requests.
+- Luna source vision fits one bounded raster per request.
+
 ## [0.11.123] - 2026-11-19
 
 ### Added
