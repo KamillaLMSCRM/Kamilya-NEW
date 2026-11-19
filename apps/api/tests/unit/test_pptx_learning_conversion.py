@@ -1,17 +1,22 @@
+import base64
 import hashlib
+import io
 import json
 import zipfile
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
+from PIL import Image
 
 from app.modules.ai.direct_source import build_direct_source_corpus
 from app.modules.ai.ingestion import DocumentConverter
 from app.modules.documents.archive_preflight import ArchivePreflightError, preflight_ooxml
-from app.modules.source_editorial_review.analysis import analyze
+from app.modules.source_editorial_review.analysis import analysis_failure_code, analyze
+from app.modules.source_preparation.extraction import extract_native_source
+from app.modules.source_preparation.preparation import prepare_native_source
 
 P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -102,3 +107,110 @@ async def test_pptx_review_anchors_conflict_to_extracted_slide_text(tmp_path):
     issue, = result['issues']
     assert issue['category'] == 'conflict' and original[issue['start']:issue['end']] == issue['quote']
     assert result['original'] == original and result['automatic'] == []
+
+
+def with_screenshots(path, *, image_only=False, external=False, crop=False):
+    deck(path, image_only=image_only)
+    output = io.BytesIO()
+    image = io.BytesIO()
+    Image.new('RGB', (12, 10), 'blue').save(image, format='PNG')
+    relationship = ('Target="https://example.invalid/picture" TargetMode="External"'
+                    if external else 'Target="../media/screenshot.png"')
+    crop_xml = '<a:srcRect l="10000"/>' if crop else ''
+    picture = (f'<p:pic><p:blipFill xmlns:r="{R}"><a:blip r:embed="rIdImage"/>'
+               f'{crop_xml}</p:blipFill></p:pic>')
+    with zipfile.ZipFile(path) as original, zipfile.ZipFile(output, 'w') as modified:
+        for name in original.namelist():
+            data = original.read(name)
+            if name in ('ppt/slides/slide2.xml', 'ppt/slides/slide1.xml'):
+                data = data.decode().replace('<p:pic/>', '').replace('</p:spTree>', picture + '</p:spTree>')
+            if name == 'ppt/slides/_rels/slide2.xml.rels':
+                data = data.decode().replace('</Relationships>',
+                    f'<Relationship Id="rIdImage" Type="{R}/image" {relationship}/></Relationships>')
+            modified.writestr(name, data)
+        modified.writestr('ppt/slides/_rels/slide1.xml.rels', f'<Relationships xmlns="{PKG}">'
+            f'<Relationship Id="rIdImage" Type="{R}/image" Target="../media/screenshot.png"/></Relationships>')
+        modified.writestr('ppt/media/screenshot.png', image.getvalue())
+    return output.getvalue()
+
+
+def prepare_pptx(blob, *, max_image_bytes=100_000):
+    return extract_native_source(blob, 'training.pptx', hashlib.sha256(blob).hexdigest(),
+                                 max_image_bytes=max_image_bytes, max_image_pixels=10_000)
+
+
+@pytest.mark.parametrize('image_only', [False, True])
+def test_source_preparation_retains_raster_bytes_notes_and_slide_coordinates(tmp_path, image_only):
+    blob = with_screenshots(tmp_path / 'training.pptx', image_only=image_only)
+    source = prepare_pptx(blob)
+    assert source is not None
+    first, second = [[block for block in source.blocks if block.page == index] for index in (1, 2)]
+    assert source.page_count == 2
+    assert [block.kind for block in first] == (['page', 'text'] if image_only else ['text', 'image'])
+    assert len(source.assets) == 1
+    asset = source.assets[0]
+    assert asset.locator['slide'] == 1 and asset.locator['member'] == 'ppt/slides/slide2.xml'
+    assert asset.mime_type == 'image/png' and (asset.width, asset.height) == (12, 10)
+    assert hashlib.sha256(asset.data).hexdigest() == asset.sha256
+    assert 'Keep the receipt.' in (first[1] if image_only else first[0]).text
+    if not image_only:
+        assert '| Kit | Receipt |' in first[0].text
+    picture = first[0] if image_only else first[1]
+    assert picture.asset_ids == second[1].asset_ids == (asset.asset_id,)
+    assert second[1].locator['slide'] == 2
+    assert second[1].locator['member'] == 'ppt/slides/slide1.xml'
+
+
+@pytest.mark.parametrize('option', ['external', 'crop'])
+def test_source_preparation_blocks_pictures_without_faithful_local_pixels(tmp_path, option):
+    blob = with_screenshots(tmp_path / 'training.pptx', **{option: True})
+    with pytest.raises(ValueError, match='native_source_unsupported_visual') as caught:
+        prepare_pptx(blob)
+    assert analysis_failure_code(caught.value) == 'source_review_unsupported_visual'
+
+
+def test_source_preparation_reads_no_oversized_image_and_keeps_text_only_path(tmp_path):
+    path = tmp_path / 'training.pptx'
+    deck(path)
+    assert prepare_pptx(path.read_bytes()) is None
+    blob = with_screenshots(path)
+    with pytest.raises(ValueError, match='native_image_byte_limit'):
+        prepare_pptx(blob, max_image_bytes=4)
+
+
+@pytest.mark.asyncio
+async def test_pptx_screenshot_reaches_prepared_source_with_verifiable_slide_locator(tmp_path):
+    blob = with_screenshots(tmp_path / 'training.pptx', image_only=True)
+    source = prepare_pptx(blob)
+    assert source is not None
+    asset, = source.assets
+    statement = 'Check the cabinet seal before opening it.'
+
+    async def read_image(messages):
+        image = next(item for item in messages[1]['content'] if item['type'] == 'image_url')
+        expected = base64.b64encode(asset.data).decode('ascii')
+        assert image['image_url']['url'] == 'data:image/png;base64,' + expected
+        return {'images': [{'id': asset.asset_id, 'caption': 'Cabinet label', 'kind': 'figure',
+                            'text': statement, 'description': 'A work instruction label', 'uncertainties': []}]}
+
+    async def verify_image(messages):
+        hints = json.loads(messages[1]['content'][0]['text'])
+        return {'images': [hint['proposed_reading'] for hint in hints]}
+
+    async def partition(messages):
+        blocks = json.loads(messages[1]['content'])['blocks']
+        return {'parts': [{'title': 'Cabinet access', 'role': 'learning', 'reason': 'One procedure',
+                          'first_block': blocks[0]['id'], 'last_block': blocks[-1]['id']}]}
+
+    persist = AsyncMock(return_value='source-assets/qa/screenshot.png')
+    prepared = await prepare_native_source(
+        source, original_sha256=hashlib.sha256(blob).hexdigest(), complete=partition,
+        visual_complete=read_image, visual_review_complete=verify_image, checkpoint=AsyncMock(),
+        persist_asset=persist, retained={}, vision_batch_size=2, preview_chars=600,
+    )
+    selected_text = prepared.selected([part.id for part in prepared.parts])[0]
+    assert statement in selected_text and 'Keep the receipt.' in selected_text
+    recognized = next(block for block in prepared.blocks if block.kind == 'page_text')
+    assert recognized.text == statement and recognized.locator['slide'] == 1
+    assert recognized.asset_ids == [asset.asset_id]
+    persist.assert_awaited_once_with(asset)
