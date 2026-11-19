@@ -2467,3 +2467,14 @@ approved521 and53source replies; rejected CHG-L100N is not restored.
   candidate B remain pending. No production change or customer edits.
 - Evidence: private catalog-context120-20261118/native120-local-replay-red.json,
   full native ready responses retained. CHG-CONTEXT120B owns development history.
+
+## ENG-085 - PPTX visual request used the wrong Luna configuration in DEV
+
+- Observed before a model call on 2026-11-19. The managed DEV tenant
+  resolves its verified connector as Luna 6. The general chain on the same
+  worker resolves the reserve model as Luna 5.6. The initial PPTX patch
+  selected the latter for images.
+- Source images now use the connector identity, deadline and reasoning of
+  the verified managed client. The general production provider order stays
+  as configured. Regression control exercises Luna 6 in a scope where the
+  generic reserve identity may differ. No failed model request was submitted.

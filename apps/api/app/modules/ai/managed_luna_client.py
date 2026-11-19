@@ -20,6 +20,7 @@ from app.modules.admin.model_routing.chatgpt_reserve import configuration_blocke
 from app.modules.ai.credential_content_guard import contains_credential
 from app.modules.ai.direct_luna_api import LunaUsage
 from app.modules.ai.direct_luna_responses_client import ResponsesResult
+from app.modules.ai.llm_client import LLMProviderConfig
 from app.modules.ai.source_first_response import parse_source_first_response
 from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
@@ -142,6 +143,20 @@ class ManagedLunaClient:
     @property
     def generation_deadline_seconds(self) -> float:
         return self._deadline
+
+    def visual_provider_config(self) -> LLMProviderConfig:
+        """Bind source images to this instance's already verified private route."""
+        return LLMProviderConfig(
+            name="chatgpt-reserve",
+            base_url=self._url.removesuffix("/chat/completions"),
+            api_key=self._token,
+            model=self._model,
+            timeout=self._deadline,
+            connect_timeout=3.0,
+            max_retries=0,
+            extra_body={"reasoning_effort": self._reasoning_effort},
+            trust_env=False,
+        )
 
     def cache_fingerprint(self) -> str:
         policy = json.dumps(["managed-cli-v1", self._url, self._model, self._reasoning_effort, "json-object",
