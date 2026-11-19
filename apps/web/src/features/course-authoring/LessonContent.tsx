@@ -19,12 +19,32 @@ type Block =
   | { type: 'paragraph'; text: string }
   | { type: 'quote'; text: string }
   | { type: 'image'; alt: string; url: string }
+  | { type: 'youtube'; title: string; src: string }
   | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'table'; rows: string[][] };
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*$/;
 const unorderedPattern = /^\s*[-+*]\s+(.+)$/;
 const orderedPattern = /^\s*(\d+)[.)]\s+(.+)$/;
+
+function youtubeVideoLine(line: string): Extract<Block, { type: 'youtube' }> | null {
+  // An explicit timed link opts into embedding. Ordinary links and raw HTML stay inert.
+  const match = line.trim().match(/^\[([^\]]+)\]\(https:\/\/www\.youtube\.com\/watch\?v=([\w-]{11})&start=(\d+)&end=(\d+)(?:&cc=(kk|ru|en))?\)$/);
+  if (!match) return null;
+  const [, title, id, begin, finish, language] = match;
+  const start = Number(begin);
+  const end = Number(finish);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return null;
+  const src = new URL(`https://www.youtube-nocookie.com/embed/${id}`);
+  src.searchParams.set('start', String(start));
+  src.searchParams.set('end', String(end));
+  src.searchParams.set('playsinline', '1');
+  if (language) {
+    src.searchParams.set('cc_lang_pref', language);
+    src.searchParams.set('cc_load_policy', '1');
+  }
+  return { type: 'youtube', title, src: src.href };
+}
 
 function splitTableRow(line: string): string[] | null {
   const trimmed = line.trim();
@@ -49,6 +69,7 @@ function startsBlock(lines: string[], index: number): boolean {
   return Boolean(
     line.match(headingPattern)
       || sourceImageLine(line)
+      || youtubeVideoLine(line)
       || line.match(unorderedPattern)
       || line.match(orderedPattern)
       || /^\s*>/.test(line)
@@ -69,6 +90,8 @@ function parseBlocks(text: string): Block[] {
 
     const image = sourceImageLine(lines[index]);
     if (image) { blocks.push({ type: 'image', ...image }); index += 1; continue; }
+    const youtube = youtubeVideoLine(lines[index]);
+    if (youtube) { blocks.push(youtube); index += 1; continue; }
 
     const heading = lines[index].match(headingPattern);
     if (heading) {
@@ -206,6 +229,18 @@ export function LessonContent({ text, className, omitFirstHeading }: LessonConte
           <AuthenticatedSourceImage url={block.url} alt={block.alt} />
           {block.alt && <figcaption>{block.alt}</figcaption>}
         </figure>;
+
+        if (block.type === 'youtube') return (
+          <iframe
+            key={key}
+            title={block.title}
+            src={block.src}
+            className="block aspect-video w-full rounded-lg border border-border bg-black"
+            loading="lazy"
+            allow="fullscreen; picture-in-picture; encrypted-media"
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        );
 
         if (block.type === 'heading') {
           return <Heading key={key} level={block.level}>{renderInline(block.text, key)}</Heading>;

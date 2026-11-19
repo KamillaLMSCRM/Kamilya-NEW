@@ -12,7 +12,7 @@ const productionDirectives = [
   "font-src 'self' data:",
   "media-src 'self' blob:",
   `connect-src 'self' ${PRODUCTION_API_ORIGIN}`,
-  "frame-src 'self' https://scorm.kml.kz",
+  "frame-src 'self' https://scorm.kml.kz https://www.youtube-nocookie.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
 ];
