@@ -235,7 +235,7 @@ export function LessonContent({ text, className, omitFirstHeading }: LessonConte
             key={key}
             title={block.title}
             src={block.src}
-            className="block aspect-video w-full rounded-lg border border-border bg-black"
+            className="block aspect-video min-h-[200px] w-full rounded-lg border border-border bg-black"
             loading="lazy"
             allow="fullscreen; picture-in-picture; encrypted-media"
             referrerPolicy="strict-origin-when-cross-origin"
