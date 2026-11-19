@@ -91,16 +91,24 @@ async def test_realization_replay_requires_exact_full_request_fingerprint(tmp_pa
     assert replay.captured_calls == 1
 
 
+@pytest.mark.parametrize(
+    ("configured_model", "expected_model"),
+    [(None, "deepseek-v4-flash"), ("deepseek-v4-pro", "deepseek-v4-pro")],
+)
 def test_dev_deepseek_flash_route_is_single_cheap_non_thinking_provider(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, configured_model: str | None, expected_model: str,
 ) -> None:
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key-not-a-secret")
     monkeypatch.setenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+    if configured_model is None:
+        monkeypatch.delenv("DEEPSEEK_MODEL", raising=False)
+    else:
+        monkeypatch.setenv("DEEPSEEK_MODEL", configured_model)
 
     config = _dev_generation_config("deepseek-flash")
 
     assert config.name == "deepseek-flash-dev"
-    assert config.model == "deepseek-flash"
+    assert config.model == expected_model
     assert config.base_url == "https://api.deepseek.com/v1"
     assert config.extra_body == {"thinking": {"type": "disabled"}}
     assert config.max_retries == 0

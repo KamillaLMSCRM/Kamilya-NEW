@@ -70,6 +70,7 @@ def _configure_local_embedding_route() -> None:
 
 def _dev_generation_config(policy: str):
     """Build one explicit DEV provider without DB routing or hidden failover."""
+    from app.core.config import DEFAULT_DEEPSEEK_MODEL
     from app.modules.ai.llm_client import LLMProviderConfig
 
     if policy == "asus-glm":
@@ -87,7 +88,7 @@ def _dev_generation_config(policy: str):
         if not api_key:
             raise ValueError("deepseek_api_key_required")
         base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
-        model = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat").strip()
+        model = os.environ.get("DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL).strip()
         if not model:
             raise ValueError("deepseek_model_required")
         return LLMProviderConfig(

@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
 LUNA6_MODEL = "gpt-6-luna"
 LEGACY_LUNA_MODEL = "gpt-5.6-luna"
 LUNA_CONNECTOR_MODELS = (LEGACY_LUNA_MODEL, LUNA6_MODEL)
@@ -179,7 +180,7 @@ class Settings(BaseSettings):
     # Endpoint is OpenAI-compatible (https://api.deepseek.com/v1).
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
-    DEEPSEEK_MODEL: str = "deepseek-v4-flash"
+    DEEPSEEK_MODEL: str = DEFAULT_DEEPSEEK_MODEL
 
     # Dedicated Qwen embedding replicas through the private KZ WireGuard hub.
     # Keep them separate from chat Qwen settings. VM126 reaches only the private
