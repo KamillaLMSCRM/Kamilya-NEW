@@ -2,7 +2,10 @@
 
 ## [Unreleased]
 
+### Added
 - Retain embedded PPTX screenshots with slide-level references and recognize them through the private Luna connector.
+- Native lesson content can embed a YouTube video over a specified time range,
+  with an optional preference for an existing subtitle track.
 
 ## [0.11.120] - 2026-11-18
 
