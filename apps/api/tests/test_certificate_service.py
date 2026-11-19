@@ -11,6 +11,7 @@ from pypdf import PdfReader
 
 from app.models.registry import load_all_models
 from app.modules.certificates.schemas import (
+    KARLSKRONA_CERTIFICATE_TEMPLATE,
     PUBLIC_CERTIFICATE_VERIFICATION_BASE_URL,
     CertificatePreviewRequest,
     CertificateSettings,
@@ -19,10 +20,31 @@ from app.modules.certificates.service import (
     _render_certificate_artifact,
     get_certificate_settings,
     render_certificate_preview,
+    update_certificate_settings,
     verify_certificate,
 )
 
 load_all_models()
+
+
+@pytest.mark.asyncio
+async def test_certificate_brand_requires_platform_tenant_setting():
+    tenant = SimpleNamespace(
+        id=uuid4(),
+        name="Demo",
+        settings={"certificate_settings": {"template_version": KARLSKRONA_CERTIFICATE_TEMPLATE}},
+    )
+    db = AsyncMock()
+    db.get.return_value = tenant
+    assert (await get_certificate_settings(db, tenant.id)).template_version == "v3"
+
+    tenant.settings["certificate_template_version"] = KARLSKRONA_CERTIFICATE_TEMPLATE
+    with patch("app.modules.certificates.service.flag_modified"):
+        saved = await update_certificate_settings(db, tenant.id, CertificateSettings(organization_name="KARLSKRONA LC AB"))
+
+    assert saved.template_version == KARLSKRONA_CERTIFICATE_TEMPLATE
+    assert tenant.settings["certificate_template_version"] == KARLSKRONA_CERTIFICATE_TEMPLATE
+    assert "template_version" not in tenant.settings["certificate_settings"]
 
 
 def _program_fixture(*, certificate_mode="final_course", validity_months=6):

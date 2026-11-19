@@ -6,6 +6,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 
 PUBLIC_CERTIFICATE_VERIFICATION_BASE_URL = "https://app.kml.kz/verify/certificate"
+DEFAULT_CERTIFICATE_TEMPLATE = "v3"
+KARLSKRONA_CERTIFICATE_TEMPLATE = "karlskrona-v1"
+CertificateTemplate = Literal["v3", "karlskrona-v1"]
 
 
 class CertificateResponse(BaseModel):
@@ -26,6 +29,7 @@ class CertificateGenerateRequest(BaseModel):
 
 
 class CertificateSettings(BaseModel):
+    template_version: CertificateTemplate = DEFAULT_CERTIFICATE_TEMPLATE
     organization_name: str = Field(default="Kamilya LMS", min_length=1, max_length=160)
     signer_name: str = Field(default="", max_length=160)
     signer_title: str = Field(default="", max_length=160)

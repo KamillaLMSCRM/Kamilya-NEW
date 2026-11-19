@@ -9,9 +9,12 @@ from pathlib import Path
 import qrcode
 from fpdf import FPDF
 
+from app.modules.certificates.schemas import DEFAULT_CERTIFICATE_TEMPLATE, KARLSKRONA_CERTIFICATE_TEMPLATE
+
 FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
-CERTIFICATE_TEMPLATE_VERSION = "v3"
-SUPPORTED_CERTIFICATE_TEMPLATE_VERSIONS = {"v2", CERTIFICATE_TEMPLATE_VERSION}
+KARLSKRONA_ASSETS = FONT_DIR.parent / "certificates" / "karlskrona"
+CERTIFICATE_TEMPLATE_VERSION = DEFAULT_CERTIFICATE_TEMPLATE
+SUPPORTED_CERTIFICATE_TEMPLATE_VERSIONS = {"v2", CERTIFICATE_TEMPLATE_VERSION, KARLSKRONA_CERTIFICATE_TEMPLATE}
 
 
 class CertificatePDF(FPDF):
@@ -114,14 +117,15 @@ def _fit_lines(
     min_size: int,
     max_width: float,
     max_lines: int,
+    font_family: str = "Ubuntu",
 ) -> tuple[int, list[str]]:
     for size in range(start_size, min_size - 1, -1):
-        pdf.set_font("Ubuntu", font_style, size)
+        pdf.set_font(font_family, font_style, size)
         lines = _wrap_text(pdf, text, max_width)
         if len(lines) <= max_lines:
             return size, lines
 
-    pdf.set_font("Ubuntu", font_style, min_size)
+    pdf.set_font(font_family, font_style, min_size)
     lines = _wrap_text(pdf, text, max_width)
     if len(lines) > max_lines:
         lines = lines[:max_lines]
@@ -174,6 +178,7 @@ def _draw_fitted_left(
     min_size: int,
     line_height: float,
     style: str = "",
+    font_family: str = "Ubuntu",
 ) -> float:
     size, lines = _fit_lines(
         pdf,
@@ -183,8 +188,9 @@ def _draw_fitted_left(
         min_size=min_size,
         max_width=max_width,
         max_lines=max_lines,
+        font_family=font_family,
     )
-    pdf.set_font("Ubuntu", style, size)
+    pdf.set_font(font_family, style, size)
     pdf.set_y(y)
     for line in lines:
         pdf.set_x(x)
@@ -426,6 +432,113 @@ def _render_certificate_pdf_v3(
     return bytes(pdf.output())
 
 
+def _render_karlskrona_certificate_pdf(
+    *,
+    user_name: str,
+    course_title: str,
+    certificate_number: str,
+    issued_at: datetime,
+    expires_at: datetime | None,
+    organization: str,
+    signer_name: str,
+    signer_title: str,
+    footer_note: str,
+    verification_url: str,
+) -> bytes:
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.add_font("Roboto", "B", str(KARLSKRONA_ASSETS / "Roboto-Bold.ttf"))
+    pdf.add_font("OpenSans", "", str(KARLSKRONA_ASSETS / "OpenSans-Regular.ttf"))
+    pdf.set_title("KARLSKRONA Pump Academy | Сертификат")
+    pdf.set_creation_date(issued_at)
+    pdf.set_auto_page_break(auto=False)
+    pdf.add_page()
+
+    orange = (243, 107, 47)
+    charcoal = (37, 36, 35)
+    gray = (87, 87, 87)
+
+    pdf.set_fill_color(*orange)
+    pdf.rect(0, 0, 5, pdf.h, style="F")
+    pdf.set_fill_color(247, 246, 244)
+    pdf.rect(21, 147, pdf.w - 42, 34, style="F")
+    pdf.set_draw_color(231, 227, 222)
+    pdf.set_line_width(0.35)
+    for radius in (11, 17, 23):
+        pdf.circle(250, 33, radius)
+    pdf.set_draw_color(*orange)
+    pdf.set_line_width(1.25)
+    pdf.line(250, 33, 271, 12)
+    pdf.line(21, 42, 276, 42)
+    pdf.image(str(KARLSKRONA_ASSETS / "logo.png"), x=21, y=10, w=31)
+
+    def label(x: float, y: float, value: str, *, size: float = 8.5) -> None:
+        pdf.set_font("OpenSans", size=size)
+        pdf.set_text_color(*gray)
+        pdf.set_xy(x, y)
+        pdf.cell(text=value)
+
+    def heading(x: float, y: float, value: str, *, size: float) -> None:
+        pdf.set_font("Roboto", "B", size)
+        pdf.set_text_color(*charcoal)
+        pdf.set_xy(x, y)
+        pdf.cell(text=value)
+
+    label(59, 17, "KARLSKRONA LC AB")
+    heading(59, 25, "PUMP ACADEMY", size=16)
+    heading(21, 52, "СЕРТИФИКАТ", size=33)
+    label(21, 66, "Курсты аяқтағаны туралы", size=12)
+
+    pdf.set_text_color(*charcoal)
+    _draw_fitted_left(
+        pdf, user_name or "Білім алушы", x=21, y=79, max_width=252, max_lines=2,
+        start_size=28, min_size=16, line_height=10, style="B", font_family="Roboto",
+    )
+    label(21, 107, "ОҚУ КУРСЫ")
+    pdf.set_text_color(*charcoal)
+    _draw_fitted_left(
+        pdf, course_title or "Оқу курсы", x=21, y=113, max_width=252, max_lines=3,
+        start_size=17, min_size=12, line_height=8, style="B", font_family="Roboto",
+    )
+
+    for x, field, value in (
+        (27, "БЕРІЛГЕН КҮНІ", issued_at.strftime("%d.%m.%Y")),
+        (91, "ЖАРАМДЫЛЫҚ МЕРЗІМІ", expires_at.strftime("%d.%m.%Y") if expires_at else "Мерзімсіз"),
+        (160, "СЕРТИФИКАТ НӨМІРІ", certificate_number),
+    ):
+        label(x, 155, field)
+        heading(x, 165, _safe_text(value), size=11.5)
+
+    if certificate_number.endswith("-PREVIEW"):
+        label(226, 164, "ДЕМО ҮЛГІСІ")
+    elif verification_url:
+        code = BytesIO()
+        qrcode.make(verification_url).save(code, format="PNG")
+        code.seek(0)
+        pdf.image(code, x=243, y=149, w=23, link=verification_url)
+        pdf.set_font("OpenSans", size=7)
+        pdf.set_text_color(*gray)
+        pdf.set_xy(238, 172)
+        pdf.cell(33, 4, "Түпнұсқасын тексеру", align="C", link=verification_url)
+
+    pdf.set_text_color(*gray)
+    _draw_fitted_left(
+        pdf, f"Берген ұйым: {organization}", x=21, y=184, max_width=127, max_lines=2,
+        start_size=8, min_size=7, line_height=3.6, font_family="OpenSans",
+    )
+    signatory = " · ".join(text for text in (signer_name, signer_title) if text)
+    if signatory:
+        _draw_fitted_left(
+            pdf, signatory, x=151, y=184, max_width=124, max_lines=3,
+            start_size=8, min_size=7, line_height=3.6, font_family="OpenSans",
+        )
+    if footer_note:
+        _draw_fitted_left(
+            pdf, footer_note, x=21, y=198, max_width=254, max_lines=2,
+            start_size=8, min_size=7, line_height=3.6, font_family="OpenSans",
+        )
+    return bytes(pdf.output())
+
+
 def render_certificate_pdf(
     user_name: str,
     course_title: str,
@@ -440,6 +553,19 @@ def render_certificate_pdf(
     template_version: str = CERTIFICATE_TEMPLATE_VERSION,
 ) -> bytes:
     """Render a certificate using the issue-time template version."""
+    if template_version == KARLSKRONA_CERTIFICATE_TEMPLATE:
+        return _render_karlskrona_certificate_pdf(
+            user_name=user_name,
+            course_title=course_title,
+            certificate_number=certificate_number,
+            issued_at=issued_at,
+            expires_at=expires_at,
+            organization=organization,
+            signer_name=signer_name,
+            signer_title=signer_title,
+            footer_note=footer_note,
+            verification_url=verification_url,
+        )
     if template_version == "v2":
         return _render_certificate_pdf_v2(
             user_name=user_name,

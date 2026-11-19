@@ -16,6 +16,7 @@ from app.modules.certificates.pdf import (
     render_certificate_pdf,
     write_certificate_pdf,
 )
+from app.modules.certificates.schemas import KARLSKRONA_CERTIFICATE_TEMPLATE
 
 
 @pytest.fixture(autouse=True)
@@ -138,3 +139,44 @@ def test_v2_storage_key_remains_addressable_after_template_upgrade():
     assert certificate_storage_key(tenant_id, cert_id).endswith(
         f"-{CERTIFICATE_TEMPLATE_VERSION}.pdf"
     )
+
+
+def test_karlskrona_certificate_embeds_localized_text_artwork_and_verification():
+    verification_url = "https://app.kml.kz/verify/certificate/KML-2026-EXAMPLE"
+    data = render_certificate_pdf(
+        user_name="Әли Демо",
+        course_title="Сорғы жүйелерінің энергия тиімділігі",
+        certificate_number="KML-2026-EXAMPLE",
+        issued_at=datetime(2026, 11, 19, tzinfo=UTC),
+        organization="KARLSKRONA LC AB",
+        verification_url=verification_url,
+        template_version=KARLSKRONA_CERTIFICATE_TEMPLATE,
+    )
+    reader = PdfReader(BytesIO(data))
+    assert len(reader.pages) == 1
+    page = reader.pages[0]
+    text = page.extract_text()
+    assert "Әли Демо" in text
+    assert "Сорғы жүйелерінің энергия тиімділігі" in text
+    assert "ЖАРАМДЫЛЫҚ МЕРЗІМІ" in text
+    assert "KARLSKRONA LC AB" in text
+    assert "Kamilya" not in text
+    assert len(page.images) == 2
+    assert {
+        annot.get_object()["/A"]["/URI"] for annot in page.get("/Annots")
+    } == {verification_url}
+
+
+def test_karlskrona_preview_has_sample_mark_and_no_verification_link():
+    document = render_certificate_pdf(
+        user_name="Әли Демо",
+        course_title="Сорғы жүйелерінің энергия тиімділігі",
+        certificate_number="KML-2026-PREVIEW",
+        issued_at=datetime(2026, 11, 19, tzinfo=UTC),
+        organization="KARLSKRONA LC AB",
+        verification_url="https://app.kml.kz/verify/certificate/KML-2026-PREVIEW",
+        template_version=KARLSKRONA_CERTIFICATE_TEMPLATE,
+    )
+    page = PdfReader(BytesIO(document)).pages[0]
+    assert "ДЕМО ҮЛГІСІ" in page.extract_text()
+    assert not page.get("/Annots")

@@ -24,8 +24,11 @@ from app.modules.certificates.pdf import (
     store_certificate_pdf,
 )
 from app.modules.certificates.schemas import (
+    DEFAULT_CERTIFICATE_TEMPLATE,
+    KARLSKRONA_CERTIFICATE_TEMPLATE,
     CertificatePreviewRequest,
     CertificateSettings,
+    CertificateTemplate,
 )
 from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
 
@@ -63,14 +66,22 @@ def _add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=year, month=month, day=day)
 
 
+def _configured_template(tenant_settings: dict) -> CertificateTemplate:
+    if tenant_settings.get("certificate_template_version") == KARLSKRONA_CERTIFICATE_TEMPLATE:
+        return KARLSKRONA_CERTIFICATE_TEMPLATE
+    return DEFAULT_CERTIFICATE_TEMPLATE
+
+
 async def get_certificate_settings(
     db: AsyncSession,
     tenant_id: UUID,
 ) -> CertificateSettings:
     tenant = await db.get(Tenant, tenant_id)
-    raw = ((tenant.settings or {}) if tenant else {}).get("certificate_settings") or {}
+    tenant_settings = (tenant.settings or {}) if tenant else {}
+    raw = dict(tenant_settings.get("certificate_settings") or {})
     if tenant and not raw:
         raw = {"organization_name": tenant.name}
+    raw["template_version"] = _configured_template(tenant_settings)
     return CertificateSettings(**raw)
 
 
@@ -83,11 +94,11 @@ async def update_certificate_settings(
     if not tenant:
         raise ValueError("Tenant not found")
     settings = dict(tenant.settings or {})
-    settings["certificate_settings"] = payload.model_dump()
+    settings["certificate_settings"] = payload.model_dump(exclude={"template_version"})
     tenant.settings = settings
     flag_modified(tenant, "settings")
     await db.flush()
-    return payload
+    return payload.model_copy(update={"template_version": _configured_template(settings)})
 
 
 def _verification_url(
@@ -152,7 +163,7 @@ def render_certificate_preview(payload: CertificatePreviewRequest) -> bytes:
         signer_title=settings.signer_title,
         footer_note=settings.footer_note,
         verification_url=_verification_url(settings, preview_number),
-        template_version=CERTIFICATE_TEMPLATE_VERSION,
+        template_version=settings.template_version,
     )
 
 
@@ -244,7 +255,7 @@ async def issue_certificate(
         certificate_number=certificate_number,
         issued_at=issued_at,
         expires_at=expires_at,
-        template_version=CERTIFICATE_TEMPLATE_VERSION,
+        template_version=settings.template_version,
         metadata_={
             "user_name": user_name or "",
             "course_title": course_title or "",
@@ -348,6 +359,7 @@ async def issue_learning_path_certificate(
     validity_months = getattr(path, "certificate_validity_months", None)
     expires_at = _add_months(issued_at, validity_months) if validity_months else None
     certificate_number = generate_certificate_number()
+    settings = await get_certificate_settings(db, cast(UUID, tenant.id))
     cert = Certificate(
         tenant_id=tenant.id,
         user_id=user.id,
@@ -357,7 +369,7 @@ async def issue_learning_path_certificate(
         certificate_number=certificate_number,
         issued_at=issued_at,
         expires_at=expires_at,
-        template_version=CERTIFICATE_TEMPLATE_VERSION,
+        template_version=settings.template_version,
         metadata_={
             "user_name": f"{user.first_name} {user.last_name}".strip() or user.email,
             "course_title": path.title,
@@ -367,7 +379,8 @@ async def issue_learning_path_certificate(
             "program_family_id": str(path.family_id),
             "final_course_title": course.title,
             "learning_path_assignment_id": str(assignment.id),
-            "certificate_settings": {},
+            "certificate_settings": settings.model_dump(),
+            "verification_url": _verification_url(settings, certificate_number),
         },
     )
     savepoint = await db.begin_nested()
@@ -389,10 +402,6 @@ async def issue_learning_path_certificate(
     else:
         await savepoint.commit()
     await db.refresh(cert)
-    settings = await get_certificate_settings(db, cast(UUID, tenant.id))
-    cert.metadata_["certificate_settings"] = settings.model_dump()
-    cert.metadata_["verification_url"] = _verification_url(settings, cast(str, cert.certificate_number))
-    await db.flush()
     await _generate_and_store_pdf(db, cert)
     return cert
 

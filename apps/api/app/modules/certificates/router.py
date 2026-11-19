@@ -76,10 +76,13 @@ async def save_settings(
 @router.post("/settings/preview")
 async def preview_settings(
     payload: CertificatePreviewRequest,
-    _user: AdminUser,
+    db: Database,
+    user: AdminUser,
 ):
     """Render unsaved certificate settings with the production PDF renderer."""
-    pdf_bytes = render_certificate_preview(payload)
+    configured = await get_certificate_settings(db, user.tenant_id)
+    preview_settings = payload.settings.model_copy(update={"template_version": configured.template_version})
+    pdf_bytes = render_certificate_preview(payload.model_copy(update={"settings": preview_settings}))
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
