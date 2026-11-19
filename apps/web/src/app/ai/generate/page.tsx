@@ -1,5 +1,9 @@
 'use client';
 
+import { CourseLanguagesEditor } from '@/features/course-authoring/CourseLanguagesEditor';
+import { contentLanguages, isCourseLanguage, type CourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { useLanguageStore } from '@/store/languageStore';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
@@ -188,7 +192,9 @@ export default function AIGeneratePage() {
   const [numModules, setNumModules] = useState(3);
   const [courseFormat, setCourseFormat] = useState<CourseFormat>('automatic');
   const [manualModules, setManualModules] = useState(false);
-  const [language, setLanguage] = useState('ru');
+  const [language, setLanguage] = useState<CourseLanguage>('ru');
+  const [languages, setLanguages] = useState<CourseLanguage[]>(['ru', 'kk']);
+  const interfaceLanguage = useLanguageStore(state => state.lang);
   const [requestedProgramId, setRequestedProgramId] = useState<string | null>(null);
   const workflowRequestKeyRef = useRef<() => string>(() => 'initial');
   const [requestedJobId, setRequestedJobId] = useState<string | null>(null);
@@ -769,6 +775,7 @@ export default function AIGeneratePage() {
         course_format: courseFormat,
         ...(manualModules ? { num_modules: numModules } : {}),
         language,
+        languages,
         source_strategy: sourceStrategy,
         combination_goal: sourceStrategy === 'intentional_combination' ? combinationGoal.trim() : '',
         language_confirmed: confirmedLanguage,
@@ -975,6 +982,7 @@ export default function AIGeneratePage() {
     setCourseFormat('automatic');
     setManualModules(false);
     setLanguage('ru');
+    setLanguages(['ru', 'kk']);
     setPreview(null);
     setCourseMeta(null);
     setPreviewLoading(false);
@@ -1677,19 +1685,24 @@ export default function AIGeneratePage() {
                 </select>
                 <p className="mt-1 text-xs text-muted-foreground">{t('ai.courseFormatHint')}</p>
               </div>
-              <div>
-                <label htmlFor="course-output-language" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.language')}</label>
-                <select
-                  id="course-output-language"
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none focus:border-primary transition-colors"
-                >
-                  <option value="ru">{t('ai.languages.ru')}</option>
-                  <option value="kk">{t('ai.languages.kk')}</option>
-                  <option value="en">{t('ai.languages.en')}</option>
-                </select>
-              </div>
+              <fieldset className="min-w-0 space-y-2">
+                <legend className="mb-1 text-xs font-semibold text-muted-foreground">
+                  {interfaceLanguage === 'kk' ? 'Курс тілдері' : interfaceLanguage === 'en' ? 'Course languages' : 'Языки курса'}
+                </legend>
+                <div className="flex flex-wrap gap-3 rounded-xl border border-border p-3">
+                  {Object.entries(contentLanguages).map(([code, name]) => isCourseLanguage(code) && (
+                    <label key={code} className="flex cursor-pointer items-center gap-2 text-sm">
+                      <input type="checkbox" checked={languages.includes(code)} disabled={languages.length === 1 && languages.includes(code)}
+                        onChange={event => {
+                          const next = event.target.checked ? [...languages, code] : languages.filter(value => value !== code);
+                          setLanguages(next);
+                          if (!next.includes(language)) setLanguage(next[0]);
+                        }} />
+                      {name}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
             </div>
             {compatibility?.recommended_structure && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
@@ -1830,6 +1843,7 @@ export default function AIGeneratePage() {
       {/* STEP 3: Review */}
       {step === 'review' && currentJob?.course_id && (
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
+          <div className="xl:col-span-2"><CourseLanguagesEditor courseId={currentJob.course_id} prepare /></div>
           {/* Completion describes the saved draft, not a quality approval. */}
           <WorkspaceToolbar className="items-center justify-between xl:col-span-2">
             <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">

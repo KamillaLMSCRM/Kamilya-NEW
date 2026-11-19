@@ -12,8 +12,10 @@ from sqlalchemy.sql import true
 
 from app.core.auth import get_current_user, require_role
 from app.core.db import get_db
+from app.models.courses import Course
 from app.models.users import User
 from app.modules.courses.access import AUTHORING_ROLES, require_lesson_access
+from app.modules.courses.localizations import Language, localized_quiz_fields
 from app.modules.courses.release_service import touch_course_by_lesson
 from app.modules.editor_assistant.router import router as editor_assistant_router
 from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
@@ -453,9 +455,10 @@ async def get_quiz(
     quiz_id: UUID,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
+    language: Language | None = None,
 ):
     """Get a quiz, exposing answer keys only to authoring roles."""
-    await _require_quiz_access(db, quiz_id, user)
+    authorized_quiz = await _require_quiz_access(db, quiz_id, user)
     quiz = await get_quiz_with_questions(
         db,
         quiz_id,
@@ -465,6 +468,21 @@ async def get_quiz(
     )
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
+    if language and authorized_quiz.lesson_id:
+        from app.modules.lessons.models import Lesson, Module
+
+        course = await db.scalar(select(Course).join(Module, Module.course_id == Course.id)
+                                 .join(Lesson, Lesson.module_id == Module.id)
+                                 .where(Lesson.id == authorized_quiz.lesson_id, Course.tenant_id == user.tenant_id))
+        if course:
+            locale = await localized_quiz_fields(db, course, user, language)
+            quiz["title"] = locale.get(f"quiz.{quiz_id}.title", quiz["title"])
+            for question in quiz["questions"]:
+                question["text"] = locale.get(f"question.{question['id']}.text", question["text"])
+                if question.get("explanation") is not None:
+                    question["explanation"] = locale.get(f"question.{question['id']}.explanation", question["explanation"])
+                for choice in question["choices"]:
+                    choice["text"] = locale.get(f"choice.{choice['id']}.text", choice["text"])
     return quiz
 
 

@@ -345,11 +345,24 @@ class EmailService:
         access_url: str,
         activation_required: bool,
         idempotency_key: str,
+        localized_titles: dict[str, str] | None = None,
     ) -> str | None:
-        subject = f"{_subject_component(company_name, fallback='Kamilya LMS')}: назначен курс"
-        action = "Активируйте доступ и откройте курс" if activation_required else "Откройте назначенный курс"
-        text = f"{learner_name}, {company_name} назначила вам курс «{course_title}».\n\n{action}: {access_url}"
-        html = f'<p>{escape(learner_name)}, организация <strong>{escape(company_name)}</strong> назначила вам курс <strong>{escape(course_title)}</strong>.</p><p><a href="{escape(access_url, quote=True)}">{action}</a></p>'
+        titles = localized_titles or {}
+        ru_title, kk_title = titles.get("ru", course_title), titles.get("kk", course_title)
+        subject = f"{_subject_component(company_name, fallback='Kamilya LMS')}: назначен курс / курс тағайындалды"
+        action = ("Активировать доступ / Қолжетімділікті іске қосу" if activation_required
+                  else "Открыть курс / Курсты ашу")
+        ru = f"{learner_name}, организация {company_name} назначила вам курс «{ru_title}»."
+        kk = f"{learner_name}, {company_name} ұйымы сізге «{kk_title}» курсын тағайындады."
+        available = " / ".join(label for code, label in (("ru", "Русский"), ("kk", "Қазақша"), ("en", "English"))
+                               if code in titles)
+        languages = f"Языки курса / Курс тілдері: {available}" if available else ""
+        text = "\n\n".join(part for part in (ru, kk, languages, f"{action}: {access_url}") if part)
+        html = (
+            f'<p lang="ru">{escape(ru)}</p><p lang="kk">{escape(kk)}</p>'
+            + (f"<p>{escape(languages)}</p>" if languages else "")
+            + f'<p><a href="{escape(access_url, quote=True)}">{action}</a></p>'
+        )
         return await self._send(
             to_email=to_email,
             subject=subject,

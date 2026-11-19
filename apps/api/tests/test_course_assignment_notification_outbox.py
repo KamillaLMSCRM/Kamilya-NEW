@@ -122,7 +122,7 @@ def _row(*, login_access: bool):
             last_name="L",
             has_login_access=login_access,
         ),
-        SimpleNamespace(id=course_id, tenant_id=tenant_id, title="Safety"),
+        SimpleNamespace(id=course_id, tenant_id=tenant_id, title="Safety", source_analysis=None),
         "Tenant",
     )
 
@@ -145,6 +145,7 @@ async def test_claim_commit_is_followed_by_tenant_context_reset(monkeypatch):
     assert result == {"status": "sent"}
     assert email.send_course_assignment.await_args.kwargs["access_url"].startswith("https://lms.example/")
     assert email.send_course_assignment.await_args.kwargs["idempotency_key"].startswith("course-assignment/")
+    assert email.send_course_assignment.await_args.kwargs["localized_titles"] == {}
 
 
 @pytest.mark.asyncio

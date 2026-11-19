@@ -35,6 +35,7 @@ import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
+import { CourseLanguagesEditor } from '@/features/course-authoring/CourseLanguagesEditor';
 import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel';
 import { WorkspacePage, WorkspacePageHeader, WorkspaceToolbar } from '@/features/workspace-design';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
@@ -806,6 +807,7 @@ export default function CourseEditPage() {
       } />
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
       {workspaceDirty && <p role="status" className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">{copy.unsaved}</p>}
+      <CourseLanguagesEditor courseId={course.id} />
       {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
         courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
         onResolved={() => { void fetchData(); }} />}

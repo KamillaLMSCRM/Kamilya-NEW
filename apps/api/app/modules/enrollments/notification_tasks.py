@@ -128,6 +128,9 @@ async def _deliver(*, tenant_id: UUID, notification_id: UUID) -> dict[str, str]:
             return {"status": "dead"}
 
         try:
+            from app.modules.courses.localizations import assignment_titles
+
+            translations = await assignment_titles(db, course, _enrollment)
             if invite is not None:
                 _mark_invitation_attempt(invite)
             message_id = await email.send_course_assignment(
@@ -138,6 +141,7 @@ async def _deliver(*, tenant_id: UUID, notification_id: UUID) -> dict[str, str]:
                 access_url=access_url,
                 activation_required=activation_required,
                 idempotency_key=f"course-assignment/{item.id}",
+                localized_titles=translations,
             )
         except EmailDeliveryError as exc:
             kind = "transient" if exc.category in TRANSIENT_EMAIL_CATEGORIES else "terminal"

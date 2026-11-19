@@ -18,6 +18,31 @@ describe('standalone knowledge checks learner',()=>{
     fireEvent.click(screen.getByRole('radio',{name:'Two'}));fireEvent.click(screen.getByRole('button',{name:'Save answers'}));
     await waitFor(()=>expect(mocked.request).toHaveBeenCalledWith('/v1/knowledge-checks/attempts/t/answers',expect.objectContaining({method:'PUT',data:{answers:[{question_id:'q',selected_choice_ids:['two']}]}})));
   });
+  it('changes choice order on a new attempt and restores it with the selected answer on reload', async () => {
+    let active = attempt;
+    mocked.request.mockImplementation((path: string) => Promise.resolve(
+      path.endsWith('/assignments/a')
+        ? { ...assignment, attempts: [{ id: active.id, status: 'started', number: active.number }] }
+        : active,
+    ));
+    const labels = () => screen.getAllByRole('radio').map(input => input.parentElement?.textContent);
+    const first = render(<Learner assignmentId="a"/>);
+    expect(await screen.findByRole('radio', {name: 'One'})).toBeChecked();
+    const initialOrder = labels();
+    first.unmount();
+
+    active = { ...attempt, id: 'retry', number: 2 };
+    const second = render(<Learner assignmentId="a"/>);
+    expect(await screen.findByRole('radio', {name: 'One'})).toBeChecked();
+    const nextOrder = labels();
+    expect(nextOrder).toEqual([...initialOrder].reverse());
+    second.unmount();
+
+    render(<Learner assignmentId="a"/>);
+    expect(await screen.findByRole('radio', {name: 'One'})).toBeChecked();
+    expect(labels()).toEqual(nextOrder);
+  });
+
   it('ignores a response after the session changes',async()=>{
     let resolve!: (value: unknown)=>void; mocked.request.mockReturnValue(new Promise(r=>{resolve=r;}));
     render(<Learner/>);mocked.identity.mockReturnValue('other');resolve({items:[assignment],has_more:false});

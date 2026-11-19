@@ -71,6 +71,7 @@ class AIGenerateRequest(BaseModel):
     course_format: CourseFormat = "automatic"
     num_modules: int | None = Field(default=None, ge=1, le=10)
     language: Literal["ru", "kk", "en"] = "ru"
+    languages: list[Literal["ru", "kk", "en"]] | None = Field(default=None, min_length=1, max_length=3)
     tone: str = Field(default="professional", max_length=100)
     source_strategy: Literal["single_topic", "intentional_combination"] = "single_topic"
     combination_goal: str = Field(default="", max_length=2000)
@@ -89,6 +90,10 @@ class AIGenerateRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_combination_goal(self) -> Self:
+        if self.languages is not None and (
+            self.language not in self.languages or len(set(self.languages)) != len(self.languages)
+        ):
+            raise ValueError("course_languages_invalid")
         if any(item.document_id not in self.documents for item in self.reference_decisions):
             raise ValueError("reference decision must belong to a selected document")
         identities = {(item.document_id, item.reference_start, item.reference_end) for item in self.reference_decisions}
