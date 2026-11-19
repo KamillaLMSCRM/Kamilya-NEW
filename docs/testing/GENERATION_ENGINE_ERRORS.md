@@ -2490,3 +2490,14 @@ native22/12ready parts retained for normal continuation, no extra source review.
   metrics120-standards-B-failed.json; catalog-context120B standards terminal and
   ready-preservation receipts. Inspect the retained failure before new inference;
   never repeat its fifteen ready stages. Fix/regression/DEV acceptance pending.
+
+## ENG-085 - PPTX visual request used the wrong Luna configuration in DEV
+
+- Observed before a model call on 2026-11-19. The managed DEV tenant
+  resolves its verified connector as Luna 6. The general chain on the same
+  worker resolves the reserve model as Luna 5.6. The initial PPTX patch
+  selected the latter for images.
+- Source images now use the connector identity, deadline and reasoning of
+  the verified managed client. The general production provider order stays
+  as configured. Regression control exercises Luna 6 in a scope where the
+  generic reserve identity may differ. No failed model request was submitted.

@@ -295,10 +295,9 @@ def _unverified_clues(review: _IndependentReview, material: dict[int, Any], orig
 
 
 def select_visual_config(
-    candidates: list[LLMProviderConfig], *, luna_qa: bool,
+    candidates: list[LLMProviderConfig],
 ) -> LLMProviderConfig:
-    preferred = ("chatgpt-reserve",) if luna_qa else ("deepseek", "chatgpt-reserve")
-    for name in preferred:
+    for name in ("deepseek", "chatgpt-reserve"):
         enabled = [candidate for candidate in candidates if candidate.name == name]
         if len(enabled) > 1:
             break  # One unambiguous identity must own the visual request.
@@ -962,11 +961,11 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                 phase = "source_extraction"
                 if not await verify_claim():
                     raise ReviewConflictError("source_review_analysis_claim_changed")
-                visual_chain = llm or await ResilientLLMClient.from_settings_async(
-                    temperature=0.1, max_tokens=runtime.integer("source_preparation.max_tokens"))
-                visual_config = select_visual_config(
-                    [client.config for client in visual_chain._clients], luna_qa=managed is not None,
-                )
+                if managed is not None:
+                    visual_config = managed.visual_provider_config()
+                else:
+                    assert llm is not None
+                    visual_config = select_visual_config([client.config for client in llm._clients])
                 import httpx
 
                 from app.modules.ai.llm_client import LLMClient, ProviderFailedError
@@ -990,7 +989,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     raise ValueError("source_preparation_visual_outcome_unknown") from None
                 visual_stage = "visual_verification" if str(messages[0]["content"]).startswith("[VISUAL_REVIEW_V1]") else "visual_reading"
                 visual_receipt = f"visual:{claim.id}:{text_hash(json.dumps(messages, sort_keys=True))}"
-                visual_usage = {"stage": visual_stage, "thinking": "enabled", "reasoning_effort": "low",
+                visual_usage = {"stage": visual_stage, "thinking": "enabled",
+                                "reasoning_effort": visual_config.extra_body.get("reasoning_effort"),
                               "provider": reply.provider_name, "model": reply.model,
                               "prompt_tokens": reply.prompt_tokens, "completion_tokens": reply.completion_tokens,
                               "usage_complete": reply.usage_complete}
