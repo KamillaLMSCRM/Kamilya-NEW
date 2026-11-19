@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.11.123] - 2026-11-19
+
 ### Added
 - Source review retains embedded PowerPoint screenshots and their slide references. The private Luna connector can accept bounded PNG/JPEG attachments for source review. The existing DEV Luna QA route selects Luna for both visual stages.
 
