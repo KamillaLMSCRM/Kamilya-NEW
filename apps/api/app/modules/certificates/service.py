@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from hashlib import sha256
 from typing import Any, cast
@@ -66,7 +67,7 @@ def _add_months(dt: datetime, months: int) -> datetime:
     return dt.replace(year=year, month=month, day=day)
 
 
-def _configured_template(tenant_settings: dict) -> CertificateTemplate:
+def _configured_template(tenant_settings: Mapping[str, object]) -> CertificateTemplate:
     if tenant_settings.get("certificate_template_version") == KARLSKRONA_CERTIFICATE_TEMPLATE:
         return KARLSKRONA_CERTIFICATE_TEMPLATE
     return DEFAULT_CERTIFICATE_TEMPLATE
@@ -77,7 +78,7 @@ async def get_certificate_settings(
     tenant_id: UUID,
 ) -> CertificateSettings:
     tenant = await db.get(Tenant, tenant_id)
-    tenant_settings = (tenant.settings or {}) if tenant else {}
+    tenant_settings = cast(dict[str, Any], tenant.settings or {}) if tenant else {}
     raw = dict(tenant_settings.get("certificate_settings") or {})
     if tenant and not raw:
         raw = {"organization_name": tenant.name}

@@ -1,13 +1,13 @@
 """Certificate schemas."""
 from datetime import datetime
-from typing import Literal
+from typing import Final, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
 PUBLIC_CERTIFICATE_VERIFICATION_BASE_URL = "https://app.kml.kz/verify/certificate"
-DEFAULT_CERTIFICATE_TEMPLATE = "v3"
-KARLSKRONA_CERTIFICATE_TEMPLATE = "karlskrona-v1"
+DEFAULT_CERTIFICATE_TEMPLATE: Final = "v3"
+KARLSKRONA_CERTIFICATE_TEMPLATE: Final = "karlskrona-v1"
 CertificateTemplate = Literal["v3", "karlskrona-v1"]
 
 

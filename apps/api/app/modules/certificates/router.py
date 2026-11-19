@@ -1,5 +1,5 @@
 """Certificate API router"""
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -78,9 +78,9 @@ async def preview_settings(
     payload: CertificatePreviewRequest,
     db: Database,
     user: AdminUser,
-):
+) -> Response:
     """Render unsaved certificate settings with the production PDF renderer."""
-    configured = await get_certificate_settings(db, user.tenant_id)
+    configured = await get_certificate_settings(db, cast(UUID, user.tenant_id))
     preview_settings = payload.settings.model_copy(update={"template_version": configured.template_version})
     pdf_bytes = render_certificate_preview(payload.model_copy(update={"settings": preview_settings}))
     return Response(
