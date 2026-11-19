@@ -358,10 +358,15 @@ async def prepare_native_source(
     assets = []
     for asset in native.assets:
         reading = readings[asset.asset_id]
+        kind = "scan" if asset.asset_id in scan_ids else reading.kind
+        if kind == "scan" and "slide" in asset.locator:
+            # A placed picture on a PowerPoint slide is still a lesson
+            # illustration when it is the only visible content on the slide.
+            kind = "figure"
         assets.append(SourceAsset(id=asset.asset_id, sha256=asset.sha256,
             mime_type=cast(Literal["image/png", "image/jpeg"], asset.mime_type),
             width=asset.width, height=asset.height, storage_key=await persist_asset(asset),
-            caption=reading.caption, kind="scan" if asset.asset_id in scan_ids else reading.kind,
+            caption=reading.caption, kind=kind,
             text=reading.text, description=reading.description, uncertainties=reading.uncertainties,
             locator=asset.locator))
     by_id = {asset.id: asset for asset in assets}
@@ -372,13 +377,18 @@ async def prepare_native_source(
             text = "\n\n".join(by_id[i].text for i in block.asset_ids)
             if not text.strip():
                 raise ValueError("source_preparation_page_unreadable")
-            # Keep OCR paragraph boundaries so mixed final pages can be divided meaningfully.
-            paragraphs = [piece.strip() for piece in text.split("\n\n") if piece.strip()]
-            for index, paragraph in enumerate(paragraphs):
-                blocks.append(SourceBlock(id="block-" + digest(block.block_id + str(index) + paragraph)[:24],
-                    text=paragraph, kind="page_text", page=block.page, asset_ids=list(block.asset_ids),
-                    locator={**block.locator, "recognized_paragraph": index}))
-            continue
+            if "slide" in block.locator:
+                # The normal figure rendering below adds the original image
+                # marker, the exact OCR text, and the separately tagged description.
+                text = f"## [Slide {block.locator['slide']}]"
+            else:
+                # Preserve OCR paragraph boundaries for scanned document pages.
+                paragraphs = [piece.strip() for piece in text.split("\n\n") if piece.strip()]
+                for index, paragraph in enumerate(paragraphs):
+                    blocks.append(SourceBlock(id="block-" + digest(block.block_id + str(index) + paragraph)[:24],
+                        text=paragraph, kind="page_text", page=block.page, asset_ids=list(block.asset_ids),
+                        locator={**block.locator, "recognized_paragraph": index}))
+                continue
         figures = []
         for asset_id in dict.fromkeys(block.asset_ids):
             prepared_asset = by_id[asset_id]

@@ -16,6 +16,7 @@ from app.modules.ai.ingestion import DocumentConverter
 from app.modules.documents.archive_preflight import ArchivePreflightError, preflight_ooxml
 from app.modules.source_editorial_review.analysis import analysis_failure_code, analyze
 from app.modules.source_preparation.extraction import extract_native_source
+from app.modules.source_preparation.lesson_assets import approved_asset_inventory, bind_lesson_assets
 from app.modules.source_preparation.preparation import prepare_native_source
 
 P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
@@ -208,9 +209,23 @@ async def test_pptx_screenshot_reaches_prepared_source_with_verifiable_slide_loc
         visual_complete=read_image, visual_review_complete=verify_image, checkpoint=AsyncMock(),
         persist_asset=persist, retained={}, vision_batch_size=2, preview_chars=600,
     )
-    selected_text = prepared.selected([part.id for part in prepared.parts])[0]
+    selected_ids = [part.id for part in prepared.parts]
+    selected_text = prepared.selected(selected_ids)[0]
     assert statement in selected_text and 'Keep the receipt.' in selected_text
-    recognized = next(block for block in prepared.blocks if block.kind == 'page_text')
-    assert recognized.text == statement and recognized.locator['slide'] == 1
-    assert recognized.asset_ids == [asset.asset_id]
+    screenshot_markdown = f'![Cabinet label](source-asset:{asset.asset_id})'
+    recognized = next(block for block in prepared.blocks if block.page == 1)
+    assert screenshot_markdown in recognized.text
+    assert '## [Slide 1]' in recognized.text and statement in recognized.text
+    assert recognized.locator['slide'] == 1 and recognized.asset_ids == [asset.asset_id]
+
+    document = str(uuid4())
+    inventory = approved_asset_inventory({document: SimpleNamespace(
+        preparation=prepared.binding(selected_ids),
+        source_revision='document:' + hashlib.sha256(blob).hexdigest(),
+        recognized_text=selected_text,
+    )})
+    course_id, lesson_id = uuid4(), uuid4()
+    body, assets = bind_lesson_assets(screenshot_markdown, inventory, course_id=course_id, lesson_id=lesson_id)
+    assert f'/v1/courses/{course_id}/lessons/{lesson_id}/source-assets/{asset.asset_id}' in body
+    assert [item['sha256'] for item in assets] == [asset.sha256]
     persist.assert_awaited_once_with(asset)
