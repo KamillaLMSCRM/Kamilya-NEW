@@ -96,7 +96,10 @@ def test_hardening_check_has_no_network_auth_cache_or_application_env() -> None:
     script = verify["run"]
     assert "--network none" in script and "--read-only" in script
     assert 'test "$(id -u)" != 0' in script
-    assert 'codex-cli 0.146.1' in script
+    assert verify['id'] == 'smoke'
+    assert 'codex --version' in script and 'from runner import CLI_VERSION' in script
+    assert 'test "$actual" = "$expected"' in script
+    assert '-eu -c' in script
     assert "/root/.codex" in script and "/root/.cache" in script
     assert "DATABASE_URL|JWT_SECRET|OPENAI_API_KEY|CODEX_API_KEY" in script
     assert "credentials" not in script.lower()
@@ -112,6 +115,7 @@ def test_artifact_is_sanitized_and_has_exact_fields() -> None:
     assert "product_version:$product_version" in script
     assert "image:$image" in script
     assert "cli_version:$cli_version" in script
+    assert create["env"]["CLI_VERSION"] == "${{ steps.smoke.outputs.cli_version }}"
     assert "ci_run_id:$ci_run_id" in script
     assert "token" not in script.lower()
     assert "password" not in script.lower()

@@ -120,22 +120,32 @@ jobs:
           tags: ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
 
       - name: Verify image identity and reserve hardening
+        id: smoke
         shell: bash
         env:
           IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
           docker pull "${IMAGE}"
-          docker run --rm --network none --read-only \
-            --tmpfs /tmp:rw,noexec,nosuid,nodev,size=128m \
-            --entrypoint sh "${IMAGE}" -c '
-              test "$(id -u)" != 0
-              test "$(codex --version)" = "codex-cli 0.146.1"
-              test -x /usr/local/bin/codex
-              test ! -e /root/.codex
-              test ! -e /root/.cache
-              ! env | grep -E "(DATABASE_URL|JWT_SECRET|OPENAI_API_KEY|CODEX_API_KEY|CODEX_ACCESS_TOKEN|CHATGPT_RESERVE_TOKEN)="
-            '
+          cli_version="$(
+            docker run --rm --network none --read-only \
+              --tmpfs /tmp:rw,noexec,nosuid,nodev,size=128m \
+              --entrypoint sh "${IMAGE}" -eu -c '
+                test "$(id -u)" != 0
+                actual="$(codex --version)"
+                expected="$(python -c "from runner import CLI_VERSION; print(CLI_VERSION)")"
+                test "$actual" = "$expected"
+                test -x /usr/local/bin/codex
+                test ! -e /root/.codex
+                test ! -e /root/.cache
+                if env | grep -Eq "(DATABASE_URL|JWT_SECRET|OPENAI_API_KEY|CODEX_API_KEY|CODEX_ACCESS_TOKEN|CHATGPT_RESERVE_TOKEN)="; then
+                  exit 1
+                fi
+                printf "%s\n" "$actual"
+              '
+          )"
+          [[ "${cli_version}" =~ ^codex-cli[[:space:]][0-9]+\.[0-9]+\.[0-9]+$ ]]
+          printf 'cli_version=%s\n' "${cli_version}" >>"${GITHUB_OUTPUT}"
 
       - name: Attest image provenance
         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
@@ -149,6 +159,7 @@ jobs:
         env:
           RELEASE_SHA: ${{ steps.source.outputs.release_sha }}
           CI_RUN_ID: ${{ steps.source.outputs.ci_run_id }}
+          CLI_VERSION: ${{ steps.smoke.outputs.cli_version }}
           IMAGE: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
         run: |
           set -euo pipefail
@@ -158,7 +169,7 @@ jobs:
             --arg release_sha "${RELEASE_SHA}" \
             --arg product_version "${product_version}" \
             --arg image "${IMAGE}" \
-            --arg cli_version "codex-cli 0.146.1" \
+            --arg cli_version "${CLI_VERSION}" \
             --arg ci_run_id "${CI_RUN_ID}" \
             '{release_sha:$release_sha,product_version:$product_version,image:$image,cli_version:$cli_version,ci_run_id:$ci_run_id}' \
             > codex-reserve-image.json
