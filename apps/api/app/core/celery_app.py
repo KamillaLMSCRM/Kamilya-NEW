@@ -55,6 +55,7 @@ celery_app = Celery(
         "app.modules.users.tasks",
         "app.modules.enrollments.notification_tasks",
         "app.modules.learning_reminders.tasks",
+        "app.modules.learning_reminders.telegram_delivery",
         "app.modules.course_approval.notification_tasks",
         "app.modules.learning_cycles.tasks",
         "app.modules.candidate_assessments.retention_tasks",
@@ -93,6 +94,7 @@ celery_app.conf.update(
         "enrollments.recover_assignment_notifications": {"queue": "notifications"},
         "learning_reminders.deliver": {"queue": "notifications"},
         "learning_reminders.recover": {"queue": "notifications"},
+        "learning_reminders.recover_telegram": {"queue": "notifications"},
         "course_approval.deliver_workflow_delivery": {"queue": "notifications"},
         "course_approval.recover_workflow_deliveries": {"queue": "notifications"},
         "course_approval.recover_workflow_deadlines": {"queue": "notifications"},
@@ -110,6 +112,10 @@ celery_app.conf.update(
         },
         "recover-due-assignment-notifications": {
             "task": "enrollments.recover_assignment_notifications",
+            "schedule": 60.0,
+        },
+        "recover-due-telegram-learning-events": {
+            "task": "learning_reminders.recover_telegram",
             "schedule": 60.0,
         },
         "recover-course-approval-deliveries": {

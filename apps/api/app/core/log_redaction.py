@@ -15,6 +15,7 @@ _UUID_RE = re.compile(r"(?<![\w-])([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-
 _PHONE_RE = re.compile(r"(?<!\d)(?:\+?7|8)(?:[\s().-]*\d){10}(?!\d)")
 _BEARER_RE = re.compile(r"(?i)\bBearer\s+[^\s,;]+")
 _JWT_RE = re.compile(r"(?<![\w-])eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+(?![\w-])")
+_TELEGRAM_API_PATH_RE = re.compile(r"(?i)(api\.telegram\.org/bot)[0-9]+(?::|%3a)[A-Za-z0-9_-]+")
 _SENSITIVE_PAIR_RE = re.compile(
     r"(?i)(\b(?:personnel_number|pin|passcode|password|otp|code|token|access_token|"
     r"refresh_token|api_key|secret|authorization)\b\s*[=:]\s*)"
@@ -54,7 +55,8 @@ _STANDARD_LOG_RECORD_KEYS = frozenset(
 def redact_sensitive_text(value: str) -> str:
     """Remove common credentials and direct identifiers from free-form text."""
 
-    redacted = _BEARER_RE.sub("Bearer <redacted-token>", value)
+    redacted = _TELEGRAM_API_PATH_RE.sub(r"\1<redacted-token>", value)
+    redacted = _BEARER_RE.sub("Bearer <redacted-token>", redacted)
     redacted = _JWT_RE.sub("<redacted-token>", redacted)
     redacted = _EMAIL_RE.sub("<redacted-email>", redacted)
     # UUIDs are opaque technical IDs; digit-heavy spans can resemble a phone.

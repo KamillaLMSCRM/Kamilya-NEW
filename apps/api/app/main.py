@@ -72,6 +72,7 @@ from app.modules.lessons.router import router as lessons_router
 from app.modules.mandatory_training.router import router as mandatory_training_router
 from app.modules.methodologist_workbench.assignment_router import router as methodologist_workbench_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.learning_reminders.telegram_router import router as telegram_learning_router
 from app.modules.organization_units.router import router as organization_units_router
 from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.positions.jd_router import router as positions_jd_router
@@ -272,6 +273,7 @@ app.include_router(staff_import_mapping_router, prefix=f"{settings.API_PREFIX}",
 app.include_router(staff_import_sessions_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(staff_sync_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(telegram_router, prefix=f"{settings.API_PREFIX}", tags=["telegram"])
+app.include_router(telegram_learning_router, prefix=settings.API_PREFIX)
 app.include_router(telegram_register_router, prefix=f"{settings.API_PREFIX}", tags=["auth"])
 app.include_router(tenants_router, prefix=f"{settings.API_PREFIX}", tags=["tenants"])
 app.include_router(tenants_public_router, prefix=f"{settings.API_PREFIX}", tags=["public"])

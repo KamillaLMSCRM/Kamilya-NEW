@@ -199,6 +199,10 @@ class Settings(BaseSettings):
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
+    # Separate transport for opt-in learning notifications.
+    TELEGRAM_REMINDER_BOT_TOKEN: SecretStr = SecretStr("")
+    TELEGRAM_REMINDER_BOT_USERNAME: str = ""
+    TELEGRAM_REMINDER_WEBHOOK_SECRET: SecretStr = SecretStr("")
     # Must be configured explicitly in every environment where Telegram is
     # enabled. The webhook endpoint requires the matching
     # X-Telegram-Bot-Api-Secret-Token header; the server never logs or

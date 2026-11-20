@@ -473,7 +473,16 @@ async def reminder_statuses(
         text("SELECT * FROM public.learning_reminder_statuses(:tenant_id,:rule_id)"),
         {"tenant_id": user.tenant_id, "rule_id": rule_id},
     )
-    return [dict(row) for row in rows.mappings()]
+    email = [dict(row) for row in rows.mappings()]
+    from app.modules.learning_reminders.telegram_router import _available
+
+    if not await _available(db, user.tenant_id):
+        return email
+    telegram = await db.execute(
+        text("SELECT * FROM public.telegram_learning_delivery_statuses(:tenant,'rule',:rule)"),
+        {"tenant": user.tenant_id, "rule": rule_id},
+    )
+    return email + [{**dict(row), "channel": "telegram"} for row in telegram.mappings()]
 
 
 @router.post("/{rule_id}/activate", response_model=RuleResponse)

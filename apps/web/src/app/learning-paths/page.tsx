@@ -854,7 +854,7 @@ function LearnerView({ programs, t, tp }: { programs: LearnerProgram[]; t: (key:
       const requiredCompleted = program.completed_required_courses ?? 0;
       const requiredTotal = program.total_required_courses ?? steps.filter((step) => step.required).length;
       const progress = program.progress_percent ?? (requiredTotal ? Math.round((requiredCompleted / requiredTotal) * 100) : 0);
-      return <WorkspacePanel key={program.id} title={program.title} description={program.description} padded={false} actions={<span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{progress}%</span>}>
+      return <WorkspacePanel key={program.id} id={`program-${program.id}`} className="scroll-mt-24" title={program.title} description={program.description} padded={false} actions={<span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{progress}%</span>}>
         <div className="grid min-w-0 gap-6 p-5 sm:p-6 lg:grid-cols-[220px_minmax(0,1fr)]">
           <div className="min-w-0 rounded-xl bg-muted/30 p-4">
             <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} /></div>
