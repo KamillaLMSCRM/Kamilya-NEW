@@ -1,4 +1,31 @@
 {
+  "learningTelegram": {
+    "title": "Telegram хабарландырулары",
+    "connected": "Telegram қосылды",
+    "disconnected": "Telegram қосылмаған",
+    "emailContinues": "Электрондық пошта хабарландырулары келе береді.",
+    "connect": "Telegram қосу",
+    "disconnect": "Telegram-ды өшіру",
+    "openBot": "Ботты ашып, Start түймесін басу",
+    "codeLabel": "Бот хабарламасындағы код",
+    "confirm": "Растау",
+    "renew": "Жаңа сілтеме алу",
+    "updateFailed": "Әрекет орындалмады. Кодты тексеріңіз немесе жаңа сілтеме алыңыз.",
+    "status": {
+      "queued": "Кезекте",
+      "sending": "Жіберіліп жатыр",
+      "sent": "Telegram хабарламаны қабылдады",
+      "failed": "Telegram жіберуді қабылдамады",
+      "uncertain": "Жеткізу расталмады",
+      "skipped": "Жіберілмеді",
+      "unknown": "Күйі белгісіз"
+    },
+    "steps": {
+      "assigned": "Тағайындау",
+      "beforeDue": "Мерзім туралы еске салу",
+      "overdue": "Мерзімі өтті"
+    }
+  },
   "tenantAi": {
     "title": "Ұйымның ЖИ модельдері",
     "subtitle": "Курс пен тест жасауға және құжаттардан іздеуге арналған бөлек қосылымдар.",

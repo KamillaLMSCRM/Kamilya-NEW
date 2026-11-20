@@ -1,4 +1,31 @@
 {
+  "learningTelegram": {
+    "title": "Telegram notifications",
+    "connected": "Telegram connected",
+    "disconnected": "Telegram not connected",
+    "emailContinues": "Email notifications continue as usual.",
+    "connect": "Connect Telegram",
+    "disconnect": "Disconnect Telegram",
+    "openBot": "Open the bot and press Start",
+    "codeLabel": "Code from the bot",
+    "confirm": "Confirm",
+    "renew": "Get a new link",
+    "updateFailed": "Could not complete the action. Check the code or get a new link.",
+    "status": {
+      "queued": "Queued",
+      "sending": "Sending",
+      "sent": "Telegram accepted the message",
+      "failed": "Telegram rejected the message",
+      "uncertain": "Sending could not be confirmed",
+      "skipped": "Skipped",
+      "unknown": "Status unavailable"
+    },
+    "steps": {
+      "assigned": "Assignment",
+      "beforeDue": "Deadline reminder",
+      "overdue": "Overdue"
+    }
+  },
   "tenantAi": {
     "title": "Organization AI models",
     "subtitle": "Separate connections for course and quiz generation and document search.",

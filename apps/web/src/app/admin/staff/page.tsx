@@ -1,5 +1,6 @@
 "use client";
 
+import { TelegramLearnerStatus } from "@/features/learning-notifications/TelegramStatus";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -2258,6 +2259,7 @@ function StructureTab({ refreshKey = 0, onAddEmployee = () => undefined }: { ref
                     ? ui("authenticatedUi.adminStaff.employee.activeAccessHint")
                     : ui("authenticatedUi.adminStaff.employee.terminatedAccessHint")}
                 </p>
+                <TelegramLearnerStatus key={editingEmployee.id} learnerId={editingEmployee.id} />
               </div>
               <EmployeeStatusBadge isActive={editingEmployee.is_active} />
             </div>

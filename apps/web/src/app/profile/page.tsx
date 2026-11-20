@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Input } from '@/components/ui';
 import { WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
+import { TelegramSubscription } from '@/features/learning-notifications/TelegramSubscription';
 import { useAuthStore } from '@/store/authStore';
 import { useT } from '@/i18n/useT';
 import { useLanguageStore } from '@/store/languageStore';
@@ -156,6 +157,7 @@ export default function ProfilePage() {
           </p>
           <p className="text-sm text-muted-foreground">{t('settings.passwordHelp')}</p>
       </WorkspacePanel>
+      {user?.role === 'student' && !isImpersonating && <TelegramSubscription key={`${user.tenant_id ?? ''}:${user.user_id}`} />}
       </div>
 
       <WorkspacePanel title={t('settings.about')} description={t('settings.productVersion')} bodyClassName="flex flex-wrap items-center justify-between gap-4" actions={

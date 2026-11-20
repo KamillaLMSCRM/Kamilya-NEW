@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { buildTrainingLogBrowserHref } from '@/app/admin/training-log/query';
 import { RecordList } from '@/features/workspace-design/RecordList';
 import { WorkspacePage, WorkspacePanel, WorkspaceToolbar, WorkspaceEmpty } from '@/features/workspace-design';
+import { TelegramAssignmentStatus, TelegramDeliveryLine, TelegramLearnerStatus, type TelegramDelivery } from '@/features/learning-notifications/TelegramStatus';
 
 interface Course {
   id: string;
@@ -110,14 +111,17 @@ interface ReminderDraft {
   daysBeforeDue: string;
 }
 
-interface ReminderStatus {
+interface EmailReminderStatus {
   id: string;
   status: 'queued' | 'sending' | 'sent' | 'failed' | 'skipped' | string;
   attempt_count: number;
   scheduled_at: string;
   delivered_at: string | null;
   last_error_category: string | null;
+  channel?: 'email';
 }
+
+type ReminderStatus = EmailReminderStatus | (TelegramDelivery & { channel: 'telegram' });
 
 type ReminderHistoryState =
   | { state: 'idle' }
@@ -1099,6 +1103,10 @@ function AssignmentsContent() {
               <Button variant="outline" size="sm" onClick={() => void resendNotification(e)}>{t('courseAssignments.ui.resend')}</Button>
             </div>
           ) : <span data-testid="assignment-primary-line" className="flex min-h-9 items-center text-sm leading-5 text-muted-foreground">{t('courseAssignments.ui.notRequired')}</span>}
+          {asPanel && <div className="space-y-1" key={e.id}>
+            <TelegramLearnerStatus learnerId={e.user_id} />
+            <TelegramAssignmentStatus enrollmentId={e.id} />
+          </div>}
         </Cell>
         <Cell className="p-2 align-top [overflow-wrap:anywhere]">
                 {asPanel && <p className="text-xs font-semibold text-muted-foreground">{t('courseAssignments.ui.action')}</p>}
@@ -1657,9 +1665,11 @@ function AssignmentsContent() {
                         <ul className="space-y-1 text-xs text-muted-foreground" aria-label={t('courseAssignments.ui.reminderStatusesForRule', { id: rule.id })}>
                           {reminderHistory.items.map((status) => (
                             <li key={status.id}>
-                              {t('courseAssignments.ui.reminderStatusSummary', { status: translatedLabel(REMINDER_STATUS_LABEL_KEYS, status.status, 'courseAssignments.reminderStatus.unknown'), attempts: status.attempt_count, scheduled: new Date(status.scheduled_at).toLocaleString() })}
-                              {status.delivered_at ? ` · ${t('courseAssignments.ui.sentSummary', { sent: new Date(status.delivered_at).toLocaleString() })}` : ''}
-                              {status.last_error_category ? ` · ${t('courseAssignments.ui.reasonSummary', { reason: translatedLabel(REMINDER_ERROR_LABEL_KEYS, status.last_error_category, 'courseAssignments.reminderErrors.unknown') })}` : ''}
+                              {status.channel === 'telegram' ? <TelegramDeliveryLine delivery={status} /> : <>
+                                Email · {t('courseAssignments.ui.reminderStatusSummary', { status: translatedLabel(REMINDER_STATUS_LABEL_KEYS, status.status, 'courseAssignments.reminderStatus.unknown'), attempts: status.attempt_count, scheduled: new Date(status.scheduled_at).toLocaleString() })}
+                                {status.delivered_at ? ` · ${t('courseAssignments.ui.sentSummary', { sent: new Date(status.delivered_at).toLocaleString() })}` : ''}
+                                {status.last_error_category ? ` · ${t('courseAssignments.ui.reasonSummary', { reason: translatedLabel(REMINDER_ERROR_LABEL_KEYS, status.last_error_category, 'courseAssignments.reminderErrors.unknown') })}` : ''}
+                              </>}
                             </li>
                           ))}
                         </ul>
