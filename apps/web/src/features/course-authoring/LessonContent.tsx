@@ -1,7 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AuthenticatedSourceImage, sourceImageLine } from '@/components/AuthenticatedSourceImage';
+import { api } from '@/lib/api';
+import { type CourseLanguage } from './courseLanguages';
+import { TimedPracticeVideo, youtubeFrameProps } from './TimedPracticeVideo';
+import { practiceMatches, practicePath, type VideoClip, type VideoPractice } from './videoPractice';
 
 export const lessonContentClassName = 'space-y-5 text-base leading-7 text-foreground [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc';
 
@@ -9,6 +13,7 @@ export type LessonContentProps = {
   text: string;
   className?: string;
   omitFirstHeading?: string;
+  practiceScope?: { courseId: string; lessonId: string; language: CourseLanguage };
 };
 
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -45,6 +50,8 @@ function youtubeVideoLine(line: string): Extract<Block, { type: 'youtube' }> | n
   }
   return { type: 'youtube', title, src: src.href };
 }
+
+export const containsTimedVideo = (text: string) => text.split('\n').some(line => youtubeVideoLine(line) !== null);
 
 function splitTableRow(line: string): string[] | null {
   const trimmed = line.trim();
@@ -210,8 +217,23 @@ function Heading({ level, children }: { level: HeadingLevel; children: ReactNode
   }
 }
 
-export function LessonContent({ text, className, omitFirstHeading }: LessonContentProps) {
+export function LessonContent({ text, className, omitFirstHeading, practiceScope }: LessonContentProps) {
   const parsedBlocks = parseBlocks(text);
+  const path = practiceScope && parsedBlocks.some(block => block.type === 'youtube')
+    ? practicePath(practiceScope.courseId, practiceScope.lessonId) : undefined;
+  const [timedPractice, setTimedPractice] = useState<{ path: string; clip: VideoClip; practice: VideoPractice }>();
+  useEffect(() => {
+    if (!path) return;
+    const controller = new AbortController();
+    void api.get<{ clip?: VideoClip; practice: VideoPractice | null }>(path, { signal: controller.signal })
+      .then(({ data }) => {
+        if (!controller.signal.aborted && data.clip && data.practice) {
+          setTimedPractice({ path, clip: data.clip, practice: data.practice });
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [path]);
   const firstBlock = parsedBlocks[0];
   const blocks = omitFirstHeading
     && firstBlock?.type === 'heading'
@@ -230,17 +252,14 @@ export function LessonContent({ text, className, omitFirstHeading }: LessonConte
           {block.alt && <figcaption>{block.alt}</figcaption>}
         </figure>;
 
-        if (block.type === 'youtube') return (
-          <iframe
-            key={key}
-            title={block.title}
-            src={block.src}
-            className="block aspect-video min-h-[200px] w-full rounded-lg border border-border bg-black"
-            loading="lazy"
-            allow="fullscreen; picture-in-picture; encrypted-media"
-            referrerPolicy="strict-origin-when-cross-origin"
-          />
-        );
+        if (block.type === 'youtube') {
+          const selected = timedPractice && timedPractice.path === path && practiceMatches(block.src, timedPractice.clip)
+            ? timedPractice.practice : null;
+          return selected && practiceScope
+            ? <TimedPracticeVideo key={path + ':' + selected.at} src={block.src} title={block.title}
+              practice={selected} language={practiceScope.language} />
+            : <iframe key={key} title={block.title} src={block.src} loading="lazy" {...youtubeFrameProps} />;
+        }
 
         if (block.type === 'heading') {
           return <Heading key={key} level={block.level}>{renderInline(block.text, key)}</Heading>;

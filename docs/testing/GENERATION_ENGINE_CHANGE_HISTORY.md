@@ -4191,3 +4191,8 @@ downgrade while Luna 6 is active, audited rollback, retained history and
 re-upgrade. The disposable schema was removed. This is not proof of the
 shared production connector cutover. The earlier PPTX DEV course and release
 retain their own exact acceptance record.
+### 2026-11-20 — Optional timed-video self-check pilot
+
+Prior implementation: DEV player 50aa1435/df0632ec presents bounded YouTube segments. Existing YouTube import provides timestamped subtitle segments. No prior interactive self-check route found for that player.
+
+One author request proposes a bilingual exercise from a bounded set of actual caption windows. A single shared correct-choice index and the selected window's end-time are validated, including an exact excerpt. The proposal is read-only for learners until an author accepts it. The approved card is bound to the course, lesson and exact video clip. Course approval snapshots exclude the separate practice state. Learner interactions are local to the lesson and never create scores, attempts or completion writes. Provider profile is the existing Luna reserve; transport-unknown proposals remain pending and cannot automatically repeat. Local checks use saved/synthetic responses. Record actual DEV model and browser outcomes separately before any release claim.
