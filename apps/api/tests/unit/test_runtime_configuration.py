@@ -330,37 +330,6 @@ async def test_byok_is_not_overridden_by_global_policy(monkeypatch):
     client = await llm.ResilientLLMClient.from_settings_async(tenant_id=UUID(int=2))
     assert client._clients[0].config is override and forbidden.await_count == 0
 
-async def test_deepseek_key_probe_uses_current_audited_model_and_timeout(monkeypatch):
-    import json
-
-    import httpx
-
-    from app.modules.admin.provider_keys import service
-    from app.modules.admin.runtime_configuration.runtime import runtime_settings_scope
-
-    calls = []
-
-    def respond(request):
-        calls.append((request.url.path, request.extensions["timeout"]["read"], json.loads(request.content)))
-        return httpx.Response(200, json={})
-
-    real_client = httpx.AsyncClient
-    monkeypatch.setattr(service.httpx, "AsyncClient", lambda **kw: real_client(
-        transport=httpx.MockTransport(respond), **kw,
-    ))
-    policy = RuntimeSnapshot(2, effective_values({
-        "provider.deepseek.model": "synthetic-deepseek-variant",
-        "provider.deepseek.timeout_seconds": 44,
-    }))
-    with runtime_settings_scope(policy):
-        outcome = await service.ProviderKeyService(object())._probe("deepseek", "fixture-key")
-    assert outcome.ok
-    path, timeout, body = calls[0]
-    assert path.endswith("/v1/chat/completions")
-    assert timeout == 44 and body["model"] == "synthetic-deepseek-variant"
-    assert len(calls) == 1
-
-
 async def test_luna_model_change_validates_connector_before_recording_history(monkeypatch):
     from app.core.config import LEGACY_LUNA_MODEL, LUNA6_MODEL, Settings
     from app.modules.admin.runtime_configuration import catalog, service

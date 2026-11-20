@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Literal, cast
 
-from app.core.config import DEFAULT_DEEPSEEK_MODEL, LUNA6_MODEL, LUNA_CONNECTOR_MODELS, get_settings
+from app.core.config import LUNA6_MODEL, LUNA_CONNECTOR_MODELS, get_settings
 
 Value = int | float | str
 
@@ -58,7 +58,7 @@ CATALOG = (
     Setting("writer.retrieval_count", "Поиск для урока: кандидаты на запрос", "integer", 15, 5, 15),
     Setting("writer.result_count", "Поиск для урока: итоговые фрагменты", "integer", 10, 3, 10),
     Setting("writer.similarity_threshold", "Поиск для урока: порог сходства", "number", 0.45, 0.3, 0.8),
-    Setting("provider.deepseek.model", "DeepSeek: модель", "model", DEFAULT_DEEPSEEK_MODEL, env="DEEPSEEK_MODEL"),
+    Setting("provider.deepseek.model", "DeepSeek: модель", "model", "deepseek-v4-flash", env="DEEPSEEK_MODEL"),
     Setting("provider.deepseek.timeout_seconds", "DeepSeek: транспортный таймаут, с", "integer", 120, 30, 180),
     Setting("provider.qwen.model", "Qwen: модель (не включает провайдер)", "model", "qwen3.8-flash-next", env="QWEN38_FLASH_MODEL"),
     Setting("provider.qwen.timeout_seconds", "Qwen: транспортный таймаут, с", "number", 600, 30, 600, env="FREE_LLM_REQUEST_TIMEOUT_SECONDS"),
