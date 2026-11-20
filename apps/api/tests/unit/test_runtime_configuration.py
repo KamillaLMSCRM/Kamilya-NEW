@@ -120,7 +120,14 @@ def test_frozen_sql_catalog_matches_runtime_types_and_bounds():
     spec3 = importlib.util.spec_from_file_location("editorial_settings_migration_contract", path3)
     editorial = importlib.util.module_from_spec(spec3)
     spec3.loader.exec_module(editorial)
-    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) | set(editorial.NUMBERS) == set(BY_KEY)
+    path4 = Path(__file__).parents[2] / "alembic/versions/0189_literal_source_access_settings.py"
+    spec4 = importlib.util.spec_from_file_location("literal_settings_migration_contract", path4)
+    literal = importlib.util.module_from_spec(spec4)
+    spec4.loader.exec_module(literal)
+    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) | set(editorial.NUMBERS) | set(literal.NUMBERS) == set(BY_KEY)
+    for key, (default, minimum, maximum, integer) in literal.NUMBERS.items():
+        item = BY_KEY[key]
+        assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
     for key, (default, minimum, maximum, integer) in editorial.NUMBERS.items():
         item = BY_KEY[key]
         assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
@@ -161,7 +168,7 @@ def test_closed_catalog_rejects_unsafe_types_values_and_keys(key, bad):
 
 def test_default_catalog_preserves_existing_policies_and_names():
     snapshot = default_snapshot()
-    assert len(CATALOG) == len(BY_KEY) == 40
+    assert len(CATALOG) == len(BY_KEY) == 42
     assert snapshot.integer("generation.editorial_rules_per_review") == 128
     assert snapshot.integer("generation.editorial_luna_max_tokens") == 32768
     assert snapshot.integer("generation.editorial_deepseek_max_tokens") == 65536
@@ -322,7 +329,6 @@ async def test_byok_is_not_overridden_by_global_policy(monkeypatch):
     monkeypatch.setattr(llm, "resolve_runtime_settings", forbidden)
     client = await llm.ResilientLLMClient.from_settings_async(tenant_id=UUID(int=2))
     assert client._clients[0].config is override and forbidden.await_count == 0
-
 
 async def test_deepseek_key_probe_uses_current_audited_model_and_timeout(monkeypatch):
     import json
