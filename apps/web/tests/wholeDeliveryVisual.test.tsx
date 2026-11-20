@@ -42,6 +42,13 @@ function panel(name: string) {
 }
 
 function assignmentReads() {
+  mocks.api.get.mockImplementation(async (url: string) => {
+    if (url.includes('/learning-notifications/telegram/learner/')) {
+      return { data: { available: false, connected: false } };
+    }
+    if (url.includes('/learning-notifications/telegram/delivery/course/')) return { data: [] };
+    throw new Error(`Unexpected synthetic assignment GET ${url}`);
+  });
   mocks.fetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     let data: unknown = [];

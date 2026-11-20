@@ -4,6 +4,24 @@ import { describe, expect, it } from 'vitest';
 import { LessonContent } from '../src/features/course-authoring/LessonContent';
 
 describe('LessonContent', () => {
+  it('embeds an explicit timed YouTube link with an optional caption preference', () => {
+    render(<LessonContent text={'Video follows\n[Қазақша сабақ](https://www.youtube.com/watch?v=abcdefghijk&start=42&end=97&cc=kk)'} />);
+    expect(screen.getByText('Video follows')).toBeInTheDocument();
+    const frame = screen.getByTitle('Қазақша сабақ');
+    expect(frame.tagName).toBe('IFRAME');
+    expect(frame).toHaveAttribute('src', 'https://www.youtube-nocookie.com/embed/abcdefghijk?start=42&end=97&playsinline=1&cc_lang_pref=kk&cc_load_policy=1');
+  });
+
+  it.each([
+    'https://www.youtube.com.evil.test/watch?v=abcdefghijk&start=42&end=97',
+    'https://www.youtube.com/watch?v=abcdefghijk&start=97&end=42',
+    'https://www.youtube.com/watch?v=abcdefghijk&start=42&end=97&autoplay=1',
+    'https://www.youtube.com/watch?v=abcdefghijk',
+  ])('does not embed unrecognized links or invalid time ranges (%s)', (url) => {
+    const { container } = render(<LessonContent text={`[Video](${url})`} />);
+    expect(container.querySelector('iframe')).toBeNull();
+  });
+
   it('renders Markdown headings without visible marker characters', () => {
     render(<LessonContent text={'## A useful heading\n\n### Smaller heading'} />);
 
