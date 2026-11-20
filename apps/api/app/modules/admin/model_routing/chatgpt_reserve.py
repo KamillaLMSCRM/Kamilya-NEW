@@ -16,7 +16,8 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel
 
-from app.core.config import Settings, get_settings
+from app.core.config import LUNA_CONNECTOR_MODELS, Settings, get_settings
+from app.modules.admin.runtime_configuration.runtime import resolve_runtime_settings
 
 ReserveReason = Literal[
     "not_configured", "authorization_required", "unavailable", "protocol_mismatch", "ready"
@@ -65,10 +66,13 @@ def configuration_blocker(settings: Settings | None = None) -> ReserveReason | N
     return None
 
 
-async def check_readiness(settings: Settings | None = None) -> ChatGPTReserveReadiness:
+async def check_readiness(settings: Settings | None = None, *, model: str | None = None) -> ChatGPTReserveReadiness:
     """Explicit bounded non-generative readiness; do not reflect upstream data."""
     s = settings if settings is not None else get_settings()
+    expected_model = s.CHATGPT_RESERVE_MODEL if model is None else model
     reason = configuration_blocker(s)
+    if expected_model not in LUNA_CONNECTOR_MODELS:
+        reason = "not_configured"
     if reason is None:
         reason = "unavailable"
         try:
@@ -102,7 +106,7 @@ async def check_readiness(settings: Settings | None = None) -> ChatGPTReserveRea
                                     isinstance(data, dict)
                                     and data.get("protocol") == PROTOCOL
                                     and data.get("authorization") == "codex_cli"
-                                    and data.get("model") == s.CHATGPT_RESERVE_MODEL
+                                    and data.get("model") == expected_model
                                     and data.get("ready") is True
                                 ):
                                     reason = "ready"
@@ -114,3 +118,9 @@ async def check_readiness(settings: Settings | None = None) -> ChatGPTReserveRea
     return ChatGPTReserveReadiness(
         ready=reason == "ready", reason=reason, checked_at=datetime.now(UTC),
     )
+
+
+async def check_runtime_readiness() -> ChatGPTReserveReadiness:
+    """Compare the connector to the same effective model used by live requests."""
+    settings = await resolve_runtime_settings()
+    return await check_readiness(model=settings.text("provider.chatgpt.model"))

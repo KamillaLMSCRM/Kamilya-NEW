@@ -5,7 +5,7 @@ import importlib.util
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import UUID
 
 import pytest
@@ -120,14 +120,7 @@ def test_frozen_sql_catalog_matches_runtime_types_and_bounds():
     spec3 = importlib.util.spec_from_file_location("editorial_settings_migration_contract", path3)
     editorial = importlib.util.module_from_spec(spec3)
     spec3.loader.exec_module(editorial)
-    path4 = Path(__file__).parents[2] / "alembic/versions/0189_literal_source_access_settings.py"
-    spec4 = importlib.util.spec_from_file_location("literal_settings_migration_contract", path4)
-    literal = importlib.util.module_from_spec(spec4)
-    spec4.loader.exec_module(literal)
-    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) | set(editorial.NUMBERS) | set(literal.NUMBERS) == set(BY_KEY)
-    for key, (default, minimum, maximum, integer) in literal.NUMBERS.items():
-        item = BY_KEY[key]
-        assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
+    assert set(migration.NUMBERS) | set(migration.MODEL_KEYS) | set(extension.NUMBERS) | set(editorial.NUMBERS) == set(BY_KEY)
     for key, (default, minimum, maximum, integer) in editorial.NUMBERS.items():
         item = BY_KEY[key]
         assert (item.default, item.minimum, item.maximum, item.kind == "integer") == (default, minimum, maximum, integer)
@@ -168,7 +161,7 @@ def test_closed_catalog_rejects_unsafe_types_values_and_keys(key, bad):
 
 def test_default_catalog_preserves_existing_policies_and_names():
     snapshot = default_snapshot()
-    assert len(CATALOG) == len(BY_KEY) == 42
+    assert len(CATALOG) == len(BY_KEY) == 40
     assert snapshot.integer("generation.editorial_rules_per_review") == 128
     assert snapshot.integer("generation.editorial_luna_max_tokens") == 32768
     assert snapshot.integer("generation.editorial_deepseek_max_tokens") == 65536
@@ -329,3 +322,61 @@ async def test_byok_is_not_overridden_by_global_policy(monkeypatch):
     monkeypatch.setattr(llm, "resolve_runtime_settings", forbidden)
     client = await llm.ResilientLLMClient.from_settings_async(tenant_id=UUID(int=2))
     assert client._clients[0].config is override and forbidden.await_count == 0
+
+
+async def test_deepseek_key_probe_uses_current_audited_model_and_timeout(monkeypatch):
+    import json
+
+    import httpx
+
+    from app.modules.admin.provider_keys import service
+    from app.modules.admin.runtime_configuration.runtime import runtime_settings_scope
+
+    calls = []
+
+    def respond(request):
+        calls.append((request.url.path, request.extensions["timeout"]["read"], json.loads(request.content)))
+        return httpx.Response(200, json={})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(service.httpx, "AsyncClient", lambda **kw: real_client(
+        transport=httpx.MockTransport(respond), **kw,
+    ))
+    policy = RuntimeSnapshot(2, effective_values({
+        "provider.deepseek.model": "synthetic-deepseek-variant",
+        "provider.deepseek.timeout_seconds": 44,
+    }))
+    with runtime_settings_scope(policy):
+        outcome = await service.ProviderKeyService(object())._probe("deepseek", "fixture-key")
+    assert outcome.ok
+    path, timeout, body = calls[0]
+    assert path.endswith("/v1/chat/completions")
+    assert timeout == 44 and body["model"] == "synthetic-deepseek-variant"
+    assert len(calls) == 1
+
+
+async def test_luna_model_change_validates_connector_before_recording_history(monkeypatch):
+    from app.core.config import LEGACY_LUNA_MODEL, LUNA6_MODEL, Settings
+    from app.modules.admin.runtime_configuration import catalog, service
+
+    monkeypatch.setattr(catalog, "get_settings", lambda: Settings(
+        _env_file=None, CHATGPT_RESERVE_MODEL=LEGACY_LUNA_MODEL,
+    ))
+    readiness = AsyncMock(return_value=SimpleNamespace(ready=False))
+    monkeypatch.setattr(service, "check_readiness", readiness)
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock(), commit=AsyncMock())
+    row = SimpleNamespace(overrides={}, revision=1, updated_at=datetime.now(UTC), updated_by=None)
+    writer = service.RuntimeSettingsService(db)
+    with pytest.raises(catalog.InvalidSettings, match="runtime_settings_luna_connector_not_ready"):
+        await writer._write(row, 1, {"provider.chatgpt.model": LUNA6_MODEL}, "synthetic", UUID(int=1))
+    readiness.assert_awaited_once_with(model=LUNA6_MODEL)
+    assert row.revision == 1 and row.overrides == {}
+    db.add.assert_not_called()
+    db.commit.assert_not_awaited()
+
+    readiness.return_value = SimpleNamespace(ready=True)
+    await writer._write(row, 1, {"provider.chatgpt.model": LUNA6_MODEL}, "synthetic", UUID(int=1))
+    history = db.add.call_args.args[0]
+    assert history.before == {} and history.after == {"provider.chatgpt.model": LUNA6_MODEL}
+    assert history.revision == row.revision == 2
+    db.commit.assert_awaited_once()

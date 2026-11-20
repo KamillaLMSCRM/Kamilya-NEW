@@ -7,6 +7,11 @@ from urllib.parse import urlsplit
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
+LUNA6_MODEL = "gpt-6-luna"
+LEGACY_LUNA_MODEL = "gpt-5.6-luna"
+LUNA_CONNECTOR_MODELS = (LEGACY_LUNA_MODEL, LUNA6_MODEL)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -148,7 +153,17 @@ class Settings(BaseSettings):
     # private, separately authorized gateway credential, NOT a Codex login token.
     CHATGPT_RESERVE_URL: str = ""
     CHATGPT_RESERVE_TOKEN: str = ""
-    CHATGPT_RESERVE_MODEL: Literal["gpt-5.6-luna"] = "gpt-5.6-luna"
+    # Existing deployments can keep their explicit bootstrap model until the
+    # connector and audited runtime setting are switched together.
+    CHATGPT_RESERVE_MODEL: str = LUNA6_MODEL
+
+    @field_validator("CHATGPT_RESERVE_MODEL")
+    @classmethod
+    def validate_reserve_model(cls, model: str) -> str:
+        if model not in LUNA_CONNECTOR_MODELS:
+            raise ValueError("chatgpt_reserve_model_invalid")
+        return model
+
     CHATGPT_RESERVE_AUTH_MODE: Literal["unconfigured", "codex_cli"] = "unconfigured"
     CHATGPT_RESERVE_TIMEOUT_SECONDS: float = Field(default=60.0, ge=5.0, le=120.0)
 
@@ -165,7 +180,7 @@ class Settings(BaseSettings):
     # Endpoint is OpenAI-compatible (https://api.deepseek.com/v1).
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
-    DEEPSEEK_MODEL: str = "deepseek-v4-flash"
+    DEEPSEEK_MODEL: str = DEFAULT_DEEPSEEK_MODEL
 
     # Dedicated Qwen embedding replicas through the private KZ WireGuard hub.
     # Keep them separate from chat Qwen settings. VM126 reaches only the private

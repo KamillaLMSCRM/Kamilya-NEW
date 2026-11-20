@@ -12,6 +12,11 @@
 - Add an opt-in Kazakh KARLSKRONA certificate template with bundled branding
   and the same issue-time preservation and verification as existing templates.
 
+## [0.11.128] - 2026-11-20
+
+### Changed
+- DEV uses the audited Luna 6 model setting for video practice verification.
+
 ## [0.11.127] - 2026-11-20
 
 ### Added

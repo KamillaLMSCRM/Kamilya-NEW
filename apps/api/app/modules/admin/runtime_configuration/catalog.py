@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Literal, cast
 
-from app.core.config import get_settings
+from app.core.config import DEFAULT_DEEPSEEK_MODEL, LUNA6_MODEL, LUNA_CONNECTOR_MODELS, get_settings
 
 Value = int | float | str
 
@@ -27,8 +27,6 @@ class Setting:
 
 
 CATALOG = (
-    Setting("generation.reference_literal_chars", "Каталог: объём дословных данных в начальном запросе", "integer", 30000, 1000, 120000),
-    Setting("generation.reference_lookup_rounds", "Каталог: дополнительных уточнений данных на этап", "integer", 2, 0, 3),
     Setting("generation.editorial_max_revisions", "Редактура курса: адресных правок", "integer", 3, 1, 5),
     Setting("generation.editorial_rules_per_review", "Редактура курса: правил в части проверки", "integer", 128, 1, 128),
     Setting("generation.editorial_luna_max_tokens", "Редактура курса: токены ответа Luna", "integer", 32768, 8192, 32768),
@@ -58,13 +56,13 @@ CATALOG = (
     Setting("writer.retrieval_count", "Поиск для урока: кандидаты на запрос", "integer", 15, 5, 15),
     Setting("writer.result_count", "Поиск для урока: итоговые фрагменты", "integer", 10, 3, 10),
     Setting("writer.similarity_threshold", "Поиск для урока: порог сходства", "number", 0.45, 0.3, 0.8),
-    Setting("provider.deepseek.model", "DeepSeek: модель", "model", "deepseek-v4-flash", env="DEEPSEEK_MODEL"),
+    Setting("provider.deepseek.model", "DeepSeek: модель", "model", DEFAULT_DEEPSEEK_MODEL, env="DEEPSEEK_MODEL"),
     Setting("provider.deepseek.timeout_seconds", "DeepSeek: транспортный таймаут, с", "integer", 120, 30, 180),
     Setting("provider.qwen.model", "Qwen: модель (не включает провайдер)", "model", "qwen3.8-flash-next", env="QWEN38_FLASH_MODEL"),
     Setting("provider.qwen.timeout_seconds", "Qwen: транспортный таймаут, с", "number", 600, 30, 600, env="FREE_LLM_REQUEST_TIMEOUT_SECONDS"),
     Setting("provider.glm.model", "GLM: модель (не включает провайдер)", "model", "LibertAIDAI/GLM-5.3-Flash-NVFP4", env="GLM53_FLASH_MODEL"),
     Setting("provider.glm.timeout_seconds", "GLM: транспортный таймаут, с", "number", 600, 30, 600, env="FREE_LLM_REQUEST_TIMEOUT_SECONDS"),
-    Setting("provider.chatgpt.model", "ChatGPT: модель установленного коннектора", "model", "gpt-5.6-luna", env="CHATGPT_RESERVE_MODEL", choices=("gpt-5.6-luna",)),
+    Setting("provider.chatgpt.model", "ChatGPT: модель установленного коннектора", "model", LUNA6_MODEL, env="CHATGPT_RESERVE_MODEL", choices=LUNA_CONNECTOR_MODELS),
     Setting("provider.chatgpt.timeout_seconds", "ChatGPT: транспортный таймаут, с", "number", 60, 40, 120, env="CHATGPT_RESERVE_TIMEOUT_SECONDS"),
     Setting("outbox.assignment.batch_size", "Уведомления назначений: пакет восстановления", "integer", 20, 1, 50),
     Setting("outbox.reminders.batch_size", "Напоминания: пакет восстановления", "integer", 20, 1, 50),
