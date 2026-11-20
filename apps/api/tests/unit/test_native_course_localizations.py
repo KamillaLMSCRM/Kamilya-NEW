@@ -10,11 +10,12 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.modules.ai.schemas import AIGenerateRequest
-from app.modules.courses.localization_router import course_languages
+from app.modules.courses.localization_router import course_languages, generate_language
 from app.modules.courses.localizations import (
     POLICY_KEY,
     ensure_requested_languages,
     source_fields,
+    unchanged_translations,
     validate_edition,
 )
 
@@ -62,6 +63,43 @@ def test_translation_preserves_media_numbers_and_exact_field_set():
         with pytest.raises(HTTPException) as caught:
             validate_edition(source, {**candidate, **replacement})
         assert caught.value.status_code == 422
+
+
+def test_revision_carries_only_translations_for_unchanged_mapped_fields():
+    new = {"lesson.new.title": "Срок хранения", "lesson.new.content": "Храните 15 дней.",
+           "choice.new_choice.text": "15", "lesson.other.title": "Срок хранения"}
+    old = {"lesson.old.title": "Срок хранения", "lesson.old.content": "Храните 3 дня.",
+           "choice.old_choice.text": "3"}
+    translation = {"lesson.old.title": "Сақтау мерзімі", "lesson.old.content": "3 күн сақтаңыз.",
+                   "choice.old_choice.text": "3"}
+    assert unchanged_translations(new, old, translation, {"new": "old", "new_choice": "old_choice"}) == {
+        "lesson.new.title": "Сақтау мерзімі",
+    }
+
+
+@pytest.mark.asyncio
+async def test_generates_only_changed_language_fields_and_keeps_the_existing_translations():
+    scope = "app.modules.courses.localization_router."
+    course = SimpleNamespace(id=uuid4(), source_analysis={
+        POLICY_KEY: {"primary": "ru", "requested": ["ru", "kk"]},
+    })
+    user, db = SimpleNamespace(tenant_id=uuid4()), AsyncMock()
+    _, fields = source_fields(_snapshot())
+    changed = "question.q.text"
+    unchanged = {key: value for key, value in fields.items() if key != changed}
+    with (
+        patch(scope + "_author_course", return_value=course),
+        patch(scope + "author_snapshot", return_value=_snapshot()),
+        patch(scope + "carried_editions", return_value={"kk": unchanged}),
+        patch(scope + "editions", return_value=[]),
+        patch(scope + "save_edition", return_value=True),
+        patch(scope + "_set_tenant_security_context", new_callable=AsyncMock),
+        patch(scope + "translate_fields", return_value={changed: "Неше позиция бар?"}) as provider,
+        patch(scope + "finish_edition_generation", return_value=True),
+    ):
+        result = await generate_language(course.id, "kk", db, user)
+    provider.assert_awaited_once_with({changed: fields[changed]}, "kk", user.tenant_id)
+    assert result == {"content": {**unchanged, changed: "Неше позиция бар?"}, "pending": False}
 
 
 @pytest.mark.asyncio

@@ -158,6 +158,53 @@ async def editions(db: AsyncSession, course: Course, sha: str, *, published: boo
     return [dict(row) for row in (await db.execute(query)).mappings().all()]
 
 
+def unchanged_translations(
+    source: dict[str, str], previous: dict[str, str], translated: dict[str, str], owners: dict[str, str],
+) -> dict[str, str]:
+    result = {}
+    for field, value in source.items():
+        kind, owner, name = field.split(".")
+        old_field = f"{kind}.{owners.get(owner, '')}.{name}"
+        if previous.get(old_field) == value and translated.get(old_field, "").strip():
+            result[field] = translated[old_field]
+    return result
+
+
+async def carried_editions(
+    db: AsyncSession, course: Course, fields: dict[str, str],
+) -> dict[str, dict[str, str]]:
+    policy = read_policy(course)
+    metadata = cast(dict[str, Any], course.source_analysis or {}).get("source_actuality")
+    if course.status != "draft" or policy is None or not isinstance(metadata, dict):
+        return {}
+    owners = metadata.get("language_field_owners")
+    try:
+        previous_course_id = UUID(metadata["previous_course_id"])
+        release_id = UUID(metadata["previous_release_id"])
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return {}
+    if not isinstance(owners, dict) or not owners:
+        return {}
+    snapshot = await db.scalar(select(ContentRelease.snapshot).where(
+        ContentRelease.id == release_id, ContentRelease.tenant_id == course.tenant_id,
+        ContentRelease.course_id == previous_course_id,
+    ))
+    if not isinstance(snapshot, dict):
+        return {}
+    previous_sha, previous_fields = source_fields(snapshot)
+    rows = (await db.execute(select(EDITIONS).where(
+        EDITIONS.c.tenant_id == course.tenant_id,
+        EDITIONS.c.course_id == previous_course_id,
+        EDITIONS.c.source_sha256 == previous_sha,
+        EDITIONS.c.source_language == policy.primary,
+        EDITIONS.c.approved_at.is_not(None),
+    ))).mappings().all()
+    return {
+        row["language"]: unchanged_translations(fields, previous_fields, row["content"], owners)
+        for row in rows if row["language"] in policy.requested
+    }
+
+
 async def ensure_requested_languages(
     db: AsyncSession, course: Course, snapshot: dict[str, Any] | None = None,
 ) -> None:

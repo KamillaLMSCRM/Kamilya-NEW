@@ -9,15 +9,25 @@ import { contentLanguages, isCourseLanguage, type CourseLanguage } from './cours
 
 type Policy = { primary: CourseLanguage; requested: CourseLanguage[] };
 type Edition = { content: Record<string, string>; approved: boolean; pending: boolean };
-type Editor = { policy: Policy | null; source_sha256: string; source: Record<string, string>; editions: Partial<Record<CourseLanguage, Edition>> };
+type Editor = {
+  policy: Policy | null;
+  source_sha256: string;
+  source: Record<string, string>;
+  editions: Partial<Record<CourseLanguage, Edition>>;
+  retained_fields?: Partial<Record<CourseLanguage, string[]>>;
+};
 
-export function CourseLanguagesEditor({ courseId, prepare = false }: { courseId: string; prepare?: boolean }) {
+export function CourseLanguagesEditor({ courseId, prepare = false, refreshVersion = 0 }: {
+  courseId: string; prepare?: boolean; refreshVersion?: number;
+}) {
   const ui = useLanguageStore(s => s.lang);
   const scope = useAuthStore(s => `${s.user?.tenant_id}:${s.user?.user_id}:${s.user?.role}`);
-  return <EditionEditor key={`${scope}:${courseId}`} courseId={courseId} prepare={prepare} ui={ui} />;
+  return <EditionEditor key={`${scope}:${courseId}`} courseId={courseId} prepare={prepare} ui={ui} refreshVersion={refreshVersion} />;
 }
 
-function EditionEditor({ courseId, prepare, ui }: { courseId: string; prepare: boolean; ui: string }) {
+function EditionEditor({ courseId, prepare, ui, refreshVersion }: {
+  courseId: string; prepare: boolean; ui: string; refreshVersion: number;
+}) {
   const kk = ui === 'kk';
   const en = ui === 'en';
   const label = (ru: string, k: string, e: string) => kk ? k : en ? e : ru;
@@ -31,6 +41,7 @@ function EditionEditor({ courseId, prepare, ui }: { courseId: string; prepare: b
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
   const [pending, setPending] = useState(false);
+  const [showRetained, setShowRetained] = useState(false);
   const attempted = useRef(new Set<string>());
 
   useEffect(() => {
@@ -42,11 +53,12 @@ function EditionEditor({ courseId, prepare, ui }: { courseId: string; prepare: b
       if (data.policy) {
         setPrimary(data.policy.primary);
         setRequested(data.policy.requested);
-        setTarget(data.policy.requested.find(language => language !== data.policy?.primary));
+        setTarget(current => current && data.policy?.requested.includes(current)
+          ? current : data.policy?.requested.find(language => language !== data.policy?.primary));
       }
     }).catch(() => { if (current) setError(true); });
     return () => { current = false; };
-  }, [open, path]);
+  }, [open, path, refreshVersion]);
 
   useEffect(() => {
     setDraft(target ? editor?.editions[target]?.content ?? {} : {});
@@ -102,6 +114,8 @@ function EditionEditor({ courseId, prepare, ui }: { courseId: string; prepare: b
 
   const approved = Boolean(target && editor?.editions[target]?.approved);
   const fields = Object.entries(editor?.source ?? {});
+  const retained = new Set(target && editor?.retained_fields?.[target]);
+  const displayedFields = fields.filter(([key]) => showRetained || !retained.has(key));
   const complete = fields.length > 0 && fields.every(([key]) => draft[key]?.trim());
   return (
     <details open={open} onToggle={event => setOpen(event.currentTarget.open)}
@@ -147,7 +161,9 @@ function EditionEditor({ courseId, prepare, ui }: { courseId: string; prepare: b
             ? <p role="status" className="text-sm font-medium text-success">{label('Языковая версия утверждена', 'Тілдік нұсқа бекітілді', 'Language edition approved')}</p>
             : <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" disabled={busy || pending} onClick={() => void generate(target)}>
-                  {label('Подготовить перевод', 'Аударма дайындау', 'Generate translation')}
+                  {retained.size
+                    ? label('Перевести изменения', 'Өзгерістерді аудару', 'Translate changes')
+                    : label('Подготовить перевод', 'Аударма дайындау', 'Generate translation')}
                 </Button>
                 <Button type="button" variant="outline" disabled={!complete || busy} onClick={() => void save(false)}>{label('Сохранить черновик', 'Жобаны сақтау', 'Save draft')}</Button>
                 <Button type="button" disabled={!complete || busy} onClick={() => void save(true)}>{label('Утвердить перевод', 'Аударманы бекіту', 'Approve translation')}</Button>
@@ -155,8 +171,14 @@ function EditionEditor({ courseId, prepare, ui }: { courseId: string; prepare: b
           {(pending || busy) && <p className="text-sm text-muted-foreground" role="status">
             {label('Ожидается результат перевода. Можно подготовить свою редакцию.', 'Аударма нәтижесі күтілуде. Өз нұсқаңызды дайындауға болады.', 'Translation result is pending. You can prepare an edition manually.')}
           </p>}
+          {!approved && retained.size > 0 && <Button type="button" variant="ghost" aria-pressed={showRetained}
+            onClick={() => setShowRetained(value => !value)}>
+            {showRetained
+              ? label('Скрыть сохранённые переводы', 'Сақталған аудармаларды жасыру', 'Hide retained translations')
+              : label(`Сохранённые переводы (${retained.size})`, `Сақталған аудармалар (${retained.size})`, `Retained translations (${retained.size})`)}
+          </Button>}
           {!approved && <div className="divide-y divide-border">
-            {fields.map(([key, source], index) => <div key={key} className="grid gap-3 py-3 md:grid-cols-2">
+            {displayedFields.map(([key, source], index) => <div key={key} className="grid gap-3 py-3 md:grid-cols-2">
               <div className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/35 p-3 text-sm">{source}</div>
               <textarea aria-label={label(`Перевод ${index + 1}`, `Аударма ${index + 1}`, `Translation ${index + 1}`)}
                 rows={source.length > 160 ? 5 : 2} value={draft[key] ?? ''} disabled={busy}

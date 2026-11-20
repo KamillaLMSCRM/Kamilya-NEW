@@ -115,12 +115,15 @@ async def test_student_can_read_assigned_published_course():
 
 
 @pytest.mark.asyncio
-async def test_publish_rejects_unapproved_ai_course():
+@pytest.mark.parametrize("ai_generated", [True, False])
+async def test_publish_rejects_unapproved_ai_course_or_source_revision(ai_generated):
     from app.modules.courses.router import publish_course
 
     tenant_id = uuid4()
     user = _user(role="methodologist", tenant_id=tenant_id)
-    course = _course(tenant_id=tenant_id, review_status="pending", ai_generated=True)
+    course = _course(tenant_id=tenant_id, review_status="pending", ai_generated=ai_generated)
+    if not ai_generated:
+        course.source_analysis = {"source_actuality": {"review_status": "needs_review"}}
     db = AsyncMock()
     db.execute.return_value = _scalar_result(course)
     db.scalar.return_value = None

@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { AlertCircle, Clock3, Loader2, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { DocumentCatalogItem } from '@/lib/documentCatalog';
 import { useT } from '@/i18n/useT';
+import { sourceReviewHref } from '@/features/source-editorial-review/contract';
 
 type State = 'unassigned' | 'current' | 'due_soon' | 'overdue';
 type ReviewStatus = 'pending' | 'processing' | 'ready' | 'resolved' | 'failed';
@@ -46,8 +48,10 @@ interface Review {
   impacted_lesson_count: number;
   assessment_questions_requiring_review: number;
   impacted_courses: Array<{
+    course_id: string;
     title: string;
     impacted_lesson_ids: string[];
+    impacted_lessons?: Array<{ lesson_id: string; title: string }>;
     assessment_questions_requiring_review: number;
     active_enrollments: number;
     completed_enrollments: number;
@@ -56,7 +60,12 @@ interface Review {
   removed_facts: FactChange[];
   changed_facts: FactChange[];
   analysis_truncated: boolean;
+  unmapped_working_text_changes?: boolean;
   decision: Decision | null;
+  decision_snapshot?: {
+    draft_courses?: Array<{ course_id: string; title: string; lessons: Array<{ lesson_id: string; title: string }> }>;
+    draft_course_ids?: string[];
+  };
 }
 
 const localDateTime = (value: string | null) => {
@@ -77,6 +86,7 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
   const [review, setReview] = useState<Review | null>(null);
   const [dialogBusy, setDialogBusy] = useState(false);
   const [dialogError, setDialogError] = useState(false);
+  const [sourceApprovalRequired, setSourceApprovalRequired] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
   const [owners, setOwners] = useState<Owner[]>([]);
   const [ownersLoading, setOwnersLoading] = useState(false);
@@ -146,6 +156,7 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
   };
 
   const openFamily = async (family: Family) => {
+    setSourceApprovalRequired(false);
     const generation = ++dialogGeneration.current;
     setActive(family);
     setDialogBusy(false);
@@ -224,6 +235,7 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
   };
 
   const analyze = async () => {
+    setSourceApprovalRequired(false);
     if (!active) return;
     const generation = dialogGeneration.current;
     setDialogBusy(true);
@@ -249,16 +261,25 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
     const generation = dialogGeneration.current;
     setDialogBusy(true);
     setDialogError(false);
+    setSourceApprovalRequired(false);
     try {
-      await api.post(`/v1/admin/source-actuality/reviews/${active.pending_review_id}/decision`, {
+      const { data } = await api.post<Review>(`/v1/admin/source-actuality/reviews/${active.pending_review_id}/decision`, {
         decision,
         reason: reason.trim(),
         ...(decision === 'update_and_retrain' && retrainingDueAt ? { retraining_due_at: toAwareIso(retrainingDueAt) } : {}),
       });
+      if (dialogGeneration.current === generation) setReview(data);
       await load();
-      if (dialogGeneration.current === generation) closeFamily();
-    } catch {
-      if (dialogGeneration.current === generation) setDialogError(true);
+    } catch (error) {
+      if (dialogGeneration.current !== generation) return;
+      const payload = (error as { response?: { data?: { detail?: { code?: string }; details?: { code?: string } } } })
+        ?.response?.data;
+      const code = payload?.details?.code ?? payload?.detail?.code;
+      if (code === 'source_actuality_approved_comparison_required' || code === 'source_editorial_review_required') {
+        setSourceApprovalRequired(true);
+      } else {
+        setDialogError(true);
+      }
     } finally {
       if (dialogGeneration.current === generation) setDialogBusy(false);
     }
@@ -341,8 +362,22 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
               <ImpactList heading={t('documents.sourceActuality.added')} facts={review.added_facts} />
               <ImpactList heading={t('documents.sourceActuality.removed')} facts={review.removed_facts} />
               <ImpactList heading={t('documents.sourceActuality.changed')} facts={review.changed_facts} />
-              <div className="mt-4"><h4 className="text-sm font-semibold">{t('documents.sourceActuality.impactedCourses')}</h4>{review.impacted_courses.length ? <ul className="mt-2 space-y-2">{review.impacted_courses.map((course, index) => <li key={`${course.title}-${index}`} className="rounded-lg border border-border p-3 text-sm"><p className="font-medium">{course.title}</p><p className="mt-1 text-xs text-muted-foreground">{t('documents.sourceActuality.lessonCount', { count: course.impacted_lesson_ids.length })} · {t('documents.sourceActuality.questionCount', { count: course.assessment_questions_requiring_review })} · {t('documents.sourceActuality.activeEnrollments', { count: course.active_enrollments })} · {t('documents.sourceActuality.completedEnrollments', { count: course.completed_enrollments })}</p></li>)}</ul> : <p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.none')}</p>}</div>
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold">{t('documents.sourceActuality.impactedCourses')}</h4>
+                {review.impacted_courses.length ? <ul className="mt-2 space-y-2">
+                  {review.impacted_courses.map(course => <li key={course.course_id} className="rounded-lg border border-border p-3 text-sm">
+                    <p className="font-medium">{course.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t('documents.sourceActuality.lessonCount', { count: course.impacted_lesson_ids.length })} · {t('documents.sourceActuality.questionCount', { count: course.assessment_questions_requiring_review })} · {t('documents.sourceActuality.activeEnrollments', { count: course.active_enrollments })} · {t('documents.sourceActuality.completedEnrollments', { count: course.completed_enrollments })}
+                    </p>
+                    {Boolean(course.impacted_lessons?.length) && <ul className="mt-2 list-disc space-y-1 ps-5">
+                      {course.impacted_lessons?.map(lesson => <li key={lesson.lesson_id}>{lesson.title}</li>)}
+                    </ul>}
+                  </li>)}
+                </ul> : <p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.none')}</p>}
+              </div>
               <p className="mt-3 text-xs text-muted-foreground">{t('documents.sourceActuality.questionScope')}{review.analysis_truncated ? ` ${t('documents.sourceActuality.truncated')}` : ''}</p>
+              {review.unmapped_working_text_changes && <p className="mt-2 text-sm text-warning">{t('documents.sourceActuality.unmappedChanges')}</p>}
               <div className="mt-4 space-y-3"><label className="block text-sm">{t('documents.sourceActuality.decision')}<select value={decision} onChange={(e) => setDecision(e.target.value as Decision | '')} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3"><option value="">{t('documents.sourceActuality.chooseDecision')}</option>{(['no_learning_impact', 'update_future', 'update_and_retrain', 'suspend_old_assignments'] as Decision[]).map((value) => <option key={value} value={value}>{t(`documents.sourceActuality.decisions.${value}`)}</option>)}</select></label>
                 {decision === 'update_and_retrain' && <label className="block text-sm">{t('documents.sourceActuality.retrainingDeadline')}<input type="datetime-local" value={retrainingDueAt} onChange={(e) => setRetrainingDueAt(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3" /></label>}
                 <label className="block text-sm">{t('documents.sourceActuality.reason')}<textarea value={reason} onChange={(e) => setReason(e.target.value)} minLength={20} maxLength={4000} rows={3} className="mt-1 w-full rounded-lg border border-border bg-background p-3" /></label>
@@ -350,7 +385,28 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
                 <button type="button" disabled={dialogBusy || !decision || reason.trim().length < 20} onClick={() => void submitDecision()} className="min-h-11 rounded-lg bg-primary px-4 font-medium text-primary-foreground disabled:opacity-50">{t('documents.sourceActuality.submitDecision')}</button>
               </div>
             </>}
-            {review?.status === 'resolved' && <p className="mt-3 text-sm text-muted-foreground">{t('documents.sourceActuality.alreadyDecided')}</p>}
+            {review?.status === 'resolved' && (
+              <div className="mt-3 space-y-3 text-sm">
+                <p role="status" className="text-muted-foreground">{t('documents.sourceActuality.alreadyDecided')}</p>
+                {(review.decision_snapshot?.draft_courses ?? review.decision_snapshot?.draft_course_ids?.map(course_id => ({ course_id, title: '', lessons: [] })))?.map(draft => (
+                  <div key={draft.course_id} className="rounded-lg border border-border p-3">
+                    <Link className="inline-flex min-h-10 items-center font-medium text-primary underline" href={`/courses/${encodeURIComponent(draft.course_id)}/edit`}>
+                      {draft.title || t('documents.sourceActuality.openDraft')}
+                    </Link>
+                    {draft.lessons.length > 0 && <ul className="mt-1 space-y-1">
+                      {draft.lessons.map(lesson => <li key={lesson.lesson_id}>
+                        <Link className="inline-flex min-h-9 items-center text-primary underline" href={`/courses/${encodeURIComponent(draft.course_id)}/edit?lessonId=${encodeURIComponent(lesson.lesson_id)}`}>{lesson.title}</Link>
+                      </li>)}
+                    </ul>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {sourceApprovalRequired && <div className="mt-3 space-y-2 text-sm" role="alert">
+              <p>{t('documents.sourceActuality.approvalRequired')}</p>
+              <Link className="mr-3 text-primary underline" href={sourceReviewHref(active.latest_document_id)}>{t('documents.sourceActuality.reviewReplacement')}</Link>
+              <button type="button" className="text-primary underline" disabled={dialogBusy} onClick={() => void analyze()}>{t('documents.sourceActuality.startAnalysis')}</button>
+            </div>}
             {dialogError && <p className="mt-3 text-sm text-destructive" role="alert">{t('documents.sourceActuality.actionError')} <button className="underline" onClick={() => void openFamily(active)}>{t('documents.sourceActuality.retry')}</button></p>}
           </div>
         </section>

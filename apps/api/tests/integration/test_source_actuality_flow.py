@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from hashlib import sha256
 from uuid import UUID, uuid4
 
 import pytest
 from direct_source_fixtures import seed_direct_source_documents
 from sqlalchemy import select
 
+from app.models.enrollment import Enrollment
 from app.modules.ai.direct_source import build_direct_source_corpus
+from app.modules.courses.localizations import POLICY_KEY, read_policy, save_edition, source_fields
 from app.modules.courses.models import Course
+from app.modules.courses.release_service import create_course_release
 from app.modules.lessons.models import Lesson, Module
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
 from app.modules.source_actuality import router as source_actuality_router
@@ -53,6 +57,8 @@ async def test_methodologist_reviews_latest_revision_and_creates_only_a_reviewab
         lifecycle_status="active",
         index_status="ready",
     )
+    original_rule = "Verify identity before payment"
+    unchanged_rule = "Review payments above 100000 tenge"
     await seed_direct_source_documents(
         db_session,
         monkeypatch,
@@ -61,13 +67,14 @@ async def test_methodologist_reviews_latest_revision_and_creates_only_a_reviewab
             previous.id: (
                 "# Cash handling\n\n"
                 "| Role | Requirement |\n|---|---|\n"
-                "| Cashier | Verify identity before payment |\n"
+                f"| Cashier | {original_rule} |\n"
+                f"| Supervisor | {unchanged_rule} |\n"
             ),
             current.id: (
                 "# Cash handling\n\n"
                 "| Role | Requirement |\n|---|---|\n"
                 "| Cashier | Verify identity and record the document number before payment |\n"
-                "| Supervisor | Review payments above 100000 tenge |\n"
+                f"| Supervisor | {unchanged_rule} |\n"
             ),
         },
     )
@@ -75,10 +82,24 @@ async def test_methodologist_reviews_latest_revision_and_creates_only_a_reviewab
     course = await make_course(tenant, methodologist, title="Cash handling", status="published")
     course.source_document_ids = [str(previous.id)]
     course.source_instruction_id = previous.id
+    course.source_analysis = {POLICY_KEY: {"primary": "ru", "requested": ["ru", "kk"]}}
     module = await make_module(course)
     lesson = await make_lesson(module, title="Payment verification")
-    lesson.source_document_ids = []
-    lesson.source_references = []
+    retained_lesson = await make_lesson(module, title="Supervisor verification")
+    original_source = (await build_direct_source_corpus([previous], tenant_id=tenant.id)).documents[0]
+    working = original_source.source_text
+    assert working is not None
+    for item, quote in ((lesson, original_rule), (retained_lesson, unchanged_rule)):
+        start = working.index(quote)
+        item.source_document_ids = [str(previous.id)]
+        item.source_references = [{
+            "kind": "working_text_span_v1", "doc_id": str(previous.id),
+            "source_revision": original_source.source_revision,
+            "source_text_sha256": sha256(working.encode()).hexdigest(),
+            "start": start, "end": start + len(quote),
+            "span_sha256": sha256(quote.encode()).hexdigest(),
+        }]
+        item.source_validation_status = "verified"
     lesson.source_validation_status = "verified"
     quiz = await make_quiz(lesson)
     question = Question(
@@ -96,6 +117,17 @@ async def test_methodologist_reviews_latest_revision_and_creates_only_a_reviewab
             QuizChoice(question_id=question.id, text="Desk color", is_correct=False, order_index=1),
         ]
     )
+    await db_session.flush()
+    baseline = await create_course_release(db_session, course, published_by=methodologist.id)
+    baseline_sha = baseline.snapshot_sha256
+    language_sha, fields = source_fields(baseline.snapshot)
+    policy = read_policy(course)
+    assert policy is not None
+    assert await save_edition(db_session, course, policy, language_sha, "kk", fields, approve=True)
+    learner = await make_user(tenant, role="student")
+    enrollment = Enrollment(tenant_id=tenant.id, course_id=course.id, user_id=learner.id,
+                            content_release_id=baseline.id, status="completed")
+    db_session.add(enrollment)
     await db_session.flush()
 
     headers = auth_headers(methodologist)
@@ -157,7 +189,7 @@ async def test_methodologist_reviews_latest_revision_and_creates_only_a_reviewab
     draft_id = UUID(decision["decision_snapshot"]["draft_course_ids"][0])
     draft = await db_session.scalar(select(Course).where(Course.id == draft_id))
     draft_lesson = await db_session.scalar(
-        select(Lesson).join(Module).where(Module.course_id == draft_id)
+        select(Lesson).join(Module).where(Module.course_id == draft_id, Lesson.title == lesson.title)
     )
     draft_quiz = await db_session.scalar(
         select(Quiz).join(Lesson).join(Module).where(Module.course_id == draft_id)
@@ -166,10 +198,31 @@ async def test_methodologist_reviews_latest_revision_and_creates_only_a_reviewab
     assert draft.status == "draft"
     assert draft.review_status == "pending"
     assert draft.current_release_id is None
+    assert read_policy(draft).requested == ["ru", "kk"]
+    assert draft.source_analysis["source_actuality"]["previous_release_id"] == str(baseline.id)
     assert draft_lesson is not None
     assert draft_lesson.source_validation_status == "needs_review"
+    assert draft_lesson.source_references[0]["doc_id"] == str(current.id)
+    carried_lesson = await db_session.scalar(
+        select(Lesson).join(Module).where(Module.course_id == draft_id, Lesson.title == retained_lesson.title)
+    )
+    assert carried_lesson is not None
+    assert carried_lesson.source_validation_status == "verified"
+    assert carried_lesson.source_references[0]["doc_id"] == str(current.id)
     assert draft_quiz is not None
     assert draft_quiz.review_status == "needs_review"
+    assert decision["decision_snapshot"]["draft_courses"][0]["lessons"] == [
+        {"lesson_id": str(draft_lesson.id), "title": "Payment verification"}
+    ]
+    languages = await client.get(f"/api/v1/courses/{draft_id}/languages/editor", headers=headers)
+    assert languages.status_code == 200, languages.text
+    edition = languages.json()["editions"]["kk"]
+    assert edition["approved"] is False
+    assert edition["content"][f"lesson.{draft_lesson.id}.title"] == lesson.title
+    await db_session.refresh(enrollment)
+    await db_session.refresh(baseline)
+    assert enrollment.status == "completed" and enrollment.content_release_id == baseline.id
+    assert baseline.snapshot_sha256 == baseline_sha
 
     outsider_tenant = await make_tenant(name="Other", slug=f"other-{uuid4().hex[:8]}")
     outsider = await make_user(outsider_tenant, role="methodologist")

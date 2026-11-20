@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -24,12 +25,16 @@ from app.models.users import User
 from app.modules.ai.direct_source import DirectSourceCorpus, DirectSourceError, load_direct_source_corpus
 from app.modules.ai.evidence_engine.application import build_evidence_source
 from app.modules.ai.evidence_engine.models import SourceFact
+from app.modules.course_approval.models import CourseApprovalPolicy
+from app.modules.courses.localizations import POLICY_KEY, read_policy
 from app.modules.courses.models import Course
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.positions.batch_service import recompute_tenant_members
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
 from app.modules.source_actuality.models import DocumentChangeReview, DocumentSourcePolicy
 from app.modules.source_actuality.schemas import SourceActualityItem, SourceActualityList
+from app.modules.source_actuality.spans import WorkingTextChanges
+from app.modules.source_editorial_review.service import SOURCE_PINS, pin_reviews, resolve_pins, review_enabled
 
 FACT_LIMIT = 200
 _SPACE = re.compile(r"\s+")
@@ -221,7 +226,7 @@ async def list_actuality(db: AsyncSession, *, tenant_id: UUID, now: datetime | N
             await db.execute(
                 select(DocumentChangeReview).where(
                     DocumentChangeReview.tenant_id == tenant_id,
-                    DocumentChangeReview.status.in_(("pending", "processing", "ready")),
+                    DocumentChangeReview.new_document_id.in_([item.id for item in latest.values()]),
                 )
             )
         )
@@ -354,10 +359,14 @@ async def request_analysis(
             DocumentChangeReview.tenant_id == tenant_id,
             DocumentChangeReview.previous_document_id == previous.id,
             DocumentChangeReview.new_document_id == new.id,
-        )
+        ).with_for_update()
     )
     if review is not None:
-        if review.status == "failed":
+        approvals_changed = False
+        if review.status == "ready" and review_enabled():
+            pins = await _comparison_pins(db, tenant_id, cast(UUID, previous.id), cast(UUID, new.id))
+            approvals_changed = bool(pins) and pins != (review.impact_snapshot or {}).get("editorial_pins")
+        if review.status == "failed" or approvals_changed:
             review.status = "pending"
             review.analysis_error_code = None
             review.analysis_error_message = None
@@ -375,7 +384,23 @@ async def request_analysis(
     return review, True
 
 
-async def _impact_snapshot(db: AsyncSession, *, tenant_id: UUID, predecessor_id: UUID) -> dict[str, Any]:
+async def _comparison_pins(
+    db: AsyncSession, tenant_id: UUID, previous_id: UUID, new_id: UUID,
+) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for document_id in (previous_id, new_id):
+        try:
+            result.extend(await pin_reviews(db, tenant_id, [document_id]))
+        except HTTPException as exc:
+            if exc.status_code != 409:
+                raise
+    return result
+
+
+async def _impact_snapshot(
+    db: AsyncSession, *, tenant_id: UUID, predecessor_id: UUID, working_changes: WorkingTextChanges,
+    compared_pins: list[dict[str, Any]],
+) -> dict[str, Any]:
     courses = (await db.execute(select(Course).where(Course.tenant_id == tenant_id))).scalars().all()
     impacted_courses = [
         course
@@ -408,6 +433,40 @@ async def _impact_snapshot(db: AsyncSession, *, tenant_id: UUID, predecessor_id:
             # In that case every lesson is reviewable; reporting zero would be
             # a false claim of precision.
             impacted_lessons = list(lessons)
+        rebased: dict[str, dict[str, Any]] = {}
+        unchanged: set[UUID] = set()
+        covered_references: list[dict[str, Any]] = []
+        course_pins = cast(dict[str, Any], course.source_analysis or {}).get(SOURCE_PINS) or []
+        if compared_pins and len(compared_pins) == 2:
+            comparable = compared_pins[0] in course_pins
+        else:
+            comparable = not course_pins
+        for lesson in impacted_lessons if comparable else ():
+            refs = lesson.source_references
+            if not isinstance(refs, list) or not all(isinstance(ref, dict) for ref in refs):
+                continue
+            predecessor_refs = [ref for ref in refs if ref.get("doc_id") == str(predecessor_id)]
+            if not predecessor_refs:
+                continue
+            pairs = [working_changes.rebind(ref) for ref in predecessor_refs]
+            replacements = [pair for pair in pairs if pair is not None]
+            if len(replacements) != len(predecessor_refs):
+                continue
+            changed = any(changed for _, changed in replacements)
+            covered_references.extend(predecessor_refs)
+            rebased[str(lesson.id)] = {
+                "previous": refs,
+                "changed": changed,
+                "replacement": [
+                    *(ref for ref in refs if ref.get("doc_id") != str(predecessor_id)),
+                    *(ref for ref, _ in replacements),
+                ],
+            }
+            if not changed:
+                unchanged.add(lesson.id)
+        unmatched_source_changes = not working_changes.edits_are_covered(covered_references)
+        if not unmatched_source_changes:
+            impacted_lessons = [lesson for lesson in impacted_lessons if lesson.id not in unchanged]
         lesson_ids = [lesson.id for lesson in impacted_lessons]
         questions = 0
         if lesson_ids:
@@ -451,6 +510,12 @@ async def _impact_snapshot(db: AsyncSession, *, tenant_id: UUID, predecessor_id:
                 "title": course.title,
                 "status": course.status,
                 "impacted_lesson_ids": [str(value) for value in lesson_ids],
+                "impacted_lessons": [
+                    {"lesson_id": str(lesson.id), "title": lesson.title}
+                    for lesson in impacted_lessons
+                ],
+                "rebased_lesson_references": rebased,
+                "unmatched_source_changes": unmatched_source_changes,
                 "assessment_questions_requiring_review": questions,
                 "active_enrollments": active,
                 "completed_enrollments": completed,
@@ -519,16 +584,26 @@ async def process_review(db: AsyncSession, *, tenant_id: UUID, review_id: UUID) 
             for document in (previous, new)
         ):
             raise DirectSourceError("source_not_ready")
-        corpus = await load_direct_source_corpus(
-            [str(previous.id), str(new.id)],
-            tenant_id=tenant_id,
-        )
         previous_id = cast(UUID, previous.id)
         new_id = cast(UUID, new.id)
-        previous_source = build_evidence_source(_single_document_corpus(corpus, previous_id))
-        new_source = build_evidence_source(_single_document_corpus(corpus, new_id))
+        ids = [str(previous_id), str(new_id)]
+        editorial_pins = (await _comparison_pins(db, tenant_id, previous_id, new_id)) if review_enabled() else []
+        if len(editorial_pins) == 2:
+            approved = await resolve_pins(db, tenant_id, ids, editorial_pins)
+            corpus = await load_direct_source_corpus(ids, tenant_id=tenant_id, approved_documents=approved)
+        else:
+            corpus = await load_direct_source_corpus(ids, tenant_id=tenant_id)
+        previous_corpus = _single_document_corpus(corpus, previous_id)
+        new_corpus = _single_document_corpus(corpus, new_id)
+        previous_source = build_evidence_source(previous_corpus)
+        new_source = build_evidence_source(new_corpus)
         delta = bounded_fact_diff(previous_source.all_facts, new_source.all_facts)
-        impact = await _impact_snapshot(db, tenant_id=tenant_id, predecessor_id=previous_id)
+        working_changes = WorkingTextChanges(previous_corpus.documents[0], new_corpus.documents[0])
+        impact = await _impact_snapshot(
+            db, tenant_id=tenant_id, predecessor_id=previous_id,
+            working_changes=working_changes,
+            compared_pins=editorial_pins,
+        )
         courses = impact["impacted_courses"]
         (
             review.added_fact_count,
@@ -552,7 +627,11 @@ async def process_review(db: AsyncSession, *, tenant_id: UUID, review_id: UUID) 
             "removed_facts": delta["removed"],
             "changed_facts": delta["changed"],
             "analysis_truncated": delta["truncated"],
+            "unmapped_working_text_changes": working_changes.has_unmapped_changes or any(
+                item["unmatched_source_changes"] for item in courses
+            ),
             "evidence_format": "v2",
+            "editorial_pins": editorial_pins,
         }
         review.status = "ready"
     except DirectSourceError as exc:
@@ -567,6 +646,12 @@ async def process_review(db: AsyncSession, *, tenant_id: UUID, review_id: UUID) 
     return review
 
 
+@dataclass(frozen=True)
+class DerivedDraft:
+    course_id: UUID
+    lessons: list[dict[str, str]]
+
+
 async def _clone_course(
     db: AsyncSession,
     *,
@@ -576,7 +661,34 @@ async def _clone_course(
     predecessor_id: UUID,
     replacement_id: UUID,
     impacted_lesson_ids: set[UUID],
-) -> UUID:
+    rebased_references: dict[str, dict[str, Any]] | None = None,
+    editorial_pins: list[dict[str, Any]] | None = None,
+) -> DerivedDraft:
+    rebased_references = rebased_references or {}
+    prior_analysis = getattr(course, "source_analysis", None) or {}
+    policy = read_policy(course) if POLICY_KEY in prior_analysis else None
+    replacement = str(replacement_id)
+    predecessor = str(predecessor_id)
+    pins = prior_analysis.get(SOURCE_PINS)
+    if pins:
+        analyzed = {pin["document_id"]: pin for pin in (editorial_pins or [])}
+        previous_pin = next((pin for pin in pins if pin["document_id"] == predecessor), None)
+        replacement_pin = analyzed.get(replacement)
+        if not replacement_pin or previous_pin is None:
+            raise HTTPException(409, detail={"code": "source_actuality_approved_comparison_required"})
+        if (await pin_reviews(db, tenant_id, [replacement_id]))[0] != replacement_pin:
+            raise HTTPException(409, detail={"code": "source_actuality_approved_comparison_required"})
+        if previous_pin != analyzed.get(predecessor):
+            rebased_references = {}
+        pins = [replacement_pin if pin["document_id"] == predecessor else pin for pin in pins]
+    elif len(editorial_pins or []) == 2:
+        # The hashes from approved working text must never be resolved against raw text.
+        rebased_references = {}
+    analysis: dict[str, Any] = {}
+    if pins:
+        analysis[SOURCE_PINS] = pins
+    if policy:
+        analysis[POLICY_KEY] = policy.model_dump()
     clone = Course(
         tenant_id=tenant_id,
         title=course.title,
@@ -589,22 +701,32 @@ async def _clone_course(
         source_instruction_id=replacement_id
         if course.source_instruction_id == predecessor_id
         else course.source_instruction_id,
+        source_instruction_version_at=(
+            None if course.source_instruction_id == predecessor_id
+            else getattr(course, "source_instruction_version_at", None)
+        ),
         source_document_ids=[
             str(replacement_id) if str(value) == str(predecessor_id) else str(value)
             for value in _string_list(course.source_document_ids)
         ],
         source_strategy=course.source_strategy,
         source_combination_goal=course.source_combination_goal,
-        source_analysis={
-            "source_actuality": {
-                "replacement_document_id": str(replacement_id),
-                "review_status": "needs_review",
-            }
-        },
+        source_analysis=analysis,
         review_status="pending",
     )
     db.add(clone)
     await db.flush()
+    approval = await db.scalar(select(CourseApprovalPolicy).where(
+        CourseApprovalPolicy.tenant_id == tenant_id, CourseApprovalPolicy.course_id == course.id,
+    ))
+    if approval is not None:
+        db.add(CourseApprovalPolicy(
+            tenant_id=tenant_id, course_id=clone.id, requires_approval=approval.requires_approval,
+            review_enabled=approval.review_enabled, updated_by=actor_id,
+        ))
+    node_ids = {str(clone.id): str(course.id)}
+    affected: list[dict[str, str]] = []
+    grounded: list[str] = []
     modules = (
         (
             await db.execute(
@@ -627,6 +749,7 @@ async def _clone_course(
         )
         db.add(module_clone)
         await db.flush()
+        node_ids[str(module_clone.id)] = str(module.id)
         lessons = (
             (
                 await db.execute(
@@ -639,10 +762,15 @@ async def _clone_course(
             .all()
         )
         for lesson in lessons:
-            impacted = lesson.id in impacted_lesson_ids or _contains_document_id(
-                lesson.source_document_ids,
-                predecessor_id,
-            ) or _contains_document_id(lesson.source_references, predecessor_id)
+            rebased = rebased_references.get(str(lesson.id), {})
+            references = rebased.get("replacement") if rebased.get("previous") == lesson.source_references else None
+            linked = _contains_document_id(lesson.source_document_ids, predecessor_id) or _contains_document_id(
+                lesson.source_references, predecessor_id)
+            impacted = lesson.id in impacted_lesson_ids or (linked and references is None)
+            source_ids = [replacement if value == predecessor else value
+                          for value in _string_list(lesson.source_document_ids)]
+            if impacted and not source_ids and replacement in (clone.source_document_ids or []):
+                source_ids = [replacement]
             lesson_clone = Lesson(
                 tenant_id=tenant_id,
                 module_id=module_clone.id,
@@ -652,23 +780,24 @@ async def _clone_course(
                 duration_seconds=lesson.duration_seconds,
                 order_index=lesson.order_index,
                 ai_generated=lesson.ai_generated,
-                source_document_ids=(
-                    [
-                        str(replacement_id) if str(value) == str(predecessor_id) else str(value)
-                        for value in _string_list(lesson.source_document_ids)
-                    ]
-                    if impacted
-                    else lesson.source_document_ids
-                ),
+                source_document_ids=source_ids,
                 source_references=(
-                    _without_document_reference(lesson.source_references, predecessor_id)
-                    if impacted
+                    references if references is not None
+                    else _without_document_reference(lesson.source_references, predecessor_id)
+                    if impacted or linked
                     else lesson.source_references
                 ),
                 source_validation_status="needs_review" if impacted else lesson.source_validation_status,
             )
             db.add(lesson_clone)
             await db.flush()
+            node_ids[str(lesson_clone.id)] = str(lesson.id)
+            if impacted:
+                affected.append({"lesson_id": str(lesson_clone.id), "title": str(lesson.title)})
+                if rebased.get("changed") and references and all(
+                    ref.get("kind") == "working_text_span_v1" for ref in references
+                ):
+                    grounded.append(str(lesson_clone.id))
             blocks = (
                 (
                     await db.execute(
@@ -680,18 +809,20 @@ async def _clone_course(
                 .scalars()
                 .all()
             )
-            db.add_all(
-                [
-                    ContentBlock(
-                        lesson_id=lesson_clone.id,
-                        block_type=block.block_type,
-                        content=block.content,
-                        order_index=block.order_index,
-                        metadata_=block.metadata_,
-                    )
-                    for block in blocks
-                ]
-            )
+            block_clones = [
+                ContentBlock(
+                    lesson_id=lesson_clone.id,
+                    block_type=block.block_type,
+                    content=block.content,
+                    order_index=block.order_index,
+                    metadata_=block.metadata_,
+                )
+                for block in blocks
+            ]
+            db.add_all(block_clones)
+            if block_clones and policy:
+                await db.flush()
+                node_ids.update((str(new.id), str(old.id)) for new, old in zip(block_clones, blocks, strict=True))
             quizzes = (
                 (await db.execute(select(Quiz).where(Quiz.lesson_id == lesson.id, Quiz.tenant_id == tenant_id)))
                 .scalars()
@@ -710,6 +841,7 @@ async def _clone_course(
                 )
                 db.add(quiz_clone)
                 await db.flush()
+                node_ids[str(quiz_clone.id)] = str(quiz.id)
                 questions = (
                     (
                         await db.execute(
@@ -729,11 +861,13 @@ async def _clone_course(
                         type=question.type,
                         points=question.points,
                         explanation=question.explanation,
+                        source_quote=question.source_quote if not impacted else None,
                         order_index=question.order_index,
                         pool_group=question.pool_group,
                     )
                     db.add(question_clone)
                     await db.flush()
+                    node_ids[str(question_clone.id)] = str(question.id)
                     choices = (
                         (
                             await db.execute(
@@ -745,18 +879,33 @@ async def _clone_course(
                         .scalars()
                         .all()
                     )
-                    db.add_all(
-                        [
-                            QuizChoice(
-                                question_id=question_clone.id,
-                                text=choice.text,
-                                is_correct=choice.is_correct,
-                                order_index=choice.order_index,
-                            )
-                            for choice in choices
-                        ]
-                    )
-    return cast(UUID, clone.id)
+                    choice_clones = [
+                        QuizChoice(
+                            question_id=question_clone.id,
+                            text=choice.text,
+                            is_correct=choice.is_correct,
+                            order_index=choice.order_index,
+                        )
+                        for choice in choices
+                    ]
+                    db.add_all(choice_clones)
+                    if choice_clones and policy:
+                        await db.flush()
+                        node_ids.update((str(new.id), str(old.id)) for new, old in zip(choice_clones, choices, strict=True))
+    previous_release = getattr(course, "current_release_id", None)
+    cast(Any, clone).source_analysis = {
+        **analysis,
+        "source_actuality": {
+            "replacement_document_id": replacement,
+            "previous_course_id": str(course.id),
+            "previous_release_id": str(previous_release) if previous_release else None,
+            "language_field_owners": node_ids if policy and previous_release else {},
+            "affected_lesson_ids": [item["lesson_id"] for item in affected],
+            "grounded_lesson_ids": grounded,
+            "review_status": "needs_review",
+        },
+    }
+    return DerivedDraft(cast(UUID, clone.id), affected)
 
 
 async def decide_review(
@@ -786,12 +935,19 @@ async def decide_review(
         raise HTTPException(status_code=409, detail="Only a ready review can be decided")
     snapshot: dict[str, Any] = {
         "draft_course_ids": [],
+        "draft_courses": [],
         "archived_course_ids": [],
         "retraining_due_at": retraining_due_at.isoformat() if retraining_due_at else None,
         "automatic_reassignment": False,
     }
     impact_courses = (review.impact_snapshot or {}).get("impacted_courses", [])
     if decision in {"update_future", "update_and_retrain", "suspend_old_assignments"}:
+        latest_id = await db.scalar(select(Document.id).where(
+            Document.tenant_id == tenant_id, Document.source_family_id == review.source_family_id,
+            Document.lifecycle_status == "active",
+        ).order_by(Document.version.desc()).limit(1))
+        if latest_id != review.new_document_id:
+            raise HTTPException(409, detail={"code": "source_revision_superseded"})
         for item in impact_courses:
             course = await db.scalar(
                 select(Course)
@@ -805,19 +961,22 @@ async def decide_review(
                     impacted_lesson_ids = {UUID(value) for value in item.get("impacted_lesson_ids", [])}
                 except (TypeError, ValueError, AttributeError):
                     raise HTTPException(status_code=409, detail="Review impact snapshot is invalid") from None
-                snapshot["draft_course_ids"].append(
-                    str(
-                        await _clone_course(
-                            db,
-                            course=course,
-                            tenant_id=tenant_id,
-                            actor_id=actor_id,
-                            predecessor_id=review.previous_document_id,
-                            replacement_id=review.new_document_id,
-                            impacted_lesson_ids=impacted_lesson_ids,
-                        )
-                    )
+                draft = await _clone_course(
+                    db,
+                    course=course,
+                    tenant_id=tenant_id,
+                    actor_id=actor_id,
+                    predecessor_id=review.previous_document_id,
+                    replacement_id=review.new_document_id,
+                    impacted_lesson_ids=impacted_lesson_ids,
+                    rebased_references=item.get("rebased_lesson_references"),
+                    editorial_pins=(review.impact_snapshot or {}).get("editorial_pins"),
                 )
+                snapshot["draft_course_ids"].append(str(draft.course_id))
+                snapshot["draft_courses"].append({
+                    "course_id": str(draft.course_id), "title": item.get("title", ""),
+                    "lessons": draft.lessons,
+                })
             if decision == "suspend_old_assignments":
                 course.status = cast(Any, "archived")
                 snapshot["archived_course_ids"].append(str(course.id))

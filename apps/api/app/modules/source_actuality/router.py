@@ -76,6 +76,7 @@ def _review_record(review: DocumentChangeReview) -> SourceChangeReviewRecord:
         removed_facts=snapshot.get("removed_facts", []),
         changed_facts=snapshot.get("changed_facts", []),
         analysis_truncated=bool(snapshot.get("analysis_truncated", False)),
+        unmapped_working_text_changes=bool(snapshot.get("unmapped_working_text_changes", False)),
         analysis_error_code=review.analysis_error_code,
         analysis_error_message=review.analysis_error_message,
         decision=review.decision,

@@ -69,7 +69,13 @@ interface Course {
   review_status: 'pending' | 'approved' | 'needs_changes';
   requires_approval?: boolean;
   source_instruction_id?: string | null;
-  source_analysis?: { blueprint?: Record<string, unknown> | null; source_editorial_snapshots?: unknown; unplaced_source_assets?: unknown } | null;
+  source_analysis?: {
+    blueprint?: Record<string, unknown> | null;
+    source_editorial_snapshots?: unknown;
+    unplaced_source_assets?: unknown;
+    source_actuality?: { affected_lesson_ids?: string[]; grounded_lesson_ids?: string[] };
+    course_language_policy?: { primary?: 'ru' | 'kk' | 'en' };
+  } | null;
 }
 
 export default function CourseEditPage() {
@@ -138,6 +144,7 @@ export default function CourseEditPage() {
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
   const [programGenerationJob, setProgramGenerationJob] = useState<string | null>(null);
   const [correctionBusy, setCorrectionBusy] = useState(false);
+  const [languageRefresh, setLanguageRefresh] = useState(0);
   const correctionBusyRef = useRef(false);
   const correctionPanelRef = useRef<LessonCorrectionPanelHandle>(null);
 
@@ -148,12 +155,16 @@ export default function CourseEditPage() {
     lessonTitle?: string;
     moduleId?: string;
     moduleTitle?: string;
+    instruction?: string;
   }>({});
 
   const activeLesson = useMemo(
     () => modules.flatMap((module) => module.lessons).find((lesson) => lesson.id === editingLessonId) ?? null,
     [editingLessonId, modules],
   );
+  const revisionLesson = course?.status === 'draft' && activeLesson
+    && course.source_analysis?.source_actuality?.affected_lesson_ids?.includes(activeLesson.id);
+  const contentLocale = course?.source_analysis?.course_language_policy?.primary ?? lang;
   const lessonSequence = modules.flatMap((module) => module.lessons);
   const activeLessonIndex = lessonSequence.findIndex((lesson) => lesson.id === editingLessonId);
   const activeModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === editingLessonId));
@@ -174,6 +185,7 @@ export default function CourseEditPage() {
       || current.editLessonTitle !== current.savedLessonTitle || current.editLessonContent !== current.savedLessonContent
       || current.savedLessonContent !== before) return;
     setSavedLessonContent(content); setEditLessonContent(content);
+    setLanguageRefresh(version => version + 1);
     setCourse((value) => value?.id === receipt.course_id ? { ...value, review_status: 'pending' } : value);
   };
   const onCorrectionApplyingChange = (busy: boolean) => {
@@ -564,6 +576,7 @@ export default function CourseEditPage() {
       setEditLessonTitle(editLessonTitle.trim());
       setSavedLessonTitle(editLessonTitle.trim());
       setSavedLessonContent(editLessonContent);
+      setLanguageRefresh(version => version + 1);
       // Do not present a pre-edit review status as approval of the new version.
       const metadataGeneration = ++metadataGenerationRef.current;
       const isCurrentRead = () => isCurrentSave() && metadataGeneration === metadataGenerationRef.current;
@@ -729,7 +742,7 @@ export default function CourseEditPage() {
   const unplacedCount = Array.isArray(missingAssets)
     ? new Set(missingAssets.filter((id): id is string => typeof id === 'string' && /^asset-[a-f0-9]{64}$/.test(id))).size : 0;
   const sourceCopy = sourceReviewCopy(lang);
-  const requiresCourseReview = course.ai_generated || hasBlueprintMarker;
+  const requiresCourseReview = course.ai_generated || hasBlueprintMarker || Boolean(course.source_analysis?.source_actuality);
   const published = course.status === 'published';
   const approved = course.review_status === 'approved';
   const courseQuery = encodeURIComponent(course.id);
@@ -808,7 +821,7 @@ export default function CourseEditPage() {
       } />
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
       {workspaceDirty && <p role="status" className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">{copy.unsaved}</p>}
-      <CourseLanguagesEditor courseId={course.id} />
+      <CourseLanguagesEditor courseId={course.id} refreshVersion={languageRefresh} />
       {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
         courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
         onResolved={() => { void fetchData(); }} />}
@@ -1062,6 +1075,21 @@ export default function CourseEditPage() {
                     <p className="text-muted-foreground">{t('authenticatedUi.editor.contentType')}</p>
                     <Badge variant="outline">{activeLesson.content_type}</Badge>
                   </div>
+                  {revisionLesson && <div className="space-y-2 rounded-lg border border-border bg-muted/25 p-3">
+                    <p className="text-sm font-medium">{t('documents.sourceActuality.lessonNeedsReview')}</p>
+                    {activeLesson.content_type === 'text' && course.source_analysis?.source_actuality?.grounded_lesson_ids?.includes(activeLesson.id) && <Button variant="outline" className="h-auto w-full whitespace-normal"
+                      disabled={lessonDirty || correctionBusy || savingLesson || !!loadingLessonId || !!releaseAction}
+                      onClick={() => correctionPanelRef.current?.stageInstruction({
+                        lessonId: activeLesson.id, locale: contentLocale,
+                        instruction: t('documents.sourceActuality.lessonInstruction'),
+                      })}>{t('documents.sourceActuality.prepareLesson')}</Button>}
+                    <Button variant="outline" className="h-auto w-full whitespace-normal" disabled={lessonDirty || correctionBusy}
+                      onClick={() => {
+                        setChatFocus({ lessonId: activeLesson.id, lessonTitle: activeLesson.title,
+                          instruction: t('documents.sourceActuality.questionInstruction') });
+                        setChatOpen(true);
+                      }}>{t('documents.sourceActuality.prepareQuestions')}</Button>
+                  </div>}
                   <Button
                     variant="outline"
                     className="w-full justify-start"
@@ -1091,7 +1119,7 @@ export default function CourseEditPage() {
       </div>
       </fieldset>
       {course.status === 'draft' && activeLesson?.content_type === 'text' && editingLessonId && (
-        <LessonCorrectionPanel ref={correctionPanelRef} courseId={courseId} lessonId={editingLessonId} lessonTitle={savedLessonTitle}
+        <LessonCorrectionPanel ref={correctionPanelRef} courseId={courseId} lessonId={editingLessonId} lessonTitle={savedLessonTitle} contentLocale={contentLocale}
           savedContent={savedLessonContent} dirty={lessonDirty} editorBusy={savingLesson || loadingLessonId !== null || releaseAction !== null}
           onApplied={onCorrectionApplied} onApplyingChange={onCorrectionApplyingChange}
           onReload={() => void handleSelectLessonReload()} />
@@ -1102,6 +1130,7 @@ export default function CourseEditPage() {
         open={chatOpen && !correctionBusy}
         onClose={() => setChatOpen(false)}
         courseId={courseId}
+        initialInstruction={chatFocus.instruction}
         focusLessonId={chatFocus.lessonId}
         focusLessonTitle={chatFocus.lessonTitle}
         focusModuleId={chatFocus.moduleId}
@@ -1111,7 +1140,7 @@ export default function CourseEditPage() {
           if (course.status !== 'draft' || activeLesson?.content_type !== 'text' || activeLesson.id !== lessonId
             || editingLessonId !== lessonId || chatFocus.lessonId !== lessonId || correctionBusyRef.current
             || lessonDirty || savingLesson || loadingLessonId || releaseAction) return false;
-          return correctionPanelRef.current?.stageInstruction({ lessonId, instruction, locale: lang }) ?? false;
+          return correctionPanelRef.current?.stageInstruction({ lessonId, instruction, locale: contentLocale }) ?? false;
         }}
       />
     </WorkspacePage>

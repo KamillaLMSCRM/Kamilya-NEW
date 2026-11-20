@@ -970,6 +970,15 @@
   },
   "documents": {
     "sourceActuality": {
+      "unmappedChanges": "Some changes could not be linked to a specific lesson. Compare the changes with the course.",
+      "openDraft": "Open course draft",
+      "approvalRequired": "Review and approve the new source edition, then refresh the comparison.",
+      "reviewReplacement": "Review the new source",
+      "prepareLesson": "Prepare lesson correction",
+      "prepareQuestions": "Check questions against the new source",
+      "lessonInstruction": "Update only the rules that changed in the new source edition. Keep the remaining content, structure, examples, and language. Cite the exact passage supporting each change.",
+      "questionInstruction": "Compare only the current lesson's tests to its new source edition. For each affected question show the old and proposed wording, answer choices, correct answer, explanation, and source quote. Preserve the language and unaffected questions. Say when the source gives no grounds to change a question.",
+      "lessonNeedsReview": "This lesson uses the updated source",
       "ownerLabel": "Source owner", "ownerHint": "Choose an active methodologist in your company. Assigning ownership does not change their permissions.",
       "policyValidationError": "Check the owner, dates and time. The server rejected these values; your input is still in the form.",
       "previewOwnerHint": "You are previewing the company as a platform administrator. Choose a company methodologist: the platform account cannot own its source.",

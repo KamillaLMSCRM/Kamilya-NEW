@@ -11,6 +11,7 @@ import {
 } from '@/lib/lessonCorrection';
 
 export interface LessonCorrectionPanelProps {
+  contentLocale?: 'ru' | 'kk' | 'en';
   courseId: string;
   lessonId: string;
   lessonTitle: string;
@@ -105,9 +106,10 @@ export default forwardRef<LessonCorrectionPanelHandle, LessonCorrectionPanelProp
 });
 
 function Panel(props: LessonCorrectionPanelProps & { handleRef: ForwardedRef<LessonCorrectionPanelHandle> }) {
-  const locale = localeOf(useLanguageStore((state) => state.lang));
+  const interfaceLocale = localeOf(useLanguageStore((state) => state.lang));
+  const locale = props.contentLocale ?? interfaceLocale;
   const localeRef = useRef(locale); localeRef.current = locale;
-  const ui = COPY[locale];
+  const ui = COPY[interfaceLocale];
   const propsRef = useRef(props); propsRef.current = props;
   const uiRef = useRef(ui); uiRef.current = ui;
   const [instruction, setInstruction] = useState('');

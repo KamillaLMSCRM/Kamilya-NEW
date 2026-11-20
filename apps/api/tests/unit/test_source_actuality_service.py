@@ -223,9 +223,12 @@ async def test_clone_marks_reported_course_level_lessons_and_quizzes_for_review(
         async def execute(self, _query):
             return next(self.results)
 
+        async def scalar(self, _query):
+            return SimpleNamespace(requires_approval=True, review_enabled=True)
+
     db = FakeDb()
 
-    await _clone_course(
+    draft = await _clone_course(
         db,
         course=course,
         tenant_id=tenant_id,
@@ -239,6 +242,9 @@ async def test_clone_marks_reported_course_level_lessons_and_quizzes_for_review(
     cloned_quiz = next(value for value in db.added if value.__class__.__name__ == "Quiz")
     assert cloned_lesson.source_validation_status == "needs_review"
     assert cloned_quiz.review_status == "needs_review"
+    assert draft.lessons == [{"lesson_id": str(cloned_lesson.id), "title": "Legacy lesson"}]
+    approval = next(value for value in db.added if value.__class__.__name__ == "CourseApprovalPolicy")
+    assert approval.course_id == draft.course_id and approval.requires_approval
 
 
 @pytest.mark.asyncio
@@ -303,10 +309,11 @@ async def test_course_level_impact_marks_every_reported_lesson_for_review(
         },
         previous_document_id=predecessor_id,
         new_document_id=replacement_id,
+        source_family_id=uuid4(),
     )
     course = SimpleNamespace(id=course_id, delivery_type="native")
-    db = SimpleNamespace(scalar=AsyncMock(side_effect=[review, course]), flush=AsyncMock())
-    clone = AsyncMock(return_value=draft_id)
+    db = SimpleNamespace(scalar=AsyncMock(side_effect=[review, replacement_id, course]), flush=AsyncMock())
+    clone = AsyncMock(return_value=source_actuality_service.DerivedDraft(draft_id, []))
     monkeypatch.setattr(source_actuality_service, "_clone_course", clone)
 
     result = await decide_review(
@@ -320,6 +327,7 @@ async def test_course_level_impact_marks_every_reported_lesson_for_review(
     )
 
     assert result.decision_snapshot["draft_course_ids"] == [str(draft_id)]
+    assert result.decision_snapshot["draft_courses"][0]["course_id"] == str(draft_id)
     assert clone.await_args.kwargs["impacted_lesson_ids"] == lesson_ids
 
 

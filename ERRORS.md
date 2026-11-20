@@ -11546,3 +11546,10 @@ usage UNKNOWN, no further requests or paid fallback. Only one QA question was
 then explicitly edited by the authorized human methodologist, not attributed to
 autonomous model repair. A helper was first written at the owned worktree root;
 its exact verified path was moved into private evidence before executing it.
+
+## COURSE-SOURCE-001 - Source-derived draft dropped provenance and language review
+
+- Date: 2026-11-20.
+- Cause: the clone copied the editable course tree but discarded the language policy, source approval/anchor information and any required reviewer policy. The publication gate on manually authored courses did not recognize the derived draft.
+- Fix: preserve the prior release and its learning evidence, compare hash-bound source spans, carry only unchanged translations from the prior approved release, and require normal review before publishing the derived draft. Uncertain source spans remain manual review items.
+- Prevention: test the complete revision path against a previously published course with an existing attempt, two lessons and two languages. Cover explicit publication rejection before sign-off and exact predecessor readback after creating the new release.
