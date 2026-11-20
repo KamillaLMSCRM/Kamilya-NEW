@@ -12,11 +12,11 @@ const practice: VideoPractice = {
   kk: { question: 'Түрлендіргіш нені реттейді?', choices: ['Қысымды', 'Жиілікті', 'Құбырды'], explanation: 'Айналу жиілігін.' },
 };
 
-function playback(currentTime: number, emitter: Window, reportedOrigin = origin) {
+function playback(currentTime: number, emitter: Window, reportedOrigin = origin, playerState = 1) {
   act(() => {
     window.dispatchEvent(new MessageEvent('message', {
       origin: reportedOrigin, source: emitter,
-      data: JSON.stringify({ event: 'infoDelivery', info: { currentTime, playerState: 1 } }),
+      data: JSON.stringify({ event: 'infoDelivery', info: { currentTime, playerState } }),
     }));
   });
 }
@@ -48,6 +48,20 @@ describe('optional practice in a timed YouTube lesson', () => {
     expect(send).toHaveBeenLastCalledWith(expect.stringContaining('playVideo'), origin);
     playback(140, source);
     expect(screen.queryByRole('button', { name: 'Жауап беру' })).not.toBeInTheDocument();
+  });
+
+  it('offers during forward playback after a seek and skip sends no player commands', () => {
+    render(<TimedPracticeVideo src={src} title="Video" practice={practice} language="ru" />);
+    const source = (screen.getByTitle('Video') as HTMLIFrameElement).contentWindow!;
+    const send = vi.spyOn(source, 'postMessage');
+    playback(140, source, origin, 2);
+    playback(180, source);
+    expect(screen.queryByRole('button', { name: 'Ответить' })).not.toBeInTheDocument();
+    playback(140, source);
+    fireEvent.click(screen.getByRole('button', { name: 'Пропустить' }));
+    expect(send).not.toHaveBeenCalled();
+    playback(150, source);
+    expect(screen.queryByRole('button', { name: 'Ответить' })).not.toBeInTheDocument();
   });
 
   it('offers a manual, skippable question when the iframe supplies no timing', () => {
