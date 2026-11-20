@@ -54,6 +54,7 @@ from app.modules.course_approval.router import router as course_approval_router
 from app.modules.courses.blueprints_router import router as course_blueprints_router
 from app.modules.courses.localization_router import router as course_localization_router
 from app.modules.courses.router import router as courses_router
+from app.modules.courses.video_practice_router import router as video_practice_router
 from app.modules.demo.router import router as demo_router
 from app.modules.departments.router import router as departments_router
 from app.modules.documents.router import router as documents_router
@@ -224,6 +225,7 @@ async def runtime_settings_unavailable_handler(request: Request, exc: RuntimeSet
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
 app.include_router(course_localization_router, prefix=f"{settings.API_PREFIX}")
+app.include_router(video_practice_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(course_approval_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(notifications_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(course_blueprints_router, prefix=f"{settings.API_PREFIX}")
