@@ -15,7 +15,7 @@
 ## [0.11.128] - 2026-11-20
 
 ### Changed
-- DEV uses the audited Luna 6 model setting for video practice verification.
+- The DEV API supports the existing Luna 6 connector for video practice verification.
 
 ## [0.11.127] - 2026-11-20
 

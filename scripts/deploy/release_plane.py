@@ -269,7 +269,7 @@ class ReleaseManifest:
             raise ReleasePlaneError("correction_requires_product_version")
         version = tuple(int(part) for part in self.product_version.split("."))
         if version == (0, 11, 128):
-            return "0193", "0194"
+            return "0193", "0193"
         if version == (0, 11, 127):
             return "0190", "0193"
         if version >= (0, 11, 125):
