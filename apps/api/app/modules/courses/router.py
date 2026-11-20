@@ -844,7 +844,9 @@ async def update_course(
         setattr(course, field, value)
     from app.modules.courses.draft_review import read_draft_review
 
-    if read_draft_review(course.source_analysis) is not None:
+    if read_draft_review(course.source_analysis) is not None or (
+        course.status == "draft" and cast(dict[str, Any], course.source_analysis or {}).get("source_actuality")
+    ):
         editable = cast(Any, course)
         editable.review_status = 'pending'
         editable.reviewed_by = None
@@ -992,7 +994,8 @@ async def publish_course(
                     "adaptation_url": f"/courses/templates/{blueprint_id}?course_id={course.id}",
                 },
             ) from error
-    if (course.ai_generated or blueprint_marker) and course.review_status != "approved":
+    source_revision_draft = cast(dict[str, Any], course.source_analysis or {}).get("source_actuality")
+    if (course.ai_generated or blueprint_marker or source_revision_draft) and course.review_status != "approved":
         raise HTTPException(
             status_code=409,
             detail={

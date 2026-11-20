@@ -18,6 +18,7 @@ from app.modules.courses.localizations import (
     LanguagePolicy,
     SaveEdition,
     author_snapshot,
+    carried_editions,
     editions,
     finish_edition_generation,
     learner_snapshot,
@@ -67,9 +68,20 @@ async def language_editor(course_id: UUID, db: Database, user: Author) -> dict[s
     snapshot = await author_snapshot(db, course)
     sha, fields = source_fields(snapshot)
     rows = await editions(db, course, sha, published=False)
+    carried = await carried_editions(db, course, fields)
+    results = {
+        language: {"content": content, "approved": False, "pending": False}
+        for language, content in carried.items() if content
+    }
+    results.update({
+        row["language"]: {
+            "content": row["content"] or carried.get(row["language"], {}),
+            "approved": bool(row["approved_at"]), "pending": row["generation_pending"],
+        } for row in rows
+    })
     return {"policy": read_policy(course), "source_sha256": sha, "source": fields,
-            "editions": {row["language"]: {"content": row["content"], "approved": bool(row["approved_at"]),
-                                           "pending": row["generation_pending"]} for row in rows}}
+            "editions": results,
+            "retained_fields": {language: list(content) for language, content in carried.items() if content}}
 
 
 @router.put("/editor")
@@ -109,25 +121,31 @@ async def generate_language(course_id: UUID, language: Language, db: Database, u
     course = await _author_course(db, course_id, user, locked=True)
     policy = _target(course, language)
     sha, fields = source_fields(await author_snapshot(db, course))
-    if not fields or sum(map(len, fields.values())) > 36_000:
+    carried = (await carried_editions(db, course, fields)).get(language, {})
+    missing = {key: value for key, value in fields.items() if key not in carried}
+    if not fields or sum(map(len, missing.values())) > 36_000:
         raise HTTPException(422, detail="translation_requires_manual_editor")
     existing = next((row for row in await editions(db, course, sha, published=False)
                      if row["language"] == language), None)
     if existing and (existing["generation_pending"] or existing["content"]):
-        return {"content": existing["content"], "pending": existing["generation_pending"]}
+        return {"content": existing["content"] or carried, "pending": existing["generation_pending"]}
+    if not missing:
+        return {"content": carried, "pending": False}
     claimed = await save_edition(db, course, policy, sha, language, {}, approve=False, pending=True)
     if not claimed:
         raise HTTPException(409, detail="translation_already_claimed")
     await db.commit()
     try:
-        content = await translate_fields(fields, language, cast(UUID, user.tenant_id))
+        translated = await translate_fields(missing, language, cast(UUID, user.tenant_id))
+        validate_edition(missing, translated)
+        content = {**carried, **translated}
         validate_edition(fields, content)
     except (ValueError, HTTPException):
         await _set_tenant_security_context(db, str(user.tenant_id))
         await finish_edition_generation(db, course, sha, language, {})
-        return {"content": {}, "pending": False, "error": "translation_model_output_invalid"}
+        return {"content": carried, "pending": False, "error": "translation_model_output_invalid"}
     except Exception:
-        return {"content": {}, "pending": True, "error": "translation_outcome_unknown"}
+        return {"content": carried, "pending": True, "error": "translation_outcome_unknown"}
     await _set_tenant_security_context(db, str(user.tenant_id))
     if not await finish_edition_generation(db, course, sha, language, content):
         raise HTTPException(409, detail="translation_edited_concurrently")

@@ -51,6 +51,7 @@ interface AIChatPanelProps {
   open: boolean;
   onClose: () => void;
   courseId: string;
+  initialInstruction?: string;
   // Optional: lesson to focus on
   focusLessonId?: string;
   focusLessonTitle?: string;
@@ -79,6 +80,7 @@ export function AIChatPanel({
   open,
   onClose,
   courseId,
+  initialInstruction = '',
   focusLessonId,
   focusLessonTitle,
   focusModuleId,
@@ -117,7 +119,7 @@ export function AIChatPanel({
   useLayoutEffect(() => {
     const session: ChatSession = { active: open, sending: false, applying: false, requests: new Set(), history: [], durableHistoryBlocked: Boolean(open && focusLessonId && user?.role === 'methodologist'), durablePending: false, durableLoading: false };
     sessionRef.current = session;
-    setInput('');
+    setInput(open ? initialInstruction : '');
     setSending(false);
     setApplying(false);
     setMessages([]);
@@ -148,7 +150,7 @@ export function AIChatPanel({
       session.requests.forEach((request) => request.abort());
       session.requests.clear();
     };
-  }, [open, courseId, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, token, user?.user_id, user?.tenant_id, user?.role, lang, t]);
+  }, [open, courseId, initialInstruction, focusLessonId, focusLessonTitle, focusModuleId, focusModuleTitle, token, user?.user_id, user?.tenant_id, user?.role, lang, t]);
 
   const durableEnabled = Boolean(focusLessonId && user?.role === 'methodologist');
   const durableArchiveMessages = (exchanges: DurableHistoryExchange[]): ChatMessage[] => exchanges.flatMap((exchange) => {

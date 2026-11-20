@@ -47,11 +47,17 @@ class SourcePolicyRecord(SourcePolicyUpdate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ImpactedLesson(BaseModel):
+    lesson_id: UUID
+    title: str
+
+
 class ImpactedCourse(BaseModel):
     course_id: UUID
     title: str
     status: str
     impacted_lesson_ids: list[UUID] = Field(default_factory=list)
+    impacted_lessons: list[ImpactedLesson] = Field(default_factory=list)
     assessment_questions_requiring_review: int = Field(ge=0)
     active_enrollments: int = Field(ge=0)
     completed_enrollments: int = Field(ge=0)
@@ -91,6 +97,7 @@ class SourceChangeReviewRecord(BaseModel):
     removed_facts: list[FactChange] = Field(default_factory=list)
     changed_facts: list[FactChange] = Field(default_factory=list)
     analysis_truncated: bool = False
+    unmapped_working_text_changes: bool = False
     analysis_error_code: str | None = None
     analysis_error_message: str | None = None
     decision: ChangeDecision | None = None

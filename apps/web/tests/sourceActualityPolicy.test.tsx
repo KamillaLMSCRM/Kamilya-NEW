@@ -25,6 +25,56 @@ beforeEach(() => {
 });
 
 describe('source owner policy actions', () => {
+  it('opens the exact updated lesson from the decision receipt and after reload', async () => {
+    const reviewPath = '/v1/admin/source-actuality/reviews/updated-review';
+    const updatedFamily = { ...family, latest_version: 2, pending_review_id: 'updated-review' };
+    const analysis = {
+      id: 'updated-review', status: 'ready',
+      added_fact_count: 1, removed_fact_count: 1, changed_fact_count: 0,
+      impacted_course_count: 1, impacted_lesson_count: 1, assessment_questions_requiring_review: 1,
+      added_facts: [], removed_facts: [], changed_facts: [], analysis_truncated: false,
+      impacted_courses: [{
+        course_id: 'old-course', title: 'Правила хранения', active_enrollments: 1, completed_enrollments: 2,
+        assessment_questions_requiring_review: 1, impacted_lesson_ids: ['old-lesson'],
+        impacted_lessons: [{ lesson_id: 'old-lesson', title: 'Срок хранения' }],
+      }],
+    };
+    const receipt = {
+      ...analysis, status: 'resolved', decision: 'update_future',
+      decision_snapshot: {
+        draft_courses: [{
+          course_id: 'new-course', title: 'Правила хранения',
+          lessons: [{ lesson_id: 'new-lesson', title: 'Срок хранения' }],
+        }],
+      },
+    };
+    let resolved = false;
+    vi.mocked(api.get).mockImplementation(async url => ({
+      data: url === reviewPath ? (resolved ? receipt : analysis) : String(url).startsWith('/v1/users?')
+        ? { users: [], total: 0 } : { items: [updatedFamily] },
+    }) as never);
+    vi.mocked(api.post).mockImplementation(async () => {
+      resolved = true;
+      return { data: receipt } as never;
+    });
+    const view = render(<SourceActualityPanel userId={ownerId} catalogDocuments={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть анализ версии' }));
+    expect(await screen.findByText('Срок хранения')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Решение'), { target: { value: 'update_future' } });
+    fireEvent.change(screen.getByLabelText('Обоснование (не менее 20 символов)'), {
+      target: { value: 'В действующей инструкции изменился срок хранения.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Отправить решение' }));
+    expect(await screen.findByRole('link', { name: 'Срок хранения' })).toHaveAttribute('href', '/courses/new-course/edit?lessonId=new-lesson');
+    expect(api.post).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    render(<SourceActualityPanel userId={ownerId} catalogDocuments={[]} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Открыть анализ версии' }));
+    expect(await screen.findByRole('link', { name: 'Срок хранения' })).toHaveAttribute('href', '/courses/new-course/edit?lessonId=new-lesson');
+    expect(api.post).toHaveBeenCalledTimes(1);
+  });
+
   it('lets a methodologist choose another eligible owner and save without dates', async () => {
     render(<SourceActualityPanel userId="c88788a4-61c7-4c0a-9b89-e8d9b8ba22cd" catalogDocuments={[]} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Управлять источником' }));
