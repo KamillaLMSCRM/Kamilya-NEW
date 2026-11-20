@@ -6,6 +6,7 @@
 - В тестах курсов и самостоятельных проверках знаний порядок ответов меняется между попытками и сохраняется при обновлении страницы.
 
 ### Added
+- Сотрудники подключённых компаний могут получать назначения и напоминания об обучении через общего Telegram-бота. Email продолжает работать независимо.
 - Retain embedded PPTX screenshots with slide-level references and recognize them through the private Luna connector.
 - Native lesson content can embed a YouTube video over a specified time range,
   with an optional preference for an existing subtitle track.
