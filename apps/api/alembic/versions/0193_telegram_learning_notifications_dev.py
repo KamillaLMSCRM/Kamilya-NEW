@@ -1,11 +1,14 @@
-"""Add opt-in Telegram delivery alongside the independent email outboxes."""
+"""Add opt-in Telegram delivery on the DEV localization schema lineage.
+
+The production candidate has a distinct revision 0192 after its 0191.
+"""
 
 import re
 
 from alembic import op
 
-revision = "0192"
-down_revision = "0191"
+revision = "0193"
+down_revision = "0190"
 branch_labels = depends_on = None
 
 

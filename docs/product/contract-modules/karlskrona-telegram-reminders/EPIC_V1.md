@@ -21,7 +21,9 @@ Critical journeys:
 
 ## Runtime setup and rollback
 
-Apply migration 0192 before enabling any route. The API and notification worker use
+Apply migration 0193 in DEV before enabling any route. DEV 0190 already owns the
+localization table. The production candidate keeps its separate 0191 → 0192
+lineage. The API and notification worker use
 the same bot username, token and webhook secret for their environment. Store
 `TELEGRAM_REMINDER_BOT_TOKEN` and `TELEGRAM_REMINDER_WEBHOOK_SECRET` as secrets,
 and set `TELEGRAM_REMINDER_BOT_USERNAME` to the username without `@`.
@@ -48,4 +50,4 @@ subscriptions and delivery history. Clear a webhook only on the inspected bot.
 - 52 focused API regressions and 83 focused frontend regressions passed.
   TypeScript, scoped ESLint/Ruff and whitespace checks passed.
 - Live worker, webhook, two-channel delivery and customer-facing acceptance
-  require the coordinated DEV release of migration 0192, API, UI and worker.
+  require the coordinated DEV release of migration 0193, API, UI and worker.

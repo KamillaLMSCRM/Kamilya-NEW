@@ -68,11 +68,11 @@ from app.modules.learning_actions.router import router as learning_actions_route
 from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_insights.router import router as learning_insights_router
 from app.modules.learning_paths.router import router as learning_paths_router
+from app.modules.learning_reminders.telegram_router import router as telegram_learning_router
 from app.modules.lessons.router import router as lessons_router
 from app.modules.mandatory_training.router import router as mandatory_training_router
 from app.modules.methodologist_workbench.assignment_router import router as methodologist_workbench_router
 from app.modules.notifications.router import router as notifications_router
-from app.modules.learning_reminders.telegram_router import router as telegram_learning_router
 from app.modules.organization_units.router import router as organization_units_router
 from app.modules.positions.admin_router import router as positions_admin_router
 from app.modules.positions.jd_router import router as positions_jd_router
