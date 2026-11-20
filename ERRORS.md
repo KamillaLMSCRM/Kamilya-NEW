@@ -1048,7 +1048,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-18.
+Current as of: 2026-11-20.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -11550,6 +11550,8 @@ its exact verified path was moved into private evidence before executing it.
 ## COURSE-SOURCE-001 - Source-derived draft dropped provenance and language review
 
 - Date: 2026-11-20.
+- Symptom: a replacement-source draft could lose its second language and source links, and a manually authored version could publish before fresh review.
 - Cause: the clone copied the editable course tree but discarded the language policy, source approval/anchor information and any required reviewer policy. The publication gate on manually authored courses did not recognize the derived draft.
 - Fix: preserve the prior release and its learning evidence, compare hash-bound source spans, carry only unchanged translations from the prior approved release, and require normal review before publishing the derived draft. Uncertain source spans remain manual review items.
+- Verification: targeted API and frontend suites plus an isolated Supabase DEV scenario verified the threshold change, retained translation, old attempt and stale approval. The foreign tenant could not read those records.
 - Prevention: test the complete revision path against a previously published course with an existing attempt, two lessons and two languages. Cover explicit publication rejection before sign-off and exact predecessor readback after creating the new release.
