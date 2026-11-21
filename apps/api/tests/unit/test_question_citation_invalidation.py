@@ -115,7 +115,7 @@ async def test_quiz_source_quote_follows_explanation_visibility(authoring):
 async def test_content_changes_invalidate_saved_citation(monkeypatch, operation):
     tenant, quiz_id, question_id, choice_id = (uuid4() for _ in range(4))
     quiz = SimpleNamespace(tenant_id=tenant, lesson_id=uuid4())
-    question = SimpleNamespace(quiz_id=quiz_id, source_quote="Исходная цитата")
+    question = SimpleNamespace(quiz_id=quiz_id, type="MCQ", source_quote="Исходная цитата")
     choice = SimpleNamespace(question_id=question_id, text="old", is_correct=False, order_index=0)
 
     class Session:
