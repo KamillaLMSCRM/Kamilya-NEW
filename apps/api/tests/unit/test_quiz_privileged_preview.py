@@ -224,3 +224,18 @@ async def test_ordering_course_quiz_requires_the_exact_sequence_and_masks_the_ke
     assert [row["id"] for row in public] == ordered[::-1]
     assert [row["order_index"] for row in public] == [0, 1, 2]
     assert not any(row["is_correct"] for row in public)
+
+
+@pytest.mark.asyncio
+async def test_ordering_learner_gets_the_current_enrollment_without_a_link_token(monkeypatch):
+    tenant_id, user_id, quiz_id, course_id, enrollment_id = (uuid4() for _ in range(5))
+    user = SimpleNamespace(id=user_id, tenant_id=tenant_id, role="student")
+    quiz = SimpleNamespace(id=quiz_id, lesson_id=uuid4())
+    monkeypatch.setattr(router, "_require_quiz_access", AsyncMock(return_value=quiz))
+    monkeypatch.setattr(router, "get_quiz_with_questions", AsyncMock(return_value={"questions": [{"type": "ordering"}]}))
+    current = AsyncMock(return_value=SimpleNamespace(id=enrollment_id))
+    monkeypatch.setattr(router, "current_enrollment", current)
+    db = SimpleNamespace(scalar=AsyncMock(return_value=SimpleNamespace(id=course_id)))
+    response = await router.get_quiz(quiz_id, db=db, user=user)
+    assert response["attempt_enrollment_id"] == enrollment_id
+    current.assert_awaited_once_with(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)

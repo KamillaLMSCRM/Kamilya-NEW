@@ -29,6 +29,7 @@ class QuestionResponse(BaseModel):
 
 class QuizResponse(BaseModel):
     id: UUID
+    attempt_enrollment_id: UUID | None = None
     lesson_id: UUID
     title: str
     pass_score: int
