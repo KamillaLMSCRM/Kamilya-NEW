@@ -196,3 +196,38 @@ def test_ordering_knowledge_check_keeps_saved_sequence_and_hides_the_key(content
     assert [choice["id"] for choice in public_snapshot(content)["questions"][0]["choices"]] == ids[::-1]
     with pytest.raises(HTTPException, match="Include all steps"):
         normalize_answers(content, [Answer(question_id=question["id"], selected_choice_ids=ids[:2]), *rest], complete=True)
+
+
+def test_matching_pairs_in_standalone_check(content):
+    question = content["questions"][0]
+    question["type"] = "matching_pairs"
+    question["choices"] = [
+        {"id": str(uuid4()), "text": text, "is_correct": False}
+        for text in ["Equipment", "Inspect", "Log", "Sign"]
+    ]
+    content["questions"] = [question]
+    Content.model_validate(content)
+    a, x, b, y = [choice["id"] for choice in question["choices"]]
+
+    def answer(*ids):
+        return [Answer(question_id=question["id"], selected_choice_ids=list(ids))]
+
+    exact = normalize_answers(content, answer(a, x, b, y), complete=True)
+    assert exact == normalize_answers(content, answer(b, y, a, x), complete=True)
+    assert grade(content, exact)["score_percent"] == 100
+    assert grade(content, normalize_answers(content, answer(a, y, b, x), complete=True))["score_percent"] == 0
+    assert grade(content, normalize_answers(content, answer(a, x)))["score_percent"] == 0
+    for invalid in (answer(a, x), answer(a, x, b, x), answer(x, a, b, y)):
+        with pytest.raises(HTTPException):
+            normalize_answers(content, invalid, complete=True)
+
+    public = public_snapshot(content)["questions"][0]
+    assert "explanation" not in public
+    assert [choice["id"] for choice in public["choices"]] == sorted([a, b, x, y])
+    assert {choice["id"]: choice["match_side"] for choice in public["choices"]} == {
+        a: "left", b: "left", x: "right", y: "right",
+    }
+    assert all(set(choice) == {"id", "text", "match_side"} for choice in public["choices"])
+    question["choices"][2]["text"] = "EQUIPMENT"
+    with pytest.raises(ValidationError, match="distinct on each side"):
+        Content.model_validate(content)

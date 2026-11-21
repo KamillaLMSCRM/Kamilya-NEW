@@ -21,6 +21,7 @@ from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
 from app.modules.integrations.crypto import encrypt_config
+from app.modules.quizzes.matching import MATCHING_PAIRS, normalize_pair_answer, pair_key, public_pair_choices
 
 from .models import (
     CourseApprovalPolicy,
@@ -68,6 +69,11 @@ def learner_safe_review_snapshot(snapshot: dict[str, object]) -> dict[str, objec
         if isinstance(value, dict):
             projected = {key: strip(item) for key, item in value.items() if key not in internal_fields}
             choices = projected.get("choices")
+            if value.get("type") == MATCHING_PAIRS and isinstance(choices, list):
+                projected.pop("explanation", None)
+                projected["choices"] = [
+                    {**choice, "order_index": i} for i, choice in enumerate(public_pair_choices(choices))
+                ]
             if value.get("type") == "ordering" and isinstance(choices, list):
                 projected.pop("explanation", None)
                 projected["choices"] = [
@@ -104,6 +110,13 @@ def score_review_submission(snapshot: dict[str, object], submissions: list[dict[
         if question.get("type") == "ordering":
             expected_order = [str(choice["id"]) for choice in choices]
             correct_order = len(expected_order) >= 2 and selected == expected_order
+        elif question.get("type") == MATCHING_PAIRS:
+            authored = [str(choice["id"]) for choice in choices]
+            try:
+                matched = normalize_pair_answer(authored, selected, complete=True)
+                correct_order = len(authored) >= 4 and pair_key(matched) == pair_key(authored)
+            except ValueError:
+                correct_order = False
         else:
             expected = {str(choice.get("id")) for choice in choices if choice.get("is_correct") is True}
             correct_order = set(selected) == expected

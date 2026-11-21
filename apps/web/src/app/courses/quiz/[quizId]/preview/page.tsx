@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
+import { MATCHING_PAIRS, MatchingAnswer, type MatchingChoice, hasQuizAnswer } from '@/features/quiz/MatchingPairs';
 import { OrderingAnswer, orderingCopy } from '@/features/quiz/OrderingAnswer';
 import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { useT } from '@/i18n/useT';
@@ -14,7 +15,7 @@ import { getRoleHome } from '@/lib/rolePolicy';
 import { useAuthStore } from '@/store/authStore';
 import { WorkspaceEmpty, WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
 
-interface QuizChoice {
+interface QuizChoice extends MatchingChoice {
   id: string;
   text: string;
   order_index: number;
@@ -140,7 +141,7 @@ export default function QuizMethodologistPreviewPage() {
 
   const handleSubmit = async () => {
     if (!quiz || !token || submitting) return;
-    if (quiz.questions.some((question) => !(answers[question.id]?.length))) {
+    if (quiz.questions.some((question) => !hasQuizAnswer(question, answers[question.id]))) {
       toast.error(t('quiz.previewCompleteAll'));
       return;
     }
@@ -244,7 +245,11 @@ export default function QuizMethodologistPreviewPage() {
                     )}
                   </div>
 
-                  {question.type === 'ordering' ? (
+                  {question.type === MATCHING_PAIRS ? (
+                    <MatchingAnswer choices={question.choices} selected={answers[question.id]} scope={quiz.id}
+                      questionId={question.id} attempt={0} language={lang} disabled={Boolean(result)}
+                      onChange={(ids) => setAnswers((previous) => ({ ...previous, [question.id]: ids }))} />
+                  ) : question.type === 'ordering' ? (
                     <OrderingAnswer steps={attemptChoiceOrder(question.choices, quiz.id, question.id, 0)}
                       selected={answers[question.id]} language={lang} disabled={Boolean(result)}
                       onChange={(order) => setAnswers((previous) => ({ ...previous, [question.id]: order }))} />

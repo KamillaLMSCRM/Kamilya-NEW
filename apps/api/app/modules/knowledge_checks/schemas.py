@@ -7,6 +7,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+from app.modules.quizzes.matching import MATCHING_PAIRS, validate_pair_labels
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -20,7 +23,7 @@ class Choice(StrictModel):
 class Question(StrictModel):
     id: UUID
     text: str = Field(min_length=1, max_length=10000)
-    type: Literal["MCQ", "multiple_choice", "true_false", "ordering"]
+    type: Literal["MCQ", "multiple_choice", "true_false", "ordering", "matching_pairs"]
     points: int = Field(gt=0, le=1000)
     explanation: str | None = Field(default=None, max_length=10000)
     choices: list[Choice] = Field(min_length=2, max_length=50)
@@ -29,6 +32,9 @@ class Question(StrictModel):
     def validate_choices(self) -> Self:
         if len({c.id for c in self.choices}) != len(self.choices):
             raise ValueError("duplicate choice id")
+        if self.type == MATCHING_PAIRS:
+            validate_pair_labels(choice.text for choice in self.choices)
+            return self
         if self.type == "ordering":
             if len({choice.text.casefold() for choice in self.choices}) != len(self.choices):
                 raise ValueError("ordering requires distinct steps")

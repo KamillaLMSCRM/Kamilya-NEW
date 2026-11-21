@@ -15,12 +15,13 @@ import { getRoleHome } from '@/lib/rolePolicy';
 import { isPdfPreview } from '@/lib/pdfPreview';
 import { useLanguageStore } from '@/store/languageStore';
 import { isCourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { MATCHING_PAIRS, MatchingAnswer, type MatchingChoice, hasQuizAnswer, matchingCopy, matchingSelection } from '@/features/quiz/MatchingPairs';
 import { OrderingAnswer, orderingCopy } from '@/features/quiz/OrderingAnswer';
 import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
 
-interface QuizChoice {
+interface QuizChoice extends MatchingChoice {
   id: string;
   text: string;
   order_index: number;
@@ -311,24 +312,30 @@ function ScopedQuizPlayer() {
 
   const assignmentBlocked = assignmentRemainingSeconds === 0;
   const attemptBlocked = !canAttempt || assignmentBlocked;
-  const orderingEnrollmentId = quiz?.attempt_enrollment_id ?? assignmentIdentityRef.current;
-  const orderingDraftKey = canAttempt && user && quiz && orderingEnrollmentId
-    && quiz.questions.some((question) => question.type === 'ordering')
+  const draftEnrollmentId = quiz?.attempt_enrollment_id ?? assignmentIdentityRef.current;
+  const structuredDraftKey = canAttempt && user && quiz && draftEnrollmentId
+    && quiz.questions.some((question) => question.type === 'ordering' || question.type === MATCHING_PAIRS)
     ? 'kamilya:quiz-order:' + JSON.stringify([
-        user.tenant_id, user.user_id, user.impersonated_by, quiz.id, orderingEnrollmentId,
+        user.tenant_id, user.user_id, user.impersonated_by, quiz.id, draftEnrollmentId,
         attempts.map((attempt) => attempt.id).sort(),
       ])
     : null;
 
   useEffect(() => {
-    if (!orderingDraftKey || !quiz) return;
+    if (!structuredDraftKey || !quiz) return;
     try {
-      const draft = JSON.parse(sessionStorage.getItem(orderingDraftKey) || '{}');
+      const draft = JSON.parse(sessionStorage.getItem(structuredDraftKey) || '{}');
       if (!draft || typeof draft !== 'object') return;
       const restored: Record<string, string[]> = {};
       for (const question of quiz.questions) {
         const ids = draft[question.id];
-        if (question.type !== 'ordering' || !Array.isArray(ids) || ids.length !== question.choices.length) continue;
+        if (!Array.isArray(ids)) continue;
+        if (question.type === MATCHING_PAIRS) {
+          const pairs = matchingSelection(question.choices, ids);
+          if (pairs.size > 0 && pairs.size * 2 === ids.length) restored[question.id] = ids;
+          continue;
+        }
+        if (question.type !== 'ordering' || ids.length !== question.choices.length) continue;
         const choices = new Set(question.choices.map((choice) => choice.id));
         if (new Set(ids).size === choices.size && ids.every((id) => choices.has(id))) {
           restored[question.id] = ids;
@@ -338,18 +345,18 @@ function ScopedQuizPlayer() {
     } catch {
       // Browser storage may be disabled. The attempt can still be completed.
     }
-  }, [orderingDraftKey, quiz]);
+  }, [structuredDraftKey, quiz]);
 
-  const handleOrderChange = (questionId: string, order: string[]) => {
+  const handleStructuredAnswer = (questionId: string, order: string[]) => {
     if (attemptBlocked) return;
     const next = { ...answers, [questionId]: order };
     setAnswers(next);
-    if (!orderingDraftKey || !quiz) return;
-    const orderingAnswers = Object.fromEntries(quiz.questions
-      .filter((question) => question.type === 'ordering' && next[question.id])
+    if (!structuredDraftKey || !quiz) return;
+    const structuredAnswers = Object.fromEntries(quiz.questions
+      .filter((question) => (question.type === 'ordering' || question.type === MATCHING_PAIRS) && next[question.id])
       .map((question) => [question.id, next[question.id]]));
     try {
-      sessionStorage.setItem(orderingDraftKey, JSON.stringify(orderingAnswers));
+      sessionStorage.setItem(structuredDraftKey, JSON.stringify(structuredAnswers));
     } catch {
       // Keep the current answer in memory even when storage is unavailable.
     }
@@ -361,7 +368,7 @@ function ScopedQuizPlayer() {
       if (isSingleAnswerQuestionType(type)) {
         return { ...prev, [questionId]: [choiceId] };
       }
-      // Multi-select for matching/other types
+      // Multi-select for non-structured questions
       const current = prev[questionId] || [];
       const next = current.includes(choiceId) ? current.filter((id) => id !== choiceId) : [...current, choiceId];
       return { ...prev, [questionId]: next };
@@ -372,7 +379,7 @@ function ScopedQuizPlayer() {
     if (!quizId || !token || submitPendingRef.current || submitting || result || attemptBlocked) return;
     // Only timer expiry may consume an incomplete attempt. Manual submission
     // must match the visible progress count, including deselected multi-selects.
-    if (!timerExpired && (!quiz?.questions.length || quiz.questions.some((q) => !answers[q.id]?.length))) return;
+    if (!timerExpired && (!quiz?.questions.length || quiz.questions.some((q) => !hasQuizAnswer(q, answers[q.id])))) return;
     setSubmitting(true);
     submitPendingRef.current = true;
     const actionGeneration = actionGenerationRef.current;
@@ -381,7 +388,7 @@ function ScopedQuizPlayer() {
       const submission = {
         answers: quiz?.questions.map((q) => ({
           question_id: q.id,
-          selected_choice_ids: answers[q.id] || [],
+          selected_choice_ids: hasQuizAnswer(q, answers[q.id]) ? answers[q.id] : [],
         })) || [],
         time_spent_seconds: quiz?.time_limit && !parentCourseId
           ? (quiz.time_limit * 60 - (timeLeft || 0))
@@ -397,8 +404,8 @@ function ScopedQuizPlayer() {
         const data = await res.json();
         if (!isCurrentAction()) return;
         setResult(data);
-        if (orderingDraftKey) {
-          try { sessionStorage.removeItem(orderingDraftKey); } catch { /* Completed on the server. */ }
+        if (structuredDraftKey) {
+          try { sessionStorage.removeItem(structuredDraftKey); } catch { /* Completed on the server. */ }
         }
         if (timerRef.current) clearInterval(timerRef.current);
         setAttemptsLoaded(false);
@@ -457,7 +464,7 @@ function ScopedQuizPlayer() {
 
   const currentQ = quiz.questions[currentIdx];
   const totalQuestions = quiz.questions.length;
-  const answeredCount = quiz.questions.filter((q) => answers[q.id]?.length > 0).length;
+  const answeredCount = quiz.questions.filter((q) => hasQuizAnswer(q, answers[q.id])).length;
   const resultScore = result?.attempt.score_percent ?? 0;
   const lessonId = quiz.lesson_id;
   const orderedLessons = courseModules.flatMap((module) => module.lessons || []);
@@ -622,12 +629,16 @@ function ScopedQuizPlayer() {
                 <h2 className="min-w-0 break-words text-lg font-semibold leading-7">{currentQ.text}</h2>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t('quiz.points')}: {currentQ.points} · {currentQ.type === 'ordering' ? orderingCopy(lang).type : currentQ.type}
+                {t('quiz.points')}: {currentQ.points} · {currentQ.type === MATCHING_PAIRS ? matchingCopy(lang).type : currentQ.type === 'ordering' ? orderingCopy(lang).type : currentQ.type}
               </p>
-              {currentQ.type === 'ordering' ? (
+              {currentQ.type === MATCHING_PAIRS ? (
+                <MatchingAnswer choices={currentQ.choices} selected={answers[currentQ.id]} questionId={currentQ.id}
+                  scope={JSON.stringify([user?.tenant_id, user?.user_id, quizId])} attempt={attemptsUsed}
+                  language={lang} disabled={attemptBlocked} onChange={(ids) => handleStructuredAnswer(currentQ.id, ids)} />
+              ) : currentQ.type === 'ordering' ? (
                 <OrderingAnswer steps={displayedChoices.map((choice) => ({ ...choice, text: getChoiceLabel(choice) }))}
                   selected={answers[currentQ.id]} language={lang} disabled={attemptBlocked}
-                  onChange={(order) => handleOrderChange(currentQ.id, order)} />
+                  onChange={(order) => handleStructuredAnswer(currentQ.id, order)} />
               ) : <div className="space-y-2">
                 {displayedChoices.map((choice) => {
                   const isSelected = (answers[currentQ.id] || []).includes(choice.id);

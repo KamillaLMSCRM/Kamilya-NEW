@@ -21,6 +21,7 @@ from app.modules.editor_assistant.router import router as editor_assistant_route
 from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
 from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.quizzes.ai import generate_quiz_draft as build_quiz_draft
+from app.modules.quizzes.matching import MATCHING_PAIRS, validate_pair_labels
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 from app.modules.quizzes.schemas import (
     GroupedCourse,
@@ -469,14 +470,14 @@ async def get_quiz(
     )
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
-    ordering_learner = user.role == "student" and any(q["type"] == "ordering" for q in quiz["questions"])
-    if (language or ordering_learner) and authorized_quiz.lesson_id:
+    structured_learner = user.role == "student" and any(q["type"] in {"ordering", MATCHING_PAIRS} for q in quiz["questions"])
+    if (language or structured_learner) and authorized_quiz.lesson_id:
         from app.modules.lessons.models import Lesson, Module
 
         course = await db.scalar(select(Course).join(Module, Module.course_id == Course.id)
                                  .join(Lesson, Lesson.module_id == Module.id)
                                  .where(Lesson.id == authorized_quiz.lesson_id, Course.tenant_id == user.tenant_id))
-        if course and ordering_learner:
+        if course and structured_learner:
             link_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
             if link_enrollment_id is not None:
                 quiz["attempt_enrollment_id"] = link_enrollment_id
@@ -800,6 +801,18 @@ def _validate_ordering_steps(choices: list[QuizChoiceCreate] | list[QuizChoiceUp
         raise HTTPException(status_code=422, detail="Ordering requires 2 to 50 distinct steps")
 
 
+def _validate_structured_choices(
+    question_type: str, choices: list[QuizChoiceCreate] | list[QuizChoiceUpsert],
+) -> None:
+    if question_type == "ordering":
+        _validate_ordering_steps(choices)
+    if question_type == MATCHING_PAIRS:
+        try:
+            validate_pair_labels(choice.text for choice in choices)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.post("/{quiz_id}/questions", response_model=QuizResponse, status_code=201)
 async def create_question(
     quiz_id: UUID,
@@ -814,9 +827,8 @@ async def create_question(
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
     await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
-    ordering = req.type == "ordering"
-    if ordering:
-        _validate_ordering_steps(req.choices)
+    structured = req.type in {"ordering", MATCHING_PAIRS}
+    _validate_structured_choices(req.type, req.choices)
     question = Question(
         id=uuid4(),
         quiz_id=quiz_id,
@@ -834,8 +846,8 @@ async def create_question(
             id=uuid4(),
             question_id=question.id,
             text=choice_req.text,
-            is_correct=choice_req.is_correct and not ordering,
-            order_index=ci if ordering else (choice_req.order_index or ci),
+            is_correct=choice_req.is_correct and not structured,
+            order_index=ci if structured else (choice_req.order_index or ci),
         )
         db.add(choice)
     await db.flush()
@@ -859,12 +871,13 @@ async def update_question(
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
-    ordering = (req.type or question.type) == "ordering"
-    if req.type is not None and req.type != question.type and (ordering or question.type == "ordering"):
+    next_type = req.type or cast(str, question.type)
+    structured = next_type in {"ordering", MATCHING_PAIRS}
+    if next_type != question.type and (structured or question.type in {"ordering", MATCHING_PAIRS}):
         if req.choices is None:
-            raise HTTPException(status_code=422, detail="Supply the steps when changing the question type")
-    if ordering and req.choices is not None:
-        _validate_ordering_steps(req.choices)
+            raise HTTPException(status_code=422, detail="Supply the choices when changing the question type")
+    if req.choices is not None:
+        _validate_structured_choices(next_type, req.choices)
     if {"text", "type", "explanation", "choices"} & req.model_fields_set:
         _invalidate_question_source_quote(question)
     if req.text is not None:
@@ -885,7 +898,7 @@ async def update_question(
                 status_code=422,
                 detail="Question must have at least two choices",
             )
-        if not ordering and not any(choice.is_correct for choice in req.choices):
+        if not structured and not any(choice.is_correct for choice in req.choices):
             raise HTTPException(
                 status_code=422,
                 detail="Question must have at least one correct choice",
@@ -906,8 +919,8 @@ async def update_question(
                         detail="Choice does not belong to this question",
                     )
                 choice.text = choice_req.text
-                choice.is_correct = choice_req.is_correct and not ordering
-                choice.order_index = index if ordering else choice_req.order_index
+                choice.is_correct = choice_req.is_correct and not structured
+                choice.order_index = index if structured else choice_req.order_index
                 retained_choice_ids.add(choice.id)
             else:
                 db.add(
@@ -915,8 +928,8 @@ async def update_question(
                         id=uuid4(),
                         question_id=question_id,
                         text=choice_req.text,
-                        is_correct=choice_req.is_correct and not ordering,
-                        order_index=index if ordering else choice_req.order_index,
+                        is_correct=choice_req.is_correct and not structured,
+                        order_index=index if structured else choice_req.order_index,
                     )
                 )
         for choice_id, choice in existing_choices.items():
@@ -972,8 +985,8 @@ async def create_choice(
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
-    if question.type == "ordering":
-        raise HTTPException(status_code=422, detail="Edit ordering steps through the question")
+    if question.type in {"ordering", MATCHING_PAIRS}:
+        raise HTTPException(status_code=422, detail="Edit structured choices through the question")
     _invalidate_question_source_quote(question)
     choice = QuizChoice(
         id=uuid4(),
@@ -1008,8 +1021,8 @@ async def update_choice(
     choice = await db.get(QuizChoice, choice_id)
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
-    if question.type == "ordering":
-        raise HTTPException(status_code=422, detail="Edit ordering steps through the question")
+    if question.type in {"ordering", MATCHING_PAIRS}:
+        raise HTTPException(status_code=422, detail="Edit structured choices through the question")
     if req.text is not None or req.is_correct is not None:
         _invalidate_question_source_quote(question)
     if req.text is not None:
@@ -1042,8 +1055,8 @@ async def delete_choice(
     choice = await db.get(QuizChoice, choice_id)
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
-    if question.type == "ordering":
-        raise HTTPException(status_code=422, detail="Edit ordering steps through the question")
+    if question.type in {"ordering", MATCHING_PAIRS}:
+        raise HTTPException(status_code=422, detail="Edit structured choices through the question")
     _invalidate_question_source_quote(question)
     await db.delete(choice)
     await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)
