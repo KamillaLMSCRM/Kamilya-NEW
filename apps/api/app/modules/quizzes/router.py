@@ -469,13 +469,22 @@ async def get_quiz(
     )
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
-    if language and authorized_quiz.lesson_id:
+    ordering_learner = user.role == "student" and any(q["type"] == "ordering" for q in quiz["questions"])
+    if (language or ordering_learner) and authorized_quiz.lesson_id:
         from app.modules.lessons.models import Lesson, Module
 
         course = await db.scalar(select(Course).join(Module, Module.course_id == Course.id)
                                  .join(Lesson, Lesson.module_id == Module.id)
                                  .where(Lesson.id == authorized_quiz.lesson_id, Course.tenant_id == user.tenant_id))
-        if course:
+        if course and ordering_learner:
+            link_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
+            if link_enrollment_id is not None:
+                quiz["attempt_enrollment_id"] = link_enrollment_id
+            else:
+                enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course.id)
+                if enrollment is not None:
+                    quiz["attempt_enrollment_id"] = enrollment.id
+        if course and language:
             locale = await localized_quiz_fields(db, course, user, language)
             quiz["title"] = locale.get(f"quiz.{quiz_id}.title", quiz["title"])
             for question in quiz["questions"]:

@@ -44,6 +44,7 @@ function jsonResponse(body: unknown, status = 200) {
 
 const quiz = {
   id: 'quiz-1',
+  attempt_enrollment_id: null as string | null,
   lesson_id: 'lesson-1',
   title: 'Проверка урока',
   pass_score: 50,
@@ -127,6 +128,7 @@ describe('learner quiz result navigation', () => {
   it('submits the chosen sequence in order for an ordering question', async () => {
     quizPayload = {
       ...quiz,
+      attempt_enrollment_id: 'ordinary-assignment',
       questions: [{
         ...quiz.questions[0],
         type: 'ordering',
@@ -136,7 +138,6 @@ describe('learner quiz result navigation', () => {
         })),
       }],
     };
-    accessWindowPayload = { server_now: '2026-11-01T10:00:00Z', access_policy: { enrollment_id: 'ordering-assignment', due_at: null, completion_window_expires_at: null } };
     const first = render(<QuizPlayerPage />);
     await screen.findByText('Расположите действия в правильном порядке.');
     const steps = screen.getAllByRole('button', {name: /Переместить выше:/});

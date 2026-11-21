@@ -38,6 +38,7 @@ interface Question {
 
 interface Quiz {
   id: string;
+  attempt_enrollment_id?: string | null;
   lesson_id: string;
   title: string;
   pass_score: number;
@@ -310,10 +311,11 @@ function ScopedQuizPlayer() {
 
   const assignmentBlocked = assignmentRemainingSeconds === 0;
   const attemptBlocked = !canAttempt || assignmentBlocked;
-  const orderingDraftKey = canAttempt && user && quiz && assignmentIdentityRef.current
+  const orderingEnrollmentId = quiz?.attempt_enrollment_id ?? assignmentIdentityRef.current;
+  const orderingDraftKey = canAttempt && user && quiz && orderingEnrollmentId
     && quiz.questions.some((question) => question.type === 'ordering')
     ? 'kamilya:quiz-order:' + JSON.stringify([
-        user.tenant_id, user.user_id, user.impersonated_by, quiz.id, assignmentIdentityRef.current,
+        user.tenant_id, user.user_id, user.impersonated_by, quiz.id, orderingEnrollmentId,
         attempts.map((attempt) => attempt.id).sort(),
       ])
     : null;
