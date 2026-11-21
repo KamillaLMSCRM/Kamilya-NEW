@@ -199,6 +199,13 @@
 
 ## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
 
+- Update 2026-11-21: no-migration 0.11.132 candidate 4b45542a reached PR CI
+  44879719035 without its explicit 0192-to-0192 controller entry. The local API
+  suite covered product units but omitted the controller VERSION/Alembic
+  regression. CI blocked production before any deployment. When VERSION
+  changes, run the exact local controller regression even if no migration
+  files changed. Use the protected controller upgrade before the app rollout.
+
 - Update 2026-11-18: CONTEXT120 repeated the omission in candidate6061d7a0;
   PR CI44266884388 caught0188-vs0189 before any public migration or DEV switch.
   Root ran API units but omitted the existing controller regression locally.
