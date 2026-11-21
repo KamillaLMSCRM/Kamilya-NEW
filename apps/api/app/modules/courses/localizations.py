@@ -19,10 +19,10 @@ from app.core.db import Base
 from app.models.courses import Course
 from app.models.enrollment import Enrollment
 from app.models.users import User
-from app.modules.quizzes.matching import MATCHING_PAIRS, pair_key
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
 from app.modules.enrollments.context import current_enrollment
+from app.modules.quizzes.matching import MATCHING_PAIRS, pair_key
 
 Language = Literal["ru", "kk", "en"]
 LANGUAGES = {"ru": "Russian", "kk": "Kazakh", "en": "English"}
