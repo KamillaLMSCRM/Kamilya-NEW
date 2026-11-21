@@ -1010,7 +1010,7 @@ export default function CourseEditPage() {
                           {(['visual', 'markdown'] as const).map(mode => <Button key={mode} type="button" size="sm" variant={contentEditor === mode ? 'secondary' : 'ghost'} aria-pressed={contentEditor === mode} onClick={() => setContentEditor(mode)}>{visualLessonCopy(lang)[mode]}</Button>)}
                         </div>
                       </div>
-                      {contentEditor === 'visual' ? <VisualLessonEditor key={`${editingLessonId}:${session.generation}`} value={editLessonContent} onChange={setEditLessonContent} lang={lang} disabled={savingLesson || correctionBusy} /> : <>
+                      {contentEditor === 'visual' ? <VisualLessonEditor key={`${editingLessonId}:${session.generation}`} value={editLessonContent} onChange={setEditLessonContent} lang={lang} disabled={savingLesson || correctionBusy} illustrationEndpoint={`/v1/courses/${courseId}/lessons/${editingLessonId}/illustrations`} /> : <>
                       <label htmlFor="author-lesson-content" className="sr-only">{t('authenticatedUi.editor.lessonContent')}</label>
                       <MarkdownToolbar value={editLessonContent} onChange={setEditLessonContent} textareaRef={lessonTextareaRef} lang={lang} />
                       <textarea

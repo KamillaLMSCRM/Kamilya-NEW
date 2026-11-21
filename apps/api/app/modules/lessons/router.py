@@ -17,6 +17,7 @@ from app.modules.courses.access import (
 )
 from app.modules.courses.localizations import learner_snapshot
 from app.modules.lessons.decision_practice import BLOCK_TYPE, published_practices
+from app.modules.lessons.illustrations import illustration_urls, snapshot_illustration_content
 from app.modules.lessons.models import Module
 from app.modules.lessons.schemas import (
     ContentBlockCreate,
@@ -202,12 +203,15 @@ async def get_course_structure_endpoint(
         return course
     snapshot = await learner_snapshot(db, owned_course, user)
     practices = dict(published_practices(snapshot))
-    if not practices:
-        return course
+    published_content = snapshot_illustration_content(snapshot)
     response = CourseStructureResponse.model_validate(course, from_attributes=True)
     for module in response.modules:
         for lesson in module.lessons:
-            lesson.decision_practice = practices.get(str(lesson.id))
+            lesson_id = str(lesson.id)
+            lesson.decision_practice = practices.get(lesson_id)
+            frozen = published_content.get(lesson_id)
+            if illustration_urls(frozen) or illustration_urls(lesson.content):
+                lesson.content = frozen
     return response
 
 

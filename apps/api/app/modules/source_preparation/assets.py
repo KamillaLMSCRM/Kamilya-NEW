@@ -16,6 +16,12 @@ from app.models.enrollment import Enrollment
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import canonical_json_sha256
+from app.modules.lessons.illustrations import (
+    illustration_descriptor,
+    illustration_urls,
+    lesson_image_url,
+    owns_illustration_lesson,
+)
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.source_editorial_review.service import history, owned_document
 from app.modules.source_preparation.domain import PreparedSource, validate_binding
@@ -66,6 +72,7 @@ def _snapshot_descriptor(snapshot: object, course_id: UUID, lesson_id: UUID,
     course = snapshot["course"]
     if course.get("id") != str(course_id) or course.get("tenant_id") != str(tenant_id):
         return None
+    uploaded = illustration_descriptor(tenant_id, course_id, lesson_id, asset_id)
     sources = snapshot.get("source_documents")
     modules = snapshot.get("modules")
     if not isinstance(sources, list) or not isinstance(modules, list):
@@ -80,6 +87,8 @@ def _snapshot_descriptor(snapshot: object, course_id: UUID, lesson_id: UUID,
         for lesson in lessons:
             if not isinstance(lesson, dict) or lesson.get("id") != str(lesson_id):
                 continue
+            if uploaded and lesson_image_url(course_id, lesson_id, asset_id) in illustration_urls(lesson.get("content")):
+                return uploaded
             blocks = lesson.get("content_blocks")
             if not isinstance(blocks, list):
                 continue
@@ -127,7 +136,9 @@ async def preview_asset(db: AsyncSession, tenant_id: UUID, document_id: UUID,
 
 
 async def course_asset(db: AsyncSession, course_id: UUID, lesson_id: UUID, asset_id: str, user: Any) -> Response:
-    if _ASSET.fullmatch(asset_id) is None:
+    tenant_id = UUID(str(user.tenant_id))
+    uploaded = illustration_descriptor(tenant_id, course_id, lesson_id, asset_id)
+    if uploaded is None and _ASSET.fullmatch(asset_id) is None:
         raise _missing()
     try:
         await require_course_access(db, course_id, user)
@@ -135,8 +146,11 @@ async def course_asset(db: AsyncSession, course_id: UUID, lesson_id: UUID, asset
         if exc.status_code in (403, 404, 409):
             raise _missing() from exc
         raise
-    tenant_id = UUID(str(user.tenant_id))
     if user.role in AUTHORING_ROLES:
+        if uploaded:
+            if not await owns_illustration_lesson(db, tenant_id, course_id, lesson_id):
+                raise _missing()
+            return _response(uploaded)
         rows = (await db.scalars(select(ContentBlock).join(Lesson, Lesson.id == ContentBlock.lesson_id)
                     .join(Module, Module.id == Lesson.module_id)
                     .where(Lesson.id == lesson_id, Lesson.tenant_id == tenant_id,
