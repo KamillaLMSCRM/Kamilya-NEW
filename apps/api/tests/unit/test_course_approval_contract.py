@@ -796,3 +796,23 @@ def test_course_approval_mutations_have_persisted_idempotency_boundaries():
     assert 'operation="course_approval.resend"' in approval_source
     assert 'operation="course.publish"' in courses.read_text(encoding="utf-8")
     assert 'operation="course.unpublish"' in courses.read_text(encoding="utf-8")
+
+
+def test_ordering_approval_review_scores_sequence_and_masks_the_snapshot_key():
+    from app.modules.course_approval.service import learner_safe_review_snapshot, score_review_submission
+
+    question = {
+        "id": "q1",
+        "type": "ordering",
+        "explanation": "The correct order is c then a",
+        "choices": [{"id": "c", "order_index": 0}, {"id": "a", "order_index": 1}],
+    }
+    snapshot = {"modules": [{"lessons": [{"quizzes": [{"questions": [question]}]}]}]}
+    result = score_review_submission(snapshot, [{"question_id": "q1", "selected_choice_ids": ["c", "a"]}])
+    assert result["correct"] == 1
+    wrong = score_review_submission(snapshot, [{"question_id": "q1", "selected_choice_ids": ["a", "c"]}])
+    assert wrong["correct"] == 0
+    safe = learner_safe_review_snapshot(snapshot)["modules"][0]["lessons"][0]["quizzes"][0]["questions"][0]
+    assert safe["choices"] == [{"id": "a", "order_index": 0}, {"id": "c", "order_index": 1}]
+    assert "explanation" not in safe
+    assert question["choices"][0]["id"] == "c"
