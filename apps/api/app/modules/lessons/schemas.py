@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
+from app.modules.lessons.decision_practice import PracticeEdition
+
 
 class ModuleCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
@@ -59,6 +61,7 @@ class LessonResponse(BaseModel):
     duration_seconds: Optional[int] = None
     order_index: int
     ai_generated: bool
+    decision_practice: PracticeEdition | None = Field(default=None, exclude_if=lambda value: value is None)
     published_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime

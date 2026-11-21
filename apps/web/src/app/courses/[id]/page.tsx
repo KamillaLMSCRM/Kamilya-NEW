@@ -19,6 +19,7 @@ import { contentLanguages, isCourseLanguage } from '@/features/course-authoring/
 import { useCourseLanguage } from '@/features/course-authoring/useCourseLanguage';
 import { studentDailyLearningCopy } from '@/features/student-daily-learning/nextAssignment';
 import { isTrustedScormBridgeMessage, type ScormBridgeStatus } from '@/features/scorm/bridge';
+import { DecisionPracticePlayer, type PracticeEdition } from '@/features/course-authoring/DecisionPractice';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
 
 interface Lesson {
@@ -28,6 +29,7 @@ interface Lesson {
   content: string | null;
   order_index: number;
   quiz_id?: string | null;
+  decision_practice?: PracticeEdition;
 }
 
 interface Module {
@@ -987,6 +989,13 @@ export default function CoursePlayerPage() {
               )}
             </article>
 
+            {selectedLesson.decision_practice && user?.role === 'student' && (() => {
+              const { practice, revision } = selectedLesson.decision_practice;
+              const key = JSON.stringify(['decision-practice', user.tenant_id, user.user_id, courseId, selectedLesson.id, revision]);
+              return <div className="mt-6">
+                <DecisionPracticePlayer key={key} storageKey={key} practice={practice} language={courseLocale.language ?? lang} />
+              </div>;
+            })()}
             <footer className="mt-8 space-y-4 border-t border-border pt-6 [&_button]:whitespace-normal [&_button]:text-left">
               {quizStatus === 'error' && (
                 <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">

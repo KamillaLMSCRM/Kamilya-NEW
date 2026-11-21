@@ -31,6 +31,7 @@ import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 import { coursePublicationError } from '@/lib/coursePublicationError';
 import { containsTimedVideo, LessonContent, lessonContentClassName } from '@/features/course-authoring/LessonContent';
+import { DecisionPracticeEditor } from '@/features/course-authoring/DecisionPracticeEditor';
 import { VideoPracticeEditor } from '@/features/course-authoring/VideoPracticeEditor';
 import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
@@ -143,6 +144,7 @@ export default function CourseEditPage() {
   const [savingLesson, setSavingLesson] = useState(false);
   const [releaseAction, setReleaseAction] = useState<'approve' | 'publish' | null>(null);
   const [programGenerationJob, setProgramGenerationJob] = useState<string | null>(null);
+  const [practiceDirty, setPracticeDirty] = useState(false);
   const [correctionBusy, setCorrectionBusy] = useState(false);
   const [languageRefresh, setLanguageRefresh] = useState(0);
   const correctionBusyRef = useRef(false);
@@ -172,7 +174,7 @@ export default function CourseEditPage() {
     && (editLessonTitle !== savedLessonTitle || editLessonContent !== savedLessonContent);
   const moduleDirty = Boolean(editingModuleId)
     && editModuleTitle !== modules.find((module) => module.id === editingModuleId)?.title;
-  const workspaceDirty = lessonDirty || moduleDirty;
+  const workspaceDirty = lessonDirty || moduleDirty || practiceDirty;
   useEffect(() => {
     setProgramGenerationJob(new URLSearchParams(window.location.search).get('programGenerationJob'));
   }, [courseId]);
@@ -280,7 +282,7 @@ export default function CourseEditPage() {
     setNewModuleTitle(''); setEditingModuleId(null); setEditModuleTitle('');
     setNewLessonTitle(''); setAddingLessonToModule(null);
     creationPending.current = null; setCreationBusy(false); setCreationError(null);
-    setChatOpen(false); setChatFocus({}); setCorrectionBusy(false); correctionBusyRef.current = false;
+    setChatOpen(false); setChatFocus({}); setPracticeDirty(false); setCorrectionBusy(false); correctionBusyRef.current = false;
     setLoadError(false); setReadinessUnavailable(true); setLoading(true);
     initialLessonRef.current = null;
     void fetchData();
@@ -604,7 +606,7 @@ export default function CourseEditPage() {
   const handleSelectLesson = async (lessonId: string) => {
     if (correctionBusyRef.current) return;
     if (lessonId === editingLessonId) return;
-    if (lessonDirty) {
+    if (lessonDirty || practiceDirty) {
       const discard = await confirm({
         title: t('authenticatedUi.editor.unsavedTitle'),
         message: t('authenticatedUi.editor.unsavedDescription'),
@@ -618,7 +620,7 @@ export default function CourseEditPage() {
 
   const handleSelectLessonReload = async () => {
     if (!editingLessonId || correctionBusyRef.current) return;
-    if (lessonDirty) {
+    if (lessonDirty || practiceDirty) {
       const discard = await confirm({
         title: t('authenticatedUi.editor.unsavedTitle'),
         message: t('authenticatedUi.editor.unsavedDescription'),
@@ -714,7 +716,7 @@ export default function CourseEditPage() {
 
   const handlePublish = async () => {
     const isCurrent = beginAction('release');
-    if (!isCurrent()) return;
+    if (!isCurrent() || workspaceDirty) return;
     setReleaseAction('publish');
     try {
       const updated = await releaseRequest('publish');
@@ -992,7 +994,7 @@ export default function CourseEditPage() {
                   </div>
                   <div className="flex min-w-0 max-w-full flex-wrap rounded-md border border-border p-1" role="group" aria-label={t('authenticatedUi.editor.viewMode')}>
                     <Button type="button" size="sm" aria-pressed={lessonView === 'edit'} variant={lessonView === 'edit' ? 'secondary' : 'ghost'} onClick={() => setLessonView('edit')}><Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.editMode')}</Button>
-                    <Button type="button" size="sm" aria-pressed={lessonView === 'preview'} variant={lessonView === 'preview' ? 'secondary' : 'ghost'} onClick={() => setLessonView('preview')}><Eye className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.previewMode')}</Button>
+                    <Button type="button" size="sm" aria-pressed={lessonView === 'preview'} variant={lessonView === 'preview' ? 'secondary' : 'ghost'} disabled={practiceDirty} onClick={() => setLessonView('preview')}><Eye className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.previewMode')}</Button>
                   </div>
                 </div>
                 {lessonView === 'edit' ? (
@@ -1023,6 +1025,9 @@ export default function CourseEditPage() {
                       />
                       </>}
                     </div>
+                    {editingLessonId && <DecisionPracticeEditor key={JSON.stringify([editingLessonId, session.generation, loadingLessonId])}
+                      courseId={courseId} lessonId={editingLessonId} lang={lang} onDirtyChange={setPracticeDirty}
+                      disabled={lessonDirty || savingLesson || correctionBusy || Boolean(releaseAction)} onSaved={() => void fetchData()} />}
                     {editingLessonId && containsTimedVideo(savedLessonContent) &&
                       <VideoPracticeEditor key={`${editingLessonId}:${session.generation}`} courseId={courseId}
                         lessonId={editingLessonId} lang={lang} disabled={lessonDirty || savingLesson || correctionBusy} />}

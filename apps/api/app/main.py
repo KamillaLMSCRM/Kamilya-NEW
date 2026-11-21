@@ -69,6 +69,7 @@ from app.modules.learning_cycles.router import router as learning_cycles_router
 from app.modules.learning_insights.router import router as learning_insights_router
 from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.learning_reminders.telegram_router import router as telegram_learning_router
+from app.modules.lessons.decision_practice_router import router as decision_practice_router
 from app.modules.lessons.router import router as lessons_router
 from app.modules.mandatory_training.router import router as mandatory_training_router
 from app.modules.methodologist_workbench.assignment_router import router as methodologist_workbench_router
@@ -227,6 +228,7 @@ app.include_router(auth_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(courses_router, prefix=f"{settings.API_PREFIX}", tags=["courses"])
 app.include_router(course_localization_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(video_practice_router, prefix=f"{settings.API_PREFIX}")
+app.include_router(decision_practice_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(course_approval_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(notifications_router, prefix=f"{settings.API_PREFIX}")
 app.include_router(course_blueprints_router, prefix=f"{settings.API_PREFIX}")

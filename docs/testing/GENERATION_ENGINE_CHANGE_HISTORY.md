@@ -4075,3 +4075,13 @@ or course authors. Live cash/standards already-known parts remain retained.
 Prior implementation: DEV player 50aa1435/df0632ec presents bounded YouTube segments. Existing YouTube import provides timestamped subtitle segments. No prior interactive self-check route found for that player.
 
 One author request proposes a bilingual exercise from a bounded set of actual caption windows. A single shared correct-choice index and the selected window's end-time are validated, including an exact excerpt. The proposal is read-only for learners until an author accepts it. The approved card is bound to the course, lesson and exact video clip. Course approval snapshots exclude the separate practice state. Learner interactions are local to the lesson and never create scores, attempts or completion writes. Provider profile is the existing Luna reserve; transport-unknown proposals remain pending and cannot automatically repeat. Local checks use saved/synthetic responses. Record actual DEV model and browser outcomes separately before any release claim.
+
+## CHG-VIDEO-PRACTICE-02 - Ground timed video questions
+
+DEV 0.11.130 returned `provider_blocked` on two captions requests before any
+model call. Preserve the provider reason for the editor. A timed SRT or VTT
+file can serve as the caption source for the same clip when that route fails.
+Use original cue times and exact source evidence. A separate Luna review
+checks the question, key and explanation in both languages before the methodologist
+gets the suggested draft. Existing pending unknown requests retain their claim.
+Local parser, provider-error, duplicate-request and reviewer cases are covered.
