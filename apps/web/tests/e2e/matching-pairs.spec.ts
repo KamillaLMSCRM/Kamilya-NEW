@@ -67,7 +67,7 @@ for (const language of ['ru', 'kk'] as const) {
         const courseMode = mode === 'course';
         if (courseMode) {
           await page.goto(`/courses/${ids.course}?lessonId=${ids.lesson}`);
-          await page.getByLabel(language === 'ru' ? 'Язык курса' : 'Курс тілі', { exact: true }).selectOption(language);
+          await page.getByRole('combobox', { name: language === 'ru' ? 'Язык курса' : 'Курс тілі', exact: true }).selectOption(language);
           const start = page.getByRole('link', { name: courseCopy.startQuiz, exact: true });
           await expect(start).toHaveAttribute('href', new RegExp('[?&]language=' + language + '$'));
           await start.click();
