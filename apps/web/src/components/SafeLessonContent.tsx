@@ -87,7 +87,7 @@ export function SafeLessonContent({ text }: SafeLessonContentProps) {
     if (image) {
       blocks.push(<figure key={`image:${blocks.length}`} className="space-y-1">
         <AuthenticatedSourceImage url={image.url} alt={image.alt} />
-        {image.alt && <figcaption className="text-sm text-muted-foreground">{image.alt}</figcaption>}
+        {(image.caption ?? image.alt) && <figcaption className="text-sm text-muted-foreground">{image.caption ?? image.alt}</figcaption>}
       </figure>);
       index += 1;
       continue;

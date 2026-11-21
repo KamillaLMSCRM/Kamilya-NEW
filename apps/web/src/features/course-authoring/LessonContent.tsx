@@ -24,7 +24,7 @@ type Block =
   | { type: 'heading'; level: HeadingLevel; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'quote'; text: string }
-  | { type: 'image'; alt: string; url: string }
+  | { type: 'image'; alt: string; url: string; caption?: string }
   | { type: 'youtube'; title: string; src: string }
   | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'table'; rows: string[][] };
@@ -250,7 +250,7 @@ export function LessonContent({ text, className, omitFirstHeading, practiceScope
 
         if (block.type === 'image') return <figure key={key}>
           <AuthenticatedSourceImage url={block.url} alt={block.alt} />
-          {block.alt && <figcaption>{block.alt}</figcaption>}
+          {(block.caption ?? block.alt) && <figcaption>{block.caption ?? block.alt}</figcaption>}
         </figure>;
 
         if (block.type === 'youtube') {

@@ -6,6 +6,9 @@ const en = {
   caption: 'Caption', selectImage: 'Illustration', noImages: 'There are no source illustrations in this lesson.',
   newText: 'New text', newHeading: 'New heading', newRule: 'Key rule', newSteps: '1. First step\n2. Second step',
   preview: 'Block preview', removed: 'Block deleted', moved: 'Block moved', added: 'Block added',
+  upload: 'Upload illustration', uploading: 'Uploading…', uploaded: 'Illustration', alt: 'Image description',
+  imageLimit: 'PNG or JPEG up to 5 MB', imageInvalid: 'Choose a valid PNG or JPEG up to 5 MB.',
+  imageUploadError: 'Could not upload the image. Try again.',
   raw: 'This block is edited as Markdown. Its existing content is retained.',
 };
 type Copy = { [K in keyof typeof en]: string };
@@ -17,6 +20,9 @@ const ru: Copy = {
   caption: 'Подпись', selectImage: 'Иллюстрация', noImages: 'В этом уроке нет иллюстраций из источника.',
   newText: 'Новый текст', newHeading: 'Новый заголовок', newRule: 'Важное правило', newSteps: '1. Первый шаг\n2. Второй шаг',
   preview: 'Предпросмотр блока', removed: 'Блок удалён', moved: 'Блок перемещён', added: 'Блок добавлен',
+  upload: 'Загрузить иллюстрацию', uploading: 'Загрузка…', uploaded: 'Иллюстрация', alt: 'Описание изображения',
+  imageLimit: 'PNG или JPEG до 5 МБ', imageInvalid: 'Выберите корректное изображение PNG или JPEG до 5 МБ.',
+  imageUploadError: 'Не удалось загрузить изображение. Попробуйте ещё раз.',
   raw: 'Этот блок редактируется в Markdown. Исходное содержание сохранено.',
 };
 const kk: Copy = {
@@ -27,6 +33,9 @@ const kk: Copy = {
   caption: 'Сурет атауы', selectImage: 'Сурет', noImages: 'Бұл сабақта дереккөз суреттері жоқ.',
   newText: 'Жаңа мәтін', newHeading: 'Жаңа тақырып', newRule: 'Маңызды ереже', newSteps: '1. Бірінші қадам\n2. Екінші қадам',
   preview: 'Блокты алдын ала қарау', removed: 'Блок жойылды', moved: 'Блок жылжытылды', added: 'Блок қосылды',
+  upload: 'Сурет жүктеу', uploading: 'Жүктелуде…', uploaded: 'Сурет', alt: 'Сурет сипаттамасы',
+  imageLimit: '5 МБ дейінгі PNG немесе JPEG', imageInvalid: '5 МБ дейінгі жарамды PNG немесе JPEG суретін таңдаңыз.',
+  imageUploadError: 'Сурет жүктелмеді. Қайталап көріңіз.',
   raw: 'Бұл блок Markdown пішімінде өңделеді. Бастапқы мазмұн сақталған.',
 };
 export function visualLessonCopy(lang?: string): Copy { return lang === 'en' ? en : lang === 'kk' ? kk : ru; }

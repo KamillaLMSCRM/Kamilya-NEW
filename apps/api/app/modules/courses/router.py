@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +39,7 @@ from app.modules.courses.schemas import (
     SourceDocumentRevisionInfo,
 )
 from app.modules.enrollments.schemas import AssignmentAccessWindowResponse
+from app.modules.lessons.illustrations import upload_illustration
 
 router = APIRouter(
     prefix="/courses",
@@ -54,6 +55,15 @@ async def get_lesson_source_asset(course_id: UUID, lesson_id: UUID, asset_id: st
     from app.modules.source_preparation.assets import course_asset
 
     return await course_asset(db, course_id, lesson_id, asset_id, user)
+
+
+@router.post("/{course_id}/lessons/{lesson_id}/illustrations", status_code=201)
+async def upload_lesson_illustration(
+    course_id: UUID, lesson_id: UUID, file: UploadFile,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role("methodologist", "superadmin"))],
+) -> dict[str, str]:
+    return {"url": await upload_illustration(db, UUID(str(user.tenant_id)), course_id, lesson_id, file)}
 
 
 def _preview_source_references(references: list[Any], lesson_source_ids: list[Any],

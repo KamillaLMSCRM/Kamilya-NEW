@@ -7,8 +7,17 @@ import { useT } from '@/i18n/useT';
 
 const uuid = '[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}';
 const asset = 'asset-[0-9a-f]{64}';
-const allowed = new RegExp(`^(?:/v1/documents/${uuid}/editorial-review/assets/${asset}\\?preparation_sha256=[0-9a-f]{64}|/v1/courses/${uuid}/lessons/${uuid}/source-assets/${asset})$`, 'i');
-const frozenLessonImage = new RegExp(`^/v1/courses/${uuid}/lessons/${uuid}/source-assets/(${asset})$`, 'i');
+const uploaded = 'illustration-[0-9a-f]{64}\\.(?:png|jpg)';
+const lessonAsset = '(?:' + asset + '|' + uploaded + ')';
+const uploadedPath = new RegExp('^/v1/courses/' + uuid + '/lessons/' + uuid + '/source-assets/' + uploaded + '$');
+export function isUploadedLessonImage(url: string): boolean { return uploadedPath.test(url); }
+
+export function lessonImageMarkdown(url: string, alt: string, caption?: string): string {
+  const escaped = alt.replace(/[\\[\]]/g, '\\$&');
+  return '![' + escaped + '](' + url + (caption !== undefined ? ' ' + JSON.stringify(caption) : '') + ')';
+}
+const allowed = new RegExp(`^(?:/v1/documents/${uuid}/editorial-review/assets/${asset}\\?preparation_sha256=[0-9a-f]{64}|/v1/courses/${uuid}/lessons/${uuid}/source-assets/${lessonAsset})$`, 'i');
+const frozenLessonImage = new RegExp(`^/v1/courses/${uuid}/lessons/${uuid}/source-assets/(${lessonAsset})$`, 'i');
 const uuidOnly = new RegExp(`^${uuid}$`, 'i');
 
 type ReviewImageContext = { attemptId: string; lessonId: string; token?: string };
@@ -20,21 +29,34 @@ export function ReviewSourceImageProvider({ attemptId, lessonId, token, children
 }
 
 export function isAllowedSourceImageUrl(url: string): boolean { return allowed.test(url); }
-export function sourceImageLine(line: string): { alt: string; url: string } | null {
+export function sourceImageLine(line: string): { alt: string; url: string; caption?: string } | null {
   const text = line.trim();
-  const boundary = text.lastIndexOf('](');
-  if (!text.startsWith('![') || !text.endsWith(')') || boundary < 2 || /[\r\n]/.test(text)) return null;
-  const url = text.slice(boundary + 2, -1);
-  if (!isAllowedSourceImageUrl(url)) return null;
-  const raw = text.slice(2, boundary);
+  if (!text.startsWith('![') || !text.endsWith(')') || /[\r\n]/.test(text)) return null;
   let alt = '';
-  for (let index = 0; index < raw.length; index += 1) {
-    const char = raw[index];
-    if (char === '\\' && /[\\[\]]/.test(raw[index + 1] ?? '')) alt += raw[++index];
-    else if (char === ']') return null;
+  let boundary = 2;
+  for (; boundary < text.length; boundary += 1) {
+    const char = text[boundary];
+    if (char === '\\' && /[\\[\]]/.test(text[boundary + 1] ?? '')) alt += text[++boundary];
+    else if (char === ']') break;
     else alt += char;
   }
-  return { alt, url };
+  if (text[boundary + 1] !== '(') return null;
+  const target = text.slice(boundary + 2, -1);
+  const space = target.indexOf(' ');
+  const url = space < 0 ? target : target.slice(0, space);
+  if (!isAllowedSourceImageUrl(url)) return null;
+  let caption: string | undefined;
+  if (space >= 0) {
+    if (!isUploadedLessonImage(url)) return null;
+    try {
+      const parsed: unknown = JSON.parse(target.slice(space + 1));
+      if (typeof parsed !== 'string' || /[\r\n]/.test(parsed)) return null;
+      caption = parsed;
+    } catch {
+      return null;
+    }
+  }
+  return caption === undefined ? { alt, url } : { alt, url, caption };
 }
 
 export function AuthenticatedSourceImage({ url, alt, loadingLabel, errorLabel, openLabel }: {

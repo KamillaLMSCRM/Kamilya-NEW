@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { api } from '@/lib/api';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
 import { joinLessonBlocks, replaceLessonBlock, separateLessonBlocks, splitLessonBlocks } from '@/features/course-authoring/lessonBlocks';
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { sourceImageLine } from '@/components/AuthenticatedSourceImage';
 
-vi.mock('@/lib/api', () => ({ api: { get: vi.fn().mockRejectedValue(new Error('No image transport in this component test')) } }));
+vi.mock('@/lib/api', () => ({ api: { post: vi.fn(), get: vi.fn().mockRejectedValue(new Error('No image transport in this component test')) } }));
 
 const asset = '/v1/courses/00000000-0000-4000-8000-000000000001/lessons/00000000-0000-4000-8000-000000000002/source-assets/asset-' + 'a'.repeat(64);
 describe('lossless lesson authoring', () => {
@@ -35,10 +36,42 @@ describe('lossless lesson authoring', () => {
   });
 });
 
-function Harness({ initial = '# Title\n\nBody', disabled = false }: { initial?: string; disabled?: boolean }) {
+function Harness({ initial = '# Title\n\nBody', disabled = false, illustrationEndpoint }: { initial?: string; disabled?: boolean; illustrationEndpoint?: string }) {
   const [value, setValue] = useState(initial);
-  return <><VisualLessonEditor value={value} onChange={setValue} lang="en" disabled={disabled} /><output aria-label="Saved draft">{value}</output></>;
+  return <><VisualLessonEditor value={value} onChange={setValue} lang="en" disabled={disabled} illustrationEndpoint={illustrationEndpoint} /><output aria-label="Saved draft">{value}</output></>;
 }
+describe('uploaded lesson illustrations', () => {
+  const url = asset.replace(/asset-a+$/, 'illustration-' + 'a'.repeat(64) + '.png');
+  const endpoint = url.slice(0, url.indexOf('/source-assets/')) + '/illustrations';
+
+  it('uploads a binary file and edits separate caption and alternative text', async () => {
+    vi.mocked(api.post).mockResolvedValueOnce({ data: { url } });
+    render(<Harness illustrationEndpoint={endpoint} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }));
+    const file = new File(['fake image'], 'diagram.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Upload illustration', { selector: 'input' }), { target: { files: [file] } });
+    await screen.findByRole('textbox', { name: 'Image description' });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Image description' }), { target: { value: 'Screen [A]' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Caption' }), { target: { value: 'Point "A" ](/v1/example)' } });
+    const block = splitLessonBlocks(screen.getByLabelText('Saved draft').textContent!).at(-1)!;
+    expect(sourceImageLine(block.markdown)).toEqual({ alt: 'Screen [A]', url, caption: 'Point "A" ](/v1/example)' });
+    const [sentTo, payload] = vi.mocked(api.post).mock.calls.at(-1)!;
+    expect(sentTo).toBe(endpoint);
+    expect((payload as FormData).get('file')).toEqual(file);
+  });
+
+  it('keeps current blocks when the upload fails', async () => {
+    vi.mocked(api.post).mockRejectedValueOnce(new Error('failed'));
+    render(<Harness illustrationEndpoint={endpoint} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }));
+    fireEvent.change(screen.getByLabelText('Upload illustration', { selector: 'input' }), {
+      target: { files: [new File(['data'], 'diagram.png', { type: 'image/png' })] },
+    });
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Could not upload'));
+    expect(screen.getByLabelText('Saved draft').textContent).toBe('# Title\n\nBody');
+  });
+});
+
 describe('visual lesson editor behavior', () => {
   it('opens and selects existing blocks without emitting a write', () => {
     const onChange = vi.fn();
