@@ -217,7 +217,7 @@ async def carried_editions(
     return {
         row["language"]: unchanged_translations(
             fields, previous_fields, row["content"], owners,
-            revision_courses=(previous_course_id, course.id),
+            revision_courses=(previous_course_id, cast(UUID, course.id)),
         )
         for row in rows if row["language"] in policy.requested
     }

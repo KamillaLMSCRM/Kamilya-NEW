@@ -792,8 +792,9 @@ async def _clone_course(
             )
             db.add(lesson_clone)
             await db.flush()
-            lesson_clone.content = await copy_lesson_illustrations(
-                tenant_id, lesson.content, course.id, lesson.id, clone.id, lesson_clone.id,
+            cast(Any, lesson_clone).content = await copy_lesson_illustrations(
+                tenant_id, cast(str | None, lesson.content), cast(UUID, course.id),
+                cast(UUID, lesson.id), cast(UUID, clone.id), cast(UUID, lesson_clone.id),
             )
             node_ids[str(lesson_clone.id)] = str(lesson.id)
             if impacted:
