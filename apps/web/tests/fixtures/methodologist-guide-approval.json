@@ -23,8 +23,8 @@
   "source_manifest_sha256": "111ac4ce9f4cf814271c424fa6726ec2fa6a6e727c6b7842294ad8c01863c1ab",
   "media_manifest_sha256": "58ac64e9b25d07104913cddf45d5228c30c30613ac29f99fb1ca60974d9312aa",
   "html_sha256": {
-    "methodologist.html": "716c3f30ed5ac9e1b56c19da89b8823ddbb313f9fffc889e91005d5def814115",
-    "methodologist-text.html": "515b84d590bc84e2e01e0614fe6fe76ab33b3ba9620a32753aa45f1b45ca2e97"
+    "methodologist.html": "c9f5b2371ac18b4e74c2bb70e8ee42d3d385baad92f17153697a05f671081b0f",
+    "methodologist-text.html": "cb06184d3fb61544755706a27eee4741ef08e642f433991a942c11b831e3bc76"
   },
   "approval_scope": "LOCAL instructional content and media; DEV and production acceptance separate",
   "capture_baseline": "1ef4fb274b0bc37ac728eaa2402df3c70c16fafb",
@@ -35,5 +35,12 @@
   "author": "owner-selected ASUS DeepSeek; Qwen3TTS syntheticmale, root no instructional writing",
   "preserved_guidance": "conditional separate quiz approval; learner completion; result form SECTION nested in results flow; actual UI/browser/offline verified",
   "byte_normalization": "Reviewed CRLF-to-LF only; all8MP4/8JPG bytes identical; text content/scripts/styles unchanged, deterministic LF writer regression14 tests.",
-  "step_navigation": "LOCAL110 all33steps/42actual pixelchecks/8firstclickbeforePlay, zero and rapidlatest, nativePlay/onevideo/noautoplay PASS. Timings from encoded clip keyframes ceil-to-ms; original32media unchanged. DEV/production separate."
+  "step_navigation": "LOCAL110 all33steps/42actual pixelchecks/8firstclickbeforePlay, zero and rapidlatest, nativePlay/onevideo/noautoplay PASS. Timings from encoded clip keyframes ceil-to-ms; original32media unchanged. DEV/production separate.",
+  "practice_addendum": {
+    "html_sha256": "e4c6e2f08c98c7a2aeab14a914763b198a0ef5076a04c8ad0fb902f2095b6937",
+    "media_manifest_sha256": "c0ce5322185be21a2f58ef5336ba465e4c59fcb4b5d1331aac30f41f4b20b86c",
+    "capture_release": "64f39fd9fe19dc55421b4db33ff0b3a63ad52475",
+    "source_model": "DeepSeek-V4.1-Flash-1017 on GX10-15/GX10-16",
+    "review_scope": "Synthetic production screenshots, contextual help, two supplemental chapters; original eight media chapters retained."
+  }
 }

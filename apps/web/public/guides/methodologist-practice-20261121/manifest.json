@@ -1,0 +1,43 @@
+{
+  "source_release": "64f39fd9fe19dc55421b4db33ff0b3a63ad52475",
+  "videos": [
+    {
+      "id": "decision-practice",
+      "file": "decision-practice.mp4",
+      "seconds": 20.467,
+      "caption_cues": 3
+    },
+    {
+      "id": "timed-video-practice",
+      "file": "timed-video-practice.mp4",
+      "seconds": 21.57,
+      "caption_cues": 3
+    }
+  ],
+  "assets": [
+    {
+      "file": "decision-practice.jpg",
+      "sha256": "b8f6e565241205cb5cc3ad7588d4b2eab895d5a98fd178b7dba4db658d103fd5"
+    },
+    {
+      "file": "decision-practice.mp4",
+      "sha256": "0a3bb16e252658bcc7bf962361fc4786cf96bfc465376a0bcaa53d261503f15e"
+    },
+    {
+      "file": "decision-practice.vtt",
+      "sha256": "9d5655a604d24f187b2d86fa20f27f549eff38966a7a0f02885fbf748a831173"
+    },
+    {
+      "file": "timed-video-practice.jpg",
+      "sha256": "0d9119022b887b12323d132ec08ae96ee02b7099993a9e98d1a99533c64bdab0"
+    },
+    {
+      "file": "timed-video-practice.mp4",
+      "sha256": "55559de93489a0375e5d33fd1469a54adf76e6e299f2b08cf48292718bfd73f0"
+    },
+    {
+      "file": "timed-video-practice.vtt",
+      "sha256": "3a391760d97e460cb620d196bb659753de09ea1f7334ff7df06e69393906fd0e"
+    }
+  ]
+}
