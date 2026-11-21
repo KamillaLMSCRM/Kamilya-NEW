@@ -204,7 +204,7 @@ async def get_course_structure_endpoint(
     practices = dict(published_practices(snapshot))
     if not practices:
         return course
-    response = CourseStructureResponse.model_validate(course)
+    response = CourseStructureResponse.model_validate(course, from_attributes=True)
     for module in response.modules:
         for lesson in module.lessons:
             lesson.decision_practice = practices.get(str(lesson.id))

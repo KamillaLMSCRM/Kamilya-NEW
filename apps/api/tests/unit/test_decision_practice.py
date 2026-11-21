@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -9,6 +10,7 @@ from pydantic import ValidationError
 
 from app.modules.lessons.decision_practice import BLOCK_TYPE, DecisionPractice, published_practices
 from app.modules.lessons.decision_practice_router import PracticeEdit, save_editor
+from app.modules.lessons.router import get_course_structure_endpoint
 
 
 def example():
@@ -70,3 +72,30 @@ async def test_concurrent_draft_change_rejects_stale_save():
     assert fetch.call_args.kwargs["lock"]
     touch.assert_not_called()
     assert block.content == original
+
+
+@pytest.mark.asyncio
+async def test_student_structure_serializes_live_orm_objects_and_frozen_practice():
+    now = datetime.now(UTC)
+    module_id, lesson_id, tenant_id, course_id = [uuid4() for _ in range(4)]
+    practice = DecisionPractice.model_validate(example())
+    lesson = SimpleNamespace(
+        id=lesson_id, module_id=module_id, tenant_id=tenant_id, title="Приём смены",
+        content_type="text", order_index=0, ai_generated=False, created_at=now, updated_at=now,
+    )
+    module = SimpleNamespace(id=module_id, title="Модуль", description="", order_index=0, lessons=[lesson])
+    course = SimpleNamespace(
+        id=course_id, title="Курс", description="", status="published", modules=[module], current_release_id=uuid4(),
+    )
+    assigned_snapshot = {"modules": [{"lessons": [{
+        "id": str(lesson_id),
+        "content_blocks": [{"block_type": BLOCK_TYPE, "content": practice.model_dump_json()}],
+    }]}]}
+    route = "app.modules.lessons.router."
+    with patch(route + "require_course_access", return_value=course), \
+         patch(route + "get_course_structure", return_value=course), \
+         patch(route + "learner_snapshot", return_value=assigned_snapshot):
+        response = await get_course_structure_endpoint(
+            course_id, AsyncMock(), SimpleNamespace(role="student", tenant_id=tenant_id),
+        )
+    assert response.modules[0].lessons[0].decision_practice.practice == practice

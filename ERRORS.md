@@ -11639,3 +11639,10 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 - Fix: preserve the prior release and its learning evidence, compare hash-bound source spans, carry only unchanged translations from the prior approved release, and require normal review before publishing the derived draft. Uncertain source spans remain manual review items.
 - Verification: targeted API and frontend suites plus an isolated Supabase DEV scenario verified the threshold change, retained translation, old attempt and stale approval. The foreign tenant could not read those records.
 - Prevention: test the complete revision path against a previously published course with an existing attempt, two lessons and two languages. Cover explicit publication rejection before sign-off and exact predecessor readback after creating the new release.
+
+## COURSE-STRUCTURE-001 - Learner structure returned 422 for a published practice
+
+- Date: 2026-11-21. DEV candidate f9b4b3d3 saved and published the practice correctly. The learner structure request returned HTTP 422 only when it had a practice to add.
+- Cause: explicit Pydantic validation used attribute parsing for the top-level course only. The nested module is an ORM object, and the normal FastAPI response path already enables attribute parsing for it.
+- Fix: pass `from_attributes=True` to the explicit structure projection. Reproduced with nested attribute-based objects and the assigned snapshot before applying the one-line fix.
+- Prevention: exercise the learner endpoint with an assigned release and ORM-shaped nested objects in the local regression suite. Preserve and read back the published DEV fixtures for browser verification.
