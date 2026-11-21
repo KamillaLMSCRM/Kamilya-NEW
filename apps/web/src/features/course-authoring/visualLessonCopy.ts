@@ -1,6 +1,7 @@
 const en = {
   visual: 'Visual editor', markdown: 'Markdown', blocks: 'Lesson blocks', add: 'Add block',
   text: 'Text', heading: 'Heading', image: 'Source illustration', rule: 'Key rule', steps: 'Process steps',
+  hint: 'Hint', example: 'Example', disclosureTitle: 'Block title',
   edit: 'Edit block', done: 'Done', up: 'Move up', down: 'Move down', remove: 'Delete block',
   confirm: 'Delete this block?', cancel: 'Cancel', empty: 'No blocks', body: 'Block content',
   caption: 'Caption', selectImage: 'Illustration', noImages: 'There are no source illustrations in this lesson.',
@@ -15,6 +16,7 @@ type Copy = { [K in keyof typeof en]: string };
 const ru: Copy = {
   visual: 'Визуальный редактор', markdown: 'Markdown', blocks: 'Блоки урока', add: 'Добавить блок',
   text: 'Текст', heading: 'Заголовок', image: 'Иллюстрация из источника', rule: 'Важное правило', steps: 'Шаги процесса',
+  hint: 'Подсказка', example: 'Пример', disclosureTitle: 'Заголовок блока',
   edit: 'Изменить блок', done: 'Готово', up: 'Переместить выше', down: 'Переместить ниже', remove: 'Удалить блок',
   confirm: 'Удалить этот блок?', cancel: 'Отмена', empty: 'Блоков пока нет', body: 'Содержание блока',
   caption: 'Подпись', selectImage: 'Иллюстрация', noImages: 'В этом уроке нет иллюстраций из источника.',
@@ -28,6 +30,7 @@ const ru: Copy = {
 const kk: Copy = {
   visual: 'Көрнекі редактор', markdown: 'Markdown', blocks: 'Сабақ блоктары', add: 'Блок қосу',
   text: 'Мәтін', heading: 'Тақырып', image: 'Дереккөз суреті', rule: 'Маңызды ереже', steps: 'Процесс қадамдары',
+  hint: 'Кеңес', example: 'Мысал', disclosureTitle: 'Блок тақырыбы',
   edit: 'Блокты өңдеу', done: 'Дайын', up: 'Жоғары жылжыту', down: 'Төмен жылжыту', remove: 'Блокты жою',
   confirm: 'Осы блок жойылсын ба?', cancel: 'Болдырмау', empty: 'Блоктар әлі жоқ', body: 'Блок мазмұны',
   caption: 'Сурет атауы', selectImage: 'Сурет', noImages: 'Бұл сабақта дереккөз суреттері жоқ.',

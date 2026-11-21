@@ -3,10 +3,13 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { AuthenticatedSourceImage, sourceImageLine } from '@/components/AuthenticatedSourceImage';
 import { api } from '@/lib/api';
+import { useLanguageStore } from '@/store/languageStore';
 import { type CourseLanguage } from './courseLanguages';
+import { lessonDisclosureRanges, type LessonDisclosure } from './lessonDisclosure';
 import { TimedPracticeVideo } from './TimedPracticeVideo';
 import { youtubeFrameProps } from './useYoutubeTiming';
 import { practiceMatches, practicePath, type VideoClip, type VideoPractice } from './videoPractice';
+import { visualLessonCopy } from './visualLessonCopy';
 
 export const lessonContentClassName = 'space-y-5 text-base leading-7 text-foreground [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc';
 
@@ -28,6 +31,7 @@ type Block =
   | { type: 'youtube'; title: string; src: string }
   | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'table'; rows: string[][] };
+type RenderBlock = Block | (LessonDisclosure & { type: 'disclosure' });
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*$/;
 const unorderedPattern = /^\s*[-+*]\s+(.+)$/;
@@ -173,6 +177,16 @@ function parseBlocks(text: string): Block[] {
   return blocks;
 }
 
+function parseLesson(text: string): RenderBlock[] {
+  const blocks: RenderBlock[] = [];
+  let cursor = 0;
+  for (const { start, end, kind, title, body } of lessonDisclosureRanges(text)) {
+    blocks.push(...parseBlocks(text.slice(cursor, start)), { type: 'disclosure', kind, title, body });
+    cursor = end;
+  }
+  return blocks.concat(parseBlocks(text.slice(cursor)));
+}
+
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const tokenPattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
   const output: ReactNode[] = [];
@@ -219,7 +233,9 @@ function Heading({ level, children }: { level: HeadingLevel; children: ReactNode
 }
 
 export function LessonContent({ text, className, omitFirstHeading, practiceScope }: LessonContentProps) {
-  const parsedBlocks = parseBlocks(text);
+  const lang = useLanguageStore(state => state.lang);
+  const copy = visualLessonCopy(lang);
+  const parsedBlocks = parseLesson(text);
   const path = practiceScope && parsedBlocks.some(block => block.type === 'youtube')
     ? practicePath(practiceScope.courseId, practiceScope.lessonId) : undefined;
   const [timedPractice, setTimedPractice] = useState<{ path: string; clip: VideoClip; practice: VideoPractice }>();
@@ -243,10 +259,22 @@ export function LessonContent({ text, className, omitFirstHeading, practiceScope
     ? parsedBlocks.slice(1)
     : parsedBlocks;
 
-  return (
-    <div className={className}>
-      {blocks.map((block, blockIndex) => {
-        const key = `block-${blockIndex}`;
+  function renderBlocks(items: RenderBlock[], prefix = 'block'): ReactNode[] {
+    return (
+      items.map((block, blockIndex) => {
+        const key = `${prefix}-${blockIndex}`;
+
+        if (block.type === 'disclosure') {
+          const title = block.title.trim() || copy[block.kind];
+          return <details key={`${key}:${block.kind}:${block.title}:${block.body}`} className="min-w-0 rounded-xl border border-border bg-card">
+            <summary className="cursor-pointer break-words rounded-xl px-4 py-3 font-semibold marker:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
+              {title}
+            </summary>
+            <div className="min-w-0 space-y-3 overflow-x-auto break-words border-t border-border px-4 py-3">
+              {renderBlocks(parseBlocks(block.body), key)}
+            </div>
+          </details>;
+        }
 
         if (block.type === 'image') return <figure key={key}>
           <AuthenticatedSourceImage url={block.url} alt={block.alt} />
@@ -317,7 +345,13 @@ export function LessonContent({ text, className, omitFirstHeading, practiceScope
             </tbody>
           </table>
         );
-      })}
+      })
+    );
+  }
+
+  return (
+    <div className={className}>
+      {renderBlocks(blocks)}
     </div>
   );
 }

@@ -1,6 +1,8 @@
+import { lessonDisclosureRanges, nextMarkdownFence, readLessonDisclosure, type LessonDisclosure, type MarkdownFence } from './lessonDisclosure';
+
 /** Lossless authoring segments. Markdown remains the only persisted content. */
 export type LessonBlock = { markdown: string; after: string };
-export type LessonBlockKind = 'text' | 'heading' | 'image' | 'rule' | 'steps';
+export type LessonBlockKind = 'text' | 'heading' | 'image' | 'rule' | 'steps' | LessonDisclosure['kind'];
 
 export function splitLessonBlocks(value: string): LessonBlock[] {
   if (!value) return [];
@@ -8,20 +10,35 @@ export function splitLessonBlocks(value: string): LessonBlock[] {
   const lines = value.match(/[^\n]*\n|[^\n]+$/g) ?? [];
   let markdown = '';
   let after = '';
-  let fence: { char: string; length: number } | null = null;
+  const disclosures = lessonDisclosureRanges(value);
+  let disclosureIndex = 0;
+  let disclosureEnd = 0;
+  let disclosureBlock = false;
+  let offset = 0;
+  let fence: MarkdownFence = null;
   for (const line of lines) {
-    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*?)(?:\r?\n)?$/);
-    if (marker) {
-      if (!fence) fence = { char: marker[1][0], length: marker[1].length };
-      else if (marker[1][0] === fence.char && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+    const start = offset;
+    offset += line.length;
+    if (start < disclosureEnd) continue;
+    const disclosure = disclosures[disclosureIndex];
+    if (disclosure?.start === start) {
+      if (markdown || after) blocks.push({ markdown, after });
+      disclosureIndex += 1;
+      disclosureEnd = disclosure.end;
+      disclosureBlock = true;
+      markdown = value.slice(start, disclosureEnd);
+      after = '';
+      continue;
     }
+    fence = nextMarkdownFence(line, fence);
     if (!fence && !line.trim() && markdown) {
       after += line;
       continue;
     }
-    if (after) {
+    if (after || disclosureBlock) {
       blocks.push({ markdown, after });
       markdown = ''; after = '';
+      disclosureBlock = false;
     }
     markdown += line;
   }
@@ -43,6 +60,8 @@ export function replaceLessonBlock(blocks: LessonBlock[], index: number, markdow
 }
 
 export function lessonBlockKind(markdown: string): LessonBlockKind {
+  const disclosure = readLessonDisclosure(markdown);
+  if (disclosure) return disclosure.kind;
   const text = markdown.replace(/(?:\r?\n)+$/, '');
   if (/^#{1,6} [^\r\n]*$/.test(text)) return 'heading';
   if (/^!\[[^\r\n]*\]\([^\s()]+\)$/.test(text)) return 'image';
