@@ -282,7 +282,9 @@ async def evaluate_quiz_submission(
             raise ValueError("A selected choice does not belong to its question")
         if cast(str, question.type) == "ordering":
             correct_order = [cast(UUID, choice.id) for choice in question_choices]
-            if len(correct_order) < 2 or selected_set != valid_choice_ids:
+            if len(correct_order) < 2:
+                raise ValueError("Quiz contains a question without a valid answer key")
+            if selected_set and selected_set != valid_choice_ids:
                 raise ValueError("An ordering answer must include all steps exactly once")
             is_correct = selected_ids == correct_order
             selected_response = [str(choice_id) for choice_id in selected_ids]

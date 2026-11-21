@@ -211,6 +211,7 @@ async def test_ordering_course_quiz_requires_the_exact_sequence_and_masks_the_ke
     correct = await score(ordered)
     assert correct.score_percent == 100
     assert correct.graded_answers[0]["correct_choice_ids"] == [str(choice_id) for choice_id in ordered]
+    assert (await score([])).score_percent == 0
     wrong = await score(ordered[::-1])
     assert wrong.score_percent == 0
     assert wrong.graded_answers[0]["selected_choice_ids"] == [str(choice_id) for choice_id in ordered[::-1]]
