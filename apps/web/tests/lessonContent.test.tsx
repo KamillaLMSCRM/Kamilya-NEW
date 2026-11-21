@@ -4,6 +4,31 @@ import { describe, expect, it } from 'vitest';
 import { LessonContent } from '../src/features/course-authoring/LessonContent';
 
 describe('LessonContent', () => {
+  it('renders independent collapsed hints and examples with formatted, inert content', () => {
+    const { container } = render(<LessonContent text={[
+      'Lesson introduction', ':::lesson-hint Read <b>carefully</b>', '**Important**', '',
+      '1. Read the panel', '2. Record the result', ':::end-lesson-disclosure', '',
+      ':::lesson-example Exercise', 'An example response', ':::end-lesson-disclosure', 'Conclusion',
+    ].join('\n')} />);
+    const details = container.querySelectorAll('details');
+    expect(details).toHaveLength(2);
+    expect(details[0]).not.toHaveAttribute('open');
+    expect(details[1]).not.toHaveAttribute('open');
+    expect(within(details[0]).getByText('Read <b>carefully</b>')).toBeInTheDocument();
+    expect(within(details[0]).getByText('Important').tagName).toBe('STRONG');
+    expect(details[0].querySelector('ol')?.children).toHaveLength(2);
+    expect(screen.getByText('Conclusion')).toBeVisible();
+  });
+
+  it('keeps an unfinished disclosure and a fenced code example outside collapsible blocks', () => {
+    const { container } = render(<LessonContent text={[
+      '```md', ':::lesson-hint A marker shown in code', ':::end-lesson-disclosure', '```',
+      '', ':::lesson-example Unfinished', 'Keep this text visible.',
+    ].join('\n')} />);
+    expect(container.querySelector('details')).toBeNull();
+    expect(screen.getByText('Keep this text visible.', { exact: false })).toBeVisible();
+  });
+
   it('embeds an explicit timed YouTube link with an optional caption preference', () => {
     render(<LessonContent text={'Video follows\n[Қазақша сабақ](https://www.youtube.com/watch?v=abcdefghijk&start=42&end=97&cc=kk)'} />);
     expect(screen.getByText('Video follows')).toBeInTheDocument();

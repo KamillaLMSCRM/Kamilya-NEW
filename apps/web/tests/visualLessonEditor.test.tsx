@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi } from 'vitest';
 import { api } from '@/lib/api';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
-import { joinLessonBlocks, replaceLessonBlock, separateLessonBlocks, splitLessonBlocks } from '@/features/course-authoring/lessonBlocks';
+import { joinLessonBlocks, lessonBlockKind, replaceLessonBlock, separateLessonBlocks, splitLessonBlocks } from '@/features/course-authoring/lessonBlocks';
+import { readLessonDisclosure, writeLessonDisclosure } from '@/features/course-authoring/lessonDisclosure';
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { sourceImageLine } from '@/components/AuthenticatedSourceImage';
 
@@ -29,6 +30,19 @@ describe('lossless lesson authoring', () => {
     const blocks = splitLessonBlocks('First\r\n\r\nSecond\r\n\r\nLast');
     expect(joinLessonBlocks(replaceLessonBlock(blocks, 0, 'Changed'))).toBe('Changed\r\n\r\nSecond\r\n\r\nLast');
     expect(replaceLessonBlock(blocks, 0, 'Changed').slice(1)).toEqual(blocks.slice(1));
+  });
+  it('round trips a multiline disclosure, fenced Markdown and an unfinished disclosure', () => {
+    const value = 'First\r\n:::lesson-hint Read the panel\r\nOne\r\n\r\nTwo\r\n:::end-lesson-disclosure\r\nNext'
+      + '\r\n\r\n```text\r\n:::lesson-example Code only\r\n:::end-lesson-disclosure\r\n```'
+      + '\r\n\r\n:::lesson-example Missing close';
+    const blocks = splitLessonBlocks(value);
+    expect(blocks.map(block => lessonBlockKind(block.markdown))).toEqual(['text', 'hint', 'text', 'text', 'text']);
+    expect(readLessonDisclosure(blocks[1].markdown)?.body).toBe('One\r\n\r\nTwo');
+    expect(joinLessonBlocks(blocks)).toBe(value);
+  });
+  it('retains reserved marker lines typed as disclosure content', () => {
+    const disclosure = { kind: 'example', title: 'Markers', body: 'Before\n:::end-lesson-disclosure\n\\:::lesson-hint Inside\n\nAfter\n' } as const;
+    expect(readLessonDisclosure(writeLessonDisclosure(disclosure))).toEqual(disclosure);
   });
   it('does not merge an unterminated last paragraph into its new neighbor', () => {
     const blocks = splitLessonBlocks('First\r\n\r\nLast');
@@ -73,6 +87,21 @@ describe('uploaded lesson illustrations', () => {
 });
 
 describe('visual lesson editor behavior', () => {
+  it.each(['Hint', 'Example'] as const)('adds and edits a %s with its own title and body', (label) => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }));
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Block title' }), { target: { value: 'Check before starting' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Block content' }), { target: { value: 'First line\n\nSecond line' } });
+    const saved = screen.getByLabelText('Saved draft').textContent!;
+    const blocks = splitLessonBlocks(saved);
+    expect(blocks).toHaveLength(3);
+    expect(blocks.slice(0, 2).map(block => block.markdown.trim())).toEqual(['# Title', 'Body']);
+    expect(readLessonDisclosure(blocks[2].markdown)).toEqual({
+      kind: label.toLowerCase(), title: 'Check before starting', body: 'First line\n\nSecond line',
+    });
+    expect(screen.getByText('Check before starting', { selector: 'summary' })).toBeVisible();
+  });
   it('opens and selects existing blocks without emitting a write', () => {
     const onChange = vi.fn();
     render(<VisualLessonEditor value={'## Existing\r\n\r\nBody'} onChange={onChange} lang="en" />);
