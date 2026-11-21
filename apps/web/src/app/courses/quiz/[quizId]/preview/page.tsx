@@ -6,6 +6,8 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
+import { OrderingAnswer, orderingCopy } from '@/features/quiz/OrderingAnswer';
+import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { useT } from '@/i18n/useT';
 import { isSingleAnswerQuestionType } from '@/lib/quizChoice';
 import { getRoleHome } from '@/lib/rolePolicy';
@@ -67,7 +69,7 @@ export default function QuizMethodologistPreviewPage() {
   const quizId = params?.quizId as string;
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { t } = useT();
+  const { t, lang } = useT();
   const token = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
   const initialized = useAuthStore((state) => state.initialized);
@@ -242,7 +244,11 @@ export default function QuizMethodologistPreviewPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2">
+                  {question.type === 'ordering' ? (
+                    <OrderingAnswer steps={attemptChoiceOrder(question.choices, quiz.id, question.id, 0)}
+                      selected={answers[question.id]} language={lang} disabled={Boolean(result)}
+                      onChange={(order) => setAnswers((previous) => ({ ...previous, [question.id]: order }))} />
+                  ) : <div className="space-y-2">
                     {question.choices.map((choice) => {
                       const selected = (answers[question.id] || []).includes(choice.id);
                       const correct = graded?.correct_choice_ids.includes(choice.id) || false;
@@ -271,7 +277,17 @@ export default function QuizMethodologistPreviewPage() {
                         </label>
                       );
                     })}
-                  </div>
+                  </div>}
+                  {question.type === 'ordering' && graded && (
+                    <div className="rounded-lg bg-muted p-3 text-sm">
+                      <p className="font-medium">{orderingCopy(lang).correct}</p>
+                      <ol className="list-decimal pl-5">
+                        {graded.correct_choice_ids.map((id) => (
+                          <li key={id}>{question.choices.find((choice) => choice.id === id)?.text}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
 
                   {question.source_quote && (
                     <details className="rounded-lg bg-muted p-3 text-sm">

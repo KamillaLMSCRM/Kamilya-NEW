@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
+import { OrderingButtons, moveOrderingStep, orderingCopy } from '@/features/quiz/OrderingAnswer';
 import { QuestionAssistantPreview } from '@/components/quizzes/QuestionAssistantPreview';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
 import { WorkspacePage, WorkspacePanel, WorkspaceToolbar } from '@/features/workspace-design';
@@ -149,6 +150,7 @@ function findGroupedQuiz(grouped: QuizGroupedResponse | null, id: string) {
 
 export default function QuizzesAdminPage() {
   const { t, tp, lang } = useT();
+  const orderCopy = orderingCopy(lang);
   const copy = authorWorkspaceCopy(lang);
   const token = useAuthStore((s) => s.accessToken);
   const actor = useAuthStore((s) => s.user);
@@ -614,14 +616,14 @@ export default function QuizzesAdminPage() {
       .map((choice, index) => ({
         ...(choice.id ? { id: choice.id } : {}),
         text: choice.text.trim(),
-        is_correct: choice.is_correct,
+        is_correct: newQuestion.type !== 'ordering' && choice.is_correct,
         order_index: index,
       }));
     if (choices.length < 2) {
       toast.error(t('authenticatedUi.quizUi.minChoices'));
       return;
     }
-    if (!choices.some((choice) => choice.is_correct)) {
+    if (newQuestion.type !== 'ordering' && !choices.some((choice) => choice.is_correct)) {
       toast.error(t('authenticatedUi.quizUi.correctChoice'));
       return;
     }
@@ -1427,7 +1429,7 @@ export default function QuizzesAdminPage() {
                           <Badge variant="secondary" className="bg-primary/10 text-primary">
                             {tp('common.counts.point', q.points)}
                           </Badge>
-                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{questionTypeLabel(q.type) ? t(questionTypeLabel(q.type)!) : q.type}</Badge>
+                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{q.type === 'ordering' ? orderCopy.type : questionTypeLabel(q.type) ? t(questionTypeLabel(q.type)!) : q.type}</Badge>
                         </div>
                         <div className="space-y-2">
                           {q.choices.map((c) => (
@@ -1529,6 +1531,7 @@ export default function QuizzesAdminPage() {
                 <option value="MCQ">{t('authenticatedUi.quizUi.singleOption')}</option>
                 <option value="multiple_choice">{t('authenticatedUi.quizUi.multipleOptions')}</option>
                 <option value="true_false">{t('authenticatedUi.quizUi.trueFalse')}</option>
+                <option value="ordering">{orderCopy.type}</option>
                 {newQuestion.type === 'matching' && (
                   <option value="matching" disabled>
                     {t('authenticatedUi.quizUi.matchingUnavailable')}
@@ -1576,7 +1579,7 @@ export default function QuizzesAdminPage() {
               <div>
                 <h3 className="text-sm font-semibold text-foreground">{t('authenticatedUi.quizUi.answerChoices')}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {newQuestion.type === 'multiple_choice'
+                  {newQuestion.type === 'ordering' ? orderCopy.format : newQuestion.type === 'multiple_choice'
                     ? t('authenticatedUi.quizUi.selectAll')
                     : t('authenticatedUi.quizUi.selectOne')}
                 </p>
@@ -1603,7 +1606,7 @@ export default function QuizzesAdminPage() {
                   key={index}
                   className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border/70 bg-muted/20 p-3"
                 >
-                  <input
+                  {newQuestion.type === 'ordering' ? <span>{index + 1}.</span> : <input
                     type={newQuestion.type === 'multiple_choice' ? 'checkbox' : 'radio'}
                     id={`correct-choice-${index}`}
                     name="correct-choice"
@@ -1623,7 +1626,7 @@ export default function QuizzesAdminPage() {
                       )
                     }
                     className="h-4 w-4 accent-primary"
-                  />
+                  />}
                   <label htmlFor={`choice-text-${index}`} className="sr-only">
                     {t('authenticatedUi.quizUi.choicePlaceholder', { index: index + 1 })}
                   </label>
@@ -1641,11 +1644,17 @@ export default function QuizzesAdminPage() {
                       )
                     }
                   />
+                  {newQuestion.type === 'ordering' && (
+                    <div className="col-span-3 flex justify-end">
+                      <OrderingButtons index={index} count={newChoices.length} label={choice.text || `${orderCopy.step} ${index + 1}`}
+                        lang={lang} onMove={(offset) => setNewChoices((current) => moveOrderingStep(current, index, offset))} />
+                    </div>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                    className={`h-9 w-9 p-0 text-muted-foreground hover:text-destructive ${newQuestion.type === 'ordering' ? 'col-start-3 row-start-1' : ''}`}
                     aria-label={t('authenticatedUi.quizUi.removeChoice', { index: index + 1 })}
                     disabled={newChoices.length <= 2}
                     onClick={() =>

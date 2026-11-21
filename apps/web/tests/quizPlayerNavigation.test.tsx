@@ -124,6 +124,40 @@ describe('learner quiz result navigation', () => {
   });
   afterEach(() => vi.useRealTimers());
 
+  it('submits the chosen sequence in order for an ordering question', async () => {
+    quizPayload = {
+      ...quiz,
+      questions: [{
+        ...quiz.questions[0],
+        type: 'ordering',
+        text: 'Какие действия выполняются по порядку?',
+        choices: ['Проверить комплект', 'Записать результат', 'Подписать журнал'].map((text, index) => ({
+          id: `step-${index}`, text, order_index: index,
+        })),
+      }],
+    };
+    render(<QuizPlayerPage />);
+    await screen.findByText('Расположите действия в правильном порядке.');
+    const steps = screen.getAllByRole('button', {name: /Переместить выше:/});
+    expect(steps).toHaveLength(3);
+    expect(screen.getByRole('button', {name: 'quiz.finish'})).toBeDisabled();
+    fireEvent.click(steps[1]);
+    const currentOrder = screen.getAllByRole('button', {name: /Переместить выше:/}).map((button) => {
+      const label = button.getAttribute('aria-label');
+      return quizPayload.questions[0].choices.find((choice) => label?.endsWith(choice.text))?.id;
+    });
+    expect(new Set(currentOrder).size).toBe(3);
+    fireEvent.click(screen.getByRole('button', {name: 'quiz.finish'}));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/quizzes\/quiz-1\/submit$/),
+      expect.objectContaining({method: 'POST'}),
+    ));
+    const submitted = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/submit'));
+    expect(JSON.parse(submitted?.[1].body).answers).toEqual([
+      {question_id: 'question-1', selected_choice_ids: currentOrder},
+    ]);
+  });
+
   it('returns to the parent course and offers the next lesson after a passed quiz', async () => {
     render(<QuizPlayerPage />);
 

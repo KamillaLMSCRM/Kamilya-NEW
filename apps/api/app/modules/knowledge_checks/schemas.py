@@ -20,7 +20,7 @@ class Choice(StrictModel):
 class Question(StrictModel):
     id: UUID
     text: str = Field(min_length=1, max_length=10000)
-    type: Literal["MCQ", "multiple_choice", "true_false"]
+    type: Literal["MCQ", "multiple_choice", "true_false", "ordering"]
     points: int = Field(gt=0, le=1000)
     explanation: str | None = Field(default=None, max_length=10000)
     choices: list[Choice] = Field(min_length=2, max_length=50)
@@ -29,6 +29,10 @@ class Question(StrictModel):
     def validate_choices(self) -> Self:
         if len({c.id for c in self.choices}) != len(self.choices):
             raise ValueError("duplicate choice id")
+        if self.type == "ordering":
+            if len({choice.text.casefold() for choice in self.choices}) != len(self.choices):
+                raise ValueError("ordering requires distinct steps")
+            return self
         correct = sum(c.is_correct for c in self.choices)
         if self.type == "true_false" and len(self.choices) != 2:
             raise ValueError("true_false requires two choices")

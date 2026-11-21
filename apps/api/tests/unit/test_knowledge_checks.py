@@ -173,3 +173,26 @@ async def test_mixed_audience_rejects_nonstudent_before_any_insert(content, monk
     compiled = query.compile()
     assert "users.role" in str(compiled)
     assert "student" in compiled.params.values()
+
+
+def test_ordering_knowledge_check_keeps_saved_sequence_and_hides_the_key(content):
+    question = content["questions"][0]
+    question["type"] = "ordering"
+    ids = [str(choice_id) for choice_id in sorted((uuid4() for _ in range(3)), reverse=True)]
+    question["choices"] = [
+        {"id": choice_id, "text": f"Step {index}", "is_correct": False}
+        for index, choice_id in enumerate(ids)
+    ]
+    Content.model_validate(content)
+    rest = answers_for(content)[1:]
+    correct = Answer(question_id=question["id"], selected_choice_ids=ids)
+    reversed_answer = Answer(question_id=question["id"], selected_choice_ids=ids[::-1])
+    completed = normalize_answers(content, [correct, *rest], complete=True)
+    reversed_submission = normalize_answers(content, [reversed_answer, *rest], complete=True)
+    assert next(answer["selected_choice_ids"] for answer in completed if answer["question_id"] == question["id"]) == ids
+    assert digest(completed) != digest(reversed_submission)
+    assert grade(content, completed)["score_percent"] == 100
+    assert grade(content, reversed_submission)["score_percent"] == 80
+    assert [choice["id"] for choice in public_snapshot(content)["questions"][0]["choices"]] == ids[::-1]
+    with pytest.raises(HTTPException, match="Include all steps"):
+        normalize_answers(content, [Answer(question_id=question["id"], selected_choice_ids=ids[:2]), *rest], complete=True)
