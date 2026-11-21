@@ -1055,7 +1055,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-20.
+Current as of: 2026-11-21.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -11642,7 +11642,9 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 
 ## COURSE-STRUCTURE-001 - Learner structure returned 422 for a published practice
 
-- Date: 2026-11-21. DEV candidate f9b4b3d3 saved and published the practice correctly. The learner structure request returned HTTP 422 only when it had a practice to add.
+- Date: 2026-11-21.
+- Symptom: DEV candidate f9b4b3d3 saved and published the practice correctly. The learner structure request returned HTTP 422 only when it had a practice to add.
 - Cause: explicit Pydantic validation used attribute parsing for the top-level course only. The nested module is an ORM object, and the normal FastAPI response path already enables attribute parsing for it.
-- Fix: pass `from_attributes=True` to the explicit structure projection. Reproduced with nested attribute-based objects and the assigned snapshot before applying the one-line fix.
+- Fix: pass `from_attributes=True` to the explicit structure projection.
+- Verification: the regression test reproduced the missing attribute conversion with nested ORM-shaped objects and the assigned snapshot, then passed with the correction.
 - Prevention: exercise the learner endpoint with an assigned release and ORM-shaped nested objects in the local regression suite. Preserve and read back the published DEV fixtures for browser verification.
