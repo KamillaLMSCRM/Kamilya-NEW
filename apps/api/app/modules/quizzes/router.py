@@ -481,7 +481,7 @@ async def get_quiz(
             if link_enrollment_id is not None:
                 quiz["attempt_enrollment_id"] = link_enrollment_id
             else:
-                enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=course.id)
+                enrollment = await current_enrollment(db, tenant_id=user.tenant_id, user_id=user.id, course_id=cast(UUID, course.id))
                 if enrollment is not None:
                     quiz["attempt_enrollment_id"] = enrollment.id
         if course and language:
