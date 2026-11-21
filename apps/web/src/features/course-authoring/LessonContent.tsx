@@ -1,7 +1,12 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AuthenticatedSourceImage, sourceImageLine } from '@/components/AuthenticatedSourceImage';
+import { api } from '@/lib/api';
+import { type CourseLanguage } from './courseLanguages';
+import { TimedPracticeVideo } from './TimedPracticeVideo';
+import { youtubeFrameProps } from './useYoutubeTiming';
+import { practiceMatches, practicePath, type VideoClip, type VideoPractice } from './videoPractice';
 
 export const lessonContentClassName = 'space-y-5 text-base leading-7 text-foreground [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_h1]:text-3xl [&_h1]:font-bold [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_li]:ml-5 [&_ol]:list-decimal [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left [&_ul]:list-disc';
 
@@ -9,6 +14,7 @@ export type LessonContentProps = {
   text: string;
   className?: string;
   omitFirstHeading?: string;
+  practiceScope?: { courseId: string; lessonId: string; language: CourseLanguage };
 };
 
 type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6;
@@ -19,12 +25,34 @@ type Block =
   | { type: 'paragraph'; text: string }
   | { type: 'quote'; text: string }
   | { type: 'image'; alt: string; url: string }
+  | { type: 'youtube'; title: string; src: string }
   | { type: 'list'; ordered: boolean; items: ListItem[] }
   | { type: 'table'; rows: string[][] };
 
 const headingPattern = /^(#{1,6})\s+(.+?)\s*$/;
 const unorderedPattern = /^\s*[-+*]\s+(.+)$/;
 const orderedPattern = /^\s*(\d+)[.)]\s+(.+)$/;
+
+function youtubeVideoLine(line: string): Extract<Block, { type: 'youtube' }> | null {
+  // An explicit timed link opts into embedding. Ordinary links and raw HTML stay inert.
+  const match = line.trim().match(/^\[([^\]]+)\]\(https:\/\/www\.youtube\.com\/watch\?v=([\w-]{11})&start=(\d+)&end=(\d+)(?:&cc=(kk|ru|en))?\)$/);
+  if (!match) return null;
+  const [, title, id, begin, finish, language] = match;
+  const start = Number(begin);
+  const end = Number(finish);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || end <= start) return null;
+  const src = new URL(`https://www.youtube-nocookie.com/embed/${id}`);
+  src.searchParams.set('start', String(start));
+  src.searchParams.set('end', String(end));
+  src.searchParams.set('playsinline', '1');
+  if (language) {
+    src.searchParams.set('cc_lang_pref', language);
+    src.searchParams.set('cc_load_policy', '1');
+  }
+  return { type: 'youtube', title, src: src.href };
+}
+
+export const containsTimedVideo = (text: string) => text.split('\n').some(line => youtubeVideoLine(line) !== null);
 
 function splitTableRow(line: string): string[] | null {
   const trimmed = line.trim();
@@ -49,6 +77,7 @@ function startsBlock(lines: string[], index: number): boolean {
   return Boolean(
     line.match(headingPattern)
       || sourceImageLine(line)
+      || youtubeVideoLine(line)
       || line.match(unorderedPattern)
       || line.match(orderedPattern)
       || /^\s*>/.test(line)
@@ -69,6 +98,8 @@ function parseBlocks(text: string): Block[] {
 
     const image = sourceImageLine(lines[index]);
     if (image) { blocks.push({ type: 'image', ...image }); index += 1; continue; }
+    const youtube = youtubeVideoLine(lines[index]);
+    if (youtube) { blocks.push(youtube); index += 1; continue; }
 
     const heading = lines[index].match(headingPattern);
     if (heading) {
@@ -187,8 +218,23 @@ function Heading({ level, children }: { level: HeadingLevel; children: ReactNode
   }
 }
 
-export function LessonContent({ text, className, omitFirstHeading }: LessonContentProps) {
+export function LessonContent({ text, className, omitFirstHeading, practiceScope }: LessonContentProps) {
   const parsedBlocks = parseBlocks(text);
+  const path = practiceScope && parsedBlocks.some(block => block.type === 'youtube')
+    ? practicePath(practiceScope.courseId, practiceScope.lessonId) : undefined;
+  const [timedPractice, setTimedPractice] = useState<{ path: string; clip: VideoClip; practice: VideoPractice }>();
+  useEffect(() => {
+    if (!path) return;
+    const controller = new AbortController();
+    void api.get<{ clip?: VideoClip; practice: VideoPractice | null }>(path, { signal: controller.signal })
+      .then(({ data }) => {
+        if (!controller.signal.aborted && data.clip && data.practice) {
+          setTimedPractice({ path, clip: data.clip, practice: data.practice });
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [path]);
   const firstBlock = parsedBlocks[0];
   const blocks = omitFirstHeading
     && firstBlock?.type === 'heading'
@@ -206,6 +252,15 @@ export function LessonContent({ text, className, omitFirstHeading }: LessonConte
           <AuthenticatedSourceImage url={block.url} alt={block.alt} />
           {block.alt && <figcaption>{block.alt}</figcaption>}
         </figure>;
+
+        if (block.type === 'youtube') {
+          const selected = timedPractice && timedPractice.path === path && practiceMatches(block.src, timedPractice.clip)
+            ? timedPractice.practice : null;
+          return selected && practiceScope
+            ? <TimedPracticeVideo key={path + ':' + selected.at} src={block.src} title={block.title}
+              practice={selected} language={practiceScope.language} />
+            : <iframe key={key} title={block.title} src={block.src} loading="lazy" {...youtubeFrameProps} />;
+        }
 
         if (block.type === 'heading') {
           return <Heading key={key} level={block.level}>{renderInline(block.text, key)}</Heading>;

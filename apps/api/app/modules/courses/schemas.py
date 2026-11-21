@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_serializer
+
+from app.modules.courses.video_practice import public_course_metadata
 
 
 class CourseCreate(BaseModel):
@@ -53,6 +55,10 @@ class CourseResponse(BaseModel):
     reviewer: CourseReviewer | None = None
 
     model_config = {'from_attributes': True}
+
+    @field_serializer("source_analysis")
+    def serialize_source_analysis(self, metadata: dict[str, Any]) -> dict[str, Any]:
+        return public_course_metadata(metadata)
 
 
 class CourseCompletionResponse(BaseModel):

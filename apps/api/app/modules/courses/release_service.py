@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document
 from app.modules.courses.models import Course
 from app.modules.courses.release_models import ContentRelease
+from app.modules.courses.video_practice import public_course_metadata
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
 from app.modules.scorm.models import ScormPackage
@@ -364,7 +365,7 @@ async def build_course_release_snapshot(
             "source_document_ids": _uuid_strings(course.source_document_ids),
             "source_strategy": course.source_strategy,
             "source_combination_goal": course.source_combination_goal,
-            "source_analysis": course.source_analysis or {},
+            "source_analysis": public_course_metadata(course.source_analysis or {}),
             "review_status": course.review_status,
             "reviewed_by": str(course.reviewed_by) if course.reviewed_by else None,
             "reviewed_at": (course.reviewed_at.isoformat() if course.reviewed_at else None),

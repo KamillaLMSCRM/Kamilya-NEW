@@ -30,7 +30,8 @@ import {
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { ApprovalPolicyCard } from '@/components/course-approval/ApprovalPolicyCard';
 import { coursePublicationError } from '@/lib/coursePublicationError';
-import { LessonContent, lessonContentClassName } from '@/features/course-authoring/LessonContent';
+import { containsTimedVideo, LessonContent, lessonContentClassName } from '@/features/course-authoring/LessonContent';
+import { VideoPracticeEditor } from '@/features/course-authoring/VideoPracticeEditor';
 import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
@@ -1022,6 +1023,9 @@ export default function CourseEditPage() {
                       />
                       </>}
                     </div>
+                    {editingLessonId && containsTimedVideo(savedLessonContent) &&
+                      <VideoPracticeEditor key={`${editingLessonId}:${session.generation}`} courseId={courseId}
+                        lessonId={editingLessonId} lang={lang} disabled={lessonDirty || savingLesson || correctionBusy} />}
                   </div>
                 ) : (
                   <article className="min-h-[560px] overflow-x-auto p-6 sm:p-10">

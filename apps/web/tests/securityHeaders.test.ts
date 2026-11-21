@@ -18,7 +18,7 @@ describe('frontend security header policy', () => {
     expect(headers['Content-Security-Policy']).not.toContain('kamilya-lms-api.onrender.com');
     expect(headers['Content-Security-Policy']).toContain("img-src 'self' data: blob:");
     expect(headers['Content-Security-Policy']).not.toContain('cdn.lms.kml.kz');
-    expect(headers['Content-Security-Policy']).toContain("frame-src 'self' https://scorm.kml.kz");
+    expect(headers['Content-Security-Policy'].split('; ')).toContain("frame-src 'self' https://scorm.kml.kz https://www.youtube-nocookie.com");
     expect(headers['Content-Security-Policy']).not.toContain('frame-src *');
     expect(headers['X-Frame-Options']).toBe('DENY');
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
