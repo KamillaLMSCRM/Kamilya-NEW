@@ -114,6 +114,33 @@ describe('published male Qwen methodologist video guide', () => {
     expect(html.slice(0, closingHtml).lastIndexOf('Настройку бланка выполняет администратор')).toBeGreaterThan(-1);
   });
 
+  it('links the reviewed practice addendum and both captioned clips', () => {
+    const name = 'methodologist-practice.html';
+    const addendum = fs.readFileSync(path.join(guideDir, name));
+    const folder = 'methodologist-practice-20261121';
+    const addendumManifest = fs.readFileSync(path.join(guideDir, folder, 'manifest.json'));
+    const assets: { file: string; sha256: string }[] = JSON.parse(addendumManifest.toString('utf8')).assets;
+    expect(html).toContain(`href="${name}"`);
+    expect(approval.practice_addendum.html_sha256).toBe(sha(addendum));
+    expect(approval.practice_addendum.media_manifest_sha256).toBe(sha(addendumManifest));
+    expect(assets).toHaveLength(6);
+    for (const asset of assets) {
+      expect(sha(fs.readFileSync(path.join(guideDir, folder, asset.file)))).toBe(asset.sha256);
+    }
+    const dom = new JSDOM(addendum.toString('utf8'), { runScripts: 'dangerously' });
+    const chapters = [...dom.window.document.querySelectorAll('article')];
+    expect(chapters.map(chapter => chapter.id)).toEqual(['decision-practice', 'timed-video-practice']);
+    for (const chapter of chapters) {
+      const clip = `${folder}/${chapter.id}`;
+      expect(chapter.querySelector('source')?.getAttribute('src')).toBe(`${clip}.mp4`);
+      expect(chapter.querySelector('track[kind="captions"]')?.getAttribute('src')).toBe(`${clip}.vtt`);
+      expect(chapter.querySelectorAll('details li')).toHaveLength(3);
+      const vtt = fs.readFileSync(path.join(guideDir, `${clip}.vtt`), 'utf8');
+      expect(vtt.match(/ --> /g)).toHaveLength(3);
+    }
+    dom.window.close();
+  });
+
   it('seeks every chapter while paused and prevents simultaneous narration', () => {
     const dom = new JSDOM(html, { runScripts: 'dangerously' });
     const doc = dom.window.document;
