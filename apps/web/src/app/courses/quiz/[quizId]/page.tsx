@@ -310,6 +310,48 @@ function ScopedQuizPlayer() {
 
   const assignmentBlocked = assignmentRemainingSeconds === 0;
   const attemptBlocked = !canAttempt || assignmentBlocked;
+  const orderingDraftKey = canAttempt && user && quiz && assignmentIdentityRef.current
+    && quiz.questions.some((question) => question.type === 'ordering')
+    ? 'kamilya:quiz-order:' + JSON.stringify([
+        user.tenant_id, user.user_id, user.impersonated_by, quiz.id, assignmentIdentityRef.current,
+        attempts.map((attempt) => attempt.id).sort(),
+      ])
+    : null;
+
+  useEffect(() => {
+    if (!orderingDraftKey || !quiz) return;
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(orderingDraftKey) || '{}');
+      if (!draft || typeof draft !== 'object') return;
+      const restored: Record<string, string[]> = {};
+      for (const question of quiz.questions) {
+        const ids = draft[question.id];
+        if (question.type !== 'ordering' || !Array.isArray(ids) || ids.length !== question.choices.length) continue;
+        const choices = new Set(question.choices.map((choice) => choice.id));
+        if (new Set(ids).size === choices.size && ids.every((id) => choices.has(id))) {
+          restored[question.id] = ids;
+        }
+      }
+      setAnswers((current) => ({ ...current, ...restored }));
+    } catch {
+      // Browser storage may be disabled. The attempt can still be completed.
+    }
+  }, [orderingDraftKey, quiz]);
+
+  const handleOrderChange = (questionId: string, order: string[]) => {
+    if (attemptBlocked) return;
+    const next = { ...answers, [questionId]: order };
+    setAnswers(next);
+    if (!orderingDraftKey || !quiz) return;
+    const orderingAnswers = Object.fromEntries(quiz.questions
+      .filter((question) => question.type === 'ordering' && next[question.id])
+      .map((question) => [question.id, next[question.id]]));
+    try {
+      sessionStorage.setItem(orderingDraftKey, JSON.stringify(orderingAnswers));
+    } catch {
+      // Keep the current answer in memory even when storage is unavailable.
+    }
+  };
 
   const handleSelect = (questionId: string, choiceId: string, type: string) => {
     if (attemptBlocked) return;
@@ -353,6 +395,9 @@ function ScopedQuizPlayer() {
         const data = await res.json();
         if (!isCurrentAction()) return;
         setResult(data);
+        if (orderingDraftKey) {
+          try { sessionStorage.removeItem(orderingDraftKey); } catch { /* Completed on the server. */ }
+        }
         if (timerRef.current) clearInterval(timerRef.current);
         setAttemptsLoaded(false);
         try {
@@ -580,7 +625,7 @@ function ScopedQuizPlayer() {
               {currentQ.type === 'ordering' ? (
                 <OrderingAnswer steps={displayedChoices.map((choice) => ({ ...choice, text: getChoiceLabel(choice) }))}
                   selected={answers[currentQ.id]} language={lang} disabled={attemptBlocked}
-                  onChange={(order) => setAnswers((previous) => ({ ...previous, [currentQ.id]: order }))} />
+                  onChange={(order) => handleOrderChange(currentQ.id, order)} />
               ) : <div className="space-y-2">
                 {displayedChoices.map((choice) => {
                   const isSelected = (answers[currentQ.id] || []).includes(choice.id);

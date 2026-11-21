@@ -136,7 +136,8 @@ describe('learner quiz result navigation', () => {
         })),
       }],
     };
-    render(<QuizPlayerPage />);
+    accessWindowPayload = { server_now: '2026-11-01T10:00:00Z', access_policy: { enrollment_id: 'ordering-assignment', due_at: null, completion_window_expires_at: null } };
+    const first = render(<QuizPlayerPage />);
     await screen.findByText('Расположите действия в правильном порядке.');
     const steps = screen.getAllByRole('button', {name: /Переместить выше:/});
     expect(steps).toHaveLength(3);
@@ -147,6 +148,11 @@ describe('learner quiz result navigation', () => {
       return quizPayload.questions[0].choices.find((choice) => label?.endsWith(choice.text))?.id;
     });
     expect(new Set(currentOrder).size).toBe(3);
+    first.unmount();
+    render(<QuizPlayerPage />);
+    await screen.findByText('Порядок подтверждён');
+    expect(screen.getAllByRole('button', {name: /Переместить выше:/}).map((button) => button.getAttribute('aria-label')))
+      .toEqual(currentOrder.map((id) => 'Переместить выше: ' + quizPayload.questions[0].choices.find((choice) => choice.id === id)?.text));
     fireEvent.click(screen.getByRole('button', {name: 'quiz.finish'}));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       expect.stringMatching(/\/quizzes\/quiz-1\/submit$/),
