@@ -15,6 +15,7 @@ import { getRoleHome } from '@/lib/rolePolicy';
 import { isPdfPreview } from '@/lib/pdfPreview';
 import { useLanguageStore } from '@/store/languageStore';
 import { isCourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { OrderingAnswer, orderingCopy } from '@/features/quiz/OrderingAnswer';
 import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { getLearnerWorkspaceCopy } from '@/features/learner-workspace/copy';
 import { LearnerEvidenceConfirmation } from '@/features/learner-workspace/LearnerEvidenceConfirmation';
@@ -574,9 +575,13 @@ function ScopedQuizPlayer() {
                 <h2 className="min-w-0 break-words text-lg font-semibold leading-7">{currentQ.text}</h2>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t('quiz.points')}: {currentQ.points} · {currentQ.type}
+                {t('quiz.points')}: {currentQ.points} · {currentQ.type === 'ordering' ? orderingCopy(lang).type : currentQ.type}
               </p>
-              <div className="space-y-2">
+              {currentQ.type === 'ordering' ? (
+                <OrderingAnswer steps={displayedChoices.map((choice) => ({ ...choice, text: getChoiceLabel(choice) }))}
+                  selected={answers[currentQ.id]} language={lang} disabled={attemptBlocked}
+                  onChange={(order) => setAnswers((previous) => ({ ...previous, [currentQ.id]: order }))} />
+              ) : <div className="space-y-2">
                 {displayedChoices.map((choice) => {
                   const isSelected = (answers[currentQ.id] || []).includes(choice.id);
                   return (
@@ -598,7 +603,7 @@ function ScopedQuizPlayer() {
                     </label>
                   );
                 })}
-              </div>
+              </div>}
           </WorkspacePanel>
         )}
 

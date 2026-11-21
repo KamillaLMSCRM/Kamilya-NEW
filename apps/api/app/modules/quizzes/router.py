@@ -32,6 +32,7 @@ from app.modules.quizzes.schemas import (
     QuizAttemptResponse,
     QuizChoiceCreate,
     QuizChoiceUpdate,
+    QuizChoiceUpsert,
     QuizCreate,
     QuizGenerateRequest,
     QuizGenerateResponse,
@@ -784,6 +785,12 @@ async def delete_quiz(
 # ── CRUD: Questions ─────────────────────────────────────────
 
 
+def _validate_ordering_steps(choices: list[QuizChoiceCreate] | list[QuizChoiceUpsert]) -> None:
+    steps = {choice.text.strip().casefold() for choice in choices}
+    if not 2 <= len(choices) <= 50 or "" in steps or len(steps) != len(choices):
+        raise HTTPException(status_code=422, detail="Ordering requires 2 to 50 distinct steps")
+
+
 @router.post("/{quiz_id}/questions", response_model=QuizResponse, status_code=201)
 async def create_question(
     quiz_id: UUID,
@@ -798,6 +805,9 @@ async def create_question(
     if not quiz or quiz.tenant_id != user.tenant_id:
         raise HTTPException(status_code=404, detail="Quiz not found")
     await _ensure_quiz_has_no_attempts(db, quiz_id, user.tenant_id)
+    ordering = req.type == "ordering"
+    if ordering:
+        _validate_ordering_steps(req.choices)
     question = Question(
         id=uuid4(),
         quiz_id=quiz_id,
@@ -815,8 +825,8 @@ async def create_question(
             id=uuid4(),
             question_id=question.id,
             text=choice_req.text,
-            is_correct=choice_req.is_correct,
-            order_index=choice_req.order_index if choice_req.order_index else ci,
+            is_correct=choice_req.is_correct and not ordering,
+            order_index=ci if ordering else (choice_req.order_index or ci),
         )
         db.add(choice)
     await db.flush()
@@ -840,6 +850,12 @@ async def update_question(
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
+    ordering = (req.type or question.type) == "ordering"
+    if req.type is not None and req.type != question.type and (ordering or question.type == "ordering"):
+        if req.choices is None:
+            raise HTTPException(status_code=422, detail="Supply the steps when changing the question type")
+    if ordering and req.choices is not None:
+        _validate_ordering_steps(req.choices)
     if {"text", "type", "explanation", "choices"} & req.model_fields_set:
         _invalidate_question_source_quote(question)
     if req.text is not None:
@@ -860,7 +876,7 @@ async def update_question(
                 status_code=422,
                 detail="Question must have at least two choices",
             )
-        if not any(choice.is_correct for choice in req.choices):
+        if not ordering and not any(choice.is_correct for choice in req.choices):
             raise HTTPException(
                 status_code=422,
                 detail="Question must have at least one correct choice",
@@ -881,8 +897,8 @@ async def update_question(
                         detail="Choice does not belong to this question",
                     )
                 choice.text = choice_req.text
-                choice.is_correct = choice_req.is_correct
-                choice.order_index = choice_req.order_index
+                choice.is_correct = choice_req.is_correct and not ordering
+                choice.order_index = index if ordering else choice_req.order_index
                 retained_choice_ids.add(choice.id)
             else:
                 db.add(
@@ -890,8 +906,8 @@ async def update_question(
                         id=uuid4(),
                         question_id=question_id,
                         text=choice_req.text,
-                        is_correct=choice_req.is_correct,
-                        order_index=choice_req.order_index if choice_req.order_index is not None else index,
+                        is_correct=choice_req.is_correct and not ordering,
+                        order_index=index if ordering else choice_req.order_index,
                     )
                 )
         for choice_id, choice in existing_choices.items():
@@ -947,6 +963,8 @@ async def create_choice(
     question = await db.get(Question, question_id)
     if not question or question.quiz_id != quiz_id:
         raise HTTPException(status_code=404, detail="Question not found")
+    if question.type == "ordering":
+        raise HTTPException(status_code=422, detail="Edit ordering steps through the question")
     _invalidate_question_source_quote(question)
     choice = QuizChoice(
         id=uuid4(),
@@ -981,6 +999,8 @@ async def update_choice(
     choice = await db.get(QuizChoice, choice_id)
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
+    if question.type == "ordering":
+        raise HTTPException(status_code=422, detail="Edit ordering steps through the question")
     if req.text is not None or req.is_correct is not None:
         _invalidate_question_source_quote(question)
     if req.text is not None:
@@ -1013,6 +1033,8 @@ async def delete_choice(
     choice = await db.get(QuizChoice, choice_id)
     if not choice or choice.question_id != question_id:
         raise HTTPException(status_code=404, detail="Choice not found")
+    if question.type == "ordering":
+        raise HTTPException(status_code=422, detail="Edit ordering steps through the question")
     _invalidate_question_source_quote(question)
     await db.delete(choice)
     await touch_course_by_lesson(db, getattr(quiz, "lesson_id", None), user.tenant_id)

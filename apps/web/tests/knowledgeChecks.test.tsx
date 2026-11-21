@@ -10,6 +10,33 @@ vi.mock('@/store/authStore', () => ({useAuthStore:()=>({user:{user_id:'user',ten
 const assignment={id:'a',check_id:'c',title:'Safety',revision:1,due_at:null,status:'in_progress',attempt_limit:2,attempts_count:1,score_percent:null,passed:false,attempts:[{id:'t',status:'started',number:1}]};
 const attempt={id:'t',assignment_id:'a',number:1,status:'started',started_at:'2026-01-01',deadline_at:null,completed_at:null,score_percent:null,passed:null,earned_points:null,total_points:null,answers:[{question_id:'q',selected_choice_ids:['one']}],snapshot:{title:'Safety',instructions:'Choose',questions:[{id:'q',text:'Question?',type:'MCQ',points:1,choices:[{id:'one',text:'One'},{id:'two',text:'Two'}]}]}};
 describe('standalone knowledge checks learner',()=>{
+  it('restores a saved action sequence and persists a reordered answer', async () => {
+    let ordered = {
+      ...attempt,
+      answers: [{question_id: 'q', selected_choice_ids: ['two', 'one']}],
+      snapshot: {
+        ...attempt.snapshot,
+        questions: [{...attempt.snapshot.questions[0], type: 'ordering'}],
+      },
+    };
+    mocked.request.mockImplementation((path: string, options: {method?: string; data?: {answers: typeof ordered.answers}}) => {
+      if (options.method === 'PUT' && options.data) ordered = {...ordered, answers: options.data.answers};
+      return Promise.resolve(path.endsWith('/assignments/a') ? assignment : ordered);
+    });
+    const first = render(<Learner assignmentId="a"/>);
+    await screen.findByText('Order confirmed');
+    expect(screen.getAllByRole('listitem').filter((item) => item.querySelector('button')).map((item) => item.textContent))
+      .toEqual(['1.Two', '2.One']);
+    fireEvent.click(screen.getByRole('button', {name: 'Move up: One'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Save answers'}));
+    await waitFor(() => expect(ordered.answers[0].selected_choice_ids).toEqual(['one', 'two']));
+    first.unmount();
+    render(<Learner assignmentId="a"/>);
+    await screen.findByText('Order confirmed');
+    expect(screen.getAllByRole('listitem').filter((item) => item.querySelector('button')).map((item) => item.textContent))
+      .toEqual(['1.One', '2.Two']);
+  });
+
   beforeEach(()=>{mocked.request.mockReset();mocked.identity.mockReturnValue('scope');});
   it('restores saved answers on reload and saves selected_choice_ids',async()=>{
     mocked.request.mockImplementation((path:string, options:{method?:string})=>options.method==='PUT'?Promise.resolve({...attempt,answers:[{question_id:'q',selected_choice_ids:['two']}]}):Promise.resolve(path.endsWith('/assignments/a')?assignment:attempt));

@@ -105,7 +105,7 @@ async def test_privileged_preview_allows_tenant_owned_quiz_without_lesson(monkey
 async def test_preview_scoring_rejects_question_without_valid_answer_key():
     tenant_id, quiz_id, question_id, choice_id = (uuid4() for _ in range(4))
     quiz = SimpleNamespace(id=quiz_id, pass_score=80)
-    question = SimpleNamespace(id=question_id, points=1)
+    question = SimpleNamespace(id=question_id, points=1, type="MCQ")
     invalid_choice = SimpleNamespace(
         id=choice_id,
         question_id=question_id,
@@ -182,3 +182,44 @@ async def test_learner_submission_delegates_to_the_preview_scoring_evaluator(mon
     assert result["attempt"].score_percent == scoring.score_percent
     assert result["attempt"].earned_points == scoring.earned_points
     assert result["attempt"].passed is scoring.passed
+
+
+@pytest.mark.asyncio
+async def test_ordering_course_quiz_requires_the_exact_sequence_and_masks_the_key():
+    tenant_id, quiz_id, question_id = (uuid4() for _ in range(3))
+    ordered = sorted((uuid4() for _ in range(3)), reverse=True)
+    question = SimpleNamespace(id=question_id, type="ordering", points=3)
+    choices = [
+        SimpleNamespace(question_id=question_id, id=choice_id, text=f"Step {index}", is_correct=False, order_index=index)
+        for index, choice_id in enumerate(ordered)
+    ]
+
+    async def score(ids):
+        def rows(values):
+            result = Mock()
+            result.scalars.return_value.all.return_value = values
+            return result
+
+        db = SimpleNamespace(
+            scalar=AsyncMock(return_value=SimpleNamespace(id=quiz_id, pass_score=80)),
+            execute=AsyncMock(side_effect=[rows([question]), rows(choices)]),
+        )
+        return await service.evaluate_quiz_submission(
+            db, quiz_id, tenant_id, [{"question_id": question_id, "selected_choice_ids": ids}],
+        )
+
+    correct = await score(ordered)
+    assert correct.score_percent == 100
+    assert correct.graded_answers[0]["correct_choice_ids"] == [str(choice_id) for choice_id in ordered]
+    wrong = await score(ordered[::-1])
+    assert wrong.score_percent == 0
+    assert wrong.graded_answers[0]["selected_choice_ids"] == [str(choice_id) for choice_id in ordered[::-1]]
+    with pytest.raises(ValueError, match="include all steps"):
+        await score(ordered[:2])
+    with pytest.raises(ValueError, match="more than once"):
+        await score([ordered[0], ordered[0], ordered[2]])
+
+    public = service._serialize_choices(choices, hide_order=True, include_correct_answers=False)
+    assert [row["id"] for row in public] == ordered[::-1]
+    assert [row["order_index"] for row in public] == [0, 1, 2]
+    assert not any(row["is_correct"] for row in public)

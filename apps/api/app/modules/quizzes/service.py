@@ -138,21 +138,33 @@ async def get_quizzes_with_questions(
                         "explanation": q.explanation if include_explanations else None,
                         "source_quote": q.source_quote if include_explanations else None,
                         "order_index": q.order_index,
-                        "choices": [
-                            {
-                                "id": c.id,
-                                "text": c.text,
-                                "order_index": c.order_index,
-                                "is_correct": c.is_correct if include_correct_answers else False,
-                            }
-                            for c in choices_by_qid.get(q.id, [])
-                        ],
+                        "choices": _serialize_choices(
+                            choices_by_qid.get(q.id, []),
+                            hide_order=cast(str, q.type) == "ordering" and not include_correct_answers,
+                            include_correct_answers=include_correct_answers,
+                        ),
                     }
                     for q in questions_by_quiz.get(quiz.id, [])
                 ],
             }
         )
     return out
+
+
+def _serialize_choices(
+    choices: list[QuizChoice], *, hide_order: bool, include_correct_answers: bool,
+) -> list[dict[str, Any]]:
+    if hide_order:
+        choices = sorted(choices, key=lambda choice: str(choice.id))
+    return [
+        {
+            "id": choice.id,
+            "text": choice.text,
+            "order_index": index if hide_order else choice.order_index,
+            "is_correct": choice.is_correct if include_correct_answers else False,
+        }
+        for index, choice in enumerate(choices)
+    ]
 
 
 async def _is_quiz_expired(db: AsyncSession, quiz: Quiz, user_id: UUID, tenant_id: UUID) -> bool:
@@ -266,23 +278,29 @@ async def evaluate_quiz_submission(
         question_choices = choices_by_question.get(question_id, [])
         valid_choice_ids = {cast(UUID, choice.id) for choice in question_choices}
         selected_set = set(selected_ids)
-        correct_ids = {
-            cast(UUID, choice.id)
-            for choice in question_choices
-            if cast(bool, choice.is_correct)
-        }
-        if not valid_choice_ids or not correct_ids:
-            raise ValueError("Quiz contains a question without a valid answer key")
         if not selected_set.issubset(valid_choice_ids):
             raise ValueError("A selected choice does not belong to its question")
-        is_correct = correct_ids == selected_set
+        if cast(str, question.type) == "ordering":
+            correct_order = [cast(UUID, choice.id) for choice in question_choices]
+            if len(correct_order) < 2 or selected_set != valid_choice_ids:
+                raise ValueError("An ordering answer must include all steps exactly once")
+            is_correct = selected_ids == correct_order
+            selected_response = [str(choice_id) for choice_id in selected_ids]
+            correct_response = [str(choice_id) for choice_id in correct_order]
+        else:
+            correct_ids = {cast(UUID, choice.id) for choice in question_choices if cast(bool, choice.is_correct)}
+            if not correct_ids:
+                raise ValueError("Quiz contains a question without a valid answer key")
+            is_correct = correct_ids == selected_set
+            selected_response = sorted(str(choice_id) for choice_id in selected_set)
+            correct_response = sorted(str(choice_id) for choice_id in correct_ids)
         if is_correct:
             earned_points += question_points
         graded_answers.append(
             {
                 "question_id": str(question_id),
-                "selected_choice_ids": sorted(str(choice_id) for choice_id in selected_set),
-                "correct_choice_ids": sorted(str(choice_id) for choice_id in correct_ids),
+                "selected_choice_ids": selected_response,
+                "correct_choice_ids": correct_response,
                 "is_correct": is_correct,
                 "points_earned": question_points if is_correct else 0,
                 "points_possible": question_points,
