@@ -28,6 +28,7 @@ from app.modules.ai.evidence_engine.models import SourceFact
 from app.modules.course_approval.models import CourseApprovalPolicy
 from app.modules.courses.localizations import POLICY_KEY, read_policy
 from app.modules.courses.models import Course
+from app.modules.lessons.illustrations import copy_lesson_illustrations
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.positions.batch_service import recompute_tenant_members
 from app.modules.quizzes.models import Question, Quiz, QuizChoice
@@ -791,6 +792,9 @@ async def _clone_course(
             )
             db.add(lesson_clone)
             await db.flush()
+            lesson_clone.content = await copy_lesson_illustrations(
+                tenant_id, lesson.content, course.id, lesson.id, clone.id, lesson_clone.id,
+            )
             node_ids[str(lesson_clone.id)] = str(lesson.id)
             if impacted:
                 affected.append({"lesson_id": str(lesson_clone.id), "title": str(lesson.title)})
