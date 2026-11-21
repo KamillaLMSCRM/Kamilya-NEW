@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button } from '@/components/ui';
+import { MATCHING_PAIRS, MatchingAnswer, hasQuizAnswer, matchingSelection } from '@/features/quiz/MatchingPairs';
 import { OrderingAnswer } from '@/features/quiz/OrderingAnswer';
 import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
@@ -28,6 +29,11 @@ function restoreAnswers(key: string, snapshot: ReviewSnapshot): Record<string, s
       const value = (saved as Record<string, unknown>)[question.id];
       const order = typeof value === 'string' ? [value] : value;
       if (!Array.isArray(order)) continue;
+      if (question.type === MATCHING_PAIRS) {
+        const pairs = matchingSelection(question.choices, order);
+        if (pairs.size > 0 && pairs.size * 2 === order.length) restored[question.id] = order;
+        continue;
+      }
       const ids = new Set(question.choices.map((choice) => choice.id));
       const count = question.type === 'ordering' ? ids.size : 1;
       if (order.length === count && new Set(order).size === count && order.every((id) => ids.has(id))) {
@@ -85,10 +91,10 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
 
   async function submitQuiz(quizId: string) {
     const quiz = lesson?.quizzes.find((item) => item.id === quizId);
-    if (!quiz || quiz.questions.some((question) => !answers[question.id])) return;
+    if (!quiz || quiz.questions.some((question) => !hasQuizAnswer(question, answers[question.id]))) return;
     // The server grades the immutable course snapshot, not the visible quiz.
     const submitted = lessons.flatMap((item) => item.quizzes.flatMap((itemQuiz) => itemQuiz.questions))
-      .filter((question) => answers[question.id])
+      .filter((question) => hasQuizAnswer(question, answers[question.id]))
       .map((question) => ({ question_id: question.id, selected_choice_ids: answers[question.id] }));
     setBusy(true); setMessage('');
     try { const response = await submitReviewTest(attemptId, submitted, token); const result = response.result ?? response.diagnostics; if (result) { setDiagnostics(result); if (result.complete === true) { setReviewComplete(true); onComplete(); } } else setMessage(t('courseApproval.answersAccepted')); }
@@ -140,14 +146,18 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
           <h3 className="break-words font-semibold">{quiz.title}</h3>
           {quiz.questions.map((question) => <fieldset key={question.id} className="min-w-0 space-y-3">
             <legend className="break-words text-sm font-medium leading-6">{question.text}</legend>
-            {question.type === 'ordering' ? (
+            {question.type === MATCHING_PAIRS ? (
+              <MatchingAnswer choices={question.choices} selected={answers[question.id]} scope={attemptId}
+                questionId={question.id} attempt={0} language={lang} disabled={busy || reviewComplete}
+                onChange={(ids) => setAnswer(question.id, ids)} />
+            ) : question.type === 'ordering' ? (
               <OrderingAnswer steps={attemptChoiceOrder(question.choices, attemptId, question.id, 0)}
                 selected={answers[question.id]} language={lang} disabled={busy || reviewComplete}
                 onChange={(ids) => setAnswer(question.id, ids)} />
             ) : <div className="space-y-2">{question.choices.map((choice) => <label key={choice.id} className="flex min-h-11 items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-6"><input className="mt-1 shrink-0" type="radio" name={`review-${question.id}`} checked={answers[question.id]?.[0] === choice.id} onChange={() => setAnswer(question.id, [choice.id])} disabled={busy || reviewComplete} /><span className="min-w-0 break-words">{choice.text}</span></label>)}</div>}
           </fieldset>)}
           <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
-            <Button size="sm" variant="outline" onClick={() => void submitQuiz(quiz.id)} disabled={busy || reviewComplete || quiz.questions.some((question) => !answers[question.id])}>{t('courseApproval.submitAnswers')}</Button>
+            <Button size="sm" variant="outline" onClick={() => void submitQuiz(quiz.id)} disabled={busy || reviewComplete || quiz.questions.some((question) => !hasQuizAnswer(question, answers[question.id]))}>{t('courseApproval.submitAnswers')}</Button>
             {diagnostics && <span role="status" className="break-words text-sm">{t('courseApproval.courseResult', { answered: diagnostics.answered, total: diagnostics.total, score: diagnostics.score_percent })}</span>}
           </div>
         </section>)}

@@ -87,6 +87,7 @@ export interface ApprovalRequestResponse extends ApprovalRequestSummary {
 }
 
 export interface ReviewChoice {
+  match_side?: 'left' | 'right';
   id: string;
   text: string;
   order_index: number;
@@ -298,6 +299,7 @@ export function projectReviewSnapshot(value: unknown): ReviewSnapshot {
             choices: (Array.isArray(question.choices) ? question.choices : []).filter(isRecord).map((choice) => ({
               id: stringValue(choice.id),
               text: stringValue(choice.text),
+              ...(choice.match_side === 'left' || choice.match_side === 'right' ? { match_side: choice.match_side } : {}),
               order_index: numberValue(choice.order_index),
             })),
           })),

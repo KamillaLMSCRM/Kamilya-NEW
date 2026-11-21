@@ -12,6 +12,7 @@ class QuizChoiceResponse(BaseModel):
     text: str
     order_index: int
     is_correct: bool = False
+    match_side: Literal["left", "right"] | None = Field(default=None, exclude_if=lambda side: side is None)
     model_config = {"from_attributes": True}
 
 

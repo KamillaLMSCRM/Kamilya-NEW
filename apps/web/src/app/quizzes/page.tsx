@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
+import { MATCHING_PAIRS, MatchingPairEditor, matchingCopy, validMatchingChoices } from '@/features/quiz/MatchingPairs';
 import { OrderingButtons, moveOrderingStep, orderingCopy } from '@/features/quiz/OrderingAnswer';
 import { QuestionAssistantPreview } from '@/components/quizzes/QuestionAssistantPreview';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
@@ -611,19 +612,24 @@ export default function QuizzesAdminPage() {
       const saved = findGroupedQuiz(grouped, selectedQuiz.id)?.questions.find((question) => question.id === editingQuestionId);
       if (!saved || !savedQuestionSnapshot || !sameSavedQuestion(savedQuestionSnapshot, questionEditorSnapshot(saved))) { setQuestionConflict(true); return; }
     }
+    const matching = newQuestion.type === MATCHING_PAIRS;
+    if (matching && !validMatchingChoices(newChoices)) {
+      toast.error(matchingCopy(lang).invalid);
+      return;
+    }
     const choices = newChoices
       .filter((choice) => choice.text.trim())
       .map((choice, index) => ({
         ...(choice.id ? { id: choice.id } : {}),
         text: choice.text.trim(),
-        is_correct: newQuestion.type !== 'ordering' && choice.is_correct,
+        is_correct: !matching && newQuestion.type !== 'ordering' && choice.is_correct,
         order_index: index,
       }));
     if (choices.length < 2) {
       toast.error(t('authenticatedUi.quizUi.minChoices'));
       return;
     }
-    if (newQuestion.type !== 'ordering' && !choices.some((choice) => choice.is_correct)) {
+    if (!matching && newQuestion.type !== 'ordering' && !choices.some((choice) => choice.is_correct)) {
       toast.error(t('authenticatedUi.quizUi.correctChoice'));
       return;
     }
@@ -1429,10 +1435,15 @@ export default function QuizzesAdminPage() {
                           <Badge variant="secondary" className="bg-primary/10 text-primary">
                             {tp('common.counts.point', q.points)}
                           </Badge>
-                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{q.type === 'ordering' ? orderCopy.type : questionTypeLabel(q.type) ? t(questionTypeLabel(q.type)!) : q.type}</Badge>
+                          <Badge variant="outline" className="border-border bg-card text-muted-foreground">{q.type === MATCHING_PAIRS ? matchingCopy(lang).type : q.type === 'ordering' ? orderCopy.type : questionTypeLabel(q.type) ? t(questionTypeLabel(q.type)!) : q.type}</Badge>
                         </div>
                         <div className="space-y-2">
-                          {q.choices.map((c) => (
+                          {q.type === MATCHING_PAIRS ? q.choices.filter((_, index) => index % 2 === 0).map((choice, index) => (
+                            <div key={choice.id} className="grid grid-cols-2 gap-3 text-sm">
+                              <span className="min-w-0 break-words">{choice.text}</span>
+                              <span className="min-w-0 break-words">{q.choices[index * 2 + 1]?.text}</span>
+                            </div>
+                          )) : q.choices.map((c) => (
                             <div key={c.id} className={`flex items-start gap-2 text-sm leading-5 ${c.is_correct ? 'font-medium text-success' : 'text-muted-foreground'}`}>
                               {c.is_correct ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <Circle className="mt-0.5 h-4 w-4 shrink-0" />}
                               <span className="min-w-0 break-words">{c.text}</span>
@@ -1523,15 +1534,22 @@ export default function QuizzesAdminPage() {
               <select
                 value={newQuestion.type}
                 name="question-type"
-                onChange={(event) =>
-                  setNewQuestion((current) => ({ ...current, type: event.target.value }))
-                }
+                onChange={(event) => {
+                  const type = event.target.value;
+                  setNewQuestion((current) => ({ ...current, type }));
+                  if (type === MATCHING_PAIRS) {
+                    setNewChoices((current) => [...current, ...Array.from({
+                      length: Math.max(4 - current.length, current.length % 2),
+                    }, () => ({ text: '', is_correct: false }))]);
+                  }
+                }}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="MCQ">{t('authenticatedUi.quizUi.singleOption')}</option>
                 <option value="multiple_choice">{t('authenticatedUi.quizUi.multipleOptions')}</option>
                 <option value="true_false">{t('authenticatedUi.quizUi.trueFalse')}</option>
                 <option value="ordering">{orderCopy.type}</option>
+                <option value={MATCHING_PAIRS}>{matchingCopy(lang).type}</option>
                 {newQuestion.type === 'matching' && (
                   <option value="matching" disabled>
                     {t('authenticatedUi.quizUi.matchingUnavailable')}
@@ -1574,7 +1592,11 @@ export default function QuizzesAdminPage() {
             />
           </label>
 
-          <div className="space-y-3">
+          {newQuestion.type === MATCHING_PAIRS ? <MatchingPairEditor choices={newChoices} language={lang}
+            onEdit={(index, text) => setNewChoices((current) => current.map((item, i) => i === index ? { ...item, text } : item))}
+            onAdd={() => setNewChoices((current) => [...current, { text: '', is_correct: false }, { text: '', is_correct: false }])}
+            onRemove={(index) => setNewChoices((current) => current.filter((_, i) => i !== index && i !== index + 1))}
+          /> : <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">{t('authenticatedUi.quizUi.answerChoices')}</h3>
@@ -1672,7 +1694,7 @@ export default function QuizzesAdminPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
           {questionEditorMode === 'edit' && selectedQuiz && editingQuestionId &&
           newQuestion.type === 'MCQ' && newChoices.length >= 2 &&

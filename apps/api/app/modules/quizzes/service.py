@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.courses.release_service import canonical_json_sha256, ensure_course_release
 from app.modules.enrollments.context import current_enrollment, scoped_enrollment_id
+from app.modules.quizzes.matching import MATCHING_PAIRS, normalize_pair_answer, pair_key
 from app.modules.quizzes.models import Question, Quiz, QuizAttempt, QuizChoice
 
 
@@ -140,7 +141,8 @@ async def get_quizzes_with_questions(
                         "order_index": q.order_index,
                         "choices": _serialize_choices(
                             choices_by_qid.get(q.id, []),
-                            hide_order=cast(str, q.type) == "ordering" and not include_correct_answers,
+                            hide_order=q.type in {"ordering", MATCHING_PAIRS} and not include_correct_answers,
+                            matching=q.type == MATCHING_PAIRS,
                             include_correct_answers=include_correct_answers,
                         ),
                     }
@@ -152,8 +154,9 @@ async def get_quizzes_with_questions(
 
 
 def _serialize_choices(
-    choices: list[QuizChoice], *, hide_order: bool, include_correct_answers: bool,
+    choices: list[QuizChoice], *, hide_order: bool, include_correct_answers: bool, matching: bool = False,
 ) -> list[dict[str, Any]]:
+    sides = {choice.id: ("right" if index % 2 else "left") for index, choice in enumerate(choices)} if matching else {}
     if hide_order:
         choices = sorted(choices, key=lambda choice: str(choice.id))
     return [
@@ -162,6 +165,7 @@ def _serialize_choices(
             "text": choice.text,
             "order_index": index if hide_order else choice.order_index,
             "is_correct": choice.is_correct if include_correct_answers else False,
+            **({"match_side": sides[choice.id]} if matching else {}),
         }
         for index, choice in enumerate(choices)
     ]
@@ -289,6 +293,14 @@ async def evaluate_quiz_submission(
             is_correct = selected_ids == correct_order
             selected_response = [str(choice_id) for choice_id in selected_ids]
             correct_response = [str(choice_id) for choice_id in correct_order]
+        elif cast(str, question.type) == MATCHING_PAIRS:
+            correct_response = [str(choice.id) for choice in question_choices]
+            if len(correct_response) < 4 or len(correct_response) % 2:
+                raise ValueError("Quiz contains a question without a valid matching key")
+            selected_response = normalize_pair_answer(
+                correct_response, [str(choice_id) for choice_id in selected_ids], complete=bool(selected_ids),
+            )
+            is_correct = pair_key(selected_response) == pair_key(correct_response)
         else:
             correct_ids = {cast(UUID, choice.id) for choice in question_choices if cast(bool, choice.is_correct)}
             if not correct_ids:

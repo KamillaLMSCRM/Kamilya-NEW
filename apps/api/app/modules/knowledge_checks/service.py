@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from app.modules.knowledge_checks.schemas import Answer
+from app.modules.quizzes.matching import MATCHING_PAIRS, normalize_pair_answer, pair_key, public_pair_choices
 
 
 def digest(value: Any) -> str:
@@ -25,6 +26,12 @@ def normalize_answers(snapshot: dict[str, Any], answers: list[Answer], *, comple
         if not set(choices) <= {c["id"] for c in question["choices"]}:
             raise HTTPException(422, "Choice does not belong to question")
         question_type = question["type"]
+        if question_type == MATCHING_PAIRS:
+            try:
+                result[qid] = normalize_pair_answer([c["id"] for c in question["choices"]], choices, complete=complete)
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
+            continue
         if question_type not in {"multiple_choice", "ordering"} and len(choices) > 1:
             raise HTTPException(422, "Only one choice is allowed")
         if complete and question_type == "ordering" and len(choices) != len(question["choices"]):
@@ -44,6 +51,8 @@ def grade(snapshot: dict[str, Any], answers: list[dict[str, Any]]) -> dict[str, 
         actual = selected.get(question["id"], [])
         if question["type"] == "ordering":
             correct = actual == [choice["id"] for choice in choices]
+        elif question["type"] == MATCHING_PAIRS:
+            correct = pair_key(actual) == pair_key([choice["id"] for choice in choices])
         else:
             correct = set(actual) == {choice["id"] for choice in choices if choice["is_correct"]}
         if correct:
@@ -54,10 +63,15 @@ def grade(snapshot: dict[str, Any], answers: list[dict[str, Any]]) -> dict[str, 
 
 
 def public_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    def project_choices(question: dict[str, Any]) -> list[dict[str, Any]]:
+        choices = question["choices"]
+        if question["type"] == MATCHING_PAIRS:
+            return public_pair_choices(choices)
+        if question["type"] == "ordering":
+            choices = sorted(choices, key=lambda choice: choice["id"])
+        return [{k: v for k, v in c.items() if k != "is_correct"} for c in choices]
+
     return {**{k: v for k, v in snapshot.items() if k != "questions"}, "questions": [
         {**{k: v for k, v in q.items() if k not in {"choices", "explanation"}},
-         "choices": [
-             {k: v for k, v in c.items() if k != "is_correct"}
-             for c in (sorted(q["choices"], key=lambda choice: choice["id"]) if q["type"] == "ordering" else q["choices"])
-         ]}
+         "choices": project_choices(q)}
         for q in snapshot["questions"]]}

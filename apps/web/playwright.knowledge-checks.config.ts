@@ -8,7 +8,7 @@ if (!['https://kamilya-lms-api.onrender.com/api', 'https://api.kml.kz/api'].incl
 
 export default defineConfig({
   ...base,
-  testMatch: /(knowledge-checks|learning-workspace-ux)\.spec\.ts$/,
+  testMatch: /(knowledge-checks|matching-pairs|learning-workspace-ux)\.spec\.ts$/,
   workers: 1,
   retries: 0,
   reporter: 'list',

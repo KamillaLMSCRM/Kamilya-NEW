@@ -239,3 +239,40 @@ async def test_ordering_learner_gets_the_current_enrollment_without_a_link_token
     response = await router.get_quiz(quiz_id, db=db, user=user)
     assert response["attempt_enrollment_id"] == enrollment_id
     current.assert_awaited_once_with(db, tenant_id=tenant_id, user_id=user_id, course_id=course_id)
+
+
+@pytest.mark.asyncio
+async def test_matching_course_quiz_validates_direction_and_hides_author_positions():
+    quiz_id, tenant_id, question_id = (uuid4() for _ in range(3))
+    a, x, b, y = sorted((uuid4() for _ in range(4)), reverse=True)
+    question = SimpleNamespace(id=question_id, type="matching_pairs", points=2)
+    choices = [
+        SimpleNamespace(question_id=question_id, id=id_, text=str(index), is_correct=False, order_index=index)
+        for index, id_ in enumerate([a, x, b, y])
+    ]
+
+    async def score(ids):
+        questions, options = Mock(), Mock()
+        questions.scalars.return_value.all.return_value = [question]
+        options.scalars.return_value.all.return_value = choices
+        db = SimpleNamespace(
+            scalar=AsyncMock(return_value=SimpleNamespace(id=quiz_id, pass_score=80)),
+            execute=AsyncMock(side_effect=[questions, options]),
+        )
+        return await service.evaluate_quiz_submission(
+            db, quiz_id, tenant_id, [{"question_id": question_id, "selected_choice_ids": ids}],
+        )
+
+    assert (await score([b, y, a, x])).score_percent == 100
+    assert (await score([a, y, b, x])).score_percent == 0
+    assert (await score([])).score_percent == 0
+    with pytest.raises(ValueError, match="Complete all pairs"):
+        await score([a, x])
+    with pytest.raises(ValueError, match="left choice with a right choice"):
+        await score([x, a, b, y])
+
+    response = service._serialize_choices(choices, hide_order=True, include_correct_answers=False, matching=True)
+    assert [row["id"] for row in response] == [y, b, x, a]
+    assert [row["match_side"] for row in response] == ["right", "left", "right", "left"]
+    assert [row["order_index"] for row in response] == list(range(4))
+    assert not any(row["is_correct"] for row in response)
