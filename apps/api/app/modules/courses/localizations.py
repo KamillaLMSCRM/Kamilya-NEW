@@ -22,6 +22,7 @@ from app.models.users import User
 from app.modules.courses.release_models import ContentRelease
 from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
 from app.modules.enrollments.context import current_enrollment
+from app.modules.lessons.illustrations import rebind_lesson_illustrations
 from app.modules.quizzes.matching import MATCHING_PAIRS, pair_key
 
 Language = Literal["ru", "kk", "en"]
@@ -163,13 +164,24 @@ async def editions(db: AsyncSession, course: Course, sha: str, *, published: boo
 
 def unchanged_translations(
     source: dict[str, str], previous: dict[str, str], translated: dict[str, str], owners: dict[str, str],
+    *, revision_courses: tuple[UUID, UUID] | None = None,
 ) -> dict[str, str]:
     result = {}
     for field, value in source.items():
         kind, owner, name = field.split(".")
-        old_field = f"{kind}.{owners.get(owner, '')}.{name}"
-        if previous.get(old_field) == value and translated.get(old_field, "").strip():
-            result[field] = translated[old_field]
+        old_owner = owners.get(owner, "")
+        old_field = f"{kind}.{old_owner}.{name}"
+        old_value, old_translation = previous.get(old_field), translated.get(old_field, "")
+        if old_value is None or not old_translation.strip():
+            continue
+        if revision_courses and kind == "lesson" and name == "content":
+            prior_course, current_course = revision_courses
+            prior_scope = (prior_course, old_owner)
+            current_scope = (current_course, owner)
+            old_value = rebind_lesson_illustrations(old_value, prior_scope, current_scope)
+            old_translation = rebind_lesson_illustrations(old_translation, prior_scope, current_scope)
+        if old_value == value:
+            result[field] = old_translation
     return result
 
 
@@ -203,7 +215,10 @@ async def carried_editions(
         EDITIONS.c.approved_at.is_not(None),
     ))).mappings().all()
     return {
-        row["language"]: unchanged_translations(fields, previous_fields, row["content"], owners)
+        row["language"]: unchanged_translations(
+            fields, previous_fields, row["content"], owners,
+            revision_courses=(previous_course_id, course.id),
+        )
         for row in rows if row["language"] in policy.requested
     }
 

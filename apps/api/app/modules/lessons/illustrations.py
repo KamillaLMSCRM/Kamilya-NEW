@@ -18,6 +18,8 @@ from app.core.storage import get_storage
 from app.models.courses import Course
 from app.modules.lessons.models import Lesson, Module
 
+LessonImageScope = tuple[UUID | str, UUID | str]
+
 MAX_IMAGE_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_PIXELS = 16_000_000
 FORMATS = {"PNG": ("png", "image/png"), "JPEG": ("jpg", "image/jpeg")}
@@ -64,7 +66,7 @@ def illustration_descriptor(tenant_id: UUID, course_id: UUID, lesson_id: UUID,
             "storage_key": f"lesson-illustrations/{tenant_id}/{course_id}/{lesson_id}/{digest}.{extension}"}
 
 
-def lesson_image_url(course_id: UUID, lesson_id: UUID, asset_id: str) -> str:
+def lesson_image_url(course_id: UUID | str, lesson_id: UUID | str, asset_id: str) -> str:
     return f"/v1/courses/{course_id}/lessons/{lesson_id}/source-assets/{asset_id}"
 
 
@@ -72,6 +74,41 @@ def illustration_urls(content: object) -> set[str]:
     if not isinstance(content, str):
         return set()
     return set(_REFERENCE.findall(content))
+
+
+def rebind_lesson_illustrations(content: str, previous: LessonImageScope,
+                               current: LessonImageScope) -> str:
+    original = lesson_image_url(*previous, "")
+    target = lesson_image_url(*current, "")
+
+    def replace(match: re.Match[str]) -> str:
+        url = match[1]
+        if not url.startswith(original):
+            return match[0]
+        return match[0][:match.start(1) - match.start()] + target + url[len(original):]
+
+    return _REFERENCE.sub(replace, content)
+
+
+async def copy_lesson_illustrations(tenant_id: UUID, content: str | None,
+                                    previous_course_id: UUID, previous_lesson_id: UUID,
+                                    course_id: UUID, lesson_id: UUID) -> str | None:
+    if content is None:
+        return None
+    prefix = lesson_image_url(previous_course_id, previous_lesson_id, "")
+    ids = {url[len(prefix):] for url in illustration_urls(content) if url.startswith(prefix)}
+    for asset_id in sorted(ids):
+        old = illustration_descriptor(tenant_id, previous_course_id, previous_lesson_id, asset_id)
+        new = illustration_descriptor(tenant_id, course_id, lesson_id, asset_id)
+        if old is None or new is None:
+            raise HTTPException(409, detail="lesson_illustration_missing")
+        storage = get_storage()
+        raw = await run_in_threadpool(storage.get_bytes, old["storage_key"])
+        if raw is None or hashlib.sha256(raw).hexdigest() != old["sha256"]:
+            raise HTTPException(409, detail="lesson_illustration_missing")
+        await run_in_threadpool(storage.put_bytes, new["storage_key"], raw, new["mime_type"])
+    return rebind_lesson_illustrations(content, (previous_course_id, previous_lesson_id),
+                                       (course_id, lesson_id)) if ids else content
 
 
 def snapshot_illustration_content(snapshot: dict[str, Any]) -> dict[str, str | None]:

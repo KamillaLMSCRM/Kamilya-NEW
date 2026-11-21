@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from hashlib import sha256
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -7,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.modules.ai.evidence_engine.models import SourceFact
+from app.modules.lessons import illustrations
 from app.modules.source_actuality import service as source_actuality_service
 from app.modules.source_actuality.service import (
     _clone_course,
@@ -152,7 +154,7 @@ async def test_processing_marks_a_review_failed_when_revision_was_superseded():
 
 
 @pytest.mark.asyncio
-async def test_clone_marks_reported_course_level_lessons_and_quizzes_for_review():
+async def test_clone_marks_lessons_for_review_and_preserves_illustrations(monkeypatch):
     tenant_id = uuid4()
     predecessor_id = uuid4()
     replacement_id = uuid4()
@@ -168,6 +170,15 @@ async def test_clone_marks_reported_course_level_lessons_and_quizzes_for_review(
         source_strategy="single_topic",
         source_combination_goal=None,
     )
+    raw_image = b"normalized immutable bytes"
+    digest = sha256(raw_image).hexdigest()
+    asset_id = f"illustration-{digest}.png"
+    original_url = illustrations.lesson_image_url(course.id, lesson_id, asset_id)
+    original_key = f"lesson-illustrations/{tenant_id}/{course.id}/{lesson_id}/{digest}.png"
+    stored = {original_key: raw_image}
+    monkeypatch.setattr(illustrations, "get_storage", lambda: SimpleNamespace(
+        get_bytes=stored.get, put_bytes=lambda key, raw, _: stored.update({key: raw}),
+    ))
     module = SimpleNamespace(
         id=uuid4(), title="Module", description="", order_index=0, ai_generated=True
     )
@@ -175,7 +186,7 @@ async def test_clone_marks_reported_course_level_lessons_and_quizzes_for_review(
         id=lesson_id,
         title="Legacy lesson",
         content_type="text",
-        content="Content",
+        content=f'Content\n\n![Alt]({original_url} "Caption")',
         duration_seconds=60,
         order_index=0,
         ai_generated=True,
@@ -240,6 +251,11 @@ async def test_clone_marks_reported_course_level_lessons_and_quizzes_for_review(
 
     cloned_lesson = next(value for value in db.added if value.__class__.__name__ == "Lesson")
     cloned_quiz = next(value for value in db.added if value.__class__.__name__ == "Quiz")
+    cloned_url = illustrations.lesson_image_url(draft.course_id, cloned_lesson.id, asset_id)
+    cloned_key = f"lesson-illustrations/{tenant_id}/{draft.course_id}/{cloned_lesson.id}/{digest}.png"
+    assert cloned_lesson.content == f'Content\n\n![Alt]({cloned_url} "Caption")'
+    assert stored == {original_key: raw_image, cloned_key: raw_image}
+    assert original_url in lesson.content
     assert cloned_lesson.source_validation_status == "needs_review"
     assert cloned_quiz.review_status == "needs_review"
     assert draft.lessons == [{"lesson_id": str(cloned_lesson.id), "title": "Legacy lesson"}]

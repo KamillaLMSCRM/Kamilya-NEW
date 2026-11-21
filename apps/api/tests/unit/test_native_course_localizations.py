@@ -20,6 +20,20 @@ from app.modules.courses.localizations import (
 )
 
 
+def test_unchanged_translation_keeps_caption_when_illustration_is_rebound():
+    previous_course, previous_lesson, course, lesson = uuid4(), uuid4(), uuid4(), uuid4()
+    old = f"/v1/courses/{previous_course}/lessons/{previous_lesson}/source-assets/illustration-{'a' * 64}.png"
+    new = f"/v1/courses/{course}/lessons/{lesson}/source-assets/illustration-{'a' * 64}.png"
+    old_field = f"lesson.{previous_lesson}.content"
+    field = f"lesson.{lesson}.content"
+    old_content = f'Rule.\n\n![Панель]({old} "Проверка")'
+    translation = f'Ереже.\n\n![Панель]({old} "Тексеру")'
+    assert unchanged_translations(
+        {field: old_content.replace(old, new)}, {old_field: old_content}, {old_field: translation},
+        {str(lesson): str(previous_lesson)}, revision_courses=(previous_course, course),
+    ) == {field: translation.replace(old, new)}
+
+
 def _snapshot():
     return {
         "release_version": 1,
