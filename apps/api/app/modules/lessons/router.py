@@ -15,6 +15,8 @@ from app.modules.courses.access import (
     require_lesson_access,
     require_module_access,
 )
+from app.modules.courses.localizations import learner_snapshot
+from app.modules.lessons.decision_practice import BLOCK_TYPE, published_practices
 from app.modules.lessons.models import Module
 from app.modules.lessons.schemas import (
     ContentBlockCreate,
@@ -194,9 +196,19 @@ async def get_course_structure_endpoint(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    await require_course_access(db, course_id, user)
+    owned_course = await require_course_access(db, course_id, user)
     course = await get_course_structure(db, course_id, user.tenant_id)
-    return course
+    if user.role != "student" or owned_course.current_release_id is None:
+        return course
+    snapshot = await learner_snapshot(db, owned_course, user)
+    practices = dict(published_practices(snapshot))
+    if not practices:
+        return course
+    response = CourseStructureResponse.model_validate(course)
+    for module in response.modules:
+        for lesson in module.lessons:
+            lesson.decision_practice = practices.get(str(lesson.id))
+    return response
 
 
 # ── Content Blocks ──────────────────────────────────────────
@@ -219,6 +231,8 @@ async def create_lesson_content_block(
     db: AsyncSession = Depends(get_db),
     user=Depends(require_role(*AUTHOR_ROLES)),
 ):
+    if data.block_type == BLOCK_TYPE:
+        raise HTTPException(422, detail="use_decision_practice_editor")
     try:
         block = await create_content_block(
             db,

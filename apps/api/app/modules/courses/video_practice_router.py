@@ -1,5 +1,6 @@
 """Timed practice lives beside the lesson release and never writes learner results."""
 
+from hashlib import sha256
 from typing import Annotated, Any, cast
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from app.modules.courses.localizations import author_snapshot, learner_snapshot
 from app.modules.courses.video_practice import (
     KEY,
     PracticeDraft,
+    UnsupportedPracticeProposalError,
     VideoClip,
     caption_windows,
     lesson_clip,
@@ -25,8 +27,9 @@ from app.modules.courses.video_practice import (
     propose_practice,
     stored_record,
 )
-from app.modules.youtube_transcript.provider import TranscriptAcquisitionError, validate_transcript
+from app.modules.youtube_transcript.provider import MAX_TOTAL_CHARS, TranscriptAcquisitionError, validate_transcript
 from app.modules.youtube_transcript.remote_caption_adapter import build_runtime_caption_provider
+from app.modules.youtube_transcript.timed_subtitles import parse_timed_subtitles
 from app.modules.youtube_transcript.url_resolver import extract_video_id
 
 router = APIRouter(prefix="/courses/{course_id}/lessons/{lesson_id}/video-practice", tags=["video practice"])
@@ -39,6 +42,10 @@ class PracticeChange(BaseModel):
     clip: VideoClip
     revision: int = Field(ge=0)
     practice: PracticeDraft | None
+
+
+class PracticeProposalRequest(BaseModel):
+    subtitles: str = Field(min_length=1, max_length=MAX_TOTAL_CHARS)
 
 
 def author_state(clip: VideoClip | None, record: dict[str, Any]) -> dict[str, Any]:
@@ -107,18 +114,27 @@ async def save_practice(
 
 
 @router.post("/editor/propose")
-async def generate_practice(course_id: UUID, lesson_id: UUID, db: Db, author: Author) -> dict[str, Any]:
+async def generate_practice(
+    course_id: UUID, lesson_id: UUID, db: Db, author: Author,
+    payload: PracticeProposalRequest | None = None,
+) -> dict[str, Any]:
     settings = get_settings()
-    if not settings.YOUTUBE_IMPORT_ENABLED:
-        raise HTTPException(503, detail="video_practice_caption_service_unavailable")
     course, clip = await _clip_for_author(db, course_id, lesson_id, author, lock=True)
     if not clip:
         raise HTTPException(422, detail="video_practice_timed_clip_required")
     previous = _record_for(course, lesson_id, clip)
-    if previous.get("proposal") or previous.get("pending"):
+    caption_input = sha256(payload.subtitles.encode()).hexdigest() if payload else None
+    if previous.get("pending") or (previous.get("proposal") and previous.get("caption_input") == caption_input):
         return author_state(clip, previous)
     tenant_id = cast(UUID, author.tenant_id)
-    record = practice_record(clip, previous, pending=True, error=None)
+    if payload:
+        try:
+            segments = parse_timed_subtitles(payload.subtitles)
+        except ValueError as invalid_subtitles:
+            raise HTTPException(422, detail="captions_invalid") from invalid_subtitles
+    if not payload and not settings.YOUTUBE_IMPORT_ENABLED:
+        raise HTTPException(503, detail="provider_unavailable")
+    record = practice_record(clip, previous, pending=True, error=None, caption_input=caption_input)
     update_record(course, lesson_id, record)
     await db.commit()
 
@@ -126,25 +142,33 @@ async def generate_practice(course_id: UUID, lesson_id: UUID, db: Db, author: Au
     error = None
     pending = False
     try:
-        ref = extract_video_id(f"https://www.youtube.com/watch?v={clip.video_id}")
-        transcript = await build_runtime_caption_provider(settings).get_transcript(ref, ["ru", "kk", "en"])
-        validate_transcript(
-            transcript, max_video_duration_seconds=settings.YOUTUBE_MAX_VIDEO_DURATION_SECONDS,
-            max_total_chars=settings.YOUTUBE_MAX_TOTAL_CHARS,
-        )
-        if transcript.video_id != clip.video_id:
-            raise ValueError("Caption identity mismatch")
-    except (TranscriptAcquisitionError, RuntimeError, ValueError):
-        error = "captions_unavailable"
+        if payload:
+            revision = sha256(f"{clip.video_id}:{caption_input}".encode()).hexdigest()
+        else:
+            ref = extract_video_id(f"https://www.youtube.com/watch?v={clip.video_id}")
+            transcript = await build_runtime_caption_provider(settings).get_transcript(ref, ["ru", "kk", "en"])
+            validate_transcript(
+                transcript, max_video_duration_seconds=settings.YOUTUBE_MAX_VIDEO_DURATION_SECONDS,
+                max_total_chars=settings.YOUTUBE_MAX_TOTAL_CHARS,
+            )
+            if transcript.video_id != clip.video_id:
+                raise ValueError("Caption identity mismatch")
+            segments, revision = transcript.segments, transcript.compute_content_hash()
+    except TranscriptAcquisitionError as failure:
+        error = failure.code
+    except (RuntimeError, ValueError):
+        error = "provider_unavailable"
     else:
-        windows = caption_windows(clip, transcript.segments)
+        windows = caption_windows(clip, segments)
         if not windows:
             error = "no_caption_evidence"
         else:
             try:
-                proposal = await propose_practice(tenant_id, windows, transcript.compute_content_hash())
+                proposal = await propose_practice(tenant_id, windows, revision)
                 if proposal is None:
                     error = "no_caption_evidence"
+            except UnsupportedPracticeProposalError:
+                error = "proposal_not_grounded"
             except ValueError:
                 error = "invalid_proposal"
             except Exception:

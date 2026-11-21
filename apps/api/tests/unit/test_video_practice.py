@@ -8,14 +8,23 @@ from fastapi import HTTPException
 
 from app.modules.courses.video_practice import (
     KEY,
+    UnsupportedPracticeProposalError,
     VideoClip,
     caption_windows,
     lesson_clip,
+    propose_practice,
     public_course_metadata,
     read_proposal,
 )
-from app.modules.courses.video_practice_router import PracticeChange, generate_practice, read_practice, save_practice
-from app.modules.youtube_transcript.provider import TranscriptSegment
+from app.modules.courses.video_practice_router import (
+    PracticeChange,
+    PracticeProposalRequest,
+    generate_practice,
+    read_practice,
+    save_practice,
+)
+from app.modules.youtube_transcript.provider import TranscriptProviderError, TranscriptSegment
+from app.modules.youtube_transcript.timed_subtitles import parse_timed_subtitles
 
 VIDEO_ID = "fzSDieqvIyk"
 EVIDENCE = "Частотный преобразователь меняет частоту вращения двигателя."
@@ -120,3 +129,62 @@ async def test_model_proposal_is_reused_and_never_published_by_generation():
     assert first["approved"] is None
     assert model.await_count == 1
     assert provider.get_transcript.await_count == 1
+
+
+@pytest.mark.parametrize("source", [
+    f"1\n00:01:50,000 --> 00:02:10,000\n{EVIDENCE}\n",
+    f"\ufeffWEBVTT\r\n\r\n01:50.000 --> 02:10.000 align:start\r\n<b>{EVIDENCE}</b>\r\n",
+])
+def test_reads_timed_subtitles_and_excludes_text_outside_clip(source):
+    assert parse_timed_subtitles(source) == [TranscriptSegment(110, 130, EVIDENCE)]
+    assert caption_windows(VideoClip(video_id=VIDEO_ID, start=131, end=150), parse_timed_subtitles(source)) == []
+    with pytest.raises(ValueError):
+        parse_timed_subtitles("00:00:08,000 --> 00:00:07,000\nInvalid")
+
+
+@pytest.mark.asyncio
+async def test_youtube_block_offers_attach_path_without_automatic_retry():
+    lesson_id, course_id = uuid4(), uuid4()
+    clip = lesson_clip(_lesson(lesson_id), lesson_id)
+    course = SimpleNamespace(source_analysis={})
+    author = SimpleNamespace(tenant_id=uuid4())
+    db = AsyncMock()
+    db.expire = MagicMock()
+    provider = SimpleNamespace(get_transcript=AsyncMock(side_effect=TranscriptProviderError("provider_blocked")))
+    model = AsyncMock(side_effect=lambda tenant, windows, revision: read_proposal(_wire(), windows, revision))
+    scope = "app.modules.courses.video_practice_router."
+    with patch(scope + "_clip_for_author", return_value=(course, clip)), \
+         patch(scope + "get_settings", return_value=SimpleNamespace(YOUTUBE_IMPORT_ENABLED=True)), \
+         patch(scope + "build_runtime_caption_provider", return_value=provider), \
+         patch(scope + "_set_tenant_security_context"), patch(scope + "propose_practice", model):
+        failure = await generate_practice(course_id, lesson_id, db, author)
+        assert failure["error"] == "provider_blocked"
+        model.assert_not_awaited()
+        subtitles = PracticeProposalRequest(subtitles=f"1\n00:01:50,000 --> 00:02:10,000\n{EVIDENCE}")
+        result = await generate_practice(course_id, lesson_id, db, author, subtitles)
+        assert await generate_practice(course_id, lesson_id, db, author, subtitles) == result
+    assert result["proposal"]["evidence"] == EVIDENCE
+    assert result["approved"] is None
+    assert result["proposal"]["draft"]["at"] == 130
+    assert EVIDENCE not in course.source_analysis[KEY][str(lesson_id)]["caption_input"]
+    provider.get_transcript.assert_awaited_once()
+    model.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("supported", [True, False])
+async def test_exact_quote_alone_is_insufficient_for_bilingual_model_review(supported):
+    client = SimpleNamespace(ainvoke=AsyncMock(side_effect=[
+        SimpleNamespace(content=_wire()),
+        SimpleNamespace(content=json.dumps({"supported": supported})),
+    ]))
+    with patch("app.modules.ai.llm_client.ResilientLLMClient.from_settings_async",
+               return_value=SimpleNamespace(for_provider=lambda name: client)):
+        if supported:
+            assert (await propose_practice(uuid4(), [(130, EVIDENCE)], "rev")).evidence == EVIDENCE
+        else:
+            with pytest.raises(UnsupportedPracticeProposalError):
+                await propose_practice(uuid4(), [(130, EVIDENCE)], "rev")
+    critic = json.loads(client.ainvoke.call_args.args[0][1]["content"])
+    assert critic["captions"] == EVIDENCE and critic["draft"]["correct_index"] == 1
+    assert client.ainvoke.await_count == 2

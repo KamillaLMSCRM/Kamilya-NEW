@@ -1,4 +1,5 @@
 import { api } from '@/lib/api';
+import { parseDecisionPractice, type DecisionPractice } from '@/features/course-authoring/DecisionPractice';
 
 export type ApprovalDeliveryMode = 'email' | 'personal_link';
 export type ApprovalOutcome = 'pending' | 'approved' | 'changes_requested' | 'cancelled' | 'superseded';
@@ -116,6 +117,7 @@ export interface ReviewLesson {
   id: string;
   title: string;
   content_type: string;
+  decision_practice?: DecisionPractice;
   content?: string | null;
   order_index: number;
   quizzes: ReviewQuiz[];
@@ -282,6 +284,7 @@ export function projectReviewSnapshot(value: unknown): ReviewSnapshot {
         title: stringValue(lesson.title, 'Урок'),
         content_type: stringValue(lesson.content_type, 'text'),
         content: typeof lesson.content === 'string' ? lesson.content : null,
+        ...(lesson.decision_practice ? { decision_practice: parseDecisionPractice(lesson.decision_practice) } : {}),
         order_index: numberValue(lesson.order_index),
         quizzes: (Array.isArray(lesson.quizzes) ? lesson.quizzes : []).filter(isRecord).map((quiz) => ({
           id: stringValue(quiz.id),

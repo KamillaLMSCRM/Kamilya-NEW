@@ -21,6 +21,7 @@ from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.courses.release_service import build_course_release_snapshot, canonical_json_sha256
 from app.modules.integrations.crypto import encrypt_config
+from app.modules.lessons.decision_practice import practice_edition
 from app.modules.quizzes.matching import MATCHING_PAIRS, normalize_pair_answer, pair_key, public_pair_choices
 
 from .models import (
@@ -68,6 +69,8 @@ def learner_safe_review_snapshot(snapshot: dict[str, object]) -> dict[str, objec
     def strip(value: object) -> object:
         if isinstance(value, dict):
             projected = {key: strip(item) for key, item in value.items() if key not in internal_fields}
+            if isinstance(value.get("content_blocks"), list) and (edition := practice_edition(value)):
+                projected["decision_practice"] = edition.practice.model_dump(mode="json")
             choices = projected.get("choices")
             if value.get("type") == MATCHING_PAIRS and isinstance(choices, list):
                 projected.pop("explanation", None)

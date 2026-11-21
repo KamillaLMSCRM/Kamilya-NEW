@@ -79,4 +79,23 @@ describe('video practice authoring', () => {
     expect(parseCaptionTime('1:60')).toBeNull();
     expect(parseCaptionTime('2:5')).toBeNull();
   });
+
+  it('shows the YouTube restriction and proposes from an attached timed file without saving the exercise', async () => {
+    const emptyState = { ...fixture, approved: null };
+    const evidence = 'Давление подтверждается показанием манометра.';
+    api.get.mockResolvedValue({ data: emptyState });
+    api.post.mockResolvedValueOnce({ data: { ...emptyState, error: 'provider_blocked' } })
+      .mockResolvedValueOnce({ data: { ...emptyState, proposal: { draft: fixture.approved, evidence } } });
+    render(<VideoPracticeEditor courseId="course" lessonId="lesson" lang="ru" disabled={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Предложить вопрос из субтитров' }));
+    expect(await screen.findByText(/YouTube ограничил/)).toBeVisible();
+    const subtitles = '1\n00:02:00,000 --> 00:02:10,000\n' + evidence;
+    const file = new File([subtitles], 'video.srt');
+    Object.defineProperty(file, 'text', { value: async () => subtitles });
+    fireEvent.change(screen.getByLabelText('Субтитры этого видео (.srt или .vtt)'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Предложить вопрос из файла' }));
+    expect(await screen.findByText(new RegExp(evidence))).toBeVisible();
+    expect(api.post).toHaveBeenLastCalledWith('/v1/courses/course/lessons/lesson/video-practice/editor/propose', { subtitles });
+    expect(api.put).not.toHaveBeenCalled();
+  });
 });

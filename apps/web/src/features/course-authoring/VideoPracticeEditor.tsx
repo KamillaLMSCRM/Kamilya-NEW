@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { isAxiosError } from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
@@ -47,6 +48,8 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
   const [language, setLanguage] = useState<'ru' | 'kk'>(lang === 'kk' ? 'kk' : 'ru');
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
+  const [subtitleError, setSubtitleError] = useState(false);
   const copy = videoPracticeCopy(lang);
   const path = practicePath(courseId, lessonId) + '/editor';
 
@@ -73,11 +76,19 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
     return () => controller.abort();
   }, [load]);
 
-  const perform = async (operation: () => Promise<{ data: PracticeState }>) => {
+  const perform = async (operation: () => Promise<{ data: PracticeState } | undefined>) => {
     setBusy(true);
     setFailed(false);
-    try { receive((await operation()).data); }
-    catch { setFailed(true); }
+    try {
+      const response = await operation();
+      if (response) receive(response.data);
+    }
+    catch (error) {
+      const detail = isAxiosError(error) ? error.response?.data?.detail : undefined;
+      if (detail === 'captions_invalid') setSubtitleError(true);
+      else if (detail === 'provider_unavailable') setState(current => current && { ...current, error: detail });
+      else setFailed(true);
+    }
     finally { setBusy(false); }
   };
 
@@ -88,6 +99,11 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
   const validTime = clip && at !== null && clip.start < at && at < clip.end;
   const message = {
     captions_unavailable: copy.unavailable, no_caption_evidence: copy.noSource,
+    provider_blocked: copy.blocked, provider_timeout: copy.timeout, provider_unavailable: copy.unavailable,
+    transcript_unavailable: copy.unavailable, language_unavailable: copy.unavailable,
+    video_unavailable: copy.unavailable, video_too_long: copy.unavailable,
+    transcript_too_large: copy.unavailable, transcript_too_short: copy.noSource,
+    proposal_not_grounded: copy.invalid,
     invalid_proposal: copy.invalid, outcome_unknown: copy.unknown,
   }[state?.error ?? ''];
   const save = (value: VideoPractice | null) => void perform(() => api.put(path, {
@@ -98,6 +114,20 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
     setDraft({ at: 0, correct_index: 0, ru: empty(), kk: empty() });
     setMoment('');
   };
+  const generateFromFile = () => {
+    if (!subtitleFile) return;
+    setSubtitleError(false);
+    void perform(async () => {
+      const subtitles = await subtitleFile.text().catch(() => '');
+      if (!subtitles.trim() || subtitles.length > 500000) {
+        setSubtitleError(true);
+        return;
+      }
+      return api.post(path + '/propose', { subtitles });
+    });
+  };
+
+  const unedited = !draft || (state?.approved === draft && moment === captionTime(draft.at));
 
   return <section className="space-y-3 rounded-xl border border-border p-4">
     <h3 className="font-semibold">{copy.title}</h3>
@@ -107,11 +137,34 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
       {(failed || state?.pending) && <Button size="sm" type="button" variant="outline"
         onClick={() => void load()} disabled={busy}>{copy.refresh}</Button>}
     </div>}
-    {clip && !draft && !state?.pending && <div className="flex flex-wrap gap-2">
-      <Button type="button" disabled={locked} onClick={add}>{copy.add}</Button>
-      <Button type="button" variant="outline" disabled={locked}
-        onClick={() => void perform(() => api.post(path + '/propose'))}>{copy.prepare}</Button>
+    {clip && unedited && !state?.pending && <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {!draft && <Button type="button" disabled={locked} onClick={add}>{copy.add}</Button>}
+        <Button type="button" variant="outline" disabled={locked}
+          onClick={() => void perform(() => api.post(path + '/propose'))}>{copy.prepare}</Button>
+        {draft && state?.proposal && <Button type="button" variant="outline" disabled={locked}
+          onClick={() => {
+            const proposal = state.proposal?.draft;
+            if (proposal) {
+              setDraft(proposal);
+              setMoment(captionTime(proposal.at));
+            }
+          }}>{copy.useProposal}</Button>}
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="min-w-0 max-w-full text-sm">{copy.subtitleFile}
+          <Input type="file" className="mt-1 max-w-full" accept=".srt,.vtt" disabled={locked} onChange={event => {
+            const file = event.target.files?.[0];
+            const invalid = !!file && (!/\.(srt|vtt)$/i.test(file.name) || file.size > 2000000);
+            setSubtitleFile(invalid ? null : file ?? null);
+            setSubtitleError(invalid);
+          }} />
+        </label>
+        <Button type="button" variant="outline" disabled={locked || !subtitleFile}
+          onClick={generateFromFile}>{copy.fileQuestion}</Button>
+      </div>
     </div>}
+    {subtitleError && <p role="alert" className="text-sm text-destructive">{copy.invalidFile}</p>}
     {draft && clip && <>
       <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
         <VideoPracticePreview clip={clip} lang={lang} locked={locked} onPick={seconds => setMoment(captionTime(seconds))} />

@@ -4191,3 +4191,13 @@ downgrade while Luna 6 is active, audited rollback, retained history and
 re-upgrade. The disposable schema was removed. This is not proof of the
 shared production connector cutover. The earlier PPTX DEV course and release
 retain their own exact acceptance record.
+
+## CHG-VIDEO-PRACTICE-02 - Ground timed video questions
+
+DEV 0.11.130 returned `provider_blocked` on two captions requests before any
+model call. Preserve the provider reason for the editor. A timed SRT or VTT
+file can serve as the caption source for the same clip when that route fails.
+Use original cue times and exact source evidence. A separate Luna review
+checks the question, key and explanation in both languages before the methodologist
+gets the suggested draft. Existing pending unknown requests retain their claim.
+Local parser, provider-error, duplicate-request and reviewer cases are covered.

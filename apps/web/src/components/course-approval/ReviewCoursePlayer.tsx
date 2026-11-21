@@ -6,6 +6,7 @@ import { MATCHING_PAIRS, MatchingAnswer, hasQuizAnswer, matchingSelection } from
 import { OrderingAnswer } from '@/features/quiz/OrderingAnswer';
 import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
+import { DecisionPracticePlayer } from '@/features/course-authoring/DecisionPractice';
 import { ReviewSourceImageProvider } from '@/components/AuthenticatedSourceImage';
 import { saveReviewProgress, submitReviewTest, type ReviewActivityState, type ReviewDiagnostic, type ReviewSnapshot } from '@/lib/courseApproval';
 import { useT } from '@/i18n/useT';
@@ -142,6 +143,7 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
             <LessonContent text={lesson.content} omitFirstHeading={lesson.title} className="text-base leading-8" />
           </ReviewSourceImageProvider> : <p className="whitespace-pre-wrap break-words text-sm leading-7">—</p>}
         </article>
+        {lesson?.decision_practice && <DecisionPracticePlayer key={lesson.id} practice={lesson.decision_practice} language={lang} />}
         {lesson?.quizzes.map((quiz) => <section key={quiz.id} className="space-y-5 rounded-xl border border-border bg-muted/20 p-4 sm:p-5">
           <h3 className="break-words font-semibold">{quiz.title}</h3>
           {quiz.questions.map((question) => <fieldset key={question.id} className="min-w-0 space-y-3">

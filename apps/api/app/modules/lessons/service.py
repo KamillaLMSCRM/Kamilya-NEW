@@ -14,6 +14,7 @@ from app.modules.courses.release_service import (
 from app.modules.courses.release_service import (
     touch_course_by_lesson as _touch_course_by_lesson,
 )
+from app.modules.lessons.decision_practice import BLOCK_TYPE
 from app.modules.lessons.models import ContentBlock, Lesson, Module
 from app.modules.lessons.schemas import LessonCreate, LessonUpdate, ModuleCreate, ModuleUpdate
 
@@ -248,7 +249,8 @@ async def list_content_blocks(db: AsyncSession, lesson_id: UUID, tenant_id: UUID
     if not lesson or lesson.tenant_id != tenant_id:
         return []
     result = await db.execute(
-        select(ContentBlock).where(ContentBlock.lesson_id == lesson_id).order_by(ContentBlock.order_index)
+        select(ContentBlock).where(ContentBlock.lesson_id == lesson_id, ContentBlock.block_type != BLOCK_TYPE)
+        .order_by(ContentBlock.order_index)
     )
     return result.scalars().all()
 
@@ -295,7 +297,7 @@ async def update_content_block(
 ) -> ContentBlock | None:
     """Update a content block."""
     block = await db.get(ContentBlock, block_id)
-    if not block:
+    if not block or block.block_type == BLOCK_TYPE:
         return None
     from app.modules.lessons.models import Lesson
 
@@ -321,7 +323,7 @@ async def update_content_block(
 async def delete_content_block(db: AsyncSession, block_id: UUID, tenant_id: UUID) -> bool:
     """Delete a content block."""
     block = await db.get(ContentBlock, block_id)
-    if not block:
+    if not block or block.block_type == BLOCK_TYPE:
         return False
     from app.modules.lessons.models import Lesson
 
@@ -346,7 +348,7 @@ async def reorder_content_blocks(db: AsyncSession, lesson_id: UUID, ids_order: l
     changed = False
     for index, block_id in enumerate(ids_order):
         block = await db.get(ContentBlock, block_id)
-        if block and block.lesson_id == lesson_id and block.order_index != index:
+        if block and block.lesson_id == lesson_id and block.block_type != BLOCK_TYPE and block.order_index != index:
             changed = True
             await db.execute(sa_update(ContentBlock).where(ContentBlock.id == block_id).values(order_index=index))
     if changed:
