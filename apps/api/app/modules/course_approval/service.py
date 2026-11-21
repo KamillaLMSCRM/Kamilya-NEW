@@ -66,7 +66,15 @@ def learner_safe_review_snapshot(snapshot: dict[str, object]) -> dict[str, objec
 
     def strip(value: object) -> object:
         if isinstance(value, dict):
-            return {key: strip(item) for key, item in value.items() if key not in internal_fields}
+            projected = {key: strip(item) for key, item in value.items() if key not in internal_fields}
+            choices = projected.get("choices")
+            if value.get("type") == "ordering" and isinstance(choices, list):
+                projected.pop("explanation", None)
+                projected["choices"] = [
+                    {**choice, "order_index": index}
+                    for index, choice in enumerate(sorted(choices, key=lambda choice: str(choice["id"])))
+                ]
+            return projected
         if isinstance(value, list):
             return [strip(item) for item in value]
         return value
@@ -91,9 +99,15 @@ def score_review_submission(snapshot: dict[str, object], submissions: list[dict[
         if question is None or question_id in answered:
             continue
         answered.add(question_id)
-        selected = {str(value) for value in submission.get("selected_choice_ids", [])}
-        expected = {str(choice.get("id")) for choice in question.get("choices", []) if choice.get("is_correct") is True}
-        if selected == expected:
+        selected = [str(value) for value in submission.get("selected_choice_ids", [])]
+        choices = question.get("choices", [])
+        if question.get("type") == "ordering":
+            expected_order = [str(choice["id"]) for choice in choices]
+            correct_order = len(expected_order) >= 2 and selected == expected_order
+        else:
+            expected = {str(choice.get("id")) for choice in choices if choice.get("is_correct") is True}
+            correct_order = set(selected) == expected
+        if correct_order:
             correct += 1
     total = len(questions)
     return {"answered": len(answered), "total": total, "correct": correct, "score_percent": round(correct * 100 / total, 2) if total else 100.0, "complete": bool(total == len(answered))}

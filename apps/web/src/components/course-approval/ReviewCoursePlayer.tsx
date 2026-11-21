@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Badge, Button } from '@/components/ui';
+import { OrderingAnswer } from '@/features/quiz/OrderingAnswer';
+import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
 import { LessonContent } from '@/features/course-authoring/LessonContent';
 import { ReviewSourceImageProvider } from '@/components/AuthenticatedSourceImage';
 import { saveReviewProgress, submitReviewTest, type ReviewActivityState, type ReviewDiagnostic, type ReviewSnapshot } from '@/lib/courseApproval';
@@ -17,14 +19,20 @@ function initialSequence(value: number | undefined) {
   return Number.isSafeInteger(value) && value !== undefined && value > 0 ? value : 1;
 }
 
-function restoreAnswers(key: string, snapshot: ReviewSnapshot): Record<string, string> {
+function restoreAnswers(key: string, snapshot: ReviewSnapshot): Record<string, string[]> {
   try {
     const saved: unknown = JSON.parse(sessionStorage.getItem(key) || '{}');
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
-    const restored: Record<string, string> = {};
+    const restored: Record<string, string[]> = {};
     for (const courseModule of snapshot.modules) for (const lesson of courseModule.lessons) for (const quiz of lesson.quizzes) for (const question of quiz.questions) {
-      const choice = (saved as Record<string, unknown>)[question.id];
-      if (typeof choice === 'string' && question.choices.some((item) => item.id === choice)) restored[question.id] = choice;
+      const value = (saved as Record<string, unknown>)[question.id];
+      const order = typeof value === 'string' ? [value] : value;
+      if (!Array.isArray(order)) continue;
+      const ids = new Set(question.choices.map((choice) => choice.id));
+      const count = question.type === 'ordering' ? ids.size : 1;
+      if (order.length === count && new Set(order).size === count && order.every((id) => ids.has(id))) {
+        restored[question.id] = order;
+      }
     }
     return restored;
   } catch { return {}; }
@@ -36,12 +44,12 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
   const answerStorageKey = JSON.stringify(['kamilya-review-answers-v1', answerStorageScope, attemptId, snapshotIdentity]);
   const [position, setPosition] = useState(() => initialPosition(initialLessonPosition, lessons.length));
   const [sequence, setSequence] = useState(() => initialSequence(initialNextSequence));
-  const [answers, setAnswers] = useState<Record<string, string>>(() => restoreAnswers(answerStorageKey, snapshot));
+  const [answers, setAnswers] = useState<Record<string, string[]>>(() => restoreAnswers(answerStorageKey, snapshot));
   const [diagnostics, setDiagnostics] = useState<ReviewDiagnostic | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [reviewComplete, setReviewComplete] = useState(initialActivityState === 'completed' || initialActivityState === 'decision_pending');
-  const { t } = useT();
+  const { t, lang } = useT();
   const lesson = lessons[position];
 
   useEffect(() => {
@@ -68,13 +76,20 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
     finally { setBusy(false); }
   }
 
+  function setAnswer(questionId: string, ids: string[]) {
+    const next = { ...answers, [questionId]: ids };
+    setAnswers(next);
+    setDiagnostics(null);
+    try { sessionStorage.setItem(answerStorageKey, JSON.stringify(next)); } catch { /* Storage is optional. */ }
+  }
+
   async function submitQuiz(quizId: string) {
     const quiz = lesson?.quizzes.find((item) => item.id === quizId);
     if (!quiz || quiz.questions.some((question) => !answers[question.id])) return;
     // The server grades the immutable course snapshot, not the visible quiz.
     const submitted = lessons.flatMap((item) => item.quizzes.flatMap((itemQuiz) => itemQuiz.questions))
       .filter((question) => answers[question.id])
-      .map((question) => ({ question_id: question.id, selected_choice_ids: [answers[question.id]] }));
+      .map((question) => ({ question_id: question.id, selected_choice_ids: answers[question.id] }));
     setBusy(true); setMessage('');
     try { const response = await submitReviewTest(attemptId, submitted, token); const result = response.result ?? response.diagnostics; if (result) { setDiagnostics(result); if (result.complete === true) { setReviewComplete(true); onComplete(); } } else setMessage(t('courseApproval.answersAccepted')); }
     catch { setMessage(t('courseApproval.answersError')); }
@@ -125,7 +140,11 @@ export function ReviewCoursePlayer({ snapshot, attemptId, token, initialActivity
           <h3 className="break-words font-semibold">{quiz.title}</h3>
           {quiz.questions.map((question) => <fieldset key={question.id} className="min-w-0 space-y-3">
             <legend className="break-words text-sm font-medium leading-6">{question.text}</legend>
-            <div className="space-y-2">{question.choices.map((choice) => <label key={choice.id} className="flex min-h-11 items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-6"><input className="mt-1 shrink-0" type="radio" name={`review-${question.id}`} checked={answers[question.id] === choice.id} onChange={() => { const next = { ...answers, [question.id]: choice.id }; setAnswers(next); setDiagnostics(null); try { sessionStorage.setItem(answerStorageKey, JSON.stringify(next)); } catch { /* Draft storage is optional; server writes remain authoritative. */ } }} disabled={busy || reviewComplete} /><span className="min-w-0 break-words">{choice.text}</span></label>)}</div>
+            {question.type === 'ordering' ? (
+              <OrderingAnswer steps={attemptChoiceOrder(question.choices, attemptId, question.id, 0)}
+                selected={answers[question.id]} language={lang} disabled={busy || reviewComplete}
+                onChange={(ids) => setAnswer(question.id, ids)} />
+            ) : <div className="space-y-2">{question.choices.map((choice) => <label key={choice.id} className="flex min-h-11 items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 text-sm leading-6"><input className="mt-1 shrink-0" type="radio" name={`review-${question.id}`} checked={answers[question.id]?.[0] === choice.id} onChange={() => setAnswer(question.id, [choice.id])} disabled={busy || reviewComplete} /><span className="min-w-0 break-words">{choice.text}</span></label>)}</div>}
           </fieldset>)}
           <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <Button size="sm" variant="outline" onClick={() => void submitQuiz(quiz.id)} disabled={busy || reviewComplete || quiz.questions.some((question) => !answers[question.id])}>{t('courseApproval.submitAnswers')}</Button>
