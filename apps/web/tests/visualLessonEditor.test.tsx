@@ -28,6 +28,14 @@ describe('lossless lesson authoring', () => {
     expect(joinLessonBlocks(blocks)).toBe(value);
   });
 
+  it('preserves a code fence adjacent to a table when a table cell is edited', () => {
+    const value = '| A | B |\n| --- | --- |\n| One | Two |\n```text | option\nCode\n```';
+    render(<Harness initial={value} />);
+    fireEvent.click(screen.getByRole('button', { name: '1. Table' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Cell 1, 1' }), { target: { value: 'Changed' } });
+    expect(screen.getByLabelText('Saved draft').textContent).toBe(value.replace('One', 'Changed'));
+  });
+
   it('round trips literal pipes and backslashes in a cell', () => {
     const raw = 'A | B \\| C \\\\| D';
     const cell = tableCellMarkdown(raw);

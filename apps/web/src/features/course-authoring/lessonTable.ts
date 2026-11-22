@@ -1,3 +1,5 @@
+import { nextMarkdownFence } from './lessonDisclosure';
+
 export type LessonTable = { rows: string[][]; dividers: string[] };
 
 function splitTableRow(line: string): string[] | null {
@@ -44,8 +46,10 @@ export function lessonTableAt(lines: string[], start: number): (LessonTable & { 
   const table = tableOpening(lines, start);
   if (!table) return undefined;
   let end = start + 2;
-  while (end < lines.length && !/^:::lesson-(?:hint|example)(?: |\s*$)/.test(lines[end])) {
-    const row = splitTableRow(lines[end]);
+  while (end < lines.length) {
+    const line = lines[end];
+    if (nextMarkdownFence(line, null) || /^:::lesson-(?:hint|example)(?: |\s*$)/.test(line)) break;
+    const row = splitTableRow(line);
     if (!row) break;
     table.rows.push(row);
     end += 1;
