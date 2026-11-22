@@ -4,6 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { LessonContent } from '../src/features/course-authoring/LessonContent';
 
 describe('LessonContent', () => {
+  it('renders a single-column table and its literal pipes without changing cell boundaries', () => {
+    render(<LessonContent text={'Summary\n| Action |\n| --- |\n| **A** \\| B |\nAfter'} />);
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('columnheader')).toHaveLength(1);
+    expect(within(table).getAllByRole('cell')).toHaveLength(1);
+    expect(within(table).getByRole('cell')).toHaveTextContent('A | B');
+    expect(within(table).getByText('A').tagName).toBe('STRONG');
+    expect(screen.getByText('After')).toBeVisible();
+  });
   it('renders independent collapsed hints and examples with formatted, inert content', () => {
     const { container } = render(<LessonContent text={[
       'Lesson introduction', ':::lesson-hint Read <b>carefully</b>', '**Important**', '',

@@ -7,9 +7,11 @@ import axios from 'axios';
 import { isUploadedLessonImage, lessonImageMarkdown, sourceImageLine } from '@/components/AuthenticatedSourceImage';
 import { api } from '@/lib/api';
 import { LessonContent, lessonContentClassName } from './LessonContent';
+import { LessonTableEditor } from './LessonTableEditor';
 import { MarkdownToolbar } from './MarkdownToolbar';
 import { joinLessonBlocks, lessonBlockKind, replaceLessonBlock, separateLessonBlocks, splitLessonBlocks, type LessonBlock, type LessonBlockKind } from './lessonBlocks';
 import { readLessonDisclosure, writeLessonDisclosure } from './lessonDisclosure';
+import { readLessonTable, writeLessonTable } from './lessonTable';
 import { visualLessonCopy } from './visualLessonCopy';
 
 export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly = false, illustrationEndpoint }: {
@@ -55,6 +57,10 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
     if (disabled) return;
     if (kind === 'hint' || kind === 'example') {
       insert(writeLessonDisclosure({ kind, title: copy[kind], body: '' }));
+      return;
+    }
+    if (kind === 'table') {
+      insert(writeLessonTable({ rows: [['', ''], ['', '']], dividers: ['---', '---'] }));
       return;
     }
     const markdown = { text: copy.newText, heading: `## ${copy.newHeading}`, rule: `> ${copy.newRule}`, steps: copy.newSteps, image: images[0] }[kind];
@@ -118,7 +124,7 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
       <Button ref={addButton} type="button" size="sm" variant="outline" disabled={disabled} aria-expanded={showAdd} onClick={() => setShowAdd(!showAdd)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />{copy.add}</Button>
     </div>
     {showAdd && <div className="flex flex-wrap gap-2 rounded-xl border border-border bg-muted/30 p-3" role="group" aria-label={copy.add}>
-      {(['text', 'heading', 'rule', 'steps', 'hint', 'example', 'image'] as const).map(kind => <Button key={kind} type="button" size="sm" variant="outline" disabled={disabled || (kind === 'image' && !images.length)} onClick={() => add(kind)}>{copy[kind]}</Button>)}
+      {(['text', 'heading', 'rule', 'steps', 'table', 'hint', 'example', 'image'] as const).map(kind => <Button key={kind} type="button" size="sm" variant="outline" disabled={disabled || (kind === 'image' && !images.length)} onClick={() => add(kind)}>{copy[kind]}</Button>)}
       {illustrationEndpoint && <div className="flex flex-wrap items-center gap-2">
         <input aria-label={copy.upload} ref={fileInput} type="file" hidden accept=".png,.jpg,.jpeg,image/png,image/jpeg" onChange={event => {
           const file = event.target.files?.[0];
@@ -135,6 +141,7 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
     {blocks.map((block, index) => {
       const kind = lessonBlockKind(block.markdown);
       const disclosure = kind === 'hint' || kind === 'example' ? readLessonDisclosure(block.markdown) : undefined;
+      const table = kind === 'table' ? readLessonTable(block.markdown) : undefined;
       const illustration = sourceImageLine(block.markdown);
       const uploaded = illustration ? isUploadedLessonImage(illustration.url) : false;
       const kindLabel = uploaded ? copy.uploaded : copy[kind];
@@ -149,7 +156,7 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
         {deleting === index && <div role="group" aria-label={copy.confirm} className="flex flex-wrap items-center gap-2 border-b border-border bg-destructive/5 p-3"><span className="mr-auto text-sm">{copy.confirm}</span><Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => { setDeleting(null); root.current?.querySelector<HTMLButtonElement>(`[data-block-select="${index}"]`)?.focus(); }}>{copy.cancel}</Button><Button type="button" size="sm" disabled={disabled} onClick={() => remove(index)}>{copy.remove}</Button></div>}
         <div id={`${id}-${index}`}>
           {isSelected && <div className="space-y-2 border-b border-border p-3 sm:p-4">
-            {!disclosure && <label htmlFor={`${id}-content-${index}`} className="text-sm font-medium">{copy.body}</label>}
+            {!disclosure && !table && <label htmlFor={`${id}-content-${index}`} className="text-sm font-medium">{copy.body}</label>}
             <fieldset disabled={disabled} className="min-w-0 space-y-2">
               {kind === 'heading' ? <input id={`${id}-content-${index}`} aria-label={`${copy.body}: ${index + 1}`} value={block.markdown.replace(/\r?\n$/, '').replace(/^#{1,6} /, '')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xl font-semibold" onChange={event => emit(replaceLessonBlock(blocks, index, `${block.markdown.match(/^#{1,6}/)?.[0] ?? '##'} ${event.target.value}`))} />
                 : kind === 'rule' ? <textarea id={`${id}-content-${index}`} aria-label={`${copy.body}: ${index + 1}`} value={block.markdown.replace(/^> ?/gm, '').replace(/\r?\n$/, '')} rows={4} className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-base leading-7" onChange={event => emit(replaceLessonBlock(blocks, index, event.target.value.split('\n').map(line => `> ${line}`).join('\n')))} />
@@ -161,7 +168,10 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
                         emit(replaceLessonBlock(blocks, index, lines.join('')));
                       }} /></label>;
                     })}
-                  </div> : disclosure ? <>
+                  </div> : table ? <LessonTableEditor table={table} copy={copy} onChange={updated => {
+                    const newline = block.markdown.includes('\r\n') ? '\r\n' : '\n';
+                    emit(replaceLessonBlock(blocks, index, writeLessonTable(updated, newline)));
+                  }} /> : disclosure ? <>
                     <label className="block space-y-1 text-sm font-medium">{copy.disclosureTitle}
                       <input value={disclosure.title} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-base" onChange={event => {
                         emit(replaceLessonBlock(blocks, index, writeLessonDisclosure({ ...disclosure, title: event.target.value })));

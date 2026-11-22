@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useLanguageStore } from '@/store/languageStore';
 import { type CourseLanguage } from './courseLanguages';
 import { lessonDisclosureRanges, type LessonDisclosure } from './lessonDisclosure';
+import { lessonTableAt, startsLessonTable, tableCellText } from './lessonTable';
 import { TimedPracticeVideo } from './TimedPracticeVideo';
 import { youtubeFrameProps } from './useYoutubeTiming';
 import { practiceMatches, practicePath, type VideoClip, type VideoPractice } from './videoPractice';
@@ -58,24 +59,6 @@ function youtubeVideoLine(line: string): Extract<Block, { type: 'youtube' }> | n
 
 export const containsTimedVideo = (text: string) => text.split('\n').some(line => youtubeVideoLine(line) !== null);
 
-function splitTableRow(line: string): string[] | null {
-  const trimmed = line.trim();
-  if (!trimmed.includes('|')) return null;
-
-  const cells = trimmed
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
-
-  return cells.length > 1 ? cells : null;
-}
-
-function isTableDivider(line: string): boolean {
-  const cells = splitTableRow(line);
-  return Boolean(cells?.length && cells.every((cell) => /^:?-{3,}:?$/.test(cell)));
-}
-
 function startsBlock(lines: string[], index: number): boolean {
   const line = lines[index];
   return Boolean(
@@ -85,7 +68,7 @@ function startsBlock(lines: string[], index: number): boolean {
       || line.match(unorderedPattern)
       || line.match(orderedPattern)
       || /^\s*>/.test(line)
-      || (splitTableRow(line) && index + 1 < lines.length && isTableDivider(lines[index + 1])),
+      || startsLessonTable(lines, index),
   );
 }
 
@@ -116,20 +99,10 @@ function parseBlocks(text: string): Block[] {
       continue;
     }
 
-    const headerCells = splitTableRow(lines[index]);
-    if (headerCells && index + 1 < lines.length && isTableDivider(lines[index + 1])) {
-      const rows = [headerCells];
-      index += 2;
-
-      while (index < lines.length && lines[index].trim()) {
-        const row = splitTableRow(lines[index]);
-        if (!row) break;
-
-        rows.push(row);
-        index += 1;
-      }
-
-      blocks.push({ type: 'table', rows });
+    const table = lessonTableAt(lines, index);
+    if (table) {
+      blocks.push({ type: 'table', rows: table.rows });
+      index = table.end;
       continue;
     }
 
@@ -322,12 +295,13 @@ export function LessonContent({ text, className, omitFirstHeading, practiceScope
         }
 
         return (
-          <table key={key}>
+          <div key={key} role="region" aria-label={copy.table} tabIndex={0} className="min-w-0 overflow-x-auto focus-visible:outline focus-visible:outline-primary">
+          <table className="min-w-full">
             <thead>
               <tr>
                 {block.rows[0].map((cell, cellIndex) => (
                   <th key={`${key}-heading-${cellIndex}`} scope="col">
-                    {renderInline(cell, `${key}-heading-${cellIndex}`)}
+                    {renderInline(tableCellText(cell).trim(), `${key}-heading-${cellIndex}`)}
                   </th>
                 ))}
               </tr>
@@ -337,13 +311,14 @@ export function LessonContent({ text, className, omitFirstHeading, practiceScope
                 <tr key={`${key}-row-${rowIndex}`}>
                   {row.map((cell, cellIndex) => (
                     <td key={`${key}-${rowIndex}-${cellIndex}`}>
-                      {renderInline(cell, `${key}-${rowIndex}-${cellIndex}`)}
+                      {renderInline(tableCellText(cell).trim(), `${key}-${rowIndex}-${cellIndex}`)}
                     </td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         );
       })
     );
