@@ -649,6 +649,65 @@ describe('course lesson editor', () => {
     expect(screen.getByText('Текст урока')).toBeInTheDocument();
   });
 
+  it('keeps undo and redo through preview and saves only the chosen draft history state', async () => {
+    setupFetch();
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Введение' }));
+    const undo = () => screen.getByRole('button', { name: 'Отменить действие' });
+    const redo = () => screen.getByRole('button', { name: 'Повторить действие' });
+    const original = () => screen.getAllByRole('heading', { name: 'Старое содержание' });
+    await screen.findByRole('group', { name: 'История черновика' });
+    expect(undo()).toBeDisabled();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Дублировать блок: 1' }));
+    const copyTitle = screen.getByRole('textbox', { name: 'Содержание блока: 2' });
+    fireEvent.change(copyTitle, { target: { value: 'Коп' } });
+    fireEvent.change(copyTitle, { target: { value: 'Копия' } });
+    fireEvent.blur(copyTitle);
+    fireEvent.click(screen.getByRole('button', { name: 'Предпросмотр' }));
+    expect(screen.getByRole('heading', { name: 'Копия' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Редактор' }));
+
+    fireEvent.click(undo());
+    expect(original()).toHaveLength(2);
+    fireEvent.click(undo());
+    expect(original()).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'common.save' })).toBeDisabled();
+
+    fireEvent.click(redo());
+    fireEvent.click(redo());
+    expect(screen.getByRole('heading', { name: 'Копия' })).toBeVisible();
+    fireEvent.click(undo());
+    fireEvent.click(screen.getByRole('button', { name: '2. Заголовок' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Содержание блока: 2' }), { target: { value: 'Итог' } });
+    expect(redo()).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await screen.findByText('common.saved');
+    expect(undo()).toBeDisabled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/lessons/lesson-1'),
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ title: lesson.title, content: lesson.content.replace('# Старое содержание\n\n', '# Старое содержание\n\n# Итог\n\n') }),
+      }),
+    );
+  });
+
+  it('preserves undo after a failed save and clears it when another lesson opens', async () => {
+    setupFetch(500, structureWithTwoLessons);
+    confirmMock.mockResolvedValueOnce(true);
+    render(<CourseEditPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Введение' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Дублировать блок: 3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'common.save' }));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: 'Отменить действие' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Практика' }));
+    await screen.findByRole('heading', { name: 'Практика' });
+    expect(screen.getByRole('button', { name: 'Отменить действие' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Повторить действие' })).toBeDisabled();
+  });
+
   it('preserves later manual changes even if a correction callback arrives', async () => {
     correctionHarness.enabled = true; setupFetch(); render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' }); await openLessonEditor();

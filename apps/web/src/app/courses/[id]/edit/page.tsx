@@ -22,9 +22,11 @@ import {
   ListTree,
   LoaderCircle,
   Pencil,
+  Redo2,
   Rocket,
   Sparkles,
   Trash2,
+  Undo2,
   X,
 } from 'lucide-react';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
@@ -35,6 +37,7 @@ import { DecisionPracticeEditor } from '@/features/course-authoring/DecisionPrac
 import { VideoPracticeEditor } from '@/features/course-authoring/VideoPracticeEditor';
 import { MarkdownToolbar } from '@/features/course-authoring/MarkdownToolbar';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
+import { useLessonDraftHistory } from '@/features/course-authoring/useLessonDraftHistory';
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
 import { CourseLanguagesEditor } from '@/features/course-authoring/CourseLanguagesEditor';
@@ -85,6 +88,7 @@ export default function CourseEditPage() {
   const courseId = params?.id as string;
   const { t, lang } = useT();
   const copy = authorWorkspaceCopy(lang);
+  const blockCopy = visualLessonCopy(lang);
   const { confirm, dialog } = useConfirm();
   const token = useAuthStore((s) => s.accessToken);
   const actor = useAuthStore((s) => s.user);
@@ -132,7 +136,8 @@ export default function CourseEditPage() {
   const [addingLessonToModule, setAddingLessonToModule] = useState<string | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [editLessonTitle, setEditLessonTitle] = useState('');
-  const [editLessonContent, setEditLessonContent] = useState('');
+  const lessonDraft = useLessonDraftHistory('');
+  const { value: editLessonContent, reset: setEditLessonContent } = lessonDraft;
   const [savedLessonTitle, setSavedLessonTitle] = useState('');
   const [savedLessonContent, setSavedLessonContent] = useState('');
   const [lessonView, setLessonView] = useState<'edit' | 'preview'>('edit');
@@ -146,6 +151,7 @@ export default function CourseEditPage() {
   const [programGenerationJob, setProgramGenerationJob] = useState<string | null>(null);
   const [practiceDirty, setPracticeDirty] = useState(false);
   const [correctionBusy, setCorrectionBusy] = useState(false);
+  const draftBusy = savingLesson || correctionBusy || loadingLessonId !== null;
   const [languageRefresh, setLanguageRefresh] = useState(0);
   const correctionBusyRef = useRef(false);
   const correctionPanelRef = useRef<LessonCorrectionPanelHandle>(null);
@@ -287,7 +293,7 @@ export default function CourseEditPage() {
     initialLessonRef.current = null;
     void fetchData();
     return () => { scopeRef.current.generation += 1; metadataGenerationRef.current += 1; };
-  }, [fetchData, workspaceScope]);
+  }, [fetchData, workspaceScope, setEditLessonContent]);
 
   const handleAddModule = async () => {
     if (creationPending.current) return;
@@ -533,7 +539,7 @@ export default function CourseEditPage() {
     } finally {
       if (isScopeCurrent(captured)) setLoadingLessonId(null);
     }
-  }, [API_URL, t, workspaceScope, isScopeCurrent]);
+  }, [API_URL, t, workspaceScope, isScopeCurrent, setEditLessonContent]);
 
   useEffect(() => {
     const lessonId = new URLSearchParams(window.location.search).get('lessonId');
@@ -578,6 +584,7 @@ export default function CourseEditPage() {
       setEditLessonTitle(editLessonTitle.trim());
       setSavedLessonTitle(editLessonTitle.trim());
       setSavedLessonContent(editLessonContent);
+      lessonDraft.saved(editLessonContent);
       setLanguageRefresh(version => version + 1);
       // Do not present a pre-edit review status as approval of the new version.
       const metadataGeneration = ++metadataGenerationRef.current;
@@ -1007,17 +1014,27 @@ export default function CourseEditPage() {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-medium">{t('authenticatedUi.editor.lessonContent')}</span>
                         <div role="group" aria-label={t('authenticatedUi.editor.lessonContent')} className="flex flex-wrap gap-1 rounded-md border border-border p-1">
-                          {(['visual', 'markdown'] as const).map(mode => <Button key={mode} type="button" size="sm" variant={contentEditor === mode ? 'secondary' : 'ghost'} aria-pressed={contentEditor === mode} onClick={() => setContentEditor(mode)}>{visualLessonCopy(lang)[mode]}</Button>)}
+                          {(['visual', 'markdown'] as const).map(mode => <Button key={mode} type="button" size="sm" variant={contentEditor === mode ? 'secondary' : 'ghost'} aria-pressed={contentEditor === mode} onClick={() => setContentEditor(mode)}>{blockCopy[mode]}</Button>)}
                         </div>
                       </div>
-                      {contentEditor === 'visual' ? <VisualLessonEditor key={`${editingLessonId}:${session.generation}`} value={editLessonContent} onChange={setEditLessonContent} lang={lang} disabled={savingLesson || correctionBusy} illustrationEndpoint={`/v1/courses/${courseId}/lessons/${editingLessonId}/illustrations`} /> : <>
+                      <div role="group" aria-label={blockCopy.history} className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm" variant="outline" disabled={draftBusy || !lessonDraft.canUndo} onClick={lessonDraft.undo}>
+                          <Undo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />{blockCopy.undo}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline" disabled={draftBusy || !lessonDraft.canRedo} onClick={lessonDraft.redo}>
+                          <Redo2 className="mr-1.5 h-4 w-4" aria-hidden="true" />{blockCopy.redo}
+                        </Button>
+                      </div>
+                      {contentEditor === 'visual' ? <VisualLessonEditor key={`${editingLessonId}:${session.generation}`} value={editLessonContent} onChange={lessonDraft.edit} onEditEnd={lessonDraft.endEdit} lang={lang} disabled={draftBusy} illustrationEndpoint={`/v1/courses/${courseId}/lessons/${editingLessonId}/illustrations`} /> : <>
                       <label htmlFor="author-lesson-content" className="sr-only">{t('authenticatedUi.editor.lessonContent')}</label>
-                      <MarkdownToolbar value={editLessonContent} onChange={setEditLessonContent} textareaRef={lessonTextareaRef} lang={lang} />
+                      <MarkdownToolbar value={editLessonContent} onChange={lessonDraft.edit} textareaRef={lessonTextareaRef} lang={lang} />
                       <textarea
                         id="author-lesson-content"
                         ref={lessonTextareaRef}
                         value={editLessonContent}
-                        onChange={(event) => setEditLessonContent(event.target.value)}
+                        onChange={(event) => lessonDraft.edit(event.target.value, true)}
+                        onBlur={lessonDraft.endEdit}
+                        disabled={draftBusy}
                         name="lesson-content"
                         autoComplete="off"
                         className="min-h-[500px] w-full flex-1 resize-y rounded-md border border-input bg-background px-4 py-3 text-base leading-7 outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
