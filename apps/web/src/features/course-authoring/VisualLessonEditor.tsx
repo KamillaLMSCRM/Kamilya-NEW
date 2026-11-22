@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui';
 import axios from 'axios';
 import { isUploadedLessonImage, lessonImageMarkdown, sourceImageLine } from '@/components/AuthenticatedSourceImage';
@@ -14,8 +14,9 @@ import { readLessonDisclosure, writeLessonDisclosure } from './lessonDisclosure'
 import { readLessonTable, writeLessonTable } from './lessonTable';
 import { visualLessonCopy } from './visualLessonCopy';
 
-export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly = false, illustrationEndpoint }: {
-  value: string; onChange: (value: string) => void; lang?: string; disabled?: boolean; illustrationEndpoint?: string;
+export function VisualLessonEditor({ value, onChange, onEditEnd, lang, disabled: readOnly = false, illustrationEndpoint }: {
+  value: string; onChange: (value: string, typing?: boolean) => void; onEditEnd?: () => void;
+  lang?: string; disabled?: boolean; illustrationEndpoint?: string;
 }) {
   const copy = visualLessonCopy(lang);
   const id = useId();
@@ -49,9 +50,9 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
     focusIndex.current = null;
   }, [blocks]);
   const images = useMemo(() => [...new Set(imageLibrary)], [imageLibrary]);
-  function emit(next: LessonBlock[]) {
+  function emit(next: LessonBlock[], typing = false) {
     expected.current = joinLessonBlocks(next);
-    setBlocks(next); onChange(expected.current);
+    setBlocks(next); onChange(expected.current, typing);
   }
   function add(kind: LessonBlockKind) {
     if (disabled) return;
@@ -67,11 +68,12 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
     if (!markdown) return;
     insert(markdown);
   }
-  function insert(markdown: string) {
-    const index = selected === null ? blocks.length : selected + 1;
+  function insert(markdown: string, afterIndex = selected ?? blocks.length - 1, message = copy.added) {
+    if (readOnly) return;
+    const index = afterIndex + 1;
     const next = [...blocks]; next.splice(index, 0, { markdown, after: '' });
     emit(separateLessonBlocks(next)); setSelected(index); setDeleting(null); setShowAdd(false);
-    focusIndex.current = index; setAnnouncement(copy.added);
+    focusIndex.current = index; setAnnouncement(message);
   }
   async function upload(file?: File) {
     if (!file || !illustrationEndpoint || disabled || uploadRequest.current) return;
@@ -117,7 +119,7 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
     setSelected(next); focusIndex.current = next; setAnnouncement(copy.removed);
     if (next === null) addButton.current?.focus();
   }
-  return <div ref={root} className="min-w-0 space-y-3" aria-label={copy.blocks}>
+  return <div ref={root} className="min-w-0 space-y-3" aria-label={copy.blocks} onBlurCapture={onEditEnd}>
     <p className="sr-only" role="status" aria-live="polite">{announcement}</p>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="text-sm font-medium">{copy.blocks} · {blocks.length}</p>
@@ -151,6 +153,7 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
           <Button data-block-select={index} className="mr-auto h-auto min-h-9 whitespace-normal text-left" type="button" size="sm" variant="ghost" disabled={disabled} aria-expanded={isSelected} aria-controls={`${id}-${index}`} onClick={() => { setSelected(isSelected ? null : index); setDeleting(null); }}><Pencil className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />{index + 1}. {kindLabel}</Button>
           <Button type="button" size="sm" variant="ghost" disabled={disabled || index === 0} aria-label={`${copy.up}: ${index + 1}`} onClick={() => move(index, -1)}><ArrowUp className="h-4 w-4" aria-hidden="true" /></Button>
           <Button type="button" size="sm" variant="ghost" disabled={disabled || index === blocks.length - 1} aria-label={`${copy.down}: ${index + 1}`} onClick={() => move(index, 1)}><ArrowDown className="h-4 w-4" aria-hidden="true" /></Button>
+          <Button type="button" size="sm" variant="ghost" disabled={disabled} aria-label={`${copy.duplicate}: ${index + 1}`} title={copy.duplicate} onClick={() => insert(block.markdown, index, copy.duplicated)}><Copy className="h-4 w-4" aria-hidden="true" /></Button>
           <Button type="button" size="sm" variant="ghost" disabled={disabled} aria-label={`${copy.remove}: ${index + 1}`} aria-expanded={deleting === index} onClick={() => setDeleting(deleting === index ? null : index)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button>
         </div>
         {deleting === index && <div role="group" aria-label={copy.confirm} className="flex flex-wrap items-center gap-2 border-b border-border bg-destructive/5 p-3"><span className="mr-auto text-sm">{copy.confirm}</span><Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => { setDeleting(null); root.current?.querySelector<HTMLButtonElement>(`[data-block-select="${index}"]`)?.focus(); }}>{copy.cancel}</Button><Button type="button" size="sm" disabled={disabled} onClick={() => remove(index)}>{copy.remove}</Button></div>}
@@ -158,29 +161,29 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
           {isSelected && <div className="space-y-2 border-b border-border p-3 sm:p-4">
             {!disclosure && !table && <label htmlFor={`${id}-content-${index}`} className="text-sm font-medium">{copy.body}</label>}
             <fieldset disabled={disabled} className="min-w-0 space-y-2">
-              {kind === 'heading' ? <input id={`${id}-content-${index}`} aria-label={`${copy.body}: ${index + 1}`} value={block.markdown.replace(/\r?\n$/, '').replace(/^#{1,6} /, '')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xl font-semibold" onChange={event => emit(replaceLessonBlock(blocks, index, `${block.markdown.match(/^#{1,6}/)?.[0] ?? '##'} ${event.target.value}`))} />
-                : kind === 'rule' ? <textarea id={`${id}-content-${index}`} aria-label={`${copy.body}: ${index + 1}`} value={block.markdown.replace(/^> ?/gm, '').replace(/\r?\n$/, '')} rows={4} className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-base leading-7" onChange={event => emit(replaceLessonBlock(blocks, index, event.target.value.split('\n').map(line => `> ${line}`).join('\n')))} />
+              {kind === 'heading' ? <input id={`${id}-content-${index}`} aria-label={`${copy.body}: ${index + 1}`} value={block.markdown.replace(/\r?\n$/, '').replace(/^#{1,6} /, '')} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xl font-semibold" onChange={event => emit(replaceLessonBlock(blocks, index, `${block.markdown.match(/^#{1,6}/)?.[0] ?? '##'} ${event.target.value}`), true)} />
+                : kind === 'rule' ? <textarea id={`${id}-content-${index}`} aria-label={`${copy.body}: ${index + 1}`} value={block.markdown.replace(/^> ?/gm, '').replace(/\r?\n$/, '')} rows={4} className="w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-base leading-7" onChange={event => emit(replaceLessonBlock(blocks, index, event.target.value.split('\n').map(line => `> ${line}`).join('\n')), true)} />
                   : kind === 'steps' ? <div id={`${id}-content-${index}`} className="space-y-2">
                     {block.markdown.replace(/(?:\r?\n)+$/, '').split(/\r?\n/).map((line, step) => {
                       const match = line.match(/^(\d+[.)]\s+)(.*)$/)!;
                       return <label key={step} className="flex items-start gap-2"><span className="py-2 text-sm text-muted-foreground">{match[1]}</span><input aria-label={`${copy.steps}: ${step + 1}`} value={match[2]} className="min-w-0 flex-1 rounded-lg border border-input bg-background px-3 py-2 text-base" onChange={event => {
                         const lines = block.markdown.split(/(\r?\n)/); lines[step * 2] = match[1] + event.target.value;
-                        emit(replaceLessonBlock(blocks, index, lines.join('')));
+                        emit(replaceLessonBlock(blocks, index, lines.join('')), true);
                       }} /></label>;
                     })}
-                  </div> : table ? <LessonTableEditor table={table} copy={copy} onChange={updated => {
+                  </div> : table ? <LessonTableEditor table={table} copy={copy} onChange={(updated, typing) => {
                     const newline = block.markdown.includes('\r\n') ? '\r\n' : '\n';
-                    emit(replaceLessonBlock(blocks, index, writeLessonTable(updated, newline)));
+                    emit(replaceLessonBlock(blocks, index, writeLessonTable(updated, newline)), typing);
                   }} /> : disclosure ? <>
                     <label className="block space-y-1 text-sm font-medium">{copy.disclosureTitle}
                       <input value={disclosure.title} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-base" onChange={event => {
-                        emit(replaceLessonBlock(blocks, index, writeLessonDisclosure({ ...disclosure, title: event.target.value })));
+                        emit(replaceLessonBlock(blocks, index, writeLessonDisclosure({ ...disclosure, title: event.target.value })), true);
                       }} />
                     </label>
                     <label htmlFor={`${id}-content-${index}`} className="text-sm font-medium">{copy.body}</label>
                     <MarkdownToolbar value={disclosure.body} onChange={body => emit(replaceLessonBlock(blocks, index, writeLessonDisclosure({ ...disclosure, body })))} textareaRef={textarea} lang={lang} />
                     <textarea ref={textarea} id={`${id}-content-${index}`} value={disclosure.body} rows={5} className="w-full min-w-0 resize-y rounded-lg border border-input bg-background px-3 py-2 text-base leading-7" onChange={event => {
-                      emit(replaceLessonBlock(blocks, index, writeLessonDisclosure({ ...disclosure, body: event.target.value })));
+                      emit(replaceLessonBlock(blocks, index, writeLessonDisclosure({ ...disclosure, body: event.target.value })), true);
                     }} />
                   </> : illustration ? <div id={`${id}-content-${index}`} className="space-y-3">
                     <label className="block space-y-1 text-sm">{copy.selectImage}<select aria-label={copy.selectImage} value={illustration.url} className="block w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2" onChange={event => {
@@ -189,18 +192,18 @@ export function VisualLessonEditor({ value, onChange, lang, disabled: readOnly =
                     }}>{images.map((image, at) => { const parsed = sourceImageLine(image)!; return <option key={`${parsed.url}:${at}`} value={parsed.url}>{parsed.alt || `${copy.image} ${at + 1}`}</option>; })}</select></label>
                     {uploaded && <label className="block space-y-1 text-sm">{copy.alt}
                       <input maxLength={300} value={illustration.alt} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-base" onChange={event => {
-                        emit(replaceLessonBlock(blocks, index, lessonImageMarkdown(illustration.url, event.target.value, illustration.caption ?? '')));
+                        emit(replaceLessonBlock(blocks, index, lessonImageMarkdown(illustration.url, event.target.value, illustration.caption ?? '')), true);
                       }} />
                     </label>}
                     <label className="block space-y-1 text-sm">{copy.caption}
                       <input aria-label={copy.caption} maxLength={300} value={uploaded ? illustration.caption ?? '' : illustration.alt} className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-base" onChange={event => {
                         const value = event.target.value;
-                        emit(replaceLessonBlock(blocks, index, lessonImageMarkdown(illustration.url, uploaded ? illustration.alt : value, uploaded ? value : undefined)));
+                        emit(replaceLessonBlock(blocks, index, lessonImageMarkdown(illustration.url, uploaded ? illustration.alt : value, uploaded ? value : undefined)), true);
                       }} />
                     </label>
                   </div> : <>
                     <MarkdownToolbar value={block.markdown} onChange={markdown => emit(replaceLessonBlock(blocks, index, markdown))} textareaRef={textarea} lang={lang} />
-                    <textarea ref={textarea} id={`${id}-content-${index}`} value={block.markdown} aria-label={`${copy.body}: ${index + 1}`} onChange={event => emit(replaceLessonBlock(blocks, index, event.target.value))} rows={Math.min(16, Math.max(3, block.markdown.split('\n').length + 1))} className="w-full min-w-0 resize-y rounded-lg border border-input bg-background px-3 py-2 text-base leading-7 focus:outline-none focus:ring-2 focus:ring-primary" />
+                    <textarea ref={textarea} id={`${id}-content-${index}`} value={block.markdown} aria-label={`${copy.body}: ${index + 1}`} onChange={event => emit(replaceLessonBlock(blocks, index, event.target.value), true)} rows={Math.min(16, Math.max(3, block.markdown.split('\n').length + 1))} className="w-full min-w-0 resize-y rounded-lg border border-input bg-background px-3 py-2 text-base leading-7 focus:outline-none focus:ring-2 focus:ring-primary" />
                   </>}
             </fieldset>
             <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => { setSelected(null); root.current?.querySelector<HTMLButtonElement>(`[data-block-select="${index}"]`)?.focus(); }}>{copy.done}</Button>

@@ -118,6 +118,21 @@ describe('uploaded lesson illustrations', () => {
 });
 
 describe('visual lesson editor behavior', () => {
+  it('duplicates an illustration using the same protected asset and edits the copy independently', () => {
+    const previousUploads = vi.mocked(api.post).mock.calls.length;
+    const markdown = `![Original](${asset})`;
+    render(<Harness initial={markdown} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate block: 1' }));
+    expect(screen.getByRole('button', { name: '2. Source illustration' })).toHaveFocus();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Caption' }), { target: { value: 'Copy' } });
+    const blocks = splitLessonBlocks(screen.getByLabelText('Saved draft').textContent!);
+    expect(blocks.map(block => sourceImageLine(block.markdown))).toEqual([
+      { alt: 'Original', url: asset },
+      { alt: 'Copy', url: asset },
+    ]);
+    expect(api.post).toHaveBeenCalledTimes(previousUploads);
+  });
+
   it('creates a table and edits, adds and deletes rows and columns', () => {
     render(<Harness initial="Before" />);
     fireEvent.click(screen.getByRole('button', { name: 'Add block' }));

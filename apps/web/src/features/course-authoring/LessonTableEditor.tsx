@@ -8,7 +8,7 @@ const inputClass = 'min-w-0 w-full rounded-md border border-input bg-background 
 export function LessonTableEditor({ table, copy, onChange }: {
   table: LessonTable;
   copy: ReturnType<typeof visualLessonCopy>;
-  onChange: (table: LessonTable) => void;
+  onChange: (table: LessonTable, typing?: boolean) => void;
 }) {
   const columnCount = Math.max(table.dividers.length, ...table.rows.map(row => row.length));
   const columns = Array.from({ length: columnCount }, (_, index) => index);
@@ -18,7 +18,7 @@ export function LessonTableEditor({ table, copy, onChange }: {
   function updateCell(row: number, column: number, text: string) {
     const next = [...rows];
     next[row] = rows[row].map((cell, index) => index === column ? tableCellMarkdown(text) : cell);
-    onChange({ rows: next, dividers });
+    onChange({ rows: next, dividers }, true);
   }
 
   function removeColumn(column: number) {
