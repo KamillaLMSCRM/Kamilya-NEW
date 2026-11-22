@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { VisualLessonEditor } from '@/features/course-authoring/VisualLessonEditor';
 import { joinLessonBlocks, lessonBlockKind, replaceLessonBlock, separateLessonBlocks, splitLessonBlocks } from '@/features/course-authoring/lessonBlocks';
 import { readLessonDisclosure, writeLessonDisclosure } from '@/features/course-authoring/lessonDisclosure';
+import { readLessonTable, tableCellMarkdown, tableCellText } from '@/features/course-authoring/lessonTable';
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { sourceImageLine } from '@/components/AuthenticatedSourceImage';
 
@@ -12,6 +13,28 @@ vi.mock('@/lib/api', () => ({ api: { post: vi.fn(), get: vi.fn().mockRejectedVal
 
 const asset = '/v1/courses/00000000-0000-4000-8000-000000000001/lessons/00000000-0000-4000-8000-000000000002/source-assets/asset-' + 'a'.repeat(64);
 describe('lossless lesson authoring', () => {
+  it('keeps an adjacent legacy table separate without rewriting its CRLF bytes', () => {
+    const value = 'Before\r\nA | B\r\n:--- | ---:\r\nOne | Two\r\nAfter';
+    const blocks = splitLessonBlocks(value);
+    expect(blocks.map(block => lessonBlockKind(block.markdown))).toEqual(['text', 'table', 'text']);
+    expect(joinLessonBlocks(blocks)).toBe(value);
+    expect(readLessonTable(blocks[1].markdown)?.dividers).toEqual([':---', '---:']);
+  });
+
+  it('leaves table syntax in a code fence in the text block', () => {
+    const value = '```md\n| A | B |\n| --- | --- |\n| One | Two |\n```\n\nAfter';
+    const blocks = splitLessonBlocks(value);
+    expect(blocks.map(block => lessonBlockKind(block.markdown))).toEqual(['text', 'text']);
+    expect(joinLessonBlocks(blocks)).toBe(value);
+  });
+
+  it('round trips literal pipes and backslashes in a cell', () => {
+    const raw = 'A | B \\| C \\\\| D';
+    const cell = tableCellMarkdown(raw);
+    const table = readLessonTable(`| A |\n| --- |\n| ${cell} |`);
+    expect(table?.rows[1]).toEqual([cell]);
+    expect(tableCellText(cell)).toBe(raw);
+  });
   it.each(['', '\n\n', 'plain', '# Title\r\n\r\nBody\r\n\r\n',
     '| A | B |\n| --- | --- |\n| x | y |\n\n> Keep\n> this\n',
     '2) Second\r\n10. Tenth\r\n\r\n!\u005bCaption\u005d(' + asset + ')\r\n',
@@ -87,6 +110,36 @@ describe('uploaded lesson illustrations', () => {
 });
 
 describe('visual lesson editor behavior', () => {
+  it('creates a table and edits, adds and deletes rows and columns', () => {
+    render(<Harness initial="Before" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add block' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
+    const first = screen.getByRole('textbox', { name: 'Header 1' });
+    fireEvent.change(first, { target: { value: 'If ' } });
+    expect(first).toHaveValue('If ');
+    fireEvent.change(first, { target: { value: 'If needed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add column' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add row' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Cell 2, 3' }), { target: { value: 'A | B' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Delete row 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete column 2' }));
+    expect(screen.getByRole('textbox', { name: 'Cell 1, 2' })).toHaveValue('A | B');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete column 1' }));
+    expect(screen.getByRole('button', { name: 'Delete column 1' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete row 1' }));
+    expect(screen.getByLabelText('Saved draft').textContent).toBe('Before\n\n|  |\n| --- |');
+  });
+
+  it('opens a legacy table without writing and preserves neighbouring content after editing', () => {
+    const initial = 'Intro\r\nA | B\r\n:--- | ---:\r\nOne | **Two**\r\nOutro';
+    render(<Harness initial={initial} />);
+    fireEvent.click(screen.getByRole('button', { name: '2. Table' }));
+    expect(screen.getByLabelText('Saved draft').textContent).toBe(initial);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Cell 1, 1' }), { target: { value: 'Changed' } });
+    expect(screen.getByLabelText('Saved draft').textContent).toBe(
+      'Intro\r\n| A | B |\r\n| :--- | ---: |\r\n| Changed | **Two** |\r\nOutro',
+    );
+  });
   it.each(['Hint', 'Example'] as const)('adds and edits a %s with its own title and body', (label) => {
     render(<Harness />);
     fireEvent.click(screen.getByRole('button', { name: 'Add block' }));

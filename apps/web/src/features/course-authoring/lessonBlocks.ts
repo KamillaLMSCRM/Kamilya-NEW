@@ -1,8 +1,9 @@
 import { lessonDisclosureRanges, nextMarkdownFence, readLessonDisclosure, type LessonDisclosure, type MarkdownFence } from './lessonDisclosure';
+import { lessonTableAt, readLessonTable } from './lessonTable';
 
 /** Lossless authoring segments. Markdown remains the only persisted content. */
 export type LessonBlock = { markdown: string; after: string };
-export type LessonBlockKind = 'text' | 'heading' | 'image' | 'rule' | 'steps' | LessonDisclosure['kind'];
+export type LessonBlockKind = 'text' | 'heading' | 'image' | 'rule' | 'steps' | 'table' | LessonDisclosure['kind'];
 
 export function splitLessonBlocks(value: string): LessonBlock[] {
   if (!value) return [];
@@ -12,33 +13,40 @@ export function splitLessonBlocks(value: string): LessonBlock[] {
   let after = '';
   const disclosures = lessonDisclosureRanges(value);
   let disclosureIndex = 0;
-  let disclosureEnd = 0;
-  let disclosureBlock = false;
+  let structuredEnd = 0;
+  let structuredBlock = false;
   let offset = 0;
   let fence: MarkdownFence = null;
-  for (const line of lines) {
+  for (const [index, line] of lines.entries()) {
     const start = offset;
     offset += line.length;
-    if (start < disclosureEnd) continue;
+    if (start < structuredEnd) continue;
     const disclosure = disclosures[disclosureIndex];
-    if (disclosure?.start === start) {
+    const hasDisclosure = disclosure?.start === start;
+    if (!hasDisclosure) fence = nextMarkdownFence(line, fence);
+    const table = !hasDisclosure && !fence && line.includes('|') && lessonTableAt(lines, index);
+    if (hasDisclosure || table) {
       if (markdown || after) blocks.push({ markdown, after });
-      disclosureIndex += 1;
-      disclosureEnd = disclosure.end;
-      disclosureBlock = true;
-      markdown = value.slice(start, disclosureEnd);
+      if (hasDisclosure) {
+        disclosureIndex += 1;
+        structuredEnd = disclosure.end;
+        markdown = value.slice(start, structuredEnd);
+      } else if (table) {
+        markdown = lines.slice(index, table.end).join('');
+        structuredEnd = start + markdown.length;
+      }
+      structuredBlock = true;
       after = '';
       continue;
     }
-    fence = nextMarkdownFence(line, fence);
     if (!fence && !line.trim() && markdown) {
       after += line;
       continue;
     }
-    if (after || disclosureBlock) {
+    if (after || structuredBlock) {
       blocks.push({ markdown, after });
       markdown = ''; after = '';
-      disclosureBlock = false;
+      structuredBlock = false;
     }
     markdown += line;
   }
@@ -62,6 +70,7 @@ export function replaceLessonBlock(blocks: LessonBlock[], index: number, markdow
 export function lessonBlockKind(markdown: string): LessonBlockKind {
   const disclosure = readLessonDisclosure(markdown);
   if (disclosure) return disclosure.kind;
+  if (readLessonTable(markdown)) return 'table';
   const text = markdown.replace(/(?:\r?\n)+$/, '');
   if (/^#{1,6} [^\r\n]*$/.test(text)) return 'heading';
   if (/^!\[[^\r\n]*\]\([^\s()]+\)$/.test(text)) return 'image';
