@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,6 +15,10 @@ from app.modules.ai.v3.simple_semantic_source_plan import build_semantic_slices
 from app.modules.ai.v3.simple_source_origin import source_origin_blocks
 from app.modules.ai.v3.source_units import plan_source_units
 from app.modules.source_editorial_review.domain import validated_preparation
+
+_SLICE_FIELDS = (
+    "source_slices", "primary_slices", "supporting_slices", "missing_slices", "literal_neighbor_context",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,21 +270,25 @@ class LiteralSourceAccess:
             {
                 key: value
                 for key, value in payload.items()
-                if key not in {"source_blocks", "source_slices", "primary_slices", "supporting_slices", "documents"}
+                if key not in ("source_blocks", "documents", *_SLICE_FIELDS)
             },
             ensure_ascii=False,
         )
-        unique_keys = {r.key for r in self.rows if sum(other.key == r.key for other in self.rows) == 1}
-        mentions = [r.handle for r in self.rows if len(r.key) >= 3 and r.key in unique_keys and r.key in narrative]
-        exposed = list(dict.fromkeys([*requested, *mentions]))
+        key_counts = Counter(row.key for row in self.rows)
+        mentioned = [r.handle for r in self.rows if len(r.key) >= 3 and key_counts[r.key] == 1 and r.key in narrative]
+        exposed = list(dict.fromkeys(requested))
         if any(handle not in self.by_id for handle in exposed):
             raise ValueError("source_access_lookup_unowned")
-        used = sum(len(self.by_id[x].text) for x in exposed)
+        used = sum(len(self.by_id[handle].text) for handle in exposed)
         if ":plan:" not in group:
-            for handle in dict.fromkeys(candidates):
-                if handle not in exposed and (used + len(self.by_id[handle].text) <= self.budget or not exposed):
-                    exposed.append(handle)
-                    used += len(self.by_id[handle].text)
+            mentioned.extend(candidates)
+        for handle in dict.fromkeys(mentioned):
+            if handle in exposed:
+                continue
+            size = len(self.by_id[handle].text)
+            if used + size <= self.budget:
+                exposed.append(handle)
+                used += size
         # Keep all operative/prose/visual text; replace only proven supporting
         # table rows with addressable navigation and explicitly exposed literals.
         ranges: dict[str, list[tuple[int, int]]] = {}
@@ -295,7 +304,7 @@ class LiteralSourceAccess:
             block.pop("text", None)
             block["segments"] = segments
             ranges.setdefault(document_id, []).extend((s["start"], s["end"]) for s in segments)
-        for key in ("source_slices", "primary_slices", "supporting_slices"):
+        for key in _SLICE_FIELDS:
             if key in payload:
                 for part in payload[key]:
                     if part.get("id") not in self.slice_rows and "start" in part and "end" in part:

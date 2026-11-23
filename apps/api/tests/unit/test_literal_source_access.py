@@ -232,3 +232,42 @@ def test_separately_prepared_rows_keep_all_late_literals_and_layout_is_not_evide
     assert (
         "PRIVATE_LITERAL_029" in store.lookup([store.rows[-1].handle], source_fingerprint=packet.fingerprint)[0]["text"]
     )
+
+
+def test_plan_accounting_references_missing_and_neighbor_rows_without_literal_duplication():
+    corpus, packet = reference_case()
+    store = LiteralSourceAccess(packet, corpus, literal_budget=1500)
+    slices = build_semantic_slices(packet, corpus)
+    table = [part for part in slices if part["id"] in store.slice_rows]
+    narrative = next(part for part in slices if "Consultant chooses a module" in part["text"])
+    body = {
+        "source_fingerprint": packet.fingerprint,
+        "missing_slices": [*table[:-1], narrative],
+        "literal_neighbor_context": table[-1:],
+    }
+    messages = [{"role": "system", "content": "Account for the missing slices."},
+                {"role": "user", "content": json.dumps(body)}]
+    late = store.rows[-1]
+    projected, _ = store.project(messages, "practical:simple:plan-accounting:v11:" + packet.fingerprint, (late.handle,))
+    payload = json.loads(projected[1]["content"])
+    assert len(payload["reference_index"]) == len(store.rows)
+    assert payload["missing_slices"][-1] == narrative
+    assert all("text" not in row and row["literal_available_by_lookup"] for row in payload["missing_slices"][:-1])
+    assert payload["literal_neighbor_context"][0]["reference_row_id"] == late.handle
+    assert payload["reference_rows"][0]["text"] == late.text
+    assert projected[1]["content"].count("PRIVATE_LITERAL_029") == 1
+    assert "PRIVATE_LITERAL_000" not in projected[1]["content"]
+
+
+def test_narrative_mentions_respect_the_same_literal_budget_as_automatic_rows():
+    corpus, packet = reference_case()
+    store = LiteralSourceAccess(packet, corpus, literal_budget=1500)
+    messages, _ = semantic_plan_request(packet, corpus, {})
+    payload = json.loads(messages[1]["content"])
+    payload["intent_notes"] = " ".join(row.key for row in store.rows)
+    messages[1]["content"] = json.dumps(payload)
+    projected, _ = store.project(messages, "practical:simple:plan:v11:" + packet.fingerprint)
+    contents = json.loads(projected[1]["content"])
+    assert len(contents["reference_index"]) == len(store.rows)
+    assert len(contents["reference_rows"]) == 1
+    assert sum(len(row["text"]) for row in contents["reference_rows"]) <= store.budget
