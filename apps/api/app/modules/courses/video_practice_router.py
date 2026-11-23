@@ -18,6 +18,7 @@ from app.modules.courses.localization_router import _author_course
 from app.modules.courses.localizations import author_snapshot, learner_snapshot
 from app.modules.courses.video_practice import (
     KEY,
+    PROPOSAL_VERSION,
     PracticeDraft,
     UnsupportedPracticeProposalError,
     VideoClip,
@@ -161,7 +162,10 @@ async def generate_practice(
         raise HTTPException(422, detail="video_practice_timed_clip_required")
     previous = _record_for(course, lesson_id, clip)
     caption_input = sha256(payload.subtitles.encode()).hexdigest() if payload else None
-    if previous.get("pending") or (previous.get("proposal") and previous.get("caption_input") == caption_input):
+    if previous.get("pending") or (
+        previous.get("proposal") and previous.get("caption_input") == caption_input
+        and previous.get("proposal_version") == PROPOSAL_VERSION
+    ):
         return author_state(clip, previous)
     tenant_id = cast(UUID, author.tenant_id)
     if payload:
@@ -171,7 +175,9 @@ async def generate_practice(
             raise HTTPException(422, detail="captions_invalid") from invalid_subtitles
     if not payload and not settings.YOUTUBE_IMPORT_ENABLED:
         raise HTTPException(503, detail="provider_unavailable")
-    record = practice_record(clip, previous, pending=True, error=None, caption_input=caption_input)
+    record = practice_record(
+        clip, previous, pending=True, error=None, caption_input=caption_input, proposal_version=PROPOSAL_VERSION,
+    )
     update_record(course, lesson_id, record)
     await db.commit()
 

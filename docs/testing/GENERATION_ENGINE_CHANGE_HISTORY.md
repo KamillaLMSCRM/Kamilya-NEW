@@ -4085,3 +4085,39 @@ Use original cue times and exact source evidence. A separate Luna review
 checks the question, key and explanation in both languages before the methodologist
 gets the suggested draft. Existing pending unknown requests retain their claim.
 Local parser, provider-error, duplicate-request and reviewer cases are covered.
+
+## CHG-VIDEO-CAPTIONS-DEV — 2026-11-23
+
+DEV caption relay moved from the workstation to the VM126 sidecar and
+boot-enabled SSH forwarding service. Verified the container and tunnel after
+restart, then stopped the workstation helper. The old loopback listener was
+gone. The gateway still answered through the new loopback listener. Initial
+authenticated retrieval returned 1,689 Russian cues for `fzSDieqvIyk` and 1,028
+English cues for `XHeoQ0F6hYc`. Later the new server returned
+`503 provider_blocked` from YouTube on a fresh request, with the tunnel healthy.
+
+| DEV video and clip | Route / model | Observed outcome |
+| --- | --- | --- |
+| KARLSKRONA `fzSDieqvIyk`, 933–1429 s | Server captions, Luna reserve | Caption availability succeeded after the workstation bridge stopped. The model's review rejected the candidate as `proposal_not_grounded`. |
+| KARLSKRONA `fzSDieqvIyk`, 0–869 s | Browser automatic proposal, no request body | YouTube returned `provider_blocked` before the model could be called. This is a source-access failure. |
+| MIT OCW `XHeoQ0F6hYc`, 0–540 s | Server captions, Luna reserve | A draft was visible in the editor with a cue at 144 s. Both explanations supported the first option, but the stored zero-based key was 1. The reviewer missed the incorrect key. Preserve this response as a regression fixture when changing the question prompt or review. |
+
+Question proposals were tested in a separate draft. No published demo
+lesson, exercise, or course revision was updated. The server boot
+configuration was checked and the caption components were restarted
+individually. The shared VM was not rebooted.
+
+## CHG-VIDEO-ANSWER-KEY — 2026-11-23
+
+Exact VM126 trace on the previous route established that the watch and player
+requests for KARLSKRONA were HTTP 200; the timed caption response itself was
+HTTP 429, classified by youtube-transcript-api as `IpBlocked`. The same client
+on GX10-7 read both public videos from the same video IDs and language order.
+The relay stores successful responses in a bounded, persistent caption cache.
+
+The saved MIT result reproduced an incorrect zero-based key: code previously
+used the author's index after an independent true/false review. The reviewer
+now receives the question and choices without that index and returns the full
+text of the answer in each language. The stored key comes from the common
+choice position. Missing or conflicting answers reject the proposal. Existing
+approved practice and learner data remain outside the proposal revision.

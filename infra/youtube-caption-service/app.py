@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+import logging
 import os
 import re
 import secrets
+import sqlite3
 import time
 from collections import deque
+from contextlib import closing
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
@@ -22,9 +27,24 @@ from youtube_transcript_api import (
     YouTubeTranscriptApi,
 )
 
-SERVICE_TOKEN = os.environ.get("CAPTION_SERVICE_TOKEN", "")
-if len(SERVICE_TOKEN) < 32:
-    raise RuntimeError("CAPTION_SERVICE_TOKEN must contain at least 32 characters")
+
+def caption_service_digest() -> str:
+    token = os.environ.get("CAPTION_SERVICE_TOKEN", "")
+    digest = os.environ.get("CAPTION_SERVICE_TOKEN_SHA256", "")
+    if digest:
+        if token or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+            raise RuntimeError("Invalid or ambiguous caption bearer configuration")
+        return digest
+    if len(token) < 32:
+        raise RuntimeError("CAPTION_SERVICE_TOKEN must contain at least 32 characters")
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+SERVICE_TOKEN_SHA256 = caption_service_digest()
+CAPTION_CACHE_DB = os.environ.get("CAPTION_CACHE_DB")
+CAPTION_CACHE_TTL = 24 * 60 * 60
+CAPTION_CACHE_ENTRIES = 32
+_log = logging.getLogger(__name__)
 
 VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 SUPPORTED_LANGUAGES = {"ru", "kk", "en"}
@@ -37,6 +57,33 @@ _recent_requests: deque[float] = deque()
 _rate_lock = asyncio.Lock()
 
 
+def caption_cache(key: str, payload: dict | None = None) -> dict | None:
+    if CAPTION_CACHE_DB is None:
+        return None
+    now = int(time.time())
+    try:
+        with closing(sqlite3.connect(CAPTION_CACHE_DB, timeout=2)) as conn, conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS captions (key TEXT PRIMARY KEY, fetched INTEGER, payload TEXT)")
+            if payload is None:
+                entry = conn.execute(
+                    "SELECT payload FROM captions WHERE key = ? AND fetched > ?",
+                    (key, now - CAPTION_CACHE_TTL),
+                ).fetchone()
+                return json.loads(entry[0]) if entry else None
+            conn.execute("DELETE FROM captions WHERE fetched <= ?", (now - CAPTION_CACHE_TTL,))
+            conn.execute(
+                "INSERT OR REPLACE INTO captions (key, fetched, payload) VALUES (?, ?, ?)",
+                (key, now, json.dumps(payload, ensure_ascii=False)),
+            )
+            conn.execute(
+                "DELETE FROM captions WHERE key IN (SELECT key FROM captions ORDER BY fetched DESC, key LIMIT -1 OFFSET ?)",
+                (CAPTION_CACHE_ENTRIES,),
+            )
+    except (sqlite3.Error, ValueError):
+        _log.warning("Caption cache unavailable")
+    return None
+
+
 class TranscriptRequest(BaseModel):
     video_id: str = Field(min_length=11, max_length=11)
     languages: list[str] = Field(default_factory=lambda: ["ru"], min_length=1, max_length=3)
@@ -45,7 +92,8 @@ class TranscriptRequest(BaseModel):
 async def require_token(authorization: Annotated[str | None, Header()] = None) -> None:
     prefix = "Bearer "
     supplied = authorization[len(prefix):] if authorization and authorization.startswith(prefix) else ""
-    if not supplied or not secrets.compare_digest(supplied, SERVICE_TOKEN):
+    digest = hashlib.sha256(supplied.encode("utf-8")).hexdigest()
+    if not supplied or not secrets.compare_digest(digest, SERVICE_TOKEN_SHA256):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"code": "unauthorized"})
 
 
@@ -71,6 +119,11 @@ async def transcript(request: TranscriptRequest) -> dict:
     languages = list(dict.fromkeys(code.lower() for code in request.languages))
     if any(code not in SUPPORTED_LANGUAGES for code in languages):
         raise HTTPException(status_code=422, detail={"code": "language_unavailable"})
+
+    cache_key = json.dumps([request.video_id, languages])
+    cached = await asyncio.to_thread(caption_cache, cache_key)
+    if cached is not None:
+        return cached
 
     try:
         async with _provider_slots:
@@ -109,7 +162,7 @@ async def transcript(request: TranscriptRequest) -> dict:
     if len(segments) > 50_000 or sum(len(item["text"]) for item in segments) > 500_000:
         raise HTTPException(status_code=413, detail={"code": "transcript_too_large"})
 
-    return {
+    result = {
         "video_id": request.video_id,
         "title": f"Видео {request.video_id}",
         "channel": None,
@@ -118,3 +171,5 @@ async def transcript(request: TranscriptRequest) -> dict:
         "duration_seconds": segments[-1]["end"],
         "segments": segments,
     }
+    await asyncio.to_thread(caption_cache, cache_key, result)
+    return result
