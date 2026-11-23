@@ -6,6 +6,25 @@ video id and the allowlisted `ru`, `kk`, and `en` language codes. It never
 accepts arbitrary URLs, downloads media, uses cookies, or bypasses private or
 restricted content.
 
+## Shared HTTPS relay
+
+The established HTTPS path forwards to the relay on VM126. The relay reaches the
+public YouTube caption service through the existing destination-restricted VPS
+connection. It uses no browser cookies or workstation process.
+
+The existing bearer remains valid for DEV. An independently generated production
+bearer is represented in the relay by `CAPTION_SERVICE_ADDITIONAL_TOKEN_SHA256`.
+Keep its plaintext only in the production API runtime secret configuration. A
+failed credential request returns 401. Verify the exact video identity, language,
+and caption ranges before accepting any response. The SQLite cache holds public
+caption tracks, and the shared process keeps its documented size and rate bounds.
+
+Stage the candidate against the existing transport, verify both credentials and
+a rejection without credentials, and retain a tested rollback for the relay and
+the application environment before switching production.
+
+## Historical development deployment
+
 Runtime controls:
 
 - HTTPS is terminated by the existing Caddy service;

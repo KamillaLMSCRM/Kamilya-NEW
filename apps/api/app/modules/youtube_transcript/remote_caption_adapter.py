@@ -75,6 +75,8 @@ class RemoteCaptionProvider:
 
         try:
             payload = cast(dict[str, Any], response.json())
+            if payload["video_id"] != video_ref.video_id:
+                raise ValueError("Caption relay returned a different video")
             segments = [
                 TranscriptSegment(
                     start_seconds=float(item["start"]),

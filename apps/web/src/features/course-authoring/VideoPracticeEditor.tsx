@@ -50,12 +50,14 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
   const [failed, setFailed] = useState(false);
   const [subtitleFile, setSubtitleFile] = useState<File | null>(null);
   const [subtitleError, setSubtitleError] = useState(false);
+  const [captionCheck, setCaptionCheck] = useState<{ available: boolean; error: string | null }>();
   const copy = videoPracticeCopy(lang);
   const path = practicePath(courseId, lessonId) + '/editor';
 
   const receive = (result: PracticeState) => {
     const next = result.approved ?? result.proposal?.draft ?? null;
     setState(result);
+    setCaptionCheck(undefined);
     setDraft(next);
     setMoment(next ? captionTime(next.at) : '');
   };
@@ -97,15 +99,24 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
   const locked = disabled || busy || !!state?.pending;
   const at = parseCaptionTime(moment);
   const validTime = clip && at !== null && clip.start < at && at < clip.end;
-  const message = {
+  const captionErrors: Record<string, string> = {
     captions_unavailable: copy.unavailable, no_caption_evidence: copy.noSource,
-    provider_blocked: copy.blocked, provider_timeout: copy.timeout, provider_unavailable: copy.unavailable,
-    transcript_unavailable: copy.unavailable, language_unavailable: copy.unavailable,
-    video_unavailable: copy.unavailable, video_too_long: copy.unavailable,
-    transcript_too_large: copy.unavailable, transcript_too_short: copy.noSource,
+    provider_blocked: copy.blocked, provider_timeout: copy.timeout, provider_unavailable: copy.providerUnavailable,
+    transcript_unavailable: copy.unavailable, language_unavailable: copy.languageUnavailable,
+    video_unavailable: copy.videoUnavailable, video_too_long: copy.transcriptLimit,
+    transcript_too_large: copy.transcriptLimit, transcript_too_short: copy.noSource,
     proposal_not_grounded: copy.invalid,
     invalid_proposal: copy.invalid, outcome_unknown: copy.unknown,
-  }[state?.error ?? ''];
+  };
+  const practiceMessage = state?.error ? captionErrors[state.error] : undefined;
+  const message = captionCheck
+    ? captionCheck.available ? copy.captionsAvailable : captionErrors[captionCheck.error ?? ''] ?? copy.unavailable
+    : practiceMessage;
+  const checkCaptions = () => void perform(async () => {
+    const { data } = await api.get<{ available: boolean; error: string | null }>(path + '/captions');
+    setCaptionCheck(data);
+    return undefined;
+  });
   const save = (value: VideoPractice | null) => void perform(() => api.put(path, {
     revision: state?.revision, clip, practice: value,
   }));
@@ -134,12 +145,15 @@ export function VideoPracticeEditor({ courseId, lessonId, lang, disabled }: {
     {state?.approved && <p className="text-sm text-success">{copy.approved}</p>}
     {(failed || state?.pending || message) && <div role="status" className="space-y-2 text-sm">
       <p>{failed ? copy.error : message || copy.pending}</p>
+      {(captionCheck ? !captionCheck.available : state?.error && !state.pending && message) &&
+        <p className="text-muted-foreground">{copy.captionFallback}</p>}
       {(failed || state?.pending) && <Button size="sm" type="button" variant="outline"
         onClick={() => void load()} disabled={busy}>{copy.refresh}</Button>}
     </div>}
     {clip && unedited && !state?.pending && <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         {!draft && <Button type="button" disabled={locked} onClick={add}>{copy.add}</Button>}
+        <Button type="button" variant="outline" disabled={locked} onClick={checkCaptions}>{copy.checkCaptions}</Button>
         <Button type="button" variant="outline" disabled={locked}
           onClick={() => void perform(() => api.post(path + '/propose'))}>{copy.prepare}</Button>
         {draft && state?.proposal && <Button type="button" variant="outline" disabled={locked}

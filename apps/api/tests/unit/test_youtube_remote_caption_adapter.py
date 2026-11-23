@@ -27,6 +27,7 @@ def _response(status: int, payload: dict) -> httpx.Response:
 @pytest.mark.asyncio
 async def test_remote_provider_normalizes_relay_payload(monkeypatch):
     payload = {
+        "video_id": "dQw4w9WgXcQ",
         "language": "ru",
         "is_auto_generated": True,
         "duration_seconds": 9.5,
@@ -47,6 +48,23 @@ async def test_remote_provider_normalizes_relay_payload(monkeypatch):
     assert result.language == "ru"
     assert result.is_auto_generated is True
     assert len(result.segments) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("identity", ["XHeoQ0F6hYc", None])
+async def test_remote_provider_rejects_unbound_video_identity(monkeypatch, identity):
+    payload = {
+        "language": "ru",
+        "is_auto_generated": True,
+        "duration_seconds": 9.5,
+        "segments": [{"start": 0.0, "end": 9.5, "text": "Subtitles."}],
+    }
+    if identity is not None:
+        payload["video_id"] = identity
+    monkeypatch.setattr(httpx.AsyncClient, "post", AsyncMock(return_value=_response(200, payload)))
+    provider = RemoteCaptionProvider(base_url="https://caption.example", token="secret")
+    with pytest.raises(TranscriptProviderError):
+        await provider.get_transcript(_ref(), ["ru"])
 
 
 @pytest.mark.asyncio

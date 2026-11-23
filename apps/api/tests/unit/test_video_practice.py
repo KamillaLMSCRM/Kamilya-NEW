@@ -172,19 +172,46 @@ async def test_youtube_block_offers_attach_path_without_automatic_retry():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("supported", [True, False])
-async def test_exact_quote_alone_is_insufficient_for_bilingual_model_review(supported):
+@pytest.mark.parametrize("review, expected_index", [
+    ({"supported": True, "ru_answer": "Частоту", "kk_answer": "Жиілікті"}, 1),
+    ({"supported": True, "ru_answer": "Частоту", "kk_answer": "Қысымды"}, None),
+    ({"supported": True, "ru_answer": "Не предложенный ответ", "kk_answer": "Жиілікті"}, None),
+    ({"supported": True}, None),
+    ({"supported": False}, None),
+])
+async def test_exact_quote_alone_is_insufficient_for_bilingual_model_review(review, expected_index):
     client = SimpleNamespace(ainvoke=AsyncMock(side_effect=[
         SimpleNamespace(content=_wire()),
-        SimpleNamespace(content=json.dumps({"supported": supported})),
+        SimpleNamespace(content=json.dumps(review)),
     ]))
     with patch("app.modules.ai.llm_client.ResilientLLMClient.from_settings_async",
                return_value=SimpleNamespace(for_provider=lambda name: client)):
-        if supported:
-            assert (await propose_practice(uuid4(), [(130, EVIDENCE)], "rev")).evidence == EVIDENCE
+        if expected_index is not None:
+            result = await propose_practice(uuid4(), [(130, EVIDENCE)], "rev")
+            assert result.evidence == EVIDENCE and result.draft.correct_index == expected_index
         else:
             with pytest.raises(UnsupportedPracticeProposalError):
                 await propose_practice(uuid4(), [(130, EVIDENCE)], "rev")
     critic = json.loads(client.ainvoke.call_args.args[0][1]["content"])
-    assert critic["captions"] == EVIDENCE and critic["draft"]["correct_index"] == 1
+    assert critic["captions"] == EVIDENCE and "correct_index" not in critic["draft"]
     assert client.ainvoke.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_mit_reynolds_replay_uses_the_reviewed_answer_instead_of_the_authors_wrong_key():
+    evidence = "when you increase the velocity, the dye wavers and then breaks into turbulence."
+    ru = ["Краситель колеблется, и поток становится турбулентным.", "Краситель движется ровнее.", "Скорость не влияет."]
+    kk = ["Бояғыш тербеліп, ағыс турбулентті болады.", "Бояғыш бірқалыпты ағады.", "Жылдамдық әсер етпейді."]
+    author = {"selection": {"window": 0, "evidence": evidence, "correct_index": 1,
+                            "ru": {"question": "Что происходит при росте скорости?", "choices": ru, "explanation": ru[0]},
+                            "kk": {"question": "Жылдамдық артқанда не болады?", "choices": kk, "explanation": kk[0]}}}
+    reviewer = {"supported": True, "ru_answer": ru[0], "kk_answer": kk[0]}
+    client = SimpleNamespace(ainvoke=AsyncMock(side_effect=[
+        SimpleNamespace(content=json.dumps(author)), SimpleNamespace(content=json.dumps(reviewer)),
+    ]))
+    with patch("app.modules.ai.llm_client.ResilientLLMClient.from_settings_async",
+               return_value=SimpleNamespace(for_provider=lambda name: client)):
+        proposal = await propose_practice(uuid4(), [(144, evidence)], "mit-revision")
+    assert proposal.draft.correct_index == 0
+    assert proposal.draft.ru.choices[proposal.draft.correct_index] == ru[0]
+    assert proposal.draft.kk.choices[proposal.draft.correct_index] == kk[0]
