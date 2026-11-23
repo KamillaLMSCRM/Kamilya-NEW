@@ -17,7 +17,7 @@ from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
-from app.modules.courses.localizations import catalog_editions, catalog_translation_matches
+from app.modules.courses.localizations import Language, catalog_editions, catalog_translation_matches
 from app.modules.courses.publication_service import (
     activate_course_assignments,
     refresh_course_assignments,
@@ -128,7 +128,7 @@ async def list_courses(
     localized: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> list[Course | CourseResponse]:
     query = select(Course).where(Course.tenant_id == user.tenant_id)
     if user.role == "student":
         query = query.join(
@@ -152,6 +152,8 @@ async def list_courses(
         query = query.where((Course.title.ilike(search)) | (Course.description.ilike(search)))
     query = query.order_by(Course.created_at.desc(), Course.id.desc())
     skip = (page - 1) * per_page
+    courses: list[Course]
+    translations: dict[UUID, dict[Language, dict[str, str | None]]]
     if q and author_catalog:
         escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         pattern = f"%{escaped}%"
@@ -187,12 +189,12 @@ async def list_courses(
         translations = await catalog_editions(db, courses, cast(UUID, user.tenant_id)) if author_catalog else {}
     await _hydrate_course_authors(db, courses, user.tenant_id)
     # Hydrate reviewer info on each course
-    out = []
+    out: list[Course | CourseResponse] = []
     for c in courses:
-        c.reviewer = await _hydrate_reviewer(db, c)
+        cast(Any, c).reviewer = await _hydrate_reviewer(db, c)
         if author_catalog:
             response = CourseResponse.model_validate(c)
-            response.catalog_editions = translations.get(c.id)
+            response.catalog_editions = translations.get(cast(UUID, c.id))
             out.append(response)
         else:
             out.append(c)
