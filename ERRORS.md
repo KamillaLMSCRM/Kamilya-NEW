@@ -11596,3 +11596,12 @@ its exact verified path was moved into private evidence before executing it.
 - Fix: pass the validated locale to the quiz API and preserve it in the return link.
 - Verification: cover the lesson-to-quiz transition, translated quiz text and return route in Playwright.
 - Prevention: test the whole bilingual preview journey through the lesson, linked quiz and return action.
+
+## ASSIGNMENTS-UI-001 - Searching for an employee with an existing assignment looked empty
+
+- Date: 2026-11-23.
+- Symptom: the KARLSKRONA methodologist searched for a learner in a fully assigned course and saw an empty list.
+- Cause: the new-assignment picker excluded existing enrollments. The current assignments view hid search for ten or fewer records.
+- Fix: display matching existing assignments with a link to the filtered management view. Keep search available when a course has any assignments.
+- Verification: cover the existing learner match, the transition to the filtered assignment and search with a short list.
+- Prevention: include a fully assigned, small roster in acceptance for employee search.

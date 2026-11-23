@@ -55,18 +55,24 @@ const audienceLabels = {
     allGroups: 'Все группы', noGroups: 'Групп пока нет', allPositions: 'Все должности',
     groupUnavailable: 'Не удалось загрузить состав группы.', selectCourse: 'Сначала выберите курс вверху.',
     noMatches: 'По выбранным фильтрам нет сотрудников, которым можно назначить курс.',
+    alreadyAssigned: 'По этому курсу уже есть назначение',
+    openAssignments: 'Открыть текущие назначения',
   },
   en: {
     groups: 'Learning groups', group: 'Learning group', position: 'Position',
     allGroups: 'All groups', noGroups: 'No groups yet', allPositions: 'All positions',
     groupUnavailable: 'Could not load group members.', selectCourse: 'Choose a course above first.',
     noMatches: 'No eligible employees match these filters.',
+    alreadyAssigned: 'Already assigned to this course',
+    openAssignments: 'Open current assignments',
   },
   kk: {
     groups: 'Оқу топтары', group: 'Оқу тобы', position: 'Лауазым',
     allGroups: 'Барлық топтар', noGroups: 'Топтар әлі жоқ', allPositions: 'Барлық лауазымдар',
     groupUnavailable: 'Топ мүшелерін жүктеу мүмкін болмады.', selectCourse: 'Алдымен жоғарыдан курсты таңдаңыз.',
     noMatches: 'Таңдалған сүзгілер бойынша курс тағайындауға болатын қызметкерлер жоқ.',
+    alreadyAssigned: 'Бұл курс бұрын тағайындалған',
+    openAssignments: 'Ағымдағы тағайындауларды ашу',
   },
 } as const;
 
@@ -755,20 +761,19 @@ function AssignmentsContent() {
     return m;
   }, [users]);
 
-  // Назначения обучения фильтруются по статусу и данным сотрудника.
-  const filteredEnrollments = useMemo(() => {
-    return enrollments
-      .filter((e) => !enrollmentFocus || e.id === enrollmentFocus)
-      .filter((e) => statusFilter === 'all' || e.status === statusFilter)
-      .filter((e) => {
-        const u = usersById.get(e.user_id);
-        // Если user не найден (уволен / удалён) — оставляем запись видимой,
-        // но поиск не работает (нечего искать).
-        if (!userSearch) return true;
-        if (!u) return false;
-        return matchesUserQuery(u, userSearch);
-      });
-  }, [enrollments, enrollmentFocus, statusFilter, userSearch, usersById]);
+  const normalizedUserSearch = userSearch.trim();
+  const searchedEnrollments = useMemo(() => {
+    if (!normalizedUserSearch) return enrollments;
+    return enrollments.filter((enrollment) => {
+      const employee = usersById.get(enrollment.user_id);
+      return employee && matchesUserQuery(employee, normalizedUserSearch);
+    });
+  }, [enrollments, normalizedUserSearch, usersById]);
+  const filteredEnrollments = searchedEnrollments.filter((enrollment) =>
+    (!enrollmentFocus || enrollment.id === enrollmentFocus) &&
+    (statusFilter === 'all' || enrollment.status === statusFilter));
+  const alreadyAssignedMatches = selectedCourse && enrollmentReadState === 'ready' && normalizedUserSearch
+    ? searchedEnrollments : [];
 
   // Сотрудники для правой колонки — фильтруем по userSearch.
   // Исключаем тех, кто уже записан на выбранный курс (чтобы не было дублей).
@@ -1383,12 +1388,10 @@ function AssignmentsContent() {
                       : (lang === 'kk' ? 'Толық кесте' : lang === 'en' ? 'Full table' : 'Полная таблица')}
                   </Button>
                 )}
-                {/* Search inside the enrolled table — when the
-                   course has 50+ enrollees. */}
-                {enrollments.length > 10 && (
+                {enrollments.length > 0 && (
                   <SearchInput
                     value={userSearch}
-                    onChange={setUserSearch}
+                    onChange={(value) => { setUserSearch(value); setEnrollmentFocus(null); }}
                     placeholder={t('courseAssignments.ui.searchEmployee')}
                   />
                 )}
@@ -1471,6 +1474,22 @@ function AssignmentsContent() {
               onChange={setUserSearch}
               placeholder={t('courseAssignments.ui.searchLearner')}
             />
+            {alreadyAssignedMatches.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">{audienceLabel.alreadyAssigned}</p>
+                <ul className="space-y-1">
+                  {alreadyAssignedMatches.slice(0, 3).map((enrollment) => {
+                    const employee = usersById.get(enrollment.user_id);
+                    return employee && <li key={enrollment.id}>{employee.first_name} {employee.last_name}</li>;
+                  })}
+                </ul>
+                <Button type="button" variant="outline" size="sm" onClick={() => {
+                  setEnrollmentFocus(null);
+                  setStatusFilter('all');
+                  setAssignmentMode('manage');
+                }}>{audienceLabel.openAssignments} ({alreadyAssignedMatches.length})</Button>
+              </div>
+            )}
             <div className="grid min-w-0 gap-3 sm:grid-cols-2">
               <label className="grid min-w-0 gap-1.5 text-sm">
                 {audienceLabel.position}

@@ -125,6 +125,28 @@ describe('contextual course assignment flow', () => {
     expect(screen.queryByText('Курсов пока нет')).not.toBeInTheDocument();
   });
 
+  it('finds an already assigned employee from the new-assignment search with a short roster', async () => {
+    queryState.value = 'course_id=course-1';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).endsWith('/v1/courses/course-1/enrollments')) {
+        return Promise.resolve(jsonResponse([{ id: 'existing-1', user_id: 'user-1', course_id: 'course-1', source: 'manual', status: 'enrolled' }]));
+      }
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    const search = await screen.findByPlaceholderText('Найти обучающегося по имени, email или табельному…');
+    fireEvent.change(search, { target: { value: 'али' } });
+    await screen.findByText('По этому курсу уже есть назначение');
+    expect(screen.getByText('Алия Садыкова')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Открыть текущие назначения (1)' }));
+    await screen.findByRole('heading', { name: 'Назначения обучения' });
+    const currentSearch = screen.getByDisplayValue('али');
+    expect(currentSearch).toBeVisible();
+    expect(screen.getByRole('button', { name: /Алия Садыкова/ })).toBeVisible();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
   it('preselects the course and employee from contextual query parameters', async () => {
     render(<CourseAssignmentsPage />);
 
