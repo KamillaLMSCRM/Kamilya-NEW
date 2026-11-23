@@ -11587,3 +11587,12 @@ its exact verified path was moved into private evidence before executing it.
 - Fix: scope the journal, summary and CSV to the employee UUID within the existing reporting scope. Hide the global queue in this view.
 - Verification: local Playwright verified the exact scope on desktop and mobile, including the rows, summary and CSV request.
 - Prevention: open the journal with two different employee fixtures and verify the visible rows and export agree with the requested identity.
+
+## COURSE-PREVIEW-002 - The quiz preview dropped the selected course language
+
+- Date: 2026-11-23.
+- Symptom: the methodologist selected Russian in a bilingual lesson, but its quiz opened in the primary language.
+- Cause: the preview URL carried the locale, while the quiz fetch and return link discarded it.
+- Fix: pass the validated locale to the quiz API and preserve it in the return link.
+- Verification: cover the lesson-to-quiz transition, translated quiz text and return route in Playwright.
+- Prevention: test the whole bilingual preview journey through the lesson, linked quiz and return action.

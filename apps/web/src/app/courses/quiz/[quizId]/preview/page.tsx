@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Badge, Button, Card, CardContent } from '@/components/ui';
 import { toast } from '@/components/ui/Toast';
+import { isCourseLanguage } from '@/features/course-authoring/courseLanguages';
 import { MATCHING_PAIRS, MatchingAnswer, type MatchingChoice, hasQuizAnswer } from '@/features/quiz/MatchingPairs';
 import { OrderingAnswer, orderingCopy } from '@/features/quiz/OrderingAnswer';
 import { attemptChoiceOrder } from '@/lib/attemptChoiceOrder';
@@ -77,6 +78,8 @@ export default function QuizMethodologistPreviewPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const courseId = searchParams.get('courseId');
   const lessonId = searchParams.get('lessonId');
+  const requestedLanguage = searchParams.get('language');
+  const courseLanguage = isCourseLanguage(requestedLanguage) ? requestedLanguage : undefined;
   const canPreview = user?.role === 'methodologist' || user?.role === 'superadmin';
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -85,15 +88,20 @@ export default function QuizMethodologistPreviewPage() {
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [result, setResult] = useState<PreviewResult | null>(null);
 
+  const courseParams = new URLSearchParams();
+  if (lessonId) courseParams.set('lessonId', lessonId);
+  if (courseLanguage) courseParams.set('language', courseLanguage);
+  const courseQuery = courseParams.toString();
   const courseHref = courseId
-    ? `/courses/${courseId}${lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : ''}`
+    ? `/courses/${courseId}${courseQuery ? `?${courseQuery}` : ''}`
     : getRoleHome(user?.role);
 
   const fetchQuiz = useCallback(async () => {
     if (!quizId || !token || !canPreview) return;
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/v1/quizzes/${quizId}`, {
+      const languageQuery = courseLanguage ? `?language=${courseLanguage}` : '';
+      const response = await fetch(`${API_URL}/v1/quizzes/${quizId}${languageQuery}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) {
@@ -108,7 +116,7 @@ export default function QuizMethodologistPreviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, canPreview, quizId, t, token]);
+  }, [API_URL, canPreview, courseLanguage, quizId, t, token]);
 
   useEffect(() => {
     if (!initialized) return;
