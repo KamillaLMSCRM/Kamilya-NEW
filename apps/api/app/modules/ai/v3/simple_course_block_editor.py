@@ -44,9 +44,13 @@ def body_blocks(course: Any) -> list[dict[str, Any]]:
 
 
 def block_editor_format(ids: list[str], source_fp: str, draft_fp: str, block_ids: list[str],
-                        finding_ids: list[str] | None = None) -> dict[str, Any]:
+                        finding_ids: list[str] | None = None, *, minimum_questions: int = 1) -> dict[str, Any]:
+    if type(minimum_questions) is not int or minimum_questions not in (1, 3):
+        raise ValueError('simple_block_minimum_questions_invalid')
     base = _editor_format(ids, source_fp, draft_fp)['json_schema']['schema']['properties']
     lesson = base['course']['properties']['lessons']['items']
+    if minimum_questions == 3:
+        lesson['properties']['questions']['minItems'] = 3
     question = lesson['properties']['questions']['items']
     properties = {
         'source_fingerprint': base['source_fingerprint'], 'draft_fingerprint': base['draft_fingerprint'],
@@ -58,7 +62,9 @@ def block_editor_format(ids: list[str], source_fp: str, draft_fp: str, block_ids
     if finding_ids is not None:
         from app.modules.ai.v3.simple_editor_findings import finding_disposition_schema
         properties['finding_dispositions'] = finding_disposition_schema(finding_ids, ids)
-    return _format('simple_course_block_editor_v1' if finding_ids is None else 'simple_course_block_editor_v2',
+    name = ('simple_course_block_editor_v3' if minimum_questions == 3 else
+            'simple_course_block_editor_v1' if finding_ids is None else 'simple_course_block_editor_v2')
+    return _format(name,
                    _object(properties))
 
 
@@ -76,9 +82,24 @@ def is_simple_block_editor_format(fmt: Any) -> bool:
                 and _fingerprint_valid(source_fp) and _fingerprint_valid(draft_fp)
                 and (finding_ids is None or type(finding_ids) is list and len(set(finding_ids)) == len(finding_ids)
                      and all(type(item) is str and item.strip() for item in finding_ids))
-                and fmt == block_editor_format(ids, source_fp, draft_fp, block_ids, finding_ids))
+                and fmt == block_editor_format(ids, source_fp, draft_fp, block_ids, finding_ids,
+                    minimum_questions=3 if fmt['json_schema']['name'] == 'simple_course_block_editor_v3' else 1))
     except (KeyError, IndexError, TypeError, ValueError):
         return False
+
+
+def complete_added_lesson_format(fmt: dict[str, Any]) -> dict[str, Any]:
+    """Emit the existing application minimum, preserving historical V1/V2 formats."""
+    if not is_simple_block_editor_format(fmt):
+        raise ValueError('simple_block_response_format_invalid')
+    props = fmt['json_schema']['schema']['properties']
+    return block_editor_format(
+        props['source_questions']['items']['properties']['source_refs']['items']['enum'],
+        props['source_fingerprint']['enum'][0], props['draft_fingerprint']['enum'][0],
+        props['body_edits']['items']['properties']['block_id']['enum'],
+        props['finding_dispositions']['items']['properties']['finding_id'].get('enum', [])
+        if 'finding_dispositions' in props else None,
+        minimum_questions=3)
 
 
 def matches_simple_block_editor_shape(value: Any, fmt: Any) -> bool:

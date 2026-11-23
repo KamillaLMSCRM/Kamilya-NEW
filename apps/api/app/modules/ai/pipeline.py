@@ -643,6 +643,13 @@ async def _run_v3_generation(
                     ordinary_stored=stored_analysis.get(EDITORIAL_ORDINARY_KEY),
                     ordinary_dispatched=state.source_analysis.get(EDITORIAL_ORDINARY_KEY))):
             raise ExtractionOutcomeUnknownError('v3_editorial_qa_route_unverified')
+    from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V12_POLICY
+    if review_policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
+        from app.modules.ai.v3.source_access_config import KEY as SOURCE_ACCESS_KEY, checked_settings
+        assert isinstance(stored_analysis, dict)
+        pinned_source_access = checked_settings(stored_analysis.get(SOURCE_ACCESS_KEY))
+        if pinned_source_access != checked_settings(state.source_analysis.get(SOURCE_ACCESS_KEY)):
+            raise ExtractionOutcomeUnknownError('source_access_settings_changed')
     if tenant_id == QA_TENANT and state.source_analysis.get(QA_PENDING_KEY) is not None:
         from app.modules.ai.v3.owned_source_context import load_owned_source_context
         from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
@@ -876,6 +883,7 @@ async def _run_v3_generation(
                 owned_source_context=owned_source_context,
                 revision_policy=revision_policy,
                 review_policy=review_policy,
+                source_access_settings=state.source_analysis.get('v3_literal_source_access'),
             )
     finally:
         if direct_client is not None:

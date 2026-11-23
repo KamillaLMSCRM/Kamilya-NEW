@@ -1846,6 +1846,7 @@ async def generate_v3_course_from_corpus(
     owned_source_context: Any = None,
     revision_policy: str | None = None,
     review_policy: str | None = None,
+    source_access_settings: Any = None,
 ) -> GenerationArtifacts:
     """Generate V3 artifacts; the optional authenticated policy is reserved for future use."""
     from app.modules.ai.v3.revision_policy import (
@@ -1866,6 +1867,7 @@ async def generate_v3_course_from_corpus(
         SIMPLE_COURSE_REVIEW_V9_POLICY,
         SIMPLE_COURSE_REVIEW_V10_POLICY,
         SIMPLE_COURSE_REVIEW_V11_POLICY,
+        SIMPLE_COURSE_REVIEW_V12_POLICY,
         is_practical_policy,
         is_scoped_policy,
     )
@@ -1938,11 +1940,12 @@ async def generate_v3_course_from_corpus(
             from app.modules.ai.v3.simple_course_revision_v2 import is_simple_revision_v2_format
             from app.modules.ai.v3.simple_finding_evidence import is_evidence_format
             from app.modules.ai.v3.simple_plan_accounting import is_accounting_format
+            from app.modules.ai.v3.source_access_contract import is_access_format
             if (is_practical_course_format(response_format) or is_simple_editor_format(response_format)
                     or is_simple_revision_v2_format(response_format) or is_simple_delta_editor_format(response_format)
                     or is_simple_block_editor_format(response_format) or is_normalized_editorial_review_format(response_format)
                     or is_address_repair_format(response_format) or is_accounting_format(response_format)
-                    or is_evidence_format(response_format)):
+                    or is_evidence_format(response_format) or is_access_format(response_format)):
                 if type(raw_text) is PracticalAuthorArtifact:
                     return raw_text
                 if type(raw_text) is str:
@@ -1961,7 +1964,7 @@ async def generate_v3_course_from_corpus(
             raise ValueError('v3_nonpractical_response_invalid')
         return value
 
-    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}:
+    if review_policy in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}:
         from app.modules.ai.v3.simple_course_service import generate_simple_course
 
         return await generate_simple_course(corpus, intent=intent, invoke=invoke_payload,
@@ -1969,7 +1972,7 @@ async def generate_v3_course_from_corpus(
             reference_decisions=reference_decisions, direct_client=direct_client,
             direct_max_output_tokens=await _practical_output_budget(review_policy, direct_client),
             cancellation_callback=cancellation_callback, progress_callback=progress_callback,
-            review_policy=review_policy)
+            review_policy=review_policy, source_access_settings=source_access_settings)
 
     if practical:
         from app.modules.ai.v3.practical_service import generate_practical_course

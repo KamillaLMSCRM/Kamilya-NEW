@@ -4201,3 +4201,9 @@ Use original cue times and exact source evidence. A separate Luna review
 checks the question, key and explanation in both languages before the methodologist
 gets the suggested draft. Existing pending unknown requests retain their claim.
 Local parser, provider-error, duplicate-request and reviewer cases are covered.
+
+## CHG-CONTEXT146 — catalog release candidate — 2026-11-23
+
+Restore the verified V12 literal catalogue path from the current DEV engine against the production 0.11.145 baseline. Old V1–V11 plan prompts and persisted job identity remain preserved. Source context budgets are admitted from runtime_settings with migration 0194 after production schema 0192. Production provider defaults, model routing and connector wire limits retain their current values.
+
+Saved 15-stage benchmark on approved revision 521 reproduced 291 accessible rows, identical final course and a reduction of message bytes from 20,884,658 to 3,037,288. This was a replay without inference. The isolated migration verified runtime settings history, numeric limits, role and forced RLS. Native attempt ee05f360-5d49-451b-a427-896387b360d2 on the same exact source uses the existing Luna 6 QA connector. Native content and token acceptance is tracked separately.
