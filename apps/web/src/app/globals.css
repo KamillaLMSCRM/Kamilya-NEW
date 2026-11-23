@@ -17,6 +17,32 @@
   display: none;
 }
 
+[data-methodologist-workspace] :is([data-workspace-header] h1, .workspace-index-title) {
+  border-inline-start: 2px solid hsl(var(--primary) / 0.65);
+  padding-inline-start: 0.75rem;
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+[data-methodologist-workspace] :is(input:not([type="radio"], [type="checkbox"], [type="range"]), select, textarea) {
+  border-radius: 0.625rem;
+}
+
+[data-methodologist-workspace] .workspace-ledger :is(th, td):first-child,
+[data-methodologist-workspace] .workspace-ledger .workspace-ledger-name {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background-color: hsl(var(--card));
+  border-inline-end: 1px solid hsl(var(--border));
+}
+
+[data-methodologist-workspace] .workspace-ledger .workspace-ledger-name {
+  inset-inline-start: 3rem;
+}
+
 .methodologist-split {
   display: grid;
   min-width: 0;

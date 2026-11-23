@@ -65,17 +65,17 @@ const WORKSPACE_TITLES = { ru: 'Рабочее место методиста', k
 const formatDue = (value: string, timezone: string, lang: keyof typeof MESSAGES) => new Intl.DateTimeFormat({ ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' }[lang], { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone }).format(new Date(value));
 const clarificationMessage = (code: string, ui: WorkbenchMessages, naturalUi: NaturalMessages) => ({ instruction_unsupported: ui.unsupported, deadline_invalid: ui.deadlineInvalid, deadline_passed: ui.deadlinePassed, timezone_invalid: ui.timezoneInvalid, context_invalid: ui.contextInvalid, resource_not_found: ui.resourceNotFound, choose_exact_resources: ui.chooseExact, too_many_matches: ui.tooMany, intent_relative_deadline: naturalUi.relative, intent_provider_unavailable: naturalUi.provider, intent_invalid_response: naturalUi.invalid, intent_clarification: naturalUi.ambiguous, previous_plan_not_ready: naturalUi.previous }[code] ?? ui.newPlan);
 
-export default function AssignmentWorkbench() {
+export default function AssignmentWorkbench({ showHeading = true }: { showHeading?: boolean } = {}) {
   const role = useAuthStore((state) => state.user?.role);
   const lang = useLanguageStore((state) => state.lang);
   const accessUi = MESSAGES[lang] ?? MESSAGES.ru;
   const sessionKey = useAuthStore((state) => `${state.accessToken ?? ''}:${state.user?.user_id ?? ''}:${state.user?.tenant_id ?? ''}`);
   if (process.env.NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED !== 'true') return null;
   if (role !== 'methodologist') return <Card><CardContent className="p-6"><p>{accessUi.accessDenied}</p></CardContent></Card>;
-  return <AssignmentWorkbenchInner key={`${sessionKey}:${role}`} />;
+  return <AssignmentWorkbenchInner key={`${sessionKey}:${role}`} showHeading={showHeading} />;
 }
 
-function AssignmentWorkbenchInner() {
+function AssignmentWorkbenchInner({ showHeading }: { showHeading: boolean }) {
   const lang = useLanguageStore((state) => state.lang);
   const ui = MESSAGES[lang] ?? MESSAGES.ru;
   const naturalUi = NATURAL_MESSAGES[lang] ?? NATURAL_MESSAGES.ru;
@@ -227,7 +227,7 @@ function AssignmentWorkbenchInner() {
     finally { if (current === epoch.current) { requestOwner.current = false; setPending(false); } }
   };
   return <WorkspacePage id="assignment-workbench">
-    <WorkspacePageHeader title={WORKSPACE_TITLES[lang]} icon={<PanelsTopLeft />} />
+    {showHeading && <WorkspacePageHeader title={WORKSPACE_TITLES[lang]} icon={<PanelsTopLeft />} />}
     <div className={`grid min-w-0 items-start gap-6 ${visiblePreview?.state === 'preview_ready' || confirmationPlan || restoreConfirmationId || receipt ? 'xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]' : ''}`}>
     <WorkspacePanel title={ui.title} description={ui.purpose} bodyClassName="space-y-4">
       {naturalMode && <section className="space-y-2"><h2 className="font-semibold">{dialogueUi.title}</h2><p className="text-sm text-muted-foreground">{dialogueUi.note}</p><ol role="log" aria-label={dialogueUi.title} aria-live="polite" className="max-h-64 space-y-3 overflow-y-auto break-words">{dialogue.map((turn, index) => <li key={index} className="rounded-md border p-3"><p className="whitespace-pre-wrap">{turn.instruction}</p><p className="mt-2 text-sm text-muted-foreground">{turn.response}</p></li>)}</ol></section>}

@@ -296,7 +296,7 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
     <section className="mb-6 rounded-xl border border-border bg-card p-4 sm:p-5" aria-labelledby="source-actuality-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 id="source-actuality-title" className="font-display text-lg font-bold">{t('documents.sourceActuality.title')}</h2>
+          <h2 id="source-actuality-title" className="font-display text-lg font-semibold">{t('documents.sourceActuality.title')}</h2>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t('documents.sourceActuality.description')}</p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm hover:bg-muted disabled:opacity-50">
@@ -325,7 +325,7 @@ export function SourceActualityPanel({ userId, isImpersonating = false, catalogD
       {active && <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4" role="presentation">
         <button className="absolute inset-0 bg-black/50" aria-label={t('common.close')} onClick={closeFamily} />
         <section role="dialog" aria-modal="true" aria-labelledby="actuality-dialog-title" className="relative z-10 max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-card p-4 shadow-card-lg sm:rounded-2xl sm:p-6">
-          <div className="flex items-start justify-between gap-4"><div className="min-w-0"><h2 id="actuality-dialog-title" className="text-lg font-bold">{active.title}</h2><p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.dialogDescription')}</p></div><button type="button" onClick={closeFamily} className="min-h-10 shrink-0 rounded-lg border border-border px-3 text-sm">{t('common.close')}</button></div>
+          <div className="flex items-start justify-between gap-4"><div className="min-w-0"><h2 id="actuality-dialog-title" className="text-lg font-semibold">{active.title}</h2><p className="mt-1 text-sm text-muted-foreground">{t('documents.sourceActuality.dialogDescription')}</p></div><button type="button" onClick={closeFamily} className="min-h-10 shrink-0 rounded-lg border border-border px-3 text-sm">{t('common.close')}</button></div>
           <div className="mt-5">
             <label className="block text-sm">{t('documents.sourceActuality.ownerLabel')}
               <select value={ownerId} disabled={dialogBusy || ownersLoading || ownersError} onChange={(event) => { setOwnerId(event.target.value); setPolicyError(null); }} className="mt-1 min-h-11 w-full rounded-lg border border-border bg-background px-3">

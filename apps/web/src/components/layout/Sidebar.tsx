@@ -105,7 +105,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
     <aside
       data-workspace-rail="true"
       className={cn(
-        'fixed left-0 top-0 z-30 flex h-dvh flex-col border-r border-border bg-card transition-all duration-200',
+        'fixed left-0 top-0 z-30 flex h-dvh flex-col border-r border-border bg-card motion-safe:max-md:transition-transform motion-safe:max-md:duration-150',
         collapsed ? 'w-[68px]' : 'w-[240px]',
         'max-md:w-[240px] max-md:shadow-card-lg',
         mobileOpen ? 'max-md:translate-x-0 max-md:visible' : 'max-md:-translate-x-full max-md:invisible',
@@ -113,7 +113,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
     >
       <div className={cn('flex h-[72px] shrink-0 items-center border-b border-border px-5', collapsed && 'justify-center px-0')}>
         <div className={cn('min-w-0', collapsed && 'flex justify-center')}>
-          <Logo variant={collapsed ? 'mark' : 'full'} size={32} withSubtitle={false} />
+          <Logo variant={collapsed ? 'mark' : 'full'} size={32} flat={isMethodologist} />
         </div>
       </div>
 
@@ -137,7 +137,7 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
                 <span className="block whitespace-normal break-words text-xs font-semibold leading-5">
                   {t('sidebar.methodologistGuide')}
                 </span>
-                <span className="mt-0.5 block whitespace-normal break-words text-[11px] leading-4 text-muted-foreground">
+                <span className="mt-0.5 block whitespace-normal break-words text-xs leading-4 text-muted-foreground">
                   {t('sidebar.methodologistGuideDescription')}
                 </span>
               </span>
@@ -171,14 +171,14 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
 
       <nav id="sidebar-nav" className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 py-5" aria-label={t('a11y.mainNavigation')}>
         {isMethodologist && <div className="space-y-3">
-          {!collapsed && <p className="px-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{labels[5]}</p>}
+          {!collapsed && <p className="px-3 text-xs font-medium text-muted-foreground">{labels[5]}</p>}
           <ul className="space-y-1">
             {primaryRoutes.map((route) => {
               const Icon = ICONS[route.icon!];
               const label = labels[primaryHrefs.indexOf(route.href)];
               const active = isNavigationItemActive(route.href, pathname, searchParams);
               return <li key={route.id}><Link href={route.href} onClick={onClose} prefetch={false} aria-current={active ? 'page' : undefined}
-                aria-label={label} title={label} className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold', collapsed && 'justify-center px-0',
+                aria-label={label} title={label} className={cn('flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors md:min-h-10', collapsed && 'justify-center px-0',
                   active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
                 <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />{!collapsed && label}
               </Link></li>;

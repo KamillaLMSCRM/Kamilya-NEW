@@ -264,7 +264,7 @@ export default function TopBar({ title, onMenuClick }: TopBarProps) {
             <path d="m21 21-4.3-4.3" />
           </svg>
           <span className="text-muted-foreground">{t('common.search')}</span>
-          <kbd className="ml-4 rounded border border-border bg-card px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground" aria-hidden="true">
+          <kbd className="ml-4 rounded border border-border bg-card px-1.5 py-0.5 text-xs font-mono text-muted-foreground" aria-hidden="true">
             ⌘K
           </kbd>
         </button>

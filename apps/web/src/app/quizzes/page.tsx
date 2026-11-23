@@ -791,7 +791,7 @@ export default function QuizzesAdminPage() {
   const scopedCourse = requestedCourseId ? visibleCourses[0] : undefined;
 
   return (
-    <WorkspacePage id="quiz-authoring" className="mx-auto max-w-[1560px]" title={t('authenticatedUi.quizUi.title')} description={t('authenticatedUi.quizUi.description')} icon={<CheckCircle2 />} actions={
+    <WorkspacePage id="quiz-authoring" className="mx-auto max-w-[1560px]" title={t('authenticatedUi.quizUi.title')} icon={<CheckCircle2 />} actions={
         <Button onClick={() => setShowCreateQuiz(!showCreateQuiz)} className="h-11 px-5">
           {t('quiz.create')}
         </Button>
@@ -979,7 +979,8 @@ export default function QuizzesAdminPage() {
                   disabled={!newQuiz.lesson_id || aiGenerating}
                   className="w-full"
                 >
-                  {aiGenerating ? t('authenticatedUi.quizUi.generating') : `✨ ${t('authenticatedUi.quizUi.generate')}`}
+                  {!aiGenerating && <Plus size={16} strokeWidth={1.5} aria-hidden="true" className="mr-1.5" />}
+                  {aiGenerating ? t('authenticatedUi.quizUi.generating') : t('authenticatedUi.quizUi.generate')}
                 </Button>
                 {aiDraft && (
                   <p className="text-xs text-muted-foreground mt-2">
@@ -1121,7 +1122,7 @@ export default function QuizzesAdminPage() {
                   </div>
                   {q.explanation && (
                     <div className="pl-7 text-xs text-muted-foreground">
-                      💡 {q.explanation}
+                      {q.explanation}
                     </div>
                   )}
                   <button
@@ -1163,7 +1164,7 @@ export default function QuizzesAdminPage() {
             own bucket (real orphans: lesson deleted or FK nulled). */}
         <WorkspacePanel padded={false} className="overflow-hidden lg:sticky lg:top-4">
             <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.quizUi.tests')}</h3>
+              <h3 className="text-sm font-semibold text-muted-foreground">{t('authenticatedUi.quizUi.tests')}</h3>
               <Badge variant="secondary" className="bg-muted text-foreground">{!grouped && (loading || loadError) ? '—' : visibleQuizCount}</Badge>
             </div>
             {loading ? (
@@ -1203,7 +1204,7 @@ export default function QuizzesAdminPage() {
                         <div id={`quiz-course-${course.id}`} className="space-y-2 px-3 pb-3">
                           {moduleRows.map(({ module, lessons }) => (
                             <div key={module.id}>
-                              <div className="px-1 py-1.5 text-[11px] font-semibold uppercase leading-4 tracking-wide text-muted-foreground">
+                              <div className="px-1 py-1.5 text-xs font-semibold leading-4 text-muted-foreground">
                                 {module.title}
                               </div>
                               {lessons.map((l) => {
@@ -1236,7 +1237,7 @@ export default function QuizzesAdminPage() {
                 })}
                 {visibleOrphans.length > 0 && (
                   <div className="mt-2 rounded-md border border-dashed border-border/70 bg-background">
-                    <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">
                       {t('authenticatedUi.quizUi.noLesson')}
                     </div>
                     {visibleOrphans.map(({ quiz }) => (

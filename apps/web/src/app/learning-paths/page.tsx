@@ -857,7 +857,7 @@ function LearnerView({ programs, t, tp }: { programs: LearnerProgram[]; t: (key:
       return <WorkspacePanel key={program.id} id={`program-${program.id}`} className="scroll-mt-24" title={program.title} description={program.description} padded={false} actions={<span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{progress}%</span>}>
         <div className="grid min-w-0 gap-6 p-5 sm:p-6 lg:grid-cols-[220px_minmax(0,1fr)]">
           <div className="min-w-0 rounded-xl bg-muted/30 p-4">
-            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} /></div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} /></div>
             <p className="mt-3 text-xs leading-5 text-muted-foreground">{requiredCompleted} из {tp('common.counts.courseTotal' as never, requiredTotal)} · {t('learningPaths.required' as never)}</p>
           </div>
           <ol className="min-w-0 space-y-3">{steps.map((step, index) => {

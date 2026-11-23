@@ -151,7 +151,7 @@ export default function MandatoryTrainingPage() {
 
     {page && summary && <>
       {page.reporting_scope === 'restricted' && <div role="status" className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm leading-6 text-foreground">{m.restrictedScope}</div>}
-      <section className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label={m.total}>
+      <section className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-[minmax(0,1.45fr)_repeat(4,minmax(0,1fr))] [&>*:first-child]:col-span-2 xl:[&>*:first-child]:col-span-1" aria-label={m.total}>
         <Summary label={m.total} value={summary.total} />
         <Summary label={m.materialized} value={summary.materialized} />
         <Summary label={m.missing} value={summary.missing_enrollment} testId="missing-enrollment-count" tone="danger" />
@@ -171,7 +171,7 @@ export default function MandatoryTrainingPage() {
       </WorkspaceToolbar>
 
       {page.items.length === 0 ? <WorkspaceEmpty title={m.empty} /> : <WorkspacePanel padded={false} className="overflow-hidden"><div className="grid gap-3 p-4 lg:hidden">{page.items.map((row) => <MobileRow key={`${row.user_id}-${row.course_id}`} row={row} m={m} />)}</div>
-        <Table className="hidden overflow-x-auto lg:block" tableClassName="min-w-[1180px]">
+        <Table className="hidden overflow-x-auto lg:block" tableClassName="workspace-ledger min-w-[1180px]">
           <thead><tr className="text-left text-xs text-muted-foreground"><th className="px-4 py-3">{m.employee}</th><th className="px-4 py-3">{m.structure}</th><th className="px-4 py-3">{m.course}</th><th className="px-4 py-3">{m.state}</th><th className="px-4 py-3">{m.reason}</th><th className="px-4 py-3">{m.action}</th></tr></thead>
           <tbody>{page.items.map((row) => <DesktopRow key={`${row.user_id}-${row.course_id}`} row={row} m={m} />)}</tbody>
         </Table>
