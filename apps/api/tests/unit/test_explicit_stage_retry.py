@@ -14,7 +14,11 @@ from app.modules.ai.v3 import explicit_stage_retry as retry
 from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as ROUTE_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY
+from app.modules.ai.v3.revision_policy import (
+    SIMPLE_COURSE_REVIEW_V9_POLICY,
+    SIMPLE_COURSE_REVIEW_V11_POLICY,
+    SIMPLE_COURSE_REVIEW_V12_POLICY,
+)
 from app.modules.ai.v3.stage_checkpoint import _digest
 from app.modules.source_editorial_review.service import SOURCE_PINS
 from tests.unit.test_ai_job_admission import _CommitSession
@@ -547,3 +551,72 @@ async def test_unknown_dispatch_keeps_queued_delivery_and_retry_ledger(resume_ca
     assert sent[0][1] == c.job.result["delivery_task_id"]
     assert PENDING_KEY not in c.job.result and c.digest in retry.checked_ledger(c.job.params)["entries"]
     assert c.claim in c.fake.values and c.result in c.fake.plans
+
+
+def literal_case(case):
+    case.job.params['source_analysis']['v3_review_policy'] = SIMPLE_COURSE_REVIEW_V12_POLICY
+    group = 'practical:simple:lookup:v12:' + 'c' * 64 + ':base=' + 'e' * 64
+    group += ':context=' + 'f' * 64 + ':round=0:output=32768'
+    case.plan = {**case.plan, 'stage': 'repair', 'group_id': group}
+    case.digest = _digest(case.plan)
+    case.claim, case.result = 'v3-stage-claim:' + case.digest, 'v3-stage-result:' + case.digest
+    case.fake.plans.update({case.claim: copy.deepcopy(case.plan), case.result: copy.deepcopy(case.plan)})
+    case.fake.values[case.claim] = {'identity': case.digest, 'claim_token': '9' * 32}
+    case.job.result[PENDING_KEY]['entries'] = {case.digest: {
+        'claim_key': case.claim, 'result_key': case.result, 'token': '9' * 32}}
+    case.job.result[retry.REJECTION_KEY] = {
+        'policy': 'v3-response-rejection-receipt-v1', 'entries': {case.digest: {
+            'policy': 'managed-http-rejection-v1', 'stage': case.digest, 'status': 503,
+            'code': 'unavailable', 'user_id': str(case.actor), 'tenant_id': str(QA_TENANT),
+            'route_fingerprint': case.plan['route_fingerprint'], 'job_id': str(case.job.id),
+        }},
+    }
+    return case
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('changed', ['absent', 'different_route', 'different_actor', 'other_error'])
+async def test_v12_requires_the_owned_unavailable_receipt(owned_case, changed):
+    case = literal_case(owned_case)
+    receipts = case.job.result[retry.REJECTION_KEY]['entries']
+    if changed == 'absent':
+        del receipts[case.digest]
+    elif changed == 'different_route':
+        receipts[case.digest]['route_fingerprint'] = 'd' * 64
+    elif changed == 'different_actor':
+        receipts[case.digest]['user_id'] = str(uuid4())
+    else:
+        receipts[case.digest]['code'] = 'timeout'
+    assert await retry.retry_candidate(None, case.job, case.actor, case.settings) is None
+
+
+@pytest.mark.asyncio
+async def test_v12_resume_changes_only_rejected_lookup_after_exact_prefix(owned_case):
+    case = literal_case(owned_case)
+    prefix = {**case.plan, 'stage': 'review',
+              'group_id': case.plan['group_id'].replace(':base=' + 'e' * 64, ':base=' + '0' * 64)}
+    digest = _digest(prefix)
+    metadata = {'model': 'gpt-6-luna', 'usage': {'input_tokens': 12, 'output_tokens': 3,
+        'cached_input_tokens': None, 'reasoning_tokens': None}}
+    checksum = _digest({'answer': 'retained'})
+    record = {'identity': digest, 'response': {'answer': 'retained'}, 'direct_metadata': metadata,
+              'response_sha256': checksum, 'direct_metadata_sha256': _digest(metadata)}
+    case.fake.plans['v3-stage-result:' + digest] = prefix
+    case.fake.values['v3-stage-result:' + digest] = record
+    case.inventory.return_value = {digest: {'plan': prefix, 'response_sha256': checksum,
+                                            'direct_metadata_sha256': _digest(metadata)}}
+    before = copy.deepcopy((case.fake.plans, case.fake.values))
+    request = retry.UnknownStageRetryRequest(stage_sha256=case.digest, recovery_id=uuid4(),
+                                             acknowledge_unknown_outcome=True)
+    await retry.authorize_retry(None, case.job, case.actor, case.settings, request)
+    assert (case.fake.plans, case.fake.values) == before
+    assert retry.REJECTION_KEY in case.job.result
+    case.fake.explicit_stage_retries = case.job.params[retry.KEY]
+    with pytest.raises(ValueError, match='explicit_stage_retry_prefix_incomplete'):
+        await retry.guard_recovery_stage(case.fake, case.plan)
+    await retry.guard_recovery_stage(case.fake, prefix)
+    await retry.guard_recovery_stage(case.fake, case.plan)
+    assert retry.retry_plan(prefix, case.fake.explicit_stage_retries) == prefix
+    recovered = retry.retry_plan(case.plan, case.fake.explicit_stage_retries)
+    assert recovered['explicit_recovery']['original_stage_sha256'] == case.digest
+    assert _digest(recovered) != case.digest
