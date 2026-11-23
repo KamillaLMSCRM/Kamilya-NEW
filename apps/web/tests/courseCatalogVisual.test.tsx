@@ -25,7 +25,10 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/lib/api', () => ({ api: apiMock }));
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: () => ({ user: context.user, sessionEpoch: context.epoch }),
+  useAuthStore: (select?: (state: { user: typeof context.user; sessionEpoch: number }) => unknown) => {
+    const state = { user: context.user, sessionEpoch: context.epoch };
+    return select ? select(state) : state;
+  },
 }));
 vi.mock('@/i18n/useT', () => ({
   useT: () => ({
@@ -275,6 +278,7 @@ describe('production course catalogue presentation', () => {
     const oldRead = deferred<{ data: unknown[] }>();
     apiMock.get.mockImplementation((url: string) => url === '/v1/courses?per_page=100&localized=true' ? oldRead.promise : Promise.resolve({ data: [] }));
     const { rerender, container } = render(<CoursesPage />);
+    fireEvent.click(screen.getByText('Ещё', { selector: 'summary' }));
     fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Old actor form' } });
     if (transition === 'user') context.user!.user_id = 'author-2';
@@ -333,7 +337,13 @@ describe('production course catalogue presentation', () => {
     render(<CoursesPage />);
     await screen.findByRole('heading', { name: draft.title });
     expect(screen.getByRole('link', { name: 'Задания генерации' })).toHaveAttribute('href', '/ai/jobs');
-    fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
+    const more = screen.getByText('Ещё', { selector: 'summary' });
+    const menu = more.closest('details')!;
+    expect(menu.open).toBe(false);
+    fireEvent.click(more);
+    expect(menu.open).toBe(true);
+    fireEvent.click(within(menu).getByRole('button', { name: 'Создать вручную' }));
+    expect(menu.open).toBe(false);
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Manual title' } });
     fireEvent.change(screen.getByLabelText(ru.courses.courseDescription), { target: { value: 'Description' } });
     expect(screen.getByRole('link', { name: 'Создать из документов' })).toHaveAttribute('href', '/ai/generate?new=1');

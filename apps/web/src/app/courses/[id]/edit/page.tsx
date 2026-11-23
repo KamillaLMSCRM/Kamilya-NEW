@@ -778,7 +778,7 @@ export default function CourseEditPage() {
     : `/assignments?courseId=${courseQuery}`;
   const nextActionLabel = programGenerationJob ? t('ai.programAttach.attach') : t('releaseSteps.assign');
   const approvalButton = (
-    <Button type="button" size="sm" variant="outline" onClick={handleApprove} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
+    <Button type="button" size="sm" onClick={handleApprove} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
       <CheckCircle2 className="mr-1.5 h-4 w-4" />
       {releaseAction === 'approve' ? t('authenticatedUi.editor.approving') : t('authenticatedUi.editor.approveCourse')}
     </Button>
@@ -906,14 +906,15 @@ export default function CourseEditPage() {
       </WorkspaceToolbar>
       </div>
       </details>
-      {(approvedSources.length > 0 || (unplacedCount > 0 && !published)) && <section className="space-y-2 rounded-xl border border-border p-4" aria-label={sourceCopy.status}>
-        <h2 className="text-sm font-semibold">{sourceCopy.status}</h2>
+      {(approvedSources.length > 0 || (unplacedCount > 0 && !published)) && <section className="space-y-3 rounded-2xl border border-border bg-card p-5" aria-label={sourceCopy.status}>
+        <h2 className="text-base font-semibold">{sourceCopy.status}</h2>
         {unplacedCount > 0 && !published && <p className="text-sm" role="status">{copy.unplacedIllustrations.replace('{count}', String(unplacedCount))}</p>}
-        <ul className="space-y-1">{approvedSources.map((source, index) => <li key={source.approval_id}>
-          <Link className="text-sm text-primary underline" href={sourceReviewHref(source.document_id, source.approval_id)}>
-            {sourceCopy.preview} {approvedSources.length > 1 ? index + 1 : ''} · {sourceCopy.revision} {source.revision}
+        {approvedSources.length > 0 && <ul className="grid gap-2 sm:grid-cols-2">{approvedSources.map((source, index) => <li key={source.approval_id}>
+          <Link className="flex min-h-11 flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-primary transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" href={sourceReviewHref(source.document_id, source.approval_id)}>
+            <span>{sourceCopy.preview} {approvedSources.length > 1 ? index + 1 : ''}</span>
+            <span className="text-xs text-muted-foreground">{sourceCopy.revision} {source.revision}</span>
           </Link>
-        </li>)}</ul>
+        </li>)}</ul>}
       </section>}
       {course.status !== 'published' && course.source_instruction_id && (
         <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
@@ -1014,7 +1015,7 @@ export default function CourseEditPage() {
               <>
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border p-4">
                   <div className="min-w-0 flex-1 basis-48">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.editor.workspaceTitle')}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t('authenticatedUi.editor.workspaceTitle')}</p>
                     <p className="truncate text-sm text-muted-foreground">
                       {activeModule && <><span>{titleInPreview('module', activeModule.id, activeModule.title)}</span> · </>}
                       <span>{titleInPreview('lesson', activeLesson.id, activeLesson.title)}</span>

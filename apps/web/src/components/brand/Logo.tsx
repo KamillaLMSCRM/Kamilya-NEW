@@ -19,6 +19,7 @@ interface LogoProps {
   withSubtitle?: boolean;
   className?: string;
   ariaLabel?: string;
+  flat?: boolean;
 }
 
 export function Logo({
@@ -27,6 +28,7 @@ export function Logo({
   withSubtitle = false,
   className = '',
   ariaLabel = 'Kamilya LMS',
+  flat = false,
 }: LogoProps) {
   // SVG favicon design (gold→blue градиент + буква K)
   const mark = (
@@ -38,13 +40,13 @@ export function Logo({
       className="shrink-0"
       aria-hidden="true"
     >
-      <defs>
+      {!flat && <defs>
         <linearGradient id="kamilya-gradient" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#B8860B" />
           <stop offset="100%" stopColor="#2563EB" />
         </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="6" fill="url(#kamilya-gradient)" />
+      </defs>}
+      <rect width="32" height="32" rx="6" fill={flat ? 'hsl(var(--primary))' : 'url(#kamilya-gradient)'} />
       <text
         x="16"
         y="22"
@@ -69,13 +71,13 @@ export function Logo({
 
   const wordmark = (
     <span
-      className={`font-display font-bold tracking-tight ${
-        variant === 'full' ? 'gradient-text' : 'text-primary'
+      className={`font-display ${flat ? 'font-semibold' : 'font-bold tracking-tight'} ${
+        variant === 'full' && !flat ? 'gradient-text' : 'text-primary'
       }`}
       style={{ fontSize: Math.max(16, size * 0.65), lineHeight: 1 }}
     >
       Kamilya
-      <span className="text-foreground/60 font-normal"> LMS</span>
+      <span className={flat ? 'font-medium' : 'text-foreground/60 font-normal'}> LMS</span>
     </span>
   );
 

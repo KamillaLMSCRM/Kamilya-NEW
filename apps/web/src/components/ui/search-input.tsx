@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Search } from 'lucide-react';
 import { Input } from './input';
 
 /**
- * SearchInput — типизированный input с иконкой 🔍 и debounce.
+ * SearchInput — типизированный input с иконкой и debounce.
  *
  * Используется во всех админских списках, где клиент хочет
  * отфильтровать >10 элементов по подстроке. Debounce 250мс —
@@ -54,7 +55,7 @@ export function SearchInput({
   return (
     <div className={`relative ${className}`}>
       <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground text-sm">
-        🔍
+        <Search size={16} strokeWidth={1.5} aria-hidden="true" />
       </span>
       <Input
         type="search"
