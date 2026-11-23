@@ -4,7 +4,45 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from app.modules.source_editorial_review.question_context import QuestionContext, QuestionContextError
+from app.modules.source_editorial_review.question_context import QuestionContext, QuestionContextError, contexts
+
+
+def verified_edit_scopes(original: str, issues: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Allow editing the proven row, without expanding factual verification.
+
+    A reviewer may quote only a prefix of the row while asking about another
+    field in it. Reconstruct navigation from exact stored proof, never from a
+    product name, model interpretation or a nearby first occurrence.
+    """
+    candidates = [q for q in issues.values() if not q.get('source_scopes')
+                  and not q.get('needs_source_verification') and len(q.get('source_refs', [])) == 1
+                  and q.get('source_evidence')]
+    if not candidates:
+        return issues
+    context, = contexts(original, [(0, original)])
+    if context is None:
+        return issues
+    result = dict(issues)
+    for question in candidates:
+        ref = question['source_refs'][0]
+        unit = context.references.get(ref)
+        proofs = question['source_evidence']
+        if unit is None or unit.kind != 'table_row':
+            continue
+        if any(proof.get('source_ref') != ref or type(proof.get('start')) is not int
+               or type(proof.get('end')) is not int
+               or not unit.start <= proof['start'] < proof['end'] <= unit.end
+               or original[proof['start']:proof['end']] != proof.get('quote') for proof in proofs):
+            continue
+        if question.get('start') is not None and not (
+                type(question.get('start')) is int and type(question.get('end')) is int
+                and unit.start <= question['start'] < question['end'] <= unit.end
+                and original[question['start']:question['end']] == question.get('quote')):
+            continue
+        result[question['id']] = {**question, 'source_scopes': [{
+            'source_ref': ref, 'start': unit.start, 'end': unit.end, 'text': unit.text,
+            'label': context.labels([ref])[0] if context.labels([ref]) else ref}]}
+    return result
 
 
 def project_question(finding: dict[str, Any], *, item_id: str, original: str,

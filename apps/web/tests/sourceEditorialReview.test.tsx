@@ -426,4 +426,27 @@ describe('source editorial review', () => {
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
     expect(mocks.post).not.toHaveBeenCalled();
   });
+
+  it('filters findings without losing a draft and permits fragment edits for a unique row prefix', async () => {
+    const data = fixture();
+    data.questions[0].source_labels = ['00079262'];
+    data.questions[0].source_scopes = [{ source_ref: 'S2', start: 0, end: quote.length,
+      text: quote, label: '00079262' }];
+    data.questions.push({ ...data.questions[0], id: 'other', quote: 'Другой товар', source_labels: ['00000001'] });
+    mocks.get.mockResolvedValue({ data });
+    mocks.post.mockResolvedValue({ data: { ...data, revision: 4 } });
+    render(<SourceEditorialReview />);
+    const fragment = await screen.findByLabelText('Фрагмент для изменения в этой строке');
+    fireEvent.change(fragment, { target: { value: '45 МРП' } });
+    fireEvent.change(screen.getByLabelText('Согласованная формулировка'), { target: { value: '46 МРП' } });
+    fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: reason } });
+    fireEvent.change(screen.getByLabelText('Поиск по артикулу или замечанию'), { target: { value: '00079262' } });
+    expect(screen.queryByRole('button', { name: /Другой товар/ })).not.toBeInTheDocument();
+    expect(fragment).toHaveValue('45 МРП');
+    expect(mocks.post).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить решение' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
+    expect(mocks.post.mock.calls[0][1]).toMatchObject({ source_changes: [{ source_ref: 'S2',
+      quote: '45 МРП', replacement: '46 МРП', all_occurrences: false }] });
+  });
 });

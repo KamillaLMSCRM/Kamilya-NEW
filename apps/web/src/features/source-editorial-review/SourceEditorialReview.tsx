@@ -57,6 +57,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   ).toString();
   const [loadError, setLoadError] = useState(false);
   const [selected, select] = useState<string | null>(null);
+  const [questionSearch, setQuestionSearch] = useState('');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState<ReviewCommand | null>(null);
@@ -183,6 +184,8 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     ?? review?.questions[0];
   const open = review?.questions.filter((item) => !item.resolution).length ?? 0;
   const ownerQuestions = review?.questions.filter(item => !item.needs_source_verification) ?? [];
+  const visibleQuestions = ownerQuestions.filter(item => [item.quote, item.reason, ...(item.source_labels ?? [])]
+    .join(' ').toLocaleLowerCase().includes(questionSearch.trim().toLocaleLowerCase()));
   const systemQuestions = review?.questions.filter(item => item.needs_source_verification && !item.resolution) ?? [];
   const sourceScope = question?.source_scopes?.[0];
   const readOnly = Boolean(approvalId) || review?.status !== 'in_review';
@@ -313,11 +316,15 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
           <WorkspacePanel bodyClassName="space-y-3">
             <h2 className="font-semibold">{copy.list}</h2>
             <p className="text-sm text-muted-foreground">{copy.openCount}: {ownerQuestions.filter(item => !item.resolution).length}</p>
+            <label className="block space-y-1 text-sm"><span>{copy.findQuestion}</span>
+              <input type="search" className={field} value={questionSearch} onChange={event => setQuestionSearch(event.target.value)} />
+            </label>
+            {ownerQuestions.length > 0 && visibleQuestions.length === 0 && <p className="text-sm" role="status">{copy.noMatchingQuestions}</p>}
             {ownerQuestions.length === 0 ? <p className="text-sm">{copy.noQuestions}</p> :
-              <ol className="space-y-2">{ownerQuestions.map((item, index) => <li key={item.id}>
+              <ol className="max-h-[36rem] space-y-2 overflow-y-auto">{visibleQuestions.map((item) => <li key={item.id}>
                 <button type="button" onClick={() => showQuestion(item.id)} aria-current={item.id === question?.id}
                   className={`w-full break-words rounded-lg border px-3 py-2 text-left text-sm focus-visible:ring-2 focus-visible:ring-ring ${item.id === question?.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'}`}>
-                  <span className="block font-medium">{index + 1}. {item.quote.length > 120 ? item.quote.slice(0, 120) + '…' : item.quote || copy.question}</span>
+                  <span className="block font-medium">{ownerQuestions.indexOf(item) + 1}. {item.quote.length > 120 ? item.quote.slice(0, 120) + '…' : item.quote || copy.question}</span>
                   <span className="text-xs text-muted-foreground">{item.resolution ? copy.closed : copy.open}</span>
                 </button>
               </li>)}</ol>}
@@ -369,7 +376,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
                   <label className="flex gap-2"><input type="radio" checked={decision === 'keep'} onChange={() => setDecision('keep')} />{copy.keep}</label>
                 </fieldset>
                 {decision === 'replace' && <>
-                  {question.start == null && <label className="block space-y-1 text-sm"><span>{sourceScope ? copy.scopedAnchor : copy.anchor}</span>
+                  {(question.start == null || sourceScope) && <label className="block space-y-1 text-sm"><span>{sourceScope ? copy.scopedAnchor : copy.anchor}</span>
                     <textarea className={field} value={anchor} onChange={(e) => setAnchor(e.target.value)} required maxLength={5000} /></label>}
                   {sourceScope && <label className="flex items-start gap-2 text-sm">
                     <input type="checkbox" checked={allOccurrences} onChange={event => setAllOccurrences(event.target.checked)} />
