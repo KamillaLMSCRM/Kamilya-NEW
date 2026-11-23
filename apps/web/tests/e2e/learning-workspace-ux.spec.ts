@@ -124,6 +124,40 @@ for (const viewport of [
       }
     });
 
+    if (viewport.width === 1440 || viewport.width === 390) test('methodologist quiz preview uses and returns to the chosen course language', async ({ page, workspace }) => {
+      workspace.learner();
+      workspace.role = 'methodologist';
+      const quizTitle = 'Проверка знаний';
+      const question = 'Что нужно сделать с повреждённым оборудованием?';
+      const choice = 'Остановиться и сообщить о повреждении';
+      const quizPath = `/v1/quizzes/${ids.quiz}`;
+      workspace.onGet(`/v1/courses/${ids.course}/languages`, ({ url }) => ({
+        json: { primary: 'en', available: ['en', 'ru'], content: url.searchParams.get('language') === 'ru'
+          ? { [`quiz.${ids.quiz}.title`]: quizTitle } : {} },
+      }));
+      workspace.onGet(quizPath, ({ url }) => ({
+        json: url.searchParams.get('language') === 'ru' ? {
+          ...quiz, title: quizTitle, questions: [{ ...quiz.questions[0], text: question,
+            choices: [{ ...quiz.questions[0].choices[0], text: choice }, quiz.questions[0].choices[1]],
+          }],
+        } : quiz,
+      }));
+      await page.goto(`/courses/${ids.course}?lessonId=${ids.lesson}&language=ru`);
+      await expect(page.getByRole('heading', { name: quizTitle, exact: true })).toBeVisible();
+      await page.getByRole('link', { name: 'Start quiz', exact: true }).click();
+      await expect(page).toHaveURL(/\/preview\?.*language=ru/);
+      await expect(page.getByRole('heading', { name: quizTitle, exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: question, exact: true })).toBeVisible();
+      await expect(page.getByText(choice, { exact: true })).toBeVisible();
+      const quizLanguages = workspace.matching('GET', quizPath).map(({ url }) => url.searchParams.get('language'));
+      expect(quizLanguages).not.toHaveLength(0);
+      expect(new Set(quizLanguages)).toEqual(new Set(['ru']));
+      await page.getByRole('link', { name: 'Return to course', exact: true }).click();
+      await expect(page).toHaveURL(`/courses/${ids.course}?lessonId=${ids.lesson}&language=ru`);
+      await expect(page.getByRole('heading', { name: quizTitle, exact: true })).toBeVisible();
+      expect(workspace.matching('POST', `${quizPath}/submit`)).toHaveLength(0);
+    });
+
     test('learner submits a real quiz UI and sees aggregate result with not-required evidence', async ({ page, workspace }, info) => {
       workspace.learner();
       await page.goto(`/courses/${ids.course}?lessonId=${ids.lesson}`);
