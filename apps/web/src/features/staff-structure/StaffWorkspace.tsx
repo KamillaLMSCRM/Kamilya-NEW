@@ -24,6 +24,7 @@ import {
 } from 'react';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Modal } from '@/components/ui';
+import { buildTrainingLogBrowserHref } from '@/app/admin/training-log/query';
 import { useT, type TranslationKey } from '@/i18n/useT';
 import { apiErrorMessage } from '@/lib/apiErrorMessage';
 import { useAuthStore } from '@/store/authStore';
@@ -921,7 +922,7 @@ export function StaffWorkspace({
         onChange={(event) => setPickedEmployees((ids) => event.target.checked ? [...ids, employee.id] : ids.filter((id) => id !== employee.id))} />}
       renderDetails={(employee) => {
         const effectiveUnit = unitsById.get(employee.effective_unit_id ?? '');
-        const journalSearch = employee.personnel_number || employee.full_name.split(' ').at(-1) || employee.full_name;
+        const journalHref = buildTrainingLogBrowserHref({ filters: { user_id: employee.id }, search: '', returnTo: null });
         return <div className="space-y-4 p-4 sm:p-5">
           <div><h3 className="text-xl font-semibold [overflow-wrap:anywhere]">{employee.full_name}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{employee.position_name || 'Должность не указана'}</p></div>
@@ -936,8 +937,8 @@ export function StaffWorkspace({
           {employee.hr_managed && <p className="text-xs font-medium text-warning">Управляется HR-системой: ручной перевод заблокирован.</p>}
           <div className="flex flex-wrap gap-2">
             {employee.is_active && <Link className="inline-flex min-h-10 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground" href={`/assignments?user_id=${encodeURIComponent(employee.id)}`}>Назначить курс</Link>}
-            <Link className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-semibold text-primary" href={`/training-log?search=${encodeURIComponent(journalSearch)}`}>Найти в журнале</Link>
-            <Button type="button" variant="ghost" size="sm" onClick={() => onEditEmployee(employee)}>Изменить</Button>
+            <Link className="inline-flex min-h-10 items-center rounded-lg border border-border px-3 text-sm font-semibold text-primary" href={journalHref}>Найти в журнале</Link>
+            <Button type="button" variant="outline" size="sm" onClick={() => onEditEmployee(employee)}>Изменить</Button>
             <Button type="button" variant="outline" size="sm" disabled={employee.hr_managed || Boolean(pendingConfirmationId)} onClick={() => openEmployeeChange(employee)}>Перевести</Button>
           </div>
         </div>;
@@ -1138,10 +1139,10 @@ export function StaffWorkspace({
             <option value="unplaced">Без подразделения · служебная выборка</option>
           </select>
         </label>
-        <label className="grid gap-1.5 text-sm font-medium">Состав
+        <label className="grid gap-1.5 text-sm font-medium">Охват подразделений
           <select className={inputClassName} value={location.scope} disabled={location.unit === 'all' || location.unit === 'unplaced'} onChange={(event) => navigate({ scope: event.target.value as StaffWorkspaceScope, page: 1 })}>
-            <option value="direct">Только непосредственно здесь</option>
-            <option value="subtree">Вся выбранная ветка</option>
+            <option value="direct">Только это подразделение</option>
+            <option value="subtree">Включая дочерние подразделения</option>
           </select>
         </label>
         <label className="grid gap-1.5 text-sm font-medium">Доступ к кабинету
@@ -1241,17 +1242,17 @@ export function StaffWorkspace({
               </div>
               <p className="text-sm text-muted-foreground">Фильтр «Доступ к кабинету» показывает, может ли сотрудник войти в систему. Это не кадровый статус и не признак трудоустройства.</p>
               <form className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" onSubmit={(event) => { event.preventDefault(); navigate({ query: queryDraft.trim(), page: 1 }); }}>
-                <div className="min-w-0 space-y-1.5">
-                  <label className="text-sm" htmlFor="staff-employee-search">{copy('searchLabel')}</label>
+                <div className="grid min-w-0 content-start gap-1.5">
+                  <label className="text-sm leading-5" htmlFor="staff-employee-search">{copy('searchLabel')}</label>
                   <div className="flex gap-2">
                     <div className="relative min-w-0 flex-1"><input ref={searchInput} id="staff-employee-search" aria-describedby="staff-search-hint" className={`${inputClassName} pr-10 [&::-webkit-search-cancel-button]:appearance-none`} type="search" maxLength={100} value={queryDraft} onChange={(event) => setQueryDraft(event.target.value)} placeholder={copy('placeholder')} />
                       {queryDraft && <button type="button" aria-label={copy('clear')} onClick={clearQuery} className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-4 w-4" aria-hidden="true" /></button>}
                     </div>
-                    <Button type="submit" variant="outline">{copy('find')}</Button>
+                    <Button type="submit" variant="outline" className="h-10 shrink-0">{copy('find')}</Button>
                   </div>
                   <p id="staff-search-hint" className="text-xs text-muted-foreground">{copy('hint')}</p>
                 </div>
-                <label className="grid content-start gap-1.5 text-sm">{copy('position')}
+                <label className="grid content-start gap-1.5 text-sm leading-5">{copy('position')}
                   <select className={inputClassName} value={positionFilter} onChange={(event) => navigate({ position: event.target.value, page: 1 })}>
                     <option value="all">{copy('allPositions')}</option>
                     <option value="missing">{copy('missingPosition')}</option>

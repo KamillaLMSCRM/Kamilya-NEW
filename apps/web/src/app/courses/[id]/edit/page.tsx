@@ -682,7 +682,8 @@ export default function CourseEditPage() {
       });
       if (!discard) return;
     }
-    router.push(`/courses/${courseId}?lessonId=${encodeURIComponent(activeLesson.id)}`);
+    const params = new URLSearchParams({ lessonId: activeLesson.id, language: previewLanguage ?? contentLocale });
+    router.push(`/courses/${courseId}?${params}`);
   };
 
   const handleGuardedLink = async (event: ReactMouseEvent<HTMLAnchorElement>, href: string) => {

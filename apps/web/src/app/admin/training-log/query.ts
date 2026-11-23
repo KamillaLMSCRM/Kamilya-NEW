@@ -2,6 +2,7 @@ import { parseActionFocus, parseActionIssueType, type ActionFocus, type ActionIs
 
 export interface TrainingLogFilters {
   enrollment_id?: string;
+  user_id?: string;
   course_id?: string;
   department_id?: string;
   position_id?: string;
@@ -24,6 +25,7 @@ export interface TrainingLogBrowserState {
 
 const FILTER_KEYS = [
   'enrollment_id',
+  'user_id',
   'course_id',
   'department_id',
   'position_id',
@@ -53,6 +55,7 @@ export function parseTrainingLogBrowserQuery(
   const filters: TrainingLogFilters = {};
 
   const enrollmentId = params.get('enrollment_id');
+  const userId = params.get('user_id');
   const courseId = params.get('course_id');
   const departmentId = params.get('department_id');
   const positionId = params.get('position_id');
@@ -63,6 +66,7 @@ export function parseTrainingLogBrowserQuery(
   const assessmentStatus = params.get('assessment_status');
 
   if (validUuid(enrollmentId)) filters.enrollment_id = enrollmentId;
+  if (validUuid(userId)) filters.user_id = userId;
   if (validUuid(courseId)) filters.course_id = courseId;
   if (validUuid(departmentId)) filters.department_id = departmentId;
   if (validUuid(positionId)) filters.position_id = positionId;

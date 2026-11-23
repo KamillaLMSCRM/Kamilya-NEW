@@ -11564,3 +11564,17 @@ its exact verified path was moved into private evidence before executing it.
 - Fix: pass `from_attributes=True` to the explicit structure projection.
 - Verification: the regression test reproduced the missing attribute conversion with nested ORM-shaped objects and the assigned snapshot, then passed with the correction.
 - Prevention: exercise the learner endpoint with an assigned release and ORM-shaped nested objects in the local regression suite. Preserve and read back the published DEV fixtures for browser verification.
+
+## COURSE-PREVIEW-001 - Opening the learner preview lost the selected language
+
+- Date: 2026-11-23. Reproduced on DEV at `0c9c0688` with both published KARLSKRONA lessons.
+- Cause: editor-to-reader navigation carried only the lesson ID, and the reader enabled locale choice only for learner sessions.
+- Fix: include the selected course locale in the preview URL and expose a preview-scoped selector. Preserve the URL across lessons and reload.
+- Prevention: exercise the real editor-to-reader transition on a bilingual release with a different default, then switch the language and reload.
+
+## STAFF-UI-004 - The employee journal opened with unrelated employee cards
+
+- Date: 2026-11-23. Reported on the KARLSKRONA staff card.
+- Cause: the handoff used a fuzzy query, while the journal action center loaded its own unfiltered employee queue.
+- Fix: scope the journal, summary and CSV to the employee UUID within the existing reporting scope. Hide the global queue in this view.
+- Prevention: open the journal with two different employee fixtures and verify the visible rows and export agree with the requested identity.

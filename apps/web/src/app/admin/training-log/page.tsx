@@ -551,6 +551,21 @@ export default function AdminTrainingLogPage() {
         </div>
       )}
 
+      {filters.user_id && (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+          <span>
+            {lang === 'en' ? 'Employee records' : lang === 'kk' ? 'Қызметкердің жазбалары' : 'Записи сотрудника'}
+            {items[0]?.full_name && <> · <strong>{items[0].full_name}</strong></>}
+          </span>
+          <Button type="button" variant="outline" size="sm" onClick={() => {
+            setOffset(0);
+            updateFilters(({ user_id: _userId, ...rest }) => rest);
+          }}>
+            {lang === 'en' ? 'Show all employees' : lang === 'kk' ? 'Барлық қызметкерлер' : 'Все сотрудники'}
+          </Button>
+        </div>
+      )}
+
       {filters.assessment_status && (
         <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
           <span>{lang === 'en' ? `Assessment result: ${filters.assessment_status === 'failed' ? 'not passed' : 'attempts exhausted'}` : lang === 'kk' ? `Бағалау нәтижесі: ${filters.assessment_status === 'failed' ? 'өтпеген' : 'әрекеттер таусылды'}` : `Результат теста: ${filters.assessment_status === 'failed' ? 'не пройден' : 'попытки исчерпаны'}`}</span>
@@ -641,7 +656,7 @@ export default function AdminTrainingLogPage() {
         </div>
       </WorkspacePanel>
 
-      {canInspectLearning && (
+      {canInspectLearning && !filters.user_id && (
         <>
           <div id="learning-action-center" className="scroll-mt-6">
             <LearningActionCenter

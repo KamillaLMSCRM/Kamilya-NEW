@@ -159,6 +159,8 @@ def _apply_filters(stmt, f: TrainingLogFilter, tenant_id: UUID):
         stmt = stmt.where(CourseModel.id == f.course_id)
     if f.enrollment_id:
         stmt = stmt.where(Enrollment.id == f.enrollment_id)
+    if f.user_id:
+        stmt = stmt.where(User.id == f.user_id)
     if f.assessment_status:
         stmt = stmt.where(Enrollment.id.in_(_assessment_enrollment_ids(tenant_id, f.assessment_status)))
     if f.delivery_type:

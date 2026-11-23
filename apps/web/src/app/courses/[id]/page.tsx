@@ -143,13 +143,16 @@ export default function CoursePlayerPage() {
   const [assignmentRemainingSeconds, setAssignmentRemainingSeconds] = useState<number | null>(null);
   const token = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
-  const courseLocale = useCourseLanguage(
-    courseId, user?.role === 'student' ? `${user.tenant_id}:${user.user_id}` : undefined, lang,
-  );
   const courseListHref = user?.role === 'student' ? '/my-courses' : '/courses';
   const isPrivilegedPreview = user?.role === 'admin'
     || user?.role === 'superadmin'
     || user?.role === 'methodologist';
+  const requestedLanguage = searchParams.get('language');
+  const localeIdentity = user?.role === 'student' ? `${user.tenant_id}:${user.user_id}`
+    : isPrivilegedPreview && user ? `preview:${user.tenant_id}:${user.user_id}:${user.role}` : undefined;
+  const courseLocale = useCourseLanguage(
+    courseId, localeIdentity, isPrivilegedPreview && isCourseLanguage(requestedLanguage) ? requestedLanguage : lang,
+  );
   const canPreviewQuiz = user?.role === 'superadmin' || user?.role === 'methodologist';
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const selectedLessonId = selectedLesson?.id;
@@ -632,11 +635,12 @@ export default function CoursePlayerPage() {
     if (!isCurrentScope(scope)) return;
     const next = findNextLesson(selectedLesson.id);
     if (next) {
-      const nextPath = `/courses/${courseId}?lessonId=${encodeURIComponent(next.id)}`;
       if (requestedLessonId === next.id) {
         setSelectedLesson(next);
       } else {
-        router.push(nextPath);
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.set('lessonId', next.id);
+        router.push(`/courses/${courseId}?${nextParams}`);
       }
     } else {
       const total = modules.reduce((acc, m) => acc + m.lessons.length, 0);
@@ -906,7 +910,15 @@ export default function CoursePlayerPage() {
             {lang === 'kk' ? 'Курс тілі' : lang === 'en' ? 'Course language' : 'Язык курса'}
             <select className="rounded-lg border border-border bg-background p-2"
               value={courseLocale.language} onChange={event => {
-                if (isCourseLanguage(event.target.value)) courseLocale.choose(event.target.value);
+                const language = event.target.value;
+                if (!isCourseLanguage(language)) return;
+                if (!isPrivilegedPreview) {
+                  courseLocale.choose(language);
+                  return;
+                }
+                const nextParams = new URLSearchParams(searchParams.toString());
+                nextParams.set('language', language);
+                router.replace(`/courses/${courseId}?${nextParams}`, { scroll: false });
               }}>
               {courseLocale.available.map(language => <option key={language} value={language}>{contentLanguages[language]}</option>)}
             </select>

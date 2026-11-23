@@ -31,6 +31,37 @@ test('the outline stays in the selected translation while moving between lessons
   await expect(page.getByRole('button', { name: 'Report a hazard', exact: true })).toBeVisible();
 });
 
+test('the learner preview opens in the editor language and retains changes across lessons', async ({ page, workspace }) => {
+  workspace.learner();
+  workspace.author();
+  workspace.get(`/v1/courses/${ids.course}`, {
+    ...course, source_analysis: { course_language_policy: { primary: 'en', requested: ['en', 'ru'] } },
+  });
+  workspace.onGet(`/v1/courses/${ids.course}/languages`, ({ url }) => ({
+    json: { primary: 'en', available: ['en', 'ru'], content: url.searchParams.get('language') === 'ru' ? {
+      [`lesson.${ids.lesson}.title`]: 'Подготовка',
+      [`lesson.${ids.secondLesson}.title`]: 'Сообщение об опасности',
+    } : {} },
+  }));
+
+  await page.goto(`/courses/${ids.course}/edit?lessonId=${ids.lesson}`);
+  await page.getByRole('combobox', { name: 'Course language' }).selectOption('ru');
+  await expect(page.getByRole('heading', { name: 'Подготовка', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Open as learner', exact: true }).click();
+  await expect(page).toHaveURL(`/courses/${ids.course}?lessonId=${ids.lesson}&language=ru`);
+  await expect(page.getByRole('heading', { name: 'Подготовка', exact: true })).toBeVisible();
+
+  const language = page.getByRole('combobox', { name: 'Course language' });
+  await expect(language).toHaveValue('ru');
+  await language.selectOption('en');
+  await expect(page.getByRole('heading', { name: lessons[0].title, exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Report a hazard/ }).click();
+  await expect(page).toHaveURL(`/courses/${ids.course}?lessonId=${ids.secondLesson}&language=en`);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: lessons[1].title, exact: true })).toBeVisible();
+  await expect(language).toHaveValue('en');
+});
+
 for (const width of [390, 1024, 1440]) {
   test(`visual lesson blocks retain Markdown, save once and survive reload at ${width}`, async ({ page, workspace }, info) => {
     await page.setViewportSize({ width, height: 1000 });
