@@ -21,6 +21,7 @@ test('expired editor reads recover once without replacing the author or losing t
     });
   }
   await page.goto(`/courses/${ids.course}/edit?lessonId=${ids.lesson}`);
+  await page.locator('[data-lesson-format-menu] summary').click();
   await page.getByRole('button', { name: 'Markdown', exact: true }).click();
   const content = page.getByRole('textbox', { name: 'Lesson content', exact: true });
   await expect(content).toHaveValue(lessons[0].content);

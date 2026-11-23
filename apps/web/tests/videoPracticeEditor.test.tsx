@@ -28,6 +28,16 @@ afterEach(() => {
 });
 
 describe('video practice authoring', () => {
+  it('checks captions after a saved failure without requesting a generated question', async () => {
+    api.get.mockResolvedValueOnce({ data: { ...fixture, approved: null, error: 'captions_unavailable' } })
+      .mockResolvedValueOnce({ data: { available: true, error: null } });
+    render(<VideoPracticeEditor courseId="course" lessonId="lesson" lang="ru" disabled={false} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Проверить субтитры' }));
+    expect(await screen.findByText('Субтитры найдены. Можно предложить вопрос.')).toBeVisible();
+    expect(api.get).toHaveBeenLastCalledWith('/v1/courses/course/lessons/lesson/video-practice/editor/captions');
+    expect(api.post).not.toHaveBeenCalled();
+    expect(api.put).not.toHaveBeenCalled();
+  });
   it('preserves the draft on language switching and saves the exact preview time within the clip', async () => {
     api.get.mockResolvedValue({ data: fixture });
     api.put.mockResolvedValue({ data: fixture });

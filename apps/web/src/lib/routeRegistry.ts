@@ -116,6 +116,7 @@ export const ROUTES: readonly AppRoute[] = [
   { id: 'methodologist-dashboard', href: '/dashboard', capability: 'manage_content', labelKey: 'nav.learningOverview', section: 'overview', icon: 'dashboard', order: 10, sidebar: true, commandPalette: true },
   { id: 'documents', href: '/documents', capability: 'manage_content', match: 'prefix', labelKey: 'nav.documents', section: 'content', icon: 'document', order: 20, sidebar: true, commandPalette: true },
   { id: 'ai-generation', href: '/ai/generate', capability: 'manage_content', match: 'prefix', labelKey: 'nav.aiGeneration', section: 'content', icon: 'sparkles', order: 30, sidebar: true, commandPalette: true },
+  { id: 'ai-generation-jobs', href: '/ai/jobs', capability: 'manage_content', match: 'exact', labelKey: 'nav.aiGeneration', section: 'content', icon: 'sparkles', order: 31 },
   { id: 'courses', href: '/courses', capability: 'manage_content', match: 'prefix', labelKey: 'nav.courses', section: 'content', icon: 'book', order: 40, sidebar: true, commandPalette: true },
   { id: 'quizzes', href: '/quizzes', capability: 'manage_content', match: 'prefix', labelKey: 'sidebar.quizConstructor', section: 'content', icon: 'quiz', order: 50, sidebar: true, commandPalette: true },
   { id: 'learning-paths-manage', href: '/learning-paths', capability: 'manage_content', labelKey: 'learningPaths.title', section: 'delivery', icon: 'route', order: 60, sidebar: true, commandPalette: true },

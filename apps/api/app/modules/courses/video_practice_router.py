@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import _set_tenant_security_context, get_current_user, require_role
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.models.courses import Course
 from app.models.users import User
@@ -27,7 +27,12 @@ from app.modules.courses.video_practice import (
     propose_practice,
     stored_record,
 )
-from app.modules.youtube_transcript.provider import MAX_TOTAL_CHARS, TranscriptAcquisitionError, validate_transcript
+from app.modules.youtube_transcript.provider import (
+    MAX_TOTAL_CHARS,
+    TranscriptAcquisitionError,
+    TranscriptResult,
+    validate_transcript,
+)
 from app.modules.youtube_transcript.remote_caption_adapter import build_runtime_caption_provider
 from app.modules.youtube_transcript.timed_subtitles import parse_timed_subtitles
 from app.modules.youtube_transcript.url_resolver import extract_video_id
@@ -93,6 +98,38 @@ async def practice_editor(course_id: UUID, lesson_id: UUID, db: Db, author: Auth
     return author_state(clip, _record_for(course, lesson_id, clip))
 
 
+async def _practice_transcript(clip: VideoClip, settings: Settings) -> TranscriptResult:
+    ref = extract_video_id(f"https://www.youtube.com/watch?v={clip.video_id}")
+    transcript = await build_runtime_caption_provider(settings).get_transcript(ref, ["ru", "kk", "en"])
+    validate_transcript(
+        transcript, max_video_duration_seconds=settings.YOUTUBE_MAX_VIDEO_DURATION_SECONDS,
+        max_total_chars=settings.YOUTUBE_MAX_TOTAL_CHARS,
+    )
+    if transcript.video_id != clip.video_id:
+        raise ValueError("Caption identity mismatch")
+    return transcript
+
+
+@router.get("/editor/captions")
+async def check_practice_captions(course_id: UUID, lesson_id: UUID, db: Db, author: Author) -> dict[str, Any]:
+    _, clip = await _clip_for_author(db, course_id, lesson_id, author)
+    if not clip:
+        raise HTTPException(422, detail="video_practice_timed_clip_required")
+    settings = get_settings()
+    if not settings.YOUTUBE_IMPORT_ENABLED:
+        return {"available": False, "error": "provider_unavailable"}
+    await db.rollback()
+    try:
+        transcript = await _practice_transcript(clip, settings)
+    except TranscriptAcquisitionError as failure:
+        return {"available": False, "error": failure.code}
+    except (RuntimeError, ValueError):
+        return {"available": False, "error": "provider_unavailable"}
+    if not caption_windows(clip, transcript.segments):
+        return {"available": False, "error": "no_caption_evidence"}
+    return {"available": True, "error": None}
+
+
 @router.put("/editor")
 async def save_practice(
     course_id: UUID, lesson_id: UUID, payload: PracticeChange, db: Db, author: Author,
@@ -145,14 +182,7 @@ async def generate_practice(
         if payload:
             revision = sha256(f"{clip.video_id}:{caption_input}".encode()).hexdigest()
         else:
-            ref = extract_video_id(f"https://www.youtube.com/watch?v={clip.video_id}")
-            transcript = await build_runtime_caption_provider(settings).get_transcript(ref, ["ru", "kk", "en"])
-            validate_transcript(
-                transcript, max_video_duration_seconds=settings.YOUTUBE_MAX_VIDEO_DURATION_SECONDS,
-                max_total_chars=settings.YOUTUBE_MAX_TOTAL_CHARS,
-            )
-            if transcript.video_id != clip.video_id:
-                raise ValueError("Caption identity mismatch")
+            transcript = await _practice_transcript(clip, settings)
             segments, revision = transcript.segments, transcript.compute_content_hash()
     except TranscriptAcquisitionError as failure:
         error = failure.code

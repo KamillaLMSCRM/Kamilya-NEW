@@ -46,6 +46,7 @@ class CourseResponse(BaseModel):
     updated_at: datetime
     published_at: datetime | None = None
     current_release_id: UUID | None = None
+    catalog_editions: dict[str, dict[str, str | None]] | None = None
 
     # Approval workflow fields (methodologist sign-off).
     review_status: Literal["pending", "approved", "needs_changes"] = "pending"

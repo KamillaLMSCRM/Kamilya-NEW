@@ -41,6 +41,8 @@ import { useLessonDraftHistory } from '@/features/course-authoring/useLessonDraf
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
 import { CourseLanguagesEditor } from '@/features/course-authoring/CourseLanguagesEditor';
+import { contentLanguages, isCourseLanguage, type CourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { useCourseLanguage } from '@/features/course-authoring/useCourseLanguage';
 import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel';
 import { WorkspacePage, WorkspacePageHeader, WorkspaceToolbar } from '@/features/workspace-design';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
@@ -142,6 +144,7 @@ export default function CourseEditPage() {
   const [savedLessonContent, setSavedLessonContent] = useState('');
   const [lessonView, setLessonView] = useState<'edit' | 'preview'>('edit');
   const [contentEditor, setContentEditor] = useState<'visual' | 'markdown'>('visual');
+  const [previewLanguage, setPreviewLanguage] = useState<CourseLanguage>();
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [creationBusy, setCreationBusy] = useState(false);
   const creationPending = useRef<symbol | null>(null);
@@ -173,6 +176,15 @@ export default function CourseEditPage() {
   const revisionLesson = course?.status === 'draft' && activeLesson
     && course.source_analysis?.source_actuality?.affected_lesson_ids?.includes(activeLesson.id);
   const contentLocale = course?.source_analysis?.course_language_policy?.primary ?? lang;
+  const localePreview = useCourseLanguage(courseId, actor ? `editor:${actor.user_id}:${actor.tenant_id}:${sessionEpoch}` : undefined, contentLocale);
+  const translatedPreview = Boolean(previewLanguage && previewLanguage !== contentLocale);
+  const previewReady = !translatedPreview || localePreview.language === previewLanguage;
+  const previewTitle = translatedPreview && editingLessonId
+    ? localePreview.text('lesson', editingLessonId, 'title', editLessonTitle) : editLessonTitle;
+  const previewText = translatedPreview && editingLessonId
+    ? localePreview.text('lesson', editingLessonId, 'content', editLessonContent) : editLessonContent;
+  const courseLanguageLabel = lang === 'kk' ? 'Курс тілі' : lang === 'en' ? 'Course language' : 'Язык курса';
+  const moreEditorLabel = lang === 'kk' ? 'Қосымша' : lang === 'en' ? 'More' : 'Ещё';
   const lessonSequence = modules.flatMap((module) => module.lessons);
   const activeLessonIndex = lessonSequence.findIndex((lesson) => lesson.id === editingLessonId);
   const activeModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === editingLessonId));
@@ -1000,9 +1012,23 @@ export default function CourseEditPage() {
                     <p className="truncate text-sm text-muted-foreground"><span>{activeModule?.title}</span> · <span>{activeLesson.title}</span></p>
                   </div>
                   <div className="flex min-w-0 max-w-full flex-wrap rounded-md border border-border p-1" role="group" aria-label={t('authenticatedUi.editor.viewMode')}>
-                    <Button type="button" size="sm" aria-pressed={lessonView === 'edit'} variant={lessonView === 'edit' ? 'secondary' : 'ghost'} onClick={() => setLessonView('edit')}><Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.editMode')}</Button>
+                    <Button type="button" size="sm" aria-pressed={lessonView === 'edit'} variant={lessonView === 'edit' ? 'secondary' : 'ghost'} onClick={() => { setPreviewLanguage(undefined); setLessonView('edit'); }}><Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.editMode')}</Button>
                     <Button type="button" size="sm" aria-pressed={lessonView === 'preview'} variant={lessonView === 'preview' ? 'secondary' : 'ghost'} disabled={practiceDirty} onClick={() => setLessonView('preview')}><Eye className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.previewMode')}</Button>
                   </div>
+                  {localePreview.available.length > 1 && <label className="flex items-center gap-2 text-sm">
+                    {courseLanguageLabel}
+                    <select className="rounded-lg border border-border bg-card px-2 py-2" value={previewLanguage ?? contentLocale}
+                      disabled={practiceDirty}
+                      onChange={(event) => {
+                        const language = event.target.value;
+                        if (!isCourseLanguage(language)) return;
+                        localePreview.choose(language);
+                        setPreviewLanguage(language === contentLocale ? undefined : language);
+                        setLessonView(language === contentLocale ? 'edit' : 'preview');
+                      }}>
+                      {localePreview.available.map(language => <option key={language} value={language}>{contentLanguages[language]}</option>)}
+                    </select>
+                  </label>}
                 </div>
                 {lessonView === 'edit' ? (
                   <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
@@ -1013,8 +1039,26 @@ export default function CourseEditPage() {
                     <div className="flex min-h-0 flex-1 flex-col gap-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-medium">{t('authenticatedUi.editor.lessonContent')}</span>
-                        <div role="group" aria-label={t('authenticatedUi.editor.lessonContent')} className="flex flex-wrap gap-1 rounded-md border border-border p-1">
-                          {(['visual', 'markdown'] as const).map(mode => <Button key={mode} type="button" size="sm" variant={contentEditor === mode ? 'secondary' : 'ghost'} aria-pressed={contentEditor === mode} onClick={() => setContentEditor(mode)}>{blockCopy[mode]}</Button>)}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">{blockCopy[contentEditor]}</span>
+                          <details className="relative" data-lesson-format-menu onBlur={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+                          }} onKeyDown={(event) => {
+                            if (event.key === 'Escape' && event.currentTarget.open) {
+                              event.currentTarget.open = false;
+                              event.currentTarget.querySelector('summary')?.focus();
+                            }
+                          }}>
+                            <summary className="cursor-pointer rounded-lg border border-border px-3 py-2 text-sm">{moreEditorLabel}</summary>
+                            <div className="absolute right-0 z-20 mt-1 w-max rounded-lg border border-border bg-card p-1 shadow-md">
+                              <Button type="button" size="sm" variant="ghost" onClick={(event) => {
+                                const menu = event.currentTarget.closest('details');
+                                menu?.removeAttribute('open');
+                                menu?.querySelector('summary')?.focus();
+                                setContentEditor(contentEditor === 'visual' ? 'markdown' : 'visual');
+                              }}>{blockCopy[contentEditor === 'visual' ? 'markdown' : 'visual']}</Button>
+                            </div>
+                          </details>
                         </div>
                       </div>
                       <div role="group" aria-label={blockCopy.history} className="flex flex-wrap gap-2">
@@ -1051,12 +1095,17 @@ export default function CourseEditPage() {
                   </div>
                 ) : (
                   <article className="min-h-[560px] overflow-x-auto p-6 sm:p-10">
-                    <h1 className="mb-8 text-3xl font-bold tracking-tight">{editLessonTitle || t('authenticatedUi.editor.lessonTitle')}</h1>
+                    {translatedPreview && <p className="mb-3 text-sm text-muted-foreground">
+                      {lang === 'kk' ? 'Бекітілген аударма' : lang === 'en' ? 'Approved translation' : 'Утверждённый перевод'}
+                    </p>}
+                    {!previewReady ? <p role="status">{t('common.loading')}</p> : <>
+                    <h1 className="mb-8 text-3xl font-bold tracking-tight">{previewTitle || t('authenticatedUi.editor.lessonTitle')}</h1>
                     <LessonContent
-                      text={editLessonContent}
-                      omitFirstHeading={editLessonTitle}
+                      text={previewText}
+                      omitFirstHeading={previewTitle}
                       className={lessonContentClassName}
                     />
+                    </>}
                   </article>
                 )}
                 <div className="sticky bottom-0 z-10 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-card p-4 shadow-sm">

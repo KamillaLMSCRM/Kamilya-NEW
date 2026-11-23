@@ -629,7 +629,10 @@ function ScopedQuizPlayer() {
                 <h2 className="min-w-0 break-words text-lg font-semibold leading-7">{currentQ.text}</h2>
               </div>
               <p className="text-xs text-muted-foreground">
-                {t('quiz.points')}: {currentQ.points} · {currentQ.type === MATCHING_PAIRS ? matchingCopy(lang).type : currentQ.type === 'ordering' ? orderingCopy(lang).type : currentQ.type}
+                {t('quiz.points')}: {currentQ.points} · {currentQ.type === MATCHING_PAIRS
+                  ? matchingCopy(lang).type : currentQ.type === 'ordering'
+                    ? orderingCopy(lang).type : currentQ.type === 'MCQ' || currentQ.type === 'single_choice'
+                      ? t('authenticatedUi.quizUi.mcq') : currentQ.type}
               </p>
               {currentQ.type === MATCHING_PAIRS ? (
                 <MatchingAnswer choices={currentQ.choices} selected={answers[currentQ.id]} questionId={currentQ.id}

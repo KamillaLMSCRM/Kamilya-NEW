@@ -127,7 +127,7 @@ function questionEditorIsDirty(
 }
 
 function questionTypeLabel(type: string): TranslationKey | null {
-  if (type === 'MCQ') return 'authenticatedUi.quizUi.mcq';
+  if (type === 'MCQ' || type === 'single_choice') return 'authenticatedUi.quizUi.mcq';
   if (type === 'multiple_choice') return 'authenticatedUi.quizUi.multiple';
   if (type === 'true_false') return 'authenticatedUi.quizUi.trueFalse';
   if (type === 'matching') return 'authenticatedUi.quizUi.matching';

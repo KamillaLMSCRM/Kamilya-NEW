@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import Boolean, Column, ColumnElement, DateTime, String, Table, select, update
+from sqlalchemy import Boolean, Column, ColumnElement, DateTime, String, Table, func, or_, select, update
 from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.dialects.postgresql import UUID as DBUUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -160,6 +160,50 @@ async def editions(db: AsyncSession, course: Course, sha: str, *, published: boo
     if published:
         query = query.where(EDITIONS.c.approved_at.is_not(None))
     return [dict(row) for row in (await db.execute(query)).mappings().all()]
+
+
+def catalog_translation_field(name: str) -> Any:
+    return func.jsonb_extract_path_text(EDITIONS.c.content, func.concat("course.", EDITIONS.c.course_id, ".", name))
+
+
+def catalog_translation_matches(pattern: str) -> Any:
+    return select(EDITIONS.c.course_id).where(
+        EDITIONS.c.course_id == Course.id,
+        EDITIONS.c.tenant_id == Course.tenant_id,
+        EDITIONS.c.approved_at.is_not(None),
+        or_(*(catalog_translation_field(name).ilike(pattern, escape="\\") for name in ("title", "description"))),
+    ).exists()
+
+
+async def catalog_editions(
+    db: AsyncSession, courses: list[Course], tenant_id: UUID,
+) -> dict[UUID, dict[Language, dict[str, str | None]]]:
+    published = {
+        course.id: course for course in courses
+        if course.status == "published" and course.current_release_id and read_policy(course)
+    }
+    if not published:
+        return {}
+    releases = (await db.execute(select(ContentRelease.course_id, ContentRelease.snapshot).where(
+        ContentRelease.tenant_id == tenant_id,
+        ContentRelease.id.in_(course.current_release_id for course in published.values()),
+        ContentRelease.course_id.in_(published),
+    ))).all()
+    hashes = {course_id: source_fields(snapshot)[0] for course_id, snapshot in releases}
+    rows = (await db.execute(select(
+        EDITIONS.c.course_id, EDITIONS.c.language, EDITIONS.c.source_sha256,
+        catalog_translation_field("title").label("title"),
+        catalog_translation_field("description").label("description"),
+    ).where(
+        EDITIONS.c.tenant_id == tenant_id,
+        EDITIONS.c.course_id.in_(hashes),
+        EDITIONS.c.approved_at.is_not(None),
+    ))).all()
+    result: dict[UUID, dict[Language, dict[str, str | None]]] = {}
+    for row in rows:
+        if row.source_sha256 == hashes.get(row.course_id):
+            result.setdefault(row.course_id, {})[row.language] = {"title": row.title, "description": row.description}
+    return result
 
 
 def unchanged_translations(
