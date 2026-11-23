@@ -31,6 +31,7 @@ vi.mock('@/i18n/useT', async () => {
   };
   return {
     useT: () => ({
+      lang: 'ru',
       t: translate,
       tp: (_key: string, count: number) => `${count} обучающихся`,
     }),
@@ -93,6 +94,9 @@ describe('contextual course assignment flow', () => {
         return Promise.resolve(jsonResponse([]));
       }
       if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) {
+        return Promise.resolve(jsonResponse([]));
+      }
+      if (!init?.method && (url.endsWith('/v1/positions') || url.endsWith('/v1/cohorts'))) {
         return Promise.resolve(jsonResponse([]));
       }
       if (init?.method === 'POST' && url.endsWith('/v1/learning-cycles')) {

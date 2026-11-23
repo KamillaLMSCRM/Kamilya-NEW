@@ -1,7 +1,7 @@
 import { expect, test as base, type BrowserContext } from '@playwright/test';
 
 export const appOrigin = process.env.KAMILYA_WORKSPACE_TEST_ORIGIN || 'http://127.0.0.1:3024';
-if (!['http://127.0.0.1:3024', 'http://127.0.0.1:3026', 'http://127.0.0.1:3027'].includes(appOrigin)) {
+if (!['http://127.0.0.1:3024', 'http://127.0.0.1:3026', 'http://127.0.0.1:3027', 'http://127.0.0.1:3028'].includes(appOrigin)) {
   throw new Error('Synthetic workspace tests require an explicitly allowed loopback origin.');
 }
 const uuid = (suffix: number) => `71000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
@@ -267,9 +267,13 @@ export class SyntheticWorkspace {
     this.role = 'methodologist';
     this.get('/v1/courses', [course]);
     this.get('/v1/users', { users: audience, total: audience.length });
+    this.get('/v1/positions', []);
+    this.get('/v1/cohorts', []);
     this.get('/v1/learning-cycles', []);
     this.get('/v1/learning-cycles/occurrences', []);
     this.get(`/v1/courses/${ids.course}/enrollments`, [existingEnrollment]);
+    this.get(`/v1/learning-notifications/telegram/learner/${ids.existingLearner}`, { available: false, connected: false });
+    this.get(`/v1/learning-notifications/telegram/delivery/course/${existingEnrollment.id}`, []);
   }
 
   trainingLog() {
@@ -281,7 +285,11 @@ export class SyntheticWorkspace {
         actions_truncated: false, open_action_count: 0, overdue_action_count: 0 },
       training_items: [], weak_questions: [], actions: [],
     });
-    const rowsFor = (url: URL) => trainingRows.slice(0, url.searchParams.get('history') === 'true' ? 102 : 101);
+    const rowsFor = (url: URL) => {
+      const employeeId = url.searchParams.get('user_id');
+      return trainingRows.slice(0, url.searchParams.get('history') === 'true' ? 102 : 101)
+        .filter((row) => !employeeId || row.user_id === employeeId);
+    };
     this.onGet('/v1/admin/training-log/summary', ({ url }) => ({ json: {
       total: rowsFor(url).length, assigned: 0, in_progress: rowsFor(url).length, completed: 0, overdue: 0,
     } }));

@@ -74,6 +74,7 @@ async def test_training_log_json_summary_and_csv_share_restricted_scope(
 ) -> None:
     tenant_id = uuid4()
     user = SimpleNamespace(id=uuid4(), tenant_id=tenant_id, role="methodologist")
+    employee_id = uuid4()
     observed: list[tuple[str, object]] = []
 
     async def fake_scope(*_args, **_kwargs):
@@ -86,6 +87,7 @@ async def test_training_log_json_summary_and_csv_share_restricted_scope(
         assert actual_tenant_id == tenant_id
         observed.append(("summary", filters.responsible_user_ids))
         assert filters.assessment_status == "exhausted"
+        assert filters.user_id == employee_id
         return TrainingLogSummary(total=0, assigned=0, in_progress=0, completed=0)
 
     async def fake_page(_db, actual_tenant_id, filters, *, limit, offset):
@@ -93,6 +95,7 @@ async def test_training_log_json_summary_and_csv_share_restricted_scope(
         assert (limit, offset) == (100, 0)
         observed.append(("json", filters.responsible_user_ids))
         assert filters.assessment_status == "exhausted"
+        assert filters.user_id == employee_id
         return TrainingLogPage(items=[], total=0, limit=limit, offset=offset)
 
     def fake_csv(_db, actual_tenant_id, filters, *, lang):
@@ -100,6 +103,7 @@ async def test_training_log_json_summary_and_csv_share_restricted_scope(
         assert lang == "ru"
         observed.append(("csv", filters.responsible_user_ids))
         assert filters.assessment_status == "exhausted"
+        assert filters.user_id == employee_id
 
         async def chunks():
             yield b""
@@ -112,6 +116,7 @@ async def test_training_log_json_summary_and_csv_share_restricted_scope(
     monkeypatch.setattr(training_log_router, "stream_training_log_as_csv", fake_csv)
     common = {
         "enrollment_id": None,
+        "employee_id": employee_id,
         "course_id": None,
         "department_id": None,
         "position_id": None,

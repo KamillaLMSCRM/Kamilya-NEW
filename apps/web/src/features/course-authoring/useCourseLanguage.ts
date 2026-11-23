@@ -6,14 +6,14 @@ import { isCourseLanguage, type CourseLanguage } from './courseLanguages';
 
 type State = { primary: CourseLanguage | null; available: CourseLanguage[]; content: Record<string, string> };
 
-export function useCourseLanguage(courseId: string, identity: string | undefined, interfaceLanguage: string) {
+export function useCourseLanguage(courseId: string, identity: string | undefined, fallbackLanguage: string) {
   const [selection, setSelection] = useState<{ scope: string; value: CourseLanguage }>();
   const [result, setResult] = useState<{ scope: string; language: CourseLanguage; data: State }>();
   const scope = identity && `course-language:${identity}:${courseId}`;
   const chosen = selection?.scope === scope ? selection?.value : undefined;
   const stored = typeof window === 'undefined' || !scope ? null : localStorage.getItem(scope);
   const preferred = chosen ?? (isCourseLanguage(stored) ? stored : undefined);
-  const fallback = isCourseLanguage(interfaceLanguage) ? interfaceLanguage : 'ru';
+  const fallback = isCourseLanguage(fallbackLanguage) ? fallbackLanguage : 'ru';
 
   useEffect(() => {
     if (!scope || !courseId) return;

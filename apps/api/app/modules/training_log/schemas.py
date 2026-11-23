@@ -28,6 +28,7 @@ class TrainingLogFilter(BaseModel):
 
     course_id: UUID | None = None
     enrollment_id: UUID | None = None
+    user_id: UUID | None = None
     department_id: UUID | None = None
     position_id: UUID | None = None
     # enrollment status derived from `enrollments.status`, activity and cycle rules:

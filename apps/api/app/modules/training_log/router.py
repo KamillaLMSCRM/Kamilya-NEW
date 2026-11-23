@@ -53,6 +53,7 @@ _TRAINING_LOG_ROLES = ("admin", "methodologist", "superadmin")
 async def training_log_summary(
     response: Response,
     enrollment_id: Annotated[UUID | None, Query()] = None,
+    employee_id: Annotated[UUID | None, Query(alias="user_id")] = None,
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
@@ -82,6 +83,7 @@ async def training_log_summary(
     )
     filters = TrainingLogFilter(
         enrollment_id=enrollment_id,
+        user_id=employee_id,
         course_id=course_id,
         department_id=department_id,
         position_id=position_id,
@@ -109,6 +111,7 @@ async def list_training_log(
     request: Request,
     response: Response,
     enrollment_id: Annotated[UUID | None, Query()] = None,
+    employee_id: Annotated[UUID | None, Query(alias="user_id")] = None,
     course_id: UUID | None = Query(default=None),
     department_id: UUID | None = Query(default=None),
     position_id: UUID | None = Query(default=None),
@@ -147,6 +150,7 @@ async def list_training_log(
 
     f = TrainingLogFilter(
         enrollment_id=enrollment_id,
+        user_id=employee_id,
         course_id=course_id,
         department_id=department_id,
         position_id=position_id,

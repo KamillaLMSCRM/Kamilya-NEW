@@ -11,6 +11,7 @@ import {
   Input,
 } from '@/components/ui';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { buttonVariants } from '@/components/ui/button';
 import { toast } from '@/components/ui/Toast';
 import { useAuthStore } from '@/store/authStore';
 import ContextualNavigation from '@/components/layout/ContextualNavigation';
@@ -41,9 +42,33 @@ interface User {
   // Опциональные поля — бэк может вернуть табельный/должность
   // для лучшего UX в поиске.
   personnel_number?: string | null;
+  position_id?: string | null;
   position_name?: string | null;
   has_login_access?: boolean;
 }
+
+type AudienceOption = { id: string; name: string };
+
+const audienceLabels = {
+  ru: {
+    groups: 'Группы обучения', group: 'Учебная группа', position: 'Должность',
+    allGroups: 'Все группы', noGroups: 'Групп пока нет', allPositions: 'Все должности',
+    groupUnavailable: 'Не удалось загрузить состав группы.', selectCourse: 'Сначала выберите курс вверху.',
+    noMatches: 'По выбранным фильтрам нет сотрудников, которым можно назначить курс.',
+  },
+  en: {
+    groups: 'Learning groups', group: 'Learning group', position: 'Position',
+    allGroups: 'All groups', noGroups: 'No groups yet', allPositions: 'All positions',
+    groupUnavailable: 'Could not load group members.', selectCourse: 'Choose a course above first.',
+    noMatches: 'No eligible employees match these filters.',
+  },
+  kk: {
+    groups: 'Оқу топтары', group: 'Оқу тобы', position: 'Лауазым',
+    allGroups: 'Барлық топтар', noGroups: 'Топтар әлі жоқ', allPositions: 'Барлық лауазымдар',
+    groupUnavailable: 'Топ мүшелерін жүктеу мүмкін болмады.', selectCourse: 'Алдымен жоғарыдан курсты таңдаңыз.',
+    noMatches: 'Таңдалған сүзгілер бойынша курс тағайындауға болатын қызметкерлер жоқ.',
+  },
+} as const;
 
 interface Enrollment {
   id: string;
@@ -219,6 +244,7 @@ export default function EnrollmentsPage() {
 function AssignmentsContent() {
   const { t, tp, lang } = useT();
   const m = workspaceCopy(lang);
+  const audienceLabel = audienceLabels[lang] ?? audienceLabels.ru;
   const translatedLabel = (
     labels: Record<string, TranslationKey>,
     value: string,
@@ -293,6 +319,14 @@ function AssignmentsContent() {
 
   // ── фильтры (UI-side) ──────────────────────────────────
   const [userSearch, setUserSearch] = useState('');
+  const [positionFilter, setPositionFilter] = useState('');
+  const [groupFilter, setGroupFilter] = useState('');
+  const [audienceCatalog, setAudienceCatalog] = useState<{
+    token: string; positions: AudienceOption[]; groups: AudienceOption[]; groupsUnavailable: boolean;
+  }>();
+  const [groupMembers, setGroupMembers] = useState<{
+    token: string; id: string; users: Set<string> | null;
+  }>();
   const [courseSearch, setCourseSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('email');
@@ -344,6 +378,46 @@ function AssignmentsContent() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!token || !canManageAssignments || assignmentMode !== 'compose') return;
+    const controller = new AbortController();
+    const headers = { Authorization: `Bearer ${token}` };
+    const getOptions = async (path: string): Promise<AudienceOption[]> => {
+      const response = await fetch(`${API_URL}/v1/${path}`, { headers, signal: controller.signal });
+      if (!response.ok) throw new Error('Audience options unavailable');
+      return response.json();
+    };
+    void Promise.allSettled([getOptions('positions'), getOptions('cohorts')]).then(([positions, groups]) => {
+      if (!controller.signal.aborted && tokenRef.current === token) {
+        setAudienceCatalog({
+          token, positions: positions.status === 'fulfilled' ? positions.value : [],
+          groups: groups.status === 'fulfilled' ? groups.value : [],
+          groupsUnavailable: groups.status === 'rejected',
+        });
+      }
+    });
+    return () => controller.abort();
+  }, [API_URL, assignmentMode, canManageAssignments, token]);
+
+  useEffect(() => {
+    if (!token || !canManageAssignments || assignmentMode !== 'compose' || !groupFilter) return;
+    const controller = new AbortController();
+    void fetch(`${API_URL}/v1/cohorts/${encodeURIComponent(groupFilter)}`, {
+      headers: { Authorization: `Bearer ${token}` }, signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) throw new Error('Group members unavailable');
+      const { user_ids } = await response.json() as { user_ids: string[] };
+      if (!controller.signal.aborted && tokenRef.current === token) {
+        setGroupMembers({ token, id: groupFilter, users: new Set(user_ids) });
+      }
+    }).catch(() => {
+      if (!controller.signal.aborted && tokenRef.current === token) {
+        setGroupMembers({ token, id: groupFilter, users: null });
+      }
+    });
+    return () => controller.abort();
+  }, [API_URL, assignmentMode, canManageAssignments, groupFilter, token]);
 
   const fetchRecurringRules = useCallback(async () => {
     if (!token || !canManageAssignments || !alive.current || tokenRef.current !== token) return;
@@ -701,12 +775,18 @@ function AssignmentsContent() {
   const enrolledUserIds = useMemo(() => {
     return new Set(enrollments.map((e) => e.user_id));
   }, [enrollments]);
+  const audience = audienceCatalog?.token === token ? audienceCatalog : undefined;
+  const activeGroup = groupMembers?.token === token && groupMembers?.id === groupFilter ? groupMembers : undefined;
+  const audiencePending = (selectedCourse && enrollmentReadState !== 'ready') || (groupFilter && !activeGroup?.users);
   const availableUsers = useMemo(() => {
     if (!selectedCourse || enrollmentReadState !== 'ready') return [];
     return users.filter(
-      (u) => u.role === 'student' && matchesUserQuery(u, userSearch) && !enrolledUserIds.has(u.id),
+      (u) => u.role === 'student'
+        && (!positionFilter || u.position_id === positionFilter)
+        && (!groupFilter || activeGroup?.users?.has(u.id))
+        && matchesUserQuery(u, userSearch) && !enrolledUserIds.has(u.id),
     );
-  }, [users, userSearch, enrolledUserIds, selectedCourse, enrollmentReadState]);
+  }, [users, userSearch, enrolledUserIds, selectedCourse, enrollmentReadState, positionFilter, groupFilter, activeGroup]);
 
   const copyAccessLink = async (url: string, isCurrent = captureCurrentAction()) => {
     if (!isCurrent()) return;
@@ -1140,7 +1220,10 @@ function AssignmentsContent() {
   if (loading) return <WorkspacePage id="assignments" title={t('courseAssignments.title')}><p role="status">{t('common.loading')}</p></WorkspacePage>;
 
   return (
-    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />} actions={<ContextualNavigation section="assignments" />}>
+    <WorkspacePage id="assignments" title={t('courseAssignments.title')} icon={<Users />} actions={<>
+      <Link className={buttonVariants({ variant: 'outline' })} href="/cohorts">{audienceLabel.groups}</Link>
+      <ContextualNavigation section="assignments" />
+    </>}>
 
       {accessLinks.length > 0 && (
         <WorkspacePanel className="border-primary/30" bodyClassName="space-y-3" aria-label={t('courseAssignments.ui.activationTitle')}>
@@ -1381,19 +1464,42 @@ function AssignmentsContent() {
             <p className="text-sm text-muted-foreground">
               {selectedCourse && enrollmentReadState !== 'ready' ? m.recipientsUnknown : selectedCourse
                 ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
-                : t('courseAssignments.ui.selectCourseHint')}
+                : audienceLabel.selectCourse}
             </p>
             <SearchInput
               value={userSearch}
               onChange={setUserSearch}
               placeholder={t('courseAssignments.ui.searchLearner')}
             />
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+              <label className="grid min-w-0 gap-1.5 text-sm">
+                {audienceLabel.position}
+                <select className="min-h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+                  value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
+                  <option value="">{audienceLabel.allPositions}</option>
+                  {audience?.positions.map((position) => <option key={position.id} value={position.id}>{position.name}</option>)}
+                </select>
+              </label>
+              <label className="grid min-w-0 gap-1.5 text-sm">
+                {audienceLabel.group}
+                <select className="min-h-10 min-w-0 rounded-md border border-input bg-background px-3 text-sm"
+                  value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}>
+                  <option value="">{audience && !audience.groupsUnavailable && !audience.groups.length ? audienceLabel.noGroups : audienceLabel.allGroups}</option>
+                  {audience?.groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}
+                </select>
+              </label>
+            </div>
+            {audience?.groupsUnavailable && <p role="status" className="text-sm text-muted-foreground">{t('cohorts.loadFailed')}</p>}
+            {groupFilter && !activeGroup && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
+            {activeGroup?.users === null && <p role="alert" className="text-sm text-destructive">{audienceLabel.groupUnavailable}</p>}
             <div className="max-h-96 overflow-y-auto space-y-2 rounded-xl border border-border p-2">
-              {selectedCourse && enrollmentReadState !== 'ready' ? null : availableUsers.length === 0 && users.length > 0 ? (
+              {audiencePending ? null : availableUsers.length === 0 && users.length > 0 ? (
                 <p className="text-xs text-muted-foreground p-2">
                   {selectedCourse
-                    ? t('courseAssignments.ui.allAlreadyAssigned')
-                    : t('courseAssignments.ui.selectCourseToList')}
+                    ? positionFilter || groupFilter || userSearch
+                      ? audienceLabel.noMatches
+                      : t('courseAssignments.ui.allAlreadyAssigned')
+                    : audienceLabel.selectCourse}
                 </p>
               ) : (
                 availableUsers.map((user) => (

@@ -3,7 +3,7 @@ import { expect, type Page, type TestInfo } from '@playwright/test';
 import {
   appOrigin, audience, course, existingEnrollment, ids, lessons, newEnrollment,
   quiz, quizAttempt, quizResult, reviewAttempt, reviewSummary, snapshotHash,
-  sourceDocument, test,
+  sourceDocument, test, trainingRows,
 } from './learning-workspace-ux-fixtures';
 
 // Real Next production pages, never HTML prototypes. Root owns build/server on3024.
@@ -258,6 +258,36 @@ for (const viewport of [
       await capture(page, info, 'question-history-draft');
     });
 
+    if (viewport.width === 1440 || viewport.width === 390) test('assignment audience filters use group members and position', async ({ page, workspace }) => {
+      workspace.assignments();
+      const users = [
+        { ...audience[0], position_id: ids.department },
+        { ...audience[1], position_id: ids.module, position_name: 'Engineer' },
+      ];
+      workspace.get('/v1/users', { users, total: users.length });
+      workspace.get('/v1/positions', [{ id: ids.department, name: 'Operator' }, { id: ids.module, name: 'Engineer' }]);
+      workspace.get('/v1/cohorts', [{ id: ids.evidence, name: 'First shift' }]);
+      workspace.get(`/v1/cohorts/${ids.evidence}`, { id: ids.evidence, name: 'First shift', user_ids: [users[0].id] });
+      workspace.get(`/v1/courses/${ids.course}/enrollments`, []);
+      await page.goto('/assignments');
+      await expect(page.getByRole('link', { name: 'Learning groups', exact: true })).toHaveAttribute('href', '/cohorts');
+      await page.getByRole('combobox', { name: 'Course to assign', exact: true }).selectOption(ids.course);
+      const first = page.getByRole('checkbox', { name: 'Synthetic Learner', exact: true });
+      const second = page.getByRole('checkbox', { name: 'Existing Graduate', exact: true });
+      await expect(second).toBeVisible();
+      const group = page.getByRole('combobox', { name: 'Learning group', exact: true });
+      await group.selectOption(ids.evidence);
+      await expect(first).toBeVisible();
+      await expect(second).toHaveCount(0);
+      await page.getByRole('combobox', { name: 'Position', exact: true }).selectOption(ids.module);
+      await expect(first).toHaveCount(0);
+      await expect(page.getByText('No eligible employees match these filters.')).toBeVisible();
+      await group.selectOption('');
+      await expect(second).toBeVisible();
+      expect(workspace.matching('POST', `/v1/courses/${ids.course}/enrollments`)).toHaveLength(0);
+      await noPageOverflow(page);
+    });
+
     test('assignment selection excludes existing history and writes only after explicit confirmation', async ({ page, workspace }, info) => {
       workspace.assignments();
       await page.goto('/assignments');
@@ -331,6 +361,27 @@ for (const viewport of [
       expect(decisions[0].body).toEqual({ decision: 'approve', reason: null, acknowledge_incomplete_warning: false });
       expect(workspace.calls.filter((call) => call.path.endsWith('/publish'))).toEqual([]);
       await noPageOverflow(page);
+    });
+
+    if (viewport.width === 1440 || viewport.width === 390) test('employee journal scopes rows, summary and CSV to the chosen employee', async ({ page, workspace }) => {
+      workspace.trainingLog();
+      const employee = trainingRows[0];
+      await page.goto(`/training-log?user_id=${employee.user_id}`);
+      await expect(page.getByRole('status').filter({ hasText: `Employee records · ${employee.full_name}` })).toBeVisible();
+      await expect(page.getByRole('button', { name: new RegExp(employee.full_name) })).toBeVisible();
+      await expect(page.getByText(trainingRows[1].full_name, { exact: true })).toHaveCount(0);
+      await expect(page.getByRole('heading', { name: 'Methodologist action center' })).toHaveCount(0);
+      const downloaded = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download CSV', exact: true }).click();
+      await downloaded;
+      const calls = workspace.matching('GET', '/v1/admin/training-log');
+      expect(calls.some((call) => call.url.searchParams.get('format') === 'csv')).toBe(true);
+      expect(calls.every((call) => call.url.searchParams.get('user_id') === employee.user_id)).toBe(true);
+      expect(workspace.matching('GET', '/v1/admin/training-log/summary').map((call) => call.url.searchParams.get('user_id')))
+        .toContain(employee.user_id);
+      await page.getByRole('button', { name: 'Show all employees' }).click();
+      await expect(page).not.toHaveURL(/user_id=/);
+      await expect(page.getByRole('heading', { name: 'Methodologist action center' })).toBeVisible();
     });
 
     test('training log keeps restricted scope, current/history filters and whole-filter CSV at both sizes', async ({ page, workspace }, info) => {

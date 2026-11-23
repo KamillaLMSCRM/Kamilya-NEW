@@ -22,24 +22,23 @@ interface JournalPage { items: EmployeeEnrollment[]; total: number }
 export function EmployeeLearning({ employee }: { employee: StaffWorkspaceEmployee }) {
   const [result, setResult] = useState<{ rows: EmployeeEnrollment[]; partial: boolean }>();
   const [error, setError] = useState(false);
-  const search = employee.personnel_number || employee.full_name.trim().split(/\s+/).at(-1) || '';
+  const userId = employee.id;
 
   useEffect(() => {
-    if (!search) return;
     const controller = new AbortController();
-    const query = buildTrainingLogPageQuery({}, search, 50, 0);
+    const query = buildTrainingLogPageQuery({ user_id: userId }, '', 50, 0);
     api.get<JournalPage>('/v1/admin/training-log?' + query, { signal: controller.signal })
       .then(({ data }) => {
         if (!controller.signal.aborted) setResult({
-          rows: data.items.filter((row) => row.user_id === employee.id),
+          rows: data.items.filter((row) => row.user_id === userId),
           partial: data.total > data.items.length,
         });
       })
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
-  }, [employee.id, search]);
+  }, [userId]);
 
-  if (error || !search) return <p role="status" className="text-sm text-muted-foreground">Не удалось загрузить обучение сотрудника.</p>;
+  if (error) return <p role="status" className="text-sm text-muted-foreground">Не удалось загрузить обучение сотрудника.</p>;
   if (!result) return <p role="status" className="text-sm text-muted-foreground">Загрузка обучения…</p>;
 
   const overdue = (row: EmployeeEnrollment) => row.computed_status !== 'completed' &&

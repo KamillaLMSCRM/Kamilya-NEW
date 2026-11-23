@@ -41,6 +41,8 @@ import { useLessonDraftHistory } from '@/features/course-authoring/useLessonDraf
 import { visualLessonCopy } from '@/features/course-authoring/visualLessonCopy';
 import { CourseReadiness } from '@/features/course-authoring/CourseReadiness';
 import { CourseLanguagesEditor } from '@/features/course-authoring/CourseLanguagesEditor';
+import { contentLanguages, isCourseLanguage, type CourseLanguage } from '@/features/course-authoring/courseLanguages';
+import { useCourseLanguage } from '@/features/course-authoring/useCourseLanguage';
 import { SourceReviewPanel } from '@/features/course-authoring/SourceReviewPanel';
 import { WorkspacePage, WorkspacePageHeader, WorkspaceToolbar } from '@/features/workspace-design';
 import { authorWorkspaceCopy } from '@/features/course-authoring/authorWorkspaceCopy';
@@ -78,7 +80,7 @@ interface Course {
     source_editorial_snapshots?: unknown;
     unplaced_source_assets?: unknown;
     source_actuality?: { affected_lesson_ids?: string[]; grounded_lesson_ids?: string[] };
-    course_language_policy?: { primary?: 'ru' | 'kk' | 'en' };
+    course_language_policy?: { primary?: CourseLanguage; requested?: CourseLanguage[] };
   } | null;
 }
 
@@ -142,6 +144,7 @@ export default function CourseEditPage() {
   const [savedLessonContent, setSavedLessonContent] = useState('');
   const [lessonView, setLessonView] = useState<'edit' | 'preview'>('edit');
   const [contentEditor, setContentEditor] = useState<'visual' | 'markdown'>('visual');
+  const [previewLanguage, setPreviewLanguage] = useState<CourseLanguage>();
   const [loadingLessonId, setLoadingLessonId] = useState<string | null>(null);
   const [creationBusy, setCreationBusy] = useState(false);
   const creationPending = useRef<symbol | null>(null);
@@ -172,7 +175,20 @@ export default function CourseEditPage() {
   );
   const revisionLesson = course?.status === 'draft' && activeLesson
     && course.source_analysis?.source_actuality?.affected_lesson_ids?.includes(activeLesson.id);
-  const contentLocale = course?.source_analysis?.course_language_policy?.primary ?? lang;
+  const languagePolicy = course?.source_analysis?.course_language_policy;
+  const contentLocale = languagePolicy?.primary ?? lang;
+  const localizedCourseId = languagePolicy?.requested && languagePolicy.requested.length > 1 ? courseId : '';
+  const localePreview = useCourseLanguage(localizedCourseId, actor ? `editor:${actor.user_id}:${actor.tenant_id}:${sessionEpoch}` : undefined, contentLocale);
+  const translatedPreview = Boolean(previewLanguage && previewLanguage !== contentLocale);
+  const previewReady = !translatedPreview || localePreview.language === previewLanguage;
+  const visibleLessonView = translatedPreview ? 'preview' : lessonView;
+  const titleInPreview = (kind: 'course' | 'module' | 'lesson', id: string, title: string) =>
+    translatedPreview && previewReady ? localePreview.text(kind, id, 'title', title) : title;
+  const previewTitle = translatedPreview && editingLessonId
+    ? titleInPreview('lesson', editingLessonId, editLessonTitle) : editLessonTitle;
+  const previewText = translatedPreview && editingLessonId
+    ? localePreview.text('lesson', editingLessonId, 'content', editLessonContent) : editLessonContent;
+  const courseLanguageLabel = lang === 'kk' ? 'Курс тілі' : lang === 'en' ? 'Course language' : 'Язык курса';
   const lessonSequence = modules.flatMap((module) => module.lessons);
   const activeLessonIndex = lessonSequence.findIndex((lesson) => lesson.id === editingLessonId);
   const activeModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === editingLessonId));
@@ -665,7 +681,8 @@ export default function CourseEditPage() {
       });
       if (!discard) return;
     }
-    router.push(`/courses/${courseId}?lessonId=${encodeURIComponent(activeLesson.id)}`);
+    const params = new URLSearchParams({ lessonId: activeLesson.id, language: previewLanguage ?? contentLocale });
+    router.push(`/courses/${courseId}?${params}`);
   };
 
   const handleGuardedLink = async (event: ReactMouseEvent<HTMLAnchorElement>, href: string) => {
@@ -787,7 +804,7 @@ export default function CourseEditPage() {
             onClick={(event) => void handleGuardedLink(event, `/courses/${courseId}`)}
             className="flex items-center gap-1 text-sm text-primary hover:underline"
           >
-            <ChevronLeft className="w-4 h-4" /> {course.title}
+            <ChevronLeft className="w-4 h-4" /> {titleInPreview('course', course.id, course.title)}
           </a>
       } description={
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -946,7 +963,7 @@ export default function CourseEditPage() {
                         <Button aria-label={t('authenticatedUi.editor.moveModuleUp')} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleMoveModule(mod.id, 'up')} disabled={modIdx === 0}><ChevronUp className="h-4 w-4" aria-hidden="true" /></Button>
                         <Button aria-label={t('authenticatedUi.editor.moveModuleDown')} variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => handleMoveModule(mod.id, 'down')} disabled={modIdx === modules.length - 1}><ChevronDown className="h-4 w-4" aria-hidden="true" /></Button>
                       </div>
-                      <h3 id={`module-${mod.id}`} className="min-w-0 flex-1 py-1 text-sm font-semibold leading-5">{mod.title}</h3>
+                      <h3 id={`module-${mod.id}`} className="min-w-0 flex-1 py-1 text-sm font-semibold leading-5">{titleInPreview('module', mod.id, mod.title)}</h3>
                       <Button aria-label={t('common.edit')} variant="ghost" size="sm" className="h-8 px-2" onClick={() => void handleEditModule(mod)}><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                       <Button aria-label={t('common.delete')} variant="ghost" size="sm" className="h-8 px-2 text-destructive" onClick={() => handleDeleteModule(mod.id)}><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                     </div>
@@ -966,9 +983,9 @@ export default function CourseEditPage() {
                           onClick={() => void handleSelectLesson(lesson.id)}
                         >
                           {loadingLessonId === lesson.id ? <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" /> : <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
-                          <span className="truncate">{lesson.title}</span>
+                          <span className="truncate">{titleInPreview('lesson', lesson.id, lesson.title)}</span>
                         </button>
-                        <Button aria-label={t('authenticatedUi.editor.deleteLesson', { title: lesson.title })} variant="ghost" size="sm" className="h-8 px-2 text-destructive opacity-70 group-hover:opacity-100" onClick={() => handleDeleteLesson(lesson.id, mod.id)}><X className="h-3.5 w-3.5" aria-hidden="true" /></Button>
+                        <Button aria-label={t('authenticatedUi.editor.deleteLesson', { title: titleInPreview('lesson', lesson.id, lesson.title) })} variant="ghost" size="sm" className="h-8 px-2 text-destructive opacity-70 group-hover:opacity-100" onClick={() => handleDeleteLesson(lesson.id, mod.id)}><X className="h-3.5 w-3.5" aria-hidden="true" /></Button>
                       </div>
                     ))}
                   </div>
@@ -997,14 +1014,31 @@ export default function CourseEditPage() {
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border p-4">
                   <div className="min-w-0 flex-1 basis-48">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('authenticatedUi.editor.workspaceTitle')}</p>
-                    <p className="truncate text-sm text-muted-foreground"><span>{activeModule?.title}</span> · <span>{activeLesson.title}</span></p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {activeModule && <><span>{titleInPreview('module', activeModule.id, activeModule.title)}</span> · </>}
+                      <span>{titleInPreview('lesson', activeLesson.id, activeLesson.title)}</span>
+                    </p>
                   </div>
                   <div className="flex min-w-0 max-w-full flex-wrap rounded-md border border-border p-1" role="group" aria-label={t('authenticatedUi.editor.viewMode')}>
-                    <Button type="button" size="sm" aria-pressed={lessonView === 'edit'} variant={lessonView === 'edit' ? 'secondary' : 'ghost'} onClick={() => setLessonView('edit')}><Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.editMode')}</Button>
-                    <Button type="button" size="sm" aria-pressed={lessonView === 'preview'} variant={lessonView === 'preview' ? 'secondary' : 'ghost'} disabled={practiceDirty} onClick={() => setLessonView('preview')}><Eye className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.previewMode')}</Button>
+                    <Button type="button" size="sm" aria-pressed={visibleLessonView === 'edit'} variant={visibleLessonView === 'edit' ? 'secondary' : 'ghost'} onClick={() => { setPreviewLanguage(undefined); setLessonView('edit'); }}><Pencil className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.editMode')}</Button>
+                    <Button type="button" size="sm" aria-pressed={visibleLessonView === 'preview'} variant={visibleLessonView === 'preview' ? 'secondary' : 'ghost'} disabled={practiceDirty} onClick={() => setLessonView('preview')}><Eye className="mr-1.5 h-4 w-4" aria-hidden="true" />{t('authenticatedUi.editor.previewMode')}</Button>
                   </div>
+                  {localePreview.available.length > 1 && <label className="flex items-center gap-2 text-sm">
+                    {courseLanguageLabel}
+                    <select className="rounded-lg border border-border bg-card px-2 py-2" value={previewLanguage ?? contentLocale}
+                      disabled={practiceDirty}
+                      onChange={(event) => {
+                        const language = event.target.value;
+                        if (!isCourseLanguage(language)) return;
+                        localePreview.choose(language);
+                        setPreviewLanguage(language === contentLocale ? undefined : language);
+                        setLessonView(language === contentLocale ? 'edit' : 'preview');
+                      }}>
+                      {localePreview.available.map(language => <option key={language} value={language}>{contentLanguages[language]}</option>)}
+                    </select>
+                  </label>}
                 </div>
-                {lessonView === 'edit' ? (
+                {visibleLessonView === 'edit' ? (
                   <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-6">
                     <label className="block space-y-2">
                       <span className="text-sm font-medium">{t('authenticatedUi.editor.lessonTitle')}</span>
@@ -1051,12 +1085,17 @@ export default function CourseEditPage() {
                   </div>
                 ) : (
                   <article className="min-h-[560px] overflow-x-auto p-6 sm:p-10">
-                    <h1 className="mb-8 text-3xl font-bold tracking-tight">{editLessonTitle || t('authenticatedUi.editor.lessonTitle')}</h1>
+                    {translatedPreview && <p className="mb-3 text-sm text-muted-foreground">
+                      {lang === 'kk' ? 'Бекітілген аударма' : lang === 'en' ? 'Approved translation' : 'Утверждённый перевод'}
+                    </p>}
+                    {!previewReady ? <p role="status">{t('common.loading')}</p> : <>
+                    <h1 className="mb-8 text-3xl font-bold tracking-tight">{previewTitle || t('authenticatedUi.editor.lessonTitle')}</h1>
                     <LessonContent
-                      text={editLessonContent}
-                      omitFirstHeading={editLessonTitle}
+                      text={previewText}
+                      omitFirstHeading={previewTitle}
                       className={lessonContentClassName}
                     />
+                    </>}
                   </article>
                 )}
                 <div className="sticky bottom-0 z-10 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-border bg-card p-4 shadow-sm">
