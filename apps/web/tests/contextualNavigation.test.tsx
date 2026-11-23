@@ -69,7 +69,9 @@ describe('contextual methodologist navigation', () => {
       <ContextualNavigation section="assignments" />
       <ContextualNavigation section="trainingLog" />
     </>);
-    const reachableDestinations = new Set(Array.from(container.querySelectorAll('a')).map((link) => link.getAttribute('href')));
+    expect(container.querySelector('a[href="/ai/generate?new=1"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/ai/jobs"]')).toBeInTheDocument();
+    const reachableDestinations = new Set(Array.from(container.querySelectorAll('a')).map((link) => link.pathname));
     const missing = getNavigationRoutes('methodologist', 'sidebar')
       .map((route) => route.href)
       .filter((href) => !reachableDestinations.has(href));

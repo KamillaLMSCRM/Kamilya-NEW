@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import type { AIGenerationJob } from '@/lib/aiGenerationJobs';
 import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
 import { LoadError } from '@/components/ui/LoadError';
+import { WorkspacePage } from '@/features/workspace-design';
 
 const labels = {
   ru: { open: 'Открыть задание', empty: 'Заданий пока нет', limit: 'До 20 последних заданий', unknown: 'Статус уточняется',
@@ -47,11 +48,9 @@ function GenerationJobs() {
   }, [request]);
 
   const date = new Intl.DateTimeFormat(lang, { dateStyle: 'medium', timeStyle: 'short' });
-  return <section className="mx-auto max-w-5xl space-y-5 p-4 sm:p-6">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <h1 className="text-2xl font-semibold">{catalog.generationJobs}</h1>
-      <Link className="rounded-xl bg-primary px-4 py-2 text-primary-foreground" href="/ai/generate?new=1">{catalog.createFromDocuments}</Link>
-    </header>
+  return <WorkspacePage id="ai-generation-jobs" className="mx-auto max-w-5xl" title={catalog.generationJobs} actions={
+    <Link className="rounded-xl bg-primary px-4 py-2 text-primary-foreground" href="/ai/generate?new=1">{catalog.createFromDocuments}</Link>
+  }>
     {failed ? <LoadError title={t('common.loadFailed')} retryLabel={t('common.retry')} onRetry={() => setRequest(value => value + 1)} />
       : !jobs ? <p role="status">{t('common.loading')}</p>
       : !jobs.length ? <p className="rounded-xl border border-border bg-card p-5">{copy.empty}</p>
@@ -67,5 +66,5 @@ function GenerationJobs() {
           </li>)}
         </ul>
       </>}
-  </section>;
+  </WorkspacePage>;
 }

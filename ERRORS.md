@@ -11689,3 +11689,11 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 - Fix: display matching existing assignments with a link to the filtered management view. Keep search available when a course has any assignments.
 - Verification: cover the existing learner match, the transition to the filtered assignment and search with a short list.
 - Prevention: include a fully assigned, small roster in acceptance for employee search.
+
+## COURSE-UX-001 - Generation history was missing from the navigation and help checks
+
+- Date: 2026-11-23.
+- Symptom: preparation of the generation history release failed route coverage, role help and course navigation tests.
+- Cause: the new page had no coverage classification or help topic, and the navigation test treated the fresh-start query as a different route.
+- Fix: compose the history in the shared workspace, register localized help and compare destination paths while asserting the exact fresh-start and history links.
+- Prevention: run the complete frontend suite when promoting a new page, alongside the live mobile and desktop paths.
