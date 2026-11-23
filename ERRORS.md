@@ -11696,4 +11696,5 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 - Symptom: preparation of the generation history release failed route coverage, role help and course navigation tests.
 - Cause: the new page had no coverage classification or help topic, and the navigation test treated the fresh-start query as a different route.
 - Fix: compose the history in the shared workspace, register localized help and compare destination paths while asserting the exact fresh-start and history links.
+- Verification: all 38 contextual help, navigation and coverage checks passed locally. The live DEV flows passed at 1440 and 390 pixels.
 - Prevention: run the complete frontend suite when promoting a new page, alongside the live mobile and desktop paths.
