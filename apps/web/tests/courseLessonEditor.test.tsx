@@ -176,6 +176,7 @@ function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverri
 
 async function openLessonEditor() {
   fireEvent.click(screen.getByRole('button', { name: 'Введение' }));
+  fireEvent.click(await screen.findByText('Ещё', { selector: 'summary' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Markdown' }));
 }
 
@@ -469,6 +470,7 @@ describe('course lesson editor', () => {
   it('opens only a lesson from the loaded structure for a context deep link', async () => {
     window.history.replaceState({}, '', '/courses/course-1/edit?lessonId=lesson-2');
     setupFetch(200, structureWithTwoLessons); render(<CourseEditPage />);
+    fireEvent.click(await screen.findByText('Ещё', { selector: 'summary' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Markdown' }));
     expect(await screen.findByDisplayValue('## Практика')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Практика' })).toHaveAttribute('aria-current', 'true');

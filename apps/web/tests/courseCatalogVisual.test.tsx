@@ -84,7 +84,7 @@ describe('production course catalogue presentation', () => {
     await screen.findByRole('heading', { name: 'Course 1' });
     fireEvent.click(screen.getByRole('button', { name: 'Следующая страница' }));
     expect(await screen.findByRole('heading', { name: 'Course 101' })).toBeInTheDocument();
-    expect(apiMock.get).toHaveBeenCalledWith('/v1/courses?per_page=100&page=2');
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/courses?per_page=100&localized=true&page=2');
     expect(navigation.push).toHaveBeenCalledWith('/courses?page=2', { scroll: false });
     expect(screen.getByRole('button', { name: 'Следующая страница' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Предыдущая страница' }));
@@ -96,7 +96,7 @@ describe('production course catalogue presentation', () => {
     navigation.searchParams = new URLSearchParams('q=safety&status=draft&page=2');
     const { rerender } = render(<CoursesPage />);
     await screen.findByRole('heading', { name: draft.title });
-    expect(apiMock.get).toHaveBeenCalledWith('/v1/courses?q=safety&status=draft&per_page=100&page=2');
+    expect(apiMock.get).toHaveBeenCalledWith('/v1/courses?q=safety&status=draft&per_page=100&localized=true&page=2');
     navigation.searchParams = new URLSearchParams('q=safety&status=draft');
     rerender(<CoursesPage />);
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Страницы каталога' })).getByRole('status')).toHaveTextContent('Страница 1'));
@@ -105,7 +105,7 @@ describe('production course catalogue presentation', () => {
     await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Страницы каталога' })).getByRole('status')).toHaveTextContent('Страница 2'));
     fireEvent.change(screen.getByLabelText('Статус'), { target: { value: 'published' } });
     expect(navigation.push).toHaveBeenLastCalledWith('/courses?q=safety&status=published', { scroll: false });
-    await waitFor(() => expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?q=safety&status=published&per_page=100'));
+    await waitFor(() => expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?q=safety&status=published&per_page=100&localized=true'));
   });
   beforeEach(() => {
     vi.clearAllMocks();
@@ -238,13 +238,13 @@ describe('production course catalogue presentation', () => {
     expect(await screen.findByRole('heading', { name: draft.title })).toBeInTheDocument();
     expect(screen.getByRole('searchbox', { name: 'Поиск' })).toHaveValue('');
     expect(screen.getByLabelText(ru.courses.status)).toHaveValue('');
-    expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?per_page=100');
+    expect(apiMock.get).toHaveBeenLastCalledWith('/v1/courses?per_page=100&localized=true');
   });
 
   it.each(['success', 'error'])('does not restore an obsolete query %s after the current list loads', async (outcome) => {
     const oldRead = deferred<{ data: unknown[] }>();
     apiMock.get.mockImplementation((url: string) => {
-      if (url === '/v1/courses?per_page=100') return oldRead.promise;
+      if (url === '/v1/courses?per_page=100&localized=true') return oldRead.promise;
       return Promise.resolve({ data: url.startsWith('/v1/courses?') ? [{ ...draft, id: 'current', title: 'Current query' }] : [] });
     });
     const { container } = render(<CoursesPage />);
@@ -273,7 +273,7 @@ describe('production course catalogue presentation', () => {
 
   it.each(['user', 'tenant', 'role', 'session'])('isolates delayed reads and open creation on a %s transition', async (transition) => {
     const oldRead = deferred<{ data: unknown[] }>();
-    apiMock.get.mockImplementation((url: string) => url === '/v1/courses?per_page=100' ? oldRead.promise : Promise.resolve({ data: [] }));
+    apiMock.get.mockImplementation((url: string) => url === '/v1/courses?per_page=100&localized=true' ? oldRead.promise : Promise.resolve({ data: [] }));
     const { rerender, container } = render(<CoursesPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Old actor form' } });
@@ -332,7 +332,7 @@ describe('production course catalogue presentation', () => {
     apiMock.post.mockResolvedValue({ data: {} });
     render(<CoursesPage />);
     await screen.findByRole('heading', { name: draft.title });
-    expect(screen.getByRole('link', { name: 'Задания генерации' })).toHaveAttribute('href', '/ai/generate');
+    expect(screen.getByRole('link', { name: 'Задания генерации' })).toHaveAttribute('href', '/ai/jobs');
     fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
     fireEvent.change(screen.getByLabelText(ru.courses.courseTitle), { target: { value: 'Manual title' } });
     fireEvent.change(screen.getByLabelText(ru.courses.courseDescription), { target: { value: 'Description' } });

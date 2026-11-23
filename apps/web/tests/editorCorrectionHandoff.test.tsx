@@ -275,6 +275,7 @@ describe('editor correction handoff V1', () => {
       return { ok: true, json: async () => body };
     }); installFetch(fetchMock);
     render(<CourseEditPage />); fireEvent.click(await screen.findByRole('button', { name: 'Синтетический урок' }));
+    fireEvent.click(await screen.findByText('Ещё', { selector: 'summary' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Markdown' }));
     const lessonContent = await screen.findByRole('textbox', { name: 'authenticatedUi.editor.lessonContent' });
     if (context === 'dirty') fireEvent.change(lessonContent, { target: { value: 'Ручная несохранённая правка' } });

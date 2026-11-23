@@ -189,6 +189,7 @@ export default function CourseEditPage() {
   const previewText = translatedPreview && editingLessonId
     ? localePreview.text('lesson', editingLessonId, 'content', editLessonContent) : editLessonContent;
   const courseLanguageLabel = lang === 'kk' ? 'Курс тілі' : lang === 'en' ? 'Course language' : 'Язык курса';
+  const moreEditorLabel = lang === 'kk' ? 'Қосымша' : lang === 'en' ? 'More' : 'Ещё';
   const lessonSequence = modules.flatMap((module) => module.lessons);
   const activeLessonIndex = lessonSequence.findIndex((lesson) => lesson.id === editingLessonId);
   const activeModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === editingLessonId));
@@ -1047,8 +1048,26 @@ export default function CourseEditPage() {
                     <div className="flex min-h-0 flex-1 flex-col gap-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-sm font-medium">{t('authenticatedUi.editor.lessonContent')}</span>
-                        <div role="group" aria-label={t('authenticatedUi.editor.lessonContent')} className="flex flex-wrap gap-1 rounded-md border border-border p-1">
-                          {(['visual', 'markdown'] as const).map(mode => <Button key={mode} type="button" size="sm" variant={contentEditor === mode ? 'secondary' : 'ghost'} aria-pressed={contentEditor === mode} onClick={() => setContentEditor(mode)}>{blockCopy[mode]}</Button>)}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">{blockCopy[contentEditor]}</span>
+                          <details className="relative" data-lesson-format-menu onBlur={(event) => {
+                            if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+                          }} onKeyDown={(event) => {
+                            if (event.key === 'Escape' && event.currentTarget.open) {
+                              event.currentTarget.open = false;
+                              event.currentTarget.querySelector('summary')?.focus();
+                            }
+                          }}>
+                            <summary className="cursor-pointer rounded-lg border border-border px-3 py-2 text-sm">{moreEditorLabel}</summary>
+                            <div className="absolute right-0 z-20 mt-1 w-max rounded-lg border border-border bg-card p-1 shadow-md">
+                              <Button type="button" size="sm" variant="ghost" onClick={(event) => {
+                                const menu = event.currentTarget.closest('details');
+                                menu?.removeAttribute('open');
+                                menu?.querySelector('summary')?.focus();
+                                setContentEditor(contentEditor === 'visual' ? 'markdown' : 'visual');
+                              }}>{blockCopy[contentEditor === 'visual' ? 'markdown' : 'visual']}</Button>
+                            </div>
+                          </details>
                         </div>
                       </div>
                       <div role="group" aria-label={blockCopy.history} className="flex flex-wrap gap-2">

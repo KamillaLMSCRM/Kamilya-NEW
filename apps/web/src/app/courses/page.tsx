@@ -16,6 +16,7 @@ import { LoadError } from '@/components/ui/LoadError';
 import { RecordList } from '@/features/workspace-design/RecordList';
 import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
 import { CourseProvenance } from '@/features/course-catalog/CourseProvenance';
+import { contentLanguages, isCourseLanguage } from '@/features/course-authoring/courseLanguages';
 
 type BlueprintLocale = 'ru' | 'kk';
 type ComplianceMode = 'lms_only' | 'blended' | 'external_certified';
@@ -32,13 +33,14 @@ interface CourseBlueprintCatalogItem {
 }
 
 interface CourseWithBlueprintSource {
-  source_analysis?: { blueprint?: { id?: string } };
+  source_analysis?: { blueprint?: { id?: string }; course_language_policy?: { primary?: string } };
 }
 
 interface CatalogCourse extends CourseWithBlueprintSource {
   id: string;
   title: string;
   description?: string;
+  catalog_editions?: Record<string, { title: string | null; description: string | null }> | null;
   status: string;
   ai_generated?: boolean;
   review_status?: string;
@@ -116,7 +118,18 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   currentBlueprintLocale.current = blueprintLocale;
   const loading = courseResult.query !== query || courseResult.phase === 'loading';
   const loadError = !loading && courseResult.phase === 'error' ? courseResult.error : null;
-  const courses = !loading && courseResult.phase === 'ready' ? courseResult.courses : [];
+  const courses = !loading && courseResult.phase === 'ready' ? courseResult.courses.map((course) => {
+    const edition = course.catalog_editions?.[lang];
+    const primary = course.source_analysis?.course_language_policy?.primary;
+    return {
+      ...course,
+      title: edition?.title ?? course.title,
+      description: edition?.description ?? course.description,
+      catalog_editions: primary && course.catalog_editions ? {
+        [primary]: { title: course.title, description: course.description ?? null }, ...course.catalog_editions,
+      } : course.catalog_editions,
+    };
+  }) : [];
   const hasFilters = Boolean(search || statusFilter);
   const browserQuery = searchParams.toString();
 
@@ -165,6 +178,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
       if (search) params.set('q', search);
       if (statusFilter) params.set('status', statusFilter);
       params.set('per_page', '100');
+      params.set('localized', 'true');
       if (page > 1) params.set('page', String(page));
       const res = await api.get(`/v1/courses?${params}`);
       if (!isCurrent()) return;
@@ -313,6 +327,11 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
         <Link href={`/courses/${course.id}`} className="rounded-sm transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{course.title}</Link>
       </h3>
       {course.description && <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">{course.description}</p>}
+      {Object.entries(course.catalog_editions ?? {}).filter(([locale, edition]) => locale !== lang && edition.title && edition.title !== course.title).map(([locale, edition]) => (
+        <p key={locale} className="mt-2 text-sm text-muted-foreground" lang={locale}>
+          {isCourseLanguage(locale) && <span>{contentLanguages[locale]} · </span>}{edition.title}
+        </p>
+      ))}
       <CourseProvenance authorName={course.author_name} createdAt={course.created_at} updatedAt={course.updated_at} lang={lang} />
       <div className="mt-3 flex flex-wrap gap-2">
         {course.ai_generated && <span className="rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">AI</span>}
@@ -385,7 +404,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
             <Link href="/knowledge-checks" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               {lang === 'kk' ? 'Білімді тексеру' : lang === 'en' ? 'Knowledge checks' : 'Проверки знаний'}
             </Link>
-            <Link href="/ai/generate" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <Link href="/ai/jobs" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
               <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               {copy.generationJobs}
             </Link>

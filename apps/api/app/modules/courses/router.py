@@ -4,7 +4,7 @@ from typing import Annotated, Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, UploadFile
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,6 +17,7 @@ from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.audit.service import log_action
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
+from app.modules.courses.localizations import Language, catalog_editions, catalog_translation_matches
 from app.modules.courses.publication_service import (
     activate_course_assignments,
     refresh_course_assignments,
@@ -124,9 +125,10 @@ async def list_courses(
     q: str | None = Query(None, description="Search in title and description"),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    localized: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-):
+) -> list[Course | CourseResponse]:
     query = select(Course).where(Course.tenant_id == user.tenant_id)
     if user.role == "student":
         query = query.join(
@@ -144,19 +146,58 @@ async def list_courses(
         query = query.where(Course.status == status)
     elif user.role in AUTHORING_ROLES:
         query = query.where(Course.status != "archived")
-    if q:
+    author_catalog = localized and user.role in AUTHORING_ROLES
+    if q and not author_catalog:
         search = f"%{q}%"
         query = query.where((Course.title.ilike(search)) | (Course.description.ilike(search)))
-    query = query.order_by(Course.created_at.desc())
-    query = query.offset((page - 1) * per_page).limit(per_page)
-    result = await db.execute(query)
-    courses = result.scalars().all()
+    query = query.order_by(Course.created_at.desc(), Course.id.desc())
+    skip = (page - 1) * per_page
+    courses: list[Course]
+    translations: dict[UUID, dict[Language, dict[str, str | None]]]
+    if q and author_catalog:
+        escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        original_match = or_(Course.title.ilike(pattern, escape="\\"), Course.description.ilike(pattern, escape="\\"))
+        candidates = query.add_columns(original_match.label("original_match")).where(
+            or_(original_match, catalog_translation_matches(pattern)),
+        )
+        courses = []
+        translations = {}
+        candidate_offset = 0
+        needle = q.casefold()
+        while len(courses) < per_page:
+            rows = (await db.execute(candidates.offset(candidate_offset).limit(100))).all()
+            if not rows:
+                break
+            batch = await catalog_editions(db, [row[0] for row in rows], cast(UUID, user.tenant_id))
+            for course, original_matches in rows:
+                editions = batch.get(course.id, {})
+                if not original_matches and not any(
+                    needle in value.casefold() for edition in editions.values() for value in edition.values() if value
+                ):
+                    continue
+                if skip:
+                    skip -= 1
+                    continue
+                courses.append(course)
+                translations[course.id] = editions
+                if len(courses) == per_page:
+                    break
+            candidate_offset += len(rows)
+    else:
+        courses = list((await db.execute(query.offset(skip).limit(per_page))).scalars().all())
+        translations = await catalog_editions(db, courses, cast(UUID, user.tenant_id)) if author_catalog else {}
     await _hydrate_course_authors(db, courses, user.tenant_id)
     # Hydrate reviewer info on each course
-    out = []
+    out: list[Course | CourseResponse] = []
     for c in courses:
-        c.reviewer = await _hydrate_reviewer(db, c)
-        out.append(c)
+        cast(Any, c).reviewer = await _hydrate_reviewer(db, c)
+        if author_catalog:
+            response = CourseResponse.model_validate(c)
+            response.catalog_editions = translations.get(cast(UUID, c.id))
+            out.append(response)
+        else:
+            out.append(c)
     return out
 
 

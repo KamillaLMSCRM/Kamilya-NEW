@@ -13,6 +13,7 @@ from app.modules.ai.schemas import AIGenerateRequest
 from app.modules.courses.localization_router import course_languages, generate_language
 from app.modules.courses.localizations import (
     POLICY_KEY,
+    catalog_editions,
     ensure_requested_languages,
     source_fields,
     unchanged_translations,
@@ -48,6 +49,29 @@ def _snapshot():
                                                               "choices": [{"id": "x", "text": "2", "is_correct": True},
                                                                           {"id": "y", "text": "3", "is_correct": False}]}]}],
         }]}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_catalog_editions_omit_translations_of_an_older_release():
+    current, old, tenant_id = uuid4(), uuid4(), uuid4()
+    snapshot = _snapshot()
+    sha, _ = source_fields(snapshot)
+    policy = {POLICY_KEY: {"primary": "kk", "requested": ["kk", "ru"]}}
+    courses = [
+        SimpleNamespace(id=course_id, status="published", current_release_id=uuid4(), source_analysis=policy)
+        for course_id in (current, old)
+    ]
+    db = AsyncMock()
+    db.execute.side_effect = [
+        SimpleNamespace(all=lambda: [(current, snapshot), (old, snapshot)]),
+        SimpleNamespace(all=lambda: [
+            SimpleNamespace(course_id=current, language="ru", source_sha256=sha, title="Название", description=None),
+            SimpleNamespace(course_id=old, language="ru", source_sha256="0" * 64, title="Устаревшее название", description=None),
+        ]),
+    ]
+    assert await catalog_editions(db, courses, tenant_id) == {
+        current: {"ru": {"title": "Название", "description": None}},
     }
 
 
