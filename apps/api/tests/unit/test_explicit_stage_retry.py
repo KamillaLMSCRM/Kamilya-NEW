@@ -14,7 +14,11 @@ from app.modules.ai.v3 import explicit_stage_retry as retry
 from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as ROUTE_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY
+from app.modules.ai.v3.revision_policy import (
+    SIMPLE_COURSE_REVIEW_V9_POLICY,
+    SIMPLE_COURSE_REVIEW_V11_POLICY,
+    SIMPLE_COURSE_REVIEW_V12_POLICY,
+)
 from app.modules.ai.v3.stage_checkpoint import _digest
 from app.modules.source_editorial_review.service import SOURCE_PINS
 from tests.unit.test_ai_job_admission import _CommitSession
