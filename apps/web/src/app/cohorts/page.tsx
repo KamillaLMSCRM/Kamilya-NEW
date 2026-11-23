@@ -122,7 +122,7 @@ export default function CohortsPage() {
   if (loadState === 'loading') return <WorkspacePage id="cohorts" title={t('cohorts.title')} icon={<Users />} className="p-6"><WorkspacePanel><p role="status" className="py-8 text-center text-sm text-muted-foreground">{t('common.loading')}</p></WorkspacePanel></WorkspacePage>;
   if (loadState === 'error') return <WorkspacePage id="cohorts" title={t('cohorts.title')} icon={<Users />} className="p-6"><WorkspacePanel bodyClassName="space-y-4"><p role="alert" className="text-sm text-destructive">{t('cohorts.loadFailed')}</p><Button variant="outline" onClick={load}>{t('common.retry')}</Button></WorkspacePanel></WorkspacePage>;
 
-  return <WorkspacePage id="cohorts" title={t('cohorts.title')} description={t('cohorts.subtitle')} icon={<Users />} className="mx-auto max-w-7xl px-4 py-6 sm:px-6" actions={<Button className="gap-2" onClick={resetEditor}><Plus className="h-4 w-4" aria-hidden="true" />{t('cohorts.new')}</Button>}>
+  return <WorkspacePage id="cohorts" title={t('cohorts.title')} icon={<Users />} className="mx-auto max-w-7xl" actions={<Button variant="outline" className="gap-2" onClick={resetEditor}><Plus className="h-4 w-4" aria-hidden="true" />{t('cohorts.new')}</Button>}>
     <WorkspaceToolbar>
       <p className="text-xs leading-5 text-muted-foreground">
         {t('cohorts.audienceHint')}
@@ -147,7 +147,7 @@ export default function CohortsPage() {
         </div>
         <label className="block space-y-2 text-sm font-medium">
           {t('cohorts.responsible')}
-          <select value={responsibleUserId} onChange={(event) => setResponsibleUserId(event.target.value)} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm">
+          <select value={responsibleUserId} onChange={(event) => setResponsibleUserId(event.target.value)} className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm">
             <option value="">{t('cohorts.responsibleNone')}</option>
             {methodologists.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>

@@ -556,21 +556,26 @@ export default function AdminStaffPage() {
   return (
     <WorkspacePage id="staff" title={t(isImportPage ? "staffPage.importTitle" : "staffPage.title")} icon={isImportPage ? <Upload /> : <Users />} className="mx-auto max-w-7xl" actions={isStaffOwnersRole ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <ContextualNavigation section="staff" />
-        <Link
+        <ContextualNavigation section="staff" items={[
+          { label: t("invitations.navLabel"), href: "/invitations" },
+          ...(STAFF_WORKSPACE_ENABLED && !isImportPage
+            ? [{ label: t("staffPage.tabs.import"), onSelect: () => selectTab("import") }]
+            : []),
+        ]} />
+        {userRole !== "methodologist" && <Link
           href="/invitations"
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-control-hover hover:text-control-hover-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <UserPlus className="h-4 w-4" aria-hidden="true" />
           {t("invitations.navLabel")}
-        </Link>
-        {STAFF_WORKSPACE_ENABLED && (
+        </Link>}
+        {STAFF_WORKSPACE_ENABLED && (isImportPage || userRole !== "methodologist") && (
           <Button type="button" variant="outline" onClick={() => selectTab(isImportPage ? "structure" : "import")}>
             {isImportPage ? <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> : <Upload className="mr-2 h-4 w-4" aria-hidden="true" />}
             {t(isImportPage ? "staffPage.backToEmployees" : "staffPage.tabs.import")}
           </Button>
         )}
-        <Button type="button" onClick={() => { resetManualForm(); setManualOpen(true); }}>{ui("authenticatedUi.adminStaff.manual.addEmployee")}</Button>
+        <Button type="button" variant={isImportPage ? "outline" : "default"} onClick={() => { resetManualForm(); setManualOpen(true); }}>{ui("authenticatedUi.adminStaff.manual.addEmployee")}</Button>
       </div>
     ) : undefined}>
 
@@ -597,7 +602,7 @@ export default function AdminStaffPage() {
               >
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
-                    <h2 id="manual-employee-title" className="text-xl font-bold text-foreground">{ui("authenticatedUi.adminStaff.manual.newEmployee")}</h2>
+                    <h2 id="manual-employee-title" className="text-xl font-semibold text-foreground">{ui("authenticatedUi.adminStaff.manual.newEmployee")}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">{t("staffPage.manualRuleInheritance")}</p>
                   </div>
                   <button

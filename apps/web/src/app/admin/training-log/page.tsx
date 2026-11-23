@@ -581,7 +581,7 @@ export default function AdminTrainingLogPage() {
         </div>
       )}
 
-      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-[minmax(0,1.45fr)_repeat(4,minmax(0,1fr))] [&>*:first-child]:col-span-2 lg:[&>*:first-child]:col-span-1">
         <SummaryCard label={t('trainingLog.title')} value={summary?.total ?? null} selected={!filters.status} onClick={() => updateFilters(({ status: _status, ...rest }) => rest)} />
         <SummaryCard label={t('trainingLog.filter.status.assigned')} value={summary?.assigned ?? null} selected={filters.status === 'assigned'} onClick={() => updateFilters((current) => ({ ...current, status: 'assigned' }))} />
         <SummaryCard label={t('trainingLog.filter.status.inProgress')} value={summary?.in_progress ?? null} selected={filters.status === 'in_progress'} onClick={() => updateFilters((current) => ({ ...current, status: 'in_progress' }))} />
@@ -593,10 +593,6 @@ export default function AdminTrainingLogPage() {
       {/* Filters */}
       <WorkspacePanel title={t('trainingLog.filters.title')}>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-4">
-          <label className="flex items-center gap-2 text-sm md:col-span-3 lg:col-span-4">
-            <input type="checkbox" checked={includeHistory} onChange={(event) => { updateFilters((current) => ({ ...current, history: event.target.checked || undefined })); setOffset(0); }} />
-            {t('trainingLog.history.include')}
-          </label>
           <div className="md:col-span-2 lg:col-span-1">
             <label htmlFor="training-log-search" className="block text-xs font-medium text-muted-foreground mb-1">
               {t('trainingLog.filter.search.label')}
@@ -616,6 +612,16 @@ export default function AdminTrainingLogPage() {
             onChange={(v) => updateFilters((f) => ({ ...f, status: (v || undefined) as Filters['status'] }))}
           />
 
+        </div>
+        <details className="mt-4 border-t border-border pt-2" open={includeHistory || !!filters.delivery_type || !!filters.date_from || !!filters.date_to || undefined}>
+          <summary className="w-fit cursor-pointer rounded-lg px-1 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {lang === 'kk' ? 'Қосымша сүзгілер' : lang === 'en' ? 'More filters' : 'Дополнительные фильтры'}
+          </summary>
+          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <label className="flex items-center gap-2 text-sm md:col-span-3">
+            <input type="checkbox" checked={includeHistory} onChange={(event) => { updateFilters((current) => ({ ...current, history: event.target.checked || undefined })); setOffset(0); }} />
+            {t('trainingLog.history.include')}
+          </label>
           <SelectField
             label={t('trainingLog.filter.delivery.label')}
             value={filters.delivery_type ?? ''}
@@ -635,7 +641,9 @@ export default function AdminTrainingLogPage() {
             value={filters.date_to ?? ''}
             onChange={(v) => updateFilters((f) => ({ ...f, date_to: v || undefined }))}
           />
-          {canInspectLearning && (
+          </div>
+        </details>
+        {canInspectLearning && <div className="mt-4 max-w-sm">
             <div className="space-y-2">
               <SelectField
                 label={insightsText('title')}
@@ -652,8 +660,7 @@ export default function AdminTrainingLogPage() {
                 </div>
               )}
             </div>
-          )}
-        </div>
+        </div>}
       </WorkspacePanel>
 
       {canInspectLearning && !filters.user_id && (
@@ -752,7 +759,7 @@ export default function AdminTrainingLogPage() {
               </div>
               <Table
                 className="training-log-table-scroll hidden max-w-full rounded-none border-0 lg:block"
-                tableClassName="w-max min-w-[2340px]"
+                tableClassName="workspace-ledger w-max min-w-[2340px]"
               >
                 <thead className="sticky top-0 z-10 bg-card">
                   <tr className="text-left text-xs font-medium text-muted-foreground">
@@ -770,7 +777,7 @@ export default function AdminTrainingLogPage() {
                         </button>
                       </th>
                     )}
-                    <th className={columnClass.fullName}>{t('trainingLog.table.fullName')}</th>
+                    <th className={`${columnClass.fullName} ${isMethodologist ? 'workspace-ledger-name' : ''}`}>{t('trainingLog.table.fullName')}</th>
                     <th className={columnClass.personnelNumber}>{t('trainingLog.table.personnelNumber')}</th>
                     <th className={columnClass.department}>{t('trainingLog.table.department')}</th>
                     <th className={columnClass.position}>{t('trainingLog.table.position')}</th>
@@ -806,7 +813,7 @@ export default function AdminTrainingLogPage() {
                           ) : <span className="text-muted-foreground">—</span>}
                         </td>
                       )}
-                      <td className={columnClass.fullName}>
+                      <td className={`${columnClass.fullName} ${isMethodologist ? 'workspace-ledger-name' : ''}`}>
                         <div className="font-medium text-foreground">{row.full_name}</div>
                         {row.email && (
                           <div className="text-xs text-muted-foreground">{row.email}</div>

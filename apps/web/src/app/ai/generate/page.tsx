@@ -1075,7 +1075,7 @@ export default function AIGeneratePage() {
     } catch (e: any) {
       setChatMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: `⚠️ ${t('aiGeneration.chat.error')}: ${t('aiGeneration.fallback.backend')}`, at: Date.now() },
+        { role: 'assistant', content: `${t('aiGeneration.chat.error')}: ${t('aiGeneration.fallback.backend')}`, at: Date.now() },
       ]);
     } finally {
       setChatSending(false);
@@ -1227,7 +1227,7 @@ export default function AIGeneratePage() {
             aria-current={step === s.key ? 'step' : undefined}
             className="flex min-w-0 flex-col items-center gap-2 text-center sm:flex-row sm:gap-3 sm:text-left"
           >
-            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+            <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
               step === s.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
             }`}>
               {s.num}
@@ -1338,7 +1338,7 @@ export default function AIGeneratePage() {
           <WorkspacePanel title={t('aiGeneration.steps.documents')} bodyClassName="space-y-4">
           <section className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="font-display text-sm font-bold text-foreground">{t('documents.youtubeSourceTitle')}</h3>
+              <h3 className="font-display text-sm font-semibold text-foreground">{t('documents.youtubeSourceTitle')}</h3>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('documents.youtubeSourceDescription')}
               </p>
@@ -1509,8 +1509,11 @@ export default function AIGeneratePage() {
                           {indexEta !== null && <div className="tabular-nums">Осталось примерно: {indexEta}</div>}
                         </div>
                       ) : doc.short_summary ? (
-                        <div className="text-xs text-primary/80 truncate italic">
-                          {doc.summary_ready ? '📄 ' : '⚠️ '}{doc.short_summary}
+                        <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                          {doc.summary_ready
+                            ? <FileText size={14} strokeWidth={1.5} className="shrink-0" aria-hidden="true" />
+                            : <AlertTriangle size={14} strokeWidth={1.5} className="shrink-0 text-warning" aria-hidden="true" />}
+                          <span className="truncate">{doc.short_summary}</span>
                         </div>
                       ) : doc.index_status === 'failed' ? (
                         <div className="text-xs text-destructive truncate">
@@ -1935,7 +1938,7 @@ export default function AIGeneratePage() {
           {/* Preview: modules → lessons → quiz headers */}
           <WorkspacePanel padded={false} className="overflow-hidden xl:col-start-1 xl:row-start-2">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
-              <h4 className="text-sm font-bold text-foreground font-display">
+              <h4 className="text-sm font-semibold text-foreground font-display">
                  {t('aiGeneration.result.structure')}
               </h4>
               {preview && (
@@ -1981,7 +1984,7 @@ export default function AIGeneratePage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
               <div className="flex items-center gap-2 min-w-0">
                 <MessageSquare className="w-4 h-4 text-primary shrink-0" />
-                <h4 className="text-sm font-bold text-foreground font-display truncate">
+                <h4 className="text-sm font-semibold text-foreground font-display truncate">
                    {t('aiGeneration.chat.title')}
                 </h4>
               </div>
@@ -2172,7 +2175,7 @@ export default function AIGeneratePage() {
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
                 <div>
-                  <h3 id="mixed-language-title" className="font-bold text-foreground font-display">{t('aiGeneration.language.title')}</h3>
+                  <h3 id="mixed-language-title" className="font-semibold text-foreground font-display">{t('aiGeneration.language.title')}</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {t('aiGeneration.language.description')}
                   </p>
@@ -2229,7 +2232,7 @@ export default function AIGeneratePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-card-lg">
             <div className="border-b border-border px-5 py-4">
-              <h3 className="font-bold text-foreground font-display">
+              <h3 className="font-semibold text-foreground font-display">
                 {reviewDialog.status === 'approved' ? t('aiGeneration.reviewDialog.approveTitle') : t('aiGeneration.reviewDialog.changesTitle')}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -2284,7 +2287,7 @@ export default function AIGeneratePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-card-lg">
             <div className="border-b border-border px-5 py-4">
-              <h3 className="font-bold text-foreground font-display">
+              <h3 className="font-semibold text-foreground font-display">
                 {t('aiGeneration.regenerateDialog.title', { kind: regenDialog.kind === 'module' ? t('aiGeneration.regenerateDialog.module') : t('aiGeneration.regenerateDialog.lesson') })}
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">

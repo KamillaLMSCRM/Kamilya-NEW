@@ -6,12 +6,13 @@ import ContextualNavigation from '@/components/layout/ContextualNavigation';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { Button, Input } from '@/components/ui';
+import { buttonVariants } from '@/components/ui/button';
 import { useT } from '@/i18n/useT';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { coursePublicationError } from '@/lib/coursePublicationError';
-import { Archive, ArrowRight, BookOpen, ChevronDown, GraduationCap, MoreVertical, Search, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
+import { Archive, ArrowRight, BookOpen, ChevronDown, FileText, GraduationCap, MoreVertical, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import { LoadError } from '@/components/ui/LoadError';
 import { RecordList } from '@/features/workspace-design/RecordList';
 import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
@@ -396,23 +397,17 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
     <div data-catalog-layout="workspace-v1" className="min-w-0 space-y-6">
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground font-display">{t('courses.title')}</h1>
+          <h1 className="workspace-index-title text-3xl font-semibold text-foreground font-display">{t('courses.title')}</h1>
         </div>
         {canManage && (
           <div className="flex flex-wrap items-center gap-2 xl:max-w-xl xl:justify-end">
-            <ContextualNavigation section="courses" />
-            <Link href="/knowledge-checks" className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              {lang === 'kk' ? 'Білімді тексеру' : lang === 'en' ? 'Knowledge checks' : 'Проверки знаний'}
-            </Link>
-            <Link href="/ai/jobs" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-              <Sparkles className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-              {copy.generationJobs}
-            </Link>
-            <Button variant="outline" className="min-h-11" aria-expanded={showCreate} aria-controls="course-create" onClick={() => setShowCreate(!showCreate)}>
-              {showCreate ? t('common.cancel') : copy.manualCreate}
-            </Button>
-            <Link href="/ai/generate?new=1" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-              <Sparkles className="h-4 w-4" aria-hidden="true" />{copy.createFromDocuments}
+            <ContextualNavigation section="courses" items={[
+              { label: copy.manualCreate, onSelect: () => setShowCreate(true) },
+              { label: lang === 'kk' ? 'Білімді тексеру' : lang === 'en' ? 'Knowledge checks' : 'Проверки знаний', href: '/knowledge-checks' },
+              { label: copy.generationJobs, href: '/ai/jobs' },
+            ]} />
+            <Link href="/ai/generate?new=1" className={buttonVariants({ variant: showCreate ? 'outline' : 'default', className: 'min-h-11 gap-2' })}>
+              <FileText size={16} strokeWidth={1.5} aria-hidden="true" />{copy.createFromDocuments}
             </Link>
           </div>
         )}
@@ -420,12 +415,13 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
 
       {canManage && showCreate && (
         <div id="course-create" className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sm:p-6">
-          <h3 className="font-bold text-foreground font-display">{copy.manualCreate}</h3>
+          <h2 className="font-semibold text-foreground font-display">{copy.manualCreate}</h2>
           <label htmlFor="new-course-title" className="block text-sm font-medium text-foreground">
             {t('courses.courseTitle')}
           </label>
           <Input
             id="new-course-title"
+            autoFocus
             required
             placeholder={t('courses.courseTitle')}
             value={title}

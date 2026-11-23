@@ -181,7 +181,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <main
             id="main-content"
             tabIndex={-1}
-            className={focusedLearning ? 'min-h-screen min-w-0' : 'app-shell-main transition-all duration-300'}
+            className={focusedLearning ? 'min-h-screen min-w-0' : 'app-shell-main'}
             data-learning-focused={focusedLearning ? 'true' : 'false'}
             data-sidebar-collapsed={collapsed ? 'true' : 'false'}
           >
