@@ -1048,7 +1048,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-21.
+Current as of: 2026-11-23.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -2319,6 +2319,11 @@ Current as of: 2026-11-21.
   and diff checks before transport, rather than relying on a remembered step.
   Original CI/log retained; visual editor application bytes and accepted local
   tests/browser outputs are unchanged by this metadata correction.
+
+- Recurrence 2026-11-23: preview and staff candidate `917a16b6` reached CI
+  `45147010714` before the local gate ran. The new journal sections lacked
+  mandatory fields and the header date was stale. Corrected both, preserved the
+  failed CI evidence and bound the existing local gate to the next DEV push.
 
 ## DEV-WORKER-ENV-002 - Runtime list setting was flattened during secure migration
 
@@ -11567,14 +11572,18 @@ its exact verified path was moved into private evidence before executing it.
 
 ## COURSE-PREVIEW-001 - Opening the learner preview lost the selected language
 
-- Date: 2026-11-23. Reproduced on DEV at `0c9c0688` with both published KARLSKRONA lessons.
+- Date: 2026-11-23.
+- Symptom: both KARLSKRONA lessons opened in Kazakh after selecting Russian in the editor, with no language selector in the learner preview.
 - Cause: editor-to-reader navigation carried only the lesson ID, and the reader enabled locale choice only for learner sessions.
 - Fix: include the selected course locale in the preview URL and expose a preview-scoped selector. Preserve the URL across lessons and reload.
+- Verification: reproduced in DEV at `0c9c0688` on both published lessons and exercised the corrected URL and selector in Playwright locally.
 - Prevention: exercise the real editor-to-reader transition on a bilingual release with a different default, then switch the language and reload.
 
 ## STAFF-UI-004 - The employee journal opened with unrelated employee cards
 
-- Date: 2026-11-23. Reported on the KARLSKRONA staff card.
+- Date: 2026-11-23.
+- Symptom: opening the journal from the KARLSKRONA staff card showed another employee in the action center.
 - Cause: the handoff used a fuzzy query, while the journal action center loaded its own unfiltered employee queue.
 - Fix: scope the journal, summary and CSV to the employee UUID within the existing reporting scope. Hide the global queue in this view.
+- Verification: local Playwright verified the exact scope on desktop and mobile, including the rows, summary and CSV request.
 - Prevention: open the journal with two different employee fixtures and verify the visible rows and export agree with the requested identity.
