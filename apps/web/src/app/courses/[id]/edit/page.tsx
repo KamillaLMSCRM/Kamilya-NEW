@@ -80,7 +80,7 @@ interface Course {
     source_editorial_snapshots?: unknown;
     unplaced_source_assets?: unknown;
     source_actuality?: { affected_lesson_ids?: string[]; grounded_lesson_ids?: string[] };
-    course_language_policy?: { primary?: 'ru' | 'kk' | 'en' };
+    course_language_policy?: { primary?: CourseLanguage; requested?: CourseLanguage[] };
   } | null;
 }
 
@@ -175,8 +175,10 @@ export default function CourseEditPage() {
   );
   const revisionLesson = course?.status === 'draft' && activeLesson
     && course.source_analysis?.source_actuality?.affected_lesson_ids?.includes(activeLesson.id);
-  const contentLocale = course?.source_analysis?.course_language_policy?.primary ?? lang;
-  const localePreview = useCourseLanguage(courseId, actor ? `editor:${actor.user_id}:${actor.tenant_id}:${sessionEpoch}` : undefined, contentLocale);
+  const languagePolicy = course?.source_analysis?.course_language_policy;
+  const contentLocale = languagePolicy?.primary ?? lang;
+  const localizedCourseId = languagePolicy?.requested && languagePolicy.requested.length > 1 ? courseId : '';
+  const localePreview = useCourseLanguage(localizedCourseId, actor ? `editor:${actor.user_id}:${actor.tenant_id}:${sessionEpoch}` : undefined, contentLocale);
   const translatedPreview = Boolean(previewLanguage && previewLanguage !== contentLocale);
   const previewReady = !translatedPreview || localePreview.language === previewLanguage;
   const previewTitle = translatedPreview && editingLessonId
