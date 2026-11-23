@@ -2519,3 +2519,9 @@ native22/12ready parts retained for normal continuation, no extra source review.
 - Regression reproduces the missing image marker with fixture visual replies,
   then checks slide location, preserved OCR, the approved source inventory,
   and the course/lesson asset URL. No regenerated model reply in this check.
+
+## ENG-087 — V12 lookup rejected by the connector cannot use the exact-stage recovery path
+
+On 2026-11-23 the synthetic DEV furniture job ee05f360-5d49-451b-a427-896387b360d2 on approved revision 521 stopped during a V12 repair lookup. The managed connector returned HTTP 503 and the bounded rejection code unavailable. This confirms a transport rejection, without proving whether the provider performed work or consumed capacity. Two earlier owned responses are retained. The previous retry dispatcher recognised V9 and V11 but declined the V12 shape.
+
+Extend explicit DEV QA recovery only to the attested V12 repair rejection for the same actor, tenant, job, route and stage. The prior outcome and cost remain unknown, the record and prior claim remain immutable, and every completed prefix response must match before the single recovery nonce. Ordinary tenant admissions, billing, routing and retry defaults retain the existing contracts.

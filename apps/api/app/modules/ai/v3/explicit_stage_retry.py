@@ -15,9 +15,15 @@ from app.modules.ai.qa_luna_dev_route import QA_TENANT
 from app.modules.ai.v3.pending_stage_journal import PendingStageJournal
 from app.modules.ai.v3.pending_stage_transactions import KEY as PENDING_KEY
 from app.modules.ai.v3.pending_stage_transactions import checked_entries
+from app.modules.ai.v3.pending_rejection_receipt import KEY as REJECTION_KEY
+from app.modules.ai.v3.practical_author_transport import is_practical_author_stage
 from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
 from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
-from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY
+from app.modules.ai.v3.revision_policy import (
+    SIMPLE_COURSE_REVIEW_V9_POLICY,
+    SIMPLE_COURSE_REVIEW_V11_POLICY,
+    SIMPLE_COURSE_REVIEW_V12_POLICY,
+)
 from app.modules.ai.v3.stage_checkpoint import _digest, _validate_direct_metadata
 
 KEY = 'v3_explicit_stage_retries'
@@ -73,7 +79,7 @@ def _plan_valid(plan: Any) -> bool:
         return plan.get('stage') == 'review'
     if re.fullmatch(r'practical:simple:plan-accounting:v11:[a-f0-9]{64}:unit=[a-f0-9]{64}:output=(8192|16384|32768)', group):
         return plan.get('stage') == 'repair'
-    return _metadata_frontier(plan)
+    return _metadata_frontier(plan) or _literal_stage(plan)
 
 
 def _metadata_frontier(plan: Any) -> bool:
@@ -81,8 +87,31 @@ def _metadata_frontier(plan: Any) -> bool:
     return bool(isinstance(plan, dict) and is_simple_evidence_stage(plan))
 
 
+def _literal_stage(plan: dict[str, Any]) -> bool:
+    group = plan.get('group_id')
+    return (isinstance(group, str) and group.startswith('practical:simple:lookup:v12:')
+            and group.endswith((':output=8192', ':output=16384', ':output=32768'))
+            and is_practical_author_stage(plan.get('stage'), group))
+
+
 def _retry_frontier(plan: Any) -> bool:
-    return bool(_plan_valid(plan) and (':v9:' in plan['group_id'] or _metadata_frontier(plan)))
+    return bool(_plan_valid(plan) and (':v9:' in plan['group_id'] or _metadata_frontier(plan)
+                or (_literal_stage(plan) and plan['stage'] == 'repair')))
+
+
+def _literal_repair_rejection(result: dict[str, Any], plan: dict[str, Any],
+                              actor_id: UUID, digest: str) -> bool:
+    receipt = result.get(REJECTION_KEY, {})
+    entries = receipt.get('entries', {}) if isinstance(receipt, dict) else {}
+    rejection = entries.get(digest) if isinstance(entries, dict) else None
+    if not isinstance(rejection, dict):
+        return False
+    return (receipt.get('policy') == 'v3-response-rejection-receipt-v1'
+            and rejection.get('policy') == 'managed-http-rejection-v1'
+            and rejection.get('stage') == digest
+            and rejection.get('status') == 503 and rejection.get('code') == 'unavailable'
+            and rejection.get('user_id') == str(actor_id)
+            and all(rejection.get(key) == plan[key] for key in ('tenant_id', 'job_id', 'route_fingerprint')))
 
 
 def checked_ledger(params: Any) -> dict[str, Any] | None:
@@ -147,7 +176,7 @@ async def retry_candidate(db: Any, job: Any, actor_id: Any, settings: Any) -> di
         params = job.params if isinstance(job.params, dict) else {}
         analysis = params.get('source_analysis')
         if (not isinstance(analysis, dict) or analysis.get('generation_engine') != 'evidence_v3'
-                or analysis.get('v3_review_policy') not in {SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}
+                or analysis.get('v3_review_policy') not in {SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}
                 or analysis.get(QA_KEY) != MANAGED_POLICY
                 or 'source_reference_review_required' in (job.errors or [])):
             return None
@@ -168,6 +197,8 @@ async def retry_candidate(db: Any, job: Any, actor_id: Any, settings: Any) -> di
         if (not _retry_frontier(plan)
                 or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V9_POLICY and ':v9:' not in plan['group_id']
                 or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V11_POLICY and not _metadata_frontier(plan)
+                or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V12_POLICY and (
+                    not _literal_stage(plan) or not _literal_repair_rejection(job.result, plan, actor_id, digest))
                 or _digest(plan) != digest or plan['job_id'] != str(job.id)
                 or plan['tenant_id'] != str(job.tenant_id)
                 or job.result.get('v3_owned_route_binding') != {
@@ -240,7 +271,7 @@ async def completed_inventory(db: Any, job: Any, actor_id: UUID) -> dict[str, An
             continue
         if not _plan_valid(plan):
             analysis = (job.params or {}).get('source_analysis', {})
-            if analysis.get('v3_review_policy') == SIMPLE_COURSE_REVIEW_V11_POLICY:
+            if analysis.get('v3_review_policy') in {SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}:
                 raise ValueError('explicit_stage_retry_inventory_invalid')
             continue
         value = await journal.read_owned_value_in_session(db, key, plan)
@@ -267,7 +298,8 @@ async def guard_recovery_stage(journal: Any, original: dict[str, Any]) -> None:
     assert checked is not None
     entry = next(iter(checked['entries'].values()))
     inventory = entry['completed_stages']
-    if original['group_id'].startswith(('practical:simple:plan:v9:', 'practical:simple:plan:v11:')):
+    if (original['group_id'].startswith(('practical:simple:plan:v9:', 'practical:simple:plan:v11:'))
+            or (_literal_stage(original) and not hasattr(journal, 'explicit_retry_seen'))):
         journal.explicit_retry_seen = set()
         journal.explicit_retry_reached = False
     seen = getattr(journal, 'explicit_retry_seen', None)
