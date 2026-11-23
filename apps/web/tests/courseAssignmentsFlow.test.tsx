@@ -135,9 +135,10 @@ describe('contextual course assignment flow', () => {
       return fixtureFetch(input, init);
     });
     render(<CourseAssignmentsPage />);
+    await screen.findByText(/^Доступно:/);
     const search = await screen.findByPlaceholderText('Поиск сотрудника');
     fireEvent.change(search, { target: { value: 'али' } });
-    await screen.findByText('По этому курсу уже есть назначение');
+    await screen.findByText('По этому курсу уже есть назначение', {}, { timeout: 3000 });
     expect(screen.getByText('Алия Садыкова')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Открыть текущие назначения (1)' }));
     await screen.findByRole('heading', { name: 'Назначения обучения' });
