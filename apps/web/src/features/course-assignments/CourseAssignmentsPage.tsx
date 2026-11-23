@@ -244,7 +244,7 @@ export default function EnrollmentsPage() {
 function AssignmentsContent() {
   const { t, tp, lang } = useT();
   const m = workspaceCopy(lang);
-  const audienceLabel = audienceLabels[lang];
+  const audienceLabel = audienceLabels[lang] ?? audienceLabels.ru;
   const translatedLabel = (
     labels: Record<string, TranslationKey>,
     value: string,
