@@ -77,7 +77,7 @@ export function Logo({
       style={{ fontSize: Math.max(16, size * 0.65), lineHeight: 1 }}
     >
       Kamilya
-      <span className="text-foreground/60 font-normal"> LMS</span>
+      <span className={flat ? 'font-medium' : 'text-foreground/60 font-normal'}> LMS</span>
     </span>
   );
 
