@@ -272,7 +272,7 @@ class ReleaseManifest:
             return "0192", "0192"
         if version == (0, 11, 148):
             return "0192", "0194"
-        if version == (0, 11, 149):
+        if version in {(0, 11, 149), (0, 11, 150)}:
             return "0194", "0194"
         if version == (0, 11, 127):
             return "0191", "0192"
