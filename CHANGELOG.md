@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- В каталоге документов виден статус проверки. Из согласования можно вернуться к нужному файлу или создать курс с выбранным источником. При удалении занятого источника видны его связи.
+
 ## [0.11.150] - 2026-11-24
 
 - Resume document review from Courses, clarify keep decisions, archive drafts with retained history, and read embedded XLSX tables in DOCX.
