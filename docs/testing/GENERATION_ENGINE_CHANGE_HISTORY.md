@@ -4309,3 +4309,30 @@ claim, source revision, the one pending initial intent and the absence
 of visual assets. Old replies and the unknown-cost event remain recorded.
 The ordinary API and existing acknowledgement control handle this case.
 57 source-review focused tests passed before DEV rollout.
+
+### CHG-SCOPED-EDITOR-COMPANION-SOURCE-20261125
+
+The already-saved rules course exposed a recurrence recorded under QA-001:
+the first scoped editor replaced an assessment whose key required unconditional
+spouse consent. Its admissions lesson still taught the rule without the
+unmarried declaration alternative. Exact offline replay found that the
+literal alternative reached a different batch. The whole-course critique
+and first batch had no applicable finding for that omission, and the final
+assessment bank repair does not rewrite lesson prose.
+
+Newly admitted jobs select a separate joint-editor policy. While assembling
+the owned source sections, it also locates substantively overlapping
+passages anywhere inside the same approved document. These are bounded
+literal companion passages for the editor to compare, with the existing
+source alias and provenance. This adds no separate model stage. General
+similarity is navigation only, and the model must compare applicability
+before proposing an edit. Source ownership, edit ownership, original
+question inventory, main on-demand table route, and historical policies
+remain enforced.
+
+First offline replay used the exact 31 saved model responses with zero new
+provider calls. All 14 lessons, 56 cards and 59 findings stayed in scope.
+The first joint request now includes the actual alternative (129,131 bytes
+versus 103,694). Largest joint request 204,519 bytes versus the original
+819,483-byte monolithic request. This is evidence projection, not proof of
+semantic correctness or four-course acceptance.
