@@ -4153,3 +4153,41 @@ asset uploads, and no writes to a tenant. DEV and production acceptance pending.
 Focused extraction, preparation, Excel, presentation, and source review: 121
 tests passed. Extractor file SHA-256 prefix `79dd81330f55`; embedded workbook
 reader SHA-256 prefix `b6c146d115ca`.
+
+## CHG-BOUNDED-JOINT-EDITOR-20261124 — late editorial stage on large courses
+
+Reproduced locally after pinning the same approved DEV source. All 31
+retained producer responses decoded and matched their original stage groups.
+The next request matched the retired whole-course request group exactly.
+Its model-facing messages contained 819,483 UTF-8 bytes, 14 lessons, 56
+cards and 59 distinct material findings. The original live provider attempt
+returned a 503 timeout. Retained prior failures and quality findings are in
+the 2026-11-24 Lombard source and lesson evidence.
+
+New native V12 jobs pin the scoped editorial projection at admission.
+Historical jobs keep their original request identity. The overall source
+review still finds missing content. For large courses, each rewrite uses
+two owned lessons, their source passages, the corresponding application
+decisions and findings, and the course outline. The same application
+validates and combines the returned edits. Validated DEV timeout recovery
+preserves the original rejection and all completed receipts. It only
+accepts the exact managed V12 job, source, custody and prior course-level
+review. It may reach the new bounded stage only after replaying the entire
+completed prefix and may never dispatch the retired request.
+
+Actual saved-source replay with deterministic empty-edit fixtures reached
+seven joint requests. All 14 lessons, 56 cards and 59 findings were
+covered. Largest recorded model-message payload 188,248 bytes
+(77.0% below the prior 819,483-byte request). Local replay uncovered a
+second defect during the final review: the common context carried a blank
+separator with no source alias. The projection now omits only blank
+separators with a null alias. Nonblank source with an unowned alias remains
+invalid. Final bank-review request construction reached 485,947 bytes.
+No model queries were sent in this test. Content quality and production
+acceptance require the live course results.
+
+Scope of runtime acceptance: latest four distinct uploaded Lombard files,
+using exact verified copies in the isolated DEV QA tenant and only the
+already-paid managed Luna 6 route. Preserve completed stages and avoid
+changing the client tenant. Record the eventual result of each document,
+model identity, elapsed time, known usage and any unknown attempt.
