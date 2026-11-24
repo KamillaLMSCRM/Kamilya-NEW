@@ -4255,3 +4255,7 @@ asset uploads, and no writes to a tenant. DEV and production acceptance pending.
 Focused extraction, preparation, Excel, presentation, and source review: 121
 tests passed. Extractor file SHA-256 prefix `79dd81330f55`; embedded workbook
 reader SHA-256 prefix `b6c146d115ca`.
+
+## CHG-SOURCE-EDIT-FINALIZE — ENG-092 local correction, 2026-11-24
+
+Agreement is compiled against the same exact original spans. Optional automatic edits that fail the renderer contract or overlap each other are recorded as withheld. The independent findings and valid disjoint edits remain available for the methodologist. Synthetic retained-block regression reproduces the old exception and passes without calling the model. Production observation identifies the failing contract and phase, not the exact retained customer edit. No rollout or customer write occurred.

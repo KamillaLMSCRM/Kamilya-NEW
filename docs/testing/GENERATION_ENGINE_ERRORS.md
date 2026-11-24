@@ -2560,3 +2560,10 @@ the source coordinates. Linked objects, formulas, hidden rows or columns and
 unsupported embedded visuals remain blocked. The original DOCX produced a
 table with all 38 populated cells. See CHG-DOCX-EMBEDDED-XLSX for scope and
 verification. No model or tenant requests were made.
+
+## ENG-092 — A saved automatic edit can block the entire source review
+
+- 2026-11-24. Production 0.11.150 reported `source_review_overlapping_or_stale_edit` for source review revisions 45 and 57. Revision 45 reached the independent response. Revision 57 stopped at the source contract. No approved edition or final findings were exposed by the API. The exact rejected production edit was not available through the read-only API.
+- Local replay of a synthetic completed block reproduced the same final-renderer error with an incompatible automatic edit. The finalizer now withholds inapplicable and mutually overlapping automatic edits, records their disposition, and preserves the original text, the independent findings, and the remaining disjoint edits. The renderer, approval requirements, model request identity, and request budget are unchanged.
+- The regression reuses the completed block with zero new model calls. Customer source, review history and generation jobs were not modified. The correction is local pending exact DEV and production acceptance.
+- Version comparison: production revision 60 still reports the source-contract failure, with no analyzed or approved event exposed for this document ID. The original file is a legacy DOC. Releases 0.11.145, 0.11.148, 0.11.149 and 0.11.150 have identical review analysis and renderer behavior on two synthetic controls: a valid exact edit is accepted and the incompatible optional edit raises the same error. The 0.11.150 native embedded-XLSX addition is reached in the DOCX branch, outside this retained DOC review finalization. The comparison does not establish the exact rejected edit in the customer document.

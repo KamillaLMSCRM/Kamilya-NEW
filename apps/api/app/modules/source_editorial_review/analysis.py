@@ -8,6 +8,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mappin
 from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
+from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID
 
@@ -16,13 +17,20 @@ from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.core.db import async_session_factory
+from app.core.operation_log import operation_event, uuid_label
 from app.modules.ai.direct_source import DirectSourceError, load_direct_source_corpus
 from app.modules.ai.llm_client import AllProvidersFailedError, LLMProviderConfig, ResilientLLMClient
 from app.modules.ai.managed_luna_client import ManagedLunaCompletedJsonError, ManagedLunaError
 from app.modules.ai.managed_response_rejection import ManagedResponseRejectedError
 from app.modules.ai.source_editorial_model import editorial_review_messages, prepare_source_working_edition
 from app.modules.source_editorial_review.continuation import handoff, lineage, valid_continuation
-from app.modules.source_editorial_review.domain import POLICY, ReviewConflictError, render_text, text_hash
+from app.modules.source_editorial_review.domain import (
+    POLICY,
+    ReviewConflictError,
+    render_text,
+    source_edit_matches,
+    text_hash,
+)
 from app.modules.source_editorial_review.evidence_review import repair_pending_evidence
 from app.modules.source_editorial_review.question_context import (
     POLICY as QUESTION_CONTEXT_POLICY,
@@ -657,12 +665,33 @@ async def analyze(
                 if row.get(field):
                     last[field] = list({(item.get('source_ref'), item['start'], item['end']): item
                                         for item in [*last.get(field, []), *row[field]]}.values())
-    auto = [row for row in auto if not any(
-        row["start"] < question["end"] and question["start"] < row["end"] for question in grouped
-    )]
-    render_text(original, auto)
+    candidates = []
+    withheld = []
+    for row in auto:
+        if not source_edit_matches(original, row["start"], row["end"], row["before"], row["after"]):
+            withheld.append(row)
+        elif not any(row["start"] < question["end"] and question["start"] < row["end"] for question in grouped):
+            candidates.append(row)
+    candidates.sort(key=lambda row: row["start"])
+    compatible = []
+    previous_end = 0
+    for index, row in enumerate(candidates):
+        overlaps_next = index + 1 < len(candidates) and candidates[index + 1]["start"] < row["end"]
+        if row["start"] < previous_end or overlaps_next:
+            withheld.append(row)
+        else:
+            compatible.append(row)
+        previous_end = max(previous_end, row["end"])
+    for row in withheld:
+        rejected_automatic.append({
+            "id": row["id"], "start": row["start"], "end": row["end"], "before": row["before"],
+            "proposed_after": row["after"], "category": row["category"],
+            "reason": "source_review_automatic_edit_withheld", "applied": False,
+            "requires_human_decision": False,
+        })
+    render_text(original, compatible)
     return {"original": original, "issues": [*grouped, *(q for q in questions if q["start"] is None)],
-            "automatic": auto, "rejected_automatic": rejected_automatic,
+            "automatic": compatible, "rejected_automatic": rejected_automatic,
             "dismissed_questions": dismissed_questions,
             "question_quote_repairs": quotation_repairs,
             "source_clue_bindings": clue_bindings,
@@ -671,26 +700,35 @@ async def analyze(
 
 
 async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> str:
+    started = perf_counter()
+    trace = {"document_id": str(document_id), "queued_event_id": str(event_id)}
+
+    def finish(outcome: str) -> str:
+        operation_event("source_review.finished", outcome=outcome,
+                        duration_ms=round((perf_counter() - started) * 1000), **trace)
+        return outcome
+
     if not review_enabled():
-        return "disabled"
+        return finish("disabled")
     async with async_session_factory() as db:
         await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
         doc = await owned_document(db, tenant_id, document_id, lock=True)
         rows = await history(db, tenant_id, document_id)
         if not rows or rows[-1].id != event_id or rows[-1].kind != "queued":
-            return "already_claimed"
+            return finish("already_claimed")
         queued = rows[-1]
         continuation = queued.payload.get("continuation_from") is not None
         if continuation and not valid_continuation(rows, queued, str(doc.content_sha256)):
-            return "invalid_continuation"
+            return finish("invalid_continuation")
         if not continuation and queued.created_at < datetime.now(UTC) - timedelta(minutes=20):
-            return "expired"
+            return finish("expired")
         ancestor_claims, acknowledgement, acknowledged_failure, root_queue = lineage(rows, queued)
         state = read_state(rows, doc.content_sha256)
         filename, storage_key = str(doc.filename or ""), str(doc.s3_key or "")
         claim = add_event(db, doc, actor_id=queued.actor_id, sequence=state.revision + 1,
                           kind="running", payload={"queued_event_id": str(event_id)})
         await db.commit()
+    trace["claim_id"] = str(claim.id)
 
     def owns(latest: Any) -> bool:
         return bool((latest.kind == "running" and latest.id == claim.id) or (
@@ -698,6 +736,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         ))
 
     retained = {row.payload["key"]: row.payload["result"] for row in rows if row.kind == "analysis_block"}
+    operation_event("source_review.claimed", revision=state.revision + 1,
+                    continuation=continuation, retained_blocks=len(retained), **trace)
 
     async def save_block(key: str, result: dict[str, Any]) -> None:
         async with async_session_factory() as db:
@@ -710,6 +750,8 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                       payload={"claim_id": str(claim.id), "key": key, "result": result})
             await db.commit()
             retained[key] = result
+            operation_event("source_review.checkpoint.saved", revision=latest.sequence + 1,
+                            retained_blocks=len(retained), phase=phase, **trace)
     async def verify_claim() -> bool:
         async with async_session_factory() as db:
             await db.execute(text("SELECT set_current_tenant(:tenant)"), {"tenant": str(tenant_id)})
@@ -765,15 +807,21 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
 
         def dispatch(event: Any) -> None:
             from app.core.celery_app import celery_app
-            celery_app.send_task("documents.editorial_review", args=[str(tenant_id), str(document_id), str(event.id)],
-                                 queue="documents", retry=False)
+            task = celery_app.send_task("documents.editorial_review",
+                                        args=[str(tenant_id), str(document_id), str(event.id)],
+                                        queue="documents", retry=False)
+            operation_event("source_review.continuation.dispatched", document_id=str(document_id),
+                            next_event_id=str(event.id), next_task_id=uuid_label(task.id))
 
-        return await handoff(claim=claim, binding=binding, pages=pages, open_locked=locked_document,
+        result = await handoff(claim=claim, binding=binding, pages=pages, open_locked=locked_document,
             read_rows=lambda db: history(db, tenant_id, document_id), add_queued=queue, owns=owns, dispatch=dispatch)
+        return finish(result)
 
     def failed_result(error: Exception) -> tuple[dict[str, Any], str]:
         code = "source_review_continuation_failed" if phase == "continuation_handoff" else analysis_failure_code(error)
         logger.warning("Source review analysis failed code=%s phase=%s class=%s", code, phase, type(error).__name__)
+        operation_event("source_review.analysis.failed", level=logging.WARNING, error_code=code,
+                        phase=phase, cause_class=type(error).__name__, provider_receipts=len(usage), **trace)
         failure: dict[str, Any] = {"code": code, "phase": phase, "cause_class": type(error).__name__,
                                    "usage": usage, "usage_complete": False}
         if unknown_request_key is not None:
@@ -872,13 +920,22 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     nonlocal unknown_request_key
                     key, attempt = request_scope(current, route)
                     unknown_request_key = key
+                    replay = f"{REQUEST_CUSTODY_POLICY}:{key}:{attempt}:completed" in retained
+                    request_started = perf_counter()
+
+                    async def dispatch_provider() -> tuple[object, dict[str, Any] | None]:
+                        operation_event("source_review.provider.dispatched", stage=stage, **trace)
+                        return await call()
+
                     try:
                         result = await invoke_once(key=key, attempt=attempt, retained=retained, save=save_block,
-                            before_post=lambda: reserve(seconds), invoke=call, usage=record_usage)
+                            before_post=lambda: reserve(seconds), invoke=dispatch_provider, usage=record_usage)
                     except (CompletedResponseRejected, ManagedLunaCompletedJsonError, RequestRejected, BeforePostDeferred):
                         unknown_request_key = None
                         raise
                     unknown_request_key = None
+                    operation_event("source_review.provider.result", stage=stage, replay=replay,
+                                    duration_ms=round((perf_counter() - request_started) * 1000), **trace)
                     return result
 
                 if managed is not None:
@@ -1036,6 +1093,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                                 "pages": max((b.page or 0 for b in package.blocks), default=0),
                                 "engine_version": package.policy}
                 phase = "source_contract"
+                operation_event("source_review.analysis.started", phase=phase, **trace)
                 visual_notes = []
                 if package is not None:
                     selected_assets = {i for b in package.selected(selected_ids)[2] for i in b.asset_ids}
@@ -1074,7 +1132,11 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
         doc = await owned_document(db, tenant_id, document_id, lock=True)
         latest = await latest_event(db, tenant_id, document_id)
         if not latest or not owns(latest) or doc.content_sha256 != claim.original_blob_sha256:
-            return "claim_changed"
+            return finish("claim_changed")
         add_event(db, doc, actor_id=claim.actor_id, sequence=latest.sequence + 1, kind=kind, payload=payload)
         await db.commit()
-    return kind
+    operation_event("source_review.result.saved", kind=kind, revision=latest.sequence + 1,
+                    retained_blocks=len(retained), provider_receipts=len(usage),
+                    questions=len(payload.get("issues", [])), automatic_edits=len(payload.get("automatic", [])),
+                    rejected_automatic_edits=len(payload.get("rejected_automatic", [])), **trace)
+    return finish(kind)

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.11.151] - 2026-11-24
+
+- Проверка документа сохраняет замечания, когда необязательные автоматические правки пересекаются или неприменимы.
+- API и воркеры записывают идентификаторы запросов, документов и заданий, этапы, результаты и коды ошибок.
+
 ## [0.11.150] - 2026-11-24
 
 - Resume document review from Courses, clarify keep decisions, archive drafts with retained history, and read embedded XLSX tables in DOCX.
