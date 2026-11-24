@@ -10,9 +10,10 @@ const confirmMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api', () => ({ api: apiMock }));
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: () => ({
-    user: { id: 'methodologist-1', role: 'methodologist' },
-  }),
+  useAuthStore: (select?: (state: { user: { id: string; role: string } }) => unknown) => {
+    const state = { user: { id: 'methodologist-1', role: 'methodologist' } };
+    return select ? select(state) : state;
+  },
 }));
 vi.mock('@/i18n/useT', () => ({
   useT: () => ({
@@ -75,7 +76,8 @@ describe('course publication flow', () => {
     apiMock.get.mockResolvedValue({ data: [] });
     render(<CoursesPage />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Создать вручную' }));
+    fireEvent.click(await screen.findByText('Ещё', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Создать вручную' }));
     expect(screen.getByLabelText('courses.courseTitle')).toBeInTheDocument();
     expect(screen.getByLabelText('courses.courseDescription')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'common.create' })).toBeDisabled();

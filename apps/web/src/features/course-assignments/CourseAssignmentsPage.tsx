@@ -1342,10 +1342,10 @@ function AssignmentsContent() {
       <div className="flex min-w-0 flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3" role="group" aria-label={lang === 'en' ? 'Assignment mode' : lang === 'kk' ? 'Тағайындау режимі' : 'Режим назначения'}>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant={assignmentMode === 'compose' ? 'default' : 'outline'} aria-pressed={assignmentMode === 'compose'} onClick={() => { setAssignmentMode('compose'); setEnrollmentFocus(null); }}>
+            <Button type="button" size="sm" variant={assignmentMode === 'compose' ? 'secondary' : 'ghost'} aria-pressed={assignmentMode === 'compose'} onClick={() => { setAssignmentMode('compose'); setEnrollmentFocus(null); }}>
               {lang === 'en' ? 'Assign' : lang === 'kk' ? 'Тағайындау' : 'Назначить'}
             </Button>
-            <Button type="button" size="sm" variant={assignmentMode === 'manage' ? 'default' : 'outline'} aria-pressed={assignmentMode === 'manage'} onClick={() => setAssignmentMode('manage')}>
+            <Button type="button" size="sm" variant={assignmentMode === 'manage' ? 'secondary' : 'ghost'} aria-pressed={assignmentMode === 'manage'} onClick={() => setAssignmentMode('manage')}>
               {lang === 'en' ? 'Current assignments' : lang === 'kk' ? 'Ағымдағы тағайындаулар' : 'Текущие назначения'}
             </Button>
           </div>
@@ -1469,10 +1469,10 @@ function AssignmentsContent() {
                 ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
                 : audienceLabel.selectCourse}
             </p>
-            <SearchInput
+            {selectedCourse && <><SearchInput
               value={userSearch}
               onChange={setUserSearch}
-              placeholder={t('courseAssignments.ui.searchLearner')}
+              placeholder={t('courseAssignments.ui.searchEmployee')}
             />
             {alreadyAssignedMatches.length > 0 && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
@@ -1514,11 +1514,9 @@ function AssignmentsContent() {
             <div className="max-h-96 overflow-y-auto space-y-2 rounded-xl border border-border p-2">
               {audiencePending ? null : availableUsers.length === 0 && users.length > 0 ? (
                 <p className="text-xs text-muted-foreground p-2">
-                  {selectedCourse
-                    ? positionFilter || groupFilter || userSearch
-                      ? audienceLabel.noMatches
-                      : t('courseAssignments.ui.allAlreadyAssigned')
-                    : audienceLabel.selectCourse}
+                  {positionFilter || groupFilter || userSearch
+                    ? audienceLabel.noMatches
+                    : t('courseAssignments.ui.allAlreadyAssigned')}
                 </p>
               ) : (
                 availableUsers.map((user) => (
@@ -1561,7 +1559,7 @@ function AssignmentsContent() {
                   </label>
                 ))
               )}
-            </div>
+            </div></>}
             </div>
             <div className="min-w-0 space-y-4 rounded-xl bg-muted/25 p-4">
             <fieldset className="space-y-3 rounded-md border border-border p-3">

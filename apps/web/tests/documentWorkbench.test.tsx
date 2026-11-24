@@ -62,6 +62,37 @@ describe('DocumentWorkbench', () => {
     currentLang = 'ru';
   });
 
+  it('opens document deep links lazily and keeps the draft when returning to assignments', async () => {
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_WORKBENCH_ENABLED', 'true');
+    vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
+    apiMock.get.mockClear();
+    apiMock.get.mockResolvedValue({ data: { items: [], page: { has_more: false } } });
+    const { default: MethodologistWorkbenchPage } = await import('@/app/methodologist-workbench/page');
+    const initialUrl = window.location.href;
+    const catalogLoads = () => apiMock.get.mock.calls.filter(([path]) => path.startsWith('/v1/documents/catalog')).length;
+    try {
+      window.history.replaceState(null, '', '/methodologist-workbench');
+      render(<MethodologistWorkbenchPage />);
+      expect(screen.getByRole('button', { name: 'Назначение', pressed: true })).toBeInTheDocument();
+      expect(catalogLoads()).toBe(0);
+      window.history.replaceState(null, '', '/methodologist-workbench?document_task=00000000-0000-4000-8000-000000000001');
+      fireEvent.popState(window);
+      expect(await screen.findByRole('button', { name: 'Документ', pressed: true })).toBeInTheDocument();
+      expect(catalogLoads()).toBe(1);
+
+      const format = screen.getByLabelText('Формат');
+      fireEvent.change(format, { target: { value: 'brief' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Назначение' }));
+      expect(format).not.toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'Документ' }));
+      expect(format).toBeVisible();
+      expect(format).toHaveValue('brief');
+      expect(catalogLoads()).toBe(1);
+    } finally {
+      window.history.replaceState(null, '', initialUrl);
+    }
+  });
+
   it('starts as a feature-gated document draft surface', async () => {
     vi.stubEnv('NEXT_PUBLIC_METHODOLOGIST_DOCUMENT_DRAFT_ENABLED', 'true');
     const { default: DocumentWorkbench } = await import('@/features/methodologist-workbench/DocumentWorkbench');

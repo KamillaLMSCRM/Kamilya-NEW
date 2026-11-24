@@ -44,6 +44,15 @@ const topic = (
 ): HelpTopicDefinition => ({ id, paths, roles, title, purpose, steps, example, result, important });
 
 const TOPICS: readonly HelpTopicDefinition[] = [
+  topic('ai-generation-jobs', ['/ai/jobs'], ['methodologist'],
+    text('Задания генерации', 'Генерация тапсырмалары', 'Generation jobs'),
+    text('Последние задания создания курсов и их статусы.', 'Курс жасау бойынша соңғы тапсырмалар және олардың күйлері.', 'See recent course generation jobs and their statuses.'),
+    [text('Найдите задание по времени, статусу или номеру.', 'Тапсырманы уақыты, күйі немесе нөмірі бойынша табыңыз.', 'Identify the job by its time, status, or reference.'),
+      text('Нажмите «Открыть задание», чтобы увидеть ход работы и доступные действия.', 'Жұмыс барысын және қолжетімді әрекеттерді көру үшін «Тапсырманы ашу» түймесін басыңыз.', 'Select Open job to see its progress and available actions.'),
+      text('Чтобы начать новый курс, нажмите «Создать из документов».', 'Жаңа курсты бастау үшін «Құжаттардан жасау» түймесін басыңыз.', 'Select Create from documents to start a new course.')],
+    text('Откройте завершённое задание, чтобы найти сохранённый черновик курса.', 'Курстың сақталған нобайын табу үшін аяқталған тапсырманы ашыңыз.', 'Open a completed job to find the saved course draft.'),
+    text('Открывается выбранное задание.', 'Таңдалған тапсырма ашылады.', 'The selected job opens.'),
+    text('В списке показано до 20 последних заданий.', 'Тізімде соңғы 20 тапсырмаға дейін көрсетіледі.', 'The list shows up to 20 recent jobs.')),
   topic('methodologist-knowledge-checks', ['/knowledge-checks'], ['methodologist'],
     text('Проверки знаний', 'Білімді тексеру', 'Knowledge checks'),
     text('Отдельные проверки сотрудников без курса.', 'Курссыз қызметкерлердің білімін тексеру.', 'Employee assessments without a course.'),

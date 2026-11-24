@@ -87,7 +87,7 @@ export function PublicWorkspace({ id, title, description, eyebrow, icon, actions
   return <Element id={Element === 'main' ? 'main-content' : undefined} data-redesign-page={id} data-public-workspace className={cn('min-h-dvh min-w-0 bg-background px-4 py-8 text-foreground sm:px-6 sm:py-12', className)}>
     <div className="mx-auto w-full min-w-0 max-w-5xl space-y-8">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
-        {logoHref ? <a href={logoHref} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo size={32} withSubtitle={false} /></a> : <Logo size={32} withSubtitle={false} />}
+        {logoHref ? <a href={logoHref} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Logo size={32} flat /></a> : <Logo size={32} flat />}
         {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
       </div>
       {title != null && <WorkspacePageHeader title={title} description={description} eyebrow={eyebrow} icon={icon} />}

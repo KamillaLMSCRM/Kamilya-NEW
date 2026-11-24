@@ -135,9 +135,10 @@ describe('contextual course assignment flow', () => {
       return fixtureFetch(input, init);
     });
     render(<CourseAssignmentsPage />);
-    const search = await screen.findByPlaceholderText('Найти обучающегося по имени, email или табельному…');
+    await screen.findByText(/^Доступно:/);
+    const search = await screen.findByPlaceholderText('Поиск сотрудника');
     fireEvent.change(search, { target: { value: 'али' } });
-    await screen.findByText('По этому курсу уже есть назначение');
+    await screen.findByText('По этому курсу уже есть назначение', {}, { timeout: 3000 });
     expect(screen.getByText('Алия Садыкова')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Открыть текущие назначения (1)' }));
     await screen.findByRole('heading', { name: 'Назначения обучения' });
@@ -174,7 +175,7 @@ describe('contextual course assignment flow', () => {
     render(<CourseAssignmentsPage />);
     const heading = await screen.findByRole('heading', { name: 'Обучающиеся' });
     const composer = heading.closest('[data-workspace-panel]') as HTMLElement;
-    const recipientSearch = within(composer).getByPlaceholderText('Найти обучающегося по имени, email или табельному…');
+    const recipientSearch = within(composer).getByPlaceholderText('Поиск сотрудника');
     const delivery = within(composer).getByRole('group', { name: 'Как сотрудник получит доступ' });
 
     expect(recipientSearch.compareDocumentPosition(delivery) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

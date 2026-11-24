@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, Copy, KeyRound, Mail, MessageCircle, RefreshCw } from 'lucide-react';
@@ -237,6 +237,28 @@ export default function LoginPage() {
     if (pollingRef.current) clearInterval(pollingRef.current);
   }
 
+  const loginMethods: { id: LoginMode; label: string; icon: typeof Mail }[] = [
+    { id: 'email', label: t('auth.emailCode'), icon: Mail },
+    { id: 'password', label: t('auth.password'), icon: KeyRound },
+  ];
+  if (telegramEnabled) loginMethods.push({ id: 'telegram', label: 'Telegram', icon: MessageCircle });
+
+  function navigateMethods(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = loginMethods.length - 1;
+    let nextIndex: number;
+    switch (event.key) {
+      case 'ArrowLeft': nextIndex = index === 0 ? last : index - 1; break;
+      case 'ArrowRight': nextIndex = index === last ? 0 : index + 1; break;
+      case 'Home': nextIndex = 0; break;
+      case 'End': nextIndex = last; break;
+      default: return;
+    }
+    event.preventDefault();
+    const next = loginMethods[nextIndex].id;
+    if (next !== mode) switchMode(next);
+    document.getElementById('login-tab-' + next)?.focus();
+  }
+
   return (
     <PublicWorkspace id="login" actions={<LanguageSwitcher />}>
       <div className="grid min-w-0 items-start gap-8 py-3 lg:grid-cols-[minmax(0,1fr)_minmax(340px,440px)] lg:gap-14 lg:py-10">
@@ -251,52 +273,33 @@ export default function LoginPage() {
           aria-label={t('publicUi.login.method')}
           className={`grid gap-1.5 rounded-xl border border-border bg-muted/50 p-1.5 ${telegramEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'email'}
-            onClick={() => switchMode('email')}
-            className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-              mode === 'email'
-                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                : 'border-border bg-background text-foreground shadow-sm hover:border-primary/50 hover:bg-primary/10'
-            }`}
-          >
-            <Mail className="h-4 w-4" aria-hidden="true" />
-            {t('auth.emailCode')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'password'}
-            onClick={() => switchMode('password')}
-            className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-              mode === 'password'
-                ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                : 'border-border bg-background text-foreground shadow-sm hover:border-primary/50 hover:bg-primary/10'
-            }`}
-          >
-            <KeyRound className="h-4 w-4" aria-hidden="true" />
-            {t('auth.password')}
-          </button>
-          {telegramEnabled && (
+          {loginMethods.map(({ id, label, icon: Icon }, index) => (
             <button
+              key={id}
+              id={'login-tab-' + id}
               type="button"
               role="tab"
-              aria-selected={mode === 'telegram'}
-              onClick={() => switchMode('telegram')}
-              className={`inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                mode === 'telegram'
+              aria-selected={mode === id}
+              aria-controls={'login-panel-' + id}
+              tabIndex={mode === id ? 0 : -1}
+              onClick={() => { if (id !== mode) switchMode(id); }}
+              onKeyDown={(event) => navigateMethods(event, index)}
+              className={`inline-flex h-11 min-w-0 cursor-pointer items-center justify-center gap-2 rounded-md border px-1 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                mode === id
                   ? 'border-primary bg-primary text-primary-foreground shadow-sm'
                   : 'border-border bg-background text-foreground shadow-sm hover:border-primary/50 hover:bg-primary/10'
               }`}
             >
-              <MessageCircle className="h-4 w-4" aria-hidden="true" />
-              Telegram
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              {label}
             </button>
-          )}
+          ))}
         </div>
 
+        {loginMethods.filter(({ id }) => id !== mode).map(({ id }) => (
+          <div key={id} id={'login-panel-' + id} role="tabpanel" aria-labelledby={'login-tab-' + id} hidden />
+        ))}
+        <div id={'login-panel-' + mode} role="tabpanel" aria-labelledby={'login-tab-' + mode}>
         {error && (
           <div className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
             {error}
@@ -333,7 +336,7 @@ export default function LoginPage() {
               />
               <p className="mt-1 text-xs text-muted-foreground">{t('auth.passwordLoginHint')}</p>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="min-h-11 w-full md:min-h-10" disabled={loading}>
               {loading ? t('auth.loggingIn') : t('auth.loginButton')}
             </Button>
           </form>
@@ -356,7 +359,7 @@ export default function LoginPage() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="min-h-11 w-full md:min-h-10" disabled={loading}>
                   {loading ? t('publicUi.login.sending') : t('publicUi.login.getCode')}
                 </Button>
               </form>
@@ -379,7 +382,7 @@ export default function LoginPage() {
                     {t('publicUi.login.sentTo', { email, time: timeLeft || '5:00' })}
                   </p>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="min-h-11 w-full md:min-h-10" disabled={loading}>
                   {loading ? t('publicUi.login.checking') : t('publicUi.login.signIn')}
                 </Button>
                 <button
@@ -465,6 +468,7 @@ export default function LoginPage() {
             )}
           </div>
         )}
+        </div>
 
         <div className="mt-6 space-y-3 text-center text-sm text-muted-foreground">
           <Link href="/register-tenant" className="text-primary hover:underline">
@@ -473,7 +477,7 @@ export default function LoginPage() {
           <div>
             <Link
               href="/login/demo"
-              className="inline-flex items-center gap-1.5 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted md:min-h-9"
             >
               {t('publicUi.login.tryDemo')}
             </Link>

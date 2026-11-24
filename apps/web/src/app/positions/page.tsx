@@ -254,7 +254,7 @@ export default function PositionsPage() {
   };
 
   return (
-    <WorkspacePage id="positions" title={t("positions.title")} description={ui("authenticatedUi.positions.subtitle")} eyebrow={ui("authenticatedUi.positions.eyebrow")} icon={<BriefcaseBusiness />} className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8" actions={<>
+    <WorkspacePage id="positions" title={t("positions.title")} description={ui("authenticatedUi.positions.subtitle")} eyebrow={ui("authenticatedUi.positions.eyebrow")} icon={<BriefcaseBusiness />} className="mx-auto w-full max-w-7xl" actions={<>
           <Button
             type="button"
             variant="outline"
@@ -278,10 +278,10 @@ export default function PositionsPage() {
             onChange={handleBulkAnalyze}
             aria-label={ui("authenticatedUi.positions.uploadInstructionAria")}
           />
-          <Button type="button" className="w-full gap-2 sm:w-auto" onClick={() => setShowCreate(true)}>
+          {positions.length > 0 && <Button type="button" variant="outline" className="w-full gap-2 sm:w-auto" onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             {t("positions.create")}
-          </Button>
+          </Button>}
         </>}>
 
       <WorkspaceToolbar className="justify-between">
@@ -405,7 +405,7 @@ export default function PositionsPage() {
                   <span className="mt-auto inline-flex items-center justify-between gap-2 border-t border-border pt-4 text-sm font-medium text-primary">
                     {ui("authenticatedUi.positions.openCard")}
                     <ChevronRight
-                      className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                      className="h-4 w-4"
                       aria-hidden="true"
                     />
                   </span>

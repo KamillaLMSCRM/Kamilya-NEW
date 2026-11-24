@@ -83,6 +83,7 @@ const coverage: Record<string, Entry> = {
   'admin/quizzes/assign': { status: 'alias', owner: 'app/quizzes/page.tsx' },
   'assignments': { status: 'alias', owner: 'features/course-assignments/CourseAssignmentsPage.tsx' },
   'ai/generate': { status: 'redesigned' },
+  'ai/jobs': { status: 'redesigned' },
   'admin/super': { status: 'deferred' },
   'admin/super/operations': { status: 'deferred' },
   'admin/super/tenants': { status: 'deferred' },

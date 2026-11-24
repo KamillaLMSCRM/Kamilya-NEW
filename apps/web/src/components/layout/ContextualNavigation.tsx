@@ -13,7 +13,14 @@ const sections = {
   trainingLog: ['mandatory-training', 'training-procedures', 'training-retention'],
 } as const;
 
-export default function ContextualNavigation({ section }: { section: keyof typeof sections }) {
+type ContextualItem = { label: string } & ({ href: string } | { onSelect: () => void });
+
+const itemClass = 'flex min-h-11 w-full items-center md:min-h-10 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+
+export default function ContextualNavigation({ section, items = [] }: {
+  section: keyof typeof sections;
+  items?: ContextualItem[];
+}) {
   const [alignEnd, setAlignEnd] = useState(false);
   const menuRef = useRef<HTMLDetailsElement>(null);
   const role = useAuthStore((state) => state.user?.role);
@@ -33,7 +40,10 @@ export default function ContextualNavigation({ section }: { section: keyof typeo
   const routes = getNavigationRoutes(role, 'sidebar').filter((route) =>
     (sections[section] as readonly string[]).includes(route.id),
   );
-  if (!routes.length) return null;
+  if (!routes.length && !items.length) return null;
+  const close = () => {
+    if (menuRef.current) menuRef.current.open = false;
+  };
   const label = lang === 'kk' ? 'Тағы' : lang === 'en' ? 'More' : 'Ещё';
   return (
     <details ref={menuRef} className="relative" onKeyDown={(event) => {
@@ -53,7 +63,16 @@ export default function ContextualNavigation({ section }: { section: keyof typeo
     }}>
       <summary className="flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-border bg-card px-4 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">{label}</summary>
       <ul className={`absolute ${alignEnd ? 'right-0' : 'left-0'} z-20 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-card p-1 shadow-lg`}>
-        {routes.map((route) => <li key={route.id}><Link href={route.href} onClick={() => { if (menuRef.current) menuRef.current.open = false; }} className="block rounded-lg px-3 py-2 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t(route.labelKey!)}</Link></li>)}
+        {items.map((item, index) => <li key={'href' in item ? 'link:' + item.href : 'action:' + index}>
+          {'href' in item
+            ? <Link href={item.href} onClick={close} className={itemClass}>{item.label}</Link>
+            : <button type="button" className={itemClass} onClick={() => {
+              close();
+              menuRef.current?.querySelector('summary')?.focus();
+              item.onSelect();
+            }}>{item.label}</button>}
+        </li>)}
+        {routes.map((route) => <li key={route.id}><Link href={route.href} onClick={close} className={itemClass}>{t(route.labelKey!)}</Link></li>)}
       </ul>
     </details>
   );

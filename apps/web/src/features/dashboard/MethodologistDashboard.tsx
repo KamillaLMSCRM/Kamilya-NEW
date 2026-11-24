@@ -316,7 +316,7 @@ function DashboardContent() {
           id: 'training', title: m.priorityPeople, tasks: trainingTasks, empty: model.learningAvailable ? (trainingSourceTruncated || model.attention?.trainingIssues ? q.localEmpty : m.noIssues) : m.unavailable,
           loading: loadStates.learning === 'loading', loadingLabel: m.loading,
           retry: loadStates.learning === 'error' ? () => refreshSection('learning') : undefined, retryLabel: `${w.retry} · ${m.priorityPeople}`,
-          notice: model.attention ? `${queueScope(lang, trainingTasks.length, trainingSourceTruncated ? null : model.attention.trainingIssues)} ${q.order} ${trainingSourceTruncated ? q.trainingBound : ''}` : undefined,
+          notice: model.attention ? `${queueScope(lang, trainingTasks.length, trainingSourceTruncated ? null : model.attention.trainingIssues)} ${trainingSourceTruncated ? q.trainingBound : ''}`.trim() : undefined,
           link: { href: actionCenterHref, label: m.allActions },
         }] : []),
         ...((workView === 'all' || workView === 'content') ? [{
@@ -324,7 +324,7 @@ function DashboardContent() {
           loading: loadStates.jobs === 'loading', loadingLabel: m.loading,
           retry: loadStates.jobs === 'error' ? () => refreshSection('jobs') : undefined, retryLabel: `${w.retry} · ${taskCopy.jobs}`,
           empty: model.content.jobsAvailable ? model.content.jobsTruncated ? q.localEmpty : m.noJobs : m.jobsUnavailable,
-          notice: model.content.jobsAvailable ? `${queueScope(lang, generationTasks.length, model.content.jobTotal)} ${q.order} ${model.content.jobsTruncated ? q.jobsBound : ''}` : undefined,
+          notice: model.content.jobsAvailable ? `${queueScope(lang, generationTasks.length, model.content.jobTotal)} ${model.content.jobsTruncated ? q.jobsBound : ''}`.trim() : undefined,
           link: { href: '/ai/generate', label: q.jobs },
         }] : []),
         ...(workView === 'all' || workView === 'review' ? [{
@@ -333,7 +333,7 @@ function DashboardContent() {
           retry: loadStates.courses === 'error' ? () => refreshSection('courses') : undefined, retryLabel: `${w.retry} · ${review}`,
           empty: !model.content.coursesAvailable ? m.contentUnavailable
             : model.content.coursesTruncated ? q.localEmpty : lang === 'kk' ? 'Тексеруге курс жоқ.' : lang === 'en' ? 'No courses awaiting review.' : 'Нет курсов, ожидающих проверки.',
-          notice: model.content.coursesAvailable ? `${queueScope(lang, reviewTasks.length, model.content.reviewTotal)} ${q.order} ${model.content.coursesTruncated ? q.reviewBound : ''}` : undefined,
+          notice: model.content.coursesAvailable ? `${queueScope(lang, reviewTasks.length, model.content.reviewTotal)} ${model.content.coursesTruncated ? q.reviewBound : ''}`.trim() : undefined,
           link: { href: '/courses?status=draft', label: q.drafts },
         }] : []),
       ]} />}
@@ -345,12 +345,14 @@ function DashboardContent() {
 
       {(workView === 'all' || workView === 'training') && model?.training && model.attention && <div className="flex min-w-0 flex-col gap-6">
         <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="attention-title">
-          <SectionHeading id="attention-title" title={m.attention} icon={<AlertTriangle className="h-5 w-5" />} tone="amber" />
-          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <SectionHeading id="attention-title" title={m.attention} icon={<AlertTriangle className="h-5 w-5" />} />
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <Metric label={m.trainingIssues} value={trainingSourceTruncated ? '—' : model.attention.trainingIssues} testId="training-issues" href={actionFocusHref('training')} />
             <Metric label={m.weakQuestions} value={model.attention.weakQuestions} href={actionFocusHref('weak_questions')} />
             <Metric label={m.openActions} value={model.attention.openActions} testId="open-actions" href={actionFocusHref('open')} />
             <Metric label={m.overdueActions} value={model.attention.overdueActions} tone={model.attention.overdueActions > 0 ? 'danger' : 'default'} href={actionFocusHref('overdue')} />
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {model.mandatory ? <>
               <Metric label={m.missingAssignments} value={model.mandatory.missing_enrollment} tone={model.mandatory.missing_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=materialize" />
               <Metric label={m.staleAssignments} value={model.mandatory.stale_managed_enrollment} tone={model.mandatory.stale_managed_enrollment > 0 ? 'danger' : 'default'} href="/mandatory-training?action_required=review_stale" />
@@ -363,7 +365,7 @@ function DashboardContent() {
         </section>
 
         <section className="grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5 sm:p-6 xl:grid-cols-[minmax(220px,1fr)_minmax(200px,0.7fr)_minmax(0,2fr)] xl:items-center" aria-labelledby="health-title">
-          <SectionHeading id="health-title" title={m.health} icon={<ListChecks className="h-5 w-5" />} tone="primary" />
+          <SectionHeading id="health-title" title={m.health} icon={<ListChecks className="h-5 w-5" />} />
           <div><Link href={trainingLogHref({ status: 'completed' })} className="flex items-end justify-between gap-3 rounded-xl transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`${m.completion}: ${model.training.completed}`}><div><div className="text-3xl font-semibold tracking-tight text-foreground">{model.training.completionPercent}%</div><div className="mt-1 text-xs text-muted-foreground">{m.completion}: {model.training.completed} / {model.training.total}</div></div><CheckCircle2 className="h-6 w-6 shrink-0 text-success" /></Link>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label={m.completion} aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.training.completionPercent}><div className="h-full rounded-full bg-success" style={{ width: `${model.training.completionPercent}%` }} /></div></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:border-l xl:border-border xl:pl-4"><MetricCompact label={m.notStarted} value={model.training.notStarted} href={trainingLogHref({ status: 'assigned' })} /><MetricCompact label={m.inProgress} value={model.training.inProgress} href={trainingLogHref({ status: 'in_progress' })} /><MetricCompact label={m.overdue} value={model.training.overdue} testId="training-overdue" danger={model.training.overdue > 0} href={trainingLogHref({ status: 'overdue' })} /><MetricCompact label={m.failed} value={model.training.failed} danger={model.training.failed > 0} href={trainingLogHref({ assessment_status: 'failed' })} /><MetricCompact label={m.exhausted} value={model.training.exhausted} danger={model.training.exhausted > 0} href={trainingLogHref({ assessment_status: 'exhausted' })} /></div>
@@ -371,19 +373,21 @@ function DashboardContent() {
       </div>}
 
       {(workView === 'all' || workView === 'content') && model && <section className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-card sm:p-6" aria-labelledby="content-title">
-        <SectionHeading id="content-title" title={m.content} icon={<BookOpen className="h-5 w-5" />} tone="blue" />
+        <SectionHeading id="content-title" title={m.content} icon={<BookOpen className="h-5 w-5" />} />
         {(loadStates.courses === 'error' || loadStates.jobs === 'error') && <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">{m.contentUnavailable}</p>}
         {model.content.coursesTruncated && <p className="mt-2 text-xs leading-5 text-muted-foreground">{m.coursesTruncated}</p>}
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} href="/courses" /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} href="/courses?status=published" /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} href="/courses?status=draft" /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></div>
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-[minmax(0,1.45fr)_repeat(4,minmax(0,1fr))] [&>*:first-child]:col-span-2 lg:[&>*:first-child]:col-span-1"><Metric label={m.allCourses} value={displayValue(model.content.totalCourses)} href="/courses" /><Metric label={m.published} value={displayValue(model.content.publishedCourses)} href="/courses?status=published" /><Metric label={m.drafts} value={displayValue(model.content.draftCourses)} href="/courses?status=draft" /><Metric label={m.activeGeneration} value={displayValue(model.content.activeJobs)} /><Metric label={m.generationAttention} value={displayValue(model.content.attentionJobs)} tone={(model.content.attentionJobs ?? 0) > 0 ? 'danger' : 'default'} /></div>
         <nav aria-label={m.quickActions} className="mt-5 grid gap-2 sm:grid-cols-3"><QuickLink href="/ai/generate?new=1" label={m.createFromMaterials} icon={<FilePlus2 className="h-4 w-4" />} /><QuickLink href="/courses" label={m.reviewCourses} icon={<BookOpen className="h-4 w-4" />} /><QuickLink href="/training-log" label={m.trainingLog} icon={<Clock3 className="h-4 w-4" />} /></nav>
       </section>}
     </WorkspacePage>
   );
 }
 
-function SectionHeading({ id, title, icon, tone }: { id: string; title: string; icon: ReactNode; tone: 'amber' | 'primary' | 'blue' }) {
-  const colors = tone === 'amber' ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' : tone === 'blue' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' : 'bg-primary/10 text-primary';
-  return <div className="flex min-w-0 items-start gap-3"><div className={`shrink-0 rounded-xl p-2.5 ${colors}`}>{icon}</div><div className="min-w-0"><h2 id={id} className="text-lg font-bold text-foreground">{title}</h2></div></div>;
+function SectionHeading({ id, title, icon }: { id: string; title: string; icon: ReactNode }) {
+  return <div className="flex min-w-0 items-center gap-2.5">
+    <span className="shrink-0 text-muted-foreground" aria-hidden="true">{icon}</span>
+    <h2 id={id} className="min-w-0 text-lg font-semibold text-foreground">{title}</h2>
+  </div>;
 }
 
 function Metric({ label, value, tone = 'default', testId, href }: { label: string; value: number | string; tone?: 'default' | 'danger'; testId?: string; href?: string }) {
@@ -395,7 +399,7 @@ function Metric({ label, value, tone = 'default', testId, href }: { label: strin
 }
 
 function MetricCompact({ label, value, danger = false, testId, href }: { label: string; value: number; danger?: boolean; testId?: string; href?: string }) {
-  const content = <><span className="text-xs text-muted-foreground">{label}</span><span className={`mt-1 text-xl font-bold ${danger ? 'text-red-600 dark:text-red-300' : 'text-foreground'}`}>{value}</span></>;
+  const content = <><span className="text-xs text-muted-foreground">{label}</span><span className={`mt-1 text-xl font-semibold ${danger ? 'text-red-600 dark:text-red-300' : 'text-foreground'}`}>{value}</span></>;
   return href
     ? <Link data-testid={testId} href={href} aria-label={`${label}: ${value}`} className="flex flex-col rounded-lg p-2 transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">{content}</Link>
     : <div data-testid={testId} className="flex flex-col p-2">{content}</div>;

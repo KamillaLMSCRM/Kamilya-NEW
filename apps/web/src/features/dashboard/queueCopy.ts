@@ -28,6 +28,7 @@ const kk: Copy = {
 };
 export function getQueueCopy(lang: string): Copy { return lang === 'kk' ? kk : lang === 'en' ? en : ru; }
 export function queueScope(lang: string, shown: number, total: number | null): string {
+  if (shown === 0 && total === 0) return '';
   const copy = getQueueCopy(lang);
   return (total === null ? copy.unknown : copy.known).replace('{shown}', String(shown)).replace('{total}', String(total));
 }

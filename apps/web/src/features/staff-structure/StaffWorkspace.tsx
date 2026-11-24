@@ -993,7 +993,7 @@ export function StaffWorkspace({
   const detailPanel = location.view === 'schema' && (selectedUnit || location.unit === 'unplaced') ? (
     <Card className="overflow-hidden rounded-2xl">
       <CardHeader className="pb-3">
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Выбранное место</p>
+        <p className="text-xs text-muted-foreground">Выбранное место</p>
         <CardTitle>{selectedUnit?.name || 'Без подразделения'}</CardTitle>
         <p className="text-xs text-muted-foreground">{selectedUnit ? unitLabel(selectedUnit) : 'Служебная выборка, а не подразделение'}</p>
         {selectedUnit && !selectedUnit.is_active && (
@@ -1172,7 +1172,7 @@ export function StaffWorkspace({
                 <Button type="button" variant="ghost" size="sm" onClick={() => selectUnit(selectedUnit.parent_id || 'all')}>↑ К родителю</Button>
               ) : undefined}>
               <div className="mx-auto max-w-lg rounded-xl border-2 border-primary bg-primary/5 p-5 text-center">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{selectedUnit ? getOrganizationUnitTypeLabel(selectedUnit.unit_type) : location.unit === 'unplaced' ? 'Служебная выборка' : 'Компания'}</p>
+                <p className="text-xs font-medium text-muted-foreground">{selectedUnit ? getOrganizationUnitTypeLabel(selectedUnit.unit_type) : location.unit === 'unplaced' ? 'Служебная выборка' : 'Компания'}</p>
                 <h3 ref={focusHeading} tabIndex={-1} className="mt-1 text-xl font-semibold outline-none">{selectedUnit?.name || (location.unit === 'unplaced' ? 'Без подразделения' : 'Вся компания')}</h3>
                 {selectedUnit && !selectedUnit.is_active && <span className="mt-2 inline-flex rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Архивное подразделение</span>}
                 <div className="mt-3 flex flex-wrap justify-center gap-4 text-sm">
