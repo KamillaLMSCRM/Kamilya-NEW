@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.11.153] - 2026-11-25
+
+- Address large-course editorial findings in small groups of owned lessons and assessments while retaining prior checkpoints.
+- Allow explicitly acknowledged recovery of a stale owned text-review request using the same prepared document and completed responses.
+
 ## [0.11.152] - 2026-11-24
 
 - Added one bounded replica each for AI and document processing on their existing queues; release cutover and rollback preserve the single operations/beat worker and restore the prior worker topology when rolling back to an older version.
