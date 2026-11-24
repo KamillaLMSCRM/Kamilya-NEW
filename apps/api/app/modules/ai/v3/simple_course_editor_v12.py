@@ -24,6 +24,23 @@ _ALIGNMENT = (
     "not a genuine source ambiguity for a human. In summary record each card ID, assessed skill and "
     "its own teaching basis before deciding whether there is an actionable defect. Do not manufacture "
     "defects from optional wording preferences or from ignoring a supporting source row."
+    " For a card claiming to check more than recognition, try to eliminate the distractors using only "
+    "a unique label, an echoed phrase or a conspicuously incomplete choice. Flag a shortcut if that "
+    "already gives the key without applying the advertised skill. Compare the actual decision and answer "
+    "reason across the whole bank, including different lessons. If two cards ask for the same decision "
+    "under equivalent conditions, retain the clearer one and identify the other by ID for replacement "
+    "with a different decision taught in its own lesson. Distinct decisions on the same subject are useful."
+)
+_CARD_REPAIR = (
+    " For a flagged assessment, use the evidence in the approved source and its own lesson. Draft the "
+    "result as a complete self-contained card and solve it from the visible stem and choices. If the "
+    "old shortcut still works, redesign the stem and choices together before returning it. Put any real "
+    "decision constraints in the stem. Make the alternatives plausible until the decisive condition is "
+    "applied; adding true facts to one choice or listing fields to compare does not repair an unchanged "
+    "shortcut. Verify one defensible key and explain which visible condition makes it correct. Compare "
+    "your revised decision with the provided bank and your other pending revisions. Preserve a good "
+    "counterpart when replacing a duplicate and leave independent cards alone. When the source cannot "
+    "support a defensible revision, report UNRESOLVED."
 )
 
 
@@ -44,6 +61,8 @@ async def run_simple_course_editor_v12(
     base_total = 3
     additional = 0
     receipts = []
+    bank: list[dict[str, Any]] = []
+    teaching: list[dict[str, Any]] = []
 
     async def planned(count: int) -> None:
         nonlocal base_total
@@ -52,16 +71,35 @@ async def run_simple_course_editor_v12(
             await planned_callback(count + additional)
 
     async def access_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
-        nonlocal additional
+        nonlocal additional, bank, teaching
         complete_editor = ':editor-joint:v9:' in group
+        bank_review = ':review-bank:v10:' in group
+        card_repair = ':repair-cards:v10:' in group
+        if bank_review:
+            payload = json.loads(messages[1]['content'])
+            bank = [
+                {key: row[key] for key in ('id', 'lesson_id', 'lesson_title', 'prompt', 'choices')}
+                for row in payload['assessment_cards']
+            ]
+            teaching = payload['lesson_bodies']
+        if card_repair:
+            messages = copy.deepcopy(messages)
+            payload = json.loads(messages[1]['content'])
+            flagged = {row['question']['id'] for row in payload['flagged_cards']}
+            lesson_ids = {row['lesson_id'] for row in payload['flagged_cards']}
+            payload['peer_assessment_cards'] = [row for row in bank if row['id'] not in flagged]
+            payload['flagged_card_teaching'] = [row for row in teaching if row['id'] in lesson_ids]
+            messages[1]['content'] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         if complete_editor:
             from app.modules.ai.v3.simple_course_block_editor import complete_added_lesson_format
             fmt = complete_added_lesson_format(fmt)
         requested: tuple[str, ...] = ()
         for attempt in range(lookup_rounds + 1):
             projected, fingerprint = source.project(messages, group, requested)
-            if ":review-bank:v10:" in group:
+            if bank_review:
                 projected[0]["content"] += _ALIGNMENT
+            if card_repair:
+                projected[0]["content"] += _CARD_REPAIR
             if ":author-unit:v9:" in group:
                 projected[0]["content"] += (
                     " Every question must assess a useful skill or decision explicitly "
