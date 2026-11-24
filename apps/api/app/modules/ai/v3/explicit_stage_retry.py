@@ -24,11 +24,16 @@ from app.modules.ai.v3.revision_policy import (
     SIMPLE_COURSE_REVIEW_V11_POLICY,
     SIMPLE_COURSE_REVIEW_V12_POLICY,
 )
+from app.modules.ai.v3.source_access_config import BOUNDED_JOINT_EDITOR
 from app.modules.ai.v3.stage_checkpoint import _digest, _validate_direct_metadata
 
 KEY = 'v3_explicit_stage_retries'
 POLICY = 'v3-explicit-unknown-stage-retry-v1'
 _HEX = re.compile(r'[a-f0-9]{64}')
+_LITERAL_GROUP = re.compile(
+    r'practical:simple:lookup:v12:([a-f0-9]{64}):base=([a-f0-9]{64})'
+    r':context=([a-f0-9]{64}):round=([0-3]):output=(8192|16384|32768)'
+)
 _PLAN_KEYS = {'schema', 'tenant_id', 'job_id', 'stage', 'group_id', 'source_sha256',
               'route_fingerprint', 'request_sha256'}
 
@@ -100,7 +105,7 @@ def _retry_frontier(plan: Any) -> bool:
 
 
 def _literal_repair_rejection(result: dict[str, Any], plan: dict[str, Any],
-                              actor_id: UUID, digest: str) -> bool:
+                              actor_id: UUID, digest: str, *, code: str = 'unavailable') -> bool:
     receipt = result.get(REJECTION_KEY, {})
     entries = receipt.get('entries', {}) if isinstance(receipt, dict) else {}
     rejection = entries.get(digest) if isinstance(entries, dict) else None
@@ -109,9 +114,39 @@ def _literal_repair_rejection(result: dict[str, Any], plan: dict[str, Any],
     return (receipt.get('policy') == 'v3-response-rejection-receipt-v1'
             and rejection.get('policy') == 'managed-http-rejection-v1'
             and rejection.get('stage') == digest
-            and rejection.get('status') == 503 and rejection.get('code') == 'unavailable'
+            and rejection.get('status') == 503 and rejection.get('code') == code
             and rejection.get('user_id') == str(actor_id)
             and all(rejection.get(key) == plan[key] for key in ('tenant_id', 'job_id', 'route_fingerprint')))
+
+
+async def _bounded_joint_frontier(db: Any, job: Any, journal: Any, plan: dict[str, Any]) -> bool:
+    """Identify the retired whole-course call from its own saved predecessor."""
+    from app.modules.ai.v3.simple_joint_editor_batches import JOINT_LESSON_LIMIT
+
+    pending = _LITERAL_GROUP.fullmatch(plan['group_id'])
+    if pending is None or pending[4] != '0':
+        return False
+    rows = (await db.scalars(select(AIGenerationRun).where(
+        AIGenerationRun.tenant_id == job.tenant_id, AIGenerationRun.source_job_id == str(job.id)))).all()
+    for row in rows:
+        prior = dict(row.plan_payload)
+        if prior.get('stage') != 'review' or not _literal_stage(prior) or any(
+                prior.get(key) != plan[key] for key in ('tenant_id', 'job_id', 'source_sha256', 'route_fingerprint')):
+            continue
+        key = 'v3-stage-result:' + _digest(prior)
+        if row.generation_key != journal._owned_key(key):
+            continue
+        saved = await journal.read_owned_value_in_session(db, key, prior)
+        response = (saved or {}).get('response') or {}
+        base = response.get('base_group', '')
+        if not re.fullmatch(r'practical:simple:review-content:v9:[a-f0-9]{64}:unit=[a-f0-9]{64}', base):
+            continue
+        if _digest(base.replace(':review-content:', ':editor-joint:')) != pending[2]:
+            continue
+        results = response.get('results', [])
+        if len(results) == 1 and len(results[0].get('narrative_sources', {})) > JOINT_LESSON_LIMIT:
+            return True
+    return False
 
 
 def checked_ledger(params: Any) -> dict[str, Any] | None:
@@ -127,6 +162,9 @@ def checked_ledger(params: Any) -> dict[str, Any] | None:
                 or _digest(entry['original_plan']) != digest or entry.get('prior_outcome') != 'UNKNOWN'
                 or entry.get('prior_usage') != 'UNKNOWN' or entry.get('prior_cost') != 'UNKNOWN'
                 or not isinstance(entry.get('pending_sha256'), str) or not _HEX.fullmatch(entry['pending_sha256'])):
+            raise ValueError('explicit_stage_retry_ledger_invalid')
+        if 'replacement' in entry and (entry['replacement'] != BOUNDED_JOINT_EDITOR
+                or not _literal_stage(entry['original_plan'])):
             raise ValueError('explicit_stage_retry_ledger_invalid')
         for key in ('recovery_id', 'actor_id'):
             if str(UUID(entry[key])) != entry[key]:
@@ -197,13 +235,20 @@ async def retry_candidate(db: Any, job: Any, actor_id: Any, settings: Any) -> di
         if (not _retry_frontier(plan)
                 or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V9_POLICY and ':v9:' not in plan['group_id']
                 or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V11_POLICY and not _metadata_frontier(plan)
-                or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V12_POLICY and (
-                    not _literal_stage(plan) or not _literal_repair_rejection(job.result, plan, actor_id, digest))
+                or analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V12_POLICY and not _literal_stage(plan)
                 or _digest(plan) != digest or plan['job_id'] != str(job.id)
                 or plan['tenant_id'] != str(job.tenant_id)
                 or job.result.get('v3_owned_route_binding') != {
                     'policy': 'v3-owned-route-binding-v1', 'fingerprint': plan['route_fingerprint']}):
             return None
+        replacement = None
+        if analysis['v3_review_policy'] == SIMPLE_COURSE_REVIEW_V12_POLICY and not _literal_repair_rejection(
+                job.result, plan, actor_id, digest):
+            if not _literal_repair_rejection(job.result, plan, actor_id, digest, code='timeout'):
+                return None
+            if not await _bounded_joint_frontier(db, job, journal, plan):
+                return None
+            replacement = BOUNDED_JOINT_EDITOR
         other = await journal.repository.load_plan(db, tenant_id=journal.tenant_id,
                                                    generation_key=journal._owned_key(entry['result_key']))
         if (dict(other.plan_payload) != plan or other.source_job_id != saved.source_job_id
@@ -215,7 +260,10 @@ async def retry_candidate(db: Any, job: Any, actor_id: Any, settings: Any) -> di
             return None
         if await journal.read_owned_value_in_session(db, entry['result_key'], plan) is not None:
             return None
-        return {'stage': digest, 'original_plan': plan, 'pending_sha256': _digest(job.result[PENDING_KEY])}
+        result = {'stage': digest, 'original_plan': plan, 'pending_sha256': _digest(job.result[PENDING_KEY])}
+        if replacement is not None:
+            result['replacement'] = replacement
+        return result
     except Exception:
         return None
 
@@ -318,10 +366,25 @@ async def guard_recovery_stage(journal: Any, original: dict[str, Any]) -> None:
         seen.add(digest)
         return
     if digest == entry['original_stage_sha256']:
+        if entry.get('replacement') == BOUNDED_JOINT_EDITOR:
+            raise ValueError('explicit_stage_retry_retired_joint_request')
         if seen != set(inventory):
             raise ValueError('explicit_stage_retry_prefix_incomplete')
         journal.explicit_retry_reached = True
         return
+    if entry.get('replacement') == BOUNDED_JOINT_EDITOR and not journal.explicit_retry_reached:
+        retired = entry['original_plan']
+        old = _LITERAL_GROUP.fullmatch(retired['group_id'])
+        new = _LITERAL_GROUP.fullmatch(original['group_id'])
+        if (old and new and original['stage'] == 'repair' and new[4] == '0'
+                and old.group(1, 2, 5) == new.group(1, 2, 5)
+                and old[3] != new[3]
+                and all(retired[key] == original[key] for key in
+                        ('tenant_id', 'job_id', 'source_sha256', 'route_fingerprint'))):
+            if seen != set(inventory):
+                raise ValueError('explicit_stage_retry_prefix_incomplete')
+            journal.explicit_retry_reached = True
+            return
     if (any(row['plan']['group_id'] == original['group_id'] for row in inventory.values())
             or entry['original_plan']['group_id'] == original['group_id']
             or not getattr(journal, 'explicit_retry_reached', False)):

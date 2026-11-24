@@ -3,7 +3,7 @@ from dataclasses import replace
 import pytest
 
 from app.modules.admin.runtime_configuration.catalog import RuntimeSnapshot, default_snapshot, effective_values
-from app.modules.ai.v3.source_access_config import checked_settings, pin_settings
+from app.modules.ai.v3.source_access_config import BOUNDED_JOINT_EDITOR, checked_settings, pin_settings
 
 
 @pytest.mark.parametrize(
@@ -18,6 +18,7 @@ from app.modules.ai.v3.source_access_config import checked_settings, pin_setting
         {"runtime_revision": -1},
         {"runtime_revision": None},
         {"foreign": "instruction"},
+        {"joint_editor": "foreign"},
     ],
 )
 def test_pinned_settings_reject_unsupported_job_config(change):
@@ -35,3 +36,10 @@ def test_pin_is_a_copy_and_later_runtime_edits_do_not_change_job_context():
     returned = checked_settings(pinned)
     returned["literal_chars"] = 9000
     assert pinned["literal_chars"] == 5000 and pinned["runtime_revision"] == 7
+
+
+def test_joint_editor_scope_is_pinned_on_admission_without_changing_existing_jobs():
+    pinned = pin_settings(default_snapshot())
+    assert checked_settings(pinned)["joint_editor"] == BOUNDED_JOINT_EDITOR
+    legacy = {key: value for key, value in pinned.items() if key != "joint_editor"}
+    assert checked_settings(legacy) == legacy

@@ -8,7 +8,7 @@ import { WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { sourceReviewHref, type ReviewCommand, type ReviewStatuses, type SourceReview } from './contract';
+import { documentLibraryHref, sourceCourseCreationHref, sourceReviewHref, type ReviewCommand, type ReviewStatuses, type SourceReview } from './contract';
 import { sourceReviewCopy } from './copy';
 import { SourcePreparationPanel } from './SourcePreparationPanel';
 
@@ -52,9 +52,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     const ids = new URLSearchParams(window.location.search).getAll('document_id');
     if (ids.includes(id)) setCourseDocuments([...new Set(ids)].slice(0, 5));
   }, [id]);
-  const generationHref = '/ai/generate?' + new URLSearchParams(
-    (courseDocuments.length ? courseDocuments : [id]).map(documentId => ['document_id', documentId])
-  ).toString();
+  const generationHref = sourceCourseCreationHref(courseDocuments.length ? courseDocuments : [id]);
   const [loadError, setLoadError] = useState(false);
   const [selected, select] = useState<string | null>(null);
   const [questionSearch, setQuestionSearch] = useState('');
@@ -245,10 +243,12 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   };
 
   return <WorkspacePage id="source-editorial-review" title={copy.title}>
-    <Link className="inline-flex text-sm text-primary underline underline-offset-4"
-      href={courseDocuments.length ? generationHref : '/documents'}>
-      {courseDocuments.length ? copy.returnToCourse : copy.documents}
-    </Link>
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-primary">
+      <Link className="underline underline-offset-4" href={documentLibraryHref(id)}>{copy.document}</Link>
+      {courseDocuments.length > 0 && (
+        <Link className="underline underline-offset-4" href={generationHref}>{copy.returnToCourse}</Link>
+      )}
+    </div>
     {loadError && <WorkspacePanel bodyClassName="space-y-3" role="alert">
       <p>{copy.loadError}</p><Button variant="outline" onClick={() => void load()}>{copy.readAgain}</Button>
     </WorkspacePanel>}
