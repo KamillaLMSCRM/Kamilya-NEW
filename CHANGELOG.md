@@ -5,6 +5,7 @@
 ## [0.11.153] - 2026-11-25
 
 - Address large-course editorial findings in small groups of owned lessons and assessments while retaining prior checkpoints.
+- Give the course editor related clauses from elsewhere in the approved document so it can preserve conditions, exceptions, and alternatives in the same lesson.
 - Allow explicitly acknowledged recovery of a stale owned text-review request using the same prepared document and completed responses.
 
 ## [0.11.152] - 2026-11-24
