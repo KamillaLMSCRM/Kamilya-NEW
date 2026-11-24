@@ -485,7 +485,9 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
     if review_policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
         from app.modules.ai.v3.simple_course_editor_v12 import run_simple_course_editor_v12
         from app.modules.ai.v3.source_access_config import (
-            BOUNDED_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR, checked_settings,
+            BOUNDED_JOINT_EDITOR,
+            RELATED_SOURCE_JOINT_EDITOR,
+            checked_settings,
         )
 
         pinned = checked_settings(source_access_settings)
