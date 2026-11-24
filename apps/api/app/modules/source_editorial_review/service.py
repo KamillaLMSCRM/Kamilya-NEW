@@ -27,7 +27,7 @@ from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PIN
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
 from app.modules.source_editorial_review.question_context import POLICY as QUESTION_CONTEXT_POLICY
 from app.modules.source_editorial_review.question_evidence import verified_edit_scopes
-from app.modules.source_editorial_review.recovery import recoverable_turn
+from app.modules.source_editorial_review.recovery import interrupted_text_request, recoverable_turn
 from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
 from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
@@ -270,13 +270,17 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
         recovery = None
     interrupted_unknown = bool(recovery is None and rows and rows[-1].kind in {"running", "analysis_block"}
                                and latest_status(rows) == "interrupted")
+    retryable_text = interrupted_text_request(rows, str(doc.content_sha256), actor_id, interrupted=interrupted_unknown)
+    can_acknowledge_text = retryable_text is not None and verified_preparation_binding(
+        rows, str(doc.content_sha256), retryable_text[2].payload["preparation"])
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
             "revision": state.revision, "status": latest_status(rows),
-            "requires_retry_acknowledgement": requires_retry_acknowledgement(rows),
+            "requires_retry_acknowledgement": requires_retry_acknowledgement(rows) or can_acknowledge_text,
             "retry_blocked_unknown_visual": retry_blocked_unknown_visual(rows),
             "continuation_pending": recovery is not None or continuation_pending(rows, str(doc.content_sha256)),
             "can_recheck": can_recheck_questions(rows, state),
-            "error": ("source_review_interrupted_outcome_unknown" if interrupted_unknown else
+            "error": ("source_review_provider_outcome_unknown" if can_acknowledge_text else
+                      "source_review_interrupted_outcome_unknown" if interrupted_unknown else
                       "source_review_preparation_stale" if stale_preparation else state.error),
             "failure_phase": failure_phase if failure_phase in (
                 "source_extraction", "source_contract", "provider_readiness", "editor_request", "editor_response",
@@ -332,6 +336,28 @@ async def apply_command(
         if command.acknowledge_outcome_and_cost_unknown is not None or command.pages is not None:
             raise ReviewConflictError("source_review_action_not_available")
         return rows, state, rows[-1], True
+    if command.action == "start" and command.acknowledge_outcome_and_cost_unknown is True:
+        stale = interrupted_text_request(rows, str(doc.content_sha256), actor_id,
+                                         interrupted=latest_status(rows) == "interrupted")
+        if stale is not None:
+            key, claim, parent = stale
+            binding = parent.payload["preparation"]
+            if command.pages is not None or not verified_preparation_binding(rows, str(doc.content_sha256), binding):
+                raise ReviewConflictError("source_review_action_not_available")
+            failed = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 1, kind="failed",
+                payload={"code": "source_review_provider_outcome_unknown", "cause_class": "StaleOwnedTextRequest",
+                         "claim_id": str(claim.id), "unknown_request_key": key, "usage_complete": False})
+            resume_payload = {"preparation": binding,
+                              "acknowledged_unknown": {"failure_event_id": str(failed.id),
+                                                       "request_id": str(command.request_id), "actor_id": str(actor_id)}}
+            if "pages" in parent.payload:
+                resume_payload["pages"] = parent.payload["pages"]
+            event = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 2, kind="queued",
+                              payload=resume_payload, command=command)
+            await db.flush()
+            state.apply(failed.sequence, failed.kind, failed.payload)
+            state.apply(event.sequence, event.kind, event.payload)
+            return [*rows, failed, event], state, event, True
     requires_ack = requires_retry_acknowledgement(rows)
     if requires_ack and command.action in {"start", "select_parts"}:
         if retry_blocked_unknown_visual(rows):
