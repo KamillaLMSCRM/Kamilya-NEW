@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { sourceReviewHref } from '@/features/source-editorial-review/contract';
+import { sourceCourseCreationHref, sourceReviewHref } from '@/features/source-editorial-review/contract';
 import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
@@ -43,6 +43,7 @@ import { WorkspacePage, WorkspacePageHeader, WorkspacePanel, WorkspaceToolbar } 
 import {
   documentDeleteError,
   getDuplicateDocumentConflict,
+  isDocumentSelectable,
   type DocumentCatalogItem,
   type DocumentCatalogResponse,
   type DocumentCategory,
@@ -99,26 +100,36 @@ interface YouTubeAnalysisStatus {
 }
 
 export default function DocumentsPage() {
+  return <Suspense><DocumentsRoute /></Suspense>;
+}
+
+function DocumentsRoute() {
+  const requestedId = useSearchParams().get('document_id');
+  const focusedDocumentId = requestedId && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestedId)
+    ? requestedId : null;
   const actor = useAuthStore((state) => state.user);
   const session = useAuthStore((state) => Boolean(state.accessToken));
   const sessionEpoch = useAuthStore((state) => state.sessionEpoch);
   const scope = JSON.stringify([actor?.user_id, actor?.tenant_id, actor?.role, actor?.impersonated_by, actor?.impersonated_role, session, sessionEpoch]);
-  return <ScopedDocumentsPage key={scope} />;
+  return <ScopedDocumentsPage key={scope + ':' + (focusedDocumentId ?? '')} focusedDocumentId={focusedDocumentId} />;
 }
 
-function ScopedDocumentsPage() {
+function ScopedDocumentsPage({ focusedDocumentId }: { focusedDocumentId: string | null }) {
   const router = useRouter();
   const { t, tp, lang } = useT();
   const user = useAuthStore((state) => state.user);
   const accessToken = useAuthStore((state) => state.accessToken);
   const inspectionScope = JSON.stringify([user?.tenant_id, user?.user_id, user?.role, accessToken]);
   const m = workspaceCopy(lang);
+  const reviewCopy = sourceReviewCopy(lang);
   const [sourceInspection, setSourceInspection] = useState<{ scope: string; documentId: string } | null>(null);
   const { confirm, dialog } = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const pollingJobRef = useRef<string | null>(null);
+  const catalogRequest = useRef(0);
+  const usageRequest = useRef(0);
   const [documents, setDocuments] = useState<DocumentCatalogItem[]>([]);
   const inspectedDocument = sourceInspection?.scope === inspectionScope ? documents.find((item) => item.id === sourceInspection.documentId) : null;
   const [loading, setLoading] = useState(true);
@@ -132,11 +143,11 @@ function ScopedDocumentsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | DocumentIndexStatus>('all');
   const [lifecycleFilter, setLifecycleFilter] = useState<DocumentLifecycleStatus>('active');
   const hasCatalogFilters = Boolean(search.trim()) || categoryFilter !== 'all' || statusFilter !== 'all';
-  const emptyTitle = hasCatalogFilters ? t('documents.noMatches')
+  const emptyTitle = focusedDocumentId ? reviewCopy.documentUnavailable : hasCatalogFilters ? t('documents.noMatches')
     : lifecycleFilter === 'delete_failed' ? t('documents.noAttention')
     : lifecycleFilter === 'deletion_pending' ? t('documents.noneDeleting')
     : t('documents.noDocuments');
-  const emptyHint = hasCatalogFilters ? t('documents.noMatchesHint')
+  const emptyHint = focusedDocumentId ? reviewCopy.documentUnavailableHint : hasCatalogFilters ? t('documents.noMatchesHint')
     : lifecycleFilter === 'delete_failed' ? t('documents.noAttentionHint')
     : lifecycleFilter === 'deletion_pending' ? t('documents.noneDeletingHint')
     : t('documents.noDocumentsHint');
@@ -171,32 +182,37 @@ function ScopedDocumentsPage() {
   const [usageData, setUsageData] = useState<DocumentUsageResponse | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
 
-  const fetchDocuments = useCallback(async (append = false, cursor?: string | null) => {
-    append ? setLoadingMore(true) : setLoading(true);
-    setLoadError('');
+  const fetchDocuments = useCallback(async (append = false, cursor?: string | null, quiet = false) => {
+    const request = ++catalogRequest.current;
+    if (!quiet) {
+      append ? setLoadingMore(true) : setLoading(true);
+      setLoadError('');
+    }
     try {
       const params = new URLSearchParams({
         limit: String(PAGE_SIZE),
         include: 'usages_summary',
+        include_source_review: 'true',
       });
+      if (focusedDocumentId) params.set('document_id', focusedDocumentId);
       if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
       if (categoryFilter !== 'all') params.set('category', categoryFilter);
       if (statusFilter !== 'all') params.set('index_status', statusFilter);
       params.set('lifecycle_status', lifecycleFilter);
       if (cursor) params.set('cursor', cursor);
       const response = await api.get<DocumentCatalogResponse>(`/v1/documents/catalog?${params.toString()}`);
-      if (!alive.current) return;
+      if (!alive.current || catalogRequest.current !== request) return;
       setDocuments((current) => append ? [...current, ...response.data.items] : response.data.items);
       setNextCursor(response.data.page.next_cursor);
       setHasMore(response.data.page.has_more);
     } catch (error) {
-      if (!alive.current) return;
+      if (!alive.current || catalogRequest.current !== request) return;
       console.error('Document catalog load failed', error);
-      setLoadError(t('documents.loadFailed'));
+      if (!quiet) setLoadError(t('documents.loadFailed'));
     } finally {
-      if (alive.current) { setLoading(false); setLoadingMore(false); }
+      if (alive.current && catalogRequest.current === request) { setLoading(false); setLoadingMore(false); }
     }
-  }, [categoryFilter, debouncedSearch, lifecycleFilter, statusFilter, t]);
+  }, [categoryFilter, debouncedSearch, focusedDocumentId, lifecycleFilter, statusFilter, t]);
 
   useEffect(() => {
     void fetchDocuments();
@@ -215,14 +231,15 @@ function ScopedDocumentsPage() {
   }, [youtubeEnabled]);
 
   const hasProcessingDocuments = documents.some(
-    (document) => document.index.status === 'processing'
+    (document) => document.index.status === 'processing' || (documents.length <= PAGE_SIZE
+      && (document.source_review_status === 'queued' || document.source_review_status === 'running'))
   );
 
   useEffect(() => {
-    if (!hasProcessingDocuments) return;
-    const timer = window.setInterval(() => void fetchDocuments(), 10_000);
+    if (!hasProcessingDocuments || loading || loadingMore) return;
+    const timer = window.setInterval(() => void fetchDocuments(false, null, true), 10_000);
     return () => window.clearInterval(timer);
-  }, [fetchDocuments, hasProcessingDocuments]);
+  }, [fetchDocuments, hasProcessingDocuments, loading, loadingMore]);
 
   const resetUpload = () => {
     setShowUpload(false);
@@ -496,6 +513,7 @@ function ScopedDocumentsPage() {
   };
 
   const openUsages = async (document: DocumentCatalogItem) => {
+    const request = ++usageRequest.current;
     setUsageDocument(document);
     setUsageData(null);
     setUsageLoading(true);
@@ -503,19 +521,29 @@ function ScopedDocumentsPage() {
       const response = await api.get<DocumentUsageResponse>(
         `/v1/documents/${document.id}/usages?limit=100`
       );
-      if (!alive.current) return;
+      if (!alive.current || usageRequest.current !== request) return;
       setUsageData(response.data);
+      setDocuments(current => current.map(item => item.id === document.id
+        ? { ...item, usages_summary: response.data.summary } : item));
     } catch (error) {
-      if (!alive.current) return;
+      if (!alive.current || usageRequest.current !== request) return;
       console.error('Document usages load failed', error);
       toast.error(t('documents.usagesLoadFailed'));
       setUsageDocument(null);
     } finally {
-      if (alive.current) setUsageLoading(false);
+      if (alive.current && usageRequest.current === request) setUsageLoading(false);
     }
   };
 
   const handleDelete = async (document: DocumentCatalogItem) => {
+    if (document.index.status === 'processing') {
+      toast.error(t('documents.deleteFailed'), { description: reviewCopy.waitForIndex });
+      return;
+    }
+    if (document.usages_summary?.total) {
+      await openUsages(document);
+      return;
+    }
     const ok = await confirm({
       title: t('dialogs.confirmDeleteDocument'),
       message: document.title,
@@ -646,7 +674,11 @@ function ScopedDocumentsPage() {
         ))}
       </div>
 
-      <div className="grid w-full min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_minmax(160px,220px)_minmax(160px,220px)]">
+      {focusedDocumentId ? (
+        <Link href="/documents" className="inline-flex min-h-10 items-center text-sm text-primary underline underline-offset-4">
+          {reviewCopy.allDocuments}
+        </Link>
+      ) : <div className="grid w-full min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_minmax(160px,220px)_minmax(160px,220px)]">
         <label className="relative min-w-0 md:col-span-2 xl:col-span-1">
           <span className="sr-only">{t('documents.search')}</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -679,7 +711,7 @@ function ScopedDocumentsPage() {
           <option value="processing">{t('documents.statusProcessing')}</option>
           <option value="failed">{t('documents.statusFailed')}</option>
         </select>
-      </div>
+      </div>}
       </WorkspaceToolbar>
 
       {loading ? (
@@ -734,6 +766,7 @@ function ScopedDocumentsPage() {
               onUploadVersion={() => openUpload(document)}
               onOpenUsages={() => void openUsages(document)}
               onInspect={() => setSourceInspection({ scope: inspectionScope, documentId: document.id })}
+              focused={Boolean(focusedDocumentId)}
               formatSize={formatSize}
               t={t}
             />
@@ -1014,6 +1047,7 @@ function DocumentRow({
   onUploadVersion,
   onOpenUsages,
   onInspect,
+  focused,
   formatSize,
   t,
 }: {
@@ -1027,12 +1061,15 @@ function DocumentRow({
   onUploadVersion: () => void;
   onOpenUsages: () => void;
   onInspect: () => void;
+  focused: boolean;
   formatSize: (value: number) => string;
   t: (key: any, params?: Record<string, string | number>) => string;
 }) {
   const usage = document.usages_summary;
   const isActive = document.lifecycle_status === 'active';
   const { lang } = useT();
+  const reviewCopy = sourceReviewCopy(lang);
+  const reviewStatus = document.source_review_status;
   return (
     <div className="grid min-w-0 grid-cols-2 gap-3 border-b border-border px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/20 sm:px-5 2xl:grid-cols-[minmax(240px,1fr)_145px_145px_90px_105px_168px] 2xl:items-center">
       <div className="col-span-2 flex min-w-0 items-start gap-3 2xl:col-span-1">
@@ -1055,8 +1092,11 @@ function DocumentRow({
         <span className="mr-2 text-xs text-muted-foreground 2xl:hidden">{t('documents.category')}:</span>
         {document.category === 'job_instruction' ? t('documents.categoryInstruction') : t('documents.categoryGeneral')}
       </div>
-      <div>
+      <div className="space-y-1">
         <StatusBadge document={document} t={t} />
+        {reviewStatus && (
+          <p className="text-xs text-muted-foreground">{reviewCopy.statusLabels[reviewStatus]}</p>
+        )}
       </div>
       <div className="text-sm text-foreground">
         <span className="mr-2 text-xs text-muted-foreground 2xl:hidden">{t('documents.version')}:</span>
@@ -1088,9 +1128,16 @@ function DocumentRow({
         </button>
         {isActive && (
           <>
-            <Link href={sourceReviewHref(document.id)} className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
-              {sourceReviewCopy(lang).short}
-            </Link>
+            {reviewStatus !== null && (
+              <Link href={sourceReviewHref(document.id)} className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+                {!reviewStatus || reviewStatus === 'not_started' ? reviewCopy.short : reviewCopy.viewProgress}
+              </Link>
+            )}
+            {reviewStatus === 'approved' && isDocumentSelectable(document) && (
+              <Link href={sourceCourseCreationHref([document.id])} className="inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-medium text-primary hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+                {reviewCopy.generate}
+              </Link>
+            )}
             {document.index.error_code !== 'source_blob_missing' && (
               <button
                 type="button"
@@ -1147,6 +1194,9 @@ function DocumentRow({
           }: ${document.title}`}
         >
           {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          {focused && document.lifecycle_status === 'active' && (
+            <span className="ml-2 pr-2 text-xs">{t('dialogs.delete')}</span>
+          )}
         </button>
       </div>
     </div>

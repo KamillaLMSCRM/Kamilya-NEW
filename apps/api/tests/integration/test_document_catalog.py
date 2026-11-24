@@ -963,3 +963,103 @@ async def test_document_delete_marks_retryable_failure_when_enqueue_fails(
     assert stored.lifecycle_status == "delete_failed"
     assert stored.deletion_error_code == "cleanup_enqueue_failed"
     assert job.status == "failed"
+
+
+@pytest.mark.parametrize("used_by_course", [False, True])
+async def test_reviewed_source_catalogue_and_deletion(
+    client, db_session, make_tenant, make_user, make_document, make_course,
+    auth_headers, monkeypatch, tmp_path, used_by_course,
+):
+    from hashlib import sha256
+
+    from sqlalchemy import select
+
+    from app.modules.documents import cleanup
+    from app.modules.documents import router as documents_router
+    from app.modules.source_editorial_review import router as review_router
+    from app.modules.source_editorial_review.models import DocumentEditorialEvent
+
+    monkeypatch.setattr(documents_router, "review_enabled", lambda: True)
+    monkeypatch.setattr(review_router, "review_enabled", lambda: True)
+
+    original = "Use the current training checklist."
+    checksum = sha256(original.encode()).hexdigest()
+    tenant = await make_tenant()
+    methodologist = await make_user(tenant, role="methodologist")
+    document = await make_document(
+        tenant, methodologist, content_sha256=checksum, embedding_status="success", index_status="ready",
+    )
+    doc_id = document.id
+    user_headers = auth_headers(methodologist)
+    endpoint = f"/api/v1/documents/{doc_id}/editorial-review"
+    catalog_params = {"document_id": str(doc_id), "include": "usages_summary", "include_source_review": "true"}
+    db_session.add(DocumentEditorialEvent(
+        id=uuid4(), tenant_id=tenant.id, document_id=doc_id, actor_id=methodologist.id,
+        sequence=1, kind="analyzed", original_blob_sha256=checksum, payload={
+            "original": original,
+            "automatic": [],
+            "issues": [{"id": "item-1", "start": 0, "end": len(original), "quote": original,
+                        "category": "reference", "reason": "Confirm the applicable checklist."}],
+        },
+    ))
+    await db_session.flush()
+
+    def command(action, revision, **fields):
+        return client.post(endpoint, headers=user_headers, json={
+            "action": action, "expected_revision": revision, "request_id": str(uuid4()), **fields,
+        })
+
+    listed = await client.get("/api/v1/documents/catalog", params=catalog_params, headers=user_headers)
+    assert listed.status_code == 200, listed.text
+    assert [item["source_review_status"] for item in listed.json()["items"]] == ["in_review"]
+    saved = await command("resolve", 1, item_id="item-1", decision="keep", reason="Verified against the checklist.")
+    assert saved.status_code == 200, saved.text
+    reloaded = await client.get(endpoint, headers=user_headers)
+    assert reloaded.status_code == 200
+    assert reloaded.json()["questions"][0]["resolution"]["decision"] == "keep"
+
+    approved = await command("approve", reloaded.json()["revision"])
+    assert approved.status_code == 200, approved.text
+    listed = await client.get("/api/v1/documents/catalog", params=catalog_params, headers=user_headers)
+    assert listed.status_code == 200
+    assert [item["source_review_status"] for item in listed.json()["items"]] == ["approved"]
+    assert listed.json()["items"][0]["usages_summary"]["total"] == 0
+
+    if used_by_course:
+        course = await make_course(tenant, methodologist, title="Training from the reviewed source")
+        course.source_document_ids = [str(doc_id)]
+        await db_session.flush()
+        response = await client.delete(f"/api/v1/documents/{doc_id}", headers=user_headers)
+        assert response.status_code == 409, response.text
+        detail = response.json()["details"]
+        assert detail["code"] == "document_in_use"
+        assert detail["items"][0]["id"] == str(course.id)
+        assert detail["items"][0]["route"] == f"/courses/{course.id}"
+        return
+
+    class SessionContext:
+        async def __aenter__(self):
+            return db_session
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class StorageStub:
+        def delete_bytes(self, key):
+            assert key == document.s3_key
+            return True
+
+    monkeypatch.setattr(documents_router, "_dispatch_document_cleanup", lambda *_: None)
+    monkeypatch.setattr(cleanup, "async_session_factory", SessionContext)
+    monkeypatch.setattr(cleanup, "get_storage", StorageStub)
+    monkeypatch.setattr(cleanup, "SUMMARIES_DIR", tmp_path)
+    deletion = await client.delete(f"/api/v1/documents/{doc_id}", headers=user_headers)
+    assert deletion.status_code == 202, deletion.text
+    result = await cleanup.run_document_cleanup(deletion.json()["job_id"], doc_id, tenant.id)
+    assert result["deleted"] is True
+    assert await db_session.scalar(select(DocumentEditorialEvent.id).where(
+        DocumentEditorialEvent.tenant_id == tenant.id, DocumentEditorialEvent.document_id == doc_id,
+    )) is None
+    missing = await client.get("/api/v1/documents/catalog", params=catalog_params, headers=user_headers)
+    assert missing.status_code == 200
+    assert missing.json()["items"] == []
