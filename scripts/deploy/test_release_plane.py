@@ -700,7 +700,7 @@ def test_rollback_fails_closed_when_candidate_task_cannot_drain(
     assert failure["rollback"] == "blocked_worker_drain"
     assert failure["recovery_required"] is True
     assert cfg.lock_file.is_file()
-    assert "candidate_worker_drain_unverified" in cfg.lock_file.read_text(encoding="utf-8")
+    assert "release_rollback_incomplete" in cfg.lock_file.read_text(encoding="utf-8")
     assert runner.worker_task_counts["ai@host-worker-ai"]["active"] == 1
     assert {tuple(sorted(queues)) for queues in runner.worker_bindings.values()} == {
         ("ai",), ("documents",), ("maintenance", "notifications"),
@@ -710,6 +710,97 @@ def test_rollback_fails_closed_when_candidate_task_cannot_drain(
                    for command in commands)
     assert not any("kamilya-blue" in command and "up -d --no-deps worker-ai" in command
                    for command in commands)
+
+
+def test_rollback_retains_lock_when_candidate_worker_enumeration_is_ambiguous(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticks = itertools.count()
+    monkeypatch.setattr(release_plane.time, "monotonic", lambda: next(ticks) * 31.0)
+    monkeypatch.setattr(release_plane.time, "sleep", lambda _seconds: None)
+
+    class CandidateEnumerationFailureRunner(FakeRunner):
+        fail_candidate_enumeration = False
+
+        def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
+            call = tuple(args)
+            if (
+                self.fail_candidate_enumeration and "ps" in call and "-q" in call
+                and "kamilya-green" in call
+                and (env or {}).get("KAMILYA_API_IMAGE") == NEW_IMAGE
+            ):
+                raise RuntimeError("do-not-write-this-runtime-output-to-evidence")
+            return super().run(args, env=env)
+
+    runner = CandidateEnumerationFailureRunner(initial_revision="0194")
+    cfg = config(tmp_path)
+
+    class TriggerEnumerationFailureHealth(FakeHealth):
+        def read(self, url: str):
+            if url.startswith("https://"):
+                runner.fail_candidate_enumeration = True
+            return super().read(url)
+
+    release = versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                                 previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE)
+    with pytest.raises(release_plane.ReleasePlaneError, match="health_identity_timeout"):
+        release_plane.ReleasePlane(
+            release, cfg, runner, TriggerEnumerationFailureHealth(
+                fail_public=True, product_version="0.11.152"
+            )
+        ).execute(release.release_id)
+
+    failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
+    assert failure["rollback"] == "failed"
+    assert failure["recovery_required"] is True
+    assert failure["rollback_error"] == "rollback_failed:RuntimeError"
+    assert "do-not-write-this-runtime-output-to-evidence" not in json.dumps(failure)
+    assert cfg.lock_file.is_file()
+    assert "release_rollback_incomplete" in cfg.lock_file.read_text(encoding="utf-8")
+    assert runner.running_worker_services == set(release_plane.WORKERS)
+
+
+def test_rollback_retains_lock_when_previous_consumers_cannot_be_restored(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticks = itertools.count()
+    monkeypatch.setattr(release_plane.time, "monotonic", lambda: next(ticks) * 31.0)
+    monkeypatch.setattr(release_plane.time, "sleep", lambda _seconds: None)
+
+    class PreviousConsumerRestoreFailureRunner(FakeRunner):
+        def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
+            call = tuple(args)
+            if (
+                "compose" in call and "up" in call and "--no-deps" in call
+                and (env or {}).get("KAMILYA_API_IMAGE") == OLD_IMAGE
+            ):
+                result = super().run(args, env=env)
+                self.worker_bindings = {node: set() for node in self.worker_bindings}
+                return result
+            if (len(call) > 2 and call[1] == "compose" and "exec" in call
+                and release_plane.WORKER_CONTROL_CODE in call
+                and call[call.index(release_plane.WORKER_CONTROL_CODE) + 1] == "add"
+                and (env or {}).get("KAMILYA_API_IMAGE") == OLD_IMAGE):
+                return json.dumps({})
+            return super().run(args, env=env)
+
+    runner = PreviousConsumerRestoreFailureRunner(initial_revision="0194")
+    cfg = config(tmp_path)
+    release = versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                                 previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE)
+    with pytest.raises(release_plane.ReleasePlaneError, match="health_identity_timeout"):
+        release_plane.ReleasePlane(
+            release, cfg, runner, FakeHealth(fail_public=True, product_version="0.11.152")
+        ).execute(release.release_id)
+
+    failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
+    assert failure["rollback"] == "failed"
+    assert failure["recovery_required"] is True
+    assert failure["rollback_error"] == "rollback_failed:ReleasePlaneError"
+    assert cfg.lock_file.is_file()
+    assert "release_rollback_incomplete" in cfg.lock_file.read_text(encoding="utf-8")
+    assert runner.running_worker_services == set(release_plane.LEGACY_SERVICES[1:])
+    assert all(not queues for queues in runner.worker_bindings.values())
 
 
 def test_rollback_with_zero_candidate_workers_restores_previous_set_without_drain(tmp_path: Path) -> None:

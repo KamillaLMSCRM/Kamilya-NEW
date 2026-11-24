@@ -1247,7 +1247,7 @@ class ReleasePlane:
                             except Exception as drain_error:
                                 rollback_status = "blocked_worker_drain"
                                 retain_lock_for_recovery = True
-                                rollback_error = f"candidate_worker_drain:{type(drain_error).__name__}:{drain_error}"
+                                rollback_error = f"candidate_worker_drain:{type(drain_error).__name__}"
                                 raise ReleasePlaneError("candidate_worker_drain_unverified") from drain_error
                             self.runner.run(
                                 self._compose(inactive, "stop", "--timeout",
@@ -1278,10 +1278,15 @@ class ReleasePlane:
                                               self.manifest.previous_feature_flags, previous_services,
                                               allow_unsupported_disabled=True)
                     rollback_status = "completed"
-                except Exception:
+                except Exception as rollback_failure:
                     if rollback_status != "blocked_worker_drain":
                         rollback_status = "failed"
-                        rollback_error = "rollback_exception"
+                        rollback_error = f"rollback_failed:{type(rollback_failure).__name__}"
+                    # Once the old worker set may have been stopped, any
+                    # incomplete or ambiguous rollback must keep the lease so
+                    # a concurrent release cannot hide the recovery state.
+                    if old_workers_stopped and rollback_status != "completed":
+                        retain_lock_for_recovery = True
             failure = {
                 **self._feature_evidence(),
                 "run_id": run_id,
@@ -1306,7 +1311,7 @@ class ReleasePlane:
                     marker = json.dumps({
                         "release_id": self.manifest.release_id,
                         "run_id": run_id,
-                        "reason": "candidate_worker_drain_unverified",
+                        "reason": "release_rollback_incomplete",
                     }, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
                     os.lseek(lock_fd, 0, os.SEEK_SET)
                     os.ftruncate(lock_fd, 0)
