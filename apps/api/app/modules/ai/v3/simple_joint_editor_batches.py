@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from app.modules.ai.v3.practical_contract import _digest
+from app.modules.ai.v3.simple_joint_related_source import related_source_blocks
 
 LESSONS_PER_BATCH = 2
 JOINT_LESSON_LIMIT = 4
@@ -28,7 +29,9 @@ def _refs(row: dict[str, Any]) -> set[str]:
     return set(row.get('source_refs', ()))
 
 
-def batch_joint_editor(messages: list[dict[str, str]]) -> list[tuple[list[dict[str, str]], dict[str, Any]]]:
+def batch_joint_editor(
+    messages: list[dict[str, str]], *, related_evidence: bool = False
+) -> list[tuple[list[dict[str, str]], dict[str, Any]]]:
     payload = json.loads(messages[1]['content'])
     lessons = payload['original_course']['lessons']
     if len(lessons) <= JOINT_LESSON_LIMIT:
@@ -76,6 +79,7 @@ def batch_joint_editor(messages: list[dict[str, str]]) -> list[tuple[list[dict[s
         ids = {item['id'] for item in scoped_findings}
         allowed_refs = refs | {ref for item in scoped_findings for ref in _refs(item['finding'])}
         allowed_refs.update(ref for row in visuals[index] for ref in _refs(row))
+        related = related_source_blocks(payload['source_blocks'], allowed_refs) if related_evidence else []
         scoped = {
             **payload,
             'original_course': {**payload['original_course'], 'lessons': scoped_lessons},
@@ -91,6 +95,16 @@ def batch_joint_editor(messages: list[dict[str, str]]) -> list[tuple[list[dict[s
             },
             'unrepresented_primary_illustrations': visuals[index],
         }
+        instruction = messages[0]['content'] + _BATCH_TASK
+        if related:
+            scoped['source_blocks'].extend(related)
+            scoped['companion_source_refs'] = [row['id'] for row in related]
+            instruction += (
+                ' Companion source passages repeat parts of the same wording elsewhere in the approved source. '
+                'Compare them with the rule as taught in your owned lessons. Include any stated alternative, '
+                'exception or condition that changes the correct action. Ignore similar wording about a different '
+                'case. Preserve the unchanged rule and cite the passages that govern each branch.'
+            )
         custody = {
             'batch': index + 1,
             'draft_fingerprint': payload['draft_fingerprint'],
@@ -103,7 +117,7 @@ def batch_joint_editor(messages: list[dict[str, str]]) -> list[tuple[list[dict[s
                 item['finding']['target']['kind'] == 'course' for item in scoped_findings),
             'narrative_sources': scoped['independent_content_review']['narrative_sources'],
         }
-        batches.append(([{'role': 'system', 'content': messages[0]['content'] + _BATCH_TASK},
+        batches.append(([{'role': 'system', 'content': instruction},
                          {'role': 'user', 'content': json.dumps(scoped, sort_keys=True, ensure_ascii=False)}],
                         custody))
     return batches

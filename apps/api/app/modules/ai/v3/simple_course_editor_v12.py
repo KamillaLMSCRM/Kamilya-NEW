@@ -60,6 +60,7 @@ async def run_simple_course_editor_v12(
     reference_decisions: tuple[Any, ...] = (),
     planned_callback: Any = None,
     bounded_joint: bool = True,
+    related_evidence: bool = False,
 ) -> Any:
     if type(lookup_rounds) is not int or not 0 <= lookup_rounds <= 3:
         raise ValueError("source_access_lookup_budget_invalid")
@@ -79,7 +80,7 @@ async def run_simple_course_editor_v12(
     async def access_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
         nonlocal additional
         if bounded_joint and ':editor-joint:v9:' in group:
-            batches = batch_joint_editor(messages)
+            batches = batch_joint_editor(messages, related_evidence=related_evidence)
             if batches:
                 additional += len(batches) - 1
                 if planned_callback:
