@@ -244,7 +244,7 @@ def test_compose_shared_anchor_and_ci_own_explicit_flag_seam():
     compose = (root / "infra/compose/kamilya-release-slot.yml").read_text()
     for key in KEYS.values():
         assert f"{key}: ${{{key}:-false}}" in compose
-    assert compose.count("<<: *app-runtime") == 4
+    assert compose.count("<<: *app-runtime") == 6
     assert "../../scripts/deploy/test_correction_backend_activation.py" in (root / ".github/workflows/ci.yml").read_text()
 
 

@@ -146,7 +146,7 @@ def test_slot_compose_never_runs_migrations_on_api_start() -> None:
     assert "KAMILYA_API_IMAGE" in text
     assert "KAMILYA_SLOT_PORT" in text
     assert "external: true" in text
-    assert text.count("<<: *app-runtime") == 4
+    assert text.count("<<: *app-runtime") == 6
 
 
 def test_all_app_runtimes_share_a_writable_summary_mount() -> None:

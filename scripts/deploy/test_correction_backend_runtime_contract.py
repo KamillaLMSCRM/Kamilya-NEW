@@ -37,7 +37,7 @@ def test_compose_anchor_override_wins_without_runtime_file_mutation(tmp_path):
         encoding="utf-8"
     )
     assert "env_file:" in compose
-    assert compose.count("<<: *app-runtime") == 4
+    assert compose.count("<<: *app-runtime") == 6
     for key in KEYS.values():
         assert f"{key}: ${{{key}:-false}}" in compose
 
