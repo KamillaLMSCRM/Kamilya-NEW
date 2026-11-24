@@ -8303,3 +8303,14 @@ Index NOT_READY/missing runtime, exact source fallback;0model calls/no deploymen
   independently cleaned up their disposable schema.
 - No document processing or model call took place in this settings exercise.
   The separate live PPTX test owns model and document evidence.
+
+## 2026-11-23 — 0.11.146 furniture catalogue DEV
+
+- Local candidate `fe851375`: 225 focused API tests and 61 release-plane tests passed, full frontend suite 1,862 passed. The 15-stage saved projection and the isolated 0194 migration/reversal passed. Production branch and runtime stayed at the prior release.
+- DEV `eeb3af4a`, approved workbook revision 521, managed Luna 6 high. Job `d2f42f12-ea06-4773-bfa4-0049892caae6` completed once after an ordinary same-job continuation. Eight ready checkpoint hashes matched, and 14 total replies were recorded. No new source review, new recovery job, or paid DeepSeek inference.
+- Authenticated saved-course readback: four complete lessons, four tests, 15 cards, all options, keys and explanations. Content verdict NO GO, ENG-089. Reference index 291 rows, 987,464 observed input/output tokens, 35m15s wall time. All 14 saved request hashes replayed under the production transport cap.
+
+### 2026-11-24 — DEV workbook 521, one live Luna 6 run
+
+- Exact DEV `1d3cff024a452487c1e721e9a02b4e3e83f505b5`, CI `45298866601`, image build `45299823046`. Local DEV scope 62 tests, prepared production scope 213 tests. Previous 14-reply replay passed on the prepared production source with the 524,288-byte transport cap.
+- Job `4efb025b-83b4-46b3-a3ae-8ad7cd70f18e` reached `reconciliation_required` after 718.466s. Three Luna 6 replies recorded 397,498 total tokens. Unfinished request usage unknown. The 288-row explicit lookup failed with `503 timeout`; the wire digest and 1,420,306-byte size were reproduced offline. Exact original approval and text were read back unchanged. No course, no second job, no deployment to production. ENG-090.

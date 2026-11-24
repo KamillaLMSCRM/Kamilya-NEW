@@ -4201,3 +4201,30 @@ Use original cue times and exact source evidence. A separate Luna review
 checks the question, key and explanation in both languages before the methodologist
 gets the suggested draft. Existing pending unknown requests retain their claim.
 Local parser, provider-error, duplicate-request and reviewer cases are covered.
+
+## CHG-CONTEXT146 — catalog release candidate — 2026-11-23
+
+Restore the verified V12 literal catalogue path from the current DEV engine against the production 0.11.145 baseline. Old V1–V11 plan prompts and persisted job identity remain preserved. Source context budgets are admitted from runtime_settings with migration 0194 after production schema 0192. Production provider defaults, model routing and connector wire limits retain their current values.
+
+Saved 15-stage benchmark on approved revision 521 reproduced 291 accessible rows, identical final course and a reduction of message bytes from 20,884,658 to 3,037,288. This was a replay without inference. The isolated migration verified runtime settings history, numeric limits, role and forced RLS. Native attempt ee05f360-5d49-451b-a427-896387b360d2 on the same exact source uses the existing Luna 6 QA connector. Native content and token acceptance is tracked separately.
+
+### 2026-11-23 — DEV acceptance results
+
+All runs used the already approved furniture workbook revision 521, working text SHA-256 `95ee5166259fda36b8928c819d92d259944b8a29aecb53ee9de29055ffdc72f6`, and Luna 6 with high reasoning. Production candidate `fe85137535200de663d8a19f205f69aacc306275` remains unissued.
+
+| Run | Observed result |
+| --- | --- |
+| `ee05f360-5d49-451b-a427-896387b360d2` | Original and scoped stage retry returned HTTP 503. Two ready plan responses, 298,644 input and 4,510 output tokens. Retry reused both replies. The 503 requests' usage and cost are unknown. The old job was terminally fenced after recovery was exhausted. Both saved responses were verified unchanged. ENG-087 and ENG-088. |
+| Saved accounting replay | Same plan and 291 indexed references. Corrected failing stage measured 153,977 message bytes versus 3,618,653 previously. The two earlier request identities were preserved. Zero model calls. |
+| `d2f42f12-ea06-4773-bfa4-0049892caae6` | Owner-authorized new run, DEV API and worker `eeb3af4aa7c6678f42d618808f090a803bc8ebc2`. Four lessons and four tests with 15 questions saved in draft `4b79c9d4-d9e5-4c54-bccd-24936502e477`. Fourteen recorded native responses, 946,037 input and 41,427 output tokens. The live run paused with eight ready responses and continued through the ordinary same-job endpoint. All eight checkpoint hashes matched on completion. Wall time 35m15s including pause and operator wait. Cache, reasoning and invoice unavailable. |
+| Saved final replay | All 14 request hashes reproduced within the production transport limit. Maximum complete request 378,769 of 524,288 bytes. Course digest `9ca6f3536f0bf816c6104ef38621d718bc4beb66d3225dac699b378fd78967dd`. Zero model calls. |
+
+DEV measured 72.83% fewer recorded input and output tokens than the earlier 3,634,139-token native run on the same approved workbook. Fourteen ready calls and the workbook catalogue record count are attested. The new result does not establish an improvement in elapsed time.
+
+**Semantic verdict: NO GO.** The engine added missing collection facts and applied three targeted question edits. The catalogue card still admits the original shortcut and other cards remain redundant. The published application remains 0.11.145. See ENG-089, the test ledger, and private exact-run receipts `engine-146/native-run-journal.md`, `metrics146-compact-continued-terminal.json`, and `native-prod-wire-continued-terminal.json`.
+
+### 2026-11-24 — one new Luna 6 DEV run
+
+DEV API and worker at `1d3cff024a452487c1e721e9a02b4e3e83f505b5`. The V12 bank reviewer now compares the decision tested by each card across lessons. The addressed editor receives the affected lesson text and peer cards and is instructed to solve the replacement using visible criteria. Replay of all 14 previously saved responses verified the transport and scoped input, with zero model calls. This replay is structural evidence, separate from the semantic outcome.
+
+One new job `4efb025b-83b4-46b3-a3ae-8ad7cd70f18e`, same approved revision 521 and text checksum, same managed Luna 6 high. The run stopped after 11m58s. Recorded usage for three completed replies was 385,915 input and 11,583 output tokens. The unfinished plan-accounting lookup asked for 288 rows and timed out with HTTP 503. A zero-call replay matched the wire hash at 1,420,306 bytes, exceeding the production cap. Usage for the incomplete request is unknown. No draft exists, no approval was repeated, and the job was retained without a second submission. Outcome NO GO, ENG-090. Production API remained 0.11.145 with frontend 0.11.147.

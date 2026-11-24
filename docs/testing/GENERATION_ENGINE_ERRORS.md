@@ -2519,3 +2519,31 @@ native22/12ready parts retained for normal continuation, no extra source review.
 - Regression reproduces the missing image marker with fixture visual replies,
   then checks slide location, preserved OCR, the approved source inventory,
   and the course/lesson asset URL. No regenerated model reply in this check.
+
+## ENG-087 — V12 lookup rejected by the connector cannot use the exact-stage recovery path
+
+On 2026-11-23 the synthetic DEV furniture job ee05f360-5d49-451b-a427-896387b360d2 on approved revision 521 stopped during a V12 repair lookup. The managed connector returned HTTP 503 and the bounded rejection code unavailable. This confirms a transport rejection, without proving whether the provider performed work or consumed capacity. Two earlier owned responses are retained. The previous retry dispatcher recognised V9 and V11 but declined the V12 shape.
+
+Extend explicit DEV QA recovery only to the attested V12 repair rejection for the same actor, tenant, job, route and stage. The prior outcome and cost remain unknown, the record and prior claim remain immutable, and every completed prefix response must match before the single recovery nonce. Ordinary tenant admissions, billing, routing and retry defaults retain the existing contracts.
+
+## ENG-088 — plan-accounting expands hidden catalogue literals and every apparent mention
+
+DEV job ee05f360-5d49-451b-a427-896387b360d2 issued a single scoped retry after the original 503. Exactly the same connector status and bounded unavailable body were retained at the new claim. Both completed Luna 6 planning responses remained byte-identical. Recorded usage for completed responses: 298644 input and 4510 output tokens. Both rejected requests have unknown usage. There is no generated course.
+
+Offline reconstruction matched the rejected stage identity. The real plan returned unassigned source slices and literal neighbors. That part of the payload escaped the supporting-row projection and its SKU text then triggered all 291 automatic literal exposures. The original message was 3618653 bytes. The corrected accounting request is 153977 bytes, with all 291 indexed rows, three complete row literals and unchanged IDs and request groups for both ready calls. Explicit exact row lookup remains available. This proves the oversized request and its correction, without assigning a provider-internal cause to the 503. The saved 15-stage replay still returns the exact course and uses zero model calls. Production release remains conditional on a full accepted native course with the corrected projection.
+
+## ENG-089 — a rewritten assessment card still permits its original shortcut
+
+On 2026-11-23 the final DEV course from job `d2f42f12-ea06-4773-bfa4-0049892caae6` supplied the full lesson and the revised catalogue question. The initial whole-bank reviewer identified that the answered card only required recognizing the product label. The targeted editor added correct weights and dimensions to its choices and retained the product name as the only selection requirement. The correct choice is still identifiable without applying weights or dimensions. The pipeline recorded `CORRECTED`.
+
+**Classification:** model editing defect and a gap in closure design. The quote and applied delta verify source fidelity and editing custody. Those facts do not independently verify whether the original shortcut survives. The bank also missed two near-identical bed-selection cases and near-identical door/drawer cards reused between lessons. The approved source is internally sufficient for these decisions. No source clarification is required.
+
+**Retained controls:** the pre-edit reviewer, engine's repair, final saved card, its verified correct key and all other answers are in the private run evidence. The same lesson supplies a positive control that genuinely requires reading the width field against a stated limit. Check a future repair against the saved affected card and this control. Preserve unrelated lesson and assessment content. Product fix and model validation of its semantic effect are pending. No further full run was made.
+
+## ENG-090 — explicit catalogue lookup bypasses the literal budget
+
+2026-11-24. In one owned DEV run on approved furniture workbook revision 521, the first plan-accounting request was 184,056 bytes. Luna 6 asked for 288 of the 291 indexed rows. `LiteralSourceAccess.project()` inserts all explicit requested rows before enforcing the budget on automatic additions. The byte-identical reconstructed second request was 1,420,306 bytes. The production serializer allows 524,288 bytes. DEV sent the request, and its connector returned HTTP 503 `timeout` after about 298 seconds. Request size and timeout are independently verified. The provider's internal cause and token usage for that request are unknown.
+
+Three completed replies, totaling 385,915 input and 11,583 output tokens, were retained and replayed offline. Exactly one stage remains pending with an unknown outcome. The ordinary API reports `reconciliation_required`, offers no retained-response recovery and has no saved course. The bounded exact-stage retry only accepts a verified `unavailable` response and does not retry `timeout`. Approved source text and decision remained identical.
+
+Use this saved 288-row lookup as the regression fixture for explicit lookup budgeting. Any handling of a deferred row must preserve its index identity and avoid claiming the full requested set was delivered. The live run never reached lesson or assessment composition, so it cannot close ENG-089 or authorize release.

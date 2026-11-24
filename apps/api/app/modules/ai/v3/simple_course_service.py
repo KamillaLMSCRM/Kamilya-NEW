@@ -50,7 +50,23 @@ def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, valid
         SIMPLE_COURSE_REVIEW_V9_POLICY,
         SIMPLE_COURSE_REVIEW_V10_POLICY,
         SIMPLE_COURSE_REVIEW_V11_POLICY,
+        SIMPLE_COURSE_REVIEW_V12_POLICY,
     )
+
+    if policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
+        from app.modules.ai.v3.source_access_contract import inner_format, is_access_format
+
+        if type(group) is not str:
+            return False
+        match = re.fullmatch(r'practical:simple:lookup:v12:([0-9a-f]{64}):base=([0-9a-f]{64}):context=([0-9a-f]{64}):round=([0-3]):output=([1-9][0-9]*)', group or '')
+        if not match or not is_access_format(fmt) or not callable(validator):
+            return False
+        props = fmt['json_schema']['schema']['properties']
+        base = props['base_group']['enum'][0]
+        return bool(props['source_fingerprint']['enum'] == [match[1]]
+            and props['context_fingerprint']['enum'] == [match[3]] and _digest(base) == match[2]
+            and simple_stage_allowed(stage, base + ':output=' + match[5], inner_format(fmt),
+                policy=SIMPLE_COURSE_REVIEW_V11_POLICY, validator=validator))
 
     if policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         if type(group) is not str or not callable(validator):
@@ -259,23 +275,24 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
         SIMPLE_COURSE_REVIEW_V9_POLICY,
         SIMPLE_COURSE_REVIEW_V10_POLICY,
         SIMPLE_COURSE_REVIEW_V11_POLICY,
+        SIMPLE_COURSE_REVIEW_V12_POLICY,
     )
 
     if review_policy is None:
         review_policy = SIMPLE_COURSE_REVIEW_POLICY
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}:
         raise ValueError('simple_materialization_policy_invalid')
 
     _source_context(packet, corpus, {})
     if 'source_evidence_repair' in result.review:
         from app.modules.ai.v3.simple_finding_evidence import validate_evidence
-        if review_policy != SIMPLE_COURSE_REVIEW_V11_POLICY:
+        if review_policy not in {SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}:
             raise ValueError('simple_evidence_policy_invalid')
         validate_evidence(packet, result)
     post_issues: list[dict[str, Any]] = []
     post_observations: list[dict[str, Any]] = []
     post_source_hold = False
-    if review_policy in {SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}:
+    if review_policy in {SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}:
         from app.modules.ai.v3.simple_course_editor_v10 import postedit_review_state
 
         post_issues, post_observations, post_source_hold = postedit_review_state(result, packet)
@@ -291,7 +308,7 @@ def simple_course_artifacts(result: SimpleCourseResult, corpus: DirectSourceCorp
     if receipt and (receipt.get('source_fingerprint') != packet.fingerprint
                     or receipt.get('draft_fingerprint') != _digest(result.draft)):
         raise ValueError('simple_revision_receipt_stale')
-    unverified_source_hold = (review_policy in {SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}
+    unverified_source_hold = (review_policy in {SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}
         and bool(receipt.get('unverified_source_questions', [])))
     source_hold = bool(result.source_questions or unverified_source_hold or post_source_hold or any(doc.conversion_fidelity.needs_review
         or doc.review_only_source_unresolved or doc.review_only_source_context for doc in corpus.documents))
@@ -414,7 +431,7 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
     source_sha256: str, journal: Any, route_fingerprint: str, reference_decisions: tuple[SourceReferenceDecision, ...] = (),
     direct_client: Any = None, direct_max_output_tokens: int,
     cancellation_callback: Any = None, progress_callback: Any = None,
-    review_policy: str | None = None) -> GenerationArtifacts:
+    review_policy: str | None = None, source_access_settings: Any = None) -> GenerationArtifacts:
     from app.modules.ai.v3.revision_policy import (
         SIMPLE_COURSE_REVIEW_POLICY,
         SIMPLE_COURSE_REVIEW_V2_POLICY,
@@ -427,10 +444,11 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
         SIMPLE_COURSE_REVIEW_V9_POLICY,
         SIMPLE_COURSE_REVIEW_V10_POLICY,
         SIMPLE_COURSE_REVIEW_V11_POLICY,
+        SIMPLE_COURSE_REVIEW_V12_POLICY,
     )
 
     review_policy = SIMPLE_COURSE_REVIEW_POLICY if review_policy is None else review_policy
-    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY}:
+    if review_policy not in {SIMPLE_COURSE_REVIEW_POLICY, SIMPLE_COURSE_REVIEW_V2_POLICY, SIMPLE_COURSE_REVIEW_V3_POLICY, SIMPLE_COURSE_REVIEW_V4_POLICY, SIMPLE_COURSE_REVIEW_V5_POLICY, SIMPLE_COURSE_REVIEW_V6_POLICY, SIMPLE_COURSE_REVIEW_V7_POLICY, SIMPLE_COURSE_REVIEW_V8_POLICY, SIMPLE_COURSE_REVIEW_V9_POLICY, SIMPLE_COURSE_REVIEW_V10_POLICY, SIMPLE_COURSE_REVIEW_V11_POLICY, SIMPLE_COURSE_REVIEW_V12_POLICY}:
         raise ValueError('simple_service_policy_invalid')
     total = 5 if review_policy == SIMPLE_COURSE_REVIEW_V2_POLICY else 4 if review_policy == SIMPLE_COURSE_REVIEW_V5_POLICY else 3
     packet = build_practical_source_packet(corpus, reference_decisions)
@@ -464,7 +482,20 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             await progress_callback('realization', completed, total, None, 1)
         return value
 
-    if review_policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
+    if review_policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
+        from app.modules.ai.v3.simple_course_editor_v12 import run_simple_course_editor_v12
+        from app.modules.ai.v3.source_access_config import checked_settings
+
+        pinned = checked_settings(source_access_settings)
+
+        async def planned_v12(count: int) -> None:
+            nonlocal total
+            total = count
+
+        result = await run_simple_course_editor_v12(packet, corpus, intent, stage,
+            reference_decisions=reference_decisions, planned_callback=planned_v12,
+            literal_budget=pinned['literal_chars'], lookup_rounds=pinned['lookup_rounds'])
+    elif review_policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 
         async def planned_v11(count: int) -> None:

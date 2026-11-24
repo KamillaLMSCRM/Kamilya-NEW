@@ -102,6 +102,10 @@ from app.modules.ai.v3.typed_review_buckets import is_typed_review_format, is_ty
 
 
 def response_contract(value: object) -> str | None:
+    from app.modules.ai.v3.source_access_contract import is_access_format
+
+    if is_access_format(value):
+        return 'literal_source_access'
     if is_evidence_format(value):
         return 'simple_finding_evidence'
     if is_accounting_format(value):
@@ -211,6 +215,10 @@ def matches_transport_contract(value: object, response_format: dict[str, Any]) -
 
 def matches_response_contract(value: object, response_format: dict[str, Any]) -> bool:
     kind = response_contract(response_format)
+    if kind == 'literal_source_access':
+        from app.modules.ai.v3.source_access_contract import matches_access
+
+        return matches_access(value, response_format)
     if kind == 'simple_finding_evidence':
         return matches_evidence(value, response_format)
     if kind == "simple_plan_accounting":
