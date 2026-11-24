@@ -11605,3 +11605,12 @@ its exact verified path was moved into private evidence before executing it.
 - Fix: display matching existing assignments with a link to the filtered management view. Keep search available when a course has any assignments.
 - Verification: cover the existing learner match, the transition to the filtered assignment and search with a short list.
 - Prevention: include a fully assigned, small roster in acceptance for employee search.
+
+## SOURCE-REVIEW-UI-001 - Keeping original wording appeared to save without a reason
+
+- Date: 2026-11-24.
+- Symptom: the methodologist chose “Keep wording” and saw an enabled save button, but the question remained open when the reason was blank.
+- Cause: native form validation blocked submission before the application could show why. The API also requires a trimmed reason of at least three characters for the editorial audit record.
+- Fix: show the reason requirement beside the field, enable saving after a valid reason, and display the persisted keep decision on readback.
+- Verification: the focused regression reproduced the enabled button in the old UI. The corrected suite and isolated Chrome at 390 and 1440 px verified blank and short reasons, a keep request without replacement, and readback after reopening. The existing backend tests verify the keep decision in editorial history.
+- Prevention: exercise blank and whitespace-only reasons and reload a saved keep decision in source-review acceptance.

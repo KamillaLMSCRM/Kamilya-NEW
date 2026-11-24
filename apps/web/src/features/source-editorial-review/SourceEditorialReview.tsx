@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,10 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const [pending, setPending] = useState<ReviewCommand | null>(null);
   const [conflictInput, setConflictInput] = useState<Action | null>(null);
   const [reason, setReason] = useState('');
+  const reasonFieldId = useId();
+  const reasonHintId = `${reasonFieldId}-hint`;
+  const trimmedReason = reason.trim();
+  const reasonValid = [...trimmedReason].length >= 3;
   const [replacement, setReplacement] = useState('');
   const [anchor, setAnchor] = useState('');
   const [allOccurrences, setAllOccurrences] = useState(false);
@@ -356,15 +360,17 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             </details>}
             {question.resolution && <div className="space-y-2 text-sm">
               <p className="font-medium">{copy.closed}</p>
+              {question.resolution.decision === 'keep' && <p>{copy.kept}</p>}
               {(question.resolution.source_changes ?? [question.resolution]).map((change, index) =>
                 <p key={index} className={code}>{change.after}</p>)}
               <p>{question.resolution.reason}</p>
             </div>}
             {!readOnly && (!question.needs_source_verification || question.resolution) && <form className="space-y-3" onSubmit={async (event) => {
               event.preventDefault();
+              if (!reasonValid) return;
               const args: Action = question.resolution
-                ? { action: 'reopen_issue', item_id: question.id, reason }
-                : { action: 'resolve', item_id: question.id, reason, decision,
+                ? { action: 'reopen_issue', item_id: question.id, reason: trimmedReason }
+                : { action: 'resolve', item_id: question.id, reason: trimmedReason, decision,
                     ...(decision === 'replace' ? sourceScope
                       ? { source_changes: [{ source_ref: sourceScope.source_ref, quote: anchor, replacement, all_occurrences: allOccurrences }] }
                       : { replacement, ...(question.start == null ? { quote: anchor } : {}) } : {}) };
@@ -386,10 +392,13 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
                     <textarea className={field} value={replacement} onChange={(e) => setReplacement(e.target.value)} required maxLength={5000} rows={4} /></label>
                 </>}
               </>}
-              <label className="block space-y-1 text-sm"><span>{copy.reason}</span>
-                <textarea className={field} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={1500} rows={2} placeholder={copy.reasonHint} />
-              </label>
-              <Button type="submit" disabled={disabled}>{question.resolution ? copy.reopenIssue : copy.save}</Button>
+              <div className="space-y-1">
+                <label htmlFor={reasonFieldId} className="block text-sm">{copy.reason}</label>
+                <textarea id={reasonFieldId} className={field} value={reason} onChange={(e) => setReason(e.target.value)} required minLength={3} maxLength={1500} rows={2}
+                  placeholder={copy.reasonHint} aria-describedby={!reasonValid ? reasonHintId : undefined} />
+              </div>
+              {!reasonValid && <p id={reasonHintId} className="text-sm text-muted-foreground">{copy.reasonRequired}</p>}
+              <Button type="submit" disabled={disabled || !reasonValid}>{question.resolution ? copy.reopenIssue : copy.save}</Button>
             </form>}
           </WorkspacePanel>}
         </div>
