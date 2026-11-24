@@ -4191,3 +4191,15 @@ using exact verified copies in the isolated DEV QA tenant and only the
 already-paid managed Luna 6 route. Preserve completed stages and avoid
 changing the client tenant. Record the eventual result of each document,
 model identity, elapsed time, known usage and any unknown attempt.
+
+The disclosure guide's DEV document held revision 12 in the old worker
+claim. The exact same prepared text-only source had two completed request
+receipts and one last committed text-request intent without a completion.
+The upload endpoint correctly rejected a duplicate of the same blob.
+The source-review command can now record the stale owned text attempt as
+unknown, then continue the same document following an explicit
+acknowledgement. It verifies the owning actor, preparation binding,
+claim, source revision, the one pending initial intent and the absence
+of visual assets. Old replies and the unknown-cost event remain recorded.
+The ordinary API and existing acknowledgement control handle this case.
+57 source-review focused tests passed before DEV rollout.
