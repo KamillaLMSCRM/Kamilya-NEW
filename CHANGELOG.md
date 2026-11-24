@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.11.150] - 2026-11-24
+
+- Resume document review from Courses, clarify keep decisions, archive drafts with retained history, and read embedded XLSX tables in DOCX.
+
 ## [0.11.149] - 2026-11-24
 
 - Вход и демо-кабинет оформлены в цветах кабинета методиста. Способ входа можно выбрать с клавиатуры.
