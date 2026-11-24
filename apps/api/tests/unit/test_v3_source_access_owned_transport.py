@@ -53,7 +53,12 @@ async def test_v12_real_seam_with_lookup_and_no_duplicate_calls(monkeypatch, tra
         calls.append((base, props["context_fingerprint"]["enum"][0]))
         if ":plan:v11:" in base:
             if not body["reference_rows"]:
-                outer["lookup_ids"] = [body["reference_index"][-1]["id"]]
+                outer["lookup_ids"] = [row["id"] for row in body["reference_index"]]
+                return outer
+            late = body["reference_index"][-1]["id"]
+            if late in body["source_access"].get("deferred_lookup_ids", []):
+                assert sum(len(row["text"]) for row in body["reference_rows"]) <= 30000
+                outer["lookup_ids"] = [late]
                 return outer
             assert "PRIVATE_LITERAL_029" in messages[1]["content"]
             assert "PRIVATE_LITERAL_028" not in messages[1]["content"]

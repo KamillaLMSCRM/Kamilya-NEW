@@ -276,15 +276,13 @@ class LiteralSourceAccess:
         )
         key_counts = Counter(row.key for row in self.rows)
         mentioned = [r.handle for r in self.rows if len(r.key) >= 3 and key_counts[r.key] == 1 and r.key in narrative]
-        exposed = list(dict.fromkeys(requested))
-        if any(handle not in self.by_id for handle in exposed):
+        if any(handle not in self.by_id for handle in requested):
             raise ValueError("source_access_lookup_unowned")
-        used = sum(len(self.by_id[handle].text) for handle in exposed)
         if ":plan:" not in group:
             mentioned.extend(candidates)
-        for handle in dict.fromkeys(mentioned):
-            if handle in exposed:
-                continue
+        exposed: list[str] = []
+        used = 0
+        for handle in dict.fromkeys((*requested, *mentioned)):
             size = len(self.by_id[handle].text)
             if used + size <= self.budget:
                 exposed.append(handle)
@@ -351,6 +349,15 @@ class LiteralSourceAccess:
             "and empty lookup_ids. A reference catalogue is lookup material, not a lesson for every row. "
             "Choose coherent practical topics from the learning material and a few useful literal reference examples.",
         }
+        exposed_ids = set(exposed)
+        deferred = [handle for handle in dict.fromkeys(requested) if handle not in exposed_ids]
+        if deferred:
+            payload["source_access"]["deferred_lookup_ids"] = deferred
+            payload["source_access"]["instructions"] += (
+                " Deferred rows are indexed but their literals were not provided in this request. "
+                "If exact text is essential, request only the specific remaining handles you need, in priority order. "
+                "Do not require every supporting row when accounting for reference material."
+            )
         context_fp = _digest([self.fingerprint, group, self.budget, payload, list(requested)])
         output[1]["content"] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         return output, context_fp

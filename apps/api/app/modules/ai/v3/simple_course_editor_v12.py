@@ -161,8 +161,11 @@ async def run_simple_course_editor_v12(
                 raise ValueError("source_access_redundant_lookup")
             if attempt == lookup_rounds:
                 raise ValueError("source_access_lookup_exhausted")
-            source.lookup(new, source_fingerprint=packet.fingerprint)
-            requested = tuple(dict.fromkeys((*requested, *new)))
+            retained = tuple(handle for handle in requested if handle in exposed)
+            requested = (*retained, *new)
+            if sum(len(source.by_id[handle].text) for handle in requested) > source.budget:
+                # Earlier literals must not crowd out the next requested rows.
+                requested = (*new, *retained)
             additional += 1
             if planned_callback:
                 await planned_callback(base_total + additional)

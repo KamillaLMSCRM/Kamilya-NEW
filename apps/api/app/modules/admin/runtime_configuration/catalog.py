@@ -27,7 +27,7 @@ class Setting:
 
 
 CATALOG = (
-    Setting("generation.reference_literal_chars", "Каталог: объём дословных данных в начальном запросе", "integer", 30000, 1000, 120000),
+    Setting("generation.reference_literal_chars", "Каталог: объём дословных данных на один запрос", "integer", 30000, 1000, 120000),
     Setting("generation.reference_lookup_rounds", "Каталог: дополнительных уточнений данных на этап", "integer", 2, 0, 3),
     Setting("generation.editorial_max_revisions", "Редактура курса: адресных правок", "integer", 3, 1, 5),
     Setting("generation.editorial_rules_per_review", "Редактура курса: правил в части проверки", "integer", 128, 1, 128),

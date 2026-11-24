@@ -2496,3 +2496,9 @@ approved521 and53source replies; rejected CHG-L100N is not restored.
 - Regression reproduces the missing image marker with fixture visual replies,
   then checks slide location, preserved OCR, the approved source inventory,
   and the course/lesson asset URL. No regenerated model reply in this check.
+
+## ENG-090 — explicit catalogue lookup bypasses the literal budget
+
+- DEV job 4efb025b-83b4-46b3-a3ae-8ad7cd70f18e on Luna 6 and approved workbook revision 521 kept three replies, then timed out on a lookup of 288 of 291 rows. Literal accounting limited automatic rows only. Offline replay matched the failed request at 1,420,306 bytes, above the 524,288-byte production limit.
+- Apply the existing generation.reference_literal_chars budget to explicit and automatic rows together. Include whole rows only, keep all row handles indexed, identify deferred requests and prioritize fresh requests when they compete with retained literals.
+- The bulk lookup regression failed before the fix. The saved native prefix stayed exact. The replacement request is 258,252 bytes and exposes 35 rows while identifying 253 deferred rows. A subsequent targeted lookup returns a previously deferred row in full, at 248,703 bytes. Both checks used zero model calls. Live course acceptance remains pending.

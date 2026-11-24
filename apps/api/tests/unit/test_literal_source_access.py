@@ -271,3 +271,22 @@ def test_narrative_mentions_respect_the_same_literal_budget_as_automatic_rows():
     assert len(contents["reference_index"]) == len(store.rows)
     assert len(contents["reference_rows"]) == 1
     assert sum(len(row["text"]) for row in contents["reference_rows"]) <= store.budget
+
+
+def test_explicit_bulk_lookup_keeps_the_index_and_limits_complete_literals():
+    corpus, packet = reference_case()
+    store = LiteralSourceAccess(packet, corpus, literal_budget=1500)
+    messages, _ = semantic_plan_request(packet, corpus, {})
+    group = "practical:simple:plan:v11:" + packet.fingerprint
+    handles = tuple(row.handle for row in store.rows)
+
+    projected, _ = store.project(messages, group, handles)
+    payload = json.loads(projected[1]["content"])
+    assert [row["id"] for row in payload["reference_index"]] == list(handles)
+    assert payload["reference_rows"] == store.lookup([handles[0]], source_fingerprint=packet.fingerprint)
+    assert payload["source_access"]["deferred_lookup_ids"] == list(handles[1:])
+
+    last, _ = store.project(messages, group, (handles[-1],))
+    last_payload = json.loads(last[1]["content"])
+    assert last_payload["reference_rows"] == store.lookup([handles[-1]], source_fingerprint=packet.fingerprint)
+    assert "deferred_lookup_ids" not in last_payload["source_access"]

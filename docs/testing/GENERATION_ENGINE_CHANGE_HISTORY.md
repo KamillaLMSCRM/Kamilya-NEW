@@ -4121,3 +4121,7 @@ now receives the question and choices without that index and returns the full
 text of the answer in each language. The stored key comes from the common
 choice position. Missing or conflicting answers reject the proposal. Existing
 approved practice and learner data remain outside the proposal revision.
+
+### 2026-11-24 — bound explicit catalogue lookups
+
+ENG-090. The source projection now applies one runtime-settings literal budget per request, with complete rows and explicit deferral under contention. The V12 follow-up prioritizes newly requested rows when both new and retained literals cannot fit. The approved workbook has 291 indexed rows. The observed 288-row follow-up dropped from 1,420,306 bytes to 258,252 bytes in offline reconstruction and kept its three prior replies. A second simulated lookup returned an individually requested deferred row. No approval change, inference, or deployment for this fix.
