@@ -10,6 +10,11 @@ from typing import Any
 from app.modules.ai.v3.literal_source_access import LiteralSourceAccess
 from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
+from app.modules.ai.v3.simple_joint_editor_batches import (
+    batch_joint_editor,
+    combine_joint_proposals,
+    owned_joint_proposal,
+)
 from app.modules.ai.v3.source_access_contract import access_format, matches_access
 
 _ALIGNMENT = (
@@ -54,6 +59,8 @@ async def run_simple_course_editor_v12(
     lookup_rounds: int,
     reference_decisions: tuple[Any, ...] = (),
     planned_callback: Any = None,
+    bounded_joint: bool = True,
+    related_evidence: bool = False,
 ) -> Any:
     if type(lookup_rounds) is not int or not 0 <= lookup_rounds <= 3:
         raise ValueError("source_access_lookup_budget_invalid")
@@ -71,6 +78,25 @@ async def run_simple_course_editor_v12(
             await planned_callback(count + additional)
 
     async def access_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
+        nonlocal additional
+        if bounded_joint and ':editor-joint:v9:' in group:
+            batches = batch_joint_editor(messages, related_evidence=related_evidence)
+            if batches:
+                additional += len(batches) - 1
+                if planned_callback:
+                    await planned_callback(base_total + additional)
+                proposals = []
+                for scoped, custody in batches:
+                    def validate_owned(value: Any, *, scope: Any = custody) -> None:
+                        validator(value)
+                        owned_joint_proposal(value, scope)
+
+                    value = await call_stage(name, group, scoped, fmt, validate_owned)
+                    proposals.append(owned_joint_proposal(value, custody))
+                return combine_joint_proposals(proposals)
+        return await call_stage(name, group, messages, fmt, validator)
+
+    async def call_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
         nonlocal additional, bank, teaching
         complete_editor = ':editor-joint:v9:' in group
         bank_review = ':review-bank:v10:' in group

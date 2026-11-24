@@ -291,8 +291,12 @@ class LiteralSourceAccess:
         # table rows with addressable navigation and explicitly exposed literals.
         ranges: dict[str, list[tuple[int, int]]] = {}
         stage_refs: dict[str, str] = {}
+        projected_blocks: list[dict[str, Any]] = []
         for block in payload.get("source_blocks", []):
             supplied = block["id"]
+            if supplied is None and isinstance(block.get("text"), str) and not block["text"].strip():
+                # Blank separators have no literal source alias.
+                continue
             alias = self.view.canonical_to_alias.get(supplied, supplied)
             if alias not in self.view.alias_to_canonical:
                 raise ValueError("source_access_parent_unowned")
@@ -302,6 +306,9 @@ class LiteralSourceAccess:
             block.pop("text", None)
             block["segments"] = segments
             ranges.setdefault(document_id, []).extend((s["start"], s["end"]) for s in segments)
+            projected_blocks.append(block)
+        if "source_blocks" in payload:
+            payload["source_blocks"] = projected_blocks
         for key in _SLICE_FIELDS:
             if key in payload:
                 for part in payload[key]:

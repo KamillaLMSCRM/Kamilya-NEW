@@ -26,6 +26,7 @@ from app.core.log_redaction import (
     install_sensitive_logging_filters,
     scrub_sentry_event,
 )
+from app.core.operation_log import RequestOperationLog
 from app.core.product_version import PRODUCT_VERSION
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security import SecurityHeadersMiddleware
@@ -212,8 +213,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept", "Idempotency-Key"],
-    expose_headers=["Content-Disposition"],
+    expose_headers=["Content-Disposition", "X-Request-ID"],
 )
+app.add_middleware(RequestOperationLog)
 
 register_error_handlers(app)
 
