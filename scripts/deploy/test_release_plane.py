@@ -81,12 +81,13 @@ def versioned_manifest(version: str, *, release_sha: str, image: str,
     return release_plane.ReleaseManifest.parse(data)
 
 
-def test_replica_topology_and_schema_epoch_are_bound_to_011152():
+@pytest.mark.parametrize("version", ["0.11.152", "0.11.153"])
+def test_replica_topology_and_schema_epoch_are_bound_to_release(version):
     assert release_plane.services_for_product_version(None) == release_plane.LEGACY_SERVICES
     assert release_plane.services_for_product_version("0.11.151") == release_plane.LEGACY_SERVICES
     assert release_plane.services_for_product_version("0.11.152") == release_plane.SERVICES
     assert release_plane.services_for_product_version("0.11.153") == release_plane.SERVICES
-    assert versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+    assert versioned_manifest(version, release_sha=NEW_SHA, image=NEW_IMAGE,
                               previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE).correction_revisions == (
         "0194", "0194"
     )
