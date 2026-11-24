@@ -46,6 +46,7 @@ class CourseResponse(BaseModel):
     updated_at: datetime
     published_at: datetime | None = None
     current_release_id: UUID | None = None
+    archive_only: bool = False
     catalog_editions: dict[Literal["ru", "kk", "en"], dict[str, str | None]] | None = None
 
     # Approval workflow fields (methodologist sign-off).

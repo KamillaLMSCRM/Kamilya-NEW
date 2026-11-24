@@ -16,6 +16,7 @@ from app.models.document import Document
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.audit.service import log_action
+from app.modules.course_approval.models import CourseApprovalRevision
 from app.modules.courses.access import AUTHORING_ROLES, require_course_access
 from app.modules.courses.localizations import Language, catalog_editions, catalog_translation_matches
 from app.modules.courses.publication_service import (
@@ -119,6 +120,18 @@ async def _hydrate_course_authors(db: AsyncSession, courses: Sequence[Course], t
         cast(Any, course).author_name = names.get(course.created_by)
 
 
+async def _drafts_with_history(db: AsyncSession, ids: Sequence[UUID], tenant_id: UUID) -> set[UUID]:
+    if not ids:
+        return set()
+    reviews = select(CourseApprovalRevision.course_id).where(
+        CourseApprovalRevision.course_id.in_(ids), CourseApprovalRevision.tenant_id == tenant_id,
+    )
+    enrollments = select(Enrollment.course_id).where(
+        Enrollment.course_id.in_(ids), Enrollment.tenant_id == tenant_id,
+    )
+    return set((await db.scalars(reviews.union(enrollments))).all())
+
+
 @router.get("", response_model=list[CourseResponse])
 async def list_courses(
     status: str | None = Query(None, description="Filter by status: draft, published, archived"),
@@ -188,6 +201,10 @@ async def list_courses(
         courses = list((await db.execute(query.offset(skip).limit(per_page))).scalars().all())
         translations = await catalog_editions(db, courses, cast(UUID, user.tenant_id)) if author_catalog else {}
     await _hydrate_course_authors(db, courses, user.tenant_id)
+    with_history = await _drafts_with_history(
+        db, [cast(UUID, course.id) for course in courses
+             if course.status == "draft" and course.current_release_id is None], cast(UUID, user.tenant_id),
+    ) if author_catalog else set()
     # Hydrate reviewer info on each course
     out: list[Course | CourseResponse] = []
     for c in courses:
@@ -195,6 +212,7 @@ async def list_courses(
         if author_catalog:
             response = CourseResponse.model_validate(c)
             response.catalog_editions = translations.get(cast(UUID, c.id))
+            response.archive_only = c.status != "draft" or c.current_release_id is not None or c.id in with_history
             out.append(response)
         else:
             out.append(c)
@@ -1276,10 +1294,11 @@ async def delete_course(
     course = result.scalar_one_or_none()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    if course.current_release_id is not None:
+    if (course.current_release_id is not None or course.status != "draft"
+            or await _drafts_with_history(db, [course_id], cast(UUID, user.tenant_id))):
         raise HTTPException(
             status_code=409,
-            detail="Published course evidence cannot be deleted; archive the course instead",
+            detail={"code": "course_archive_required"},
         )
     await log_action(
         db,
@@ -1292,8 +1311,15 @@ async def delete_course(
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
     )
-    await db.delete(course)
-    await db.commit()
+    try:
+        await db.delete(course)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        if getattr(exc.orig, "sqlstate", None) == "23503":
+            # A retained reference may have been added after the precheck.
+            raise HTTPException(status_code=409, detail={"code": "course_archive_required"}) from exc
+        raise
 
 
 @router.post("/{course_id}/archive", response_model=CourseResponse)

@@ -23,6 +23,9 @@ for (const width of [390, 915, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     workspace.role = 'methodologist';
     workspace.get('/v1/course-blueprints', []);
+    workspace.get('/v1/documents/editorial-review/queue', {
+      items: [{ document_id: ids.document, title: 'Pending source review', status: 'in_review' }], next_offset: null,
+    });
     workspace.onGet('/v1/courses', ({ url }) => {
       const pageNumber = Number(url.searchParams.get('page') ?? 1);
       const matching = courses.filter((item) => (!url.searchParams.get('status') || item.status === url.searchParams.get('status'))
@@ -32,6 +35,10 @@ for (const width of [390, 915, 1024, 1440]) {
     await page.goto('/courses');
     const rows = page.locator('[data-methodologist-records] > ul');
     await expect(rows.getByRole('button')).toHaveCount(100);
+    await expect(page.getByRole('link', { name: 'Open review' })).toHaveAttribute(
+      'href', `/documents/${ids.document}/editorial-review?document_id=${ids.document}`,
+    );
+    await expect(rows.locator('li time').first()).toHaveAttribute('datetime', course.created_at);
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
     await page.keyboard.press('Enter');
@@ -54,9 +61,14 @@ for (const width of [390, 915, 1024, 1440]) {
         await expect.poll(async () => Math.abs((await page.evaluate(() => window.scrollY)) - priorScroll)).toBeLessThan(3);
       }
     } else {
-      await expect(page.getByRole('region', { name: 'Open course' })).toBeVisible();
+      const details = page.getByRole('region', { name: 'Open course' });
+      await expect(details).toBeVisible();
       await expect(rows).toBeVisible();
       await expect(page.getByRole('button', { name: 'Back to course list' })).toBeHidden();
+      const lower = rows.getByRole('button', { name: /^Course 80 Learning course/ });
+      await lower.scrollIntoViewIfNeeded();
+      await lower.click();
+      await expect(details.getByRole('heading', { name: 'Course 80', exact: true })).toBeInViewport();
     }
     await page.getByRole('button', { name: 'Next page', exact: true }).click();
     await expect(page).toHaveURL(/page=2/);
@@ -65,6 +77,7 @@ for (const width of [390, 915, 1024, 1440]) {
     await expect(page.getByRole('button', { name: 'Next page', exact: true })).toBeDisabled();
     await page.reload();
     await expect(rows.getByRole('button', { name: /^Course 101 / })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open review' })).toBeVisible();
     await page.screenshot({ path: info.outputPath('catalogue-page-2.png') });
     await page.getByRole('button', { name: 'Previous page', exact: true }).click();
     await expect(page).toHaveURL(`${appOrigin}/courses`);

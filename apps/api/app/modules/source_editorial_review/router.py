@@ -17,6 +17,7 @@ from app.modules.source_editorial_review.service import (
     read_approval,
     read_state,
     review_enabled,
+    review_queue,
     review_view,
     statuses,
 )
@@ -30,6 +31,17 @@ Database = Annotated[AsyncSession, Depends(get_db)]
 async def source_review_status(db: Database, user: Actor, document_ids: Annotated[list[UUID], Query(max_length=5)]) -> dict[str, Any]:
     enabled = review_enabled()
     return {"required": enabled, "documents": await statuses(db, UUID(str(user.tenant_id)), document_ids) if enabled else {}}
+
+
+@router.get("/editorial-review/queue")
+async def list_review_queue(
+    db: Database, user: Actor,
+    offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+    limit: Annotated[int, Query(ge=1, le=20)] = 8,
+) -> dict[str, Any]:
+    if not review_enabled():
+        return {"items": [], "next_offset": None}
+    return await review_queue(db, UUID(str(user.tenant_id)), offset, limit)
 
 
 def _require_enabled() -> None:

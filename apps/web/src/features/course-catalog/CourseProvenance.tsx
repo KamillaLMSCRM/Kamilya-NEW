@@ -11,13 +11,17 @@ const labels = {
   en: { author: 'Author', created: 'Created', updated: 'Updated', unknown: 'Not recorded', noDate: 'Not recorded' },
 };
 
+export function formatCourseDate(lang: string, value?: string | null, withTime = false) {
+  if (!value || !Number.isFinite(Date.parse(value))) return null;
+  const locale = lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU';
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium', timeStyle: withTime ? 'short' : undefined, timeZone: 'Asia/Almaty',
+  }).format(new Date(value));
+}
+
 export function CourseProvenance({ authorName, createdAt, updatedAt, lang }: CourseProvenanceProps) {
   const text = labels[lang as keyof typeof labels] ?? labels.ru;
-  const locale = lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU';
-  const date = (value?: string | null) => {
-    if (!value || !Number.isFinite(Date.parse(value))) return text.noDate;
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Almaty' }).format(new Date(value));
-  };
+  const date = (value?: string | null) => formatCourseDate(lang, value, true) ?? text.noDate;
   return <dl aria-label={text.author} className="mt-3 grid gap-x-4 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
     <div className="sm:col-span-2"><dt className="inline">{text.author}: </dt><dd className="inline text-foreground">{authorName?.trim() || text.unknown}</dd></div>
     <div><dt className="inline">{text.created}: </dt><dd className="inline">{date(createdAt)}</dd></div>

@@ -3,7 +3,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
-export function RecordList<T>({ records, getId, title, description, status, detailsLabel, renderDetails, selection, mobileBackLabel }: {
+export function RecordList<T>({ records, getId, title, description, status, detailsLabel, renderDetails, selection, mobileBackLabel, detailClassName = '' }: {
   records: readonly T[];
   getId: (record: T) => string;
   title: (record: T) => ReactNode;
@@ -13,6 +13,7 @@ export function RecordList<T>({ records, getId, title, description, status, deta
   renderDetails: (record: T) => ReactNode;
   selection?: (record: T) => ReactNode;
   mobileBackLabel?: string;
+  detailClassName?: string;
 }) {
   const [selectedId, setSelectedId] = useState<string>();
   const [detailOpen, setDetailOpen] = useState(false);
@@ -63,7 +64,7 @@ export function RecordList<T>({ records, getId, title, description, status, deta
       })}
     </ul>
     <section ref={detail} id={detailId} tabIndex={-1} aria-label={detailsLabel}
-      className={`${mobileBackLabel && !detailOpen ? 'hidden lg:block ' : ''}min-w-0 scroll-mt-32 rounded-2xl border border-border bg-card shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring`}>
+      className={`${mobileBackLabel && !detailOpen ? 'hidden lg:block ' : ''}min-w-0 scroll-mt-32 rounded-2xl border border-border bg-card shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${detailClassName}`}>
       {mobileBackLabel && <button type="button" className="m-3 min-h-11 rounded-lg border border-border px-4 text-sm font-medium text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring lg:hidden" onClick={() => {
         restoreList.current = true;
         setDetailOpen(false);
