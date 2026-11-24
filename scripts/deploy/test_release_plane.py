@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import itertools
 import json
 import re
 import sys
@@ -364,6 +365,79 @@ class FakeRunner:
         self.initial_revision = initial_revision
         self.container_images: dict[str, str] = {}
         self.container_settings: dict[str, dict[str, str]] = {}
+        self.container_services: dict[str, str] = {}
+        self.worker_bindings: dict[str, set[str]] = {
+            "celery@old-worker-ai": {"ai"},
+            "celery@old-worker-documents": {"documents"},
+            "celery@old-worker-ops": {"maintenance", "notifications"},
+        }
+        self.worker_task_counts: dict[str, dict[str, int]] = {
+            node: {"active": 0, "reserved": 0, "scheduled": 0}
+            for node in self.worker_bindings
+        }
+        self.running_worker_services = set(release_plane.LEGACY_SERVICES[1:])
+        self.worker_control_events: list[tuple[str, str, str]] = []
+
+    @staticmethod
+    def _queue_config(name: str) -> dict[str, object]:
+        return {"exchange_name": name, "exchange_type": "direct", "routing_key": name,
+                "queue_arguments": None}
+
+    def _worker_control(self, call: tuple[str, ...]) -> str:
+        start = call.index("-c")
+        operation = call[start + 2]
+        args = list(call[start + 3:])
+        if operation == "snapshot":
+            names = args
+            active_queues = {
+                node: [
+                    {"name": queue, "exchange": {"name": queue, "type": "direct"},
+                     "routing_key": queue, "queue_arguments": None}
+                    for queue in sorted(queues)
+                ]
+                for node, queues in self.worker_bindings.items()
+            }
+            payload = {
+                "active_queues": active_queues,
+                **{field: {node: counts[field] for node, counts in self.worker_task_counts.items()}
+                   for field in ("active", "reserved", "scheduled")},
+                "queue_config": {name: self._queue_config(name) for name in names},
+            }
+            return json.dumps(payload)
+        queue, node = args
+        self.worker_control_events.append((operation, queue, node))
+        if operation == "cancel":
+            self.worker_bindings[node].discard(queue)
+            ack = f"no longer consuming from {queue}"
+        elif operation == "add":
+            self.worker_bindings[node].add(queue)
+            ack = f"now consuming from {queue}"
+        else:
+            raise AssertionError(f"unexpected worker control operation: {operation}")
+        return json.dumps({node: {"ok": ack}})
+
+    def _set_worker_topology(self, image: str, services: set[str]) -> None:
+        self.running_worker_services = set(services)
+        bindings: dict[str, set[str]] = {}
+        for service in services:
+            queues = {
+                "worker-ai": ("ai",), "worker-documents": ("documents",),
+                "worker-ops": ("maintenance", "notifications"),
+                "worker-ai-replica": ("ai",), "worker-documents-replica": ("documents",),
+            }[service]
+            if image == OLD_IMAGE:
+                node = f"celery@old-{service}"
+            else:
+                prefix = {
+                    "worker-ai": "ai", "worker-documents": "documents", "worker-ops": "ops",
+                    "worker-ai-replica": "ai-replica", "worker-documents-replica": "documents-replica",
+                }[service]
+                node = f"{prefix}@host-{service}"
+            bindings[node] = set(queues)
+        self.worker_bindings = bindings
+        self.worker_task_counts = {
+            node: {"active": 0, "reserved": 0, "scheduled": 0} for node in bindings
+        }
 
     def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
         call = tuple(args)
@@ -371,6 +445,19 @@ class FakeRunner:
         if self.fail_token and self.fail_token in " ".join(call):
             self.fail_token = ""
             raise release_plane.ReleasePlaneError("synthetic_command_failure")
+        if "compose" in call and "stop" in call:
+            stopped = self.running_worker_services & set(call)
+            self._set_worker_topology(str((env or {}).get("KAMILYA_API_IMAGE", NEW_IMAGE)),
+                                      self.running_worker_services - stopped)
+            return ""
+        if "compose" in call and "up" in call and "--no-deps" in call:
+            index = call.index("--no-deps") + 1
+            started = set(call[index:]) & set(release_plane.WORKERS)
+            if started:
+                self._set_worker_topology(str((env or {}).get("KAMILYA_API_IMAGE", NEW_IMAGE)), started)
+            return ""
+        if len(call) > 2 and call[1] == "compose" and "exec" in call and release_plane.WORKER_CONTROL_CODE in call:
+            return self._worker_control(call)
         if " current" in " " + " ".join(call):
             return (
                 "0140"
@@ -379,15 +466,34 @@ class FakeRunner:
             )
         if " ps -q " in " ".join(call):
             service = call[-1]
+            if service in release_plane.WORKERS and service not in self.running_worker_services:
+                return ""
             image = str((env or {}).get("KAMILYA_API_IMAGE", NEW_IMAGE))
             if image == OLD_IMAGE and service in {"worker-ai-replica", "worker-documents-replica"}:
                 return ""
             container = f"{image.split('@')[-1][:6]}-{service}"
             self.container_images[container] = image
             self.container_settings[container] = dict(env or {})
+            self.container_services[container] = service
             return container
         if " inspect " in " ".join(call):
             container = call[-1]
+            if "{{.Config.Hostname}}|{{json .Config.Cmd}}" in call:
+                service = self.container_services[container]
+                command = ["celery", "-A", "app.core.celery_app:celery_app", "worker"]
+                queues = {"worker-ai": "ai", "worker-documents": "documents",
+                          "worker-ops": "maintenance,notifications",
+                          "worker-ai-replica": "ai", "worker-documents-replica": "documents"}[service]
+                command.extend(["-Q", queues])
+                hostname_prefix = {"worker-ai": "ai", "worker-documents": "documents",
+                                   "worker-ops": "ops", "worker-ai-replica": "ai-replica",
+                                   "worker-documents-replica": "documents-replica"}[service]
+                if self.container_images[container] != OLD_IMAGE:
+                    command.append(f"--hostname={hostname_prefix}@%h")
+                    hostname = f"host-{service}"
+                else:
+                    hostname = f"old-{service}"
+                return f"{hostname}|{json.dumps(command)}"
             return f"{self.container_images.get(container, NEW_IMAGE)}|running|0"
         if " exec " in " ".join(call):
             container = call[2]
@@ -484,7 +590,8 @@ def test_successful_release_switches_slot_and_writes_append_only_evidence(tmp_pa
     commands = [" ".join(call) for call, _ in runner.calls]
     assert any(" pull " in f" {command} " and NEW_IMAGE in command for command in commands)
     assert not any("backup-gate" in command for command in commands)
-    stop_at = next(i for i, command in enumerate(commands) if "stop worker-ai worker-documents worker-ops" in command)
+    stop_at = next(i for i, command in enumerate(commands)
+                   if "stop --timeout 120 worker-ai worker-documents worker-ops" in command)
     candidate_workers_at = next(i for i, command in enumerate(commands) if "up -d --no-deps worker-ai worker-documents worker-ops" in command)
     assert stop_at < candidate_workers_at
     assert "worker-ai-replica" not in commands[stop_at]
@@ -536,8 +643,8 @@ def test_candidate_failure_before_worker_stop_keeps_current_runtime(tmp_path: Pa
 def test_public_health_failure_restores_proxy_and_old_workers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ticks = iter((0.0, 31.0, 62.0, 93.0))
-    monkeypatch.setattr(release_plane.time, "monotonic", lambda: next(ticks))
+    ticks = itertools.count()
+    monkeypatch.setattr(release_plane.time, "monotonic", lambda: next(ticks) * 31.0)
     monkeypatch.setattr(release_plane.time, "sleep", lambda _seconds: None)
     runner = FakeRunner()
     cfg = config(tmp_path)
@@ -548,14 +655,61 @@ def test_public_health_failure_restores_proxy_and_old_workers(
     assert json.loads(cfg.state_file.read_text(encoding="utf-8"))["release_sha"] == OLD_SHA
     commands = [" ".join(call) for call, _ in runner.calls]
     restore_at = next(i for i, command in enumerate(commands) if "kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops" in command)
-    candidate_stop_at = next(i for i, command in enumerate(commands) if "kamilya-green" in command and "stop worker-ai worker-documents worker-ops" in command)
+    candidate_stop_at = next(i for i, command in enumerate(commands) if "kamilya-green" in command and "stop --timeout 120 worker-ai worker-documents worker-ops" in command)
     candidate_down_at = max(i for i, command in enumerate(commands) if "kamilya-green" in command and "down --remove-orphans" in command)
     assert candidate_stop_at < candidate_down_at < restore_at
     assert "worker-ai-replica" not in commands[restore_at]
+    control = [(call[call.index(release_plane.WORKER_CONTROL_CODE) + 1], index)
+               for index, (call, _env) in enumerate(runner.calls)
+               if release_plane.WORKER_CONTROL_CODE in call]
+    candidate_pause = next(index for operation, index in control
+                           if operation == "cancel" and "-p kamilya-green" in commands[index])
+    assert candidate_pause < candidate_stop_at
     assert any("kamilya-green" in command and "down --remove-orphans" in command for command in commands)
     failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
     assert failure["status"] == "ROLLED_BACK"
     assert failure["rollback"] == "completed"
+
+
+def test_rollback_fails_closed_when_candidate_task_cannot_drain(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ticks = itertools.count()
+    monkeypatch.setattr(release_plane.time, "monotonic", lambda: next(ticks) * 31.0)
+    monkeypatch.setattr(release_plane.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(release_plane, "WORKER_DRAIN_TIMEOUT_SECONDS", 0)
+
+    class ActiveCandidateRunner(FakeRunner):
+        def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
+            result = super().run(args, env=env)
+            if "compose" in args and "up" in args and "--no-deps" in args:
+                for node in self.worker_task_counts:
+                    if node.startswith("ai@"):
+                        self.worker_task_counts[node]["active"] = 1
+            return result
+
+    runner = ActiveCandidateRunner()
+    cfg = config(tmp_path)
+    plane = release_plane.ReleasePlane(manifest(), cfg, runner, FakeHealth(fail_public=True))
+
+    with pytest.raises(release_plane.ReleasePlaneError, match="health_identity_timeout"):
+        plane.execute("REL-20260831-RELEASE-PLANE-001")
+
+    failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
+    assert failure["status"] == "FAILED"
+    assert failure["rollback"] == "blocked_worker_drain"
+    assert failure["recovery_required"] is True
+    assert cfg.lock_file.is_file()
+    assert "candidate_worker_drain_unverified" in cfg.lock_file.read_text(encoding="utf-8")
+    assert runner.worker_task_counts["ai@host-worker-ai"]["active"] == 1
+    assert {tuple(sorted(queues)) for queues in runner.worker_bindings.values()} == {
+        ("ai",), ("documents",), ("maintenance", "notifications"),
+    }
+    commands = [" ".join(call) for call, _ in runner.calls]
+    assert not any("kamilya-green" in command and "stop --timeout 120 worker-ai" in command
+                   for command in commands)
+    assert not any("kamilya-blue" in command and "up -d --no-deps worker-ai" in command
+                   for command in commands)
 
 
 def test_first_replica_release_cuts_over_from_legacy_slot(tmp_path: Path) -> None:
@@ -570,7 +724,15 @@ def test_first_replica_release_cuts_over_from_legacy_slot(tmp_path: Path) -> Non
     assert result["services"] == list(release_plane.SERVICES)
     commands = [" ".join(call) for call, _ in runner.calls]
     legacy_stop = next(i for i, command in enumerate(commands)
-                       if "kamilya-blue" in command and "stop worker-ai worker-documents worker-ops" in command)
+                       if "kamilya-blue" in command and "stop --timeout 120 worker-ai worker-documents worker-ops" in command)
+    cancel_calls = [i for i, (call, _env) in enumerate(runner.calls)
+                    if release_plane.WORKER_CONTROL_CODE in call
+                    and call[call.index(release_plane.WORKER_CONTROL_CODE) + 1] == "cancel"]
+    assert cancel_calls and max(cancel_calls) < legacy_stop
+    assert {tuple(sorted(queues)) for queues in runner.worker_bindings.values()} == {
+        ("ai",), ("documents",), ("maintenance", "notifications"),
+    }
+    assert len(runner.worker_bindings) == len(release_plane.SERVICES[1:])
     replicated_start = next(i for i, command in enumerate(commands)
                             if "kamilya-green" in command and "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
     assert legacy_stop < replicated_start
@@ -579,6 +741,16 @@ def test_first_replica_release_cuts_over_from_legacy_slot(tmp_path: Path) -> Non
 
 def test_protected_manifest_rollback_011152_to_011151_restores_legacy_workers(tmp_path: Path) -> None:
     runner = FakeRunner(initial_revision="0194")
+    runner.worker_bindings = {
+        "ai@host-worker-ai": {"ai"},
+        "documents@host-worker-documents": {"documents"},
+        "ops@host-worker-ops": {"maintenance", "notifications"},
+        "ai-replica@host-worker-ai-replica": {"ai"},
+        "documents-replica@host-worker-documents-replica": {"documents"},
+    }
+    runner.worker_task_counts = {node: {"active": 0, "reserved": 0, "scheduled": 0}
+                                 for node in runner.worker_bindings}
+    runner.running_worker_services = set(release_plane.SERVICES[1:])
     cfg = config(tmp_path)
     cfg.state_file.write_text(json.dumps({"schema_version": 1, "active_slot": "green",
                                           "release_sha": NEW_SHA, "image": NEW_IMAGE}), encoding="utf-8")
@@ -597,11 +769,109 @@ def test_protected_manifest_rollback_011152_to_011151_restores_legacy_workers(tm
     commands = [" ".join(call) for call, _ in runner.calls]
     new_workers_stop = next(i for i, command in enumerate(commands)
                             if "kamilya-green" in command and
-                            "stop worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+                                "stop --timeout 120 worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
     legacy_start = next(i for i, command in enumerate(commands)
                         if "kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops" in command)
     assert new_workers_stop < legacy_start
     assert "worker-ai-replica" not in commands[legacy_start]
+
+
+def test_worker_drain_timeout_restores_every_original_queue_before_aborting(tmp_path: Path, monkeypatch) -> None:
+    runner = FakeRunner()
+    runner.worker_task_counts["celery@old-worker-ai"]["active"] = 1
+    original = {node: tuple(sorted(queues)) for node, queues in runner.worker_bindings.items()}
+    monkeypatch.setattr(release_plane, "WORKER_DRAIN_TIMEOUT_SECONDS", 0)
+    controller = release_plane.ReleasePlane(
+        versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                           previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE),
+        config(tmp_path), runner, FakeHealth(product_version="0.11.152"),
+    )
+    env = controller._slot_env("blue", OLD_IMAGE, OLD_SHA)
+
+    with pytest.raises(release_plane.ReleasePlaneError, match="worker_drain_timeout"):
+        controller._pause_and_drain_workers("blue", env, release_plane.LEGACY_SERVICES[1:])
+
+    assert {node: tuple(sorted(queues)) for node, queues in runner.worker_bindings.items()} == original
+    assert runner.worker_task_counts["celery@old-worker-ai"]["active"] == 1
+    assert any(event[0] == "cancel" for event in runner.worker_control_events)
+    assert any(event[0] == "add" for event in runner.worker_control_events)
+
+
+def test_partial_worker_pause_ack_restores_exact_consumers_before_aborting(tmp_path: Path) -> None:
+    class MissingAckRunner(FakeRunner):
+        failed = False
+
+        def _worker_control(self, call: tuple[str, ...]) -> str:
+            start = call.index("-c")
+            if call[start + 2] == "cancel" and call[start + 3] == "notifications" and not self.failed:
+                self.failed = True
+                return json.dumps({"unexpected-node": {"ok": "no longer consuming from notifications"}})
+            return super()._worker_control(call)
+
+    runner = MissingAckRunner()
+    original = {node: tuple(sorted(queues)) for node, queues in runner.worker_bindings.items()}
+    controller = release_plane.ReleasePlane(
+        versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                           previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE),
+        config(tmp_path), runner, FakeHealth(product_version="0.11.152"),
+    )
+
+    with pytest.raises(release_plane.ReleasePlaneError, match="worker_pause_ack_missing"):
+        controller._pause_and_drain_workers(
+            "blue", controller._slot_env("blue", OLD_IMAGE, OLD_SHA), release_plane.LEGACY_SERVICES[1:]
+        )
+
+    assert {node: tuple(sorted(queues)) for node, queues in runner.worker_bindings.items()} == original
+    restored = {(node, queue) for operation, queue, node in runner.worker_control_events if operation == "add"}
+    assert restored == {(node, queue) for node, queues in original.items() for queue in queues}
+
+
+@pytest.mark.parametrize("failure", ["initial_snapshot", "add_ack"])
+def test_worker_restore_attempts_every_pair_and_accepts_exact_final_readback(
+    tmp_path: Path, failure: str,
+) -> None:
+    runner = FakeRunner()
+    original = {node: tuple(sorted(queues)) for node, queues in runner.worker_bindings.items()}
+    # Simulate a partially paused set that must be restored.
+    runner.worker_bindings["celery@old-worker-ai"].clear()
+    controller = release_plane.ReleasePlane(
+        versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                           previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE),
+        config(tmp_path), runner, FakeHealth(product_version="0.11.152"),
+    )
+    real_snapshot = controller._worker_snapshot
+    snapshot_failed = False
+
+    def snapshot_with_one_failure(slot, env, workers, **kwargs):
+        nonlocal snapshot_failed
+        if failure == "initial_snapshot" and not snapshot_failed:
+            snapshot_failed = True
+            raise release_plane.ReleasePlaneError("temporary_snapshot_failure")
+        return real_snapshot(slot, env, workers, **kwargs)
+
+    controller._worker_snapshot = snapshot_with_one_failure
+    if failure == "add_ack":
+        real_control = controller._worker_control
+        ack_failed = False
+
+        def control_with_lost_add_ack(slot, env, operation, *arguments, **kwargs):
+            nonlocal ack_failed
+            reply = real_control(slot, env, operation, *arguments, **kwargs)
+            if operation == "add" and not ack_failed:
+                ack_failed = True
+                return {}
+            return reply
+
+        controller._worker_control = control_with_lost_add_ack
+
+    controller._restore_worker_consumers(
+        "blue", controller._slot_env("blue", OLD_IMAGE, OLD_SHA),
+        release_plane.LEGACY_SERVICES[1:], original,
+    )
+
+    restored = {(node, queue) for operation, queue, node in runner.worker_control_events if operation == "add"}
+    assert restored == {(node, queue) for node, queues in original.items() for queue in queues}
+    assert {node: tuple(sorted(queues)) for node, queues in runner.worker_bindings.items()} == original
 
 
 def test_previous_identity_and_confirmation_are_fail_closed(tmp_path: Path) -> None:

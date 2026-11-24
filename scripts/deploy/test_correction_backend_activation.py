@@ -39,16 +39,30 @@ class FeatureRunner(legacy.FakeRunner):
     def run(self, args, *, env=None):
         call = tuple(args)
         if "ps" in call:
+            service = call[-1]
+            if ((env or {}).get("KAMILYA_API_IMAGE") == legacy.OLD_IMAGE
+                and service in {"worker-ai-replica", "worker-documents-replica"}):
+                super().run(args, env=env)
+                return ""
             super().run(args, env=env)
             slot = "blue" if "kamilya-blue" in call else "green"
             return slot + ":" + call[-1]
         if "inspect" in call:
             self.calls.append((call, dict(env or {})))
             slot, service = call[-1].split(":")
+            if "{{.Config.Hostname}}|{{json .Config.Cmd}}" in call:
+                image = legacy.OLD_IMAGE if slot == "blue" else legacy.NEW_IMAGE
+                queues = {"worker-ai": "ai", "worker-documents": "documents",
+                          "worker-ops": "maintenance,notifications"}[service]
+                command = ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", queues]
+                if image != legacy.OLD_IMAGE:
+                    command.append(f"--hostname={service.removeprefix('worker-')}@%h")
+                hostname = f"old-{service}" if image == legacy.OLD_IMAGE else f"host-{service}"
+                return f"{hostname}|{json.dumps(command)}"
             if "Config.Image" in call[-2]:
                 image = legacy.OLD_IMAGE if slot == "blue" else legacy.NEW_IMAGE
                 return f"{image}|running|0"
-        if "exec" in call:
+        if len(call) > 1 and call[1] == "exec":
             self.calls.append((call, dict(env or {})))
             slot, service = call[2].split(":")
             flags = PREVIOUS.copy() if slot == "blue" else CANDIDATE.copy()
@@ -312,7 +326,7 @@ class DialogueRunner(FeatureRunner):
         if "current" in call:
             self.calls.append((call, dict(env or {})))
             return "0179 (head)" if any("upgrade" in c and "0179" in c for c, _ in self.calls) else self.initial_revision
-        if "exec" in call:
+        if len(call) > 1 and call[1] == "exec":
             self.calls.append((call, dict(env or {})))
             return json.dumps({key: {"supported": True, "enabled": True} for key in KEYS})
         return super().run(args, env=env)

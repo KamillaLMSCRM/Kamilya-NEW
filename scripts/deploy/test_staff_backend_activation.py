@@ -97,7 +97,7 @@ class StaffRunner(correction.FeatureRunner):
 
     def run(self, args, *, env=None):
         call = tuple(args)
-        if "exec" in call:
+        if len(call) > 1 and call[1] == "exec":
             self.calls.append((call, dict(env or {})))
             slot, service = call[2].split(":")
             flags = PREVIOUS.copy() if slot == "blue" else CANDIDATE.copy()

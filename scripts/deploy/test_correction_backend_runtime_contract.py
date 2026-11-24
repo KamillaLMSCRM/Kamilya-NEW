@@ -84,14 +84,29 @@ class ReadbackRunner(legacy.FakeRunner):
     def run(self, args, *, env=None):
         call = tuple(args)
         if "ps" in call:
+            if (env or {}).get("KAMILYA_API_IMAGE") == legacy.OLD_IMAGE and call[-1] in {
+                "worker-ai-replica", "worker-documents-replica"
+            }:
+                self.calls.append((call, dict(env or {})))
+                return ""
             self.calls.append((call, dict(env or {})))
             slot = "blue" if "kamilya-blue" in call else "green"
             return slot + ":" + call[-1]
         if "inspect" in call:
             self.calls.append((call, dict(env or {})))
+            if "{{.Config.Hostname}}|{{json .Config.Cmd}}" in call:
+                slot, service = call[-1].split(":")
+                image = legacy.OLD_IMAGE if slot == "blue" else legacy.NEW_IMAGE
+                queues = {"worker-ai": "ai", "worker-documents": "documents",
+                          "worker-ops": "maintenance,notifications"}[service]
+                command = ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", queues]
+                if image != legacy.OLD_IMAGE:
+                    command.append(f"--hostname={service.removeprefix('worker-')}@%h")
+                hostname = f"old-{service}" if image == legacy.OLD_IMAGE else f"host-{service}"
+                return f"{hostname}|{json.dumps(command)}"
             image = legacy.OLD_IMAGE if str(call[-1]).startswith("blue:") else legacy.NEW_IMAGE
             return f"{image}|running|0"
-        if "exec" in call:
+        if len(call) > 1 and call[1] == "exec":
             self.calls.append((call, dict(env or {})))
             return self.readback
         return super().run(args, env=env)

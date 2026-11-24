@@ -43,30 +43,35 @@ services:
 
   worker-ai:
     <<: *app-runtime
-    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=2", "--hostname=ai@%h", "--loglevel=INFO"]
     mem_limit: 4g
+    stop_grace_period: 120s
 
   worker-documents:
     <<: *app-runtime
-    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=2", "--hostname=documents@%h", "--loglevel=INFO"]
     mem_limit: 3g
+    stop_grace_period: 120s
 
   worker-ops:
     <<: *app-runtime
-    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-B", "--schedule=/tmp/celerybeat-schedule", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-B", "--schedule=/tmp/celerybeat-schedule", "-Q", "maintenance,notifications", "--concurrency=2", "--hostname=ops@%h", "--loglevel=INFO"]
     mem_limit: 2g
+    stop_grace_period: 120s
 
   worker-ai-replica:
     <<: *app-runtime
     command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=1", "--hostname=ai-replica@%h", "--loglevel=INFO"]
     cpus: 1.0
     mem_limit: 1g
+    stop_grace_period: 120s
 
   worker-documents-replica:
     <<: *app-runtime
     command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=1", "--hostname=documents-replica@%h", "--loglevel=INFO"]
     cpus: 1.0
     mem_limit: 3g
+    stop_grace_period: 120s
 
 networks:
   runtime:

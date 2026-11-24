@@ -17,6 +17,7 @@ import sys
 import time
 import urllib.request
 import uuid
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -42,6 +43,78 @@ SERVICES = (
 WORKERS = SERVICES[1:]
 LEGACY_SERVICES = ("api", "worker-ai", "worker-documents", "worker-ops")
 REPLICATED_WORKER_MIN_VERSION = (0, 11, 152)
+WORKER_QUEUE_BINDINGS = {
+    "worker-ai": ("ai",),
+    "worker-documents": ("documents",),
+    "worker-ops": ("maintenance", "notifications"),
+    "worker-ai-replica": ("ai",),
+    "worker-documents-replica": ("documents",),
+}
+WORKER_DRAIN_TIMEOUT_SECONDS = 300
+WORKER_DRAIN_POLL_SECONDS = 10
+WORKER_STOP_GRACE_SECONDS = 120
+WORKER_STARTUP_TIMEOUT_SECONDS = 60
+WORKER_CONTROL_CODE = r'''import json, sys
+from app.core.celery_app import celery_app
+
+op = sys.argv[1]
+control = celery_app.control
+if op == "snapshot":
+    names = sys.argv[2:]
+    inspect = control.inspect(timeout=2)
+    active_queues = inspect.active_queues()
+    active = inspect.active()
+    reserved = inspect.reserved()
+    scheduled = inspect.scheduled()
+    queue_config = {}
+    for name in names:
+        queue = celery_app.amqp.queues[name]
+        queue_config[name] = {
+            "exchange_name": getattr(queue.exchange, "name", None),
+            "exchange_type": getattr(queue.exchange, "type", None),
+            "routing_key": queue.routing_key,
+            "queue_arguments": queue.queue_arguments,
+        }
+    def counts(value):
+        return {node: len(items or []) for node, items in (value or {}).items()}
+    print(json.dumps({
+        "active_queues": active_queues or {},
+        "active": counts(active),
+        "reserved": counts(reserved),
+        "scheduled": counts(scheduled),
+        "queue_config": queue_config,
+    }, sort_keys=True, separators=(",", ":"), default=str))
+elif op in ("cancel", "add"):
+    queue_name, node = sys.argv[2:4]
+    queue = celery_app.amqp.queues[queue_name]
+    if op == "cancel":
+        replies = control.cancel_consumer(queue_name, destination=[node], reply=True, timeout=2)
+    else:
+        options = {
+            "queue_arguments": queue.queue_arguments,
+            "durable": queue.durable,
+            "auto_delete": queue.auto_delete,
+        }
+        for key in ("expires", "message_ttl", "max_length", "max_length_bytes", "max_priority"):
+            value = getattr(queue, key, None)
+            if value is not None:
+                options[key] = value
+        replies = control.add_consumer(
+            queue_name,
+            exchange=queue.exchange.name,
+            exchange_type=queue.exchange.type,
+            routing_key=queue.routing_key,
+            options=options,
+            destination=[node], reply=True, timeout=2,
+        )
+    merged = {}
+    for item in replies or []:
+        if isinstance(item, dict):
+            merged.update(item)
+    print(json.dumps(merged, sort_keys=True, separators=(",", ":"), default=str))
+else:
+    raise SystemExit("worker_control_operation_invalid")
+'''
 
 
 def services_for_product_version(product_version: str | None) -> tuple[str, ...]:
@@ -600,6 +673,221 @@ class ReleasePlane:
                 except (ValueError, ReleasePlaneError) as error:
                     raise ReleasePlaneError(f"container_feature_flag_mismatch:{service}") from error
 
+    def _worker_control(self, slot: str, env: Mapping[str, str], operation: str,
+                        *arguments: str, service: str = "api") -> dict[str, Any]:
+        output = self.runner.run(self._compose(
+            slot, "exec", "-T", service, "/app/.venv/bin/python", "-c",
+            WORKER_CONTROL_CODE, operation, *arguments,
+        ), env=env)
+        try:
+            value = json.loads(output, object_pairs_hook=_unique_json_pairs)
+        except (json.JSONDecodeError, ReleasePlaneError) as error:
+            raise ReleasePlaneError("worker_control_response_invalid") from error
+        if not isinstance(value, dict):
+            raise ReleasePlaneError("worker_control_response_invalid")
+        return value
+
+    def _worker_snapshot(self, slot: str, env: Mapping[str, str], workers: Sequence[str],
+                         *, control_service: str = "api") -> dict[str, Any]:
+        queues = sorted({queue for worker in workers for queue in WORKER_QUEUE_BINDINGS[worker]})
+        value = self._worker_control(slot, env, "snapshot", *queues, service=control_service)
+        if set(value) != {"active_queues", "active", "reserved", "scheduled", "queue_config"}:
+            raise ReleasePlaneError("worker_snapshot_shape_invalid")
+        active_queues = value["active_queues"]
+        queue_config = value["queue_config"]
+        if not isinstance(active_queues, dict) or not isinstance(queue_config, dict) or set(queue_config) != set(queues):
+            raise ReleasePlaneError("worker_snapshot_shape_invalid")
+        nodes = set(active_queues)
+        if not nodes or any(not isinstance(node, str) or not re.fullmatch(r"[A-Za-z0-9_.@-]{1,255}", node)
+                            for node in nodes):
+            raise ReleasePlaneError("worker_snapshot_nodes_invalid")
+        normalized: dict[str, tuple[str, ...]] = {}
+        for node, bindings in active_queues.items():
+            if not isinstance(bindings, list):
+                raise ReleasePlaneError("worker_snapshot_bindings_invalid")
+            names: list[str] = []
+            for binding in bindings:
+                if not isinstance(binding, dict) or not isinstance(binding.get("name"), str):
+                    raise ReleasePlaneError("worker_snapshot_bindings_invalid")
+                name = binding["name"]
+                config = queue_config.get(name)
+                exchange = binding.get("exchange")
+                if (not isinstance(config, dict) or not isinstance(exchange, dict)
+                    or exchange.get("name") != config.get("exchange_name")
+                    or exchange.get("type") != config.get("exchange_type")
+                    or binding.get("routing_key") != config.get("routing_key")
+                    or binding.get("queue_arguments") != config.get("queue_arguments")):
+                    raise ReleasePlaneError("worker_queue_binding_source_mismatch")
+                names.append(name)
+            if len(names) != len(set(names)):
+                raise ReleasePlaneError("worker_snapshot_duplicate_binding")
+            normalized[node] = tuple(sorted(names))
+        for field in ("active", "reserved", "scheduled"):
+            counts = value[field]
+            if (not isinstance(counts, dict) or set(counts) != nodes
+                or any(type(count) is not int or count < 0 for count in counts.values())):
+                raise ReleasePlaneError("worker_snapshot_task_counts_invalid")
+        value["normalized_bindings"] = normalized
+        return value
+
+    def _worker_node_bindings(self, slot: str, env: Mapping[str, str],
+                              workers: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        expected: dict[str, tuple[str, ...]] = {}
+        for service in workers:
+            container = self.runner.run(self._compose(slot, "ps", "-q", service), env=env)
+            if not container or "\n" in container or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", container):
+                raise ReleasePlaneError(f"worker_container_identity_invalid:{service}")
+            facts = self.runner.run([
+                str(self.config.docker_binary), "inspect", "--format",
+                "{{.Config.Hostname}}|{{json .Config.Cmd}}", container,
+            ])
+            try:
+                hostname, raw_command = facts.split("|", 1)
+                command = json.loads(raw_command, object_pairs_hook=_unique_json_pairs)
+            except (ValueError, json.JSONDecodeError, ReleasePlaneError) as error:
+                raise ReleasePlaneError(f"worker_container_command_invalid:{service}") from error
+            if (not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}", hostname)
+                or not isinstance(command, list) or any(not isinstance(item, str) for item in command)
+                or "worker" not in command):
+                raise ReleasePlaneError(f"worker_container_command_invalid:{service}")
+            declared: list[str] = []
+            for index, item in enumerate(command):
+                if item in {"--hostname", "-n"}:
+                    if index + 1 >= len(command):
+                        raise ReleasePlaneError(f"worker_hostname_template_invalid:{service}")
+                    declared.append(command[index + 1])
+                elif item.startswith("--hostname="):
+                    declared.append(item.partition("=")[2])
+            if len(declared) > 1:
+                raise ReleasePlaneError(f"worker_hostname_template_invalid:{service}")
+            # Celery's default node ID is celery@<hostname>. Release compose
+            # templates use an explicit role@%h hostname for new containers.
+            node = declared[0].replace("%h", hostname) if declared else f"celery@{hostname}"
+            if "@" not in node or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}@[A-Za-z0-9_.-]{1,128}", node):
+                raise ReleasePlaneError(f"worker_hostname_template_invalid:{service}")
+            if node in expected:
+                raise ReleasePlaneError("worker_node_identity_duplicate")
+            expected[node] = tuple(sorted(WORKER_QUEUE_BINDINGS[service]))
+        return expected
+
+    @staticmethod
+    def _expected_worker_bindings(workers: Sequence[str]) -> Counter[tuple[str, ...]]:
+        try:
+            return Counter(tuple(sorted(WORKER_QUEUE_BINDINGS[worker])) for worker in workers)
+        except KeyError as error:
+            raise ReleasePlaneError("worker_queue_binding_service_unknown") from error
+
+    def _assert_worker_topology(self, snapshot: Mapping[str, Any], workers: Sequence[str]) -> None:
+        if Counter(snapshot["normalized_bindings"].values()) != self._expected_worker_bindings(workers):
+            raise ReleasePlaneError("worker_queue_topology_mismatch")
+
+    @staticmethod
+    def _assert_exact_worker_bindings(snapshot: Mapping[str, Any],
+                                      expected: Mapping[str, Sequence[str]]) -> None:
+        actual = snapshot["normalized_bindings"]
+        normalized = {node: tuple(sorted(queues)) for node, queues in expected.items()}
+        if actual != normalized:
+            raise ReleasePlaneError("worker_queue_node_binding_mismatch")
+
+    def _assert_worker_control_ack(self, reply: Mapping[str, Any], node: str, queue: str,
+                                   operation: str) -> None:
+        result = reply.get(node)
+        if not isinstance(result, dict) or set(result) != {"ok"} or not isinstance(result["ok"], str):
+            raise ReleasePlaneError(f"worker_{operation}_ack_missing:{queue}")
+        message = result["ok"].lower()
+        if queue.lower() not in message or not any(word in message for word in ("consum", "already")):
+            raise ReleasePlaneError(f"worker_{operation}_ack_invalid:{queue}")
+
+    def _restore_worker_consumers(self, slot: str, env: Mapping[str, str], workers: Sequence[str],
+                                  expected: Mapping[str, Sequence[str]], *,
+                                  control_service: str = "api") -> None:
+        failures: list[str] = []
+        try:
+            self._worker_snapshot(slot, env, workers, control_service=control_service)
+        except Exception:
+            failures.append("initial_snapshot")
+        # Always attempt every captured node/queue pair, even after a snapshot
+        # or an individual acknowledgement fails; add_consumer is idempotent.
+        for node, queues in expected.items():
+            for queue in queues:
+                try:
+                    reply = self._worker_control(slot, env, "add", queue, node, service=control_service)
+                    self._assert_worker_control_ack(reply, node, queue, "restore")
+                except Exception:
+                    failures.append(f"add:{queue}")
+        try:
+            restored = self._worker_snapshot(slot, env, workers, control_service=control_service)
+            self._assert_exact_worker_bindings(restored, expected)
+        except Exception:
+            failures.append("final_exact_readback")
+        # Consumer control replies can be lost after the broker accepted the
+        # command. The final exact node-to-queue readback is authoritative; fail
+        # restoration only when that state cannot be proved.
+        if "final_exact_readback" in failures:
+            raise ReleasePlaneError("worker_consumer_restore_failed")
+
+    def _pause_and_drain_workers(self, slot: str, env: Mapping[str, str],
+                                 workers: Sequence[str], *,
+                                 control_service: str = "api") -> dict[str, tuple[str, ...]]:
+        baseline = self._worker_snapshot(slot, env, workers, control_service=control_service)
+        original = self._worker_node_bindings(slot, env, workers)
+        self._assert_exact_worker_bindings(baseline, original)
+        try:
+            for node in sorted(original):
+                for queue in original[node]:
+                    reply = self._worker_control(slot, env, "cancel", queue, node, service=control_service)
+                    self._assert_worker_control_ack(reply, node, queue, "pause")
+
+            deadline = time.monotonic() + WORKER_DRAIN_TIMEOUT_SECONDS
+            while True:
+                snapshot = self._worker_snapshot(slot, env, workers, control_service=control_service)
+                paused_bindings = snapshot["normalized_bindings"]
+                if set(paused_bindings) != set(original) or any(paused_bindings[node] for node in original):
+                    raise ReleasePlaneError("worker_consumer_pause_readback_failed")
+                pending = sum(snapshot[field][node] for field in ("active", "reserved", "scheduled")
+                              for node in snapshot[field])
+                if pending == 0:
+                    return original
+                if time.monotonic() >= deadline:
+                    raise ReleasePlaneError("worker_drain_timeout")
+                time.sleep(WORKER_DRAIN_POLL_SECONDS)
+        except Exception as error:
+            try:
+                self._restore_worker_consumers(slot, env, workers, original,
+                                               control_service=control_service)
+            except Exception as restore_error:
+                raise ReleasePlaneError("worker_consumer_restore_failed") from restore_error
+            if isinstance(error, ReleasePlaneError):
+                raise
+            raise ReleasePlaneError(f"worker_drain_failed:{type(error).__name__}") from error
+
+    def _available_worker_control_service(self, slot: str, env: Mapping[str, str],
+                                          workers: Sequence[str]) -> str:
+        for service in workers:
+            container = self.runner.run(self._compose(slot, "ps", "-q", service), env=env)
+            if container and "\n" not in container and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", container):
+                return service
+        raise ReleasePlaneError("worker_control_container_unavailable")
+
+    def _wait_worker_topology(self, slot: str, env: Mapping[str, str],
+                              workers: Sequence[str]) -> dict[str, tuple[str, ...]]:
+        deadline = time.monotonic() + WORKER_STARTUP_TIMEOUT_SECONDS
+        last_error: Exception | None = None
+        while time.monotonic() < deadline:
+            try:
+                expected = self._worker_node_bindings(slot, env, workers)
+                control_service = self._available_worker_control_service(slot, env, workers)
+                snapshot = self._worker_snapshot(slot, env, workers, control_service=control_service)
+                self._assert_worker_topology(snapshot, workers)
+                self._assert_exact_worker_bindings(snapshot, expected)
+                return expected
+            except Exception as error:
+                last_error = error
+                time.sleep(WORKER_DRAIN_POLL_SECONDS if WORKER_DRAIN_POLL_SECONDS < 3 else 2)
+        if isinstance(last_error, ReleasePlaneError):
+            raise ReleasePlaneError(f"candidate_worker_topology_unverified:{last_error}") from last_error
+        raise ReleasePlaneError("candidate_worker_topology_unverified") from last_error
+
     def _active_worker_services(self, slot: str, image: str, release_sha: str,
                                  flags: Mapping[str, bool] | None = None) -> tuple[str, ...]:
         """Read and verify the exact supported previous worker topology."""
@@ -715,6 +1003,7 @@ class ReleasePlane:
         started_at = _utc_now_iso()
         run_id = f"{self.manifest.release_id}-{uuid.uuid4().hex}"
         lock_fd: int | None = None
+        retain_lock_for_recovery = False
         state = self._state()
         target_services = services_for_product_version(self.manifest.product_version)
         target_workers = target_services[1:]
@@ -766,11 +1055,11 @@ class ReleasePlane:
             ):
                 raise ReleasePlaneError("expected_previous_release_mismatch")
 
-            if self.manifest.schema_version >= 2:
-                previous_services = self._active_worker_services(
-                    state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags
-                )
-                previous_workers = previous_services[1:]
+            previous_services = self._active_worker_services(
+                state.active_slot, state.image, state.release_sha,
+                self.manifest.previous_feature_flags if self.manifest.schema_version >= 2 else None,
+            )
+            previous_workers = previous_services[1:]
 
             self.runner.run([str(self.config.docker_binary), "pull", self.manifest.image])
             candidate_env = self._slot_env(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags)
@@ -853,15 +1142,24 @@ class ReleasePlane:
                 self._verify_services(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags, ("api",))
 
             active_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags)
+            previous_worker_bindings = None
+            if target_services == SERVICES or previous_services == SERVICES:
+                # Pause exact queue consumers before checking in-flight work: a
+                # preflight-only idle observation cannot close the enqueue race.
+                previous_worker_bindings = self._pause_and_drain_workers(
+                    state.active_slot, active_env, previous_workers
+                )
             # Mark before the multi-service stop: Compose can partially stop the
             # old set and still return an error, so rollback must restore all of it.
             old_workers_stopped = True
-            self.runner.run(self._compose(state.active_slot, "stop", *previous_workers), env=active_env)
+            self.runner.run(self._compose(state.active_slot, "stop", "--timeout",
+                                          str(WORKER_STOP_GRACE_SECONDS), *previous_workers), env=active_env)
             self.runner.run(
                 self._compose(inactive, "up", "-d", "--no-deps", *target_workers), env=candidate_env
             )
             self._verify_services(inactive, self.manifest.image, self.manifest.release_sha,
                                   self.manifest.feature_flags, target_services)
+            self._wait_worker_topology(inactive, candidate_env, target_workers)
 
             old_proxy = self.config.proxy_upstream_file.read_text(encoding="utf-8")
             _atomic_write(self.config.proxy_upstream_file, self._proxy_content(inactive), 0o644)
@@ -916,8 +1214,27 @@ class ReleasePlane:
                         inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags
                     )
                     if old_workers_stopped:
+                        # Candidate consumers may already have admitted durable
+                        # work. Pause and drain that exact set before stopping it;
+                        # if this cannot be proved, retain the release lock and
+                        # leave the sole candidate consumer set running for
+                        # explicit operator recovery instead of risking loss or
+                        # duplicate execution.
+                        control_service = self._available_worker_control_service(
+                            inactive, candidate_env, target_workers
+                        )
+                        try:
+                            self._pause_and_drain_workers(
+                                inactive, candidate_env, target_workers,
+                                control_service=control_service,
+                            )
+                        except Exception as drain_error:
+                            rollback_status = "blocked_worker_drain"
+                            retain_lock_for_recovery = True
+                            raise ReleasePlaneError("candidate_worker_drain_unverified") from drain_error
                         self.runner.run(
-                            self._compose(inactive, "stop", *target_workers), env=candidate_env
+                            self._compose(inactive, "stop", "--timeout", str(WORKER_STOP_GRACE_SECONDS),
+                                          *target_workers), env=candidate_env
                         )
                     self.runner.run(
                         self._compose(inactive, "down", "--remove-orphans"), env=candidate_env
@@ -927,6 +1244,13 @@ class ReleasePlane:
                             self._compose(state.active_slot, "up", "-d", "--no-deps", *previous_workers),
                             env=active_env,
                         )
+                        if previous_worker_bindings is not None:
+                            rollback_bindings = self._worker_node_bindings(
+                                state.active_slot, active_env, previous_workers
+                            )
+                            self._restore_worker_consumers(
+                                state.active_slot, active_env, previous_workers, rollback_bindings
+                            )
                     self._wait_health(
                         f"http://127.0.0.1:{self.config.slot_ports[state.active_slot]}/health",
                         state.release_sha,
@@ -937,7 +1261,8 @@ class ReleasePlane:
                                               allow_unsupported_disabled=True)
                     rollback_status = "completed"
                 except Exception:
-                    rollback_status = "failed"
+                    if rollback_status != "blocked_worker_drain":
+                        rollback_status = "failed"
             failure = {
                 **self._feature_evidence(),
                 "run_id": run_id,
@@ -947,6 +1272,7 @@ class ReleasePlane:
                 "status": "ROLLED_BACK" if rollback_status == "completed" else "FAILED",
                 "failure": str(safe_error),
                 "rollback": rollback_status,
+                "recovery_required": retain_lock_for_recovery,
                 "started_at": started_at,
                 "finished_at": _utc_now_iso(),
             }
@@ -956,8 +1282,19 @@ class ReleasePlane:
             raise safe_error from error
         finally:
             if lock_fd is not None:
+                if retain_lock_for_recovery:
+                    marker = json.dumps({
+                        "release_id": self.manifest.release_id,
+                        "run_id": run_id,
+                        "reason": "candidate_worker_drain_unverified",
+                    }, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+                    os.lseek(lock_fd, 0, os.SEEK_SET)
+                    os.ftruncate(lock_fd, 0)
+                    os.write(lock_fd, marker)
+                    os.fsync(lock_fd)
                 os.close(lock_fd)
-                self.config.lock_file.unlink(missing_ok=True)
+                if not retain_lock_for_recovery:
+                    self.config.lock_file.unlink(missing_ok=True)
 
 
 def _load(manifest_path: Path, config_path: Path) -> tuple[ReleaseManifest, HostConfig]:
