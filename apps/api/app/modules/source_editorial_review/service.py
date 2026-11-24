@@ -347,13 +347,13 @@ async def apply_command(
             failed = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 1, kind="failed",
                 payload={"code": "source_review_provider_outcome_unknown", "cause_class": "StaleOwnedTextRequest",
                          "claim_id": str(claim.id), "unknown_request_key": key, "usage_complete": False})
-            payload = {"preparation": binding,
-                       "acknowledged_unknown": {"failure_event_id": str(failed.id),
-                                                "request_id": str(command.request_id), "actor_id": str(actor_id)}}
+            resume_payload = {"preparation": binding,
+                              "acknowledged_unknown": {"failure_event_id": str(failed.id),
+                                                       "request_id": str(command.request_id), "actor_id": str(actor_id)}}
             if "pages" in parent.payload:
-                payload["pages"] = parent.payload["pages"]
+                resume_payload["pages"] = parent.payload["pages"]
             event = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 2, kind="queued",
-                              payload=payload, command=command)
+                              payload=resume_payload, command=command)
             await db.flush()
             state.apply(failed.sequence, failed.kind, failed.payload)
             state.apply(event.sequence, event.kind, event.payload)
