@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from time import perf_counter
-from typing import Any, Literal
+from typing import Any, Literal, NotRequired, TypedDict
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -699,9 +699,15 @@ async def analyze(
             "model_calls": calls, "policy": POLICY, "analysis_policy": _ANALYSIS_POLICY}
 
 
+class _ReviewTrace(TypedDict):
+    document_id: str
+    queued_event_id: str
+    claim_id: NotRequired[str]
+
+
 async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> str:
     started = perf_counter()
-    trace = {"document_id": str(document_id), "queued_event_id": str(event_id)}
+    trace: _ReviewTrace = {"document_id": str(document_id), "queued_event_id": str(event_id)}
 
     def finish(outcome: str) -> str:
         operation_event("source_review.finished", outcome=outcome,
