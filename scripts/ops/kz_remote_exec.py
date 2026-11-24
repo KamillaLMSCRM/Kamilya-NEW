@@ -76,11 +76,11 @@ DOCKER_EVIDENCE_FORMAT = (
     "status={{.State.Status}}|restarts={{.RestartCount}}"
 )
 DOCKER_EVIDENCE_CONTAINER_RE = re.compile(
-    r"(?:kamilya-dev-worker|(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops)-1"
+    r"(?:kamilya-dev-worker|(?:kamilya-runtime|kamilya-(?:blue|green))-(?:api|worker-ai|worker-documents|worker-ops|worker-ai-replica|worker-documents-replica)-1"
     r"|(?:kamilya-dev-codex|kamilya-codex-reserve)-(?:connector|egress)-1)"
 )
 DOCKER_AI_WORKER_LOG_CONTAINER_RE = re.compile(
-    r"(?:kamilya-runtime|kamilya-(?:blue|green))-worker-ai-1"
+    r"(?:kamilya-runtime|kamilya-(?:blue|green))-(?:worker-ai|worker-ai-replica)-1"
 )
 DEV_WORKER_LOG_COMMAND = "sudo -n docker logs --since 15m --tail 200 kamilya-dev-worker"
 DEV_WORKER_LOG_COMMAND_RE = re.compile(

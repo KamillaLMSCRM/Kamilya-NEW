@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import re
 import sys
 from dataclasses import asdict
 from collections.abc import Mapping, Sequence
@@ -21,6 +22,44 @@ OLD_SHA = "1" * 40
 NEW_SHA = "2" * 40
 OLD_IMAGE = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "a" * 64
 NEW_IMAGE = "ghcr.io/kamillalmscrm/kamilya-api@sha256:" + "b" * 64
+
+
+def test_production_slot_has_two_queue_replicas_and_only_one_beat() -> None:
+    root = MODULE_PATH.parents[2]
+    compose = (root / "infra" / "compose" / "kamilya-release-slot.yml").read_text(encoding="utf-8")
+
+    def service_block(name: str) -> str:
+        match = re.search(
+            rf"(?ms)^  {re.escape(name)}:\n(.*?)(?=^  [a-z0-9-]+:\n|^networks:)",
+            compose,
+        )
+        assert match is not None, f"missing release-slot service: {name}"
+        return match.group(1)
+
+    assert release_plane.SERVICES == (
+        "api",
+        "worker-ai",
+        "worker-documents",
+        "worker-ops",
+        "worker-ai-replica",
+        "worker-documents-replica",
+    )
+    assert release_plane.WORKERS == release_plane.SERVICES[1:]
+
+    ai = service_block("worker-ai-replica")
+    assert '"-Q", "ai"' in ai
+    assert '"--concurrency=1"' in ai
+    assert '"--hostname=ai-replica@%h"' in ai
+    assert "cpus: 1.0" in ai and "mem_limit: 1g" in ai
+
+    documents = service_block("worker-documents-replica")
+    assert '"-Q", "documents"' in documents
+    assert '"--concurrency=1"' in documents
+    assert '"--hostname=documents-replica@%h"' in documents
+    assert "cpus: 1.0" in documents and "mem_limit: 3g" in documents
+
+    beat_services = [name for name in release_plane.SERVICES if "-B" in service_block(name)]
+    assert beat_services == ["worker-ops"]
 
 
 def epoch_manifest(version: str, *, migration: bool, flags: bool = True) -> dict:
@@ -391,6 +430,9 @@ def test_successful_release_switches_slot_and_writes_append_only_evidence(tmp_pa
     commands = [" ".join(call) for call, _ in runner.calls]
     assert any(" pull " in f" {command} " and NEW_IMAGE in command for command in commands)
     assert not any("backup-gate" in command for command in commands)
+    stop_at = next(i for i, command in enumerate(commands) if "stop worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    candidate_workers_at = next(i for i, command in enumerate(commands) if "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    assert stop_at < candidate_workers_at
 
 
 def test_exact_migration_runs_backup_before_alembic_upgrade(tmp_path: Path) -> None:
@@ -450,6 +492,7 @@ def test_public_health_failure_restores_proxy_and_old_workers(
     assert json.loads(cfg.state_file.read_text(encoding="utf-8"))["release_sha"] == OLD_SHA
     commands = [" ".join(call) for call, _ in runner.calls]
     assert any("kamilya-blue" in command and "up -d --no-deps worker-ai" in command for command in commands)
+    assert any("kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command for command in commands)
     assert any("kamilya-green" in command and "down --remove-orphans" in command for command in commands)
     failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
     assert failure["status"] == "ROLLED_BACK"

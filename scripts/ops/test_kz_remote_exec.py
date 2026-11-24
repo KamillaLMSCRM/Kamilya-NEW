@@ -416,7 +416,14 @@ def test_connector_metadata_probe_allows_only_fixed_names_and_safe_fields(monkey
 @pytest.mark.parametrize("slot", ("blue", "green"))
 @pytest.mark.parametrize(
     "service",
-    ("api", "worker-ai", "worker-documents", "worker-ops"),
+    (
+        "api",
+        "worker-ai",
+        "worker-documents",
+        "worker-ops",
+        "worker-ai-replica",
+        "worker-documents-replica",
+    ),
 )
 def test_read_only_sudo_docker_evidence_format_allows_release_slot_containers(
     monkeypatch, tmp_path, slot, service
@@ -436,13 +443,14 @@ def test_read_only_sudo_docker_evidence_format_allows_release_slot_containers(
     assert manifest.mode == "read-only"
 
 
+@pytest.mark.parametrize("service", ("worker-ai", "worker-ai-replica"))
 def test_read_only_allows_bounded_ai_worker_logs_for_sanitized_diagnostics(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, service
 ) -> None:
     _inside_repo(monkeypatch, tmp_path)
     path = _script(
         tmp_path,
-        "sudo -n docker logs --since 15m --tail 200 kamilya-green-worker-ai-1",
+        f"sudo -n docker logs --since 15m --tail 200 kamilya-green-{service}-1",
     )
 
     manifest = remote.load_script(

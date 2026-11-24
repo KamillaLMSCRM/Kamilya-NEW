@@ -56,6 +56,18 @@ services:
     command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-B", "--schedule=/tmp/celerybeat-schedule", "-Q", "maintenance,notifications", "--concurrency=2", "--loglevel=INFO"]
     mem_limit: 2g
 
+  worker-ai-replica:
+    <<: *app-runtime
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "ai", "--concurrency=1", "--hostname=ai-replica@%h", "--loglevel=INFO"]
+    cpus: 1.0
+    mem_limit: 1g
+
+  worker-documents-replica:
+    <<: *app-runtime
+    command: ["celery", "-A", "app.core.celery_app:celery_app", "worker", "-Q", "documents", "--concurrency=1", "--hostname=documents-replica@%h", "--loglevel=INFO"]
+    cpus: 1.0
+    mem_limit: 3g
+
 networks:
   runtime:
     external: true

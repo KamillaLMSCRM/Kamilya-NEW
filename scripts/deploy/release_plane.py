@@ -31,7 +31,14 @@ RELEASE_ID_RE = re.compile(r"^REL-[A-Z0-9][A-Z0-9-]{7,95}$")
 REVISION_RE = re.compile(r"^[0-9]{4}$")
 TOKEN_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_-]{0,63}$")
 SLOTS = ("blue", "green")
-SERVICES = ("api", "worker-ai", "worker-documents", "worker-ops")
+SERVICES = (
+    "api",
+    "worker-ai",
+    "worker-documents",
+    "worker-ops",
+    "worker-ai-replica",
+    "worker-documents-replica",
+)
 WORKERS = SERVICES[1:]
 FEATURE_ENV = {
     "workbench": "METHODOLOGIST_WORKBENCH_ENABLED",
