@@ -52,7 +52,7 @@ export function Logo({
         y="22"
         fontSize="20"
         fontWeight="700"
-        fill="white"
+        fill={flat ? 'hsl(var(--primary-foreground))' : 'white'}
         textAnchor="middle"
         fontFamily="Syne, system-ui, sans-serif"
       >

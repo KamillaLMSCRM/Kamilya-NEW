@@ -105,10 +105,10 @@ export default function Sidebar({ collapsed, mobileOpen = false, onToggle, onClo
     <aside
       data-workspace-rail="true"
       className={cn(
-        'fixed left-0 top-0 z-30 flex h-dvh flex-col border-r border-border bg-card motion-safe:max-md:transition-transform motion-safe:max-md:duration-150',
+        'fixed left-0 top-0 z-30 flex h-dvh flex-col border-r border-border bg-card motion-safe:max-md:transition-[transform,visibility] motion-safe:max-md:duration-150',
         collapsed ? 'w-[68px]' : 'w-[240px]',
         'max-md:w-[240px] max-md:shadow-card-lg',
-        mobileOpen ? 'max-md:translate-x-0 max-md:visible' : 'max-md:-translate-x-full max-md:invisible',
+        mobileOpen ? 'max-md:translate-x-0 max-md:visible' : 'max-md:-translate-x-full max-md:invisible max-md:pointer-events-none',
       )}
     >
       <div className={cn('flex h-[72px] shrink-0 items-center border-b border-border px-5', collapsed && 'justify-center px-0')}>

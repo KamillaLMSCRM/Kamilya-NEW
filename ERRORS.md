@@ -1077,6 +1077,24 @@ Current as of: 2026-11-23.
   inspect rendered pixels and computed styles, not only new controls or green
   workflow tests. Never silently exclude the requested visual layer.
 
+## UI-010 - Mobile drawer and login semantics were incomplete in built output
+
+- Date: 2026-11-24. Local follow-up to the production 0.11.147 UX audit.
+- Symptom: the drawer changed state without the intended transition. The login
+  method exposed tab roles without associated panels or arrow-key navigation.
+- Cause: the workspace mobile selector disabled transitions on the rail as well
+  as the content offset. Login buttons set selection without managing focus or
+  panel relationships.
+- Fix: keep the content offset immediate and restore the rail transition with
+  reduced-motion support. Associate each available login method with its panel
+  and keep one tab stop in the method selector.
+- Verification: local built Chrome at 390px covers opening, closing, and reduced
+  motion. Login keyboard checks pass in RU/KK/EN at 390px and 1440px.
+  See RUN-UX-AUDIT-FOLLOWUP-20261124 for the local verification scope.
+- Prevention: verify computed styles in a built phone-width viewport and test
+  both normal and reduced motion. Exercise tab, arrows, Home and End against the
+  enabled methods, checking focus, panel identity and absence of auth submits.
+
 ## CSS-THEME-001 - Tailwind removed a runtime-only dark base selector from production CSS
 
 - Date:2026-11-02; local authenticated visual candidate.

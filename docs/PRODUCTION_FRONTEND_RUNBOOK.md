@@ -92,7 +92,11 @@ kml.kz / www.kml.kz
 | TLS | Let's Encrypt; renewal authenticator `webroot`; `certbot.timer` enabled/active |
 | Recovery | Proxmox snapshot `pre-kml-web-e463527c`; Vercel CNAME rollback сохранён |
 
-Публичный landing baseline:
+HTTP readback 2026-11-24: `app.kml.kz/healthz` reports
+`44fab5af5d03748632f9f3936cd1f92b1de739c0`. Public landing header
+`X-Kamilya-Landing-Release` reports `0c8aa65da163d261fdb71f8604395825e485e2ea`.
+
+Публичный landing baseline от 2026-09-07. Идентификатор активного релиза приведён выше.
 
 | Объект | Подтверждённое состояние |
 |---|---|

@@ -203,6 +203,11 @@ describe('delivery rendered compositions', () => {
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Methodologist workbench');
     expect(Boolean(container.querySelector('[data-redesign-page="assignment-workbench"]'))).toBe(assignment);
+    if (assignment && document) {
+      expect(container.querySelector('[data-redesign-page="document-workbench"]')).not.toBeInTheDocument();
+      expect(mocks.api.get).not.toHaveBeenCalledWith(expect.stringContaining('/v1/documents/catalog'), expect.anything());
+      fireEvent.click(screen.getByRole('button', { name: 'Document', exact: true }));
+    }
     expect(Boolean(container.querySelector('[data-redesign-page="document-workbench"]'))).toBe(document);
     if (document) await screen.findByText('Synthetic source');
     expect(mocks.api.post).not.toHaveBeenCalled();

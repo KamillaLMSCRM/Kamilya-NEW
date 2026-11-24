@@ -12,7 +12,7 @@ describe('password login', () => {
     fireEvent.click(passwordTab);
     expect(passwordTab).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Email')).toHaveAttribute('type', 'email');
-    expect(screen.getByLabelText('Пароль')).toHaveAttribute('type', 'password');
+    expect(screen.getByLabelText('Пароль', { selector: 'input' })).toHaveAttribute('type', 'password');
     expect(
       screen.getByText(/получили от администратора/i),
     ).toBeInTheDocument();

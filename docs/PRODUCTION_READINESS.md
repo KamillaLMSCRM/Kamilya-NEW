@@ -1,4 +1,11 @@
-## Current - 2026-11-18: learner dialogue122 LOCAL; production121 unchanged
+## Public production readback - 2026-11-24
+
+- API health reports 0.11.148 at `0bdeac42198dd82133cb1fc35d8958825ca42bb9`.
+- LMS frontend health reports 0.11.147 source `44fab5af5d03748632f9f3936cd1f92b1de739c0`.
+- The landing response reports `0c8aa65da163d261fdb71f8604395825e485e2ea` via `X-Kamilya-Landing-Release`.
+- These are public revision readbacks. See the dated release records for deployment and acceptance evidence. Earlier entries below are historical.
+
+## Historical - 2026-11-18: learner dialogue122 LOCAL; production121 unchanged
 
 result: Owner second learner-assistant package implemented locally from accepted
 master66480213/production121. No generation119/120 or migration added.

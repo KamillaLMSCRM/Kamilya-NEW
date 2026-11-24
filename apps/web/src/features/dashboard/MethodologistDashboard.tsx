@@ -316,7 +316,7 @@ function DashboardContent() {
           id: 'training', title: m.priorityPeople, tasks: trainingTasks, empty: model.learningAvailable ? (trainingSourceTruncated || model.attention?.trainingIssues ? q.localEmpty : m.noIssues) : m.unavailable,
           loading: loadStates.learning === 'loading', loadingLabel: m.loading,
           retry: loadStates.learning === 'error' ? () => refreshSection('learning') : undefined, retryLabel: `${w.retry} · ${m.priorityPeople}`,
-          notice: model.attention ? `${queueScope(lang, trainingTasks.length, trainingSourceTruncated ? null : model.attention.trainingIssues)} ${trainingSourceTruncated ? q.trainingBound : ''}` : undefined,
+          notice: model.attention ? `${queueScope(lang, trainingTasks.length, trainingSourceTruncated ? null : model.attention.trainingIssues)} ${trainingSourceTruncated ? q.trainingBound : ''}`.trim() : undefined,
           link: { href: actionCenterHref, label: m.allActions },
         }] : []),
         ...((workView === 'all' || workView === 'content') ? [{
@@ -324,7 +324,7 @@ function DashboardContent() {
           loading: loadStates.jobs === 'loading', loadingLabel: m.loading,
           retry: loadStates.jobs === 'error' ? () => refreshSection('jobs') : undefined, retryLabel: `${w.retry} · ${taskCopy.jobs}`,
           empty: model.content.jobsAvailable ? model.content.jobsTruncated ? q.localEmpty : m.noJobs : m.jobsUnavailable,
-          notice: model.content.jobsAvailable ? `${queueScope(lang, generationTasks.length, model.content.jobTotal)} ${model.content.jobsTruncated ? q.jobsBound : ''}` : undefined,
+          notice: model.content.jobsAvailable ? `${queueScope(lang, generationTasks.length, model.content.jobTotal)} ${model.content.jobsTruncated ? q.jobsBound : ''}`.trim() : undefined,
           link: { href: '/ai/generate', label: q.jobs },
         }] : []),
         ...(workView === 'all' || workView === 'review' ? [{
@@ -333,7 +333,7 @@ function DashboardContent() {
           retry: loadStates.courses === 'error' ? () => refreshSection('courses') : undefined, retryLabel: `${w.retry} · ${review}`,
           empty: !model.content.coursesAvailable ? m.contentUnavailable
             : model.content.coursesTruncated ? q.localEmpty : lang === 'kk' ? 'Тексеруге курс жоқ.' : lang === 'en' ? 'No courses awaiting review.' : 'Нет курсов, ожидающих проверки.',
-          notice: model.content.coursesAvailable ? `${queueScope(lang, reviewTasks.length, model.content.reviewTotal)} ${model.content.coursesTruncated ? q.reviewBound : ''}` : undefined,
+          notice: model.content.coursesAvailable ? `${queueScope(lang, reviewTasks.length, model.content.reviewTotal)} ${model.content.coursesTruncated ? q.reviewBound : ''}`.trim() : undefined,
           link: { href: '/courses?status=draft', label: q.drafts },
         }] : []),
       ]} />}

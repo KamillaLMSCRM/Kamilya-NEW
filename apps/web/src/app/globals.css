@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root:not(.dark):has([data-methodologist-workspace="true"]) {
+:root:not(.dark):has([data-methodologist-workspace="true"]),
+:root:not(.dark):has([data-public-workspace]) {
   --background: 50 27% 96%;
   --foreground: 218 36% 19%;
   --primary: 215 53% 41%;
@@ -11,6 +12,11 @@
   --muted-foreground: 216 23% 41%;
   --border: 214 34% 89%;
   --ring: 215 53% 41%;
+}
+
+:root:has([data-methodologist-workspace="true"]),
+:root:has([data-public-workspace]) {
+  --radius: 0.75rem;
 }
 
 [data-methodologist-workspace] [data-workspace-header] > div:first-child > span[aria-hidden] {
@@ -361,10 +367,9 @@
   }
 }
 
-/* A desktop rail must not animate into the narrow content area on resize. */
+/* The layout offset changes immediately when crossing the mobile breakpoint. */
 @media not all and (min-width: 768px) {
-  .app-shell-main,
-  .app-workspace [data-workspace-rail] {
+  .app-shell-main {
     transition: none;
   }
 }

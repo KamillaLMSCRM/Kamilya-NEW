@@ -8314,3 +8314,25 @@ Index NOT_READY/missing runtime, exact source fallback;0model calls/no deploymen
 
 - Exact DEV `1d3cff024a452487c1e721e9a02b4e3e83f505b5`, CI `45298866601`, image build `45299823046`. Local DEV scope 62 tests, prepared production scope 213 tests. Previous 14-reply replay passed on the prepared production source with the 524,288-byte transport cap.
 - Job `4efb025b-83b4-46b3-a3ae-8ad7cd70f18e` reached `reconciliation_required` after 718.466s. Three Luna 6 replies recorded 397,498 total tokens. Unfinished request usage unknown. The 288-row explicit lookup failed with `503 timeout`; the wire digest and 1,420,306-byte size were reproduced offline. Exact original approval and text were read back unchanged. No course, no second job, no deployment to production. ENG-090.
+
+## 2026-11-24 — RUN-UX-AUDIT-FOLLOWUP-20261124 — LOCAL PASS
+
+LMS base: 0bdeac42198dd82133cb1fc35d8958825ca42bb9, branch
+fix/ux-audit-followup-20261124. Landing base:
+0c8aa65da163d261fdb71f8604395825e485e2ea, candidate 5bfb87bc7cd1435cfa765b1f58b105957c3d008f.
+
+- LMS: 202 files / 1864 tests passed, source lint and Next.js production build
+  with type validation and 70/70 prerendered pages passed. Landing: 123 tests,
+  lint, typecheck and production build passed.
+- Headless Chrome on locally built applications, 390px and 1440px:
+  language-specific login, keyboard focus and panel relationships, demo wording
+  and the hidden lead field in RU/KK/EN. The honeypot remains in FormData.
+- Synthetic methodologist API: visible AI approval with collapsed checks,
+  required API rejection displayed on publication, mobile drawer normal and
+  reduced motion, no early document catalogue/dialogue requests, and preserved
+  input across workbench switches. No real approval, publication or lead.
+- Public release identity observed separately: frontend 44fab5af, API 0.11.148
+  0bdeac42, landing 0c8aa65d. Existing production honeypot computed outside the
+  viewport and aria-hidden in both tested widths. Candidate uses HTML hiding.
+- Evidence: .release-evidence/ux-audit-browser (built UI screenshots and logs).
+  DEV and production candidate acceptance remain pending.

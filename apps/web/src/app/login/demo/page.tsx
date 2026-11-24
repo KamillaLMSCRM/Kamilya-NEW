@@ -18,8 +18,6 @@ interface RoleCard {
   title: string;
   description: string;
   icon: React.ReactNode;
-  color: string;
-  bg: string;
   redirect: string;
 }
 
@@ -36,8 +34,6 @@ export default function DemoLoginPage() {
       title: t('users.roleMethodologist'),
       description: t('demo.login.methodologistDescription'),
       icon: <BookOpen className="w-8 h-8" />,
-      color: 'text-success',
-      bg: 'bg-success/10 hover:bg-success/15 border-success/30',
       redirect: '/courses',
     },
     {
@@ -45,8 +41,6 @@ export default function DemoLoginPage() {
       title: t('users.roleStudent'),
       description: t('demo.login.studentDescription'),
       icon: <GraduationCap className="w-8 h-8" />,
-      color: 'text-accent',
-      bg: 'bg-accent/10 hover:bg-accent/15 border-accent/30',
       redirect: '/my-courses',
     },
   ];
@@ -86,16 +80,16 @@ export default function DemoLoginPage() {
           <ChevronRight className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         </Link>
 
-        <WorkspacePanel title={t('demo.login.workspaceSubtitle')}>
+        <WorkspacePanel title={t('demo.login.workspaceTitle')} description={t('demo.login.workspaceDescription')}>
         <div className="grid min-w-0 gap-4 md:grid-cols-2">
           {roles.map((card) => (
             <button
               key={card.role}
               onClick={() => handleDemoLogin(card)}
               disabled={loading !== null}
-              className={`flex min-w-0 items-start gap-4 rounded-2xl border p-5 text-left transition-colors ${card.bg} ${loading === card.role ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
+              className={`flex min-w-0 items-start gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-5 text-left transition-colors hover:bg-primary/10 ${loading === card.role ? 'opacity-60 cursor-wait' : 'cursor-pointer'}`}
             >
-              <div className={`shrink-0 ${card.color}`}>
+              <div className="shrink-0 text-primary">
                 {loading === card.role ? (
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current" />
                 ) : (

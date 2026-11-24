@@ -820,9 +820,9 @@ export default function CourseEditPage() {
             {course.source_instruction_id && <Badge variant="outline">{t('authenticatedUi.editor.byJobInstruction')}</Badge>}
           </div>
       } actions={
-        <div className="flex max-w-full flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal">
-          {!course.ai_generated && !published && requiresCourseReview && !approved && approvalButton}
-          {!course.ai_generated && !published && (!requiresCourseReview || approved) && publicationButton}
+        <div id={course.ai_generated ? "course-release" : undefined} className="flex max-w-full scroll-mt-24 flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-11 [&_button]:whitespace-normal">
+          {!published && requiresCourseReview && !approved && approvalButton}
+          {!published && (!requiresCourseReview || approved) && publicationButton}
           <Button
             variant="outline"
             size="sm"
@@ -859,7 +859,7 @@ export default function CourseEditPage() {
       </summary>
       <div className="space-y-4 border-t border-border p-4">
       {course.ai_generated && (
-        <section id="course-release" aria-labelledby="course-release-heading" className="scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5">
+        <section aria-labelledby="course-release-heading" className="scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5">
           <h2 id="course-release-heading" className="font-semibold">{t('releaseSteps.title')}</h2>
           <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm marker:font-semibold">
             <li>
@@ -872,12 +872,12 @@ export default function CourseEditPage() {
             <li className="pl-2">
               {approved || published
                 ? <span className="font-medium">{t('releaseSteps.approve')} · {t('releaseSteps.done')}</span>
-                : approvalButton}
+                : <span>{t('releaseSteps.approve')}</span>}
             </li>
             <li className="pl-2">
               {published
                 ? <span className="font-medium">{t('releaseSteps.publish')} · {t('releaseSteps.done')}</span>
-                : approved ? publicationButton : <span>{t('releaseSteps.publish')} · {t('releaseSteps.afterApproval')}</span>}
+                : <span>{t('releaseSteps.publish')}{!approved && ` · ${t('releaseSteps.afterApproval')}`}</span>}
               {!published && <p className="mt-1 text-muted-foreground">{t('releaseSteps.approvalHint')}</p>}
             </li>
             {!course.source_instruction_id && <li>

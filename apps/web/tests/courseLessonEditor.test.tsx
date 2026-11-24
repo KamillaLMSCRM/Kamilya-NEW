@@ -619,10 +619,18 @@ describe('course lesson editor', () => {
     expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
   });
 
-  it('keeps the existing approval gate for AI-generated drafts', async () => {
-    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' }); render(<CourseEditPage />);
-    expect(await screen.findByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeInTheDocument();
+  it('shows one AI approval action when publication details are collapsed', async () => {
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    const { container } = render(<CourseEditPage />);
+    const approve = await screen.findByRole('button', { name: 'authenticatedUi.editor.approveCourse' });
+    const checks = container.querySelector('[data-publication-checks]');
+    expect(checks).not.toHaveAttribute('open');
+    expect(container.querySelector('#course-release')).toContainElement(approve);
+    expect(checks).not.toContainElement(approve);
     expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
+    fireEvent.click(approve);
+    expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
   });
 
   it('integrates a verified fresh correction without issuing a manual PATCH', async () => {
