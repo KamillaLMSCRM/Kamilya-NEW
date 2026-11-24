@@ -40,6 +40,7 @@ SERVICES = (
     "worker-documents-replica",
 )
 WORKERS = SERVICES[1:]
+LEGACY_SERVICES = ("api", "worker-ai", "worker-documents", "worker-ops")
 FEATURE_ENV = {
     "workbench": "METHODOLOGIST_WORKBENCH_ENABLED",
     "document_draft": "METHODOLOGIST_DOCUMENT_DRAFT_ENABLED",
@@ -588,6 +589,29 @@ class ReleasePlane:
                 except (ValueError, ReleasePlaneError) as error:
                     raise ReleasePlaneError(f"container_feature_flag_mismatch:{service}") from error
 
+    def _active_worker_services(self, slot: str, image: str, release_sha: str,
+                                 flags: Mapping[str, bool] | None = None) -> tuple[str, ...]:
+        """Read and verify the exact supported previous worker topology."""
+        env = self._slot_env(slot, image, release_sha, flags)
+        present: set[str] = set()
+        for service in WORKERS:
+            container = self.runner.run(self._compose(slot, "ps", "-q", service), env=env)
+            if container and "\n" in container:
+                raise ReleasePlaneError(f"container_identity_invalid:{service}")
+            if container:
+                present.add(service)
+        legacy = set(LEGACY_SERVICES[1:])
+        replicas = set(WORKERS) - legacy
+        if legacy <= present and not (replicas & present):
+            services = LEGACY_SERVICES
+        elif set(WORKERS) <= present:
+            services = SERVICES
+        else:
+            raise ReleasePlaneError("active_worker_topology_invalid")
+        self._verify_services(slot, image, release_sha, flags, services,
+                              allow_unsupported_disabled=True)
+        return services
+
     def _revision_matches(self, current: str, revision: str | None) -> bool:
         if self.manifest.schema_version == 1:
             return current.startswith(revision or "")
@@ -685,6 +709,7 @@ class ReleasePlane:
         old_proxy = ""
         candidate_started = False
         old_workers_stopped = False
+        previous_workers: tuple[str, ...] = LEGACY_SERVICES[1:]
         proxy_switched = False
         rollback_status = "not_required"
         try:
@@ -728,7 +753,10 @@ class ReleasePlane:
                 raise ReleasePlaneError("expected_previous_release_mismatch")
 
             if self.manifest.schema_version >= 2:
-                self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags, allow_unsupported_disabled=True)
+                previous_services = self._active_worker_services(
+                    state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags
+                )
+                previous_workers = previous_services[1:]
 
             self.runner.run([str(self.config.docker_binary), "pull", self.manifest.image])
             candidate_env = self._slot_env(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags)
@@ -811,8 +839,10 @@ class ReleasePlane:
                 self._verify_services(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags, ("api",))
 
             active_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags)
-            self.runner.run(self._compose(state.active_slot, "stop", *WORKERS), env=active_env)
+            # Mark before the multi-service stop: Compose can partially stop the
+            # old set and still return an error, so rollback must restore all of it.
             old_workers_stopped = True
+            self.runner.run(self._compose(state.active_slot, "stop", *previous_workers), env=active_env)
             self.runner.run(
                 self._compose(inactive, "up", "-d", "--no-deps", *WORKERS), env=candidate_env
             )
@@ -867,23 +897,29 @@ class ReleasePlane:
                         _atomic_write(self.config.proxy_upstream_file, old_proxy, 0o644)
                         self._reload_proxy()
                     active_env = self._slot_env(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags)
-                    if old_workers_stopped:
-                        self.runner.run(
-                            self._compose(state.active_slot, "up", "-d", "--no-deps", *WORKERS),
-                            env=active_env,
-                        )
                     candidate_env = self._slot_env(
                         inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags
                     )
+                    if old_workers_stopped:
+                        self.runner.run(
+                            self._compose(inactive, "stop", *WORKERS), env=candidate_env
+                        )
                     self.runner.run(
                         self._compose(inactive, "down", "--remove-orphans"), env=candidate_env
                     )
+                    if old_workers_stopped:
+                        self.runner.run(
+                            self._compose(state.active_slot, "up", "-d", "--no-deps", *previous_workers),
+                            env=active_env,
+                        )
                     self._wait_health(
                         f"http://127.0.0.1:{self.config.slot_ports[state.active_slot]}/health",
                         state.release_sha,
                     )
                     if self.manifest.schema_version >= 2:
-                        self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.previous_feature_flags, allow_unsupported_disabled=True)
+                        self._verify_services(state.active_slot, state.image, state.release_sha,
+                                              self.manifest.previous_feature_flags, previous_services,
+                                              allow_unsupported_disabled=True)
                     rollback_status = "completed"
                 except Exception:
                     rollback_status = "failed"

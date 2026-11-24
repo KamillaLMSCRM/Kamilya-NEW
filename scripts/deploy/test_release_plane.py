@@ -345,6 +345,7 @@ class FakeRunner:
         self.calls: list[tuple[tuple[str, ...], dict[str, str]]] = []
         self.fail_token = fail_token
         self.initial_revision = initial_revision
+        self.container_images: dict[str, str] = {}
 
     def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
         call = tuple(args)
@@ -359,9 +360,16 @@ class FakeRunner:
                 else self.initial_revision
             )
         if " ps -q " in " ".join(call):
-            return "container-id"
+            service = call[-1]
+            image = str((env or {}).get("KAMILYA_API_IMAGE", NEW_IMAGE))
+            if image == OLD_IMAGE and service in {"worker-ai-replica", "worker-documents-replica"}:
+                return ""
+            container = f"{image.split('@')[-1][:6]}-{service}"
+            self.container_images[container] = image
+            return container
         if " inspect " in " ".join(call):
-            return f"{NEW_IMAGE}|running|0"
+            container = call[-1]
+            return f"{self.container_images.get(container, NEW_IMAGE)}|running|0"
         return ""
 
 
@@ -374,6 +382,21 @@ class FakeHealth:
             raise release_plane.ReleasePlaneError("synthetic_public_health_failure")
         sha = OLD_SHA if ":18000/" in url else NEW_SHA
         return {"status": "ok", "release_sha": sha, "deployment_environment": "kz-production"}
+
+
+def test_active_worker_topology_fails_closed_on_partial_replica_pair(tmp_path: Path) -> None:
+    class PartialReplicaRunner(FakeRunner):
+        def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
+            call = tuple(args)
+            if call[-2:] == ("-q", "worker-ai-replica") and (env or {}).get("KAMILYA_API_IMAGE") == OLD_IMAGE:
+                return "partial-replica-container"
+            return super().run(args, env=env)
+
+    runner = PartialReplicaRunner()
+    plane = release_plane.ReleasePlane(manifest(), config(tmp_path), runner, FakeHealth())
+
+    with pytest.raises(release_plane.ReleasePlaneError, match="active_worker_topology_invalid"):
+        plane._active_worker_services("blue", OLD_IMAGE, OLD_SHA)
 
 
 def test_manifest_rejects_mutable_image_and_unsafe_migration() -> None:
@@ -430,9 +453,10 @@ def test_successful_release_switches_slot_and_writes_append_only_evidence(tmp_pa
     commands = [" ".join(call) for call, _ in runner.calls]
     assert any(" pull " in f" {command} " and NEW_IMAGE in command for command in commands)
     assert not any("backup-gate" in command for command in commands)
-    stop_at = next(i for i, command in enumerate(commands) if "stop worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    stop_at = next(i for i, command in enumerate(commands) if "stop worker-ai worker-documents worker-ops" in command)
     candidate_workers_at = next(i for i, command in enumerate(commands) if "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
     assert stop_at < candidate_workers_at
+    assert "worker-ai-replica" not in commands[stop_at]
 
 
 def test_exact_migration_runs_backup_before_alembic_upgrade(tmp_path: Path) -> None:
@@ -491,8 +515,11 @@ def test_public_health_failure_restores_proxy_and_old_workers(
     assert cfg.proxy_upstream_file.read_text(encoding="utf-8") == "old-proxy\n"
     assert json.loads(cfg.state_file.read_text(encoding="utf-8"))["release_sha"] == OLD_SHA
     commands = [" ".join(call) for call, _ in runner.calls]
-    assert any("kamilya-blue" in command and "up -d --no-deps worker-ai" in command for command in commands)
-    assert any("kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command for command in commands)
+    restore_at = next(i for i, command in enumerate(commands) if "kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops" in command)
+    candidate_stop_at = next(i for i, command in enumerate(commands) if "kamilya-green" in command and "stop worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    candidate_down_at = max(i for i, command in enumerate(commands) if "kamilya-green" in command and "down --remove-orphans" in command)
+    assert candidate_stop_at < candidate_down_at < restore_at
+    assert "worker-ai-replica" not in commands[restore_at]
     assert any("kamilya-green" in command and "down --remove-orphans" in command for command in commands)
     failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
     assert failure["status"] == "ROLLED_BACK"

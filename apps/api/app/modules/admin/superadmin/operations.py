@@ -474,7 +474,12 @@ def _celery_role_summaries(active_queues: object) -> list[CeleryWorkerRoleSummar
         unexpected = active - allowed
         if not candidates:
             role_status: Literal["healthy", "degraded", "unavailable"] = "unavailable"
-        elif not missing and not unexpected and unapproved_queue_count == 0:
+        elif (
+            not missing
+            and not unexpected
+            and unapproved_queue_count == 0
+            and (role != "fast" or len(candidates) == 1)
+        ):
             role_status = "healthy"
         else:
             role_status = "degraded"

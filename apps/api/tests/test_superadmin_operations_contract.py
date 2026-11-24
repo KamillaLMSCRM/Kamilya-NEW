@@ -259,6 +259,38 @@ def test_celery_probe_accepts_replicas_on_the_same_role_queues(monkeypatch):
     assert "worker-host" not in summary.model_dump_json()
 
 
+def test_celery_probe_keeps_operations_role_singleton(monkeypatch):
+    class FakeInspector:
+        def registered(self):
+            return {
+                "fast@worker-host": list(REQUIRED_CELERY_TASKS),
+                "fast-replica@worker-host": list(REQUIRED_CELERY_TASKS),
+                "documents@worker-host": list(REQUIRED_CELERY_TASKS),
+                "ai@worker-host": list(REQUIRED_CELERY_TASKS),
+                "ai-replica@worker-host": list(REQUIRED_CELERY_TASKS),
+            }
+
+        def active_queues(self):
+            return {
+                "fast@worker-host": [{"name": "maintenance"}, {"name": "notifications"}],
+                "fast-replica@worker-host": [{"name": "maintenance"}, {"name": "notifications"}],
+                "documents@worker-host": [{"name": "documents"}],
+                "ai@worker-host": [{"name": "ai"}],
+                "ai-replica@worker-host": [{"name": "ai"}],
+            }
+
+    monkeypatch.setattr(operations.celery_app.control, "inspect", lambda **kwargs: FakeInspector())
+    summary = _inspect_celery_worker()
+    workers = {worker.role: worker for worker in summary.workers}
+
+    assert workers["fast"].status == "degraded"
+    assert workers["fast"].worker_count == 2
+    assert workers["documents"].status == "healthy"
+    assert workers["documents"].worker_count == 1
+    assert workers["ai"].status == "healthy"
+    assert workers["ai"].worker_count == 2
+
+
 def test_celery_probe_reports_partial_queue_degradation_without_hiding_healthy_roles(monkeypatch):
     class FakeInspector:
         def registered(self):
