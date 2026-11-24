@@ -211,6 +211,9 @@ jobs:
       - name: Native CT137 frontend helper safety and rollback state
         run: poetry run python ../../scripts/ops/test_kamilya_web_deploy.py
 
+      - name: CT137 off-host release archive gates
+        run: poetry run pytest -q ../../scripts/ops/test_ct137_offhost_archive.py
+
       - name: Isolated frontend DEV preview safety
         run: poetry run python -m unittest discover -s ../../scripts/deploy -p test_vercel_frontend_preview.py -q
 

@@ -142,6 +142,9 @@ class FakeHost:
         self.calls.append(("deploy", release_sha, previous_sha, archive_digest))
         self.current = release_sha
 
+    def discard_deployed_upload(self, release_sha: str, archive_digest: str, manifest_digest: str) -> None:
+        self.calls.append(("discard", release_sha, archive_digest, manifest_digest))
+
 
 class FakePublic:
     def verify(self, release_sha: str) -> dict[str, object]:
@@ -331,16 +334,28 @@ class OrchestrationTests(unittest.TestCase):
             root = Path(temporary)
             _artifact(root)
             host = FakeHost()
+            def publish(kind, sha, files):
+                host.calls.append(("archive", kind, sha))
+                self.assertEqual(set(files), {
+                    f"frontend-native-{sha}.tar.gz", "manifest.json", "bundle.sha256"
+                })
+                return {"release_sha": sha}
+
             orchestrator = release.NativeReleaseOrchestrator(
                 repository=FakeRepository(),
                 github=FakeGithub(),
                 host=host,
                 public=FakePublic(),
+                archive=publish,
             )
 
             result = orchestrator.execute(_packet(), root)
 
             stages = [call for call in host.calls if call[0] == "stage"]
+            self.assertLess(host.calls.index(("archive", "web", SHA)), host.calls.index(stages[0]))
+            self.assertEqual(host.calls[-1][0], "discard")
+            self.assertEqual(result["offhost_archive"], {"release_sha": SHA})
+            self.assertEqual(result["stage_cleanup"], "PASS")
             self.assertEqual(
                 [stage[1] for stage in stages],
                 [
@@ -377,12 +392,29 @@ class OrchestrationTests(unittest.TestCase):
                 github=FakeGithub(),
                 host=MissingRollbackAfterDeploy(),
                 public=FakePublic(),
+                archive=lambda *_: {},
             )
 
             with self.assertRaisesRegex(
                 release.ReleaseBlocked, "ct137_post_deploy_inventory_mismatch"
             ):
                 orchestrator.execute(_packet(), root)
+
+    def test_archive_failure_prevents_any_ct137_write(self) -> None:
+        def unavailable(*_):
+            raise OSError("VPS unavailable")
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _artifact(root)
+            host = FakeHost()
+            orchestrator = release.NativeReleaseOrchestrator(
+                repository=FakeRepository(), github=FakeGithub(), host=host,
+                public=FakePublic(), archive=unavailable,
+            )
+            with self.assertRaisesRegex(release.ReleaseBlocked, "offhost_archive_publish_unverified"):
+                orchestrator.execute(_packet(), root)
+            self.assertFalse(any(call[0] in {"stage", "deploy", "discard"} for call in host.calls))
 
 
 def test_native_workflow_defaults_off_and_attests_exact_build_flag() -> None:
@@ -533,6 +565,7 @@ def test_v63_build_config_v4_binds_staff_flag_and_mismatch_stops_before_host(tmp
     matching_host = FakeHost()
     matching = release.NativeReleaseOrchestrator(
         repository=FakeRepository(), github=FakeGithub(), host=matching_host, public=FakePublic(),
+        archive=lambda *_: {},
     ).execute(_staff_packet(enabled=True), tmp_path)
     assert matching["staff_structure_enabled"] is True
     assert matching["preflight"]["staff_structure_enabled"] is True

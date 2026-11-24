@@ -20,6 +20,7 @@ parser.add_argument("--test-helper", action="store_true")
 parser.add_argument("--verify-boundary", action="store_true")
 parser.add_argument("--expected-rollback-sha")
 parser.add_argument("--deploy", nargs=3, metavar=("RELEASE", "PREVIOUS", "DIGEST"))
+parser.add_argument("--discard-deployed-upload", nargs=3, metavar=("RELEASE", "ARCHIVE_DIGEST", "MANIFEST_DIGEST"))
 parser.add_argument(
     "--cleanup-plan", nargs=3, metavar=("OBSOLETE", "CURRENT", "ROLLBACK")
 )
@@ -36,12 +37,20 @@ operation_count = sum(
         args.test_helper,
         args.verify_boundary,
         bool(args.deploy),
+        bool(args.discard_deployed_upload),
         bool(args.cleanup_plan),
         bool(args.cleanup),
     ]
 )
 if operation_count != 1:
     parser.error("select exactly one operation")
+if args.discard_deployed_upload and not all(
+    re.fullmatch(pattern, value)
+    for pattern, value in zip(
+        ("[0-9a-f]{40}", "[0-9a-f]{64}", "[0-9a-f]{64}"), args.discard_deployed_upload
+    )
+):
+    parser.error("invalid deployed upload identity")
 if args.verify_boundary and not re.fullmatch(
     "[0-9a-f]{40}", args.expected_rollback_sha or ""
 ):
@@ -58,6 +67,7 @@ elif any((args.recovery_archive, args.recovery_manifest, args.prune_staged_copy)
     parser.error("recovery arguments are valid only with --cleanup")
 
 transport = importlib.import_module("ct137_ssh_transport")
+paramiko = importlib.import_module("paramiko")
 
 if args.stage_file:
     try:
@@ -78,7 +88,10 @@ if args.stage_file:
     if transport.digest(path) != args.expected_sha256:
         parser.error("--stage-file digest does not match --expected-sha256")
     if path.suffix == ".gz":
-        manifest = json.loads((path.parent / "manifest.json").read_text())
+        manifest_path = path.with_name(path.name.removesuffix(".tar.gz") + ".manifest.json")
+        if not manifest_path.is_file():
+            manifest_path = path.parent / "manifest.json"
+        manifest = json.loads(manifest_path.read_text())
         assert manifest["release_sha"] == path.name[16:-7]
         assert manifest["sha256"] == args.expected_sha256
         assert (
@@ -132,9 +145,9 @@ def validate_recovery(
 
 values = transport.env()
 assert values["PROXY_VPS_HOST"] == transport.PROXY
-client = transport.paramiko.SSHClient()
+client = paramiko.SSHClient()
 client.load_host_keys(str(Path.home() / ".ssh/known_hosts"))
-client.set_missing_host_key_policy(transport.paramiko.RejectPolicy())
+client.set_missing_host_key_policy(paramiko.RejectPolicy())
 try:
     client.connect(
         transport.PROXY,
@@ -146,6 +159,32 @@ try:
     )
     if args.stage_file:
         transport.stream(client, path)
+    elif args.discard_deployed_upload:
+        sha, archive_digest, manifest_digest = args.discard_deployed_upload
+        command = f"""set -eu
+test "$(hostname)" = webkml
+test "$(id -un)" = kamilya-admin
+test "$(cat /etc/kamilya-web-release)" = {sha}
+cd /home/kamilya-admin/incoming
+a=frontend-native-{sha}.tar.gz
+m=frontend-native-{sha}.manifest.json
+for name in "$a" "$m"; do
+    test ! -L "$name"
+    if test -e "$name"; then
+        test -f "$name" && test "$(stat -c '%u:%a' "$name")" = "$(id -u):600"
+    fi
+done
+if test -e "$a"; then test "$(sha256sum "$a" | cut -d ' ' -f 1)" = {archive_digest}; fi
+if test -e "$m"; then test "$(sha256sum "$m" | cut -d ' ' -f 1)" = {manifest_digest}; fi
+rm -f -- "$a" "$m"
+test ! -e "$a" && test ! -e "$m"
+printf 'UPLOAD_DISCARDED\\n'
+"""
+        _, output, errors = client.exec_command(transport.PREFIX + shlex.quote(command), timeout=240)
+        result = output.read(4096).decode().strip()
+        if output.channel.recv_exit_status() or errors.read(4096) or result != "UPLOAD_DISCARDED":
+            raise SystemExit("BLOCKED: deployed upload cleanup unverified")
+        print(result)
     elif args.inventory:
         command = r"""set -eu
 test "$(hostname)" = webkml

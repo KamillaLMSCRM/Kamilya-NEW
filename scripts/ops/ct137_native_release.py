@@ -24,7 +24,7 @@ import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -219,6 +219,7 @@ class HostProbe(Protocol):
     def deploy(
         self, release_sha: str, previous_sha: str, archive_digest: str
     ) -> None: ...
+    def discard_deployed_upload(self, release_sha: str, archive_digest: str, manifest_digest: str) -> None: ...
 
 
 class PublicProbe(Protocol):
@@ -560,11 +561,13 @@ class NativeReleaseOrchestrator:
         github: GithubProbe,
         host: HostProbe,
         public: PublicProbe,
+        archive: Callable[[str, str, dict[str, tuple[Path, str]]], dict] | None = None,
     ) -> None:
         self.repository = repository
         self.github = github
         self.host = host
         self.public = public
+        self.archive = archive
 
     def preflight(self, packet: ReleasePacket, artifact_dir: Path) -> dict[str, Any]:
         packet.validate()
@@ -639,6 +642,21 @@ class NativeReleaseOrchestrator:
                 or artifact.manifest_sha256 != preflight["artifact"]["manifest_sha256"]
                 or artifact.build_config_sha256 != preflight["artifact"]["build_config_sha256"]):
             raise ReleaseBlocked("artifact_changed_after_preflight")
+        if self.archive is None:
+            raise ReleaseBlocked("offhost_archive_publisher_missing")
+        archive_files = {
+            artifact.archive.name: (artifact.archive, artifact.archive_sha256),
+            artifact.manifest.name: (artifact.manifest, artifact.manifest_sha256),
+            "bundle.sha256": (artifact_dir / "bundle.sha256", _digest(artifact_dir / "bundle.sha256")),
+        }
+        if artifact.build_config_sha256 is not None:
+            archive_files["build-config.json"] = (
+                artifact_dir / "build-config.json", artifact.build_config_sha256
+            )
+        try:
+            archive_receipt = self.archive("web", packet.exact_sha, archive_files)
+        except Exception:
+            raise ReleaseBlocked("offhost_archive_publish_unverified") from None
         scoped_manifest = (
             artifact.manifest.parent
             / f"frontend-native-{packet.exact_sha}.manifest.json"
@@ -675,6 +693,13 @@ class NativeReleaseOrchestrator:
         technical = self.public.verify(packet.exact_sha)
         if technical.get("release_sha") != packet.exact_sha:
             raise ReleaseBlocked("public_release_identity_mismatch")
+        try:
+            self.host.discard_deployed_upload(
+                packet.exact_sha, artifact.archive_sha256, artifact.manifest_sha256
+            )
+            stage_cleanup = "PASS"
+        except Exception:
+            stage_cleanup = "PENDING"
         # The immutable build configuration proves this value; HTTP health alone
         # does not prove feature availability or user-flow acceptance.
         technical = {
@@ -703,6 +728,8 @@ class NativeReleaseOrchestrator:
             "host_readback": after,
             "host_inventory_readback": after_inventory,
             "technical_readback": technical,
+            "offhost_archive": archive_receipt,
+            "stage_cleanup": stage_cleanup,
             "product_acceptance": "SEPARATE_TEST_RUNNER_REQUIRED",
         }
 
@@ -912,6 +939,9 @@ class Ct137HostCli:
     def deploy(self, release_sha: str, previous_sha: str, archive_digest: str) -> None:
         self._controller("--deploy", release_sha, previous_sha, archive_digest)
 
+    def discard_deployed_upload(self, release_sha: str, archive_digest: str, manifest_digest: str) -> None:
+        self._controller("--discard-deployed-upload", release_sha, archive_digest, manifest_digest)
+
 
 class PublicHttpProbe:
     @staticmethod
@@ -978,6 +1008,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from ct137_archive_store import publish_package
+
     args = build_parser().parse_args(argv)
     packet = load_release_packet(args.packet, args.packet_sha256)
     try:
@@ -991,6 +1023,7 @@ def main(argv: list[str] | None = None) -> int:
             github=github,
             host=Ct137HostCli(),
             public=PublicHttpProbe(),
+            archive=publish_package,
         )
         result = (
             orchestrator.preflight(packet, artifact_dir)

@@ -1,7 +1,11 @@
 from __future__ import annotations
 import hashlib, shlex
+import uuid
 from pathlib import Path
-import paramiko
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from paramiko import SSHClient
 
 ROOT = Path(r"C:\Kamilya New")
 PROXY = "92.38.49.167"; INCOMING = "/home/kamilya-admin/incoming"
@@ -18,13 +22,14 @@ def digest(path: Path) -> str:
     with path.open("rb") as f:
         for part in iter(lambda: f.read(1048576), b""): h.update(part)
     return h.hexdigest()
-def stream(client: paramiko.SSHClient, path: Path) -> None:
+def stream(client: SSHClient, path: Path) -> None:
     name, size, sha = path.name, path.stat().st_size, digest(path)
-    final = f"{INCOMING}/{name}"; partial = f"{INCOMING}/.{name}.partial.$$"
+    final = f"{INCOMING}/{name}"; partial = f"{INCOMING}/.{name}.{uuid.uuid4().hex}.partial"
     remote = ("set -eu; umask 077; " f"install -d -m 700 {INCOMING}; test ! -e {shlex.quote(final)}; "
               f"p={shlex.quote(partial)}; trap 'rm -f -- \"$p\"' EXIT HUP INT TERM; cat > \"$p\"; "
               f"test \"$(wc -c < \"$p\" | tr -d ' ')\" = {size}; test \"$(sha256sum \"$p\" | awk '{{print $1}}')\" = {sha}; "
-              f"chmod 600 \"$p\"; mv \"$p\" {shlex.quote(final)}; trap - EXIT HUP INT TERM; printf 'STAGE_OK {name} {sha}\\n'")
+              f"chmod 600 \"$p\"; ln -T -- \"$p\" {shlex.quote(final)}; rm -f -- \"$p\"; "
+              f"trap - EXIT HUP INT TERM; printf 'STAGE_OK {name} {sha}\\n'")
     channel = client.get_transport().open_session(timeout=30); channel.exec_command(PREFIX + shlex.quote(remote))
     with path.open("rb") as f:
         for part in iter(lambda: f.read(1048576), b""): channel.sendall(part)

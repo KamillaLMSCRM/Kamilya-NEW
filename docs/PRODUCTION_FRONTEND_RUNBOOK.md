@@ -266,12 +266,16 @@ TTL: Auto
 
 ### Runtime rollback на CT137
 
+Штатный выпуск кабинета и лендинга сохраняет точный пакет на отдельном
+архивном VPS до загрузки на CT137. Пути контроллеров, проверка архивов и
+восстановление по SHA описаны в [операционном runbook CT137](runbooks/ct137-native-frontend-deploy.md#off-host-release-archives).
+
 Если предыдущая release directory сохранена и проверена, вернуть
 `/opt/kamilya-web/current` на неё, обновить `/etc/kamilya-web-release`,
 перезапустить `kamilya-web` и повторить exact-SHA gate. Если корректного
-предыдущего release нет, использовать только заранее проверенный Proxmox
-snapshot/recovery plan; не восстанавливать snapshot вслепую после изменения
-данных или сети.
+предыдущего release нет, восстановить точный проверенный frontend-пакет с
+архивного VPS по согласованному recovery plan. Восстановление целого
+Proxmox snapshot требует отдельного плана с учётом состояния данных и сети.
 
 ## Секреты и границы
 

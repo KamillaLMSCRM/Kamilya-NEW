@@ -62,9 +62,12 @@ Infrastructure bootstrap or changing the privilege boundary still needs owner ap
      --evidence .release-evidence/<release-id>/technical-readback.json
    ```
 
-   Execute repeats every preflight gate, creates only the required temporary
-   SHA-scoped manifest copy, stages the exact archive/manifest pair, deploys once,
-   then reads back CT137 status and the public frontend/API identity. A stopped
+   Execute repeats every preflight gate, verifies the off-host archive receipt,
+   creates the required temporary SHA-scoped manifest copy, stages the exact
+   pair, deploys once, and reads back CT137 status and the public frontend/API
+   identity. After verified readback it discards the exact staged upload pair.
+   If that cleanup fails, evidence reports `stage_cleanup=PENDING` for targeted
+   reconciliation while retaining the verified release result. A stopped
    preflight or execute is a block, never permission to fall back to manual
    staging. `ct137_native_deploy.py` remains a lower-level maintenance and
    recovery tool.
@@ -80,6 +83,65 @@ Infrastructure bootstrap or changing the privilege boundary still needs owner ap
 6. Preserve release/rollback evidence and current operational state. Do not call
    the release accepted if the separately owned browser/API acceptance is still
    incomplete.
+
+## Off-host release archives
+
+Both controllers archive before writing an upload to CT137. The existing Legacy
+Kamilya VPS (`vmi3311535`, see [VPS access map](../VPS_CONNECTION_GUIDE.md))
+is the archive host. The public proxy passes SSH traffic to CT137 and stores no
+packages. Archives live in
+`/opt/kamilya-release-archives/ct137/{web,landing}/<exact-sha>/`.
+The controller uses the pinned SSH host key, checks host identity, and verifies
+the size and SHA-256 of every file on the archive VPS. Existing identical files
+can be reused. A different file at the same path stops the release.
+`receipt.json` is published last. The release readback preserves the receipt as
+`offhost_archive`. An unavailable VPS or failed verification blocks staging.
+
+- Cabinet releases continue through `ct137_native_release.py execute` or the
+  Release Runner. Retain the native bundle, manifest, `bundle.sha256`, and its
+  attested `build-config.json` where required by the artifact version.
+- Landing releases use the controller below from the current Kamilya-NEW
+  checkout with a clean linked landing worktree. Retain the exact
+  `git archive` source and `source.sha256`. Keep the normal preview, approval,
+  protected master readback, runtime rollback, and public browser gates.
+  The CT137 landing helper removes the temporary upload on success. The
+  root-owned source copies used by its existing build recovery and retention
+  checks follow that helper's retention procedure.
+
+```powershell
+$toolPython = 'C:/Users/user/.codex/tool-envs/kamilya-agent-tools/Scripts/python.exe'
+& $toolPython scripts/ops/ct137_landing_release.py `
+  --repo <clean-landing-worktree> --sha <approved-master-sha> `
+  --previous <live-landing-sha> --helper-sha256 <verified-installed-helper-digest> `
+  --preview-receipt <preview-checks.json> --preview-sha256 <receipt-digest> `
+  --evidence <new-evidence-directory>
+```
+
+For an archive recovery drill, use a new local destination. The restore command
+validates the receipt identity and remote checksums, downloads each file, and
+verifies its bytes before publishing the recovered directory locally:
+
+```powershell
+& $toolPython scripts/ops/ct137_archive_store.py web <previous-sha> <new-local-directory>
+& $toolPython scripts/ops/ct137_archive_store.py landing <previous-sha> <new-local-directory>
+```
+
+For the cabinet, validate with `inspect_native_artifact`, extract on a compatible
+Linux runtime, then start the archived Next.js release on an isolated localhost
+port. Check the release's build ID, `/login`, and one requested static asset.
+For the landing, verify the Git archive commit and rebuild the source with its
+frozen lockfile and documented public build variables. Start it separately and
+check `/ru`, `/kk` and static delivery. In a drill, verify the current release
+first, then stop it and start the previous release on the same test port. The
+drill leaves public routing and production data untouched.
+
+For an authorized live rollback, use the verified installed previous release
+when it is available. If it must be rebuilt, stage the recovered package through
+the restricted CT137 transport and reconcile the expected current release with
+the recovery SHA before invoking the appropriate existing helper. Verify service,
+marker, routes and the affected browser flow. Old archive folders created before
+this procedure need a verified receipt before the restore command will accept
+them.
 
 ## Capacity, cleanup and recovery
 

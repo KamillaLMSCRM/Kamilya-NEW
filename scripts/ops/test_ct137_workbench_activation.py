@@ -64,6 +64,7 @@ def _orchestrator(host: native_fixtures.FakeHost | None = None) -> release.Nativ
         github=native_fixtures.FakeGithub(),
         host=host or native_fixtures.FakeHost(),
         public=native_fixtures.FakePublic(),
+        archive=lambda *_: {},
     )
 
 
