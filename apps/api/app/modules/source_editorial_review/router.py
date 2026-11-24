@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_role
 from app.core.db import get_db
+from app.core.operation_log import operation_event, uuid_label
 from app.models.users import User
 from app.modules.source_editorial_review.domain import ReviewCommand, ReviewConflictError
 from app.modules.source_editorial_review.service import (
@@ -82,7 +83,12 @@ async def change_review(doc_id: UUID, command: ReviewCommand, db: Database, user
         rows, state, event, dispatch = await apply_command(db, doc, UUID(str(user.id)), command)
         response = review_view(doc, rows, state, event, actor_id=UUID(str(user.id)))
     except ReviewConflictError as error:
+        operation_event("source_review.command.conflict", document_id=str(doc_id),
+                        action=command.action, expected_revision=command.expected_revision)
         raise _conflict(error) from error
+    operation_event("source_review.command.accepted", document_id=str(doc_id), action=command.action,
+                    expected_revision=command.expected_revision, event_id=str(event.id) if event else None,
+                    decision=command.decision)
     if dispatch:
         # Persist the command before dispatch. A lost acknowledgement can replay
         # the exact key; only one delivery can claim the queued event.
@@ -90,10 +96,12 @@ async def change_review(doc_id: UUID, command: ReviewCommand, db: Database, user
         from app.core.celery_app import celery_app
 
         try:
-            celery_app.send_task("documents.editorial_review", args=[str(tenant), str(doc_id), str(event.id)],
-                                 queue="documents", retry=False)
+            task = celery_app.send_task("documents.editorial_review", args=[str(tenant), str(doc_id), str(event.id)],
+                                        queue="documents", retry=False)
         except Exception as error:
             raise HTTPException(status_code=503, detail={"code": "source_review_dispatch_unknown"}) from error
+        operation_event("source_review.dispatched", document_id=str(doc_id), queued_event_id=str(event.id),
+                        task_id=uuid_label(task.id))
     return response
 
 

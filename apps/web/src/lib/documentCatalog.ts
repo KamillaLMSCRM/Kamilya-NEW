@@ -1,3 +1,5 @@
+import type { SourceReviewStatus } from '@/features/source-editorial-review/contract';
+
 export type DocumentCategory = 'general' | 'job_instruction';
 export type DocumentIndexStatus = 'processing' | 'ready' | 'partial' | 'failed';
 export type DocumentLifecycleStatus = 'active' | 'deletion_pending' | 'delete_failed';
@@ -29,6 +31,7 @@ export interface DocumentCatalogItem {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  source_review_status?: SourceReviewStatus | null;
   usages_summary?: {
     total: number;
     courses: number;
