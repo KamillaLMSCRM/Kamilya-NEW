@@ -206,7 +206,7 @@ describe('delivery rendered compositions', () => {
     if (assignment && document) {
       expect(container.querySelector('[data-redesign-page="document-workbench"]')).not.toBeInTheDocument();
       expect(mocks.api.get).not.toHaveBeenCalledWith(expect.stringContaining('/v1/documents/catalog'), expect.anything());
-      fireEvent.click(screen.getByRole('button', { name: 'Document', exact: true }));
+      fireEvent.click(screen.getByRole('button', { name: /^Document$/ }));
     }
     expect(Boolean(container.querySelector('[data-redesign-page="document-workbench"]'))).toBe(document);
     if (document) await screen.findByText('Synthetic source');
