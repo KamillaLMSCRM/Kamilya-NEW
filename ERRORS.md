@@ -11716,3 +11716,12 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 - Fix: compose the history in the shared workspace, register localized help and compare destination paths while asserting the exact fresh-start and history links.
 - Verification: all 38 contextual help, navigation and coverage checks passed locally. The live DEV flows passed at 1440 and 390 pixels.
 - Prevention: run the complete frontend suite when promoting a new page, alongside the live mobile and desktop paths.
+
+## SOURCE-REVIEW-UI-001 - Keeping original wording appeared to save without a reason
+
+- Date: 2026-11-24.
+- Symptom: the methodologist chose “Keep wording” and saw an enabled save button, but the question remained open when the reason was blank.
+- Cause: native form validation blocked submission before the application could show why. The API also requires a trimmed reason of at least three characters for the editorial audit record.
+- Fix: show the reason requirement beside the field, enable saving after a valid reason, and display the persisted keep decision on readback.
+- Verification: the focused regression reproduced the enabled button in the old UI. The corrected suite and isolated Chrome at 390 and 1440 px verified blank and short reasons, a keep request without replacement, and readback after reopening. The existing backend tests verify the keep decision in editorial history.
+- Prevention: exercise blank and whitespace-only reasons and reload a saved keep decision in source-review acceptance.
