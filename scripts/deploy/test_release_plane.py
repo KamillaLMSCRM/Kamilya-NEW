@@ -712,6 +712,75 @@ def test_rollback_fails_closed_when_candidate_task_cannot_drain(
                    for command in commands)
 
 
+def test_rollback_with_zero_candidate_workers_restores_previous_set_without_drain(tmp_path: Path) -> None:
+    runner = FakeRunner(initial_revision="0194",
+                        fail_token="up -d --no-deps worker-ai worker-documents worker-ops")
+    cfg = config(tmp_path)
+    release = versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                                 previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE)
+
+    with pytest.raises(release_plane.ReleasePlaneError, match="synthetic_command_failure"):
+        release_plane.ReleasePlane(release, cfg, runner, FakeHealth(product_version="0.11.152")).execute(
+            release.release_id
+        )
+
+    failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
+    assert failure["status"] == "ROLLED_BACK" and failure["rollback"] == "completed", {
+        key: failure.get(key) for key in ("status", "rollback", "recovery_required", "failure")
+    }
+    assert failure["recovery_required"] is False
+    assert not cfg.lock_file.exists()
+    commands = [" ".join(call) for call, _ in runner.calls]
+    assert not any("kamilya-green" in command and "stop --timeout 120" in command for command in commands)
+    assert any("kamilya-green" in command and "down --remove-orphans" in command for command in commands)
+    assert any("kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops" in command
+               for command in commands)
+
+
+def test_rollback_with_partial_candidate_workers_drains_only_observed_set(tmp_path: Path) -> None:
+    class PartialCandidateStartRunner(FakeRunner):
+        def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
+            call = tuple(args)
+            if ("compose" in call and "up" in call and "--no-deps" in call
+                and "kamilya-green" in call and "worker-ai" in call and "worker-documents" in call):
+                index = call.index("--no-deps") + 1
+                partial = (*call[:index], "worker-ai")
+                super().run(partial, env=env)
+                raise release_plane.ReleasePlaneError("synthetic_partial_worker_start")
+            return super().run(args, env=env)
+
+    runner = PartialCandidateStartRunner(initial_revision="0194")
+    cfg = config(tmp_path)
+    release = versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                                 previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE)
+
+    with pytest.raises(release_plane.ReleasePlaneError, match="synthetic_partial_worker_start"):
+        release_plane.ReleasePlane(release, cfg, runner, FakeHealth(product_version="0.11.152")).execute(
+            release.release_id
+        )
+
+    failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
+    assert failure["status"] == "ROLLED_BACK" and failure["rollback"] == "completed", {
+        key: failure.get(key) for key in ("status", "rollback", "recovery_required", "failure")
+    }
+    assert failure["recovery_required"] is False
+    commands = [" ".join(call) for call, _ in runner.calls]
+    candidate_stop = next(i for i, command in enumerate(commands)
+                          if "kamilya-green" in command
+                          and "stop --timeout 120 worker-ai" in command
+                          and "worker-documents" not in command)
+    candidate_down = max(i for i, command in enumerate(commands)
+                         if "kamilya-green" in command and "down --remove-orphans" in command)
+    previous_start = next(i for i, command in enumerate(commands)
+                          if "kamilya-blue" in command
+                          and "up -d --no-deps worker-ai worker-documents worker-ops" in command)
+    pause = next(i for i, (call, _env) in enumerate(runner.calls)
+                 if release_plane.WORKER_CONTROL_CODE in call
+                 and call[call.index(release_plane.WORKER_CONTROL_CODE) + 1] == "cancel"
+                 and call[-2] == "ai" and "kamilya-green" in call)
+    assert pause < candidate_stop < candidate_down < previous_start
+
+
 def test_first_replica_release_cuts_over_from_legacy_slot(tmp_path: Path) -> None:
     runner = FakeRunner(initial_revision="0194")
     cfg = config(tmp_path)

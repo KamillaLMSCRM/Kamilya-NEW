@@ -84,6 +84,9 @@ class ReadbackRunner(legacy.FakeRunner):
     def run(self, args, *, env=None):
         call = tuple(args)
         if "ps" in call:
+            if call[-1] in plane.WORKERS and call[-1] not in self.running_worker_services:
+                self.calls.append((call, dict(env or {})))
+                return ""
             if (env or {}).get("KAMILYA_API_IMAGE") == legacy.OLD_IMAGE and call[-1] in {
                 "worker-ai-replica", "worker-documents-replica"
             }:

@@ -863,11 +863,24 @@ class ReleasePlane:
 
     def _available_worker_control_service(self, slot: str, env: Mapping[str, str],
                                           workers: Sequence[str]) -> str:
+        running = self._running_worker_services(slot, env, workers)
+        if running:
+            return running[0]
+        raise ReleasePlaneError("worker_control_container_unavailable")
+
+    def _running_worker_services(self, slot: str, env: Mapping[str, str],
+                                 workers: Sequence[str]) -> tuple[str, ...]:
+        running: list[str] = []
         for service in workers:
             container = self.runner.run(self._compose(slot, "ps", "-q", service), env=env)
-            if container and "\n" not in container and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", container):
-                return service
-        raise ReleasePlaneError("worker_control_container_unavailable")
+            if not container:
+                continue
+            identities = container.splitlines()
+            if (len(identities) != 1
+                or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", identities[0])):
+                raise ReleasePlaneError(f"worker_container_identity_ambiguous:{service}")
+            running.append(service)
+        return tuple(running)
 
     def _wait_worker_topology(self, slot: str, env: Mapping[str, str],
                               workers: Sequence[str]) -> dict[str, tuple[str, ...]]:
@@ -1014,6 +1027,7 @@ class ReleasePlane:
         previous_workers: tuple[str, ...] = LEGACY_SERVICES[1:]
         proxy_switched = False
         rollback_status = "not_required"
+        rollback_error: str | None = None
         try:
             try:
                 lock_fd = os.open(self.config.lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -1220,22 +1234,26 @@ class ReleasePlane:
                         # leave the sole candidate consumer set running for
                         # explicit operator recovery instead of risking loss or
                         # duplicate execution.
-                        control_service = self._available_worker_control_service(
-                            inactive, candidate_env, target_workers
+                        running_candidate_workers = self._running_worker_services(
+                            inactive, candidate_env, WORKERS
                         )
-                        try:
-                            self._pause_and_drain_workers(
-                                inactive, candidate_env, target_workers,
-                                control_service=control_service,
+                        if running_candidate_workers:
+                            control_service = running_candidate_workers[0]
+                            try:
+                                self._pause_and_drain_workers(
+                                    inactive, candidate_env, running_candidate_workers,
+                                    control_service=control_service,
+                                )
+                            except Exception as drain_error:
+                                rollback_status = "blocked_worker_drain"
+                                retain_lock_for_recovery = True
+                                rollback_error = f"candidate_worker_drain:{type(drain_error).__name__}:{drain_error}"
+                                raise ReleasePlaneError("candidate_worker_drain_unverified") from drain_error
+                            self.runner.run(
+                                self._compose(inactive, "stop", "--timeout",
+                                              str(WORKER_STOP_GRACE_SECONDS), *running_candidate_workers),
+                                env=candidate_env,
                             )
-                        except Exception as drain_error:
-                            rollback_status = "blocked_worker_drain"
-                            retain_lock_for_recovery = True
-                            raise ReleasePlaneError("candidate_worker_drain_unverified") from drain_error
-                        self.runner.run(
-                            self._compose(inactive, "stop", "--timeout", str(WORKER_STOP_GRACE_SECONDS),
-                                          *target_workers), env=candidate_env
-                        )
                     self.runner.run(
                         self._compose(inactive, "down", "--remove-orphans"), env=candidate_env
                     )
@@ -1263,6 +1281,7 @@ class ReleasePlane:
                 except Exception:
                     if rollback_status != "blocked_worker_drain":
                         rollback_status = "failed"
+                        rollback_error = "rollback_exception"
             failure = {
                 **self._feature_evidence(),
                 "run_id": run_id,
@@ -1272,6 +1291,7 @@ class ReleasePlane:
                 "status": "ROLLED_BACK" if rollback_status == "completed" else "FAILED",
                 "failure": str(safe_error),
                 "rollback": rollback_status,
+                "rollback_error": rollback_error,
                 "recovery_required": retain_lock_for_recovery,
                 "started_at": started_at,
                 "finished_at": _utc_now_iso(),

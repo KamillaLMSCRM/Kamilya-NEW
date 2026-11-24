@@ -40,10 +40,8 @@ class FeatureRunner(legacy.FakeRunner):
         call = tuple(args)
         if "ps" in call:
             service = call[-1]
-            if ((env or {}).get("KAMILYA_API_IMAGE") == legacy.OLD_IMAGE
-                and service in {"worker-ai-replica", "worker-documents-replica"}):
-                super().run(args, env=env)
-                return ""
+            if service in plane.WORKERS and service not in self.running_worker_services:
+                return super().run(args, env=env)
             super().run(args, env=env)
             slot = "blue" if "kamilya-blue" in call else "green"
             return slot + ":" + call[-1]
@@ -164,7 +162,9 @@ def test_candidate_drift_rolls_back_flags_without_disabling_existing_features(tm
     assert json.loads(cfg.state_file.read_text())["release_sha"] == legacy.OLD_SHA
     assert cfg.proxy_upstream_file.read_text() == "old-proxy\n"
     record = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text())
-    assert record["status"] == "ROLLED_BACK" and record["previous_feature_flags"] == PREVIOUS
+    assert record["status"] == "ROLLED_BACK" and record["previous_feature_flags"] == PREVIOUS, {
+        key: record.get(key) for key in ("status", "rollback", "rollback_error", "recovery_required", "failure")
+    }
     for c, env in runner.calls:
         if "kamilya-blue" in c:
             assert env[KEYS["lesson_correction"]] == "false"
