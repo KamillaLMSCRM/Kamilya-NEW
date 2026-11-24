@@ -484,9 +484,13 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
 
     if review_policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
         from app.modules.ai.v3.simple_course_editor_v12 import run_simple_course_editor_v12
-        from app.modules.ai.v3.source_access_config import checked_settings
+        from app.modules.ai.v3.source_access_config import BOUNDED_JOINT_EDITOR, checked_settings
 
         pinned = checked_settings(source_access_settings)
+        retry_ledger = getattr(journal, 'explicit_stage_retries', None)
+        bounded_recovery = isinstance(retry_ledger, dict) and any(
+            entry.get('replacement') == BOUNDED_JOINT_EDITOR for entry in retry_ledger['entries'].values()
+        )
 
         async def planned_v12(count: int) -> None:
             nonlocal total
@@ -494,7 +498,8 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
 
         result = await run_simple_course_editor_v12(packet, corpus, intent, stage,
             reference_decisions=reference_decisions, planned_callback=planned_v12,
-            literal_budget=pinned['literal_chars'], lookup_rounds=pinned['lookup_rounds'])
+            literal_budget=pinned['literal_chars'], lookup_rounds=pinned['lookup_rounds'],
+            bounded_joint=pinned.get('joint_editor') == BOUNDED_JOINT_EDITOR or bounded_recovery)
     elif review_policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 

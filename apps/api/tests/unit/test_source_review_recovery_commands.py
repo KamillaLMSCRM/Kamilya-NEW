@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+from app.modules.source_editorial_review.continuation import lineage
 from app.modules.source_editorial_review.domain import ReviewCommand, ReviewConflictError, text_hash
 from app.modules.source_editorial_review.service import (
     _command_digest,
@@ -126,6 +127,45 @@ async def test_interrupted_worker_is_held_without_appending_event(monkeypatch, k
         with pytest.raises(ReviewConflictError, match="interrupted_outcome_unknown"):
             await apply_command(db, doc, actor, cmd)
     db.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_stale_owned_text_intent_requires_ack_and_reuses_the_preparation(monkeypatch):
+    actor = uuid4()
+    prepared = package()
+    binding = prepared.binding([prepared.parts[0].id])
+    candidate = row(1, "analysis_block", {"key": "source-preparation-v1:manifest:" + SHA,
+        "result": {"visual_review_policy": _VISUAL_REVIEW_POLICY, "manifest": prepared.model_dump()}}, actor)
+    queued = row(2, "queued", {"preparation": binding}, actor)
+    claim = row(3, "running", {"queued_event_id": str(queued.id)}, actor)
+    prefix = "source-review-request-custody-v2:"
+
+    def receipt(sequence, identity, status):
+        result = {"identity": identity, "attempt": "initial",
+                  **({"state": "started"} if status == "intent" else {"status": "ok", "usage": {"calls": 1}, "value": {}})}
+        return row(sequence, "analysis_block",
+                   {"claim_id": str(claim.id), "key": f"{prefix}{identity}:initial:{status}", "result": result}, actor)
+
+    rows = [candidate, queued, claim, receipt(4, "a" * 64, "intent"), receipt(5, "a" * 64, "completed"),
+            receipt(6, "b" * 64, "intent")]
+    rows[-1].created_at = datetime.now(UTC) - timedelta(hours=1)
+    monkeypatch.setattr("app.modules.source_editorial_review.service.history", AsyncMock(return_value=rows))
+    doc = SimpleNamespace(id=uuid4(), tenant_id=uuid4(), content_sha256=SHA, title="QA", version=1, filename="note.doc")
+    db = SimpleNamespace(add=Mock(), flush=AsyncMock())
+    owned_view = review_view(doc, rows, read_state(rows, SHA), actor_id=actor)
+    assert owned_view["requires_retry_acknowledgement"] and owned_view["error"] == "source_review_provider_outcome_unknown"
+    assert not review_view(doc, rows, read_state(rows, SHA), actor_id=uuid4())["requires_retry_acknowledgement"]
+    with pytest.raises(ReviewConflictError, match="interrupted_outcome_unknown"):
+        await apply_command(db, doc, actor, request(6))
+    db.add.assert_not_called()
+    authorized = request(6, acknowledge_outcome_and_cost_unknown=True)
+    extended, _, event, dispatch = await apply_command(db, doc, actor, authorized)
+    assert dispatch and extended[:-2] == rows and event.sequence == 8
+    _, acknowledgement, failure, _ = lineage(extended, event)
+    assert event.payload["preparation"] == binding
+    assert acknowledgement["request_id"] == str(authorized.request_id)
+    assert failure.payload["unknown_request_key"] == "b" * 64
+    assert failure.payload["usage_complete"] is False
 
 
 @pytest.mark.parametrize("failure", [

@@ -9,6 +9,50 @@ from uuid import UUID
 from app.modules.source_editorial_review.request_custody import POLICY
 
 
+def interrupted_text_request(rows: Sequence[Any], blob_sha: str, actor_id: UUID | None,
+                             *, interrupted: bool) -> tuple[str, Any, Any] | None:
+    """Identify one aged ordinary text request whose completion was never recorded."""
+    if not interrupted or not rows or actor_id is None:
+        return None
+    latest = rows[-1]
+    if latest.kind != "analysis_block" or latest.actor_id != actor_id or latest.original_blob_sha256 != blob_sha:
+        return None
+    key = latest.payload.get("key")
+    match = re.fullmatch(re.escape(POLICY) + r":([a-f0-9]{64}):initial:intent", key) if isinstance(key, str) else None
+    if match is None or latest.payload.get("result") != {
+        "identity": match[1], "attempt": "initial", "state": "started",
+    }:
+        return None
+    claim_id = latest.payload.get("claim_id")
+    claim = next((row for row in rows if row.kind == "running" and str(row.id) == claim_id
+                  and row.actor_id == actor_id and row.original_blob_sha256 == blob_sha), None)
+    if claim is None:
+        return None
+    parent = next((row for row in rows if row.kind == "queued" and str(row.id) == claim.payload.get("queued_event_id")
+                   and row.sequence + 1 == claim.sequence and row.actor_id == actor_id
+                   and row.original_blob_sha256 == blob_sha), None)
+    if parent is None:
+        return None
+    binding = parent.payload.get("preparation")
+    manifest = binding.get("manifest") if isinstance(binding, dict) else None
+    if not isinstance(manifest, dict) or manifest.get("assets") != []:
+        return None
+    boundary = max((row.sequence for row in rows if row.kind == "analyzed"), default=0)
+    tail = [row for row in rows if row.sequence > claim.sequence]
+    if any(row.kind != "analysis_block" or row.payload.get("claim_id") != claim_id
+           or row.actor_id != actor_id or row.original_blob_sha256 != blob_sha for row in tail):
+        return None
+    records = [row.payload.get("key") for row in rows if row.kind == "analysis_block" and row.sequence > boundary
+               and str(row.payload.get("key", "")).startswith(POLICY + ":")]
+    present = set(records)
+    intents = {name[:-len(":intent")] for name in present if name.endswith(":intent")}
+    completions = {name[:-len(":completed")] for name in present if name.endswith(":completed")}
+    if (len(records) != len(present) or not completions <= intents
+            or intents - completions != {key[:-len(":intent")]}):
+        return None
+    return match[1], claim, parent
+
+
 def recoverable_turn(rows: Sequence[Any], blob_sha: str, actor_id: UUID | None, *,
                      interrupted: bool) -> tuple[Any, Any] | None:
     if not interrupted or not rows or actor_id is None:

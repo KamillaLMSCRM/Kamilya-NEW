@@ -78,6 +78,24 @@ def test_index_keeps_every_row_and_exact_late_lookup_without_full_catalogue():
     assert corpus == before
 
 
+def test_blank_separator_has_no_source_alias_and_foreign_nonblank_is_rejected():
+    corpus, packet = reference_case()
+    source = LiteralSourceAccess(packet, corpus, literal_budget=1500)
+    messages, _ = semantic_plan_request(packet, corpus, {})
+    group = 'practical:simple:review-bank:v10:' + packet.fingerprint
+    payload = json.loads(messages[1]['content'])
+    payload['source_blocks'] = [{'id': 'SRC1', 'text': 'Owned rule.'}]
+    messages[1]['content'] = json.dumps(payload)
+    before = source.project(messages, group)
+    payload['source_blocks'].append({'id': None, 'text': '\n\n'})
+    messages[1]['content'] = json.dumps(payload)
+    assert source.project(messages, group) == before
+    payload['source_blocks'][-1]['text'] = 'A foreign rule.'
+    messages[1]['content'] = json.dumps(payload)
+    with pytest.raises(ValueError, match='source_access_parent_unowned'):
+        source.project(messages, group)
+
+
 def test_unit_sends_selected_row_not_neighbours_and_preserves_parent_once():
     corpus, packet = reference_case()
     store = LiteralSourceAccess(packet, corpus, literal_budget=1500)
