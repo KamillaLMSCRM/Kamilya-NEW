@@ -2502,3 +2502,16 @@ approved521 and53source replies; rejected CHG-L100N is not restored.
 - DEV job 4efb025b-83b4-46b3-a3ae-8ad7cd70f18e on Luna 6 and approved workbook revision 521 kept three replies, then timed out on a lookup of 288 of 291 rows. Literal accounting limited automatic rows only. Offline replay matched the failed request at 1,420,306 bytes, above the 524,288-byte production limit.
 - Apply the existing generation.reference_literal_chars budget to explicit and automatic rows together. Include whole rows only, keep all row handles indexed, identify deferred requests and prioritize fresh requests when they compete with retained literals.
 - The bulk lookup regression failed before the fix. The saved native prefix stayed exact. The replacement request is 258,252 bytes and exposes 35 rows while identifying 253 deferred rows. A subsequent targeted lookup returns a previously deferred row in full, at 248,703 bytes. Both checks used zero model calls. Live course acceptance remains pending.
+
+## ENG-091 — An embedded XLSX stopped DOCX source review
+
+2026-11-24. A client DOCX contained a Word OLE object with a local XLSX
+relationship and an EMF preview. The native extractor rejected the object before
+preparing the source, so the review never reached approval. Reproduced locally
+on the unchanged original.
+
+The corrected path reads the internal literal worksheet in place and retains
+the source coordinates. Linked objects, formulas, hidden rows or columns and
+unsupported embedded visuals remain blocked. The original DOCX produced a
+table with all 38 populated cells. See CHG-DOCX-EMBEDDED-XLSX for scope and
+verification. No model or tenant requests were made.

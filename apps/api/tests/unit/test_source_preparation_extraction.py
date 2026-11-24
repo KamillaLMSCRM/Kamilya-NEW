@@ -6,6 +6,12 @@ import zipfile
 import pypdfium2
 import pytest
 from docx import Document
+from docx.opc.packuri import PackURI
+from docx.opc.part import Part
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from lxml import etree
+from openpyxl import Workbook
 from PIL import Image
 from pypdf import PdfWriter
 from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject, RectangleObject
@@ -52,6 +58,55 @@ def rewrite_zip(blob, replacements):
             data = source.read(entry.filename)
             target.writestr(entry, replacements(entry.filename, data))
     return output.getvalue()
+
+
+def docx_with_workbook(*, linked=False, formula=False, hide_row=False):
+    document = Document()
+    paragraph = document.add_paragraph("Before")
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Quarterly example"
+    sheet.append(["Operation", "Amount"])
+    sheet.append(["Issue | review", "=2+3" if formula else 5])
+    sheet.row_dimensions[2].hidden = hide_row
+    stream = io.BytesIO()
+    workbook.save(stream)
+    part = Part(PackURI("/word/embeddings/example.xlsx"),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", stream.getvalue())
+    relationship = document.part.relate_to(
+        "https://example.invalid/example.xlsx" if linked else part,
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package",
+        is_external=linked,
+    )
+    obj = OxmlElement("w:object")
+    linked_object = etree.SubElement(obj, "{urn:schemas-microsoft-com:office:office}OLEObject",
+                                     Type="Link" if linked else "Embed", ProgID="Excel.Sheet.12",
+                                     DrawAspect="Content")
+    linked_object.set(qn("r:id"), relationship)
+    paragraph.add_run()._r.append(obj)
+    paragraph.add_run("After")
+    out = io.BytesIO()
+    document.save(out)
+    return out.getvalue()
+
+
+def test_docx_internal_workbook_becomes_the_table_at_the_object_position():
+    blob = docx_with_workbook()
+    source = extract(blob)
+    assert [block.kind for block in source.blocks] == ["text", "table", "text"]
+    assert source.blocks[0].text == "Before"
+    assert source.blocks[2].text == "After"
+    assert source.blocks[1].text == "| Operation | Amount |\n| --- | --- |\n| Issue \\| review | 5 |"
+    assert source.blocks[1].locator["worksheet"] == "Quarterly example"
+    assert source.blocks[1].locator["embedded_member"] == "word/embeddings/example.xlsx"
+    assert source.assets == ()
+    assert source == extract(blob)
+
+
+@pytest.mark.parametrize("mode", ["linked", "formula", "hide_row"])
+def test_docx_workbook_requires_internal_complete_literal_source(mode):
+    with pytest.raises(ValueError, match="native_source_unsupported_visual"):
+        extract(docx_with_workbook(**{mode: True}))
 
 
 def test_ordered_images_table_and_duplicate_content():
