@@ -290,6 +290,38 @@ describe('source editorial review', () => {
     expect(screen.getByRole('link', { name: 'Открыть утверждённую редакцию' })).toHaveAttribute('href', '/documents/' + id + '/editorial-review/' + approval);
   });
 
+  it('explains the required reason and reads back the saved keep decision after reopening', async () => {
+    let current = fixture();
+    mocks.get.mockImplementation(async () => ({ data: current }));
+    mocks.post.mockImplementation(async () => {
+      current = { ...current, revision: 4, questions: current.questions.map(question => ({
+        ...question, resolution: { id: question.id, start: 0, end: quote.length,
+          before: quote, after: quote, reason, decision: 'keep' },
+      })) };
+      return { data: current };
+    });
+    const page = render(<SourceEditorialReview />);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Оставить формулировку' }));
+    const button = screen.getByRole('button', { name: 'Сохранить решение' });
+    expect(button).toBeDisabled();
+    expect(screen.getByLabelText('Основание решения')).toHaveAccessibleDescription(
+      'Введите основание решения (не менее 3 символов).',
+    );
+    fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: '  а  ' } });
+    expect(button).toBeDisabled();
+    expect(mocks.post).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: reason } });
+    fireEvent.click(button);
+    expect(await screen.findByText('Оставлена исходная формулировка')).toBeVisible();
+    expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
+      expect.objectContaining({ action: 'resolve', expected_revision: 3, decision: 'keep', reason }));
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('replacement');
+    page.unmount();
+    render(<SourceEditorialReview />);
+    expect(await screen.findByText('Оставлена исходная формулировка')).toBeVisible();
+    expect(screen.getByText(reason)).toBeVisible();
+  });
+
   it('preserves typed wording across a revision conflict and reads the newer state', async () => {
     const data = fixture();
     mocks.get.mockResolvedValueOnce({ data }).mockResolvedValueOnce({ data: { ...data, revision: 4 } });
