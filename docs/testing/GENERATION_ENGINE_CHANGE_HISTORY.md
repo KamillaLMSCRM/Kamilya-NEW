@@ -4228,3 +4228,30 @@ DEV measured 72.83% fewer recorded input and output tokens than the earlier 3,63
 DEV API and worker at `1d3cff024a452487c1e721e9a02b4e3e83f505b5`. The V12 bank reviewer now compares the decision tested by each card across lessons. The addressed editor receives the affected lesson text and peer cards and is instructed to solve the replacement using visible criteria. Replay of all 14 previously saved responses verified the transport and scoped input, with zero model calls. This replay is structural evidence, separate from the semantic outcome.
 
 One new job `4efb025b-83b4-46b3-a3ae-8ad7cd70f18e`, same approved revision 521 and text checksum, same managed Luna 6 high. The run stopped after 11m58s. Recorded usage for three completed replies was 385,915 input and 11,583 output tokens. The unfinished plan-accounting lookup asked for 288 rows and timed out with HTTP 503. A zero-call replay matched the wire hash at 1,420,306 bytes, exceeding the production cap. Usage for the incomplete request is unknown. No draft exists, no approval was repeated, and the job was retained without a second submission. Outcome NO GO, ENG-090. Production API remained 0.11.145 with frontend 0.11.147.
+## CHG-DOCX-EMBEDDED-XLSX — 2026-11-24
+
+**Proposed.** ENG-032 retained embedded lesson illustrations, but it did not
+interpret an editable workbook represented as a Word OLE object with an EMF
+preview. No previous accepted path for this object type was found. The ordinary
+source-review worker calls `extract_native_source` before preparing source
+blocks. The original client DOCX deterministically fails there.
+
+Read the attested internal XLSX relationship as a workbook within the existing
+DOCX extractor. Keep the worksheet's content at the object position as a table
+with workbook and sheet provenance. Reuse spreadsheet conversion bounds and
+cell formatting. Cover unsupported objects, linked content, formulas and
+drawings without flattening or running them. Preserve source file identity,
+approval and other native document extractors. Local admission and block
+coverage first, using synthetic fixtures and the original unmodified DOCX.
+No provider requests are planned for this replay.
+
+**Local verification.** ENG-091 reproduced on the saved original before the
+change. The corrected extractor returned 106 blocks, two tables and 38
+populated cells in the embedded worksheet. The prepared source preserved the
+embedded table and its original location among 104 nonblank source blocks.
+The part selection used a deterministic fixture. No model or vision calls, no
+asset uploads, and no writes to a tenant. DEV and production acceptance pending.
+
+Focused extraction, preparation, Excel, presentation, and source review: 121
+tests passed. Extractor file SHA-256 prefix `79dd81330f55`; embedded workbook
+reader SHA-256 prefix `b6c146d115ca`.

@@ -169,6 +169,13 @@ class DocumentConverter:
         return await _local_convert(file_path)
 
 
+def spreadsheet_cell_text(value: object) -> str:
+    if value is None:
+        return ""
+    rendered = value.isoformat() if isinstance(value, date | datetime) else str(value)
+    return rendered.replace("\r", " ").replace("\n", " ").replace("|", "\\|").strip()
+
+
 async def _local_convert(file_path: str) -> dict[str, Any]:
     """Convert common source formats without an external document service."""
     ext = Path(file_path).suffix.lower()
@@ -215,15 +222,6 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
     elif ext == ".xlsx":
         from openpyxl import load_workbook  # type: ignore[import-untyped]
 
-        def cell_text(value: object) -> str:
-            if value is None:
-                return ""
-            if isinstance(value, date | datetime):
-                rendered = value.isoformat()
-            else:
-                rendered = str(value)
-            return rendered.replace("\r", " ").replace("\n", " ").replace("|", "\\|").strip()
-
         try:
             workbook = load_workbook(file_path, read_only=True, data_only=False)
         except Exception as exc:
@@ -252,7 +250,7 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
                     visited_cells += len(raw_row)
                     if visited_cells > MAX_XLSX_VISITED_CELLS:
                         raise RuntimeError("XLSX source exceeds safe conversion limits")
-                    row = [cell_text(value) for value in raw_row]
+                    row = [spreadsheet_cell_text(value) for value in raw_row]
                     while row and not row[-1]:
                         row.pop()
                     if row and any(row):
@@ -264,7 +262,7 @@ async def _local_convert(file_path: str) -> dict[str, Any]:
                     continue
                 width = max(len(row) for row in sheet_rows)
                 normalized = [row + [""] * (width - len(row)) for row in sheet_rows]
-                sheet_name = cell_text(worksheet.title).replace("[", "(").replace("]", ")")
+                sheet_name = spreadsheet_cell_text(worksheet.title).replace("[", "(").replace("]", ")")
                 blocks.append(f"# [Worksheet] {sheet_name}")
                 blocks.append("| " + " | ".join(normalized[0]) + " |")
                 blocks.append("| " + " | ".join(["---"] * width) + " |")

@@ -2547,3 +2547,16 @@ On 2026-11-23 the final DEV course from job `d2f42f12-ea06-4773-bfa4-0049892caae
 Three completed replies, totaling 385,915 input and 11,583 output tokens, were retained and replayed offline. Exactly one stage remains pending with an unknown outcome. The ordinary API reports `reconciliation_required`, offers no retained-response recovery and has no saved course. The bounded exact-stage retry only accepts a verified `unavailable` response and does not retry `timeout`. Approved source text and decision remained identical.
 
 Use this saved 288-row lookup as the regression fixture for explicit lookup budgeting. Any handling of a deferred row must preserve its index identity and avoid claiming the full requested set was delivered. The live run never reached lesson or assessment composition, so it cannot close ENG-089 or authorize release.
+
+## ENG-091 — An embedded XLSX stopped DOCX source review
+
+2026-11-24. A client DOCX contained a Word OLE object with a local XLSX
+relationship and an EMF preview. The native extractor rejected the object before
+preparing the source, so the review never reached approval. Reproduced locally
+on the unchanged original.
+
+The corrected path reads the internal literal worksheet in place and retains
+the source coordinates. Linked objects, formulas, hidden rows or columns and
+unsupported embedded visuals remain blocked. The original DOCX produced a
+table with all 38 populated cells. See CHG-DOCX-EMBEDDED-XLSX for scope and
+verification. No model or tenant requests were made.

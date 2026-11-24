@@ -13,7 +13,7 @@ from typing import Any
 
 from PIL import Image, UnidentifiedImageError
 
-from app.modules.documents.archive_preflight import preflight_ooxml
+from app.modules.documents.archive_preflight import ArchiveBudget, ArchivePreflightError, preflight_ooxml
 
 
 def _render_pdf_page(blob: bytes, index: int, max_image_pixels: int, max_image_bytes: int) -> bytes:
@@ -168,10 +168,16 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
         from docx.oxml.ns import qn
         from docx.table import Table
         from docx.text.paragraph import Paragraph
+        from lxml import etree
+
+        from app.modules.ai.ingestion import MAX_XLSX_RENDERED_CHARS
+        from app.modules.source_preparation.embedded_spreadsheet import embedded_spreadsheet_tables
 
         stream = io.BytesIO(blob)
         preflight_ooxml(stream, ".docx")
         document = Document(stream)
+        unpacked_budget = ArchiveBudget().max_total_uncompressed_bytes
+        sheet_chars = 0
         # Reject external image targets, including unused relationships; never follow them.
         for rel in document.part.rels.values():
             if rel.is_external and rel.reltype.endswith("/image"):
@@ -179,9 +185,11 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
 
         def paragraph(p: Paragraph, location: dict[str, Any], kind: str, *,
                       table_ids: list[str] | None = None) -> str:
+            nonlocal unpacked_budget, sheet_chars
             text_parts: list[str] = []
             fragment = 0
             image_index = 0
+            object_index = 0
 
             def flush() -> None:
                 nonlocal fragment
@@ -191,7 +199,43 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
                     add_block(kind, text, (), None, {**location, "fragment": fragment})
                     fragment += 1
 
-            for node in p._p.iter():
+            walker = etree.iterwalk(p._p, events=("start",))
+            for _, node in walker:
+                if node.tag == qn("w:object"):
+                    objects = list(node.iter("{urn:schemas-microsoft-com:office:office}OLEObject"))
+                    if (table_ids is not None or len(objects) != 1
+                            or objects[0].get("Type") != "Embed"
+                            or objects[0].get("ProgID") != "Excel.Sheet.12"
+                            or objects[0].get("DrawAspect") != "Content"):
+                        raise ValueError("native_source_unsupported_visual")
+                    rid = objects[0].get(qn("r:id"))
+                    relationship = document.part.rels.get(rid)
+                    if (relationship is None or relationship.is_external
+                            or relationship.reltype != "http://schemas.openxmlformats.org/officeDocument/2006/relationships/package"):
+                        raise ValueError("native_source_unsupported_visual")
+                    part = relationship.target_part
+                    if (part.content_type != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            or PurePath(str(part.partname)).suffix.lower() != ".xlsx"):
+                        raise ValueError("native_source_unsupported_visual")
+                    workbook = io.BytesIO(part.blob)
+                    try:
+                        summary = preflight_ooxml(workbook, ".xlsx",
+                                                  budget=ArchiveBudget(max_total_uncompressed_bytes=unpacked_budget))
+                    except ArchivePreflightError as exc:
+                        raise ValueError("native_source_unsupported_visual") from exc
+                    unpacked_budget -= summary.total_uncompressed_bytes
+                    flush()
+                    for title, markdown in embedded_spreadsheet_tables(workbook):
+                        sheet_chars += len(markdown)
+                        if sheet_chars > MAX_XLSX_RENDERED_CHARS:
+                            raise ValueError("native_source_unsupported_visual")
+                        add_block("table", markdown, (), None, {
+                            **location, "object": object_index, "relationship": rid,
+                            "embedded_member": str(part.partname).lstrip("/"), "worksheet": title,
+                        })
+                    object_index += 1
+                    walker.skip_subtree()
+                    continue
                 if node.tag == qn("w:drawing") and not any(child.tag == qn("a:blip") for child in node.iter()):
                     raise ValueError("native_source_unsupported_visual")
                 if node.tag == qn("w:t"):
@@ -218,7 +262,7 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
                         table_ids.append(asset_id)
                     else:
                         add_block("image", "", (asset_id,), None, locator)
-                elif node.tag in (qn("w:pict"), qn("w:object")):
+                elif node.tag == qn("w:pict"):
                     raise ValueError("native_source_unsupported_visual")
             if table_ids is not None:
                 return "".join(text_parts)
