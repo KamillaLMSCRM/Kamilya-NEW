@@ -16,7 +16,8 @@ import { Archive, ArrowRight, BookOpen, ChevronDown, FileText, GraduationCap, Mo
 import { LoadError } from '@/components/ui/LoadError';
 import { RecordList } from '@/features/workspace-design/RecordList';
 import { getCourseCatalogCopy } from '@/features/course-catalog/copy';
-import { CourseProvenance } from '@/features/course-catalog/CourseProvenance';
+import { CourseProvenance, formatCourseDate } from '@/features/course-catalog/CourseProvenance';
+import { CourseSourceReviews } from '@/features/course-catalog/CourseSourceReviews';
 import { contentLanguages, isCourseLanguage } from '@/features/course-authoring/courseLanguages';
 
 type BlueprintLocale = 'ru' | 'kk';
@@ -47,6 +48,7 @@ interface CatalogCourse extends CourseWithBlueprintSource {
   review_status?: string;
   delivery_type?: string;
   current_release_id?: string | null;
+  archive_only?: boolean;
   author_name?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -103,6 +105,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
   const [statusFilter, setStatusFilter] = useState(() => readCourseStatusFilter(searchParams.get('status')));
   const [page, setPage] = useState(() => readCoursePage(searchParams.get('page')));
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [archiveRequired, setArchiveRequired] = useState<string[]>([]);
   const [blueprints, setBlueprints] = useState<CourseBlueprintCatalogItem[]>([]);
   const [blueprintsLoading, setBlueprintsLoading] = useState(true);
   const [blueprintsError, setBlueprintsError] = useState<string | null>(null);
@@ -280,6 +283,11 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
       void refreshCourses.current();
     } catch (err: any) {
       if (!mounted.current) return;
+      if (err?.response?.status === 409 && err.response?.data?.detail?.code === 'course_archive_required') {
+        setArchiveRequired(ids => [...new Set([...ids, courseId])]);
+        toast.error(copy.archiveRequired);
+        return;
+      }
       toast.error(t('common.saveFailed'), {
         description: err?.response?.data?.detail || err?.message,
       });
@@ -371,7 +379,7 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
                   <MoreVertical className="h-4 w-4" aria-hidden="true" />
                 </summary>
                 <div className="absolute bottom-full right-0 z-20 mb-2 min-w-40 rounded-xl border border-border bg-card p-1 shadow-card-lg">
-                  {course.current_release_id ? (
+                  {course.archive_only || course.current_release_id || archiveRequired.includes(course.id) ? (
                     <button type="button" onClick={() => handleArchive(course.id)} disabled={deletingId === course.id} className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-warning transition-colors hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
                       <Archive className="h-4 w-4 shrink-0" aria-hidden="true" />
                       {deletingId === course.id ? '…' : t('courses.archive')}
@@ -412,6 +420,8 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           </div>
         )}
       </header>
+
+      {canManage && <CourseSourceReviews />}
 
       {canManage && showCreate && (
         <div id="course-create" className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sm:p-6">
@@ -488,9 +498,14 @@ function CourseCatalog({ canManage }: { canManage: boolean }) {
           ) : (
             canManage ? (
               <RecordList key={query} records={courses} getId={(course) => course.id} title={(course) => course.title} mobileBackLabel={copy.backToList}
-                description={(course) => course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
+                description={(course) => {
+                  const date = formatCourseDate(lang, course.created_at);
+                  return <>{course.delivery_type === 'scorm' ? 'SCORM' : copy.nativeCourse}
+                    {date && <> · <time dateTime={course.created_at ?? undefined}>{date}</time></>}
+                  </>;
+                }}
                 status={(course) => course.status === 'published' ? t('courses.published') : course.status === 'draft' ? t('courses.draft') : course.status}
-                detailsLabel={copy.openCourse} renderDetails={renderCourse} />
+                detailsLabel={copy.openCourse} renderDetails={renderCourse} detailClassName="lg:sticky lg:top-32" />
             ) : (
               <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))]">{courses.map(renderCourse)}</div>
             )

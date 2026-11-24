@@ -17,6 +17,10 @@ const ru = {
   emptyHint: 'Создайте курс из документов или вручную.',
   nativeCourse: 'Учебный курс',
   openCourse: 'Открыть курс',
+  sourceReviews: 'Проверки документов',
+  openSourceReview: 'Открыть проверку',
+  moreSourceReviews: 'Показать ещё проверки',
+  archiveRequired: 'У курса есть история. Уберите его из списка через «Архивировать».',
 };
 
 type CatalogCopy = { [Key in keyof typeof ru]: string };
@@ -40,6 +44,10 @@ const kk: CatalogCopy = {
   emptyHint: 'Курсты құжаттардан немесе қолмен жасаңыз.',
   nativeCourse: 'Оқу курсы',
   openCourse: 'Курсты ашу',
+  sourceReviews: 'Құжаттарды тексеру',
+  openSourceReview: 'Тексеруді ашу',
+  moreSourceReviews: 'Басқа тексерулерді көрсету',
+  archiveRequired: 'Курстың тарихы бар. Оны тізімнен алу үшін мұрағаттаңыз.',
 };
 
 const en: CatalogCopy = {
@@ -61,6 +69,10 @@ const en: CatalogCopy = {
   emptyHint: 'Create a course from documents or manually.',
   nativeCourse: 'Learning course',
   openCourse: 'Open course',
+  sourceReviews: 'Document reviews',
+  openSourceReview: 'Open review',
+  moreSourceReviews: 'Show more reviews',
+  archiveRequired: 'This course has training or review history. Archive it to remove it from the list.',
 };
 
 export const courseCatalogCopy = { ru, kk, en };

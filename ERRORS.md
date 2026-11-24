@@ -11614,3 +11614,12 @@ its exact verified path was moved into private evidence before executing it.
 - Fix: show the reason requirement beside the field, enable saving after a valid reason, and display the persisted keep decision on readback.
 - Verification: the focused regression reproduced the enabled button in the old UI. The corrected suite and isolated Chrome at 390 and 1440 px verified blank and short reasons, a keep request without replacement, and readback after reopening. The existing backend tests verify the keep decision in editorial history.
 - Prevention: exercise blank and whitespace-only reasons and reload a saved keep decision in source-review acceptance.
+
+## COURSE-UX-002 - Source-review recovery and draft archiving in the course catalogue
+
+- Date: 2026-11-24.
+- Symptom: a methodologist had to reopen course generation and choose the source to find a saved document review after signing in again. Drafts with review history offered Delete, which could reach a database restriction. Details stayed at the start of a long desktop list.
+- Cause: reviews belonged to documents and lacked a directly visible entry in the course catalogue. Deletion checked the published release pointer without checking draft review or assignment references. The details panel used normal document flow.
+- Fix: read recent source review statuses by tenant and link to the exact document. Show archive for retained history, including unpublished approvals. Preserve physical deletion for an eligible empty draft and return a conflict if a retained reference is added concurrently. Show creation dates in the rows and make the desktop details panel sticky.
+- Verification: catalogue and course-approval tests passed locally. Browser tests covered a 100-row list, review link after reload and mobile return. On desktop they selected a course deep in the list and verified that its details remained visible.
+- Prevention: exercise the signed-in recovery path and author catalog with an approved unpublished draft, an empty draft and a long list.

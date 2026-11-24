@@ -141,7 +141,9 @@ export class SyntheticWorkspace {
   private readonly reads = new Map<string, Handler>();
   private readonly commands = new Map<string, Handler>();
 
-  constructor(private readonly context: BrowserContext, private readonly language: 'ru' | 'kk' | 'en' = 'en') {}
+  constructor(private readonly context: BrowserContext, private readonly language: 'ru' | 'kk' | 'en' = 'en') {
+    this.get('/v1/documents/editorial-review/queue', { items: [], next_offset: null });
+  }
 
   get(path: string, body: unknown) { this.onGet(path, () => ({ json: body })); }
   onGet(path: string, handler: Handler) { this.reads.set(path, handler); }

@@ -55,6 +55,7 @@ import { toast } from '@/components/ui/Toast';
 const draft = {
   id: 'draft-1', title: 'Информационная безопасность: правила работы с данными и документами организации',
   description: 'Рабочая программа обучения сотрудников', status: 'draft', delivery_type: 'native',
+  created_at: '2026-11-02T10:00:00Z',
 };
 const published = { ...draft, id: 'published-1', title: 'Опубликованный курс', status: 'published', current_release_id: 'release-1' };
 const blueprint = {
@@ -80,6 +81,51 @@ function results(container: HTMLElement) {
 }
 
 describe('production course catalogue presentation', () => {
+  it('restores a document review in the catalogue before any course exists', async () => {
+    apiMock.get.mockImplementation(async (url: string) => ({
+      data: url.endsWith('/editorial-review/queue') ? {
+        items: [{ document_id: 'draft-source', title: 'Инструкция по досье', status: 'in_review' }],
+        next_offset: null,
+      } : [],
+    }));
+    render(<CoursesPage />);
+    const panel = await screen.findByRole('region', { name: 'Проверки документов' });
+    expect(within(panel).getByText('Инструкция по досье')).toBeVisible();
+    expect(within(panel).getByRole('link', { name: 'Открыть проверку' })).toHaveAttribute(
+      'href', '/documents/draft-source/editorial-review?document_id=draft-source',
+    );
+    expect(apiMock.post).not.toHaveBeenCalled();
+  });
+
+  it('dates list rows and offers archive for an unpublished course with history', async () => {
+    mockLists([{ ...draft, archive_only: true }]);
+    const { container } = render(<CoursesPage />);
+    await screen.findByRole('heading', { name: draft.title });
+    const date = container.querySelector('li time');
+    expect(date).toHaveAttribute('datetime', draft.created_at);
+    expect(date).toHaveTextContent(/2 нояб/);
+    const menu = container.querySelector('article summary')!;
+    fireEvent.click(menu);
+    expect(screen.getByRole('button', { name: 'Архивировать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Удалить' })).not.toBeInTheDocument();
+  });
+
+  it('can remove a course with retained approvals from the list through archive', async () => {
+    mockLists([{ ...draft, archive_only: true }]);
+    confirmMock.mockResolvedValue(true);
+    apiMock.post.mockImplementation(async () => {
+      mockLists([]);
+      return { data: { ...draft, status: 'archived' } };
+    });
+    const { container } = render(<CoursesPage />);
+    await screen.findByRole('heading', { name: draft.title });
+    fireEvent.click(container.querySelector('article summary')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Архивировать' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: draft.title })).not.toBeInTheDocument());
+    expect(apiMock.post).toHaveBeenCalledWith('/v1/courses/draft-1/archive');
+    expect(apiMock.delete).not.toHaveBeenCalled();
+  });
+
   it('opens courses beyond the first 100 through the existing server page contract', async () => {
     const firstPage = Array.from({ length: 100 }, (_, index) => ({ ...draft, id: `page-1-${index}`, title: `Course ${index + 1}` }));
     apiMock.get.mockImplementation((url: string) => Promise.resolve({ data: url.startsWith('/v1/course-blueprints?') ? [] : url.includes('page=2') ? [{ ...draft, title: 'Course 101' }] : firstPage }));

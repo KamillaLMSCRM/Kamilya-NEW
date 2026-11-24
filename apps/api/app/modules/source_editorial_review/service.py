@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import select, text
+from sqlalchemy import case, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -400,17 +400,44 @@ async def statuses(db: AsyncSession, tenant_id: UUID, ids: Sequence[UUID]) -> di
             .join(Document, (Document.id == Event.document_id) & (Document.tenant_id == tenant_id))
             .where(Event.tenant_id == tenant_id, Event.document_id.in_(ids), Document.lifecycle_status == "active")
             .distinct(Event.document_id).order_by(Event.document_id, Event.sequence.desc()))
-    values = {}
-    for doc_id, kind, created, frozen_sha, blob_sha in (await db.execute(stmt)).all():
-        if frozen_sha != blob_sha:
-            values[str(doc_id)] = "source_changed"
-        elif kind in {"queued", "running", "analysis_block"} and created < datetime.now(UTC) - _ANALYSIS_STALE_AFTER:
-            values[str(doc_id)] = "interrupted"
-        elif kind == "analysis_block":
-            values[str(doc_id)] = "running"
-        else:
-            values[str(doc_id)] = kind if kind in {"queued", "running", "failed", "approved"} else "in_review"
+    values = {
+        str(doc_id): _review_status(kind, created, frozen_sha, blob_sha)
+        for doc_id, kind, created, frozen_sha, blob_sha in (await db.execute(stmt)).all()
+    }
     return {str(doc_id): values.get(str(doc_id), "not_started") for doc_id in ids}
+
+
+def _review_status(kind: str, created: datetime, frozen_sha: str, blob_sha: str | None) -> str:
+    if frozen_sha != blob_sha:
+        return "source_changed"
+    if kind in {"queued", "running", "analysis_block"} and created < datetime.now(UTC) - _ANALYSIS_STALE_AFTER:
+        return "interrupted"
+    if kind == "analysis_block":
+        return "running"
+    return kind if kind in {"queued", "running", "failed", "approved"} else "in_review"
+
+
+async def review_queue(db: AsyncSession, tenant_id: UUID, offset: int, limit: int) -> dict[str, Any]:
+    latest = (
+        select(Event.document_id, Event.kind, Event.created_at, Event.original_blob_sha256)
+        .where(Event.tenant_id == tenant_id)
+        .distinct(Event.document_id)
+        .order_by(Event.document_id, Event.sequence.desc())
+        .subquery()
+    )
+    rows = (await db.execute(
+        select(latest.c.document_id, Document.title, latest.c.kind, latest.c.created_at,
+               latest.c.original_blob_sha256, Document.content_sha256)
+        .join(Document, Document.id == latest.c.document_id)
+        .where(Document.tenant_id == tenant_id, Document.lifecycle_status == "active")
+        .order_by(case((latest.c.kind == "approved", 1), else_=0),
+                  latest.c.created_at.desc(), latest.c.document_id)
+        .offset(offset).limit(limit + 1)
+    )).all()
+    return {"items": [
+        {"document_id": str(doc_id), "title": title, "status": _review_status(kind, created, frozen_sha, blob_sha)}
+        for doc_id, title, kind, created, frozen_sha, blob_sha in rows[:limit]
+    ], "next_offset": offset + limit if len(rows) > limit else None}
 
 
 async def pin_reviews(db: AsyncSession, tenant_id: UUID, ids: Sequence[UUID]) -> list[dict[str, Any]]:
