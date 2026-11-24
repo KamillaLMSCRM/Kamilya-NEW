@@ -125,7 +125,7 @@ def test_candidate_all_four_flags_and_backup_order(tmp_path):
     upgrade = next(i for i, c in enumerate(commands) if "upgrade" in c)
     assert backup < upgrade
     for slot, expected in (("blue", PREVIOUS), ("green", CANDIDATE)):
-        for service in plane.SERVICES:
+        for service in plane.services_for_product_version(payload()["product_version"]):
             assert any("exec" in c and c[2] == slot + ":" + service and "get_settings" in c[-1] for c in commands)
         for c, env in runner.calls:
             if "kamilya-" + slot in c:
@@ -140,7 +140,7 @@ def test_previous_drift_refuses_before_pull_or_migration(tmp_path):
     assert not any("pull" in c or "upgrade" in c or "stop" in c for c, _ in runner.calls)
 
 
-@pytest.mark.parametrize("service", list(plane.SERVICES))
+@pytest.mark.parametrize("service", list(plane.services_for_product_version("0.11.39")))
 def test_candidate_drift_rolls_back_flags_without_disabling_existing_features(tmp_path, service):
     runner = FeatureRunner(drift=service)
     cfg = legacy.config(tmp_path)

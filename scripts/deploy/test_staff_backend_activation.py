@@ -127,7 +127,7 @@ def test_staff_all_services_flag_backup_before_upgrade_and_legacy_false_support(
     assert cfg.env_file.read_bytes() == original
     commands = [c for c, _ in runner.calls]
     assert next(i for i, c in enumerate(commands) if "--expected-revision" in c) < next(i for i, c in enumerate(commands) if "upgrade" in c)
-    for service in plane.SERVICES:
+    for service in plane.services_for_product_version(payload()["product_version"]):
         assert any("exec" in c and c[2] == "green:" + service and "STAFF_STRUCTURE_V3_ENABLED" in c[-1] for c in commands)
     for c, env in runner.calls:
         if "kamilya-green" in c:
@@ -136,7 +136,7 @@ def test_staff_all_services_flag_backup_before_upgrade_and_legacy_false_support(
             assert env["STAFF_STRUCTURE_V3_ENABLED"] == "false"
 
 
-@pytest.mark.parametrize("service", list(plane.SERVICES))
+@pytest.mark.parametrize("service", list(plane.services_for_product_version("0.11.63")))
 def test_staff_candidate_drift_rolls_back_and_preserves_old_flags(tmp_path, service):
     runner = StaffRunner(drift=service)
     cfg = legacy.config(tmp_path)

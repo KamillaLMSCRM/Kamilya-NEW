@@ -72,6 +72,23 @@ def epoch_manifest(version: str, *, migration: bool, flags: bool = True) -> dict
     return data
 
 
+def versioned_manifest(version: str, *, release_sha: str, image: str,
+                       previous_release_sha: str, previous_image: str) -> release_plane.ReleaseManifest:
+    data = epoch_manifest(version, migration=False)
+    data.update(release_sha=release_sha, image=image,
+                previous_release_sha=previous_release_sha, previous_image=previous_image)
+    return release_plane.ReleaseManifest.parse(data)
+
+
+def test_replica_topology_and_schema_epoch_are_bound_to_011152():
+    assert release_plane.services_for_product_version(None) == release_plane.LEGACY_SERVICES
+    assert release_plane.services_for_product_version("0.11.151") == release_plane.LEGACY_SERVICES
+    assert release_plane.services_for_product_version("0.11.152") == release_plane.SERVICES
+    assert release_plane.services_for_product_version("0.11.153") == release_plane.SERVICES
+    assert versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                              previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE).correction_revisions == (
+        "0194", "0194"
+    )
 @pytest.mark.parametrize('flags', [True, False])
 def test_version71_epoch_is_exact_even_with_features_disabled(flags):
     data = epoch_manifest('0.11.71', migration=True, flags=flags)
@@ -346,6 +363,7 @@ class FakeRunner:
         self.fail_token = fail_token
         self.initial_revision = initial_revision
         self.container_images: dict[str, str] = {}
+        self.container_settings: dict[str, dict[str, str]] = {}
 
     def run(self, args: Sequence[str], *, env: Mapping[str, str] | None = None) -> str:
         call = tuple(args)
@@ -366,22 +384,35 @@ class FakeRunner:
                 return ""
             container = f"{image.split('@')[-1][:6]}-{service}"
             self.container_images[container] = image
+            self.container_settings[container] = dict(env or {})
             return container
         if " inspect " in " ".join(call):
             container = call[-1]
             return f"{self.container_images.get(container, NEW_IMAGE)}|running|0"
+        if " exec " in " ".join(call):
+            container = call[2]
+            names = (release_plane.STAFF_FEATURE_ENV if "staff_structure" in call[-1]
+                     else release_plane.FEATURE_ENV)
+            settings = self.container_settings.get(container, {})
+            return json.dumps({key: {"supported": True,
+                                     "enabled": settings.get(name, "false") == "true"}
+                               for key, name in names.items()})
         return ""
 
 
 class FakeHealth:
-    def __init__(self, *, fail_public: bool = False) -> None:
+    def __init__(self, *, fail_public: bool = False, public_sha: str = NEW_SHA,
+                 product_version: str | None = None) -> None:
         self.fail_public = fail_public
+        self.public_sha = public_sha
+        self.product_version = product_version
 
     def read(self, url: str):
         if self.fail_public and url.startswith("https://"):
             raise release_plane.ReleasePlaneError("synthetic_public_health_failure")
-        sha = OLD_SHA if ":18000/" in url else NEW_SHA
-        return {"status": "ok", "release_sha": sha, "deployment_environment": "kz-production"}
+        sha = self.public_sha if url.startswith("https://") else (OLD_SHA if ":18000/" in url else NEW_SHA)
+        return {"status": "ok", "release_sha": sha, "deployment_environment": "kz-production",
+                "product_version": self.product_version}
 
 
 def test_active_worker_topology_fails_closed_on_partial_replica_pair(tmp_path: Path) -> None:
@@ -454,9 +485,10 @@ def test_successful_release_switches_slot_and_writes_append_only_evidence(tmp_pa
     assert any(" pull " in f" {command} " and NEW_IMAGE in command for command in commands)
     assert not any("backup-gate" in command for command in commands)
     stop_at = next(i for i, command in enumerate(commands) if "stop worker-ai worker-documents worker-ops" in command)
-    candidate_workers_at = next(i for i, command in enumerate(commands) if "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    candidate_workers_at = next(i for i, command in enumerate(commands) if "up -d --no-deps worker-ai worker-documents worker-ops" in command)
     assert stop_at < candidate_workers_at
     assert "worker-ai-replica" not in commands[stop_at]
+    assert "worker-ai-replica" not in commands[candidate_workers_at]
 
 
 def test_exact_migration_runs_backup_before_alembic_upgrade(tmp_path: Path) -> None:
@@ -516,7 +548,7 @@ def test_public_health_failure_restores_proxy_and_old_workers(
     assert json.loads(cfg.state_file.read_text(encoding="utf-8"))["release_sha"] == OLD_SHA
     commands = [" ".join(call) for call, _ in runner.calls]
     restore_at = next(i for i, command in enumerate(commands) if "kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops" in command)
-    candidate_stop_at = next(i for i, command in enumerate(commands) if "kamilya-green" in command and "stop worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    candidate_stop_at = next(i for i, command in enumerate(commands) if "kamilya-green" in command and "stop worker-ai worker-documents worker-ops" in command)
     candidate_down_at = max(i for i, command in enumerate(commands) if "kamilya-green" in command and "down --remove-orphans" in command)
     assert candidate_stop_at < candidate_down_at < restore_at
     assert "worker-ai-replica" not in commands[restore_at]
@@ -524,6 +556,52 @@ def test_public_health_failure_restores_proxy_and_old_workers(
     failure = json.loads((cfg.evidence_dir / "release-ledger.jsonl").read_text(encoding="utf-8"))
     assert failure["status"] == "ROLLED_BACK"
     assert failure["rollback"] == "completed"
+
+
+def test_first_replica_release_cuts_over_from_legacy_slot(tmp_path: Path) -> None:
+    runner = FakeRunner(initial_revision="0194")
+    cfg = config(tmp_path)
+    release = versioned_manifest("0.11.152", release_sha=NEW_SHA, image=NEW_IMAGE,
+                                 previous_release_sha=OLD_SHA, previous_image=OLD_IMAGE)
+
+    result = release_plane.ReleasePlane(release, cfg, runner, FakeHealth(product_version="0.11.152")).execute(release.release_id)
+
+    assert result["status"] == "DEPLOYED"
+    assert result["services"] == list(release_plane.SERVICES)
+    commands = [" ".join(call) for call, _ in runner.calls]
+    legacy_stop = next(i for i, command in enumerate(commands)
+                       if "kamilya-blue" in command and "stop worker-ai worker-documents worker-ops" in command)
+    replicated_start = next(i for i, command in enumerate(commands)
+                            if "kamilya-green" in command and "up -d --no-deps worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    assert legacy_stop < replicated_start
+    assert "worker-ai-replica" not in commands[legacy_stop]
+
+
+def test_protected_manifest_rollback_011152_to_011151_restores_legacy_workers(tmp_path: Path) -> None:
+    runner = FakeRunner(initial_revision="0194")
+    cfg = config(tmp_path)
+    cfg.state_file.write_text(json.dumps({"schema_version": 1, "active_slot": "green",
+                                          "release_sha": NEW_SHA, "image": NEW_IMAGE}), encoding="utf-8")
+    cfg.proxy_upstream_file.write_text("new-proxy\n", encoding="utf-8")
+    rollback = versioned_manifest("0.11.151", release_sha=OLD_SHA, image=OLD_IMAGE,
+                                  previous_release_sha=NEW_SHA, previous_image=NEW_IMAGE)
+
+    result = release_plane.ReleasePlane(rollback, cfg, runner,
+                                        FakeHealth(public_sha=OLD_SHA, product_version="0.11.151")).execute(
+        rollback.release_id
+    )
+
+    assert result["status"] == "DEPLOYED"
+    assert result["services"] == list(release_plane.LEGACY_SERVICES)
+    assert json.loads(cfg.state_file.read_text(encoding="utf-8"))["release_sha"] == OLD_SHA
+    commands = [" ".join(call) for call, _ in runner.calls]
+    new_workers_stop = next(i for i, command in enumerate(commands)
+                            if "kamilya-green" in command and
+                            "stop worker-ai worker-documents worker-ops worker-ai-replica worker-documents-replica" in command)
+    legacy_start = next(i for i, command in enumerate(commands)
+                        if "kamilya-blue" in command and "up -d --no-deps worker-ai worker-documents worker-ops" in command)
+    assert new_workers_stop < legacy_start
+    assert "worker-ai-replica" not in commands[legacy_start]
 
 
 def test_previous_identity_and_confirmation_are_fail_closed(tmp_path: Path) -> None:

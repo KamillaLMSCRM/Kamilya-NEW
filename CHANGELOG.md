@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.11.152] - 2026-11-24
+
+- Added one bounded replica each for AI and document processing on their existing queues; release cutover and rollback preserve the single operations/beat worker and restore the prior worker topology when rolling back to an older version.
+
 ## [0.11.151] - 2026-11-24
 
 - Проверка документа сохраняет замечания, когда необязательные автоматические правки пересекаются или неприменимы.

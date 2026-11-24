@@ -41,6 +41,15 @@ SERVICES = (
 )
 WORKERS = SERVICES[1:]
 LEGACY_SERVICES = ("api", "worker-ai", "worker-documents", "worker-ops")
+REPLICATED_WORKER_MIN_VERSION = (0, 11, 152)
+
+
+def services_for_product_version(product_version: str | None) -> tuple[str, ...]:
+    """Keep pre-replica releases rollbackable with their original worker set."""
+    if product_version is None:
+        return LEGACY_SERVICES
+    version = tuple(int(part) for part in product_version.split("."))
+    return SERVICES if version >= REPLICATED_WORKER_MIN_VERSION else LEGACY_SERVICES
 FEATURE_ENV = {
     "workbench": "METHODOLOGIST_WORKBENCH_ENABLED",
     "document_draft": "METHODOLOGIST_DOCUMENT_DRAFT_ENABLED",
@@ -276,6 +285,8 @@ class ReleaseManifest:
         if self.product_version is None:
             raise ReleasePlaneError("correction_requires_product_version")
         version = tuple(int(part) for part in self.product_version.split("."))
+        if version == (0, 11, 152):
+            return "0194", "0194"
         if (0, 11, 129) <= version <= (0, 11, 145) or version == (0, 11, 147):
             return "0192", "0192"
         if version == (0, 11, 148):
@@ -705,6 +716,8 @@ class ReleasePlane:
         run_id = f"{self.manifest.release_id}-{uuid.uuid4().hex}"
         lock_fd: int | None = None
         state = self._state()
+        target_services = services_for_product_version(self.manifest.product_version)
+        target_workers = target_services[1:]
         inactive = "green" if state.active_slot == "blue" else "blue"
         old_proxy = ""
         candidate_started = False
@@ -724,7 +737,8 @@ class ReleasePlane:
                 and state.image == self.manifest.image
             ):
                 if self.manifest.schema_version >= 2:
-                    self._verify_services(state.active_slot, state.image, state.release_sha, self.manifest.feature_flags)
+                    self._verify_services(state.active_slot, state.image, state.release_sha,
+                                          self.manifest.feature_flags, target_services)
                     self._wait_health(self.config.public_health_url, state.release_sha, self.manifest.product_version)
                     if (self.manifest.product_version is not None
                             and tuple(int(part) for part in self.manifest.product_version.split(".")) >= (0, 11, 71)):
@@ -844,9 +858,10 @@ class ReleasePlane:
             old_workers_stopped = True
             self.runner.run(self._compose(state.active_slot, "stop", *previous_workers), env=active_env)
             self.runner.run(
-                self._compose(inactive, "up", "-d", "--no-deps", *WORKERS), env=candidate_env
+                self._compose(inactive, "up", "-d", "--no-deps", *target_workers), env=candidate_env
             )
-            self._verify_services(inactive, self.manifest.image, self.manifest.release_sha, self.manifest.feature_flags)
+            self._verify_services(inactive, self.manifest.image, self.manifest.release_sha,
+                                  self.manifest.feature_flags, target_services)
 
             old_proxy = self.config.proxy_upstream_file.read_text(encoding="utf-8")
             _atomic_write(self.config.proxy_upstream_file, self._proxy_content(inactive), 0o644)
@@ -881,7 +896,7 @@ class ReleasePlane:
                 "migration_mode": self.manifest.migration.mode,
                 "migration_revision": self.manifest.migration.to_revision,
                 "rollback": rollback_status,
-                "services": list(SERVICES),
+                "services": list(target_services),
                 "started_at": started_at,
                 "finished_at": _utc_now_iso(),
             }
@@ -902,7 +917,7 @@ class ReleasePlane:
                     )
                     if old_workers_stopped:
                         self.runner.run(
-                            self._compose(inactive, "stop", *WORKERS), env=candidate_env
+                            self._compose(inactive, "stop", *target_workers), env=candidate_env
                         )
                     self.runner.run(
                         self._compose(inactive, "down", "--remove-orphans"), env=candidate_env
