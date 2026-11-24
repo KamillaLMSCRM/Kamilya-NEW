@@ -17,9 +17,9 @@ from app.modules.ai.ingestion import (
 
 def embedded_spreadsheet_tables(stream: BytesIO) -> list[tuple[str, str]]:
     """Preserve visible cells and refuse workbooks whose meaning needs an Excel runtime."""
-    from lxml import etree
-    from openpyxl import load_workbook
-    from openpyxl.utils.cell import coordinate_to_tuple
+    from lxml import etree  # type: ignore[import-untyped]
+    from openpyxl import load_workbook  # type: ignore[import-untyped]
+    from openpyxl.utils.cell import coordinate_to_tuple  # type: ignore[import-untyped]
 
     failure = "native_source_unsupported_visual"
     try:

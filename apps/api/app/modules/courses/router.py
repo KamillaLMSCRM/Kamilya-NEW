@@ -212,7 +212,7 @@ async def list_courses(
         if author_catalog:
             response = CourseResponse.model_validate(c)
             response.catalog_editions = translations.get(cast(UUID, c.id))
-            response.archive_only = c.status != "draft" or c.current_release_id is not None or c.id in with_history
+            response.archive_only = str(c.status) != "draft" or c.current_release_id is not None or cast(UUID, c.id) in with_history
             out.append(response)
         else:
             out.append(c)

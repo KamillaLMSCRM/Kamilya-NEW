@@ -168,7 +168,7 @@ def extract_native_source(blob: bytes, filename: str, document_sha256: str, *,
         from docx.oxml.ns import qn
         from docx.table import Table
         from docx.text.paragraph import Paragraph
-        from lxml import etree
+        from lxml import etree  # type: ignore[import-untyped]
 
         from app.modules.ai.ingestion import MAX_XLSX_RENDERED_CHARS
         from app.modules.source_preparation.embedded_spreadsheet import embedded_spreadsheet_tables
