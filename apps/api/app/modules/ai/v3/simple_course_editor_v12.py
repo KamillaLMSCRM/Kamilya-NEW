@@ -49,16 +49,18 @@ def apply_branch_edits(value: Any, fmt: dict[str, Any], targets: list[dict[str, 
         for lesson in {row['lesson_id'] for row in targets}
     }
     supplied = {row['lesson_id']: row['source_refs'] for row in value['lesson_sources']}
-    if (not affected <= set(supplied) <= set(refs) or len(supplied) != len(value['lesson_sources'])
-            or any(not citations or not set(citations) <= refs[lesson] for lesson, citations in supplied.items())):
+    if not affected <= set(supplied) <= set(refs) or len(supplied) != len(value['lesson_sources']):
+        raise ValueError('simple_branch_review_scope_invalid')
+    accepted = {lesson for lesson in affected if supplied[lesson] and set(supplied[lesson]) <= refs[lesson]}
+    if affected and not accepted:
         raise ValueError('simple_branch_review_scope_invalid')
     updated = copy.deepcopy(proposal)
     edits = {row['block_id']: row for row in updated['body_edits']}
     edits.update((addresses[row['block_id']], {**row, 'block_id': addresses[row['block_id']]})
-                 for row in value['body_edits'])
+                 for row in value['body_edits'] if by_block[row['block_id']]['lesson_id'] in accepted)
     updated['body_edits'] = list(edits.values())
     for row in updated['lesson_sources']:
-        if row['lesson_id'] in affected:
+        if row['lesson_id'] in accepted:
             row['source_refs'] = list(dict.fromkeys(row['source_refs'] + supplied[row['lesson_id']]))
     updated['source_questions'].extend(value['source_questions'])
     return updated

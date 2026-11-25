@@ -58,7 +58,8 @@ def matches_literal_joint_reply(plan: dict[str, Any], reply: Any) -> bool:
     context = reply.get('context_fingerprint')
     if (not isinstance(base, str) or not isinstance(source, str) or not isinstance(context, str)
             or re.fullmatch(r'[a-f0-9]{64}', source) is None or re.fullmatch(r'[a-f0-9]{64}', context) is None
-            or re.fullmatch(r'practical:simple:editor-joint:v9:' + source + r':unit=[a-f0-9]{64}', base) is None):
+            or re.fullmatch(r'practical:simple:(?:editor-joint:v9|branch-review:v12):'
+                            + source + r':unit=[a-f0-9]{64}', base) is None):
         return False
     group = plan['group_id']
     return isinstance(group, str) and group.startswith(
@@ -190,19 +191,28 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
         if is_literal_joint_stage(plan):
             import json
 
+            from app.modules.ai.v3.explicit_stage_retry import checked_ledger
             from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
             from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
             from app.modules.ai.v3.revision_policy import REVIEW_KEY, SIMPLE_COURSE_REVIEW_V12_POLICY
-            from app.modules.ai.v3.source_access_config import BRANCH_REVIEW_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR
+            from app.modules.ai.v3.source_access_config import (
+                BRANCH_REVIEW_JOINT_EDITOR,
+                RELATED_SOURCE_JOINT_EDITOR,
+                branch_review_enabled,
+            )
             from app.modules.ai.v3.source_access_config import KEY as ACCESS_KEY
 
             analysis = (job.params or {}).get('source_analysis', {})
+            joint_editor = analysis.get(ACCESS_KEY, {}).get('joint_editor')
             outer = json.loads(raw)
             reply = json.loads(outer['choices'][0]['message']['content'])
             if (analysis.get(REVIEW_KEY) != SIMPLE_COURSE_REVIEW_V12_POLICY
                     or analysis.get(QA_KEY) != MANAGED_POLICY
-                    or analysis.get(ACCESS_KEY, {}).get('joint_editor') not in (RELATED_SOURCE_JOINT_EDITOR, BRANCH_REVIEW_JOINT_EDITOR)
+                    or joint_editor not in (RELATED_SOURCE_JOINT_EDITOR, BRANCH_REVIEW_JOINT_EDITOR)
                     or outer.get('model') != 'gpt-6-luna' or not matches_literal_joint_reply(plan, reply)):
+                return None
+            if (reply['base_group'].startswith('practical:simple:branch-review:v12:')
+                    and not branch_review_enabled(joint_editor, checked_ledger(job.params or {}))):
                 return None
         return {"stage": digest, "body_sha256": receipt["body_sha256"],
                 "pending_sha256": _digest(job.result["v3_pending_stages"]), "plan": plan,

@@ -497,13 +497,12 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             BOUNDED_JOINT_EDITOR,
             BRANCH_REVIEW_JOINT_EDITOR,
             RELATED_SOURCE_JOINT_EDITOR,
+            branch_review_enabled,
             checked_settings,
         )
 
         pinned = checked_settings(source_access_settings)
         retry_ledger = getattr(journal, 'explicit_stage_retries', None)
-        from app.modules.ai.v3.explicit_stage_retry import COMPACT_REVIEW_WIRE
-
         replacements = {entry.get('replacement') for entry in retry_ledger['entries'].values()} if isinstance(
             retry_ledger, dict) else set()
         bounded_recovery = BOUNDED_JOINT_EDITOR in replacements
@@ -519,7 +518,7 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
             bounded_joint=joint_editor in (BOUNDED_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR,
                                           BRANCH_REVIEW_JOINT_EDITOR) or bounded_recovery,
             related_evidence=joint_editor in (RELATED_SOURCE_JOINT_EDITOR, BRANCH_REVIEW_JOINT_EDITOR),
-            branch_review=joint_editor == BRANCH_REVIEW_JOINT_EDITOR or COMPACT_REVIEW_WIRE in replacements)
+            branch_review=branch_review_enabled(joint_editor, retry_ledger))
     elif review_policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 

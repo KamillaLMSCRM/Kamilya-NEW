@@ -12,6 +12,15 @@ BRANCH_REVIEW_JOINT_EDITOR = "bounded-joint-branch-review-v3"
 _PINNED_SETTINGS = {"policy", "runtime_revision", "literal_chars", "lookup_rounds"}
 
 
+def branch_review_enabled(joint_editor: object, retry_ledger: Any) -> bool:
+    from app.modules.ai.v3.explicit_stage_retry import COMPACT_REVIEW_WIRE
+
+    return joint_editor == BRANCH_REVIEW_JOINT_EDITOR or (
+        isinstance(retry_ledger, dict)
+        and any(entry.get("replacement") == COMPACT_REVIEW_WIRE for entry in retry_ledger["entries"].values())
+    )
+
+
 def pin_settings(snapshot: Any) -> dict[str, Any]:
     value = {
         "policy": POLICY,
