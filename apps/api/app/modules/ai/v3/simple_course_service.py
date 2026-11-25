@@ -63,10 +63,19 @@ def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, valid
             return False
         props = fmt['json_schema']['schema']['properties']
         base = props['base_group']['enum'][0]
-        return bool(props['source_fingerprint']['enum'] == [match[1]]
-            and props['context_fingerprint']['enum'] == [match[3]] and _digest(base) == match[2]
-            and simple_stage_allowed(stage, base + ':output=' + match[5], inner_format(fmt),
-                policy=SIMPLE_COURSE_REVIEW_V11_POLICY, validator=validator))
+        if (props['source_fingerprint']['enum'] != [match[1]]
+                or props['context_fingerprint']['enum'] != [match[3]] or _digest(base) != match[2]):
+            return False
+        inner = inner_format(fmt)
+        branch = re.fullmatch(r'practical:simple:branch-review:v12:([0-9a-f]{64}):unit=([0-9a-f]{64})', base)
+        if branch:
+            if stage != 'repair' or branch[1] != match[1] or response_contract(inner) != 'simple_course_block_editor':
+                return False
+            bindings = inner['json_schema']['schema']['properties']
+            return (bindings['source_fingerprint']['enum'] == [branch[1]]
+                    and bindings['draft_fingerprint']['enum'] == [branch[2]])
+        return simple_stage_allowed(stage, base + ':output=' + match[5], inner,
+            policy=SIMPLE_COURSE_REVIEW_V11_POLICY, validator=validator)
 
     if policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         if type(group) is not str or not callable(validator):

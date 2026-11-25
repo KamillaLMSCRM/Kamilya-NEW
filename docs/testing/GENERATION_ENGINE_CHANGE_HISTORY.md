@@ -4420,3 +4420,15 @@ Keep the production connector default profile, authorization, model routing,
 deadlines, reasoning output limits, visual limits and source text unchanged.
 Require verified matching live producer and receiver before claiming production
 Luna readiness for oversized documents. No inference in the boundary replay.
+
+### Owned transport admission for branch comparison
+
+The exact microcredit-rules DEV run retained 42 validated Luna replies, then
+failed locally before the new branch comparison could claim a provider call.
+A replay over all 42 original replies reproduced and isolated the rejection
+at the V12 owned stage admission. The earlier mocked stage validated output
+shape but had omitted the real transport gate.
+
+Admit the branch comparison only as a V12 repair with the matching source,
+base-group digest, context and draft fingerprint. Verify the full original
+saved prefix through the same gate. Preserve the 42 replies and approved source.
