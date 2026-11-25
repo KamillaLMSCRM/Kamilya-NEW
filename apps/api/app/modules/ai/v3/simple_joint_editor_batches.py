@@ -110,7 +110,7 @@ def batch_joint_editor(
             'draft_fingerprint': payload['draft_fingerprint'],
             'owners': owners,
             'all_owners': set(lesson_index),
-            'blocks': {block['id'] for lesson in scoped_lessons for block in lesson['body_blocks']},
+            'blocks': {block['id']: lesson['id'] for lesson in scoped_lessons for block in lesson['body_blocks']},
             'questions': {question['id'] for lesson in scoped_lessons for question in lesson['questions']},
             'findings': ids,
             'allow_additions': bool(visuals[index]) or any(
@@ -158,6 +158,8 @@ def owned_joint_proposal(value: dict[str, Any], custody: dict[str, Any]) -> dict
     proposal['lesson_sources'] = list(source_rows.values())
     for row in proposal.get('finding_dispositions', ()):
         target = row['target']
+        if target['kind'] == 'lesson_content':
+            target['id'] = custody['blocks'].get(target['id'], target['id'])
         inventory = allowed if target['kind'].startswith('lesson_') else custody['questions']
         if target['id'] not in inventory and row['status'] != 'UNRESOLVED':
             raise ValueError('simple_v12_joint_batch_scope_invalid')

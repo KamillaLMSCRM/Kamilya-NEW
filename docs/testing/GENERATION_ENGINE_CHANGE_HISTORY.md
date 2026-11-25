@@ -4253,3 +4253,25 @@ and rejected an unowned source reference. The scoped DEV recovery must
 prove the exact retired request from the new compact format and replay
 all completed stages before the single replacement can dispatch. Normal
 production jobs do not receive this case recovery action.
+
+### CHG-JOINT-EDITOR-OWNED-BODY-ADDRESS-20261125
+
+The second debt settlement check retained 24 replies and one complete
+HTTP 200 Luna 6 reply to the last scoped edit. The reply passed the schema
+and contained three edits to the only owned lesson. The model cited the
+edited BODY IDs in its five finding dispositions. The editor expected
+lesson IDs for those disposition targets and rejected the complete reply.
+
+Resolve a lesson-content disposition's owned BODY ID to its lesson.
+The original receipt and scope remain intact. Keep rejecting foreign
+blocks, use the normal finding and literal-quote checks, and leave
+unrelated editing targets untouched. The complete managed response can
+be replayed in the existing isolated DEV QA job only when the receipt,
+review role, stage, wire request, pinned source, route and ownership agree.
+No output text or saved scope is changed.
+
+Reproduced from all 24 actual response checkpoints and the exact failed
+request. The original 9,469-byte Luna response was validated again through
+the managed transport and lawful scoped editor with zero additional inference.
+The archived response reported 21,244 input and 1,834 output tokens.
+Live final lesson and quiz checks remain required for this change.
