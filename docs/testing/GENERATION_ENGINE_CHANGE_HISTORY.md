@@ -4381,3 +4381,29 @@ request. The original 9,469-byte Luna response was validated again through
 the managed transport and lawful scoped editor with zero additional inference.
 The archived response reported 21,244 input and 1,834 output tokens.
 Live final lesson and quiz checks remain required for this change.
+
+### CHG-BRANCH-REVIEW-20261125
+
+The recovered microcredit review passed the connector. Its first scoped
+editor response still taught the threshold and spouse consent without
+the alternative document for the unmarried case. Exact offline request
+reconstruction showed that the editor received both approved alternatives
+in SRC280 and SRC329 among 68 source blocks. Global critique and the
+first joint edit did not flag the lesson body.
+
+After the joint proposals, compare a bounded set of likely omitted
+conditions or alternatives in the edited paragraphs. Literal companion
+clauses already come from the same approved source. Language markers
+and overlap select candidates only. A focused editor compares actor,
+action and scope, changes only the supplied paragraph addresses, and
+binds its source references to the owning lesson. The ordinary final
+question-bank stages see the resulting teaching. One call per large
+course when there are candidates. Prior accepted paths retain their
+pinned policy. The exact DEV compact-review recovery may use the
+extra step before final assessment work, preserving completed replies.
+
+Offline replay of the real first scoped body selected both affected
+paragraphs and the exact two companion references. Scope tests verify
+an unchanged supported alternative, stable unrelated paragraphs and
+cards, and rejection of references to another lesson. No inference
+was used for these checks. Live scope and release acceptance remain open.
