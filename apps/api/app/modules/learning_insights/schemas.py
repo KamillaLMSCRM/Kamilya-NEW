@@ -54,6 +54,7 @@ class AttemptDetail(BaseModel):
     quiz_id: UUID
     quiz_title: str
     content_release_id: UUID | None = None
+    release_version: int | None = None
     completed_at: datetime
     attempt_number: int
     score_percent: int

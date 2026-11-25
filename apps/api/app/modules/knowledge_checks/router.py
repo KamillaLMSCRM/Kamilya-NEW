@@ -1,11 +1,11 @@
 """Tenant-bound standalone assessment endpoints."""
 
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, NoReturn, cast
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import Row, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.models.users import User
 from app.modules.knowledge_checks.models import KnowledgeCheck, KnowledgeCheckAssignment, KnowledgeCheckAttempt
 from app.modules.knowledge_checks.schemas import Answer, Answers, Assign, Content, Create, Replace, Revision
 from app.modules.knowledge_checks.service import digest, grade, normalize_answers, public_snapshot
+from app.modules.training_responsibility.scope import resolve_reporting_scope
 
 router = APIRouter(prefix="/knowledge-checks", tags=["knowledge-checks"])
 Author = Annotated[User, Depends(require_role("superadmin", "methodologist"))]
@@ -110,6 +111,68 @@ async def assignment_attempts(db: AsyncSession, assignment: KnowledgeCheckAssign
 
 def page(items: list[Any], limit: int) -> dict[str, Any]:
     return {"items": items[:limit], "has_more": len(items) > limit}
+
+
+async def require_employee_scope(db: AsyncSession, user: User, employee_id: UUID) -> None:
+    scope = await resolve_reporting_scope(db, tenant(user), user_id=cast(UUID, user.id), role=str(user.role))
+    if not scope.allows_employee(employee_id):
+        raise HTTPException(404, "Not found")
+    employee = await db.scalar(select(User.id).where(User.id == employee_id, User.tenant_id == tenant(user), User.role == "student"))
+    if employee is None:
+        raise HTTPException(404, "Not found")
+
+
+@router.get("/employees/{employee_id}/assignments")
+async def employee_assignments(employee_id: UUID, user: Author, db: DB, limit: Limit = 12, offset: Offset = 0) -> dict[str, Any]:
+    await require_employee_scope(db, user, employee_id)
+    tenant_id = tenant(user)
+    rows = (await db.scalars(select(KnowledgeCheckAssignment).where(
+        KnowledgeCheckAssignment.tenant_id == tenant_id,
+        KnowledgeCheckAssignment.user_id == employee_id,
+    ).order_by(KnowledgeCheckAssignment.created_at.desc(), KnowledgeCheckAssignment.id)
+        .offset(offset).limit(limit + 1))).all()
+    assignments = list(rows[:limit])
+    attempts = await db.execute(select(
+        KnowledgeCheckAttempt.assignment_id, KnowledgeCheckAttempt.id, KnowledgeCheckAttempt.number,
+        KnowledgeCheckAttempt.completed_at, KnowledgeCheckAttempt.score_percent, KnowledgeCheckAttempt.passed,
+    ).where(
+        KnowledgeCheckAttempt.tenant_id == tenant_id,
+        KnowledgeCheckAttempt.assignment_id.in_([assignment.id for assignment in assignments]),
+    ).order_by(KnowledgeCheckAttempt.number))
+    by_assignment: dict[UUID, list[Row[Any]]] = {}
+    for attempt in attempts:
+        by_assignment.setdefault(attempt.assignment_id, []).append(attempt)
+    return {
+        "items": [
+            {**summary(assignment, by_assignment.get(cast(UUID, assignment.id), [])), "attempts": [
+                {"id": attempt.id, "number": attempt.number, "completed_at": attempt.completed_at,
+                 "score_percent": attempt.score_percent, "passed": attempt.passed}
+                for attempt in by_assignment.get(cast(UUID, assignment.id), [])
+            ]}
+            for assignment in assignments
+        ],
+        "has_more": len(rows) > limit,
+    }
+
+
+@router.get("/employees/{employee_id}/attempts/{attempt_id}")
+async def employee_attempt(employee_id: UUID, attempt_id: UUID, user: Author, db: DB) -> dict[str, Any]:
+    await require_employee_scope(db, user, employee_id)
+    attempt = await db.scalar(select(KnowledgeCheckAttempt).join(
+        KnowledgeCheckAssignment,
+        (KnowledgeCheckAssignment.id == KnowledgeCheckAttempt.assignment_id)
+        & (KnowledgeCheckAssignment.tenant_id == KnowledgeCheckAttempt.tenant_id),
+    ).where(
+        KnowledgeCheckAttempt.id == attempt_id,
+        KnowledgeCheckAttempt.tenant_id == tenant(user),
+        KnowledgeCheckAssignment.user_id == employee_id,
+        KnowledgeCheckAttempt.completed_at.is_not(None),
+    ))
+    if attempt is None:
+        raise HTTPException(404, "Not found")
+    if digest(attempt.snapshot) != attempt.snapshot_sha256 or digest(attempt.answers) != attempt.submission_sha256:
+        conflict("Saved attempt evidence is unavailable")
+    return {**attempt_response(attempt), "snapshot": attempt.snapshot}
 
 
 @router.get("/")

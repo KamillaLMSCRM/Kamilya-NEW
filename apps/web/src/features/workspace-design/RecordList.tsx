@@ -3,7 +3,7 @@
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 
-export function RecordList<T>({ records, getId, title, description, status, detailsLabel, renderDetails, selection, mobileBackLabel, detailClassName = '' }: {
+export function RecordList<T>({ records, getId, title, description, status, detailsLabel, renderDetails, selection, mobileBackLabel, detailClassName = '', initialSelectedId }: {
   records: readonly T[];
   getId: (record: T) => string;
   title: (record: T) => ReactNode;
@@ -14,8 +14,9 @@ export function RecordList<T>({ records, getId, title, description, status, deta
   selection?: (record: T) => ReactNode;
   mobileBackLabel?: string;
   detailClassName?: string;
+  initialSelectedId?: string;
 }) {
-  const [selectedId, setSelectedId] = useState<string>();
+  const [selectedId, setSelectedId] = useState(initialSelectedId);
   const [detailOpen, setDetailOpen] = useState(false);
   const activeRow = useRef<HTMLButtonElement | null>(null);
   const listScroll = useRef(0);

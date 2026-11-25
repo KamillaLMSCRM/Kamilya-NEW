@@ -31,6 +31,7 @@ from app.modules.certificates.service import (
     update_certificate_settings,
     verify_certificate,
 )
+from app.modules.training_responsibility.scope import resolve_reporting_scope
 
 router = APIRouter(prefix="/certificates", tags=["certificates"])
 Database = Annotated[AsyncSession, Depends(get_db)]
@@ -185,9 +186,10 @@ async def revoke_cert(
     return result
 
 
-def _can_access_certificate(user, cert) -> bool:
+async def _can_access_certificate(db: AsyncSession, user, cert) -> bool:
     if user.role == "methodologist":
-        return True
+        scope = await resolve_reporting_scope(db, cert.tenant_id, user_id=user.id, role=user.role)
+        return scope.allows_employee(cert.user_id)
     if cert.user_id != user.id:
         return False
     assignment_enrollment_id = getattr(user, "assignment_access_enrollment_id", None)
@@ -202,7 +204,7 @@ async def get_cert(
 ):
     """Get a specific certificate."""
     cert = await get_certificate(db, cert_id, user.tenant_id)
-    if not cert or not _can_access_certificate(user, cert):
+    if not cert or not await _can_access_certificate(db, user, cert):
         raise HTTPException(status_code=404, detail="Certificate not found")
     return cert
 
@@ -221,7 +223,7 @@ async def download_certificate_pdf(
     - Local backend: stream the PDF bytes directly.
     """
     cert = await get_certificate(db, cert_id, user.tenant_id)
-    if not cert or not _can_access_certificate(user, cert):
+    if not cert or not await _can_access_certificate(db, user, cert):
         raise HTTPException(status_code=404, detail="Certificate not found")
 
     storage = get_storage()

@@ -54,7 +54,9 @@ function makeReviewKey(tenantId: string | null | undefined, courseId: string, qu
 function releaseLabel(
   releaseId: string | null,
   text: ReturnType<typeof useLearningInsightsT>['text'],
+  version?: number | null,
 ): string {
+  if (version != null) return text('releaseVersion', { count: version });
   return releaseId ? text('release', { id: releaseId }) : text('releaseUnavailable');
 }
 
@@ -416,9 +418,11 @@ function QuestionReview({
 export function LearnerAnswers({
   enrollmentId,
   onClose,
+  inline = false,
 }: {
   enrollmentId: string | null;
-  onClose: () => void;
+  onClose?: () => void;
+  inline?: boolean;
 }) {
   const user = useAuthStore((state) => state.user);
   const { text, status } = useLearningInsightsT();
@@ -476,14 +480,7 @@ export function LearnerAnswers({
 
   const visibleData = dataScopeKey === scopeKey ? data : null;
 
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={visibleData ? `${text('answers')}: ${visibleData.user_name}` : text('answers')}
-      description={visibleData?.course_title}
-      className="max-w-3xl"
-    >
+  const answers = (
       <div className="space-y-4">
         {loading && !visibleData ? (
           <p className="text-sm text-muted-foreground">{text('loading')}</p>
@@ -508,6 +505,18 @@ export function LearnerAnswers({
           />
         ))}
       </div>
+  );
+
+  if (inline) return <section aria-label={text('answers')}>{answers}</section>;
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={visibleData ? `${text('answers')}: ${visibleData.user_name}` : text('answers')}
+      description={visibleData?.course_title}
+      className="max-w-3xl"
+    >
+      {answers}
     </Modal>
   );
 }
@@ -546,7 +555,7 @@ function AttemptCard({
           </span>
           <span className="mt-1 block text-sm text-muted-foreground">{attempt.quiz_title}</span>
           <span className="mt-1 block text-xs text-muted-foreground">
-            {releaseLabel(attempt.content_release_id, text)}
+            {releaseLabel(attempt.content_release_id, text, attempt.release_version)}
           </span>
         </span>
         <ChevronDown
@@ -585,7 +594,7 @@ function AttemptCard({
                       <div>
                         <p className="font-medium">{question.text}</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {attempt.quiz_title} · {releaseLabel(attempt.content_release_id, text)}
+                          {attempt.quiz_title} · {releaseLabel(attempt.content_release_id, text, attempt.release_version)}
                         </p>
                       </div>
                       {control}

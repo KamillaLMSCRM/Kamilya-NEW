@@ -255,7 +255,10 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     {!review && !loadError && <p role="status">{copy.loading}</p>}
     {review && <>
       <WorkspacePanel bodyClassName="space-y-3">
-        <h2 className="break-words text-lg font-semibold">{review.title}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="break-words text-lg font-semibold">{review.title}</h2>
+          {open > 0 && <Button variant="outline" onClick={() => showQuestion(review.questions.find((item) => !item.resolution)!.id)}>{copy.firstOpenQuestion}</Button>}
+        </div>
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
         {review.can_recheck && !readOnly && <div className="space-y-2">

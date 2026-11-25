@@ -21,10 +21,18 @@ export interface DashboardJob {
   updated_at?: string;
 }
 
+export interface DashboardSourceReview {
+  document_id: string;
+  title: string;
+  open_questions?: number | null;
+  status: 'not_started' | 'queued' | 'running' | 'interrupted' | 'failed' | 'in_review' | 'approved' | 'source_changed';
+}
+
 export interface DashboardSources {
   learning: LearningActionCenterPayload | null;
   courses: DashboardCourse[] | null;
   jobs: DashboardJob[] | null;
+  sourceReviews?: DashboardSourceReview[] | null;
   mandatory: MandatoryTrainingSummary | null;
 }
 
