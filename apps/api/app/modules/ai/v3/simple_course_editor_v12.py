@@ -34,6 +34,17 @@ _BRANCH_REVIEW = (
     'and added_lessons to empty arrays. Preserve the original lesson language.'
 )
 
+_RECHECK_BRANCHES = (
+    ' Compare the supplied cross-section clauses before evaluating coverage, difficulty or duplicate cards. '
+    'For each procedure first derive the action for each applicable case from the quoted source. Compare both '
+    'the lesson statements and the visible facts and key of every card that tests that procedure, even if the '
+    'clauses came from a different lesson. A card presenting one branch as universal or omitting the fact '
+    'that selects its key is a material assessment defect. A lesson that states both an exception and an '
+    'unqualified rule forbidding that exception needs a content correction. Cite the exact clause IDs. If '
+    'the source really gives incompatible instructions for the same case, keep it as a source question. '
+    'Leave correct cases with explicitly stated conditions alone.'
+)
+
 
 def apply_branch_edits(value: Any, fmt: dict[str, Any], targets: list[dict[str, Any]],
                        proposal: dict[str, Any], addresses: dict[str, str]) -> dict[str, Any]:
@@ -119,6 +130,7 @@ async def run_simple_course_editor_v12(
     receipts = []
     bank: list[dict[str, Any]] = []
     teaching: list[dict[str, Any]] = []
+    branch_clauses: dict[tuple[str, str], dict[str, str]] = {}
 
     async def planned(count: int) -> None:
         nonlocal base_total
@@ -151,6 +163,9 @@ async def run_simple_course_editor_v12(
                 targets = select_branch_targets(branch_candidates)
                 if not targets:
                     return combined
+                for row in targets:
+                    for clause in row['companion_clauses']:
+                        branch_clauses[(clause['source_ref'], clause['quote'])] = clause
                 target_refs = sorted({clause['source_ref'] for row in targets for clause in row['companion_clauses']})
                 addresses = {f'BODY{index}': row['block_id'] for index, row in enumerate(targets, 1)}
                 displayed = [{**row, 'block_id': alias} for alias, row in zip(addresses, targets, strict=True)]
@@ -192,6 +207,17 @@ async def run_simple_course_editor_v12(
             lesson_ids = {row['lesson_id'] for row in payload['flagged_cards']}
             payload['peer_assessment_cards'] = [row for row in bank if row['id'] not in flagged]
             payload['flagged_card_teaching'] = [row for row in teaching if row['id'] in lesson_ids]
+            if branch_clauses:
+                for row in payload['flagged_cards']:
+                    row['other_cards_in_lesson'] = [
+                        peer for peer in bank
+                        if peer['lesson_id'] == row['lesson_id'] and peer['id'] != row['question']['id']
+                    ]
+            messages[1]['content'] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        if branch_clauses and (bank_review or card_repair):
+            messages = copy.deepcopy(messages)
+            payload = json.loads(messages[1]['content'])
+            payload['cross_section_clauses'] = list(branch_clauses.values())
             messages[1]['content'] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         if complete_editor:
             from app.modules.ai.v3.simple_course_block_editor import complete_added_lesson_format
@@ -200,9 +226,17 @@ async def run_simple_course_editor_v12(
         for attempt in range(lookup_rounds + 1):
             projected, fingerprint = source.project(messages, group, requested)
             if bank_review:
+                if branch_clauses:
+                    projected[0]["content"] += _RECHECK_BRANCHES
                 projected[0]["content"] += _ALIGNMENT
             if card_repair:
                 projected[0]["content"] += _CARD_REPAIR
+                if branch_clauses:
+                    projected[0]["content"] += (
+                        ' Use the cross-section clauses to preserve all applicable branches in teaching and to '
+                        'make the case selecting each assessment key visible. Before returning each replacement, '
+                        'check the explicitly listed other cards in its lesson even when they are also flagged.'
+                    )
             if ":author-unit:v9:" in group:
                 projected[0]["content"] += (
                     " Every question must assess a useful skill or decision explicitly "

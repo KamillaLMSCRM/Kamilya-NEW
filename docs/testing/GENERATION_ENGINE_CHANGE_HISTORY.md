@@ -4328,3 +4328,10 @@ branch role under the existing guarded retained-response protocol so the
 native worker can continue without another request for the branch review.
 Replaying the actual 42 validated responses plus the retained response
 reached the evidence-repair stage with zero provider calls.
+
+### Final review preserves source branches across lessons and questions
+
+- The full Rules course completed in DEV through Luna 6 with 46 validated responses and 16 lessons / 64 questions. The quarantined branch reply was reused by exact body SHA, without another model call for that stage. The final bank review and repair completed. Reading the persisted course identified two material scope errors and a reintroduced duplicate, which blocked acceptance.
+- The application lesson preserved both branches of the consent requirement, while its test card retained only one, and a later lesson still juxtaposed both branches with an unconditional refusal. The final editor had no direct handoff from its scoped companion-clause comparison.
+- Carry deduplicated, already selected literal companion clauses into the existing final review and repair. The review checks each applicable case against all lesson statements and visible quiz facts. A repaired question receives its actual same-lesson peers, including peers already flagged for edits. Scope and acceptance remain model decisions over the approved source.
+- Replay of the exact 44 unaffected responses reaches the amended bank review without calling the model. It measures 600,575 request bytes. Existing stage boundaries and source ownership remain intact.
