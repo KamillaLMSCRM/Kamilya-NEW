@@ -181,8 +181,19 @@ async def stage_once(
             raise ValueError("focused_stage_scope_invalid")
     if simple:
         from app.modules.ai.v3.explicit_stage_retry import guard_recovery_stage, retry_plan
-        await guard_recovery_stage(journal, plan)
-        plan = retry_plan(plan, getattr(journal, 'explicit_stage_retries', None))
+        retry_ledger = getattr(journal, 'explicit_stage_retries', None)
+        retired_wire_plan = None
+        if retry_ledger is not None and stage == "review":
+            from app.modules.ai.v3.source_access_contract import retired_oversized_review
+
+            retired_format = retired_oversized_review(response_format)
+            if retired_format is not None:
+                retired_wire_plan = stage_plan(
+                    journal, stage=stage, group_id=group_id, source_sha256=source_sha256,
+                    route_fingerprint=route_fingerprint, messages=messages, response_format=retired_format,
+                )
+        await guard_recovery_stage(journal, plan, retired_wire_plan)
+        plan = retry_plan(plan, retry_ledger)
     signature = _digest(plan)
     result_key, claim_key = f"v3-stage-result:{signature}", f"v3-stage-claim:{signature}"
     from app.modules.ai.v3.practical_author_transport import is_practical_author_stage
