@@ -72,8 +72,8 @@ def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, valid
             if stage != 'repair' or branch[1] != match[1] or response_contract(inner) != 'simple_course_block_editor':
                 return False
             bindings = inner['json_schema']['schema']['properties']
-            return (bindings['source_fingerprint']['enum'] == [branch[1]]
-                    and bindings['draft_fingerprint']['enum'] == [branch[2]])
+            return bool(bindings['source_fingerprint']['enum'] == [branch[1]]
+                        and bindings['draft_fingerprint']['enum'] == [branch[2]])
         return simple_stage_allowed(stage, base + ':output=' + match[5], inner,
             policy=SIMPLE_COURSE_REVIEW_V11_POLICY, validator=validator)
 
