@@ -4432,3 +4432,18 @@ shape but had omitted the real transport gate.
 Admit the branch comparison only as a V12 repair with the matching source,
 base-group digest, context and draft fingerprint. Verify the full original
 saved prefix through the same gate. Preserve the 42 replies and approved source.
+
+### Retain supported branch repairs from a mixed model response
+
+The Rules branch comparison reached Luna 6 and returned HTTP 200. It added
+the missing unmarried-applicant alternative in three paragraphs. Another
+proposed edit cited evidence supplied to a different lesson, which formerly
+rejected the entire response. The original managed reply is retained by its
+request, owner and body hashes in the existing quarantine.
+
+Apply only independent edits with exactly scoped lesson citations. Leave
+the rejected lesson's text and references unchanged. Permit this exact V12
+branch role under the existing guarded retained-response protocol so the
+native worker can continue without another request for the branch review.
+Replaying the actual 42 validated responses plus the retained response
+reached the evidence-repair stage with zero provider calls.

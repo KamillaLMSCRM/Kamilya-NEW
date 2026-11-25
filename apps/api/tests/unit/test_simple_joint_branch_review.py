@@ -2,13 +2,21 @@ import copy
 
 import pytest
 
+from app.modules.ai.qa_luna_dev_route import QA_TENANT
+from app.modules.ai.v3.explicit_stage_retry import COMPACT_REVIEW_WIRE
 from app.modules.ai.v3.practical_contract import _digest
 from app.modules.ai.v3.response_contracts import matches_transport_contract
+from app.modules.ai.v3.retained_author_replay import matches_literal_joint_reply
 from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V12_POLICY
 from app.modules.ai.v3.simple_course_block_editor import block_editor_format
 from app.modules.ai.v3.simple_course_editor_v12 import apply_branch_edits
 from app.modules.ai.v3.simple_course_service import simple_stage_allowed
 from app.modules.ai.v3.simple_joint_related_source import companion_branch_targets, select_branch_targets
+from app.modules.ai.v3.source_access_config import (
+    BRANCH_REVIEW_JOINT_EDITOR,
+    RELATED_SOURCE_JOINT_EDITOR,
+    branch_review_enabled,
+)
 from app.modules.ai.v3.source_access_contract import access_format
 
 
@@ -79,3 +87,55 @@ def test_branch_review_is_admitted_by_owned_v12_transport_only_for_bound_scope()
     wrong_draft = copy.deepcopy(outer)
     wrong_draft['json_schema']['schema']['properties']['results']['items']['properties']['draft_fingerprint']['enum'] = ['e' * 64]
     assert not allow('repair', group, wrong_draft)
+    assert matches_literal_joint_reply(
+        {'stage': 'repair', 'group_id': group, 'tenant_id': str(QA_TENANT)},
+        {'base_group': base, 'source_fingerprint': source, 'context_fingerprint': context},
+    )
+    assert not matches_literal_joint_reply(
+        {'stage': 'repair', 'group_id': group, 'tenant_id': str(QA_TENANT)},
+        {'base_group': base, 'source_fingerprint': source, 'context_fingerprint': 'f' * 64},
+    )
+
+
+def test_branch_review_keeps_independent_repairs_when_one_lesson_cites_another_lesson():
+    source, draft = 'a' * 64, 'b' * 64
+    fmt = block_editor_format(['SRC2', 'SRC3'], source, draft, ['BODY1', 'BODY2'])
+    scope = [
+        {'block_id': 'BODY1', 'lesson_id': 'lesson-one', 'companion_clauses': [{'source_ref': 'SRC2'}]},
+        {'block_id': 'BODY2', 'lesson_id': 'lesson-two', 'companion_clauses': [{'source_ref': 'SRC3'}]},
+    ]
+    original = {
+        'body_edits': [{'block_id': 'BODY12', 'after': 'Keep the existing correct paragraph.'}],
+        'lesson_sources': [
+            {'lesson_id': 'lesson-one', 'source_refs': ['SRC1']},
+            {'lesson_id': 'lesson-two', 'source_refs': ['SRC1']},
+        ],
+        'source_questions': [],
+    }
+    reply = {
+        'source_fingerprint': source, 'draft_fingerprint': draft,
+        'body_edits': [
+            {'block_id': 'BODY1', 'after': 'The first lesson includes the missing alternative.'},
+            {'block_id': 'BODY2', 'after': 'This proposal relies on evidence outside its lesson.'},
+        ],
+        'title_edits': [], 'question_edits': [], 'added_lessons': [], 'source_questions': [],
+        'lesson_sources': [
+            {'lesson_id': 'lesson-one', 'source_refs': ['SRC2']},
+            {'lesson_id': 'lesson-two', 'source_refs': ['SRC2', 'SRC3']},
+        ],
+    }
+    result = apply_branch_edits(reply, fmt, scope, original, {'BODY1': 'BODY11', 'BODY2': 'BODY12'})
+    assert result['body_edits'] == original['body_edits'] + [
+        {'block_id': 'BODY11', 'after': 'The first lesson includes the missing alternative.'},
+    ]
+    assert result['lesson_sources'] == [
+        {'lesson_id': 'lesson-one', 'source_refs': ['SRC1', 'SRC2']},
+        original['lesson_sources'][1],
+    ]
+
+
+def test_branch_replay_uses_the_same_admission_policy_for_a_recovered_legacy_job():
+    assert branch_review_enabled(BRANCH_REVIEW_JOINT_EDITOR, None)
+    assert not branch_review_enabled(RELATED_SOURCE_JOINT_EDITOR, None)
+    recovery = {'entries': {'frontier': {'replacement': COMPACT_REVIEW_WIRE}}}
+    assert branch_review_enabled(RELATED_SOURCE_JOINT_EDITOR, recovery)
