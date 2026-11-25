@@ -60,7 +60,9 @@ def matches_literal_joint_reply(plan: dict[str, Any], reply: Any) -> bool:
             or re.fullmatch(r'[a-f0-9]{64}', source) is None or re.fullmatch(r'[a-f0-9]{64}', context) is None
             or re.fullmatch(r'practical:simple:editor-joint:v9:' + source + r':unit=[a-f0-9]{64}', base) is None):
         return False
-    return plan['group_id'].startswith(f'practical:simple:lookup:v12:{source}:base={_digest(base)}:context={context}:')
+    group = plan['group_id']
+    return isinstance(group, str) and group.startswith(
+        f'practical:simple:lookup:v12:{source}:base={_digest(base)}:context={context}:')
 
 
 def is_simple_evidence_stage(plan: Any) -> bool:
@@ -102,7 +104,7 @@ def semantic_plan_review_policy(plan: Any) -> str | None:
             '11': SIMPLE_COURSE_REVIEW_V11_POLICY}[match[1]]
 
 
-def retained_phase_allowed(plan: dict[str, Any], phase: Any) -> bool:
+def retained_phase_allowed(plan: dict[str, Any], phase: object) -> bool:
     if is_literal_joint_stage(plan):
         return phase == 'stage_validation'
     if is_simple_evidence_stage(plan):
