@@ -9,13 +9,57 @@ from typing import Any
 
 from app.modules.ai.v3.literal_source_access import LiteralSourceAccess
 from app.modules.ai.v3.practical_contract import _digest
+from app.modules.ai.v3.simple_course_block_editor import block_editor_format, matches_simple_block_editor
 from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 from app.modules.ai.v3.simple_joint_editor_batches import (
     batch_joint_editor,
     combine_joint_proposals,
     owned_joint_proposal,
 )
+from app.modules.ai.v3.simple_joint_related_source import companion_branch_targets, select_branch_targets
 from app.modules.ai.v3.source_access_contract import access_format, compact_oversized_review, matches_access
+
+_BRANCH_REVIEW = (
+    'You are checking the final draft solely for lost scope or alternative branches. For each supplied paragraph '
+    'first compare the exact clauses under the same actor, object, action and conditions, even if the later clause '
+    'is in another section. If the paragraph currently presents only one required route and the same procedure '
+    'has a literal exception or an alternate document for a different status, retain the existing route for its '
+    'applicable case and teach the alternate case here. Make both branches explicit within this paragraph. '
+    'Keep the original paragraph word-for-word except for changes necessary to preserve those branches. '
+    'Do nothing when the quotes concern another procedure or the paragraph already explains the condition. '
+    'Never broaden a permission or introduce a duty. Ask a source_question solely when the supplied source '
+    'clauses contain irreconcilable requirements for the same case. Return body_edits with the supplied BODY IDs '
+    'and lesson_sources with the exact reference IDs for each edited lesson. Set title_edits, question_edits, '
+    'and added_lessons to empty arrays. Preserve the original lesson language.'
+)
+
+
+def apply_branch_edits(value: Any, fmt: dict[str, Any], targets: list[dict[str, Any]],
+                       proposal: dict[str, Any], addresses: dict[str, str]) -> dict[str, Any]:
+    if not matches_simple_block_editor(value, fmt):
+        raise ValueError('simple_branch_review_shape_invalid')
+    if any(value[key] for key in ('title_edits', 'question_edits', 'added_lessons')) or value.get('finding_dispositions'):
+        raise ValueError('simple_branch_review_scope_invalid')
+    by_block = {row['block_id']: row for row in targets}
+    affected = {by_block[edit['block_id']]['lesson_id'] for edit in value['body_edits']}
+    refs = {
+        lesson: {clause['source_ref'] for row in targets if row['lesson_id'] == lesson
+                 for clause in row['companion_clauses']}
+        for lesson in affected
+    }
+    supplied = {row['lesson_id']: row['source_refs'] for row in value['lesson_sources']}
+    if (set(supplied) != affected or len(supplied) != len(value['lesson_sources'])
+            or any(not citations or not set(citations) <= refs[lesson] for lesson, citations in supplied.items())):
+        raise ValueError('simple_branch_review_scope_invalid')
+    updated = copy.deepcopy(proposal)
+    edits = {row['block_id']: row for row in updated['body_edits']}
+    edits.update((addresses[row['block_id']], {**row, 'block_id': addresses[row['block_id']]})
+                 for row in value['body_edits'])
+    updated['body_edits'] = list(edits.values())
+    for row in updated['lesson_sources']:
+        row['source_refs'] = list(dict.fromkeys(row['source_refs'] + supplied.get(row['lesson_id'], [])))
+    updated['source_questions'].extend(value['source_questions'])
+    return updated
 
 _ALIGNMENT = (
     " Assessment design is a separate check from source factual truth. For EACH card identify the practical "
@@ -61,6 +105,7 @@ async def run_simple_course_editor_v12(
     planned_callback: Any = None,
     bounded_joint: bool = True,
     related_evidence: bool = False,
+    branch_review: bool = False,
 ) -> Any:
     if type(lookup_rounds) is not int or not 0 <= lookup_rounds <= 3:
         raise ValueError("source_access_lookup_budget_invalid")
@@ -86,14 +131,42 @@ async def run_simple_course_editor_v12(
                 if planned_callback:
                     await planned_callback(base_total + additional)
                 proposals = []
+                branch_candidates: list[tuple[float, dict[str, Any]]] = []
                 for scoped, custody in batches:
                     def validate_owned(value: Any, *, scope: Any = custody) -> None:
                         validator(value)
                         owned_joint_proposal(value, scope)
 
                     value = await call_stage(name, group, scoped, fmt, validate_owned)
-                    proposals.append(owned_joint_proposal(value, custody))
-                return combine_joint_proposals(proposals)
+                    owned = owned_joint_proposal(value, custody)
+                    proposals.append(owned)
+                    if branch_review:
+                        scope_payload = json.loads(scoped[1]['content'])
+                        branch_candidates.extend(companion_branch_targets(scope_payload, owned))
+                combined = combine_joint_proposals(proposals)
+                targets = select_branch_targets(branch_candidates)
+                if not targets:
+                    return combined
+                target_refs = sorted({clause['source_ref'] for row in targets for clause in row['companion_clauses']})
+                addresses = {f'BODY{index}': row['block_id'] for index, row in enumerate(targets, 1)}
+                displayed = [{**row, 'block_id': alias} for alias, row in zip(addresses, targets, strict=True)]
+                branch_format = block_editor_format(target_refs, packet.fingerprint, _digest(combined), list(addresses))
+                branch_messages = [
+                    {'role': 'system', 'content': _BRANCH_REVIEW},
+                    {'role': 'user', 'content': json.dumps(
+                        {'paragraphs': displayed, 'source_fingerprint': packet.fingerprint,
+                         'draft_fingerprint': _digest(combined)}, ensure_ascii=False, sort_keys=True)},
+                ]
+                additional += 1
+                if planned_callback:
+                    await planned_callback(base_total + additional)
+
+                def validate_branches(response: Any) -> None:
+                    apply_branch_edits(response, branch_format, displayed, combined, addresses)
+
+                branch_group = f'practical:simple:branch-review:v12:{packet.fingerprint}:unit={_digest(combined)}'
+                delta = await call_stage('repair', branch_group, branch_messages, branch_format, validate_branches)
+                return apply_branch_edits(delta, branch_format, displayed, combined, addresses)
         return await call_stage(name, group, messages, fmt, validator)
 
     async def call_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:

@@ -78,3 +78,81 @@ def related_source_blocks(blocks: list[dict[str, Any]], owned_refs: set[str]) ->
             if len(chosen) == _MAX_PASSAGES:
                 break
     return chosen
+
+# These markers select literal evidence for comparison. The editor decides
+# whether the texts describe the same action and whether any change is needed.
+_BRANCH = re.compile(
+    r"\b(?:либо|кроме|за исключением|при отсутствии|в противном случае|"
+    r"unless|except|otherwise|or if|немесе|болмаса|қоспағанда)\b", re.IGNORECASE
+)
+_SENTENCE_END = re.compile(r"(?<=[.!?;])\s+")
+_BRANCH_LIMIT = 10
+
+
+def _keywords(text: str) -> set[str]:
+    return {word[:5] for word in _WORDS.findall(text.casefold()) if len(word) >= 4 or word.isdecimal()}
+
+
+def companion_branch_targets(payload: dict[str, Any], proposal: dict[str, Any]) -> list[tuple[float, dict[str, Any]]]:
+    """Find likely omitted scope details without judging the course or source."""
+    related = set(payload.get('companion_source_refs', ()))
+    if not related:
+        return []
+    passages = []
+    for block in payload['source_blocks']:
+        if block['id'] not in related:
+            continue
+        for segment in block['segments']:
+            if segment.get('asset_id'):
+                continue
+            for line in segment['text'].splitlines():
+                branch = _BRANCH.search(line)
+                if branch is None or line.lstrip().startswith('|') or len(line) > 1000:
+                    continue
+                prefix, suffix = _keywords(line[:branch.start()]), _keywords(line[branch.end():])
+                if len(prefix) >= 5 and len(suffix) >= 3:
+                    passages.append((block['id'], line.strip(), prefix, suffix))
+    edits = {row['block_id']: row['after'] for row in proposal['body_edits']}
+    targets = []
+    for lesson in payload['original_course']['lessons']:
+        for paragraph in lesson['body_blocks']:
+            text = edits.get(paragraph['id'], paragraph['text'])
+            if len(text) > 3500:
+                continue
+            whole = _keywords(text)
+            sentence_words = [_keywords(sentence) for sentence in _SENTENCE_END.split(text)]
+            matches = []
+            for ref, quote, prefix, suffix in passages:
+                unheard = suffix - whole
+                if len(unheard) < 3:
+                    continue
+                length = len(prefix)
+                overlap = max((len(words & prefix) for words in sentence_words), default=0)
+                shared_digits = sum(word.isdecimal() for word in prefix & whole)
+                if overlap >= 5 and (overlap / length >= 0.30 or shared_digits >= 2):
+                    matches.append((overlap / length + overlap / 35 + min(shared_digits, 2) / 10, ref, quote))
+            if matches:
+                matches.sort(key=lambda item: (-item[0], item[1]))
+                # Different repetitions may expose complementary conditions.
+                quotes = list(dict.fromkeys((ref, quote) for _, ref, quote in matches))[:3]
+                targets.append((matches[0][0], {
+                    'lesson_id': lesson['id'], 'lesson_title': lesson['title'], 'block_id': paragraph['id'],
+                    'current_paragraph': text,
+                    'companion_clauses': [{'source_ref': ref, 'quote': quote} for ref, quote in quotes],
+                }))
+    return targets
+
+
+def select_branch_targets(rows: list[tuple[float, dict[str, Any]]]) -> list[dict[str, Any]]:
+    ranked = sorted(rows, key=lambda row: (-row[0], row[1]['block_id']))
+    chosen = []
+    size = 0
+    for _, row in ranked:
+        char_count = len(row['current_paragraph']) + sum(len(clause['quote']) for clause in row['companion_clauses'])
+        if size + char_count > 16000:
+            continue
+        chosen.append(row)
+        size += char_count
+        if len(chosen) == _BRANCH_LIMIT:
+            break
+    return chosen

@@ -193,15 +193,15 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
             from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
             from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
             from app.modules.ai.v3.revision_policy import REVIEW_KEY, SIMPLE_COURSE_REVIEW_V12_POLICY
+            from app.modules.ai.v3.source_access_config import BRANCH_REVIEW_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR
             from app.modules.ai.v3.source_access_config import KEY as ACCESS_KEY
-            from app.modules.ai.v3.source_access_config import RELATED_SOURCE_JOINT_EDITOR
 
             analysis = (job.params or {}).get('source_analysis', {})
             outer = json.loads(raw)
             reply = json.loads(outer['choices'][0]['message']['content'])
             if (analysis.get(REVIEW_KEY) != SIMPLE_COURSE_REVIEW_V12_POLICY
                     or analysis.get(QA_KEY) != MANAGED_POLICY
-                    or analysis.get(ACCESS_KEY, {}).get('joint_editor') != RELATED_SOURCE_JOINT_EDITOR
+                    or analysis.get(ACCESS_KEY, {}).get('joint_editor') not in (RELATED_SOURCE_JOINT_EDITOR, BRANCH_REVIEW_JOINT_EDITOR)
                     or outer.get('model') != 'gpt-6-luna' or not matches_literal_joint_reply(plan, reply)):
                 return None
         return {"stage": digest, "body_sha256": receipt["body_sha256"],

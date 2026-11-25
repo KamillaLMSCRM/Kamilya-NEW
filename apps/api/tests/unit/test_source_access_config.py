@@ -5,6 +5,7 @@ import pytest
 from app.modules.admin.runtime_configuration.catalog import RuntimeSnapshot, default_snapshot, effective_values
 from app.modules.ai.v3.source_access_config import (
     BOUNDED_JOINT_EDITOR,
+    BRANCH_REVIEW_JOINT_EDITOR,
     RELATED_SOURCE_JOINT_EDITOR,
     checked_settings,
     pin_settings,
@@ -45,7 +46,9 @@ def test_pin_is_a_copy_and_later_runtime_edits_do_not_change_job_context():
 
 def test_joint_editor_scope_is_pinned_on_admission_without_changing_existing_jobs():
     pinned = pin_settings(default_snapshot())
-    assert checked_settings(pinned)["joint_editor"] == RELATED_SOURCE_JOINT_EDITOR
+    assert checked_settings(pinned)["joint_editor"] == BRANCH_REVIEW_JOINT_EDITOR
+    prior = {**pinned, "joint_editor": RELATED_SOURCE_JOINT_EDITOR}
+    assert checked_settings(prior) == prior
     old = {**pinned, "joint_editor": BOUNDED_JOINT_EDITOR}
     assert checked_settings(old) == old
     legacy = {key: value for key, value in pinned.items() if key != "joint_editor"}

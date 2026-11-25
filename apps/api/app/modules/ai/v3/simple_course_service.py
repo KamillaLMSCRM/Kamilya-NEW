@@ -486,15 +486,18 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
         from app.modules.ai.v3.simple_course_editor_v12 import run_simple_course_editor_v12
         from app.modules.ai.v3.source_access_config import (
             BOUNDED_JOINT_EDITOR,
+            BRANCH_REVIEW_JOINT_EDITOR,
             RELATED_SOURCE_JOINT_EDITOR,
             checked_settings,
         )
 
         pinned = checked_settings(source_access_settings)
         retry_ledger = getattr(journal, 'explicit_stage_retries', None)
-        bounded_recovery = isinstance(retry_ledger, dict) and any(
-            entry.get('replacement') == BOUNDED_JOINT_EDITOR for entry in retry_ledger['entries'].values()
-        )
+        from app.modules.ai.v3.explicit_stage_retry import COMPACT_REVIEW_WIRE
+
+        replacements = {entry.get('replacement') for entry in retry_ledger['entries'].values()} if isinstance(
+            retry_ledger, dict) else set()
+        bounded_recovery = BOUNDED_JOINT_EDITOR in replacements
 
         async def planned_v12(count: int) -> None:
             nonlocal total
@@ -504,8 +507,10 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
         result = await run_simple_course_editor_v12(packet, corpus, intent, stage,
             reference_decisions=reference_decisions, planned_callback=planned_v12,
             literal_budget=pinned['literal_chars'], lookup_rounds=pinned['lookup_rounds'],
-            bounded_joint=joint_editor in (BOUNDED_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR) or bounded_recovery,
-            related_evidence=joint_editor == RELATED_SOURCE_JOINT_EDITOR)
+            bounded_joint=joint_editor in (BOUNDED_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR,
+                                          BRANCH_REVIEW_JOINT_EDITOR) or bounded_recovery,
+            related_evidence=joint_editor in (RELATED_SOURCE_JOINT_EDITOR, BRANCH_REVIEW_JOINT_EDITOR),
+            branch_review=joint_editor == BRANCH_REVIEW_JOINT_EDITOR or COMPACT_REVIEW_WIRE in replacements)
     elif review_policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 
