@@ -4407,3 +4407,16 @@ paragraphs and the exact two companion references. Scope tests verify
 an unchanged supported alternative, stable unrelated paragraphs and
 cards, and rejection of references to another lesson. No inference
 was used for these checks. Live scope and release acceptance remain open.
+
+### ENG-075 production wire parity for the four Lombard sources
+
+DEV retained the previously tested 8 MiB managed producer and receiver. The
+production replay of the microcredit rules planner produced 677,085 UTF-8
+bytes against a 524,288-byte app and live shared receiver limit. The schema
+compaction fix alone does not address this wire limit.
+
+Port the existing paired transport bound and its producer/receiver regression.
+Keep the production connector default profile, authorization, model routing,
+deadlines, reasoning output limits, visual limits and source text unchanged.
+Require verified matching live producer and receiver before claiming production
+Luna readiness for oversized documents. No inference in the boundary replay.

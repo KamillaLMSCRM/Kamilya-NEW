@@ -16,7 +16,8 @@ from typing import Any
 
 MODEL = "gpt-5.6-luna"
 CLI_VERSION = "codex-cli 0.166.0"
-MAX_INPUT_BYTES = 524288
+# The producer and connector must accept the same bounded UTF-8 request.
+MAX_INPUT_BYTES = 8388608
 MAX_VISUAL_INPUT_BYTES = 24 * 1024 * 1024
 MAX_IMAGE_BYTES = 16 * 1024 * 1024
 MAX_IMAGES = 4

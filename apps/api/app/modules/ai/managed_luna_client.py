@@ -27,7 +27,8 @@ from app.modules.ai.source_first_response import parse_source_first_response
 from app.modules.ai.v3.practical_author_transport import PracticalAuthorArtifact
 
 MODEL = LEGACY_LUNA_MODEL
-MAX_INPUT_BYTES = 524288
+# The producer and connector must accept the same bounded UTF-8 request.
+MAX_INPUT_BYTES = 8388608
 MAX_RESPONSE_BYTES = 2097152
 MAX_CONTENT_BYTES = 262144
 logger = logging.getLogger(__name__)
