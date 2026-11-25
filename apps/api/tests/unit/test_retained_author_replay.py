@@ -137,3 +137,25 @@ def test_v11_evidence_replay_frontier_is_narrow():
         + ":proposal=" + "c" * 64 + ":output=32768"})
     assert not replay.is_simple_evidence_stage({
         "stage": "repair", "group_id": "practical:simple:repair-cards:v11:" + "a" * 64})
+
+@pytest.mark.parametrize('mismatch', [None, 'tenant', 'repair_role', 'context', 'source'])
+def test_retained_joint_stage_is_bound_to_the_response_and_qa_tenant(mismatch):
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+
+    source, context = 'a' * 64, 'b' * 64
+    base = f'practical:simple:editor-joint:v9:{source}:unit={"c" * 64}'
+    reply = {'source_fingerprint': source, 'context_fingerprint': context, 'base_group': base}
+    plan = {'tenant_id': str(QA_TENANT), 'stage': 'repair', 'group_id':
+            f'practical:simple:lookup:v12:{source}:base={_digest(base)}:context={context}:round=0:output=32768'}
+    if mismatch == 'tenant':
+        plan['tenant_id'] = str(uuid4())
+    elif mismatch == 'repair_role':
+        reply['base_group'] = base.replace('editor-joint', 'repair-evidence')
+    elif mismatch == 'context':
+        reply['context_fingerprint'] = 'f' * 64
+    elif mismatch == 'source':
+        reply['source_fingerprint'] = 'f' * 64
+    assert replay.matches_literal_joint_reply(plan, reply) == (mismatch is None)
+    if mismatch is None:
+        assert replay.is_retained_stage_plan(plan) and replay.retained_phase_allowed(plan, 'stage_validation')
+        assert not replay.retained_phase_allowed(plan, 'stage_finalize')

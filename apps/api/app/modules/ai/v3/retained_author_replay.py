@@ -27,7 +27,7 @@ def is_retained_author_group(value: object) -> bool:
 
 
 def is_retained_stage_plan(plan: dict[str, Any]) -> bool:
-    if is_semantic_plan_stage(plan):
+    if is_semantic_plan_stage(plan) or is_literal_joint_stage(plan):
         return True
     if plan.get('stage') == 'lesson':
         return is_retained_author_group(plan.get('group_id')) or is_focused_author_plan(plan)
@@ -37,6 +37,32 @@ def is_retained_stage_plan(plan: dict[str, Any]) -> bool:
             r'practical:editorial:verify:v34:joint:[a-f0-9]{64}:output=(8192|16384|32768)', group)
         or is_simple_evidence_stage(plan)
     )
+
+
+def is_literal_joint_stage(plan: Any) -> bool:
+    from app.modules.ai.qa_luna_dev_route import QA_TENANT
+
+    return bool(isinstance(plan, dict) and plan.get('stage') == 'repair'
+                and plan.get('tenant_id') == str(QA_TENANT)
+                and isinstance(plan.get('group_id'), str)
+                and re.fullmatch(
+                    r'practical:simple:lookup:v12:[a-f0-9]{64}:base=[a-f0-9]{64}:'
+                    r'context=[a-f0-9]{64}:round=[0-9]+:output=(8192|16384|32768)', plan['group_id']))
+
+
+def matches_literal_joint_reply(plan: dict[str, Any], reply: Any) -> bool:
+    if not is_literal_joint_stage(plan) or not isinstance(reply, dict):
+        return False
+    base = reply.get('base_group')
+    source = reply.get('source_fingerprint')
+    context = reply.get('context_fingerprint')
+    if (not isinstance(base, str) or not isinstance(source, str) or not isinstance(context, str)
+            or re.fullmatch(r'[a-f0-9]{64}', source) is None or re.fullmatch(r'[a-f0-9]{64}', context) is None
+            or re.fullmatch(r'practical:simple:editor-joint:v9:' + source + r':unit=[a-f0-9]{64}', base) is None):
+        return False
+    group = plan['group_id']
+    return isinstance(group, str) and group.startswith(
+        f'practical:simple:lookup:v12:{source}:base={_digest(base)}:context={context}:')
 
 
 def is_simple_evidence_stage(plan: Any) -> bool:
@@ -78,7 +104,9 @@ def semantic_plan_review_policy(plan: Any) -> str | None:
             '11': SIMPLE_COURSE_REVIEW_V11_POLICY}[match[1]]
 
 
-def retained_phase_allowed(plan: dict[str, Any], phase: Any) -> bool:
+def retained_phase_allowed(plan: dict[str, Any], phase: object) -> bool:
+    if is_literal_joint_stage(plan):
+        return phase == 'stage_validation'
     if is_simple_evidence_stage(plan):
         return bool(phase == 'stage_finalize')
     return bool(phase == 'structured_shape' and not is_focused_author_plan(plan) and is_retained_stage_plan(plan)
@@ -109,7 +137,7 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
         reference = quarantine["entries"][digest]
         if (reference.get('complete_http_response') is not True
                 or type(reference.get('status')) is not int or reference.get('status') != 200
-                or reference.get('phase') not in {'structured_shape', 'stage_finalize'}):
+                or reference.get('phase') not in {'structured_shape', 'stage_validation', 'stage_finalize'}):
             return None
         journal = PendingStageJournal(str(job.tenant_id), job.user_id, str(job.id), None)
         saved_plan = await journal.repository.load_plan(db, tenant_id=journal.tenant_id,
@@ -159,6 +187,23 @@ async def owned_candidate(db: Any, job: Any) -> dict[str, Any] | None:
                 or not isinstance(receipt.get("wire_request_sha256"), str)
                 or re.fullmatch(r"[0-9a-f]{64}", receipt["wire_request_sha256"]) is None):
             return None
+        if is_literal_joint_stage(plan):
+            import json
+
+            from app.modules.ai.v3.qa_luna_pending_policy import KEY as QA_KEY
+            from app.modules.ai.v3.qa_luna_pending_policy import MANAGED_POLICY
+            from app.modules.ai.v3.revision_policy import REVIEW_KEY, SIMPLE_COURSE_REVIEW_V12_POLICY
+            from app.modules.ai.v3.source_access_config import KEY as ACCESS_KEY
+            from app.modules.ai.v3.source_access_config import RELATED_SOURCE_JOINT_EDITOR
+
+            analysis = (job.params or {}).get('source_analysis', {})
+            outer = json.loads(raw)
+            reply = json.loads(outer['choices'][0]['message']['content'])
+            if (analysis.get(REVIEW_KEY) != SIMPLE_COURSE_REVIEW_V12_POLICY
+                    or analysis.get(QA_KEY) != MANAGED_POLICY
+                    or analysis.get(ACCESS_KEY, {}).get('joint_editor') != RELATED_SOURCE_JOINT_EDITOR
+                    or outer.get('model') != 'gpt-6-luna' or not matches_literal_joint_reply(plan, reply)):
+                return None
         return {"stage": digest, "body_sha256": receipt["body_sha256"],
                 "pending_sha256": _digest(job.result["v3_pending_stages"]), "plan": plan,
                 "marker": marker, "receipt": receipt}

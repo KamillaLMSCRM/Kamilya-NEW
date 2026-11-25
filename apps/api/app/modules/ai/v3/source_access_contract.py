@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any
 
 from app.modules.ai.v3.batch_review_response_schema import _matches
 from app.modules.ai.v3.simple_course_editor import _fingerprint_valid, _format, _object
 
 PREFIX = "source_access_"
+CONNECTOR_SCHEMA_MAX_BYTES = 65_536
 
 
 def access_format(
@@ -60,6 +62,44 @@ def inner_format(fmt: dict[str, Any]) -> dict[str, Any]:
         fmt["json_schema"]["name"].removeprefix(PREFIX),
         copy.deepcopy(fmt["json_schema"]["schema"]["properties"]["results"]["items"]),
     )
+
+
+def _replace_inner(fmt: dict[str, Any], inner: dict[str, Any]) -> dict[str, Any]:
+    value = copy.deepcopy(fmt)
+    value["json_schema"]["schema"]["properties"]["results"]["items"] = inner["json_schema"]["schema"]
+    return value
+
+
+def _schema_size(fmt: dict[str, Any]) -> int:
+    return len(json.dumps(fmt, ensure_ascii=False, allow_nan=False).encode())
+
+
+def compact_oversized_review(fmt: dict[str, Any]) -> dict[str, Any]:
+    if _schema_size(fmt) <= CONNECTOR_SCHEMA_MAX_BYTES:
+        return fmt
+    from app.modules.ai.v3.normalized_editorial_review import compact_review_wire, expanded_review_wire
+
+    original = expanded_review_wire(inner_format(fmt))
+    if original is None:
+        return fmt
+    candidate = _replace_inner(fmt, compact_review_wire(original))
+    if _schema_size(candidate) > CONNECTOR_SCHEMA_MAX_BYTES:
+        raise ValueError("literal_review_wire_schema_too_large")
+    return candidate
+
+
+def retired_oversized_review(fmt: dict[str, Any] | None) -> dict[str, Any] | None:
+    if fmt is None or not is_access_format(fmt):
+        return None
+    from app.modules.ai.v3.normalized_editorial_review import expanded_review_wire
+
+    original = expanded_review_wire(inner_format(fmt))
+    if original is None:
+        return None
+    expanded = _replace_inner(fmt, original)
+    if expanded != fmt and compact_oversized_review(expanded) == fmt:
+        return expanded
+    return None
 
 
 def is_access_format(fmt: Any) -> bool:
