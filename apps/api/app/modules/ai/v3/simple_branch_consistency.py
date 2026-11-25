@@ -108,13 +108,23 @@ async def reconcile_branch_outputs(packet: Any, result: Any, clauses: list[dict[
 
     def apply(value: Any) -> tuple[dict[str, Any], dict[str, Any]]:
         if (not matches_simple_block_editor(value, fmt)
-                or any(value[key] for key in ('title_edits', 'added_lessons', 'lesson_sources'))
+                or any(value[key] for key in ('title_edits', 'added_lessons'))
                 or any(q['id'] not in card_ids for q in value['question_edits'])):
             raise ValueError('simple_branch_consistency_scope_invalid')
         decoded = view.decode(value)
+        ids_by_body = {alias: row['lesson_id'] for alias, row in zip(addresses, chosen, strict=True)}
+        ids_by_card = {row['id']: row['lesson_id'] for row in cards}
+        edited = {ids_by_body[edit['block_id']] for edit in decoded['body_edits']}
+        edited.update(ids_by_card[edit['id']] for edit in decoded['question_edits'])
+        supplied = {row['lesson_id']: row['source_refs'] for row in decoded['lesson_sources']}
+        if (not set(supplied) <= edited or len(supplied) != len(decoded['lesson_sources'])
+                or any(not refs or not set(refs) <= allowed for refs in supplied.values())):
+            raise ValueError('simple_branch_consistency_scope_invalid')
         decoded['body_edits'] = [{**edit, 'block_id': addresses[edit['block_id']]}
                                  for edit in decoded['body_edits']]
         decoded['lesson_sources'] = copy.deepcopy(result.lesson_sources)
+        for row in decoded['lesson_sources']:
+            row['source_refs'] = list(dict.fromkeys(row['source_refs'] + supplied.get(row['lesson_id'], [])))
         envelope, receipt = apply_simple_block_editor(decoded, original, sources, packet.fingerprint, fingerprint)
         if not course_media_safe(original, envelope['course'], packet):
             raise ValueError('simple_branch_consistency_media_changed')
@@ -129,4 +139,5 @@ async def reconcile_branch_outputs(packet: Any, result: Any, clauses: list[dict[
     final = envelope['course']
     return replace(result, course=final, changes=_changes(result.draft, final),
                    source_questions=[*result.source_questions, *envelope['source_questions']],
+                   lesson_sources=envelope['lesson_sources'],
                    review={**result.review, 'final_branch_consistency': receipt})
