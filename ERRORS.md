@@ -204,6 +204,9 @@
   Declare the exact 0194-to-0194 no-migration version and restore the existing
   controller mapping check in release-contract-gate.py so local preflight
   and CI enforce the same invariant before a product rollout.
+- Frontend-only 0.11.155: run `py -3 scripts/ci/release-contract-gate.py`
+  locally after any version bump, including releases that keep the deployed API.
+  The 0.11.155 release metadata declares the existing 0194-to-0194 epoch.
 
 - Update 2026-11-21: no-migration 0.11.132 candidate 4b45542a reached PR CI
   44879719035 without its explicit 0192-to-0192 controller entry. The local API
