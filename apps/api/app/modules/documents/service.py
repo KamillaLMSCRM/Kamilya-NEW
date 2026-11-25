@@ -53,6 +53,7 @@ class CatalogFilters:
     cursor: str | None = None
     limit: int = 25
     include_usages_summary: bool = False
+    document_id: UUID | None = None
 
 
 def _usage_cursor(index: int) -> str:
@@ -362,7 +363,7 @@ async def list_document_usages(
             id=str(lesson_id),
             title=lesson_title,
             status=course_status,
-            route=f"/courses/{course_id}/edit",
+            route=f"/courses/{course_id}/edit?lessonId={lesson_id}",
         )
         for lesson_id, lesson_title, course_id, course_status in lesson_rows
     )
@@ -382,7 +383,7 @@ async def list_document_usages(
             id=job_id,
             title=message or "AI generation",
             status=stage,
-            route="/ai/generate",
+            route=f"/ai/generate?job_id={job_id}",
         )
         for job_id, stage, message in active_jobs
     )
@@ -489,6 +490,8 @@ async def list_catalog(
         Document.lifecycle_status == filters.lifecycle_status,
     )
 
+    if filters.document_id is not None:
+        statement = statement.where(Document.id == filters.document_id)
     if filters.q:
         pattern = f"%{_escape_search(filters.q.strip())}%"
         statement = statement.where(

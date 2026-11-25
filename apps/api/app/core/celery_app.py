@@ -1,14 +1,19 @@
 """Celery app configuration"""
 
+import logging
 import os
 import ssl
+from contextvars import Token
+from time import perf_counter
+from typing import Any
 
 from celery import Celery
-from celery.signals import worker_init, worker_process_init
+from celery.signals import task_postrun, task_prerun, worker_init, worker_process_init
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
+from app.core.operation_log import operation_event, stable_label, task_trace, uuid_label
 
 settings = get_settings()
 
@@ -163,6 +168,33 @@ celery_app.conf.update(
     broker_use_ssl=_redis_ssl_options,
     redis_backend_use_ssl=_redis_ssl_options,
 )
+
+
+@task_prerun.connect  # type: ignore[untyped-decorator]
+def _log_task_start(task_id: str, task: Any, **_kwargs: object) -> None:
+    trace_id = uuid_label(task_id)
+    if trace_id is None:
+        return
+    task.request.operation_trace_token = task_trace.set((trace_id, perf_counter()))
+    operation_event("worker.task.started", task=stable_label(task.name), retries=task.request.retries)
+
+
+@task_postrun.connect  # type: ignore[untyped-decorator]
+def _log_task_end(task: Any, state: str, **_kwargs: object) -> None:
+    token: Token[tuple[str, float] | None] | None = getattr(task.request, "operation_trace_token", None)
+    trace = task_trace.get()
+    if token is None or trace is None:
+        return
+    try:
+        operation_event(
+            "worker.task.finished",
+            level=logging.INFO if state == "SUCCESS" else logging.WARNING,
+            task=stable_label(task.name),
+            outcome=stable_label(state.lower()),
+            duration_ms=round((perf_counter() - trace[1]) * 1000),
+        )
+    finally:
+        task_trace.reset(token)
 
 
 @worker_init.connect  # type: ignore[untyped-decorator]

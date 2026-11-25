@@ -278,7 +278,7 @@ describe('source editorial review', () => {
     render(<SourceEditorialReview />);
     await screen.findByText('Что делать при 45 МРП?');
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
-    expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Создать курс' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Согласованная формулировка'), { target: { value: updated } });
     fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: reason } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить решение' }));
@@ -286,7 +286,7 @@ describe('source editorial review', () => {
     expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
       expect.objectContaining({ action: 'resolve', expected_revision: 3, replacement: updated, reason }));
     fireEvent.click(screen.getByRole('button', { name: 'Утвердить редакцию' }));
-    expect(await screen.findByRole('link', { name: 'Перейти к генерации' })).toHaveAttribute('href', '/ai/generate?document_id=' + id);
+    expect(await screen.findByRole('link', { name: 'Создать курс' })).toHaveAttribute('href', '/ai/generate?document_id=' + id);
     expect(screen.getByRole('link', { name: 'Открыть утверждённую редакцию' })).toHaveAttribute('href', '/documents/' + id + '/editorial-review/' + approval);
   });
 
@@ -344,7 +344,7 @@ describe('source editorial review', () => {
     expect(await screen.findByText('Автоматическая проверка замечаний: 1')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
     expect(screen.queryByLabelText('Точная цитата из оригинала')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Создать курс' })).not.toBeInTheDocument();
   });
 
   it('lets the methodologist correct a missed issue and preserves the input when the quote cannot be located', async () => {

@@ -31,16 +31,42 @@ def normalized_review_format(refs: list[str], lesson_ids: list[str], question_id
     return _renamed(_review_format(refs, lesson_ids, question_ids, source_fp, course_fp), NORMALIZED_REVIEW_NAME)
 
 
-def is_normalized_editorial_review_format(fmt: Any) -> bool:
+def _reference_properties(fmt: dict[str, Any]) -> tuple[list[str], dict[str, Any]]:
+    props = fmt['json_schema']['schema']['properties']
+    return (
+        props['source_notes']['items']['properties']['source_refs']['items']['enum'],
+        props['narrative_sources']['properties'],
+    )
+
+
+def compact_review_wire(fmt: dict[str, Any]) -> dict[str, Any]:
+    """Represent the same owned reference inventory once on the wire."""
+    compact = copy.deepcopy(fmt)
+    _, lessons = _reference_properties(compact)
+    for row in lessons.values():
+        row['items'].pop('enum', None)
+    return compact
+
+
+def expanded_review_wire(fmt: Any) -> dict[str, Any] | None:
     try:
         if fmt['json_schema']['name'] != NORMALIZED_REVIEW_NAME:
-            return False
-        return is_editorial_review_format(_renamed(fmt, REVIEW_NAME))
-    except (KeyError, TypeError, IndexError):
-        return False
+            return None
+        expanded = copy.deepcopy(fmt)
+        refs, lessons = _reference_properties(expanded)
+        for row in lessons.values():
+            row['items'].setdefault('enum', refs)
+        if not is_editorial_review_format(_renamed(expanded, REVIEW_NAME)):
+            return None
+        return expanded if fmt == expanded or fmt == compact_review_wire(expanded) else None
+    except (AttributeError, KeyError, TypeError, IndexError):
+        return None
+
+
+def is_normalized_editorial_review_format(fmt: Any) -> bool:
+    return expanded_review_wire(fmt) is not None
 
 
 def matches_normalized_editorial_review(value: Any, fmt: Any) -> bool:
-    if not is_normalized_editorial_review_format(fmt):
-        return False
-    return matches_editorial_review(value, _renamed(fmt, REVIEW_NAME))
+    expanded = expanded_review_wire(fmt)
+    return expanded is not None and matches_editorial_review(value, _renamed(expanded, REVIEW_NAME))

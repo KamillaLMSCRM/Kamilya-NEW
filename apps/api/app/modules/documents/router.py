@@ -39,6 +39,7 @@ from app.modules.documents.service import (
     list_document_usages,
 )
 from app.modules.source_editorial_review.router import router as editorial_review_router
+from app.modules.source_editorial_review.service import review_enabled, statuses
 
 router = APIRouter(
     prefix="/documents",
@@ -244,6 +245,7 @@ async def list_documents(
 
 @router.get("/catalog", response_model=DocumentCatalogResponse)
 async def catalog_documents(
+    document_id: uuid.UUID | None = None,
     q: Annotated[str | None, Query(max_length=200)] = None,
     category: DocumentCategory | None = None,
     index_status: DocumentIndexStatus | None = None,
@@ -255,11 +257,12 @@ async def catalog_documents(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 25,
     include: Literal["usages_summary"] | None = None,
+    include_source_review: bool = False,
     db: AsyncSession = Depends(get_db),
     user=Depends(require_role("methodologist")),
 ):
     try:
-        return await list_catalog(
+        catalog = await list_catalog(
             db,
             user.tenant_id,
             CatalogFilters(
@@ -274,8 +277,14 @@ async def catalog_documents(
                 cursor=cursor,
                 limit=limit,
                 include_usages_summary=include == "usages_summary",
+                document_id=document_id,
             ),
         )
+        if include_source_review and lifecycle_status == "active" and review_enabled():
+            review_statuses = await statuses(db, user.tenant_id, [item.id for item in catalog.items])
+            for item in catalog.items:
+                item.source_review_status = review_statuses[str(item.id)]
+        return catalog
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

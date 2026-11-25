@@ -72,6 +72,7 @@ class DocumentCatalogItem(BaseModel):
     created_at: datetime
     updated_at: datetime
     usages_summary: DocumentUsageSummary | None = None
+    source_review_status: str | None = None
 
 
 class DocumentCatalogPage(BaseModel):
