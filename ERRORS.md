@@ -199,6 +199,12 @@
 
 ## AGENT-RELEASE-EPOCH-001 — missing schema epoch stopped protected release
 
+- Update 2026-11-25: 0.11.154 candidate ecaea317 PR CI 45569095707 caught the old
+  fallback revision 0191 against the existing production head 0194.
+  Declare the exact 0194-to-0194 no-migration version and restore the existing
+  controller mapping check in release-contract-gate.py so local preflight
+  and CI enforce the same invariant before a product rollout.
+
 - Update 2026-11-21: no-migration 0.11.132 candidate 4b45542a reached PR CI
   44879719035 without its explicit 0192-to-0192 controller entry. The local API
   suite covered product units but omitted the controller VERSION/Alembic
