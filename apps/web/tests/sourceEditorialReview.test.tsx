@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import SourceEditorialReview from '@/features/source-editorial-review/SourceEditorialReview';
 import type { SourceReview } from '@/features/source-editorial-review/contract';
@@ -291,15 +291,20 @@ describe('source editorial review', () => {
     } });
     render(<SourceEditorialReview />);
     await screen.findByText('Что делать при 45 МРП?');
-    expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
+    const overview = within(screen.getByRole('region', { name: 'Проверка источников' }));
+    const approveButton = overview.getByRole('button', { name: 'Утвердить редакцию' });
+    expect(approveButton).toBeDisabled();
     expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Согласованная формулировка'), { target: { value: updated } });
     fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: reason } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить решение' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeEnabled());
+    expect(await screen.findByText('Решение сохранено', { selector: '[role="status"]' })).toBeVisible();
+    expect(approveButton).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Перейти к утверждению' }));
+    expect(approveButton).toHaveFocus();
     expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
       expect.objectContaining({ action: 'resolve', expected_revision: 3, replacement: updated, reason }));
-    fireEvent.click(screen.getByRole('button', { name: 'Утвердить редакцию' }));
+    fireEvent.click(approveButton);
     expect(await screen.findByRole('link', { name: 'Перейти к генерации' })).toHaveAttribute('href', '/ai/generate?document_id=' + id);
     expect(screen.getByRole('link', { name: 'Открыть утверждённую редакцию' })).toHaveAttribute('href', '/documents/' + id + '/editorial-review/' + approval);
   });

@@ -171,15 +171,20 @@ describe('methodologist operations dashboard', () => {
       ? Promise.resolve({ data: { items: [
         { document_id: 'document-1', title: 'Safety procedure', status: 'in_review', open_questions: 2 },
         { document_id: 'document-2', title: 'Approved source', status: 'approved' },
+        { document_id: 'document-3', title: 'Resolved procedure', status: 'in_review', open_questions: 0 },
       ] } }) : original(path, config));
     render(<MethodologistDashboard />);
     const task = await screen.findByRole('button', { name: /Safety procedure/ });
     expect(screen.queryByRole('button', { name: /Approved source/ })).not.toBeInTheDocument();
     fireEvent.click(task);
-    expect(within(screen.getByRole('region', { name: 'Детали задачи' })).getByRole('link', { name: 'Открыть проверку' }))
-      .toHaveAttribute('href', '/documents/document-1/editorial-review');
+    const details = within(screen.getByRole('region', { name: 'Детали задачи' }));
+    expect(details.getByRole('link', { name: 'Продолжить согласование' }))
+      .toHaveAttribute('href', '/documents/document-1/editorial-review?document_id=document-1');
     expect(screen.getByText('Открытые вопросы')).toBeVisible();
-    expect(screen.getByText('Показано 1; общий итог неизвестен.')).toBeVisible();
+    expect(screen.getByText('Показано 2; общий итог неизвестен.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /Resolved procedure/ }));
+    expect(details.getByRole('link', { name: 'Перейти к утверждению' }))
+      .toHaveAttribute('href', '/documents/document-3/editorial-review?document_id=document-3');
   });
 
   it.each([0, 2])('does not present a truncated source count of %i as a tenant total', async (count) => {

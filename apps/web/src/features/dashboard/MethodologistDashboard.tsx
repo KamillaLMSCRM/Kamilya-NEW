@@ -22,6 +22,7 @@ import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { WorkspacePage } from '@/features/workspace-design';
 import { buildTrainingLogBrowserHref, type TrainingLogFilters } from '@/app/admin/training-log/query';
 import { sourceReviewHref } from '@/features/source-editorial-review/contract';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 
 const copy = {
   ru: {
@@ -291,10 +292,12 @@ function DashboardContent() {
     in_review: lang === 'kk' ? 'Шешім қажет' : lang === 'en' ? 'Decision needed' : 'Нужно решение',
     source_changed: lang === 'kk' ? 'Дереккөз өзгерді' : lang === 'en' ? 'Source changed' : 'Исходник изменился',
   }[status] ?? status);
+  const sourceCopy = sourceReviewCopy(lang);
   const sourceReviewTasks: DashboardTask[] = (sources.sourceReviews ?? [])
     .filter((review) => review.status !== 'approved')
     .map((review) => {
-      const status = sourceReviewStatus(review.status);
+      const readyForApproval = review.status === 'in_review' && review.open_questions === 0;
+      const status = readyForApproval ? sourceCopy.approve : sourceReviewStatus(review.status);
       return {
         id: `source-review:${review.document_id}`,
         title: review.title,
@@ -307,8 +310,11 @@ function DashboardContent() {
             value: String(review.open_questions),
           }]),
         ],
-        href: sourceReviewHref(review.document_id),
-        action: lang === 'kk' ? 'Тексеруді ашу' : lang === 'en' ? 'Open review' : 'Открыть проверку',
+        href: sourceReviewHref(review.document_id) + '?' + new URLSearchParams({ document_id: review.document_id }),
+        action: review.status === 'in_review' ? (readyForApproval ? sourceCopy.finishReview : sourceCopy.continueReviewTask)
+          : review.status === 'failed' || review.status === 'interrupted' ? sourceCopy.reviewProblem
+          : review.status === 'not_started' ? sourceCopy.check
+          : sourceCopy.viewProgress,
       };
     });
   const review = lang === 'kk' ? 'Тексеру' : lang === 'en' ? 'Review' : 'Проверка';

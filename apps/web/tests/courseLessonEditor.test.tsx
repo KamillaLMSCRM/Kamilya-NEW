@@ -611,6 +611,7 @@ describe('course lesson editor', () => {
       expect.stringContaining('/v1/courses/course-1/publish'),
       expect.objectContaining({ method: 'POST' }),
     ));
+    expect(await screen.findByRole('link', { name: 'releaseSteps.assign' })).toHaveAttribute('href', '/assignments?courseId=course-1');
   });
 
   it('keeps ordinary manual drafts publishable without a blueprint marker', async () => {

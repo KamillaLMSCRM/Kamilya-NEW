@@ -1864,6 +1864,13 @@ export default function AIGeneratePage() {
                 {t('generationDraft.review')} <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             )}
+            {courseMeta?.status === 'published' && !programId && (
+              <button type="button"
+                onClick={() => router.push(`/assignments?courseId=${encodeURIComponent(currentJob.course_id!)}`)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                {t('aiGeneration.result.assign')} <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
               onClick={createNewCourse}
@@ -2128,14 +2135,6 @@ export default function AIGeneratePage() {
               >
                 {publishSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
                  {publishSubmitting ? t('aiGeneration.result.publishStarting') : t('aiGeneration.result.publish')}
-              </button>
-            )}
-            {courseMeta?.status === 'published' && !programId && (
-              <button
-                onClick={() => router.push(`/assignments?courseId=${encodeURIComponent(currentJob.course_id!)}`)}
-                className="flex-1 min-w-[180px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-success px-4 py-3 text-sm font-medium text-success-foreground hover:bg-success/90 transition-colors"
-              >
-                 {t('aiGeneration.result.assign')} <ChevronRight className="w-4 h-4" />
               </button>
             )}
             {courseMeta?.status === 'published' && <button

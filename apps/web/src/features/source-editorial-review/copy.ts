@@ -57,6 +57,10 @@ const ru = {
   protected: 'Документ не удалось извлечь полностью. Проверьте файл или загрузите новую версию.',
   openCount: 'Открыто', afterApproval: 'Редакция, оригинал и журнал правок сохранены.',
   firstOpenQuestion: 'К первому открытому вопросу',
+  readyToApprove: 'Все замечания разобраны. Утвердите редакцию, чтобы перейти к созданию курса.',
+  nextOpenQuestion: 'К следующему открытому вопросу',
+  finishReview: 'Перейти к утверждению',
+  continueReviewTask: 'Продолжить согласование',
   startHint: 'Проверка ищет ошибки и неоднозначности в формулировках, ссылках и терминах.',
   statusLabels: {
     not_started: 'Не проверен', queued: 'В очереди', running: 'Идёт проверка', interrupted: 'Проверка прервана',
@@ -125,6 +129,10 @@ const en: typeof ru = {
   protected: 'Text extraction was incomplete. Check the file or upload a new version.',
   openCount: 'Open', afterApproval: 'The edition, original and edit history are saved.',
   firstOpenQuestion: 'Go to first open question',
+  readyToApprove: 'All questions are resolved. Approve this edition to start creating the course.',
+  nextOpenQuestion: 'Go to next open question',
+  finishReview: 'Go to approval',
+  continueReviewTask: 'Continue review',
   startHint: 'The review looks for errors and ambiguities in wording, references and terms.',
   statusLabels: {
     not_started: 'Not reviewed', queued: 'Queued', running: 'Checking', interrupted: 'Interrupted',
@@ -193,6 +201,10 @@ const kk: typeof ru = {
   protected: 'Мәтін толық алынбады. Файлды тексеріңіз немесе жаңа нұсқаны жүктеңіз.',
   openCount: 'Ашық', afterApproval: 'Нұсқа, түпнұсқа және түзетулер журналы сақталды.',
   firstOpenQuestion: 'Бірінші ашық сұраққа өту',
+  readyToApprove: 'Барлық ескертулер қаралды. Курс жасауға өту үшін нұсқаны бекітіңіз.',
+  nextOpenQuestion: 'Келесі ашық сұраққа өту',
+  finishReview: 'Бекітуге өту',
+  continueReviewTask: 'Келісуді жалғастыру',
   startHint: 'Тексеру тұжырымдардағы, сілтемелердегі және терминдердегі қателер мен екіұштылықтарды іздейді.',
   statusLabels: {
     not_started: 'Тексерілмеген', queued: 'Кезекте', running: 'Тексерілуде', interrupted: 'Тексеру үзілді',
