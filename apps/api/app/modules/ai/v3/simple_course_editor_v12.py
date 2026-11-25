@@ -29,7 +29,8 @@ _BRANCH_REVIEW = (
     'Do nothing when the quotes concern another procedure or the paragraph already explains the condition. '
     'Never broaden a permission or introduce a duty. Ask a source_question solely when the supplied source '
     'clauses contain irreconcilable requirements for the same case. Return body_edits with the supplied BODY IDs '
-    'and lesson_sources with the exact reference IDs for each edited lesson. Set title_edits, question_edits, '
+    'and lesson_sources with the exact reference IDs for each compared lesson, including unchanged lessons. '
+    'Set title_edits, question_edits, '
     'and added_lessons to empty arrays. Preserve the original lesson language.'
 )
 
@@ -45,10 +46,10 @@ def apply_branch_edits(value: Any, fmt: dict[str, Any], targets: list[dict[str, 
     refs = {
         lesson: {clause['source_ref'] for row in targets if row['lesson_id'] == lesson
                  for clause in row['companion_clauses']}
-        for lesson in affected
+        for lesson in {row['lesson_id'] for row in targets}
     }
     supplied = {row['lesson_id']: row['source_refs'] for row in value['lesson_sources']}
-    if (set(supplied) != affected or len(supplied) != len(value['lesson_sources'])
+    if (not affected <= set(supplied) <= set(refs) or len(supplied) != len(value['lesson_sources'])
             or any(not citations or not set(citations) <= refs[lesson] for lesson, citations in supplied.items())):
         raise ValueError('simple_branch_review_scope_invalid')
     updated = copy.deepcopy(proposal)
@@ -57,7 +58,8 @@ def apply_branch_edits(value: Any, fmt: dict[str, Any], targets: list[dict[str, 
                  for row in value['body_edits'])
     updated['body_edits'] = list(edits.values())
     for row in updated['lesson_sources']:
-        row['source_refs'] = list(dict.fromkeys(row['source_refs'] + supplied.get(row['lesson_id'], [])))
+        if row['lesson_id'] in affected:
+            row['source_refs'] = list(dict.fromkeys(row['source_refs'] + supplied[row['lesson_id']]))
     updated['source_questions'].extend(value['source_questions'])
     return updated
 
