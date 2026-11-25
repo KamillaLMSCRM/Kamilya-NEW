@@ -106,3 +106,28 @@ async def test_v12_large_course_reuses_course_review_and_owns_each_joint_batch(f
     replay = await run()
     assert calls == snapshot
     assert first.course == replay.course
+
+@pytest.mark.parametrize('address,kind,allowed', [
+    ('BODY1', 'lesson_content', True),
+    ('BODY2', 'lesson_content', False),
+    ('BODY1', 'lesson_title', False),
+    ('BODY1', 'question_prompt', False),
+])
+def test_disposition_body_address_is_normalized_only_for_owned_lesson_content(address, kind, allowed):
+    from app.modules.ai.v3.simple_joint_editor_batches import owned_joint_proposal
+
+    lesson = 'lesson-current'
+    scope = {
+        'owners': {lesson}, 'all_owners': {lesson, 'lesson-peer'}, 'blocks': {'BODY1': lesson},
+        'questions': set(), 'findings': {'finding-known'}, 'allow_additions': False,
+        'narrative_sources': {lesson: ['SRC1']},
+    }
+    payload = {'added_lessons': [], 'lesson_sources': [], 'finding_dispositions': [
+        {'finding_id': 'finding-known', 'status': 'CORRECTED', 'target': {'kind': kind, 'id': address}}]}
+    if not allowed:
+        with pytest.raises(ValueError, match='simple_v12_joint_batch_scope_invalid'):
+            owned_joint_proposal(payload, scope)
+        return
+    result = owned_joint_proposal(payload, scope)
+    assert result['finding_dispositions'][0]['target']['id'] == lesson
+    assert payload['finding_dispositions'][0]['target']['id'] == address

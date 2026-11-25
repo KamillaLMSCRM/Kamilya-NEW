@@ -307,7 +307,8 @@ class ManagedLunaClient:
                     or receipt.get("policy") != "managed-response-quarantine-v1"
                     or receipt.get("accepted") is not False or receipt.get("complete_http_response") is not True
                     or type(receipt.get("status")) is not int or receipt["status"] != 200
-                    or receipt.get("phase") not in {"structured_shape", "stage_finalize"} or receipt.get("stage_sha256") != stage_id
+                    or receipt.get("phase") not in {"structured_shape", "stage_validation", "stage_finalize"}
+                    or receipt.get("stage_sha256") != stage_id
                     or receipt.get("route_fingerprint") != self.cache_fingerprint()
                     or receipt.get("wire_request_sha256") != hashlib.sha256(payload).hexdigest()):
                 raise ValueError
@@ -319,8 +320,23 @@ class ManagedLunaClient:
             from app.modules.ai.v3.response_contracts import response_contract
             kind = response_contract(request.get("response_format"))
             if kind not in {"practical_course", "practical_editorial_verification", "simple_semantic_source_plan",
-                            "simple_finding_evidence"}:
+                            "simple_finding_evidence", "literal_source_access"}:
                 raise ValueError
+            if (receipt['phase'] == 'stage_validation') != (kind == 'literal_source_access'):
+                raise ValueError
+            if kind == 'literal_source_access':
+                from app.modules.ai.v3.retained_author_replay import is_literal_joint_stage
+                from app.modules.ai.v3.source_access_contract import inner_format
+                from app.modules.ai.v3.stage_checkpoint import _digest
+
+                if (stage_plan is None or not is_literal_joint_stage(stage_plan)
+                        or stage_plan.get('schema') != 'v3-stage-checkpoint-v1'
+                        or stage_plan.get('tenant_id') != str(tenant_id) or stage_plan.get('job_id') != job_id
+                        or stage_plan.get('route_fingerprint') != self.cache_fingerprint()
+                        or stage_plan.get('request_sha256') != _digest([request['messages'], request['response_format']])
+                        or _digest(stage_plan) != stage_id
+                        or response_contract(inner_format(request['response_format'])) != 'simple_course_block_editor'):
+                    raise ValueError
             if kind == 'simple_semantic_source_plan':
                 from app.modules.ai.v3.retained_author_replay import is_semantic_plan_stage
                 from app.modules.ai.v3.stage_checkpoint import _digest
@@ -362,6 +378,12 @@ class ManagedLunaClient:
                         or _digest(stage_plan) != stage_id):
                     raise ValueError
             result, _ = self._decode_response(raw, payload)
+            if kind == 'literal_source_access':
+                from app.modules.ai.v3.retained_author_replay import matches_literal_joint_reply
+
+                content = result.content.normalized_value if isinstance(result.content, PracticalAuthorArtifact) else result.content
+                if stage_plan is None or not matches_literal_joint_reply(stage_plan, content):
+                    raise ValueError
             return result
         except Exception:
             raise ManagedLunaError("managed_luna_replay_unverified") from None
