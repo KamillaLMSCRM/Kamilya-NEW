@@ -4336,3 +4336,26 @@ The first joint request now includes the actual alternative (129,131 bytes
 versus 103,694). Largest joint request 204,519 bytes versus the original
 819,483-byte monolithic request. This is evidence projection, not proof of
 semantic correctness or four-course acceptance.
+
+### CHG-COMPACT-REVIEW-WIRE-20261125
+
+The second DEV rules course retained 33 complete stages. Its independent
+course review then received a recorded HTTP 400 invalid_input. Exact
+offline reconstruction matched the rejected stage identity and request hash.
+The DEV connector runtime confirms a 65,536-byte schema cap. Expanded
+review format 76,835 bytes repeated the same approved source alias inventory
+for all 16 lesson fields.
+
+Keep the lesson-to-source response shape and use one strict source inventory
+for oversized review requests. Restore the full original alias constraints
+for application validation. Reject unowned references, missing lesson
+fields and any unchanged oversized review wire. Requests below the size
+cap, including already completed reviews, retain their exact fingerprint.
+
+The reconstructed first unsuccessful request shrank to 18,883 schema bytes.
+Messages, job, source, route and all 33 completed response hashes stayed
+the same. The local test exercised the same response under both formats
+and rejected an unowned source reference. The scoped DEV recovery must
+prove the exact retired request from the new compact format and replay
+all completed stages before the single replacement can dispatch. Normal
+production jobs do not receive this case recovery action.

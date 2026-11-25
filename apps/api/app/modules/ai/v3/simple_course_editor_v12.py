@@ -15,7 +15,7 @@ from app.modules.ai.v3.simple_joint_editor_batches import (
     combine_joint_proposals,
     owned_joint_proposal,
 )
-from app.modules.ai.v3.source_access_contract import access_format, matches_access
+from app.modules.ai.v3.source_access_contract import access_format, compact_oversized_review, matches_access
 
 _ALIGNMENT = (
     " Assessment design is a separate check from source factual truth. For EACH card identify the practical "
@@ -151,6 +151,7 @@ async def run_simple_course_editor_v12(
                 identity.append(fmt)
             fingerprint = _digest(identity)
             outer = access_format(fmt, packet.fingerprint, fingerprint, group, list(source.by_id))
+            outer = compact_oversized_review(outer)
             outer_group = (
                 f"practical:simple:lookup:v12:{packet.fingerprint}:base={_digest(group)}"
                 f":context={fingerprint}:round={attempt}"

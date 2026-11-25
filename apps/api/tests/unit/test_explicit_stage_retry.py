@@ -666,3 +666,50 @@ async def test_v12_timeout_replaces_only_the_proved_whole_course_editor(owned_ca
         await retry.guard_recovery_stage(case.fake, {**batch, 'route_fingerprint': '2' * 64})
     await retry.guard_recovery_stage(case.fake, batch)
     assert retry.retry_plan(batch, case.fake.explicit_stage_retries) == batch
+
+
+@pytest.mark.asyncio
+async def test_v12_review_400_requires_exact_old_wire_and_every_saved_response(owned_case):
+    case = literal_case(owned_case)
+    old = {**case.plan, "stage": "review"}
+    digest = _digest(old)
+    claim, result = "v3-stage-claim:" + digest, "v3-stage-result:" + digest
+    case.fake.plans.update({claim: old, result: old})
+    case.fake.values[claim] = {"identity": digest, "claim_token": "9" * 32}
+    case.job.result[PENDING_KEY]["entries"] = {
+        digest: {"claim_key": claim, "result_key": result, "token": "9" * 32},
+    }
+    receipt = case.job.result[retry.REJECTION_KEY]["entries"][case.digest]
+    case.job.result[retry.REJECTION_KEY]["entries"] = {
+        digest: {**receipt, "stage": digest, "status": 400, "code": "invalid_input"},
+    }
+    case.job.params["source_analysis"][retry.SOURCE_ACCESS_KEY] = {"policy": "literal-reference-access-v1"}
+    prefix = {**case.plan, "stage": "lesson", "group_id": old["group_id"].replace(":base=" + "e" * 64, ":base=" + "a" * 64)}
+    prefix_id = _digest(prefix)
+    response = {"checkpoint": True}
+    usage = {"model": "gpt-6-luna", "usage": {"input_tokens": 15, "output_tokens": 7,
+             "cached_input_tokens": None, "reasoning_tokens": None}}
+    prefix_key = "v3-stage-result:" + prefix_id
+    case.fake.plans[prefix_key] = prefix
+    case.fake.values[prefix_key] = {
+        "identity": prefix_id, "response": response, "direct_metadata": usage,
+        "response_sha256": _digest(response), "direct_metadata_sha256": _digest(usage),
+    }
+    case.inventory.return_value = {
+        prefix_id: {"plan": prefix, "response_sha256": _digest(response), "direct_metadata_sha256": _digest(usage)},
+    }
+    request = retry.UnknownStageRetryRequest(stage_sha256=digest, recovery_id=uuid4(),
+                                             acknowledge_unknown_outcome=True)
+    entry = await retry.authorize_retry(None, case.job, case.actor, case.settings, request)
+    assert entry["replacement"] == retry.COMPACT_REVIEW_WIRE
+    case.fake.explicit_stage_retries = case.job.params[retry.KEY]
+    compact = {**old, "request_sha256": "8" * 64}
+    with pytest.raises(ValueError, match="explicit_stage_retry_request_changed"):
+        await retry.guard_recovery_stage(case.fake, compact, old)
+    await retry.guard_recovery_stage(case.fake, prefix)
+    with pytest.raises(ValueError, match="explicit_stage_retry_retired_review_request"):
+        await retry.guard_recovery_stage(case.fake, old)
+    with pytest.raises(ValueError, match="explicit_stage_retry_request_changed"):
+        await retry.guard_recovery_stage(case.fake, compact, {**old, "request_sha256": "a" * 64})
+    await retry.guard_recovery_stage(case.fake, compact, old)
+    assert case.fake.explicit_retry_reached
