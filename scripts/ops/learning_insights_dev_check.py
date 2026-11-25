@@ -38,6 +38,8 @@ TABLES = (
     "content_releases",
     "positions",
     "departments",
+    "cohorts",
+    "cohort_members",
     "modules",
     "lessons",
     "quizzes",

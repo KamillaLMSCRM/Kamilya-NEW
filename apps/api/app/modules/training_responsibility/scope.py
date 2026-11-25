@@ -26,6 +26,11 @@ class ReportingScope:
     organization_unit_ids: tuple[UUID, ...] = ()
     cohort_ids: tuple[UUID, ...] = ()
 
+    def allows_employee(self, employee_id: UUID) -> bool:
+        return self.mode is ReportingScopeMode.TENANT or (
+            self.user_ids is not None and employee_id in self.user_ids
+        )
+
 
 async def resolve_reporting_scope(
     db: AsyncSession,

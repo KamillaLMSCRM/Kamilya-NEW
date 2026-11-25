@@ -930,7 +930,7 @@ export function StaffWorkspace({
             <Button type="button" size="sm" variant={employeeTab === 'learning' ? 'default' : 'ghost'} aria-pressed={employeeTab === 'learning'} onClick={() => setEmployeeTab('learning')}>Обучение</Button>
             <Button type="button" size="sm" variant={employeeTab === 'profile' ? 'default' : 'ghost'} aria-pressed={employeeTab === 'profile'} onClick={() => setEmployeeTab('profile')}>Профиль</Button>
           </div>
-          {employeeTab === 'learning' ? <EmployeeLearning key={employee.id} employee={employee} /> : <div className="grid gap-3 rounded-xl bg-muted/50 p-3 text-sm sm:grid-cols-2">
+          {employeeTab === 'learning' ? <EmployeeLearning key={employee.id} employeeId={employee.id} /> : <div className="grid gap-3 rounded-xl bg-muted/50 p-3 text-sm sm:grid-cols-2">
             <div><p className="text-xs text-muted-foreground">Подразделение</p><p>{effectiveUnit ? unitLabel(effectiveUnit) : 'Без подразделения'}</p></div>
             <div><p className="text-xs text-muted-foreground">Учётная запись</p><p>{accountLabel(employee.is_active)}</p><p className="text-xs [overflow-wrap:anywhere]">{employeeIdentity(employee)}</p></div>
           </div>}

@@ -27,7 +27,7 @@ from app.modules.source_editorial_review.domain import SOURCE_PINS as SOURCE_PIN
 from app.modules.source_editorial_review.models import DocumentEditorialEvent as Event
 from app.modules.source_editorial_review.question_context import POLICY as QUESTION_CONTEXT_POLICY
 from app.modules.source_editorial_review.question_evidence import verified_edit_scopes
-from app.modules.source_editorial_review.recovery import recoverable_turn
+from app.modules.source_editorial_review.recovery import interrupted_text_request, recoverable_turn
 from app.modules.source_preparation.domain import POLICY as PREPARATION_POLICY
 from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
 
@@ -270,13 +270,17 @@ def review_view(doc: Document, rows: Sequence[Event], state: ReviewState, receip
         recovery = None
     interrupted_unknown = bool(recovery is None and rows and rows[-1].kind in {"running", "analysis_block"}
                                and latest_status(rows) == "interrupted")
+    retryable_text = interrupted_text_request(rows, str(doc.content_sha256), actor_id, interrupted=interrupted_unknown)
+    can_acknowledge_text = retryable_text is not None and verified_preparation_binding(
+        rows, str(doc.content_sha256), retryable_text[2].payload["preparation"])
     return {"document_id": doc.id, "title": doc.title, "document_version": doc.version,
             "revision": state.revision, "status": latest_status(rows),
-            "requires_retry_acknowledgement": requires_retry_acknowledgement(rows),
+            "requires_retry_acknowledgement": requires_retry_acknowledgement(rows) or can_acknowledge_text,
             "retry_blocked_unknown_visual": retry_blocked_unknown_visual(rows),
             "continuation_pending": recovery is not None or continuation_pending(rows, str(doc.content_sha256)),
             "can_recheck": can_recheck_questions(rows, state),
-            "error": ("source_review_interrupted_outcome_unknown" if interrupted_unknown else
+            "error": ("source_review_provider_outcome_unknown" if can_acknowledge_text else
+                      "source_review_interrupted_outcome_unknown" if interrupted_unknown else
                       "source_review_preparation_stale" if stale_preparation else state.error),
             "failure_phase": failure_phase if failure_phase in (
                 "source_extraction", "source_contract", "provider_readiness", "editor_request", "editor_response",
@@ -332,6 +336,28 @@ async def apply_command(
         if command.acknowledge_outcome_and_cost_unknown is not None or command.pages is not None:
             raise ReviewConflictError("source_review_action_not_available")
         return rows, state, rows[-1], True
+    if command.action == "start" and command.acknowledge_outcome_and_cost_unknown is True:
+        stale = interrupted_text_request(rows, str(doc.content_sha256), actor_id,
+                                         interrupted=latest_status(rows) == "interrupted")
+        if stale is not None:
+            key, claim, parent = stale
+            binding = parent.payload["preparation"]
+            if command.pages is not None or not verified_preparation_binding(rows, str(doc.content_sha256), binding):
+                raise ReviewConflictError("source_review_action_not_available")
+            failed = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 1, kind="failed",
+                payload={"code": "source_review_provider_outcome_unknown", "cause_class": "StaleOwnedTextRequest",
+                         "claim_id": str(claim.id), "unknown_request_key": key, "usage_complete": False})
+            resume_payload = {"preparation": binding,
+                              "acknowledged_unknown": {"failure_event_id": str(failed.id),
+                                                       "request_id": str(command.request_id), "actor_id": str(actor_id)}}
+            if "pages" in parent.payload:
+                resume_payload["pages"] = parent.payload["pages"]
+            event = add_event(db, doc, actor_id=actor_id, sequence=state.revision + 2, kind="queued",
+                              payload=resume_payload, command=command)
+            await db.flush()
+            state.apply(failed.sequence, failed.kind, failed.payload)
+            state.apply(event.sequence, event.kind, event.payload)
+            return [*rows, failed, event], state, event, True
     requires_ack = requires_retry_acknowledgement(rows)
     if requires_ack and command.action in {"start", "select_parts"}:
         if retry_blocked_unknown_visual(rows):
@@ -419,7 +445,7 @@ def _review_status(kind: str, created: datetime, frozen_sha: str, blob_sha: str 
 
 async def review_queue(db: AsyncSession, tenant_id: UUID, offset: int, limit: int) -> dict[str, Any]:
     latest = (
-        select(Event.document_id, Event.kind, Event.created_at, Event.original_blob_sha256)
+        select(Event.document_id, Event.kind, Event.created_at, Event.original_blob_sha256, Event.sequence)
         .where(Event.tenant_id == tenant_id)
         .distinct(Event.document_id)
         .order_by(Event.document_id, Event.sequence.desc())
@@ -427,17 +453,50 @@ async def review_queue(db: AsyncSession, tenant_id: UUID, offset: int, limit: in
     )
     rows = (await db.execute(
         select(latest.c.document_id, Document.title, latest.c.kind, latest.c.created_at,
-               latest.c.original_blob_sha256, Document.content_sha256)
+               latest.c.original_blob_sha256, Document.content_sha256, latest.c.sequence)
         .join(Document, Document.id == latest.c.document_id)
         .where(Document.tenant_id == tenant_id, Document.lifecycle_status == "active")
         .order_by(case((latest.c.kind == "approved", 1), else_=0),
                   latest.c.created_at.desc(), latest.c.document_id)
         .offset(offset).limit(limit + 1)
     )).all()
-    return {"items": [
-        {"document_id": str(doc_id), "title": title, "status": _review_status(kind, created, frozen_sha, blob_sha)}
-        for doc_id, title, kind, created, frozen_sha, blob_sha in rows[:limit]
-    ], "next_offset": offset + limit if len(rows) > limit else None}
+    items: list[dict[str, Any]] = []
+    active_revisions: dict[UUID, tuple[str, int]] = {}
+    for doc_id, title, kind, created, frozen_sha, blob_sha, sequence in rows[:limit]:
+        status = _review_status(kind, created, frozen_sha, blob_sha)
+        items.append({"document_id": str(doc_id), "title": title, "status": status, "open_questions": None})
+        if status == "in_review":
+            active_revisions[doc_id] = (frozen_sha, sequence)
+
+    if active_revisions:
+        # Read only question/decision fields from the accepted review revision.
+        # Full original text and model receipts are not part of this queue.
+        events = (await db.execute(
+            select(Event.document_id, Event.kind, Event.original_blob_sha256, Event.sequence,
+                   case((Event.kind == "analyzed", Event.payload["issues"])),
+                   Event.payload["item_id"].astext)
+            .where(Event.tenant_id == tenant_id, Event.document_id.in_(active_revisions),
+                   Event.kind.in_(("analyzed", "resolved", "issue_reopened")))
+            .order_by(Event.document_id, Event.sequence)
+        )).all()
+        open_ids: dict[str, set[str]] = {}
+        for doc_id, kind, frozen_sha, sequence, issues, item_id in events:
+            active_sha, active_sequence = active_revisions[doc_id]
+            if frozen_sha != active_sha or sequence > active_sequence:
+                continue
+            key = str(doc_id)
+            if kind == "analyzed" and isinstance(issues, list):
+                open_ids[key] = {str(issue["id"]) for issue in issues}
+            elif key in open_ids and item_id:
+                if kind == "issue_reopened":
+                    open_ids[key].add(item_id)
+                else:
+                    open_ids[key].discard(item_id)
+        for item in items:
+            if item["document_id"] in open_ids:
+                item["open_questions"] = len(open_ids[item["document_id"]])
+
+    return {"items": items, "next_offset": offset + limit if len(rows) > limit else None}
 
 
 async def pin_reviews(db: AsyncSession, tenant_id: UUID, ids: Sequence[UUID]) -> list[dict[str, Any]]:

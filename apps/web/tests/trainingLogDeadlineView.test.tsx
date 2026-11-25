@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigation = vi.hoisted(() => ({
@@ -78,6 +78,41 @@ beforeEach(() => {
 });
 
 describe('training log deadline presentation', () => {
+  it('opens the exact employee and enrollment, and returns to the original journal page and filters', async () => {
+    const employeeId = '026c6936-5f78-46dd-99a5-95bb7b3ac9c0';
+    const enrollmentId = '9502cc8a-5fc8-4f9b-b547-2d79e05e1ddb';
+    const oldEnrollmentId = '2828b30f-b11e-4665-9ee1-f0fdd4e9bbc1';
+    navigation.params = new URLSearchParams('status=completed&history=true&journal_page=2');
+    const selected = trainingLogRow({
+      user_id: employeeId, enrollment_id: enrollmentId, full_name: 'Test learner',
+      progress_percent: 100, certificate_number: 'CURRENT-CERTIFICATE',
+      certificate_id: 'c379c480-fd84-44c9-85f5-08a15aa2f77c', certificate_status: 'active',
+    });
+    const previous = { ...selected, enrollment_id: oldEnrollmentId, certificate_number: 'PREVIOUS-CERTIFICATE' };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/courses')) return { data: [] } as never;
+      if (url.includes('/summary')) return { data: { total: 101 } } as never;
+      return { data: { items: [previous, selected], total: 101, limit: 100, offset: 100 } } as never;
+    });
+    const view = render(<AdminTrainingLogPage />);
+    const link = await screen.findByRole('link', { name: 'Test learner' });
+    const params = new URLSearchParams(link.getAttribute('href')!.split('?')[1]);
+    expect(params.get('journal_page')).toBe('2');
+    expect(params.get('employee_card')).toBe(employeeId);
+    // Compact journal initially selects the first (historical) row.
+    expect(params.get('card_enrollment')).toBe(oldEnrollmentId);
+    params.set('card_enrollment', enrollmentId);
+    navigation.params = params;
+    view.rerender(<AdminTrainingLogPage />);
+    const dialog = await screen.findByRole('dialog', { name: 'Employee record' });
+    expect(await within(dialog).findByText('CURRENT-CERTIFICATE')).toBeInTheDocument();
+    expect(within(dialog).queryByText('PREVIOUS-CERTIFICATE')).not.toBeInTheDocument();
+    expect(apiMock.get).toHaveBeenCalledWith(expect.stringContaining('enrollment_id=' + enrollmentId), expect.anything());
+    expect(apiMock.get).toHaveBeenCalledWith(expect.stringContaining('offset=100'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Back to training log' }));
+    expect(navigation.replace).toHaveBeenCalledWith('/training-log?status=completed&history=true&journal_page=2', { scroll: false });
+  });
+
   it.each(['resolve', 'reject'] as const)('suppresses old exports and feedback after unmount (%s)', async (outcome) => {
     let resolve!: (value: unknown) => void;
     let reject!: (reason: Error) => void;

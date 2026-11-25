@@ -620,3 +620,96 @@ async def test_v12_resume_changes_only_rejected_lookup_after_exact_prefix(owned_
     recovered = retry.retry_plan(case.plan, case.fake.explicit_stage_retries)
     assert recovered['explicit_recovery']['original_stage_sha256'] == case.digest
     assert _digest(recovered) != case.digest
+
+
+@pytest.mark.asyncio
+async def test_v12_timeout_replaces_only_the_proved_whole_course_editor(owned_case):
+    case = literal_case(owned_case)
+    base = 'practical:simple:review-content:v9:' + 'c' * 64 + ':unit=' + 'd' * 64
+    old_base = _digest(base.replace(':review-content:', ':editor-joint:'))
+    original = {**case.plan, 'group_id': case.plan['group_id'].replace(':base=' + 'e' * 64, ':base=' + old_base)}
+    old_digest = _digest(original)
+    claim, result = 'v3-stage-claim:' + old_digest, 'v3-stage-result:' + old_digest
+    case.fake.plans.update({claim: original, result: original})
+    case.fake.values[claim] = {'identity': old_digest, 'claim_token': '9' * 32}
+    case.job.result[PENDING_KEY]['entries'] = {old_digest: {'claim_key': claim, 'result_key': result, 'token': '9' * 32}}
+    receipt = case.job.result[retry.REJECTION_KEY]['entries'][case.digest]
+    case.job.result[retry.REJECTION_KEY]['entries'] = {old_digest: {**receipt, 'stage': old_digest, 'code': 'timeout'}}
+    prefix = {**original, 'stage': 'review',
+              'group_id': original['group_id'].replace(':base=' + old_base, ':base=' + _digest(base))}
+    digest = _digest(prefix)
+    prefix_key = 'v3-stage-result:' + digest
+    case.fake.plans[prefix_key] = prefix
+    response = {'base_group': base, 'results': [{'narrative_sources': {str(i): ['SRC1'] for i in range(6)}}]}
+    metadata = {'model': 'gpt-6-luna', 'usage': {'input_tokens': 12, 'output_tokens': 3,
+        'cached_input_tokens': None, 'reasoning_tokens': None}}
+    case.fake.values[prefix_key] = {'identity': digest, 'response': response, 'direct_metadata': metadata,
+                                    'response_sha256': _digest(response), 'direct_metadata_sha256': _digest(metadata)}
+    case.inventory.return_value = {digest: {'plan': prefix, 'response_sha256': _digest(response),
+                                           'direct_metadata_sha256': _digest(metadata)}}
+    db = SimpleNamespace(scalars=AsyncMock(return_value=SimpleNamespace(
+        all=lambda: [SimpleNamespace(plan_payload=prefix, generation_key=case.fake._owned_key(prefix_key))])))
+    before = copy.deepcopy((case.fake.plans, case.fake.values))
+    request = retry.UnknownStageRetryRequest(stage_sha256=old_digest, recovery_id=uuid4(),
+                                             acknowledge_unknown_outcome=True)
+    entry = await retry.authorize_retry(db, case.job, case.actor, case.settings, request)
+    assert (case.fake.plans, case.fake.values) == before
+    assert entry['replacement'] == 'bounded-joint-editor-v1'
+    case.fake.explicit_stage_retries = case.job.params[retry.KEY]
+    batch = {**original, 'group_id': original['group_id'].replace(':context=' + 'f' * 64, ':context=' + '1' * 64)}
+    with pytest.raises(ValueError, match='explicit_stage_retry_retired_joint_request'):
+        await retry.guard_recovery_stage(case.fake, original)
+    with pytest.raises(ValueError, match='explicit_stage_retry_prefix_incomplete'):
+        await retry.guard_recovery_stage(case.fake, batch)
+    await retry.guard_recovery_stage(case.fake, prefix)
+    with pytest.raises(ValueError, match='explicit_stage_retry_request_changed'):
+        await retry.guard_recovery_stage(case.fake, {**batch, 'route_fingerprint': '2' * 64})
+    await retry.guard_recovery_stage(case.fake, batch)
+    assert retry.retry_plan(batch, case.fake.explicit_stage_retries) == batch
+
+
+@pytest.mark.asyncio
+async def test_v12_review_400_requires_exact_old_wire_and_every_saved_response(owned_case):
+    case = literal_case(owned_case)
+    old = {**case.plan, "stage": "review"}
+    digest = _digest(old)
+    claim, result = "v3-stage-claim:" + digest, "v3-stage-result:" + digest
+    case.fake.plans.update({claim: old, result: old})
+    case.fake.values[claim] = {"identity": digest, "claim_token": "9" * 32}
+    case.job.result[PENDING_KEY]["entries"] = {
+        digest: {"claim_key": claim, "result_key": result, "token": "9" * 32},
+    }
+    receipt = case.job.result[retry.REJECTION_KEY]["entries"][case.digest]
+    case.job.result[retry.REJECTION_KEY]["entries"] = {
+        digest: {**receipt, "stage": digest, "status": 400, "code": "invalid_input"},
+    }
+    case.job.params["source_analysis"][retry.SOURCE_ACCESS_KEY] = {"policy": "literal-reference-access-v1"}
+    prefix = {**case.plan, "stage": "lesson", "group_id": old["group_id"].replace(":base=" + "e" * 64, ":base=" + "a" * 64)}
+    prefix_id = _digest(prefix)
+    response = {"checkpoint": True}
+    usage = {"model": "gpt-6-luna", "usage": {"input_tokens": 15, "output_tokens": 7,
+             "cached_input_tokens": None, "reasoning_tokens": None}}
+    prefix_key = "v3-stage-result:" + prefix_id
+    case.fake.plans[prefix_key] = prefix
+    case.fake.values[prefix_key] = {
+        "identity": prefix_id, "response": response, "direct_metadata": usage,
+        "response_sha256": _digest(response), "direct_metadata_sha256": _digest(usage),
+    }
+    case.inventory.return_value = {
+        prefix_id: {"plan": prefix, "response_sha256": _digest(response), "direct_metadata_sha256": _digest(usage)},
+    }
+    request = retry.UnknownStageRetryRequest(stage_sha256=digest, recovery_id=uuid4(),
+                                             acknowledge_unknown_outcome=True)
+    entry = await retry.authorize_retry(None, case.job, case.actor, case.settings, request)
+    assert entry["replacement"] == retry.COMPACT_REVIEW_WIRE
+    case.fake.explicit_stage_retries = case.job.params[retry.KEY]
+    compact = {**old, "request_sha256": "8" * 64}
+    with pytest.raises(ValueError, match="explicit_stage_retry_request_changed"):
+        await retry.guard_recovery_stage(case.fake, compact, old)
+    await retry.guard_recovery_stage(case.fake, prefix)
+    with pytest.raises(ValueError, match="explicit_stage_retry_retired_review_request"):
+        await retry.guard_recovery_stage(case.fake, old)
+    with pytest.raises(ValueError, match="explicit_stage_retry_request_changed"):
+        await retry.guard_recovery_stage(case.fake, compact, {**old, "request_sha256": "a" * 64})
+    await retry.guard_recovery_stage(case.fake, compact, old)
+    assert case.fake.explicit_retry_reached

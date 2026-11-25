@@ -29,7 +29,7 @@ from app.modules.source_editorial_review.domain import (
     render_text,
     text_hash,
 )
-from app.modules.source_editorial_review.service import apply_command, pin_reviews
+from app.modules.source_editorial_review.service import apply_command, pin_reviews, review_queue
 
 ORIGINAL = "До 45 МРП действует первый порядок. Свыше 45 МРП действует второй. Документ оформляет операотр."
 QUOTE = "До 45 МРП действует первый порядок."
@@ -514,7 +514,8 @@ async def test_approved_layout_edit_cannot_hide_an_unresolved_source_question():
     quote = "Submit within 24 hours."
     before = "Keep the  receipt."
     after = "Keep the receipt."
-    original = f"{quote} Submit the same form within 72 hours. {before}"
+    withheld = "Stop , here."
+    original = f"{quote} Submit the same form within 72 hours. {withheld} {before}"
     positives = {key: True for key in (
         "digits_preserved", "numeric_values_preserved", "units_preserved", "operators_preserved",
         "negation_modality_preserved", "coordination_logic_preserved", "actors_preserved", "content_complete",
@@ -524,15 +525,52 @@ async def test_approved_layout_edit_cannot_hide_an_unresolved_source_question():
     async def answer(messages):
         incoming = json.loads(messages[1]["content"])
         if "proposal_sha256" not in incoming:
-            return {"patches": [{"alias": "Spacing", "before": before, "after": after, "category": "layout",
-                "reason": "Remove one repeated space.", "supporting_original_context_quotes": [before]}], "unresolved": []}
+            return {"patches": [
+                {"alias": "Spacing", "before": before, "after": after, "category": "layout",
+                 "reason": "Remove one repeated space.", "supporting_original_context_quotes": [before]},
+                {"alias": "Punctuation", "before": withheld, "after": "Stop here.", "category": "layout",
+                 "reason": "Remove the comma.", "supporting_original_context_quotes": [withheld]},
+            ], "unresolved": []}
         return {"proposal_sha256": incoming["proposal_sha256"], "rows": [
-            {"patch_alias": "Spacing", "relation": "preserved", "reason": "The words are unchanged.", **positives}],
+            {"patch_alias": alias, "relation": "preserved", "reason": "The words are unchanged.", **positives}
+            for alias in ("Spacing", "Punctuation")],
             "source_questions": [{"excerpt": quote, "category": "conflict", "reason": "24 or 72 hours?"}]}
 
-    result = await analyze(original, source_id="document:" + "d" * 64, document_id=str(uuid4()), complete_json=answer)
+    retained = {}
+
+    async def save_block(key, block):
+        retained[key] = block
+
+    document_id = str(uuid4())
+    model = {"source_id": "document:" + "d" * 64, "document_id": document_id}
+    result = await analyze(original, **model, complete_json=answer, checkpoint=save_block)
     assert result["issues"][0]["quote"] == quote
-    assert render_text(original, result["automatic"])[0].endswith(after)
+    assert render_text(original, result["automatic"])[0].endswith(f"{withheld} {after}")
+    assert result["model_calls"] == 2
+    # A completed checkpoint can retain an edit that the final document
+    # renderer cannot apply. Its independent findings must still survive.
+    block, = retained.values()
+    start = original.index(" , ")
+    block["automatic"].append({"id": "a0-retained", "start": start, "end": start + 3,
+        "before": " , ", "after": " ", "category": "layout", "reason": "Remove the comma."})
+    for index, (shared, replacement) in enumerate([
+        ("Submit the same", "Submit the  same"), ("the same form", "the same  form"),
+    ]):
+        position = original.index(shared)
+        block["automatic"].append({"id": f"a0-overlap-{index}", "start": position, "end": position + len(shared),
+            "before": shared, "after": replacement, "category": "layout", "reason": "Adjust spacing."})
+
+    async def no_more_calls(messages):
+        pytest.fail("The final renderer must reuse the completed checkpoint")
+
+    replayed = await analyze(original, **model, complete_json=no_more_calls, retained=retained)
+    assert replayed["model_calls"] == 0
+    assert replayed["issues"] == result["issues"]
+    assert render_text(original, replayed["automatic"])[0].endswith(f"{withheld} {after}")
+    assert [(row["id"], row["requires_human_decision"]) for row in replayed["rejected_automatic"]
+            if row["reason"] == "source_review_automatic_edit_withheld"] == [
+        ("a0-retained", False), ("a0-overlap-0", False), ("a0-overlap-1", False),
+    ]
     with pytest.raises(ReviewConflictError, match="overlapping_or_stale_edit"):
         render_text(original, [{"id": "blank", "start": 0, "end": len(quote), "before": quote, "after": " "}])
 
@@ -733,3 +771,30 @@ async def test_worker_uses_pinned_working_text_without_reconverting_original():
     with pytest.raises(DirectSourceError, match="editorial_unproved"):
         await build_direct_source_corpus([doc], tenant_id=doc.tenant_id, storage=storage,
                                          approved_documents={str(doc.id): approved})
+
+
+@pytest.mark.asyncio
+async def test_queue_counts_unresolved_questions_for_the_visible_review_revision():
+    document, changed_document = uuid4(), uuid4()
+    now = datetime.now(UTC)
+    sha, stale_sha = "a" * 64, "b" * 64
+    db = AsyncMock()
+    db.execute.side_effect = [
+        Mock(all=Mock(return_value=[
+            (document, "Review pending", "issue_reopened", now, sha, sha, 9),
+            (changed_document, "Changed document", "analyzed", now, stale_sha, sha, 2),
+        ])),
+        Mock(all=Mock(return_value=[
+            (document, "analyzed", stale_sha, 1, [{"id": "old"}], None),
+            (document, "analyzed", sha, 4, [{"id": "obsolete"}], None),
+            (document, "analyzed", sha, 6, [{"id": "one"}, {"id": "two"}], None),
+            (document, "resolved", sha, 7, None, "one"),
+            (document, "resolved", sha, 8, None, "two"),
+            (document, "issue_reopened", sha, 9, None, "two"),
+            (document, "resolved", sha, 10, None, "two"),
+        ])),
+    ]
+    result = await review_queue(db, uuid4(), offset=0, limit=2)
+    assert [(item["status"], item["open_questions"]) for item in result["items"]] == [
+        ("in_review", 1), ("source_changed", None),
+    ]

@@ -1,12 +1,14 @@
 """User management service"""
-from uuid import UUID, uuid4
+from collections.abc import Sequence
 from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
-from argon2 import PasswordHasher
+from uuid import UUID, uuid4
 
-from app.models.users import User
+from argon2 import PasswordHasher
+from sqlalchemy import desc, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.user_roles import UserRole
+from app.models.users import User
 
 ph = PasswordHasher()
 
@@ -23,6 +25,7 @@ async def list_users(
     search: str | None = None,
     role: str | None = None,
     is_active: bool | None = None,
+    user_ids: Sequence[UUID] | None = None,
 ) -> tuple[list[User], int]:
     """List users with pagination and filters.
 
@@ -31,6 +34,10 @@ async def list_users(
     """
     query = select(User).where(User.tenant_id == tenant_id)
     count_query = select(func.count(User.id)).where(User.tenant_id == tenant_id)
+
+    if user_ids:
+        query = query.where(User.id.in_(user_ids))
+        count_query = count_query.where(User.id.in_(user_ids))
 
     if search:
         search_filter = (

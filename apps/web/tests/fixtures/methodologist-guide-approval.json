@@ -42,5 +42,9 @@
     "capture_release": "64f39fd9fe19dc55421b4db33ff0b3a63ad52475",
     "source_model": "DeepSeek-V4.1-Flash-1017 on GX10-15/GX10-16",
     "review_scope": "Synthetic production screenshots, contextual help, two supplemental chapters; original eight media chapters retained."
+  },
+  "workspace_addendum": {
+    "release": "0.11.154",
+    "html_section_sha256": "8f95df8302c857fc8eca8983e712c1c414974dbb050c7746fefda4ebf4a34335"
   }
 }

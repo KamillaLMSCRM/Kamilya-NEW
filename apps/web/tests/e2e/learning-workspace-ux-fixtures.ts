@@ -148,7 +148,7 @@ export class SyntheticWorkspace {
   get(path: string, body: unknown) { this.onGet(path, () => ({ json: body })); }
   onGet(path: string, handler: Handler) { this.reads.set(path, handler); }
   // One exact command is armed immediately before its explicit UI action.
-  command(method: 'POST' | 'PATCH' | 'PUT', path: string, handler: Handler) {
+  command(method: 'POST' | 'PATCH' | 'PUT' | 'DELETE', path: string, handler: Handler) {
     this.commands.set(`${method} ${path}`, handler);
   }
   matching(method: string, path: string) {

@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page, type TestInfo } from '@playwright/test';
+import type { SourceReview } from '@/features/source-editorial-review/contract';
 import {
   appOrigin, audience, course, existingEnrollment, ids, lessons, newEnrollment,
   quiz, quizAttempt, quizResult, reviewAttempt, reviewSummary, snapshotHash,
-  sourceDocument, test, trainingRows,
+  sourceDocument, test, timestamp, trainingRows,
 } from './learning-workspace-ux-fixtures';
 
 // Real Next production pages, never HTML prototypes. Root owns build/server on3024.
@@ -47,6 +48,91 @@ for (const viewport of [
   test.describe(viewport.name, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
     test.setTimeout(60_000);
+
+    if (viewport.width === 1440 || viewport.width === 390) test('methodologist continues the first course from a saved source decision to assignment', async ({ page, workspace }, info) => {
+      workspace.trainingLog();
+      workspace.author();
+      workspace.get('/v1/admin/onboarding-status', { steps: [] });
+      workspace.get('/v1/admin/mandatory-training/summary', { total: 0 });
+      workspace.get('/v1/ai/jobs', []);
+      const quote = 'Report breaks in the shift log.';
+      const reason = 'The document owner confirmed the current shift procedure.';
+      const reviewPath = `/documents/${ids.document}/editorial-review`;
+      const reviewApi = '/v1' + reviewPath;
+      let review: SourceReview = {
+        document_id: ids.document, document_version: 3, title: sourceDocument.title, revision: 7,
+        status: 'in_review', error: null, original_text: quote, working_text: quote,
+        questions: [{ id: 'shift-log', start: 0, end: quote.length, quote,
+          reason: 'Which log records breaks?', resolution: null }],
+        automatic: [], journal: [], approval: null,
+      };
+      workspace.onGet(reviewApi, () => ({ json: review }));
+      workspace.onGet('/v1/documents/editorial-review/queue', () => ({ json: {
+        items: [{ document_id: ids.document, title: sourceDocument.title, status: review.status,
+          open_questions: review.questions.filter((question) => !question.resolution).length }],
+      } }));
+      const openTask = async (action: string) => {
+        await page.goto('/dashboard');
+        await page.getByRole('button', { name: new RegExp(sourceDocument.title) }).click();
+        const link = page.getByRole('link', { name: action, exact: true });
+        await expect(link).toHaveAttribute('href', `${reviewPath}?document_id=${ids.document}`);
+        await link.click();
+        await expect(page).toHaveURL(`${appOrigin}${reviewPath}?document_id=${ids.document}`);
+      };
+      await openTask('Continue review');
+
+      const approvalButton = page.getByRole('region', { name: 'Source review' }).getByRole('button', { name: 'Approve edition' });
+      await expect(approvalButton).toBeDisabled();
+      await page.getByRole('button', { name: 'Go to first open question' }).click();
+      await page.getByRole('radio', { name: 'Keep wording' }).check();
+      await page.getByLabel('Reason for the decision').fill(reason);
+      workspace.command('POST', reviewApi, ({ body }) => {
+        expect(body).toMatchObject({ action: 'resolve', expected_revision: 7, item_id: 'shift-log', decision: 'keep', reason });
+        review = { ...review, revision: 8, questions: review.questions.map((question) => ({ ...question,
+          resolution: { id: question.id, start: 0, end: quote.length,
+            before: quote, after: quote, reason, decision: 'keep' } })) };
+        return { json: review };
+      });
+      await page.getByRole('button', { name: 'Save decision' }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Decision saved' })).toBeVisible();
+      await page.getByRole('button', { name: 'Go to approval' }).click();
+      await expect(approvalButton).toBeFocused();
+      await expect(approvalButton).toBeInViewport();
+      await capture(page, info, 'source-ready-for-approval');
+
+      await openTask('Go to approval');
+      await expect(page.getByText(reason, { exact: true })).toBeVisible();
+      workspace.command('POST', reviewApi, ({ body }) => {
+        expect(body).toMatchObject({ action: 'approve', expected_revision: 8 });
+        review = { ...review, status: 'approved', revision: 9, approval: {
+          document_id: ids.document, approval_id: ids.revision, revision: 9,
+          working_sha256: snapshotHash, created_at: timestamp,
+        } };
+        return { json: review };
+      });
+      await approvalButton.click();
+      await expect(page.getByRole('link', { name: 'Create course', exact: true }))
+        .toHaveAttribute('href', `/ai/generate?document_id=${ids.document}`);
+
+      workspace.assignments();
+      const editorCourse = { ...course, status: 'draft', review_status: 'approved' };
+      const editorApi = `/v1/courses/${ids.course}`;
+      workspace.get(editorApi, editorCourse);
+      await page.goto(`/courses/${ids.course}/edit`);
+      workspace.command('POST', editorApi + '/publish', () => {
+        const published = { ...editorCourse, status: 'published' };
+        workspace.get(editorApi, published);
+        return { json: published };
+      });
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const assignLink = page.locator(`header a[href="/assignments?courseId=${ids.course}"]`);
+      await expect(assignLink).toBeVisible();
+      await expect(assignLink).toBeInViewport();
+      await capture(page, info, 'course-ready-for-assignment');
+      await assignLink.click();
+      await expect(page.getByRole('combobox', { name: 'Course to assign' })).toHaveValue(ids.course);
+      await expect(page.getByRole('checkbox', { name: 'Synthetic Learner', exact: true })).toBeVisible();
+    });
 
     test('learner focus reader has keyboard outline, optional help and a direct exit', async ({ page, workspace }, info) => {
       workspace.learner();
@@ -417,6 +503,96 @@ for (const viewport of [
       await page.getByRole('button', { name: 'Show all employees' }).click();
       await expect(page).not.toHaveURL(/user_id=/);
       await expect(page.getByRole('heading', { name: 'Methodologist action center' })).toBeVisible();
+    });
+
+    if (viewport.width === 1440 || viewport.width === 390) test('employee card restores an exact historical enrollment, answers, PDF and journal context', async ({ page, workspace }, info) => {
+      workspace.trainingLog();
+      const original = trainingRows[101];
+      const certificateId = 'a09726e9-207d-428e-a43d-cbf781d589a3';
+      const selected = {
+        ...original, content_release_version: 2, quiz_attempts_count: 2, best_score: 100,
+        certificate_id: certificateId, certificate_number: 'QA-ARCHIVED', certificate_status: 'expired',
+      };
+      const active = { ...selected, content_release_version: 3, enrollment_id: trainingRows[100].enrollment_id, certificate_number: 'QA-CURRENT' };
+      const journalRows = [...trainingRows.slice(0, 101), selected];
+      workspace.onGet('/v1/admin/training-log', ({ url }) => {
+        const scoped = url.searchParams.get('user_id') === selected.user_id;
+        const enrollmentId = url.searchParams.get('enrollment_id');
+        const rows = scoped ? [active, selected].filter((row) => !enrollmentId || row.enrollment_id === enrollmentId) : journalRows;
+        const offset = Number(url.searchParams.get('offset'));
+        const limit = Number(url.searchParams.get('limit'));
+        return { json: { items: rows.slice(offset, offset + limit), total: rows.length, offset, limit, reporting_scope: 'tenant' } };
+      });
+      workspace.get(`/v1/admin/learning-insights/enrollments/${selected.enrollment_id}`, {
+        enrollment_id: selected.enrollment_id, course_id: selected.course_id,
+        course_title: selected.course_title, user_name: selected.full_name,
+        attempts: [1, 2].map((number) => ({
+          id: `historical-attempt-${number}`, quiz_id: ids.quiz, quiz_title: 'Archived safety test',
+          content_release_id: ids.revision, release_version: 2, completed_at: selected.enrolled_at, attempt_number: number,
+          score_percent: number === 1 ? 50 : 100, passed: number === 2,
+          evidence_status: 'verified', lesson_id: ids.lesson, questions: [{
+            question_id: ids.question, question_key: ids.question, text: 'What requires a supervisor check?',
+            type: 'single_choice', explanation: null, is_correct: number === 2, points_possible: 1,
+            points_earned: number === 2 ? 1 : 0, choices: [
+              { id: ids.safeChoice, text: 'Damaged equipment', selected: number === 2, correct: true },
+              { id: ids.unsafeChoice, text: 'All routine operations', selected: number === 1, correct: false },
+            ], review: { status: 'unreviewed', updated_at: null },
+          }],
+        })),
+      });
+      workspace.onGet(`/v1/certificates/${certificateId}/download`, () => ({
+        body: '%PDF-1.4\nSynthetic certificate\n%%EOF', contentType: 'application/pdf',
+      }));
+      workspace.get(`/v1/knowledge-checks/employees/${selected.user_id}/assignments`, {
+        items: [{ id: 'standalone-assignment', title: 'Independent equipment assessment', revision: 4,
+          status: 'passed', due_at: null, attempt_limit: 2, attempts_count: 1,
+          attempts: [{ id: 'standalone-attempt', number: 1, completed_at: selected.enrolled_at, score_percent: 100, passed: true }] }],
+        has_more: false,
+      });
+      workspace.get(`/v1/knowledge-checks/employees/${selected.user_id}/attempts/standalone-attempt`, {
+        assignment_id: 'standalone-assignment', answers: [{ question_id: 'first', selected_choice_ids: ['correct'] }],
+        snapshot: { questions: [{ id: 'first', type: 'MCQ', text: 'Which valve closes first?',
+          choices: [{ id: 'correct', text: 'Inlet', is_correct: true }, { id: 'wrong', text: 'Outlet', is_correct: false }] }] },
+      });
+      const journal = '/training-log?history=true&journal_page=2';
+      await page.goto(journal);
+      await page.getByRole('button', { name: /Synthetic employee 102 Synthetic workplace safety/ }).click();
+      await page.getByRole('link', { name: selected.full_name, exact: true }).click();
+      await expect(page).toHaveURL(/journal_page=2.*employee_card=.*card_enrollment=/);
+      await page.reload();
+      const card = page.getByRole('dialog', { name: 'Employee record' });
+      await expect(card.getByText('QA-ARCHIVED', { exact: true })).toBeVisible();
+      await expect(card.getByText('Revision 2', { exact: true })).toBeVisible();
+      await expect(card.getByText('Revision 3', { exact: true })).toHaveCount(0);
+      await expect(card.getByText('QA-CURRENT', { exact: true })).toHaveCount(0);
+      await expect(card.getByText('Test attempts: 2')).toBeVisible();
+      await card.getByRole('button', { name: /Review answers|Learner answers|Answer review/i }).click();
+      await expect.poll(() => workspace.matching('GET', `/v1/admin/learning-insights/enrollments/${selected.enrollment_id}`).length).toBe(1);
+      await expect(card.getByText('Score: 50%', { exact: true })).toBeVisible();
+      await expect(card.getByText('Score: 100%', { exact: true })).toBeVisible();
+      await expect(card.getByText('What requires a supervisor check?', { exact: true })).toHaveCount(2);
+      const download = page.waitForEvent('download');
+      await card.getByRole('button', { name: 'Download certificate PDF' }).click();
+      expect((await download).suggestedFilename()).toBe('certificate-QA-ARCHIVED.pdf');
+      expect(workspace.matching('GET', `/v1/certificates/${certificateId}/download`)[0].url.searchParams.get('direct')).toBe('true');
+      await card.getByRole('button', { name: 'Standalone knowledge checks' }).click();
+      await expect(card.getByRole('heading', { name: 'Independent equipment assessment' })).toBeVisible();
+      await card.getByRole('button', { name: 'Review answers' }).click();
+      await expect(card.getByText('Which valve closes first?', { exact: true })).toBeVisible();
+      await noPageOverflow(page);
+      await card.getByRole('button', { name: 'Back to training log' }).click();
+      await expect(page).toHaveURL(appOrigin + journal);
+      await expect(page.getByRole('button', { name: /Synthetic employee 102 Synthetic workplace safety/ })).toHaveAttribute('aria-pressed', 'true');
+      await page.locator('#lang-select').selectOption('ru');
+      await page.getByRole('link', { name: selected.full_name, exact: true }).click();
+      const russianCard = page.getByRole('dialog', { name: 'Карточка сотрудника' });
+      await expect(russianCard.getByRole('button', { name: 'Скачать PDF сертификата' })).toBeVisible();
+      await page.screenshot({ path: info.outputPath(`employee-card-${viewport.width}.png`) });
+      await russianCard.getByRole('button', { name: 'Назад в журнал' }).click();
+      await page.locator('#lang-select').selectOption('kk');
+      await page.getByRole('link', { name: selected.full_name, exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Қызметкер карточкасы' })
+        .getByRole('button', { name: 'Сертификаттың PDF файлын жүктеу' })).toBeVisible();
     });
 
     test('training log keeps restricted scope, current/history filters and whole-filter CSV at both sizes', async ({ page, workspace }, info) => {

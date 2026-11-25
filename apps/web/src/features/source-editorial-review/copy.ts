@@ -1,4 +1,7 @@
 const ru = {
+  allDocuments: 'Все документы', documentUnavailable: 'Документ недоступен',
+  documentUnavailableHint: 'Откройте список документов, чтобы выбрать другой файл.',
+  waitForIndex: 'Файл ещё индексируется. Удаление доступно после завершения индексации.',
   findQuestion: 'Поиск по артикулу или замечанию',
   noMatchingQuestions: 'Совпадений нет. Измените поисковый запрос.',
   evidence: 'Цитаты из исходника', occurrence: 'Вхождение', sourceRow: 'Строка исходника',
@@ -35,7 +38,7 @@ const ru = {
   reopenIssue: 'Вернуть вопрос на проверку', undo: 'Отменить автоправку',
   history: 'Журнал правок', original: 'Оригинальный текст', working: 'Рабочая редакция',
   approve: 'Утвердить редакцию', reopen: 'Открыть редакцию для правок',
-  generate: 'Перейти к генерации', documents: 'К документам', check: 'Проверить документ',
+  generate: 'Создать курс', document: 'К документу', check: 'Проверить документ',
   retry: 'Повторить проверку', readAgain: 'Обновить', repeatCommand: 'Проверить сохранение',
   loading: 'Загружаем согласование…', loadError: 'Не удалось загрузить согласование.',
   error: 'Не удалось сохранить действие. Проверьте данные и попробуйте снова.',
@@ -56,6 +59,11 @@ const ru = {
   recovery: 'Проверка не завершилась. Можно запустить её снова.',
   protected: 'Документ не удалось извлечь полностью. Проверьте файл или загрузите новую версию.',
   openCount: 'Открыто', afterApproval: 'Редакция, оригинал и журнал правок сохранены.',
+  firstOpenQuestion: 'К первому открытому вопросу',
+  readyToApprove: 'Все замечания разобраны. Утвердите редакцию, чтобы перейти к созданию курса.',
+  nextOpenQuestion: 'К следующему открытому вопросу',
+  finishReview: 'Перейти к утверждению',
+  continueReviewTask: 'Продолжить согласование',
   startHint: 'Проверка ищет ошибки и неоднозначности в формулировках, ссылках и терминах.',
   statusLabels: {
     not_started: 'Не проверен', queued: 'В очереди', running: 'Идёт проверка', interrupted: 'Проверка прервана',
@@ -69,6 +77,9 @@ const ru = {
 };
 
 const en: typeof ru = {
+  allDocuments: 'All documents', documentUnavailable: 'Document unavailable',
+  documentUnavailableHint: 'Open the document list to choose another file.',
+  waitForIndex: 'Indexing is in progress. You can delete the file once indexing finishes.',
   findQuestion: 'Search by item or finding',
   noMatchingQuestions: 'No matches. Change your search.',
   evidence: 'Source quotations', occurrence: 'Occurrence', sourceRow: 'Original source row',
@@ -103,8 +114,8 @@ const en: typeof ru = {
   reasonRequired: 'Enter a reason for the decision (at least 3 characters).', kept: 'Original wording kept',
   replace: 'Replace wording', keep: 'Keep wording', save: 'Save decision', reopenIssue: 'Reopen question',
   undo: 'Undo automatic edit', history: 'Change history', original: 'Original text', working: 'Working edition',
-  approve: 'Approve edition', reopen: 'Reopen edition for editing', generate: 'Continue to generation',
-  documents: 'Back to Documents', check: 'Check document', retry: 'Retry review', readAgain: 'Refresh',
+  approve: 'Approve edition', reopen: 'Reopen edition for editing', generate: 'Create course',
+  document: 'Back to document', check: 'Check document', retry: 'Retry review', readAgain: 'Refresh',
   repeatCommand: 'Check whether it saved', loading: 'Loading review…', loadError: 'Could not load the review.',
   error: 'Could not save the action. Check your input and try again.',
   unknown: 'Saving was not confirmed. Check the result using the same action.',
@@ -123,6 +134,11 @@ const en: typeof ru = {
   recovery: 'The review did not finish. You can start it again.',
   protected: 'Text extraction was incomplete. Check the file or upload a new version.',
   openCount: 'Open', afterApproval: 'The edition, original and edit history are saved.',
+  firstOpenQuestion: 'Go to first open question',
+  readyToApprove: 'All questions are resolved. Approve this edition to start creating the course.',
+  nextOpenQuestion: 'Go to next open question',
+  finishReview: 'Go to approval',
+  continueReviewTask: 'Continue review',
   startHint: 'The review looks for errors and ambiguities in wording, references and terms.',
   statusLabels: {
     not_started: 'Not reviewed', queued: 'Queued', running: 'Checking', interrupted: 'Interrupted',
@@ -136,6 +152,9 @@ const en: typeof ru = {
 };
 
 const kk: typeof ru = {
+  allDocuments: 'Барлық құжаттар', documentUnavailable: 'Құжат қолжетімсіз',
+  documentUnavailableHint: 'Басқа файлды таңдау үшін құжаттар тізімін ашыңыз.',
+  waitForIndex: 'Файл индекстеліп жатыр. Индекстеу аяқталғаннан кейін файлды жоюға болады.',
   findQuestion: 'Артикул немесе ескерту бойынша іздеу',
   noMatchingQuestions: 'Сәйкестік жоқ. Іздеу сұрауын өзгертіңіз.',
   evidence: 'Түпнұсқадан дәйексөздер', occurrence: 'Кездесу', sourceRow: 'Түпнұсқа жолы',
@@ -171,7 +190,7 @@ const kk: typeof ru = {
   replace: 'Мәтінді ауыстыру', keep: 'Мәтінді сақтау', save: 'Шешімді сақтау', reopenIssue: 'Сұрақты қайта ашу',
   undo: 'Автоматты түзетуді болдырмау', history: 'Өзгерістер журналы', original: 'Түпнұсқа мәтін',
   working: 'Жұмыс нұсқасы', approve: 'Нұсқаны бекіту', reopen: 'Нұсқаны өңдеу үшін ашу',
-  generate: 'Курс жасауға өту', documents: 'Құжаттарға оралу', check: 'Құжатты тексеру',
+  generate: 'Курс жасау', document: 'Құжатқа оралу', check: 'Құжатты тексеру',
   retry: 'Тексеруді қайталау', readAgain: 'Жаңарту', repeatCommand: 'Сақталғанын тексеру',
   loading: 'Келісу деректері жүктелуде…', loadError: 'Келісу деректері жүктелмеді.',
   error: 'Әрекет сақталмады. Деректерді тексеріп, қайталаңыз.',
@@ -190,6 +209,11 @@ const kk: typeof ru = {
   savedDraft: 'Сақталмаған енгізу', recovery: 'Тексеру аяқталмады. Оны қайта бастауға болады.',
   protected: 'Мәтін толық алынбады. Файлды тексеріңіз немесе жаңа нұсқаны жүктеңіз.',
   openCount: 'Ашық', afterApproval: 'Нұсқа, түпнұсқа және түзетулер журналы сақталды.',
+  firstOpenQuestion: 'Бірінші ашық сұраққа өту',
+  readyToApprove: 'Барлық ескертулер қаралды. Курс жасауға өту үшін нұсқаны бекітіңіз.',
+  nextOpenQuestion: 'Келесі ашық сұраққа өту',
+  finishReview: 'Бекітуге өту',
+  continueReviewTask: 'Келісуді жалғастыру',
   startHint: 'Тексеру тұжырымдардағы, сілтемелердегі және терминдердегі қателер мен екіұштылықтарды іздейді.',
   statusLabels: {
     not_started: 'Тексерілмеген', queued: 'Кезекте', running: 'Тексерілуде', interrupted: 'Тексеру үзілді',
