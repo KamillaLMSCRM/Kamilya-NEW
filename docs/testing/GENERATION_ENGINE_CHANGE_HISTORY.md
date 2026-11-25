@@ -4153,3 +4153,189 @@ asset uploads, and no writes to a tenant. DEV and production acceptance pending.
 Focused extraction, preparation, Excel, presentation, and source review: 121
 tests passed. Extractor file SHA-256 prefix `79dd81330f55`; embedded workbook
 reader SHA-256 prefix `b6c146d115ca`.
+
+## CHG-BOUNDED-JOINT-EDITOR-20261124 — late editorial stage on large courses
+
+Reproduced locally after pinning the same approved DEV source. All 31
+retained producer responses decoded and matched their original stage groups.
+The next request matched the retired whole-course request group exactly.
+Its model-facing messages contained 819,483 UTF-8 bytes, 14 lessons, 56
+cards and 59 distinct material findings. The original live provider attempt
+returned a 503 timeout. Retained prior failures and quality findings are in
+the 2026-11-24 Lombard source and lesson evidence.
+
+New native V12 jobs pin the scoped editorial projection at admission.
+Historical jobs keep their original request identity. The overall source
+review still finds missing content. For large courses, each rewrite uses
+two owned lessons, their source passages, the corresponding application
+decisions and findings, and the course outline. The same application
+validates and combines the returned edits. Validated DEV timeout recovery
+preserves the original rejection and all completed receipts. It only
+accepts the exact managed V12 job, source, custody and prior course-level
+review. It may reach the new bounded stage only after replaying the entire
+completed prefix and may never dispatch the retired request.
+
+Actual saved-source replay with deterministic empty-edit fixtures reached
+seven joint requests. All 14 lessons, 56 cards and 59 findings were
+covered. Largest recorded model-message payload 188,248 bytes
+(77.0% below the prior 819,483-byte request). Local replay uncovered a
+second defect during the final review: the common context carried a blank
+separator with no source alias. The projection now omits only blank
+separators with a null alias. Nonblank source with an unowned alias remains
+invalid. Final bank-review request construction reached 485,947 bytes.
+No model queries were sent in this test. Content quality and production
+acceptance require the live course results.
+
+Scope of runtime acceptance: latest four distinct uploaded Lombard files,
+using exact verified copies in the isolated DEV QA tenant and only the
+already-paid managed Luna 6 route. Preserve completed stages and avoid
+changing the client tenant. Record the eventual result of each document,
+model identity, elapsed time, known usage and any unknown attempt.
+
+The disclosure guide's DEV document held revision 12 in the old worker
+claim. The exact same prepared text-only source had two completed request
+receipts and one last committed text-request intent without a completion.
+The upload endpoint correctly rejected a duplicate of the same blob.
+The source-review command can now record the stale owned text attempt as
+unknown, then continue the same document following an explicit
+acknowledgement. It verifies the owning actor, preparation binding,
+claim, source revision, the one pending initial intent and the absence
+of visual assets. Old replies and the unknown-cost event remain recorded.
+The ordinary API and existing acknowledgement control handle this case.
+57 source-review focused tests passed before DEV rollout.
+
+### CHG-SCOPED-EDITOR-COMPANION-SOURCE-20261125
+
+The already-saved rules course exposed a recurrence recorded under QA-001:
+the first scoped editor replaced an assessment whose key required unconditional
+spouse consent. Its admissions lesson still taught the rule without the
+unmarried declaration alternative. Exact offline replay found that the
+literal alternative reached a different batch. The whole-course critique
+and first batch had no applicable finding for that omission, and the final
+assessment bank repair does not rewrite lesson prose.
+
+Newly admitted jobs select a separate joint-editor policy. While assembling
+the owned source sections, it also locates substantively overlapping
+passages anywhere inside the same approved document. These are bounded
+literal companion passages for the editor to compare, with the existing
+source alias and provenance. This adds no separate model stage. General
+similarity is navigation only, and the model must compare applicability
+before proposing an edit. Source ownership, edit ownership, original
+question inventory, main on-demand table route, and historical policies
+remain enforced.
+
+First offline replay used the exact 31 saved model responses with zero new
+provider calls. All 14 lessons, 56 cards and 59 findings stayed in scope.
+The first joint request now includes the actual alternative (129,131 bytes
+versus 103,694). Largest joint request 204,519 bytes versus the original
+819,483-byte monolithic request. This is evidence projection, not proof of
+semantic correctness or four-course acceptance.
+
+### CHG-COMPACT-REVIEW-WIRE-20261125
+
+The second DEV rules course retained 33 complete stages. Its independent
+course review then received a recorded HTTP 400 invalid_input. Exact
+offline reconstruction matched the rejected stage identity and request hash.
+The DEV connector runtime confirms a 65,536-byte schema cap. Expanded
+review format 76,835 bytes repeated the same approved source alias inventory
+for all 16 lesson fields.
+
+Keep the lesson-to-source response shape and use one strict source inventory
+for oversized review requests. Restore the full original alias constraints
+for application validation. Reject unowned references, missing lesson
+fields and any unchanged oversized review wire. Requests below the size
+cap, including already completed reviews, retain their exact fingerprint.
+
+The reconstructed first unsuccessful request shrank to 18,883 schema bytes.
+Messages, job, source, route and all 33 completed response hashes stayed
+the same. The local test exercised the same response under both formats
+and rejected an unowned source reference. The scoped DEV recovery must
+prove the exact retired request from the new compact format and replay
+all completed stages before the single replacement can dispatch. Normal
+production jobs do not receive this case recovery action.
+
+### CHG-JOINT-EDITOR-OWNED-BODY-ADDRESS-20261125
+
+The second debt settlement check retained 24 replies and one complete
+HTTP 200 Luna 6 reply to the last scoped edit. The reply passed the schema
+and contained three edits to the only owned lesson. The model cited the
+edited BODY IDs in its five finding dispositions. The editor expected
+lesson IDs for those disposition targets and rejected the complete reply.
+
+Resolve a lesson-content disposition's owned BODY ID to its lesson.
+The original receipt and scope remain intact. Keep rejecting foreign
+blocks, use the normal finding and literal-quote checks, and leave
+unrelated editing targets untouched. The complete managed response can
+be replayed in the existing isolated DEV QA job only when the receipt,
+review role, stage, wire request, pinned source, route and ownership agree.
+No output text or saved scope is changed.
+
+Reproduced from all 24 actual response checkpoints and the exact failed
+request. The original 9,469-byte Luna response was validated again through
+the managed transport and lawful scoped editor with zero additional inference.
+The archived response reported 21,244 input and 1,834 output tokens.
+Live final lesson and quiz checks remain required for this change.
+
+### CHG-BRANCH-REVIEW-20261125
+
+The recovered microcredit review passed the connector. Its first scoped
+editor response still taught the threshold and spouse consent without
+the alternative document for the unmarried case. Exact offline request
+reconstruction showed that the editor received both approved alternatives
+in SRC280 and SRC329 among 68 source blocks. Global critique and the
+first joint edit did not flag the lesson body.
+
+After the joint proposals, compare a bounded set of likely omitted
+conditions or alternatives in the edited paragraphs. Literal companion
+clauses already come from the same approved source. Language markers
+and overlap select candidates only. A focused editor compares actor,
+action and scope, changes only the supplied paragraph addresses, and
+binds its source references to the owning lesson. The ordinary final
+question-bank stages see the resulting teaching. One call per large
+course when there are candidates. Prior accepted paths retain their
+pinned policy. The exact DEV compact-review recovery may use the
+extra step before final assessment work, preserving completed replies.
+
+Offline replay of the real first scoped body selected both affected
+paragraphs and the exact two companion references. Scope tests verify
+an unchanged supported alternative, stable unrelated paragraphs and
+cards, and rejection of references to another lesson. No inference
+was used for these checks. Live scope and release acceptance remain open.
+
+### Owned transport admission for branch comparison
+
+The exact microcredit-rules DEV run retained 42 validated Luna replies, then
+failed locally before the new branch comparison could claim a provider call.
+A replay over all 42 original replies reproduced and isolated the rejection
+at the V12 owned stage admission. The earlier mocked stage validated output
+shape but had omitted the real transport gate.
+
+Admit the branch comparison only as a V12 repair with the matching source,
+base-group digest, context and draft fingerprint. Verify the full original
+saved prefix through the same gate. Preserve the 42 replies and approved source.
+
+### Retain supported branch repairs from a mixed model response
+
+The Rules branch comparison reached Luna 6 and returned HTTP 200. It added
+the missing unmarried-applicant alternative in three paragraphs. Another
+proposed edit cited evidence supplied to a different lesson, which formerly
+rejected the entire response. The original managed reply is retained by its
+request, owner and body hashes in the existing quarantine.
+
+Apply only independent edits with exactly scoped lesson citations. Leave
+the rejected lesson's text and references unchanged. Permit this exact V12
+branch role under the existing guarded retained-response protocol so the
+native worker can continue without another request for the branch review.
+Replaying the actual 42 validated responses plus the retained response
+reached the evidence-repair stage with zero provider calls.
+
+### Final review preserves source branches across lessons and questions
+
+- The full Rules course completed in DEV through Luna 6 with 46 validated responses and 16 lessons / 64 questions. The quarantined branch reply was reused by exact body SHA, without another model call for that stage. The final bank review and repair completed. Reading the persisted course identified two material scope errors and a reintroduced duplicate, which blocked acceptance.
+- The application lesson preserved both branches of the consent requirement, while its test card retained only one, and a later lesson still juxtaposed both branches with an unconditional refusal. The final editor had no direct handoff from its scoped companion-clause comparison.
+- Carry deduplicated, already selected literal companion clauses into the existing final review and repair. The review checks each applicable case against all lesson statements and visible quiz facts. A repaired question receives its actual same-lesson peers, including peers already flagged for edits. Scope and acceptance remain model decisions over the approved source.
+- Replay of the exact 44 unaffected responses reaches the amended bank review without calling the model. It measures 600,575 request bytes. Existing stage boundaries and source ownership remain intact.
+
+- The amended whole-bank prompt still missed the consent scope in authentic Luna review. Removed that prompt-only approach. The final pass presents the model with the exact companion clauses it previously cited in accepted edits and the nearest candidate paragraphs and assessment cards. It also offers close same-lesson card pairs so repairs can preserve a useful original and replace a duplicate. The same block editor validates IDs, references, and media while the model determines whether action is needed.
+- Replayed all 46 genuine responses without another model call. The 59,855-byte final request included the contradictory paragraph, the unqualified threshold question, and both 15-day cards, selected from the course and source without naming those targets in application code.
+- Luna returned one paragraph edit and two card edits. Replay exposed redundant lesson citations in the typed result. The validator now accepts them only for edited lessons and only when they bind to the supplied evidence. This uses the saved answer without another model request. The threshold card gives an explicit married scenario, the lesson retains the alternative declaration, and the two 15-day questions no longer test the same decision.

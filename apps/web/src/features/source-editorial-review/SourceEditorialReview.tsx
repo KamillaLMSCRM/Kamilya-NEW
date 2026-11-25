@@ -8,7 +8,7 @@ import { WorkspacePage, WorkspacePanel } from '@/features/workspace-design';
 import { useT } from '@/i18n/useT';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
-import { sourceReviewHref, type ReviewCommand, type ReviewStatuses, type SourceReview } from './contract';
+import { documentLibraryHref, sourceCourseCreationHref, sourceReviewHref, type ReviewCommand, type ReviewStatuses, type SourceReview } from './contract';
 import { sourceReviewCopy } from './copy';
 import { SourcePreparationPanel } from './SourcePreparationPanel';
 
@@ -52,9 +52,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     const ids = new URLSearchParams(window.location.search).getAll('document_id');
     if (ids.includes(id)) setCourseDocuments([...new Set(ids)].slice(0, 5));
   }, [id]);
-  const generationHref = '/ai/generate?' + new URLSearchParams(
-    (courseDocuments.length ? courseDocuments : [id]).map(documentId => ['document_id', documentId])
-  ).toString();
+  const generationHref = sourceCourseCreationHref(courseDocuments.length ? courseDocuments : [id]);
   const [loadError, setLoadError] = useState(false);
   const [selected, select] = useState<string | null>(null);
   const [questionSearch, setQuestionSearch] = useState('');
@@ -245,17 +243,22 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   };
 
   return <WorkspacePage id="source-editorial-review" title={copy.title}>
-    <Link className="inline-flex text-sm text-primary underline underline-offset-4"
-      href={courseDocuments.length ? generationHref : '/documents'}>
-      {courseDocuments.length ? copy.returnToCourse : copy.documents}
-    </Link>
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-primary">
+      <Link className="underline underline-offset-4" href={documentLibraryHref(id)}>{copy.document}</Link>
+      {courseDocuments.length > 0 && (
+        <Link className="underline underline-offset-4" href={generationHref}>{copy.returnToCourse}</Link>
+      )}
+    </div>
     {loadError && <WorkspacePanel bodyClassName="space-y-3" role="alert">
       <p>{copy.loadError}</p><Button variant="outline" onClick={() => void load()}>{copy.readAgain}</Button>
     </WorkspacePanel>}
     {!review && !loadError && <p role="status">{copy.loading}</p>}
     {review && <>
       <WorkspacePanel bodyClassName="space-y-3">
-        <h2 className="break-words text-lg font-semibold">{review.title}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="break-words text-lg font-semibold">{review.title}</h2>
+          {open > 0 && <Button variant="outline" onClick={() => showQuestion(review.questions.find((item) => !item.resolution)!.id)}>{copy.firstOpenQuestion}</Button>}
+        </div>
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
         {review.can_recheck && !readOnly && <div className="space-y-2">

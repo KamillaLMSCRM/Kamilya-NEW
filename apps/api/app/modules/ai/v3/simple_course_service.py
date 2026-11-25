@@ -63,10 +63,19 @@ def simple_stage_allowed(stage: Any, group: Any, fmt: Any, *, policy: Any, valid
             return False
         props = fmt['json_schema']['schema']['properties']
         base = props['base_group']['enum'][0]
-        return bool(props['source_fingerprint']['enum'] == [match[1]]
-            and props['context_fingerprint']['enum'] == [match[3]] and _digest(base) == match[2]
-            and simple_stage_allowed(stage, base + ':output=' + match[5], inner_format(fmt),
-                policy=SIMPLE_COURSE_REVIEW_V11_POLICY, validator=validator))
+        if (props['source_fingerprint']['enum'] != [match[1]]
+                or props['context_fingerprint']['enum'] != [match[3]] or _digest(base) != match[2]):
+            return False
+        inner = inner_format(fmt)
+        branch = re.fullmatch(r'practical:simple:branch-review:v12:([0-9a-f]{64}):unit=([0-9a-f]{64})', base)
+        if branch:
+            if stage != 'repair' or branch[1] != match[1] or response_contract(inner) != 'simple_course_block_editor':
+                return False
+            bindings = inner['json_schema']['schema']['properties']
+            return bool(bindings['source_fingerprint']['enum'] == [branch[1]]
+                        and bindings['draft_fingerprint']['enum'] == [branch[2]])
+        return simple_stage_allowed(stage, base + ':output=' + match[5], inner,
+            policy=SIMPLE_COURSE_REVIEW_V11_POLICY, validator=validator)
 
     if policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         if type(group) is not str or not callable(validator):
@@ -484,17 +493,32 @@ async def generate_simple_course(corpus: DirectSourceCorpus, *, intent: Any, inv
 
     if review_policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
         from app.modules.ai.v3.simple_course_editor_v12 import run_simple_course_editor_v12
-        from app.modules.ai.v3.source_access_config import checked_settings
+        from app.modules.ai.v3.source_access_config import (
+            BOUNDED_JOINT_EDITOR,
+            BRANCH_REVIEW_JOINT_EDITOR,
+            RELATED_SOURCE_JOINT_EDITOR,
+            branch_review_enabled,
+            checked_settings,
+        )
 
         pinned = checked_settings(source_access_settings)
+        retry_ledger = getattr(journal, 'explicit_stage_retries', None)
+        replacements = {entry.get('replacement') for entry in retry_ledger['entries'].values()} if isinstance(
+            retry_ledger, dict) else set()
+        bounded_recovery = BOUNDED_JOINT_EDITOR in replacements
 
         async def planned_v12(count: int) -> None:
             nonlocal total
             total = count
 
+        joint_editor = pinned.get('joint_editor')
         result = await run_simple_course_editor_v12(packet, corpus, intent, stage,
             reference_decisions=reference_decisions, planned_callback=planned_v12,
-            literal_budget=pinned['literal_chars'], lookup_rounds=pinned['lookup_rounds'])
+            literal_budget=pinned['literal_chars'], lookup_rounds=pinned['lookup_rounds'],
+            bounded_joint=joint_editor in (BOUNDED_JOINT_EDITOR, RELATED_SOURCE_JOINT_EDITOR,
+                                          BRANCH_REVIEW_JOINT_EDITOR) or bounded_recovery,
+            related_evidence=joint_editor in (RELATED_SOURCE_JOINT_EDITOR, BRANCH_REVIEW_JOINT_EDITOR),
+            branch_review=branch_review_enabled(joint_editor, retry_ledger))
     elif review_policy == SIMPLE_COURSE_REVIEW_V11_POLICY:
         from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 

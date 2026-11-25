@@ -379,6 +379,16 @@ class ReviewState:
         return "resolved", payload
 
 
+def source_edit_matches(original: str, start: object, end: object, before: object, after: object) -> bool:
+    """Check a single edit at its exact original coordinate."""
+    return (
+        type(start) is int and type(end) is int and 0 <= start < end <= len(original)
+        and isinstance(before, str) and original[start:end] == before and isinstance(after, str)
+        # A layout edit can affect whitespace alone, but cannot erase source words.
+        and bool(after.strip() or (before.isspace() and after.isspace())) and "\x00" not in after
+    )
+
+
 def render_text(original: str, edits: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
     """Compile only disjoint, exact original-coordinate edits with provenance."""
     if not original.strip() or len(original) > MAX_TEXT:
@@ -397,11 +407,7 @@ def render_text(original: str, edits: list[dict[str, Any]]) -> tuple[str, list[d
     for row in sorted(edits, key=lambda x: x["start"]):
         start, end = row["start"], row["end"]
         before, after = row["before"], row["after"]
-        if not (type(start) is int and type(end) is int and position <= start < end <= len(original)
-                and isinstance(before, str) and original[start:end] == before and isinstance(after, str)
-                # The automatic compiler can narrow a valid layout edit to
-                # just its whitespace span. It cannot erase any source words.
-                and (after.strip() or (before.isspace() and after.isspace())) and "\x00" not in after):
+        if not source_edit_matches(original, start, end, before, after) or position > start:
             raise ReviewConflictError("source_review_overlapping_or_stale_edit")
         if position < start:
             add(position, start, original[position:start], None)

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from fastapi.responses import RedirectResponse, Response
 
 from app.modules.certificates import router
+from app.modules.training_responsibility.scope import ReportingScope, ReportingScopeMode
 
 
 def _user(**overrides):
@@ -120,6 +121,24 @@ async def test_unauthorized_role_denies_before_pdf_read(monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         await router.download_certificate_pdf(uuid4(), MagicMock(), user, direct=True)
     assert exc_info.value.status_code == 404
+    read.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_same_tenant_certificate_outside_reporting_audience_is_hidden(monkeypatch):
+    user = _user(role="methodologist")
+    cert = _certificate(user, user_id=uuid4())
+    monkeypatch.setattr(router, "get_certificate", AsyncMock(return_value=cert))
+    monkeypatch.setattr(router, "resolve_reporting_scope", AsyncMock(
+        return_value=ReportingScope(ReportingScopeMode.RESTRICTED, frozenset({uuid4()})),
+    ))
+    read = AsyncMock(side_effect=AssertionError("out of scope bytes must not be read"))
+    monkeypatch.setattr(router, "read_pdf_bytes", read)
+    db = MagicMock()
+    for read_endpoint in (router.get_cert, router.download_certificate_pdf):
+        with pytest.raises(HTTPException) as error:
+            await read_endpoint(cert.id, db, user)
+        assert error.value.status_code == 404
     read.assert_not_awaited()
 
 

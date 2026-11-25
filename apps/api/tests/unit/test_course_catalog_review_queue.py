@@ -63,15 +63,21 @@ async def test_review_queue_uses_current_tenant_and_resumable_review_states():
     first, second = uuid4(), uuid4()
     now = datetime.now(UTC)
     db = AsyncMock()
-    db.execute.return_value.all = Mock(return_value=[
-        (first, "Procedure awaiting decisions", "answered", now, "a", "a"),
-        (second, "Procedure with a stalled check", "queued", now - timedelta(hours=1), "b", "b"),
-    ])
+    db.execute.side_effect = [
+        Mock(all=Mock(return_value=[
+            (first, "Procedure awaiting decisions", "resolved", now, "a", "a", 3),
+            (second, "Procedure with a stalled check", "queued", now - timedelta(hours=1), "b", "b", 1),
+        ])),
+        Mock(all=Mock(return_value=[
+            (first, "analyzed", "a", 2, [{"id": "one"}, {"id": "two"}], None),
+            (first, "resolved", "a", 3, None, "one"),
+        ])),
+    ]
     result = await review_queue(db, tenant_id, offset=0, limit=1)
     assert result == {"items": [
-        {"document_id": str(first), "title": "Procedure awaiting decisions", "status": "in_review"},
+        {"document_id": str(first), "title": "Procedure awaiting decisions", "status": "in_review", "open_questions": 1},
     ], "next_offset": 1}
-    statement = db.execute.await_args.args[0].compile(dialect=postgresql.dialect())
+    statement = db.execute.await_args_list[0].args[0].compile(dialect=postgresql.dialect())
     assert "document_editorial_events.tenant_id" in str(statement)
     assert "documents.tenant_id" in str(statement)
     assert list(statement.params.values()).count(tenant_id) == 2

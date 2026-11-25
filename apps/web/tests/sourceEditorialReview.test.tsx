@@ -168,6 +168,20 @@ describe('source editorial review', () => {
     expect(mocks.post).not.toHaveBeenCalled();
   });
 
+  it('takes the methodologist directly to the first unresolved question', async () => {
+    const data = fixture();
+    data.questions = [
+      { ...data.questions[0], id: 'resolved', resolution: { id: 'resolved', start: 0, end: quote.length, before: quote, after: quote, reason, decision: 'keep' } },
+      { ...data.questions[0], id: 'open-first', reason: 'This must be decided first.', resolution: null },
+    ];
+    mocks.get.mockResolvedValue({ data });
+    render(<SourceEditorialReview />);
+    fireEvent.click(await screen.findByRole('button', { name: 'К первому открытому вопросу' }));
+    expect(await screen.findByText('This must be decided first.')).toBeVisible();
+    expect(screen.getAllByRole('button', { name: /До 45 МРП применяется порядок А/ })
+      .find((button) => button.getAttribute('aria-current') === 'true')).toBeDefined();
+  });
+
   it('only explicitly rechecks an older table review and preserves the revision guard', async () => {
     mocks.get.mockResolvedValue({ data: { ...fixture(), can_recheck: true } });
     mocks.post.mockResolvedValue({ data: { ...fixture(), revision: 4, status: 'queued', can_recheck: false } });
@@ -278,7 +292,7 @@ describe('source editorial review', () => {
     render(<SourceEditorialReview />);
     await screen.findByText('Что делать при 45 МРП?');
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
-    expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Создать курс' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Согласованная формулировка'), { target: { value: updated } });
     fireEvent.change(screen.getByLabelText('Основание решения'), { target: { value: reason } });
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить решение' }));
@@ -286,7 +300,7 @@ describe('source editorial review', () => {
     expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
       expect.objectContaining({ action: 'resolve', expected_revision: 3, replacement: updated, reason }));
     fireEvent.click(screen.getByRole('button', { name: 'Утвердить редакцию' }));
-    expect(await screen.findByRole('link', { name: 'Перейти к генерации' })).toHaveAttribute('href', '/ai/generate?document_id=' + id);
+    expect(await screen.findByRole('link', { name: 'Создать курс' })).toHaveAttribute('href', '/ai/generate?document_id=' + id);
     expect(screen.getByRole('link', { name: 'Открыть утверждённую редакцию' })).toHaveAttribute('href', '/documents/' + id + '/editorial-review/' + approval);
   });
 
@@ -344,7 +358,7 @@ describe('source editorial review', () => {
     expect(await screen.findByText('Автоматическая проверка замечаний: 1')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Утвердить редакцию' })).toBeDisabled();
     expect(screen.queryByLabelText('Точная цитата из оригинала')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Перейти к генерации' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Создать курс' })).not.toBeInTheDocument();
   });
 
   it('lets the methodologist correct a missed issue and preserves the input when the quote cannot be located', async () => {

@@ -419,6 +419,96 @@ for (const viewport of [
       await expect(page.getByRole('heading', { name: 'Methodologist action center' })).toBeVisible();
     });
 
+    if (viewport.width === 1440 || viewport.width === 390) test('employee card restores an exact historical enrollment, answers, PDF and journal context', async ({ page, workspace }, info) => {
+      workspace.trainingLog();
+      const original = trainingRows[101];
+      const certificateId = 'a09726e9-207d-428e-a43d-cbf781d589a3';
+      const selected = {
+        ...original, content_release_version: 2, quiz_attempts_count: 2, best_score: 100,
+        certificate_id: certificateId, certificate_number: 'QA-ARCHIVED', certificate_status: 'expired',
+      };
+      const active = { ...selected, content_release_version: 3, enrollment_id: trainingRows[100].enrollment_id, certificate_number: 'QA-CURRENT' };
+      const journalRows = [...trainingRows.slice(0, 101), selected];
+      workspace.onGet('/v1/admin/training-log', ({ url }) => {
+        const scoped = url.searchParams.get('user_id') === selected.user_id;
+        const enrollmentId = url.searchParams.get('enrollment_id');
+        const rows = scoped ? [active, selected].filter((row) => !enrollmentId || row.enrollment_id === enrollmentId) : journalRows;
+        const offset = Number(url.searchParams.get('offset'));
+        const limit = Number(url.searchParams.get('limit'));
+        return { json: { items: rows.slice(offset, offset + limit), total: rows.length, offset, limit, reporting_scope: 'tenant' } };
+      });
+      workspace.get(`/v1/admin/learning-insights/enrollments/${selected.enrollment_id}`, {
+        enrollment_id: selected.enrollment_id, course_id: selected.course_id,
+        course_title: selected.course_title, user_name: selected.full_name,
+        attempts: [1, 2].map((number) => ({
+          id: `historical-attempt-${number}`, quiz_id: ids.quiz, quiz_title: 'Archived safety test',
+          content_release_id: ids.revision, release_version: 2, completed_at: selected.enrolled_at, attempt_number: number,
+          score_percent: number === 1 ? 50 : 100, passed: number === 2,
+          evidence_status: 'verified', lesson_id: ids.lesson, questions: [{
+            question_id: ids.question, question_key: ids.question, text: 'What requires a supervisor check?',
+            type: 'single_choice', explanation: null, is_correct: number === 2, points_possible: 1,
+            points_earned: number === 2 ? 1 : 0, choices: [
+              { id: ids.safeChoice, text: 'Damaged equipment', selected: number === 2, correct: true },
+              { id: ids.unsafeChoice, text: 'All routine operations', selected: number === 1, correct: false },
+            ], review: { status: 'unreviewed', updated_at: null },
+          }],
+        })),
+      });
+      workspace.onGet(`/v1/certificates/${certificateId}/download`, () => ({
+        body: '%PDF-1.4\nSynthetic certificate\n%%EOF', contentType: 'application/pdf',
+      }));
+      workspace.get(`/v1/knowledge-checks/employees/${selected.user_id}/assignments`, {
+        items: [{ id: 'standalone-assignment', title: 'Independent equipment assessment', revision: 4,
+          status: 'passed', due_at: null, attempt_limit: 2, attempts_count: 1,
+          attempts: [{ id: 'standalone-attempt', number: 1, completed_at: selected.enrolled_at, score_percent: 100, passed: true }] }],
+        has_more: false,
+      });
+      workspace.get(`/v1/knowledge-checks/employees/${selected.user_id}/attempts/standalone-attempt`, {
+        assignment_id: 'standalone-assignment', answers: [{ question_id: 'first', selected_choice_ids: ['correct'] }],
+        snapshot: { questions: [{ id: 'first', type: 'MCQ', text: 'Which valve closes first?',
+          choices: [{ id: 'correct', text: 'Inlet', is_correct: true }, { id: 'wrong', text: 'Outlet', is_correct: false }] }] },
+      });
+      const journal = '/training-log?history=true&journal_page=2';
+      await page.goto(journal);
+      await page.getByRole('button', { name: /Synthetic employee 102 Synthetic workplace safety/ }).click();
+      await page.getByRole('link', { name: selected.full_name, exact: true }).click();
+      await expect(page).toHaveURL(/journal_page=2.*employee_card=.*card_enrollment=/);
+      await page.reload();
+      const card = page.getByRole('dialog', { name: 'Employee record' });
+      await expect(card.getByText('QA-ARCHIVED', { exact: true })).toBeVisible();
+      await expect(card.getByText('Revision 2', { exact: true })).toBeVisible();
+      await expect(card.getByText('Revision 3', { exact: true })).toHaveCount(0);
+      await expect(card.getByText('QA-CURRENT', { exact: true })).toHaveCount(0);
+      await expect(card.getByText('Test attempts: 2')).toBeVisible();
+      await card.getByRole('button', { name: /Review answers|Learner answers|Answer review/i }).click();
+      await expect.poll(() => workspace.matching('GET', `/v1/admin/learning-insights/enrollments/${selected.enrollment_id}`).length).toBe(1);
+      await expect(card.getByText('Score: 50%', { exact: true })).toBeVisible();
+      await expect(card.getByText('Score: 100%', { exact: true })).toBeVisible();
+      await expect(card.getByText('What requires a supervisor check?', { exact: true })).toHaveCount(2);
+      const download = page.waitForEvent('download');
+      await card.getByRole('button', { name: 'Download certificate PDF' }).click();
+      expect((await download).suggestedFilename()).toBe('certificate-QA-ARCHIVED.pdf');
+      expect(workspace.matching('GET', `/v1/certificates/${certificateId}/download`)[0].url.searchParams.get('direct')).toBe('true');
+      await card.getByRole('button', { name: 'Standalone knowledge checks' }).click();
+      await expect(card.getByRole('heading', { name: 'Independent equipment assessment' })).toBeVisible();
+      await card.getByRole('button', { name: 'Review answers' }).click();
+      await expect(card.getByText('Which valve closes first?', { exact: true })).toBeVisible();
+      await noPageOverflow(page);
+      await card.getByRole('button', { name: 'Back to training log' }).click();
+      await expect(page).toHaveURL(appOrigin + journal);
+      await expect(page.getByRole('button', { name: /Synthetic employee 102 Synthetic workplace safety/ })).toHaveAttribute('aria-pressed', 'true');
+      await page.locator('#lang-select').selectOption('ru');
+      await page.getByRole('link', { name: selected.full_name, exact: true }).click();
+      const russianCard = page.getByRole('dialog', { name: 'Карточка сотрудника' });
+      await expect(russianCard.getByRole('button', { name: 'Скачать PDF сертификата' })).toBeVisible();
+      await page.screenshot({ path: info.outputPath(`employee-card-${viewport.width}.png`) });
+      await russianCard.getByRole('button', { name: 'Назад в журнал' }).click();
+      await page.locator('#lang-select').selectOption('kk');
+      await page.getByRole('link', { name: selected.full_name, exact: true }).click();
+      await expect(page.getByRole('dialog', { name: 'Қызметкер карточкасы' })
+        .getByRole('button', { name: 'Сертификаттың PDF файлын жүктеу' })).toBeVisible();
+    });
+
     test('training log keeps restricted scope, current/history filters and whole-filter CSV at both sizes', async ({ page, workspace }, info) => {
       workspace.trainingLog();
       await page.goto(`/training-log?department_id=${ids.department}&delivery_type=native`);

@@ -41,6 +41,7 @@ async def exercise_document_regression(owner, checks):
                 fixtures.make_tenant.__wrapped__(db),
                 fixtures.make_user.__wrapped__(db, set_tenant),
                 fixtures.make_document.__wrapped__(db, set_tenant),
+                set_tenant,
             )
     checks.append("ai_course_01_document_reindex_worker_exact_regression")
 
@@ -51,6 +52,7 @@ async def exercise(owner, runtime, schema, checks):
     from app.models.enrollment import Enrollment
     from app.models.tenants import Tenant
     from app.models.users import User
+    from app.modules.cohorts.models import Cohort, CohortMember
     from app.modules.courses.models import Course
     from app.modules.courses.release_models import ContentRelease
     from app.modules.courses.release_service import canonical_json_sha256
@@ -329,6 +331,29 @@ async def exercise(owner, runtime, schema, checks):
             await client.put(review_url, json={"status": "resolved"})
         ).status_code == 200, "impersonated_tenant_annotation"
         actor.is_impersonating = False
+
+        cohort_id = uuid4()
+        async with owner.begin() as conn:
+            await conn.execute(insert(Cohort.__table__).values(
+                id=cohort_id, tenant_id=ids["tenant"], name="Scope test",
+                responsible_user_id=ids["methodologist"],
+            ))
+            await conn.execute(insert(CohortMember.__table__).values(
+                tenant_id=ids["tenant"], cohort_id=cohort_id, user_id=ids["user1"],
+            ))
+        scoped = await client.get(enrollment_url)
+        assert scoped.status_code == 200, "allowed_cohort_enrollment_200"
+        assert scoped.json()["attempts"][0]["release_version"] == 1, "exact_historical_release"
+        excluded_enrollment = f"{prefix}/enrollments/{ids['enrollment2']}"
+        assert (await client.get(excluded_enrollment)).status_code == 404, "excluded_cohort_enrollment_404"
+        excluded_review = f"{prefix}/attempts/{attempt_rows[1]['id']}/questions/{ids['question']}/review"
+        assert (await client.put(excluded_review, json={"status": "train_staff"})).status_code == 404, (
+            "excluded_cohort_review_404"
+        )
+        assert (await client.put(review_url, json={"status": "resolved"})).status_code == 200, (
+            "allowed_cohort_review_200"
+        )
+        checks.append("restricted_cohort_exact_release_and_outside_attempt_denial")
 
     async with owner.connect() as conn:
         unchanged = (
