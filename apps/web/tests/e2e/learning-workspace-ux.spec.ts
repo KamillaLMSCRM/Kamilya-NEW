@@ -1,9 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page, type TestInfo } from '@playwright/test';
+import type { SourceReview } from '@/features/source-editorial-review/contract';
 import {
   appOrigin, audience, course, existingEnrollment, ids, lessons, newEnrollment,
   quiz, quizAttempt, quizResult, reviewAttempt, reviewSummary, snapshotHash,
-  sourceDocument, test, trainingRows,
+  sourceDocument, test, timestamp, trainingRows,
 } from './learning-workspace-ux-fixtures';
 
 // Real Next production pages, never HTML prototypes. Root owns build/server on3024.
@@ -47,6 +48,91 @@ for (const viewport of [
   test.describe(viewport.name, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });
     test.setTimeout(60_000);
+
+    if (viewport.width === 1440 || viewport.width === 390) test('methodologist continues the first course from a saved source decision to assignment', async ({ page, workspace }, info) => {
+      workspace.trainingLog();
+      workspace.author();
+      workspace.get('/v1/admin/onboarding-status', { steps: [] });
+      workspace.get('/v1/admin/mandatory-training/summary', { total: 0 });
+      workspace.get('/v1/ai/jobs', []);
+      const quote = 'Report breaks in the shift log.';
+      const reason = 'The document owner confirmed the current shift procedure.';
+      const reviewPath = `/documents/${ids.document}/editorial-review`;
+      const reviewApi = '/v1' + reviewPath;
+      let review: SourceReview = {
+        document_id: ids.document, document_version: 3, title: sourceDocument.title, revision: 7,
+        status: 'in_review', error: null, original_text: quote, working_text: quote,
+        questions: [{ id: 'shift-log', start: 0, end: quote.length, quote,
+          reason: 'Which log records breaks?', resolution: null }],
+        automatic: [], journal: [], approval: null,
+      };
+      workspace.onGet(reviewApi, () => ({ json: review }));
+      workspace.onGet('/v1/documents/editorial-review/queue', () => ({ json: {
+        items: [{ document_id: ids.document, title: sourceDocument.title, status: review.status,
+          open_questions: review.questions.filter((question) => !question.resolution).length }],
+      } }));
+      const openTask = async (action: string) => {
+        await page.goto('/dashboard');
+        await page.getByRole('button', { name: new RegExp(sourceDocument.title) }).click();
+        const link = page.getByRole('link', { name: action, exact: true });
+        await expect(link).toHaveAttribute('href', `${reviewPath}?document_id=${ids.document}`);
+        await link.click();
+        await expect(page).toHaveURL(`${appOrigin}${reviewPath}?document_id=${ids.document}`);
+      };
+      await openTask('Continue review');
+
+      const approvalButton = page.getByRole('region', { name: 'Source review' }).getByRole('button', { name: 'Approve edition' });
+      await expect(approvalButton).toBeDisabled();
+      await page.getByRole('button', { name: 'Go to first open question' }).click();
+      await page.getByRole('radio', { name: 'Keep wording' }).check();
+      await page.getByLabel('Reason for the decision').fill(reason);
+      workspace.command('POST', reviewApi, ({ body }) => {
+        expect(body).toMatchObject({ action: 'resolve', expected_revision: 7, item_id: 'shift-log', decision: 'keep', reason });
+        review = { ...review, revision: 8, questions: review.questions.map((question) => ({ ...question,
+          resolution: { id: question.id, start: 0, end: quote.length,
+            before: quote, after: quote, reason, decision: 'keep' } })) };
+        return { json: review };
+      });
+      await page.getByRole('button', { name: 'Save decision' }).click();
+      await expect(page.getByRole('status').filter({ hasText: 'Decision saved' })).toBeVisible();
+      await page.getByRole('button', { name: 'Go to approval' }).click();
+      await expect(approvalButton).toBeFocused();
+      await expect(approvalButton).toBeInViewport();
+      await capture(page, info, 'source-ready-for-approval');
+
+      await openTask('Go to approval');
+      await expect(page.getByText(reason, { exact: true })).toBeVisible();
+      workspace.command('POST', reviewApi, ({ body }) => {
+        expect(body).toMatchObject({ action: 'approve', expected_revision: 8 });
+        review = { ...review, status: 'approved', revision: 9, approval: {
+          document_id: ids.document, approval_id: ids.revision, revision: 9,
+          working_sha256: snapshotHash, created_at: timestamp,
+        } };
+        return { json: review };
+      });
+      await approvalButton.click();
+      await expect(page.getByRole('link', { name: 'Create course', exact: true }))
+        .toHaveAttribute('href', `/ai/generate?document_id=${ids.document}`);
+
+      workspace.assignments();
+      const editorCourse = { ...course, status: 'draft', review_status: 'approved' };
+      const editorApi = `/v1/courses/${ids.course}`;
+      workspace.get(editorApi, editorCourse);
+      await page.goto(`/courses/${ids.course}/edit`);
+      workspace.command('POST', editorApi + '/publish', () => {
+        const published = { ...editorCourse, status: 'published' };
+        workspace.get(editorApi, published);
+        return { json: published };
+      });
+      await page.getByRole('button', { name: 'Publish', exact: true }).click();
+      const assignLink = page.locator(`header a[href="/assignments?courseId=${ids.course}"]`);
+      await expect(assignLink).toBeVisible();
+      await expect(assignLink).toBeInViewport();
+      await capture(page, info, 'course-ready-for-assignment');
+      await assignLink.click();
+      await expect(page.getByRole('combobox', { name: 'Course to assign' })).toHaveValue(ids.course);
+      await expect(page.getByRole('checkbox', { name: 'Synthetic Learner', exact: true })).toBeVisible();
+    });
 
     test('learner focus reader has keyboard outline, optional help and a direct exit', async ({ page, workspace }, info) => {
       workspace.learner();

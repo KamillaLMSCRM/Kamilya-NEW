@@ -823,6 +823,13 @@ export default function CourseEditPage() {
         <div id={course.ai_generated ? "course-release" : undefined} className="flex max-w-full scroll-mt-24 flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-11 [&_button]:whitespace-normal">
           {!published && requiresCourseReview && !approved && approvalButton}
           {!published && (!requiresCourseReview || approved) && publicationButton}
+          {published && !course.source_instruction_id && (
+            <Link href={nextAfterPublication}
+              onClick={(event) => void handleGuardedLink(event, nextAfterPublication)}
+              className="inline-flex min-h-11 items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring">
+              {nextActionLabel}
+            </Link>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -880,10 +887,8 @@ export default function CourseEditPage() {
                 : <span>{t('releaseSteps.publish')}{!approved && ` · ${t('releaseSteps.afterApproval')}`}</span>}
               {!published && <p className="mt-1 text-muted-foreground">{t('releaseSteps.approvalHint')}</p>}
             </li>
-            {!course.source_instruction_id && <li>
-              {published
-                ? <Link className={workflowLinkClass} href={nextAfterPublication}>{nextActionLabel}</Link>
-                : <span className="pl-2">{nextActionLabel} · {t('releaseSteps.afterPublication')}</span>}
+            {!course.source_instruction_id && !published && <li>
+              <span className="pl-2">{nextActionLabel} · {t('releaseSteps.afterPublication')}</span>
             </li>}
           </ol>
         </section>

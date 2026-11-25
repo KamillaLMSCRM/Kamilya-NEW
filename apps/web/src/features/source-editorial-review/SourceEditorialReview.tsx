@@ -55,6 +55,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const generationHref = sourceCourseCreationHref(courseDocuments.length ? courseDocuments : [id]);
   const [loadError, setLoadError] = useState(false);
   const [selected, select] = useState<string | null>(null);
+  const [savedDecision, setSavedDecision] = useState<string | null>(null);
   const [questionSearch, setQuestionSearch] = useState('');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [saving, setSaving] = useState(false);
@@ -74,16 +75,19 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
   const [manualOpen, setManualOpen] = useState(false);
   const [manual, setManual] = useState({ quote: '', replacement: '', reason: '' });
   const detail = useRef<HTMLHeadingElement>(null);
+  const approvalAction = useRef<HTMLButtonElement>(null);
+  const systemQuestionList = useRef<HTMLDetailsElement>(null);
   const commandLock = useRef(false);
   const version = useRef(0);
   const requestVersion = useRef(0);
   const pollInFlight = useRef(false);
 
   const accept = useCallback((data: SourceReview) => {
-    if (data.document_id !== id || data.revision < version.current) return;
+    if (data.document_id !== id || data.revision < version.current) return false;
     version.current = data.revision;
     setReview(data);
     setLoadError(false);
+    return true;
   }, [id]);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -151,7 +155,12 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     setNotice(null);
     try {
       const result = await api.post<SourceReview>(endpoint, body);
-      accept(result.data);
+      const accepted = accept(result.data);
+      if (accepted && body.action === 'resolve'
+        && result.data.questions.some(item => item.id === body.item_id && item.resolution)) {
+        setSavedDecision(body.item_id ?? null);
+        select(body.item_id ?? null);
+      }
       setPending(null);
       setConflictInput(null);
       return true;
@@ -186,12 +195,16 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     ?? review?.questions[0];
   const open = review?.questions.filter((item) => !item.resolution).length ?? 0;
   const ownerQuestions = review?.questions.filter(item => !item.needs_source_verification) ?? [];
+  const nextQuestion = ownerQuestions.find(item => !item.resolution);
   const visibleQuestions = ownerQuestions.filter(item => [item.quote, item.reason, ...(item.source_labels ?? [])]
     .join(' ').toLocaleLowerCase().includes(questionSearch.trim().toLocaleLowerCase()));
   const systemQuestions = review?.questions.filter(item => item.needs_source_verification && !item.resolution) ?? [];
   const sourceScope = question?.source_scopes?.[0];
   const readOnly = Boolean(approvalId) || review?.status !== 'in_review';
   const disabled = saving || Boolean(pending);
+  const manualDraft = Boolean(manual.quote || manual.replacement || manual.reason);
+  const canShowApproval = !readOnly && Boolean(review?.original_text);
+  const approvalBlocked = review?.error === 'source_review_preparation_stale' || selectionDraft || open > 0 || manualDraft;
   const showQuestion = (item: string) => {
     if (question?.id !== item) {
       select(item);
@@ -202,6 +215,12 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
       setDecision('replace');
     }
     requestAnimationFrame(() => detail.current?.focus());
+  };
+  const showSystemQuestions = () => {
+    const list = systemQuestionList.current;
+    if (!list) return;
+    list.open = true;
+    list.querySelector('summary')?.focus();
   };
   const stamp = (value: string) => new Date(value).toLocaleString(lang === 'kk' ? 'kk-KZ' : lang === 'en' ? 'en-GB' : 'ru-RU');
   const range = pageInput ?? {
@@ -254,13 +273,24 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
     </WorkspacePanel>}
     {!review && !loadError && <p role="status">{copy.loading}</p>}
     {review && <>
-      <WorkspacePanel bodyClassName="space-y-3">
+      <WorkspacePanel bodyClassName="space-y-3" role="region" aria-label={copy.status}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="break-words text-lg font-semibold">{review.title}</h2>
-          {open > 0 && <Button variant="outline" onClick={() => showQuestion(review.questions.find((item) => !item.resolution)!.id)}>{copy.firstOpenQuestion}</Button>}
         </div>
         <p className="text-sm text-muted-foreground">{copy.version} {review.document_version} · {copy.revision} {review.revision}</p>
         <p role="status" className="text-sm font-medium">{copy.statusLabels[review.status]}</p>
+        {canShowApproval && <div className="space-y-2">
+          {open > 0 ? <p className="text-sm text-muted-foreground">{copy.openCount}: {open}. {copy.blocking}</p>
+            : !approvalBlocked && <p className="text-sm text-muted-foreground">{copy.readyToApprove}</p>}
+          {manualDraft && <p className="text-sm text-muted-foreground">{copy.unsavedManual}</p>}
+          <div className="flex flex-wrap gap-2">
+            {nextQuestion && <Button onClick={() => showQuestion(nextQuestion.id)} disabled={disabled}>{copy.firstOpenQuestion}</Button>}
+            {!nextQuestion && systemQuestions.length > 0 && <Button onClick={showSystemQuestions}>{copy.systemQuestions}</Button>}
+            <Button ref={approvalAction} variant={approvalBlocked ? 'outline' : 'default'}
+              disabled={disabled || approvalBlocked}
+              onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
+          </div>
+        </div>}
         {review.can_recheck && !readOnly && <div className="space-y-2">
           <p className="text-sm text-muted-foreground">{copy.recheckHint}</p>
           <Button variant="outline" disabled={disabled || selectionDraft || Boolean(reason || replacement || anchor || undoReason || manual.quote || manual.replacement || manual.reason)}
@@ -335,7 +365,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
                   <span className="text-xs text-muted-foreground">{item.resolution ? copy.closed : copy.open}</span>
                 </button>
               </li>)}</ol>}
-            {systemQuestions.length > 0 && <details className="rounded-lg border border-border p-3 text-sm">
+            {systemQuestions.length > 0 && <details ref={systemQuestionList} className="rounded-lg border border-border p-3 text-sm">
               <summary>{copy.systemQuestions}: {systemQuestions.length}</summary>
               <p className="my-2">{copy.needsSourceVerification}</p>
               <ul className="space-y-2">{systemQuestions.map(item => <li key={item.id}>{item.reason}</li>)}</ul>
@@ -362,11 +392,22 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
               <p className={`mt-2 ${code}`}>{sourceScope.text}</p>
             </details>}
             {question.resolution && <div className="space-y-2 text-sm">
-              <p className="font-medium">{copy.closed}</p>
+              <p role={savedDecision === question.id ? 'status' : undefined} className="font-medium">{copy.closed}</p>
               {question.resolution.decision === 'keep' && <p>{copy.kept}</p>}
               {(question.resolution.source_changes ?? [question.resolution]).map((change, index) =>
                 <p key={index} className={code}>{change.after}</p>)}
               <p>{question.resolution.reason}</p>
+              {!readOnly && savedDecision === question.id && (
+                nextQuestion
+                  ? <Button type="button" onClick={() => showQuestion(nextQuestion.id)}>{copy.nextOpenQuestion}</Button>
+                  : systemQuestions.length > 0
+                    ? <Button type="button" onClick={showSystemQuestions}>{copy.systemQuestions}</Button>
+                    : canShowApproval && !approvalBlocked && <Button type="button" onClick={() => {
+                      const target = approvalAction.current;
+                      target?.scrollIntoView?.({ block: 'center' });
+                      target?.focus();
+                    }}>{copy.finishReview}</Button>
+              )}
             </div>}
             {!readOnly && (!question.needs_source_verification || question.resolution) && <form className="space-y-3" onSubmit={async (event) => {
               event.preventDefault();
@@ -450,9 +491,6 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.working_text}</pre></details>
           <details><summary className="cursor-pointer font-semibold">{copy.original}</summary>
             <pre className={`mt-3 max-h-[34rem] overflow-auto ${code}`}>{review.original_text}</pre></details>
-          {!readOnly && <div className="space-y-2"><Button disabled={disabled || review.error === 'source_review_preparation_stale' || selectionDraft || open > 0 || Boolean(manual.quote || manual.replacement || manual.reason)} onClick={() => void action({ action: 'approve' })}>{copy.approve}</Button>
-            {open > 0 && <p className="text-sm text-muted-foreground">{copy.blocking}</p>}
-            {(manual.quote || manual.replacement || manual.reason) && <p className="text-sm text-muted-foreground">{copy.unsavedManual}</p>}</div>}
         </WorkspacePanel>
         <WorkspacePanel bodyClassName="space-y-3">
           <h2 className="font-semibold">{copy.history}</h2>
