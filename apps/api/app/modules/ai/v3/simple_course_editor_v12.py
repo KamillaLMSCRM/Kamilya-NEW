@@ -9,6 +9,7 @@ from typing import Any
 
 from app.modules.ai.v3.literal_source_access import LiteralSourceAccess
 from app.modules.ai.v3.practical_contract import _digest
+from app.modules.ai.v3.simple_branch_consistency import reconcile_branch_outputs
 from app.modules.ai.v3.simple_course_block_editor import block_editor_format, matches_simple_block_editor
 from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
 from app.modules.ai.v3.simple_joint_editor_batches import (
@@ -32,17 +33,6 @@ _BRANCH_REVIEW = (
     'and lesson_sources with the exact reference IDs for each compared lesson, including unchanged lessons. '
     'Set title_edits, question_edits, '
     'and added_lessons to empty arrays. Preserve the original lesson language.'
-)
-
-_RECHECK_BRANCHES = (
-    ' Compare the supplied cross-section clauses before evaluating coverage, difficulty or duplicate cards. '
-    'For each procedure first derive the action for each applicable case from the quoted source. Compare both '
-    'the lesson statements and the visible facts and key of every card that tests that procedure, even if the '
-    'clauses came from a different lesson. A card presenting one branch as universal or omitting the fact '
-    'that selects its key is a material assessment defect. A lesson that states both an exception and an '
-    'unqualified rule forbidding that exception needs a content correction. Cite the exact clause IDs. If '
-    'the source really gives incompatible instructions for the same case, keep it as a source question. '
-    'Leave correct cases with explicitly stated conditions alone.'
 )
 
 
@@ -130,7 +120,7 @@ async def run_simple_course_editor_v12(
     receipts = []
     bank: list[dict[str, Any]] = []
     teaching: list[dict[str, Any]] = []
-    branch_clauses: dict[tuple[str, str], dict[str, str]] = {}
+    corrected_clauses: dict[tuple[str, str], dict[str, str]] = {}
 
     async def planned(count: int) -> None:
         nonlocal base_total
@@ -163,9 +153,6 @@ async def run_simple_course_editor_v12(
                 targets = select_branch_targets(branch_candidates)
                 if not targets:
                     return combined
-                for row in targets:
-                    for clause in row['companion_clauses']:
-                        branch_clauses[(clause['source_ref'], clause['quote'])] = clause
                 target_refs = sorted({clause['source_ref'] for row in targets for clause in row['companion_clauses']})
                 addresses = {f'BODY{index}': row['block_id'] for index, row in enumerate(targets, 1)}
                 displayed = [{**row, 'block_id': alias} for alias, row in zip(addresses, targets, strict=True)]
@@ -185,7 +172,18 @@ async def run_simple_course_editor_v12(
 
                 branch_group = f'practical:simple:branch-review:v12:{packet.fingerprint}:unit={_digest(combined)}'
                 delta = await call_stage('repair', branch_group, branch_messages, branch_format, validate_branches)
-                return apply_branch_edits(delta, branch_format, displayed, combined, addresses)
+                revised = apply_branch_edits(delta, branch_format, displayed, combined, addresses)
+                applied = {row['block_id']: row['after'] for row in revised['body_edits']}
+                edits = {row['block_id']: row['after'] for row in delta['body_edits']}
+                refs_by_lesson = {row['lesson_id']: row['source_refs'] for row in delta['lesson_sources']}
+                for row in displayed:
+                    alias = row['block_id']
+                    if alias not in edits or applied.get(addresses[alias]) != edits[alias]:
+                        continue
+                    for clause in row['companion_clauses']:
+                        if clause['source_ref'] in refs_by_lesson[row['lesson_id']]:
+                            corrected_clauses[(clause['source_ref'], clause['quote'])] = clause
+                return revised
         return await call_stage(name, group, messages, fmt, validator)
 
     async def call_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
@@ -207,17 +205,6 @@ async def run_simple_course_editor_v12(
             lesson_ids = {row['lesson_id'] for row in payload['flagged_cards']}
             payload['peer_assessment_cards'] = [row for row in bank if row['id'] not in flagged]
             payload['flagged_card_teaching'] = [row for row in teaching if row['id'] in lesson_ids]
-            if branch_clauses:
-                for row in payload['flagged_cards']:
-                    row['other_cards_in_lesson'] = [
-                        peer for peer in bank
-                        if peer['lesson_id'] == row['lesson_id'] and peer['id'] != row['question']['id']
-                    ]
-            messages[1]['content'] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
-        if branch_clauses and (bank_review or card_repair):
-            messages = copy.deepcopy(messages)
-            payload = json.loads(messages[1]['content'])
-            payload['cross_section_clauses'] = list(branch_clauses.values())
             messages[1]['content'] = json.dumps(payload, ensure_ascii=False, sort_keys=True)
         if complete_editor:
             from app.modules.ai.v3.simple_course_block_editor import complete_added_lesson_format
@@ -226,17 +213,9 @@ async def run_simple_course_editor_v12(
         for attempt in range(lookup_rounds + 1):
             projected, fingerprint = source.project(messages, group, requested)
             if bank_review:
-                if branch_clauses:
-                    projected[0]["content"] += _RECHECK_BRANCHES
                 projected[0]["content"] += _ALIGNMENT
             if card_repair:
                 projected[0]["content"] += _CARD_REPAIR
-                if branch_clauses:
-                    projected[0]["content"] += (
-                        ' Use the cross-section clauses to preserve all applicable branches in teaching and to '
-                        'make the case selecting each assessment key visible. Before returning each replacement, '
-                        'check the explicitly listed other cards in its lesson even when they are also flagged.'
-                    )
             if ":author-unit:v9:" in group:
                 projected[0]["content"] += (
                     " Every question must assess a useful skill or decision explicitly "
@@ -309,8 +288,17 @@ async def run_simple_course_editor_v12(
                 await planned_callback(base_total + additional)
         raise AssertionError("unreachable source-access loop")
 
+    async def count_consistency_stage() -> None:
+        nonlocal additional
+        additional += 1
+        if planned_callback:
+            await planned_callback(base_total + additional)
+
     result = await run_simple_course_editor_v11(
         packet, corpus, intent, access_stage, reference_decisions=reference_decisions, planned_callback=planned
+    )
+    result = await reconcile_branch_outputs(
+        packet, result, list(corrected_clauses.values()), call_stage, count_consistency_stage,
     )
     return replace(
         result,
