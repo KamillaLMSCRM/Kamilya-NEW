@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CONTEXTUAL_HELP_TOPIC_IDS, getContextualHelp } from '@/lib/contextualHelp';
 import { APP_ROLES, hasCapability, ROUTES } from '@/lib/routeRegistry';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 import ru from '@/i18n/locales/ru.json';
 import kk from '@/i18n/locales/kk.json';
 import en from '@/i18n/locales/en.json';
@@ -59,6 +60,7 @@ describe('contextual help registry', () => {
       ['/courses/templates/blueprint-1', 'methodologist-course-template'],
       ['/courses/quiz/quiz-1/preview', 'methodologist-quiz-preview'],
       ['/course-review-requests/review-1', 'methodologist-course-review-detail'],
+      ['/documents/document-1/editorial-review', 'source-editorial-review'],
       ['/admin/staff', 'staff'], ['/admin/invitations', 'invitations'], ['/admin/training-log', 'training-log'],
     ];
     for (const [path, id] of paths) for (const locale of ['ru', 'kk', 'en']) {
@@ -70,6 +72,19 @@ describe('contextual help registry', () => {
     expect(getContextualHelp('/courses/course-1/edit/extra', 'methodologist', 'ru')?.id).not.toBe('methodologist-course-editor');
     expect(getContextualHelp('/course-review-requests/review-1', 'admin', 'ru')).toBeNull();
     expect(getContextualHelp('/admin/staff', 'admin', 'ru')).toBeNull();
+  });
+
+  it('explains the current review and training-log actions in each locale', () => {
+    for (const [locale, dictionary] of Object.entries({ ru, kk, en })) {
+      const review = getContextualHelp('/documents/document-1/editorial-review', 'methodologist', locale);
+      const copy = sourceReviewCopy(locale);
+      const reviewSteps = review?.steps.join(' ');
+      for (const action of [copy.firstOpenQuestion, copy.replace, copy.keep, copy.save, copy.approveSource]) {
+        expect(reviewSteps, locale).toContain(action);
+      }
+      const log = getContextualHelp('/training-log', 'methodologist', locale);
+      expect(log?.steps.join(' '), locale).toContain(dictionary.trainingLog.history.include);
+    }
   });
 
   it('does not tell a course reader to save or manually return a workflow status', () => {
@@ -225,8 +240,9 @@ describe('contextual help registry', () => {
     expect(getContextualHelp('/cohorts', 'methodologist', 'ru')?.steps[2]).toContain('аудиторию');
 
     const assignment = getContextualHelp('/assignments', 'methodologist', 'ru');
-    expect(assignment?.steps[1]).toContain('первого входа');
-    expect(assignment?.steps[1]).toContain('абсолютный срок');
+    const assignmentSteps = assignment?.steps.join(' ');
+    expect(assignmentSteps).toContain('первого входа');
+    expect(assignmentSteps).toContain('абсолютный срок');
   });
 
   it('describes both assignment modes and the explicit preview-confirm boundary in every locale', () => {
