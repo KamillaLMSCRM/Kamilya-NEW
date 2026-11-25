@@ -1,6 +1,6 @@
 """User management API router"""
 import logging
-from typing import Optional, cast
+from typing import Annotated, Optional, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -15,6 +15,7 @@ from app.models.tenant_settings import TenantSettings
 from app.models.tenants import Tenant
 from app.models.users import User, UserInvitation
 from app.modules.privacy_control.service import record_processing
+from app.modules.training_responsibility import resolve_reporting_scope
 from app.modules.users.invitations_service import (
     attempt_invitation_delivery,
     bulk_create_invitations,
@@ -164,6 +165,7 @@ async def list_all_users(
     search: Optional[str] = Query(None),
     role: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
+    user_ids: Annotated[list[UUID] | None, Query(max_length=50)] = None,
     include_students: bool = Query(
         False,
         description="Audit §2.1 / ADR-0011: by default students are excluded "
@@ -202,8 +204,19 @@ async def list_all_users(
         # Telegram/kiosk flows.
         effective_role = "non_student"  # sentinel — handled in service
 
+    scoped_user_ids = user_ids
+    if user_ids:
+        # Targeted learner reads must not bypass a methodologist's reporting
+        # responsibility boundary. Untargeted team/roster behavior stays intact.
+        reporting_scope = await resolve_reporting_scope(
+            db, cast(UUID, user.tenant_id), user_id=cast(UUID, user.id), role=str(user.role),
+        )
+        scoped_user_ids = [user_id for user_id in user_ids if reporting_scope.allows_employee(user_id)]
+        if not scoped_user_ids:
+            return UserListResponse(users=[], total=0, page=page, per_page=per_page)
+
     users, total = await list_users(
-        db, user.tenant_id, page, per_page, search, effective_role, is_active
+        db, user.tenant_id, page, per_page, search, effective_role, is_active, scoped_user_ids
     )
     role_map = await get_role_map(db, users, user.tenant_id)
     return UserListResponse(

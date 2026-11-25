@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -21,6 +21,7 @@ from app.modules.learning_insights.service import (
     get_enrollment_insights,
     upsert_question_review,
 )
+from app.modules.training_responsibility.scope import resolve_reporting_scope
 
 router = APIRouter(prefix="/admin/learning-insights", tags=["learning-insights"])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -59,8 +60,11 @@ async def enrollment_insights(
     enrollment_id: UUID, response: Response, db: DbSession, user: InsightsUser
 ) -> EnrollmentInsights:
     response.headers["Cache-Control"] = "no-store"
+    tenant_id = _tenant_id_or_403(user)
+    scope = await resolve_reporting_scope(db, tenant_id, user_id=cast(UUID, user.id), role=str(user.role))
     try:
-        return await get_enrollment_insights(db, tenant_id=_tenant_id_or_403(user), enrollment_id=enrollment_id)
+        return await get_enrollment_insights(db, tenant_id=tenant_id, enrollment_id=enrollment_id,
+                                             responsible_user_ids=scope.user_ids)
     except (LearningInsightsNotFoundError, LearningInsightsValidationError) as exc:
         raise _service_error(exc) from exc
 
@@ -102,10 +106,13 @@ async def put_question_review(
     user: InsightsUser,
 ) -> Review:
     response.headers["Cache-Control"] = "no-store"
+    tenant_id = _tenant_id_or_403(user)
+    scope = await resolve_reporting_scope(db, tenant_id, user_id=cast(UUID, user.id), role=str(user.role))
     try:
         return await upsert_question_review(
             db,
-            tenant_id=_tenant_id_or_403(user),
+            tenant_id=tenant_id,
+            responsible_user_ids=scope.user_ids,
             # Platform impersonation is authenticated by core.auth; its real
             # actor is not a local tenant user and cannot satisfy the tenant FK.
             actor_id=None if getattr(user, "is_impersonating", False) else UUID(str(user.id)),

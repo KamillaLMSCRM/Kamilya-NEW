@@ -21,6 +21,7 @@ import { useT, type TranslationKey } from '@/i18n/useT';
 import { toast } from '@/components/ui/Toast';
 import { api } from '@/lib/api';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { Modal } from '@/components/ui/modal';
 import { canAccessRoute } from '@/lib/rolePolicy';
 import {
   buildTrainingLogBrowserHref,
@@ -41,6 +42,7 @@ import { LearningActionCenter } from '@/features/learning-actions/LearningAction
 import type { AssignmentReason, RequirementAction, RequirementState } from '@/features/mandatory-training/types';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { WorkspacePage, WorkspacePageHeader, WorkspacePanel } from '@/features/workspace-design';
+import { EmployeeLearning, useEmployeeLearningCopy } from '@/features/staff-structure/EmployeeLearning';
 
 /**
  * Training log — единый журнал обучения (P0.3 first-tenant hardening).
@@ -155,6 +157,7 @@ export default function AdminTrainingLogPage() {
   const { t, lang } = useT();
   const m = workspaceCopy(lang);
   const { text: insightsText } = useLearningInsightsT();
+  const employeeCopy = useEmployeeLearningCopy();
   const router = useRouter();
   const searchParams = useSearchParams();
   const browserQuery = searchParams.toString();
@@ -180,8 +183,8 @@ export default function AdminTrainingLogPage() {
   const [loading, setLoading] = useState(false);
   const [failure, setFailure] = useState<{ scope: string; message: string } | null>(null);
   const pageGeneration = useRef(0);
-  const [limit, setLimit] = useState(100);
-  const [offset, setOffset] = useState(0);
+  const limit = 100;
+  const offset = ((browserState.page ?? 1) - 1) * limit;
   const [selectedEvidenceIds, setSelectedEvidenceIds] = useState<Set<string>>(new Set());
   const [exportingKey, setExportingKey] = useState<string | null>(null);
   const [shareEventIds, setShareEventIds] = useState<string[] | null>(null);
@@ -327,10 +330,9 @@ export default function AdminTrainingLogPage() {
     };
   }, [courseCatalogIdentityKey, loadCourseCatalog]);
 
-  // Reset pagination when filters change (typical table UX).
-  useEffect(() => {
-    setOffset(0);
-  }, [debouncedSearch, filters]);
+  const updatePage = (page: number) => {
+    router.push(buildTrainingLogBrowserHref({ ...browserState, page }), { scroll: false });
+  };
 
   const exportCsv = useCallback(async () => {
     if (!accessToken) return;
@@ -390,7 +392,6 @@ export default function AdminTrainingLogPage() {
   const resetFilters = () => {
     setSearchInputState('');
     replaceBrowserState({}, '');
-    setOffset(0);
     setSelectedEvidenceIds(new Set());
   };
   const clearActionFocus = () => {
@@ -399,6 +400,14 @@ export default function AdminTrainingLogPage() {
       search: searchInput,
       returnTo: browserState.returnTo,
     }), { scroll: false });
+  };
+  const employeeCard = canInspectLearning ? browserState.employeeCard : undefined;
+  const employeeCardHref = (row: TrainingLogRow) => buildTrainingLogBrowserHref({
+    ...browserState,
+    employeeCard: { userId: row.user_id, enrollmentId: row.enrollment_id },
+  });
+  const closeEmployeeCard = () => {
+    router.replace(buildTrainingLogBrowserHref({ ...browserState, employeeCard: undefined }), { scroll: false });
   };
 
   const exportableRows = items.filter((row) => canExportEvidence(row));
@@ -455,7 +464,13 @@ export default function AdminTrainingLogPage() {
   const renderJournalRecord = (row: TrainingLogRow, idx = 0) => (
       <article key={row.enrollment_id || `${row.user_id}-${row.course_id}-${idx}`} className="space-y-3 p-4">
         <div>
-          <h2 className="font-medium text-foreground">{row.full_name}</h2>
+          <h2 className="font-medium text-foreground">
+            {canInspectLearning ? (
+              <Link href={employeeCardHref(row)} scroll={false} className="inline-flex min-h-11 items-center text-primary hover:underline">
+                {row.full_name}
+              </Link>
+            ) : row.full_name}
+          </h2>
           {isMethodologist ? (
             <button type="button" className="mt-1 text-left text-sm text-primary hover:underline" onClick={() => router.push(`/courses/${row.course_id}`)}>{row.course_title}</button>
           ) : (
@@ -558,7 +573,6 @@ export default function AdminTrainingLogPage() {
             {items[0]?.full_name && <> · <strong>{items[0].full_name}</strong></>}
           </span>
           <Button type="button" variant="outline" size="sm" onClick={() => {
-            setOffset(0);
             updateFilters(({ user_id: _userId, ...rest }) => rest);
           }}>
             {lang === 'en' ? 'Show all employees' : lang === 'kk' ? 'Барлық қызметкерлер' : 'Все сотрудники'}
@@ -619,7 +633,7 @@ export default function AdminTrainingLogPage() {
           </summary>
           <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
           <label className="flex items-center gap-2 text-sm md:col-span-3">
-            <input type="checkbox" checked={includeHistory} onChange={(event) => { updateFilters((current) => ({ ...current, history: event.target.checked || undefined })); setOffset(0); }} />
+            <input type="checkbox" checked={includeHistory} onChange={(event) => updateFilters((current) => ({ ...current, history: event.target.checked || undefined }))} />
             {t('trainingLog.history.include')}
           </label>
           <SelectField
@@ -700,7 +714,7 @@ export default function AdminTrainingLogPage() {
             size="sm"
             variant="outline"
             disabled={offset === 0 || loading}
-            onClick={() => setOffset(Math.max(0, offset - limit))}
+            onClick={() => updatePage(Math.max(1, (browserState.page ?? 1) - 1))}
           >
             {t('common.back')}
           </Button>
@@ -709,7 +723,7 @@ export default function AdminTrainingLogPage() {
             size="sm"
             variant="outline"
             disabled={!page || offset + limit >= total || loading}
-            onClick={() => setOffset(offset + limit)}
+            onClick={() => updatePage((browserState.page ?? 1) + 1)}
           >
             {t('common.next')}
           </Button>
@@ -724,6 +738,7 @@ export default function AdminTrainingLogPage() {
       )}
       {isMethodologist && !useTable && !error && items.length > 0 && (
         <RecordList records={items} getId={(row) => row.enrollment_id} title={(row) => row.full_name}
+          initialSelectedId={employeeCard?.enrollmentId}
           description={(row) => row.course_title}
           status={(row) => row.computed_status === 'completed' ? t('trainingLog.badge.completed') : `${row.progress_percent}%`}
           detailsLabel={t('nav.trainingLog')} renderDetails={renderJournalRecord} />
@@ -814,7 +829,13 @@ export default function AdminTrainingLogPage() {
                         </td>
                       )}
                       <td className={`${columnClass.fullName} ${isMethodologist ? 'workspace-ledger-name' : ''}`}>
-                        <div className="font-medium text-foreground">{row.full_name}</div>
+                        <div className="font-medium text-foreground">
+                          {canInspectLearning ? (
+                            <Link href={employeeCardHref(row)} scroll={false} className="inline-flex min-h-11 items-center text-primary hover:underline">
+                              {row.full_name}
+                            </Link>
+                          ) : row.full_name}
+                        </div>
                         {row.email && (
                           <div className="text-xs text-muted-foreground">{row.email}</div>
                         )}
@@ -952,6 +973,19 @@ export default function AdminTrainingLogPage() {
         onClose={() => setShareEventIds(null)}
       />
       <LearnerAnswers enrollmentId={selectedEnrollmentId} onClose={() => setSelectedEnrollmentId(null)} />
+      {employeeCard && <Modal open placement="end" title={employeeCopy.card} onClose={closeEmployeeCard}>
+        <div className="space-y-4">
+          <Button type="button" variant="outline" className="min-h-11" onClick={closeEmployeeCard}>
+            {employeeCopy.back}
+          </Button>
+          <EmployeeLearning
+            key={`${user?.tenant_id}:${user?.user_id}:${employeeCard.userId}:${employeeCard.enrollmentId}`}
+            employeeId={employeeCard.userId}
+            enrollmentId={employeeCard.enrollmentId}
+            showIdentity
+          />
+        </div>
+      </Modal>}
     </WorkspacePage>
   );
 }

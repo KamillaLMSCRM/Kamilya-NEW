@@ -168,6 +168,20 @@ describe('source editorial review', () => {
     expect(mocks.post).not.toHaveBeenCalled();
   });
 
+  it('takes the methodologist directly to the first unresolved question', async () => {
+    const data = fixture();
+    data.questions = [
+      { ...data.questions[0], id: 'resolved', resolution: { id: 'resolved', start: 0, end: quote.length, before: quote, after: quote, reason, decision: 'keep' } },
+      { ...data.questions[0], id: 'open-first', reason: 'This must be decided first.', resolution: null },
+    ];
+    mocks.get.mockResolvedValue({ data });
+    render(<SourceEditorialReview />);
+    fireEvent.click(await screen.findByRole('button', { name: 'К первому открытому вопросу' }));
+    expect(await screen.findByText('This must be decided first.')).toBeVisible();
+    expect(screen.getAllByRole('button', { name: /До 45 МРП применяется порядок А/ })
+      .find((button) => button.getAttribute('aria-current') === 'true')).toBeDefined();
+  });
+
   it('only explicitly rechecks an older table review and preserves the revision guard', async () => {
     mocks.get.mockResolvedValue({ data: { ...fixture(), can_recheck: true } });
     mocks.post.mockResolvedValue({ data: { ...fixture(), revision: 4, status: 'queued', can_recheck: false } });

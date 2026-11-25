@@ -59,6 +59,7 @@ const ru = {
   recovery: 'Проверка не завершилась. Можно запустить её снова.',
   protected: 'Документ не удалось извлечь полностью. Проверьте файл или загрузите новую версию.',
   openCount: 'Открыто', afterApproval: 'Редакция, оригинал и журнал правок сохранены.',
+  firstOpenQuestion: 'К первому открытому вопросу',
   startHint: 'Проверка ищет ошибки и неоднозначности в формулировках, ссылках и терминах.',
   statusLabels: {
     not_started: 'Не проверен', queued: 'В очереди', running: 'Идёт проверка', interrupted: 'Проверка прервана',
@@ -129,6 +130,7 @@ const en: typeof ru = {
   recovery: 'The review did not finish. You can start it again.',
   protected: 'Text extraction was incomplete. Check the file or upload a new version.',
   openCount: 'Open', afterApproval: 'The edition, original and edit history are saved.',
+  firstOpenQuestion: 'Go to first open question',
   startHint: 'The review looks for errors and ambiguities in wording, references and terms.',
   statusLabels: {
     not_started: 'Not reviewed', queued: 'Queued', running: 'Checking', interrupted: 'Interrupted',
@@ -199,6 +201,7 @@ const kk: typeof ru = {
   savedDraft: 'Сақталмаған енгізу', recovery: 'Тексеру аяқталмады. Оны қайта бастауға болады.',
   protected: 'Мәтін толық алынбады. Файлды тексеріңіз немесе жаңа нұсқаны жүктеңіз.',
   openCount: 'Ашық', afterApproval: 'Нұсқа, түпнұсқа және түзетулер журналы сақталды.',
+  firstOpenQuestion: 'Бірінші ашық сұраққа өту',
   startHint: 'Тексеру тұжырымдардағы, сілтемелердегі және терминдердегі қателер мен екіұштылықтарды іздейді.',
   statusLabels: {
     not_started: 'Тексерілмеген', queued: 'Кезекте', running: 'Тексерілуде', interrupted: 'Тексеру үзілді',

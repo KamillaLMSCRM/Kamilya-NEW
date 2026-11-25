@@ -29,7 +29,7 @@ from app.modules.source_editorial_review.domain import (
     render_text,
     text_hash,
 )
-from app.modules.source_editorial_review.service import apply_command, pin_reviews
+from app.modules.source_editorial_review.service import apply_command, pin_reviews, review_queue
 
 ORIGINAL = "До 45 МРП действует первый порядок. Свыше 45 МРП действует второй. Документ оформляет операотр."
 QUOTE = "До 45 МРП действует первый порядок."
@@ -771,3 +771,30 @@ async def test_worker_uses_pinned_working_text_without_reconverting_original():
     with pytest.raises(DirectSourceError, match="editorial_unproved"):
         await build_direct_source_corpus([doc], tenant_id=doc.tenant_id, storage=storage,
                                          approved_documents={str(doc.id): approved})
+
+
+@pytest.mark.asyncio
+async def test_queue_counts_unresolved_questions_for_the_visible_review_revision():
+    document, changed_document = uuid4(), uuid4()
+    now = datetime.now(UTC)
+    sha, stale_sha = "a" * 64, "b" * 64
+    db = AsyncMock()
+    db.execute.side_effect = [
+        Mock(all=Mock(return_value=[
+            (document, "Review pending", "issue_reopened", now, sha, sha, 9),
+            (changed_document, "Changed document", "analyzed", now, stale_sha, sha, 2),
+        ])),
+        Mock(all=Mock(return_value=[
+            (document, "analyzed", stale_sha, 1, [{"id": "old"}], None),
+            (document, "analyzed", sha, 4, [{"id": "obsolete"}], None),
+            (document, "analyzed", sha, 6, [{"id": "one"}, {"id": "two"}], None),
+            (document, "resolved", sha, 7, None, "one"),
+            (document, "resolved", sha, 8, None, "two"),
+            (document, "issue_reopened", sha, 9, None, "two"),
+            (document, "resolved", sha, 10, None, "two"),
+        ])),
+    ]
+    result = await review_queue(db, uuid4(), offset=0, limit=2)
+    assert [(item["status"], item["open_questions"]) for item in result["items"]] == [
+        ("in_review", 1), ("source_changed", None),
+    ]
