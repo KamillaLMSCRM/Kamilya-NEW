@@ -7,6 +7,7 @@
 - Address large-course editorial findings in small groups of owned lessons and assessments while retaining prior checkpoints.
 - Give the course editor related clauses from elsewhere in the approved document so it can preserve conditions, exceptions, and alternatives in the same lesson.
 - Compact large editorial response schemas to fit the connector limit while validating the same source references and lesson ownership.
+- Resolve a reference to a lesson paragraph against its owning lesson when applying an editorial finding.
 - Allow explicitly acknowledged recovery of a stale owned text-review request using the same prepared document and completed responses.
 
 ## [0.11.152] - 2026-11-24
