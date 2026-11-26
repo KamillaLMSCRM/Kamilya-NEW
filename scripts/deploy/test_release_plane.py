@@ -82,7 +82,7 @@ def versioned_manifest(version: str, *, release_sha: str, image: str,
 
 
 @pytest.mark.parametrize(
-    "version", ["0.11.152", "0.11.153", "0.11.154", "0.11.155", "0.11.156", "0.11.157", "0.11.158"]
+    "version", ["0.11.152", "0.11.153", "0.11.154", "0.11.155", "0.11.156", "0.11.157", "0.11.158", "0.11.159"]
 )
 def test_replica_topology_and_schema_epoch_are_bound_to_release(version):
     assert release_plane.services_for_product_version(None) == release_plane.LEGACY_SERVICES

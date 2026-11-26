@@ -1064,7 +1064,7 @@
 
 # Error and Recurrence Prevention Log
 
-Current as of: 2026-11-24.
+Current as of: 2026-11-26.
 ## UX-DESIGN-001 - Workflow acceptance was mistaken for delivery of the requested production design
 
 - Date:2026-11-02; local visual follow-up, no deployment.
@@ -11749,4 +11749,5 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 - Symptom: generated drafts exposed course approval before recording source verification. Translation requirements surfaced at publication, and the source handoff temporarily showed an empty uploader.
 - Cause: the editor showed a static checklist and gated the main action on course approval alone. The handoff waited for catalogue pagination before resolving known source IDs.
 - Fix: the editor chooses one next action from the current source, assessment, and language checks. The generation page loads handoff documents directly and places the recovered selection first.
+- Verification: the 1882 frontend tests and 70 targeted API tests pass, including tests for required translations before approval and selected documents independent of catalogue availability.
 - Prevention: exercise a bilingual generated draft through the actual approval checks, and delay catalogue loading in the handoff regression to prove that it does not delay the selected source.
