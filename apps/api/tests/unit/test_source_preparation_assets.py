@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.dialects import postgresql
 
 from app.modules.course_approval.router import get_review_attempt_asset
 from app.modules.course_approval.service import learner_safe_review_snapshot
@@ -131,7 +132,8 @@ def test_cleanup_only_accepts_owned_committed_storage_intents():
 
 
 @pytest.mark.asyncio
-async def test_preview_requires_verified_manifest_for_original(monkeypatch):
+@pytest.mark.parametrize("kind", ["analysis_block", "analyzed"])
+async def test_preview_requires_verified_manifest_for_original(monkeypatch, kind):
     tenant, document, _, _, payload, item, _ = fixture()
     source_sha = "b" * 64
     block_id = "block-" + "1" * 24
@@ -143,14 +145,51 @@ async def test_preview_requires_verified_manifest_for_original(monkeypatch):
                             "width": 1, "height": 1, "caption": "figure", "kind": "figure",
                             "text": "", "description": ""}]}
     package = PreparedSource.model_validate(manifest)
-    event = SimpleNamespace(original_blob_sha256=source_sha, kind="analysis_block", payload={
-        "key": f"source-preparation-v1:manifest:{source_sha}", "result": {"manifest": package.model_dump()}})
-    monkeypatch.setattr(assets, "owned_document", AsyncMock(return_value=SimpleNamespace(content_sha256=source_sha)))
-    monkeypatch.setattr(assets, "history", AsyncMock(return_value=[event]))
+    binding = package.binding([part_id])
+    event = (kind, package.model_dump(), None) if kind == "analysis_block" else (kind, binding, "text")
+
+    class CandidateRows:
+        def __init__(self):
+            self.close = AsyncMock()
+
+        async def __aiter__(self):
+            yield event
+
+    cursor = CandidateRows()
+    db = SimpleNamespace(
+        scalar=AsyncMock(return_value=SimpleNamespace(content_sha256=source_sha)),
+        stream=AsyncMock(return_value=cursor),
+    )
     monkeypatch.setattr(assets, "get_storage", lambda: SimpleNamespace(get_bytes=lambda _: payload))
-    assert (await assets.preview_asset(None, tenant, document, item["id"], package.sha256)).body == payload
-    with pytest.raises(HTTPException):
-        await assets.preview_asset(None, tenant, document, item["id"], "c" * 64)
+
+    assert (await assets.preview_asset(db, tenant, document, item["id"], package.sha256)).body == payload
+    owned_query = db.scalar.call_args.args[0].compile(dialect=postgresql.dialect())
+    assert "documents.lifecycle_status" in str(owned_query)
+    assert set(owned_query.params.values()) == {tenant, document, "active"}
+
+    candidates = db.stream.call_args.args[0].compile(dialect=postgresql.dialect())
+    values = list(candidates.params.values())
+    assert tenant in values and document in values and source_sha in values
+    assert package.sha256 in values and [{"id": item["id"]}] in values
+    assert f"source-preparation-v1:manifest:{source_sha}" in values
+    assert "ORDER BY document_editorial_events.sequence DESC" in str(candidates)
+    await_count = cursor.close.await_count
+    with pytest.raises(HTTPException) as wrong_preparation:
+        await assets.preview_asset(db, tenant, document, item["id"], "c" * 64)
+    assert wrong_preparation.value.status_code == 404
+    assert cursor.close.await_count == await_count + 1
+
+    monkeypatch.setattr(assets, "get_storage", lambda: SimpleNamespace(get_bytes=lambda _: b"corrupt"))
+    with pytest.raises(HTTPException) as corrupt:
+        await assets.preview_asset(db, tenant, document, item["id"], package.sha256)
+    assert corrupt.value.status_code == 404
+
+    db.scalar.return_value = None
+    db.stream.reset_mock()
+    with pytest.raises(HTTPException) as foreign:
+        await assets.preview_asset(db, uuid4(), document, item["id"], package.sha256)
+    assert foreign.value.status_code == 404
+    db.stream.assert_not_awaited()
 
 
 @pytest.mark.asyncio

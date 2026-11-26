@@ -8,7 +8,7 @@ from typing import Any, cast
 from uuid import UUID
 
 from fastapi import HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import and_, case, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.storage import get_storage
@@ -23,8 +23,9 @@ from app.modules.lessons.illustrations import (
     owns_illustration_lesson,
 )
 from app.modules.lessons.models import ContentBlock, Lesson, Module
-from app.modules.source_editorial_review.service import history, owned_document
-from app.modules.source_preparation.domain import PreparedSource, validate_binding
+from app.modules.source_editorial_review.models import DocumentEditorialEvent
+from app.modules.source_editorial_review.service import owned_document
+from app.modules.source_preparation.domain import POLICY, PreparedSource, validate_binding
 
 _ASSET = re.compile(r"asset-([a-f0-9]{64})\Z")
 _SHA = re.compile(r"[a-f0-9]{64}\Z")
@@ -106,32 +107,58 @@ async def preview_asset(db: AsyncSession, tenant_id: UUID, document_id: UUID,
     if _ASSET.fullmatch(asset_id) is None or _SHA.fullmatch(preparation_sha256) is None:
         raise _missing()
     doc = await owned_document(db, tenant_id, document_id)
-    for event in reversed(await history(db, tenant_id, document_id)):
-        if event.original_blob_sha256 != doc.content_sha256 or not isinstance(event.payload, dict):
-            continue
-        try:
-            if event.kind == "analysis_block" and event.payload.get("key") == f"source-preparation-v1:manifest:{doc.content_sha256}":
-                result = event.payload.get("result")
-                if not isinstance(result, dict):
+    source_sha = cast(str | None, doc.content_sha256)
+    if source_sha is None:
+        raise _missing()
+
+    event = DocumentEditorialEvent
+    checkpoint = and_(event.kind == "analysis_block",
+                      event.payload["key"].astext == f"{POLICY}:manifest:{source_sha}")
+    analyzed = event.kind == "analyzed"
+    binding = event.payload["preparation"]
+    checkpoint_manifest = event.payload["result"]["manifest"]
+    contains_asset = [{"id": asset_id}]
+    query = select(
+        event.kind,
+        case((analyzed, binding), else_=checkpoint_manifest),
+        case((analyzed, event.payload["original"])),
+    ).where(
+        event.tenant_id == tenant_id,
+        event.document_id == document_id,
+        event.original_blob_sha256 == source_sha,
+        or_(
+            and_(checkpoint, checkpoint_manifest["assets"].contains(contains_asset)),
+            and_(analyzed, binding["sha256"].astext == preparation_sha256,
+                 binding["manifest"]["assets"].contains(contains_asset)),
+        ),
+    ).order_by(event.sequence.desc())
+
+    # Read matching candidates one at a time. An older document may have
+    # several checkpoints and a newer candidate can fail validation.
+    candidates = await db.stream(query.execution_options(yield_per=1))
+    try:
+        async for kind, preparation, original in candidates:
+            try:
+                if kind == "analyzed":
+                    package, _ = validate_binding(preparation, source_sha, original)
+                else:
+                    package = PreparedSource.model_validate(preparation)
+                if package.original_blob_sha256 != source_sha or package.sha256 != preparation_sha256:
                     continue
-                package = PreparedSource.model_validate(result["manifest"])
-            elif event.kind == "analyzed" and event.payload.get("preparation") is not None:
-                package, _ = validate_binding(event.payload["preparation"], cast(str, doc.content_sha256),
-                                               event.payload.get("original"))
-            else:
-                continue
-            if package.original_blob_sha256 != doc.content_sha256 or package.sha256 != preparation_sha256:
-                continue
-            for asset in package.assets:
-                if asset.id == asset_id:
-                    value = {"id": asset.id, "document_id": str(document_id), "sha256": asset.sha256,
-                             "mime_type": asset.mime_type, "storage_key": asset.storage_key,
-                             "preparation_sha256": package.sha256}
-                    descriptor = _descriptor(value, tenant_id, asset_id)
+                for asset in package.assets:
+                    if asset.id != asset_id:
+                        continue
+                    descriptor = _descriptor({
+                        "id": asset.id, "document_id": str(document_id), "sha256": asset.sha256,
+                        "mime_type": asset.mime_type, "storage_key": asset.storage_key,
+                        "preparation_sha256": preparation_sha256,
+                    }, tenant_id, asset_id)
                     if descriptor:
                         return _response(descriptor)
-        except (ValueError, TypeError, KeyError):
-            continue
+            except (ValueError, TypeError, KeyError):
+                continue
+    finally:
+        await candidates.close()
     raise _missing()
 
 

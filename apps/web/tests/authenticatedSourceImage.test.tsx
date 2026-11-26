@@ -1,13 +1,14 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthenticatedSourceImage, isAllowedSourceImageUrl, ReviewSourceImageProvider, sourceImageLine } from '@/components/AuthenticatedSourceImage';
 import { ReviewCoursePlayer } from '@/components/course-approval/ReviewCoursePlayer';
+import { SourcePreparationPanel } from '@/features/source-editorial-review/SourcePreparationPanel';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn() }));
 vi.mock('@/lib/api', () => ({ api: { get: mocks.get } }));
 vi.mock('@/i18n/useT', () => ({ useT: () => ({ lang: 'en', t: (key: string) => key }) }));
 vi.mock('@/store/authStore', () => ({ useAuthStore: (select: (state: { sessionEpoch: number }) => unknown) => select({ sessionEpoch: 1 }) }));
-afterEach(() => { cleanup(); vi.restoreAllMocks(); mocks.get.mockReset(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); mocks.get.mockReset(); });
 
 describe('source image routes', () => {
   const uuid = '3021ee52-3387-46b2-a6c4-a7bd36136ffa';
@@ -41,6 +42,45 @@ describe('source image routes', () => {
     view.unmount();
     expect(create).toHaveBeenCalledOnce();
     expect(revoke).toHaveBeenCalledWith('blob:source');
+  });
+  it('requests only the source illustrations that approach the viewport', async () => {
+    const callbacks = new Map<Element, IntersectionObserverCallback>();
+    vi.stubGlobal('IntersectionObserver', class {
+      private target: Element | undefined;
+      constructor(private readonly callback: IntersectionObserverCallback) {}
+      observe(target: Element) { this.target = target; callbacks.set(target, this.callback); }
+      disconnect() { if (this.target) callbacks.delete(this.target); }
+    });
+    const preparation = {
+      policy: 'source-preparation-v1', sha256: 'b'.repeat(64), selected_part_ids: [], parts: [],
+      assets: Array.from({ length: 30 }, (_, i) => {
+        const id = 'asset-' + i.toString(16).padStart(64, '0');
+        return {
+          id, caption: 'Page ' + (i + 1), kind: 'scan', status: 'ready', width: 800, height: 1200,
+          preview_url: '/v1/documents/' + uuid + '/editorial-review/assets/' + id + '?preparation_sha256=' + 'b'.repeat(64),
+        };
+      }),
+    };
+    mocks.get.mockResolvedValue({ data: new Blob(['image'], { type: 'image/png' }) });
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:source');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const view = render(<SourcePreparationPanel preparation={preparation} lang="en" editable={false}
+      disabled={false} onApply={async () => true} onDraftChange={() => {}} />);
+    expect(mocks.get.mock.calls.length).toBe(0);
+    const last = screen.getByText('Page 30').closest('figure')!;
+    const bounds = last.getBoundingClientRect();
+    const entry = (isIntersecting: boolean): IntersectionObserverEntry => ({
+      target: last, isIntersecting, boundingClientRect: bounds, intersectionRect: bounds,
+      intersectionRatio: isIntersecting ? 1 : 0, rootBounds: null, time: 0,
+    });
+    act(() => callbacks.get(last)!([entry(false)], {} as IntersectionObserver));
+    expect(mocks.get).not.toHaveBeenCalled();
+    act(() => callbacks.get(last)!([entry(true)], {} as IntersectionObserver));
+    expect(await screen.findByRole('img', { name: 'Page 30' })).toBeVisible();
+    expect(mocks.get).toHaveBeenCalledExactlyOnceWith(preparation.assets[29].preview_url, expect.anything());
+    expect(callbacks.has(last)).toBe(false);
+    view.unmount();
+    expect(callbacks.size).toBe(0);
   });
   it.each(['guest', 'account'] as const)('fetches review images through the active attempt using %s authorization', async mode => {
     const attempt = 'b5b93138-cf8e-4e06-a87b-278e21efe8e2';
