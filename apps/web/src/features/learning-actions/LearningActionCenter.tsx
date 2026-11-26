@@ -64,6 +64,7 @@ const messages = {
     incorrect: 'Ошибок: {percent}% из {count} ответов',
     planOnly: 'Сохранение плана не отправляет email и не выполняет переназначение.',
     journal: 'Открыть запись в журнале',
+    employeeCard: 'Карточка сотрудника',
     assignmentOperations: 'Открыть операции назначения',
     clearFocus: 'Показать все разделы',
     weakCourseLabel: 'Курс для разбора вопросов',
@@ -119,6 +120,7 @@ const messages = {
     incorrect: 'Қате: {percent}% / {count} жауап',
     planOnly: 'Жоспарды сақтау email жібермейді және қайта тағайындауды орындамайды.',
     journal: 'Журналдағы жазбаны ашу',
+    employeeCard: 'Қызметкер карточкасы',
     assignmentOperations: 'Тағайындау операцияларын ашу',
     clearFocus: 'Барлық бөлімдерді көрсету',
     weakCourseLabel: 'Сұрақтарды талдауға арналған курс',
@@ -174,6 +176,7 @@ const messages = {
     incorrect: 'Incorrect: {percent}% of {count} responses',
     planOnly: 'Saving a plan does not send email or execute reassignment.',
     journal: 'Open journal record',
+    employeeCard: 'Employee record',
     assignmentOperations: 'Open assignment operations',
     clearFocus: 'Show all sections',
     weakCourseLabel: 'Course for question review',
@@ -213,6 +216,7 @@ export function LearningActionCenter({
   courseCatalogError = null,
   courseCatalogTruncated = false,
   onSelectCourse,
+  employeeCardHref,
 }: {
   courseId?: string;
   focus?: ActionFocus;
@@ -223,6 +227,7 @@ export function LearningActionCenter({
   courseCatalogError?: string | null;
   courseCatalogTruncated?: boolean;
   onSelectCourse?: (courseId: string) => void;
+  employeeCardHref?: (userId: string, enrollmentId: string) => string;
 }) {
   const user = useAuthStore((state) => state.user);
   const lang = useLanguageStore((state) => state.lang);
@@ -409,11 +414,23 @@ export function LearningActionCenter({
           {visibleTraining.map((item) => <article key={item.enrollment_id} className="rounded-lg border p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div><p className="font-medium">{item.full_name}</p><p className="text-sm text-muted-foreground">{item.course_title} · {m[item.issue_type]}</p>
-                <p className="text-xs text-muted-foreground">{format(m.progress, { value: item.progress_percent })} · {format(m.attempts, { value: item.quiz_attempts_count })}</p>
+                <p className="text-xs text-muted-foreground">
+                  {format(m.progress, { value: item.progress_percent })} · {format(m.attempts, { value: item.quiz_attempts_count })}
+                  {item.assignment_due_at && ` · ${m.dueAt}: ${formatDueDate(item.assignment_due_at, lang as MessageLanguage)}`}
+                </p>
               </div>
               {item.active_action_types.length < 4 && <Button size="sm" variant="outline" onClick={() => startAction({ kind: 'enrollment', item })}>{m.create}</Button>}
             </div>
-            <div className="mt-3 flex flex-wrap gap-3 text-xs"><Link className="text-primary hover:underline" href={`/training-log?enrollment_id=${encodeURIComponent(item.enrollment_id)}&course_id=${encodeURIComponent(item.course_id)}`}>{m.journal}</Link><Link className="text-primary hover:underline" href={`/assignments?course_id=${encodeURIComponent(item.course_id)}&enrollment_id=${encodeURIComponent(item.enrollment_id)}`}>{m.assignmentOperations}</Link></div>
+            <div className="mt-2 flex flex-wrap gap-x-4 text-sm">
+              <Link className="inline-flex min-h-11 items-center font-semibold text-primary hover:underline" scroll={!employeeCardHref}
+                href={employeeCardHref?.(item.user_id, item.enrollment_id) ?? `/training-log?enrollment_id=${encodeURIComponent(item.enrollment_id)}&course_id=${encodeURIComponent(item.course_id)}`}>
+                {employeeCardHref ? m.employeeCard : m.journal}
+              </Link>
+              <Link className="inline-flex min-h-11 items-center text-primary hover:underline"
+                href={`/assignments?course_id=${encodeURIComponent(item.course_id)}&enrollment_id=${encodeURIComponent(item.enrollment_id)}`}>
+                {m.assignmentOperations}
+              </Link>
+            </div>
           </article>)}
         </section>}
         {visibleQuestions.length > 0 && <section className="space-y-2">

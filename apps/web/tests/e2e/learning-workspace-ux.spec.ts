@@ -505,6 +505,47 @@ for (const viewport of [
       await expect(page.getByRole('heading', { name: 'Methodologist action center' })).toBeVisible();
     });
 
+    if (viewport.width === 1440 || viewport.width === 390) test('action center opens the exact employee card and restores the journal filters', async ({ page, workspace }) => {
+      workspace.trainingLog();
+      const employee = trainingRows[101];
+      const dueAt = '2026-11-25T10:00:00Z';
+      workspace.get('/v1/admin/learning-actions', {
+        summary: {
+          training_issue_count: 1, training_issue_counts: { overdue: 1 },
+          open_action_count: 0, overdue_action_count: 0,
+        },
+        training_items: [{
+          user_id: employee.user_id, enrollment_id: employee.enrollment_id,
+          full_name: employee.full_name, course_id: employee.course_id, course_title: employee.course_title,
+          issue_type: 'overdue', progress_percent: 50, quiz_attempts_count: 1,
+          assignment_due_at: dueAt, active_action_types: [],
+        }],
+        actions: [], weak_questions: [],
+      });
+      const journal = '/training-log?history=true&journal_page=2';
+      await page.goto(journal);
+      const attention = page.locator('#learning-action-center').getByRole('article')
+        .filter({ hasText: employee.full_name });
+      await expect(attention).toContainText(/Due.*11\/25\/2026/);
+      await expect(attention.getByRole('link', { name: 'Open assignment operations' })).toHaveAttribute(
+        'href', `/assignments?course_id=${employee.course_id}&enrollment_id=${employee.enrollment_id}`,
+      );
+      await attention.getByRole('link', { name: 'Employee record' }).click();
+      const card = page.getByRole('dialog', { name: 'Employee record' });
+      await expect(card.getByRole('heading', { name: employee.full_name, exact: true })).toBeVisible();
+      const params = new URL(page.url()).searchParams;
+      expect(params.get('employee_card')).toBe(employee.user_id);
+      expect(params.get('card_enrollment')).toBe(employee.enrollment_id);
+      expect(workspace.matching('GET', '/v1/admin/training-log').some(({ url }) =>
+        url.searchParams.get('user_id') === employee.user_id &&
+        url.searchParams.get('enrollment_id') === employee.enrollment_id)).toBe(true);
+      await noPageOverflow(page);
+      await card.getByRole('button', { name: 'Back to training log' }).click();
+      await expect(page).toHaveURL(appOrigin + journal);
+      await expect(attention.getByRole('link', { name: 'Employee record' })).toBeVisible();
+      expect(workspace.calls.filter(({ method, path }) => method === 'POST' && path !== '/v1/auth/refresh')).toEqual([]);
+    });
+
     if (viewport.width === 1440 || viewport.width === 390) test('employee card restores an exact historical enrollment, answers, PDF and journal context', async ({ page, workspace }, info) => {
       workspace.trainingLog();
       const original = trainingRows[101];

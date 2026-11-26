@@ -402,9 +402,9 @@ export default function AdminTrainingLogPage() {
     }), { scroll: false });
   };
   const employeeCard = canInspectLearning ? browserState.employeeCard : undefined;
-  const employeeCardHref = (row: TrainingLogRow) => buildTrainingLogBrowserHref({
+  const employeeCardHref = (userId: string, enrollmentId: string) => buildTrainingLogBrowserHref({
     ...browserState,
-    employeeCard: { userId: row.user_id, enrollmentId: row.enrollment_id },
+    employeeCard: { userId, enrollmentId },
   });
   const closeEmployeeCard = () => {
     router.replace(buildTrainingLogBrowserHref({ ...browserState, employeeCard: undefined }), { scroll: false });
@@ -466,7 +466,7 @@ export default function AdminTrainingLogPage() {
         <div>
           <h2 className="font-medium text-foreground">
             {canInspectLearning ? (
-              <Link href={employeeCardHref(row)} scroll={false} className="inline-flex min-h-11 items-center text-primary hover:underline">
+              <Link href={employeeCardHref(row.user_id, row.enrollment_id)} scroll={false} className="inline-flex min-h-11 items-center text-primary hover:underline">
                 {row.full_name}
               </Link>
             ) : row.full_name}
@@ -685,6 +685,7 @@ export default function AdminTrainingLogPage() {
               focus={browserState.action_focus}
               issueType={browserState.issue_type}
               onClearFocus={clearActionFocus}
+              employeeCardHref={employeeCardHref}
               courseCatalog={visibleCourseCatalog}
               courseCatalogLoading={courseCatalogLoading}
               courseCatalogError={courseCatalogError}
@@ -831,7 +832,7 @@ export default function AdminTrainingLogPage() {
                       <td className={`${columnClass.fullName} ${isMethodologist ? 'workspace-ledger-name' : ''}`}>
                         <div className="font-medium text-foreground">
                           {canInspectLearning ? (
-                            <Link href={employeeCardHref(row)} scroll={false} className="inline-flex min-h-11 items-center text-primary hover:underline">
+                            <Link href={employeeCardHref(row.user_id, row.enrollment_id)} scroll={false} className="inline-flex min-h-11 items-center text-primary hover:underline">
                               {row.full_name}
                             </Link>
                           ) : row.full_name}
