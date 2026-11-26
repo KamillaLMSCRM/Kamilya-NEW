@@ -886,6 +886,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                             if paragraph.strip()), (), None, ())
             phase = "provider_readiness"
             from app.modules.ai.direct_luna_responses_factory import create_managed_qa_client
+            from app.modules.ai.production_smoke_route import uses_production_smoke_route
             from app.modules.ai.qa_luna_dev_route import QA_TENANT
 
             settings = get_settings()
@@ -895,6 +896,7 @@ async def run_analysis(tenant_id: UUID, document_id: UUID, event_id: UUID) -> st
                     user_id=claim.actor_id, job_id=str(claim.id), profile="luna6")
             llm = await ResilientLLMClient.from_settings_async(
                 temperature=0.1, max_tokens=runtime.integer("source_preparation.max_tokens"),
+                tenant_id=tenant_id if uses_production_smoke_route(settings, tenant_id) else None,
             ) if managed is None else None
 
             async def complete(messages: list[dict[str, str]]) -> object:

@@ -40,9 +40,13 @@ REPLACEMENT = "До 45 МРП включительно действует пер
 @pytest.mark.parametrize("source_cap", [16384, 32768])
 @pytest.mark.parametrize("invalid_first", [False, True])
 @pytest.mark.parametrize("part_roles", [("learning",), ("learning", "supporting", "administrative"), ("supporting",)])
-async def test_source_editor_native_managed_profile_keeps_source_token_cap(monkeypatch, source_cap, invalid_first, part_roles):
+@pytest.mark.parametrize("production_smoke", [False, True])
+async def test_source_editor_native_managed_profile_keeps_source_token_cap(
+    monkeypatch, source_cap, invalid_first, part_roles, production_smoke,
+):
     import asyncio
 
+    from app.modules.ai.production_smoke_route import PRODUCTION_SMOKE_TENANT
     from app.modules.source_editorial_review import analysis
     from app.modules.source_editorial_review.request_custody import POLICY as CUSTODY_POLICY
     from app.modules.source_editorial_review.request_custody import identity
@@ -51,7 +55,8 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     from app.modules.source_preparation.preparation import _VISUAL_REVIEW_POLICY
     from tests.unit.test_source_review_custody import row
 
-    tenant, document, actor = uuid4(), uuid4(), uuid4()
+    tenant = PRODUCTION_SMOKE_TENANT if production_smoke else uuid4()
+    document, actor = uuid4(), uuid4()
     source_sha = "a" * 64
     blocks = [{"id": "block-" + str(index + 1) * 24, "text": text, "kind": "text"}
               for index, text in enumerate(("Source", "Reference catalogue", "Administrative register")[:len(part_roles)])]
@@ -121,12 +126,15 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     monkeypatch.setattr(analysis, "latest_event", AsyncMock(side_effect=lambda *_: rows[-1]))
     monkeypatch.setattr(analysis, "add_event", add_event)
     monkeypatch.setattr(analysis, "review_enabled", lambda: True)
-    monkeypatch.setattr(analysis, "get_settings", lambda: SimpleNamespace(AI_MANAGED_LUNA_QA_DEV_ENABLED=False))
+    monkeypatch.setattr(analysis, "get_settings", lambda: SimpleNamespace(
+        AI_MANAGED_LUNA_QA_DEV_ENABLED=False, DEPLOYMENT_ENVIRONMENT="kz-production",
+        AI_PRODUCTION_SMOKE_LUNA_ONLY=production_smoke,
+    ))
     monkeypatch.setattr(analysis, "extract_native_source", lambda *_args, **_kwargs: NativeSource((), (), None, ()))
     monkeypatch.setattr(analysis, "prepare_native_source", prepare)
     monkeypatch.setattr(analysis, "analyze", analyze_fixture)
-    monkeypatch.setattr(analysis.ResilientLLMClient, "from_settings_async",
-                        AsyncMock(return_value=SimpleNamespace(_clients=[SimpleNamespace(config=initial)])))
+    generation_factory = AsyncMock(return_value=SimpleNamespace(_clients=[SimpleNamespace(config=initial)]))
+    monkeypatch.setattr(analysis.ResilientLLMClient, "from_settings_async", generation_factory)
     monkeypatch.setattr("app.modules.admin.runtime_configuration.runtime.resolve_runtime_settings", AsyncMock(return_value=runtime))
     monkeypatch.setattr("app.core.storage.get_storage", lambda: SimpleNamespace(get_bytes=lambda _: b"synthetic"))
     monkeypatch.setattr("app.modules.ai.llm_client._managed_profile_attempt", helper)
@@ -138,6 +146,9 @@ async def test_source_editor_native_managed_profile_keeps_source_token_cap(monke
     queued = rows[-1]
     assert queued.payload["preparation"]["selected_part_ids"] == expected_ids
     assert await analysis.run_analysis(tenant, document, queued.id) == "analyzed"
+    assert generation_factory.await_count == 2
+    assert all(call.kwargs["tenant_id"] == (tenant if production_smoke else None)
+               for call in generation_factory.await_args_list)
     helper.assert_called_once_with(initial, runtime, "course_generation")
     assert client_factory.call_count == (2 if invalid_first else 1)
     for call in client_factory.call_args_list:

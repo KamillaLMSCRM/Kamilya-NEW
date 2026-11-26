@@ -4458,3 +4458,12 @@ reached the evidence-repair stage with zero provider calls.
 - The amended whole-bank prompt still missed the consent scope in authentic Luna review. Removed that prompt-only approach. The final pass presents the model with the exact companion clauses it previously cited in accepted edits and the nearest candidate paragraphs and assessment cards. It also offers close same-lesson card pairs so repairs can preserve a useful original and replace a duplicate. The same block editor validates IDs, references, and media while the model determines whether action is needed.
 - Replayed all 46 genuine responses without another model call. The 59,855-byte final request included the contradictory paragraph, the unqualified threshold question, and both 15-day cards, selected from the course and source without naming those targets in application code.
 - Luna returned one paragraph edit and two card edits. Replay exposed redundant lesson citations in the typed result. The validator now accepts them only for edited lessons and only when they bind to the supplied evidence. This uses the saved answer without another model request. The threshold card gives an explicit married scenario, the lesson retains the alternative declaration, and the two 15-day questions no longer test the same decision.
+
+
+## 2026-11-26 — Luna 6 route for the production smoke tenant
+
+The live API 0.11.154 could not pin both document review and course generation to Luna for an ordinary methodologist in the production smoke tenant. The existing managed Luna route was scoped to DEV. As recorded in CHG-ASSISTANT112-SELECT, changing global provider order to validate a single operation was rejected.
+
+The local candidate scopes AI_PRODUCTION_SMOKE_LUNA_ONLY to the existing synthetic production tenant. It requires enabled Luna 6 and connector readiness, uses the existing no-retry Luna client and keeps document embeddings on the existing private Qwen pool. A missing provider ends its operation without a paid fallback. Activation must be consistent across the API and workers. Complete or reconcile the synthetic jobs before disabling the flag.
+
+The combined local AI-COURSE-01 and focused suite passed 785 tests. The source-review worker test confirms that only the selected production tenant passes its identity to this resolver. The isolated route tests cover disabled, offline and wrong-model Luna as well as unavailable private embeddings. No model calls, uploads, production activation, or course data changes were made.

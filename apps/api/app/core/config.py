@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     AI_LESSON_CYCLE_DEV_ENABLED: bool = False
     AI_LESSON_CYCLE_DEV_TENANTS: list[str] = Field(default_factory=list)
     AI_QA_LUNA_DEV_ENABLED: bool = False
+    AI_PRODUCTION_SMOKE_LUNA_ONLY: bool = False
     AI_QA_LUNA_PENDING_JOURNAL_DEV_ENABLED: bool = False
     AI_DIRECT_LUNA_QA_DEV_ENABLED: bool = False
     AI_MANAGED_LUNA_QA_DEV_ENABLED: bool = False

@@ -45,7 +45,7 @@ from typing import Any, Generic, Literal, TypeVar, cast
 
 import httpx
 
-from app.core.config import get_settings
+from app.core.config import LUNA6_MODEL, get_settings
 from app.modules.admin.model_routing.catalog import (
     CHATGPT_RESERVE_ROUTE_ID,
     DEEPSEEK_ROUTE_ID,
@@ -1142,6 +1142,27 @@ class ResilientLLMClient:
         routing) calls — keys added or rotated via the superadmin
         provider-keys UI take effect immediately without a redeploy.
         """
+        from app.modules.ai.production_smoke_route import uses_production_smoke_route
+
+        s = get_settings()
+        if uses_production_smoke_route(s, tenant_id):
+            from app.modules.admin.model_routing.chatgpt_reserve import check_readiness
+
+            order = await resolve_runtime_generation_model_order()
+            policy = await resolve_runtime_settings()
+            if (CHATGPT_RESERVE_ROUTE_ID not in order
+                    or policy.text("provider.chatgpt.model") != LUNA6_MODEL):
+                raise AllProvidersFailedError("production_smoke_luna_unavailable")
+            luna = _generation_fallback_providers((CHATGPT_RESERVE_ROUTE_ID,))
+            if len(luna) != 1 or (await check_readiness(s, model=LUNA6_MODEL)).ready is not True:
+                raise AllProvidersFailedError("production_smoke_luna_unavailable")
+            return cls(
+                [replace(luna[0], model=LUNA6_MODEL, timeout=policy.number("provider.chatgpt.timeout_seconds"))],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                max_retries_per_provider=0,
+            )
+
         if tenant_id is not None:
             from uuid import UUID
 
@@ -1159,7 +1180,6 @@ class ResilientLLMClient:
                     max_retries_per_provider=max_retries_per_provider,
                 )
 
-        s = get_settings()
         allowed = allowed_generation_model_ids(getattr(s, "DEPLOYMENT_ENVIRONMENT", "local"))
         route_ids = await resolve_runtime_generation_model_order()
         policy = await resolve_runtime_settings()
@@ -1774,6 +1794,15 @@ class ResilientEmbeddingsClient:
         resolved by `_resolve_db_key()` which prefers env and falls
         back to the active global key stored in `provider_keys`.
         """
+        from app.modules.ai.production_smoke_route import uses_production_smoke_route
+
+        s = get_settings()
+        if uses_production_smoke_route(s, tenant_id):
+            private_providers = _asus_qwen_embed_providers()
+            if not private_providers:
+                raise AllProvidersFailedError("production_smoke_private_embeddings_unavailable")
+            return cls(private_providers, max_retries_per_provider=max_retries_per_provider)
+
         if tenant_id is not None:
             from uuid import UUID
 
@@ -1788,7 +1817,6 @@ class ResilientEmbeddingsClient:
 
         from dataclasses import replace
 
-        s = get_settings()
         providers: list[LLMProviderConfig] = []
 
         voyage_key = await _resolve_db_key("voyage", s.VOYAGE_API_KEY)
