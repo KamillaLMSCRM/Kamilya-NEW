@@ -191,6 +191,7 @@ export default function AIGeneratePage() {
   ];
   const router = useRouter();
   const token = useAuthStore((s) => s.accessToken);
+  const hasAccessToken = Boolean(token);
   const sessionEpoch = useAuthStore((s) => s.sessionEpoch);
   const userId = useAuthStore((s) => s.user?.user_id ?? null);
   const tenantId = useAuthStore((s) => s.user?.tenant_id ?? null);
@@ -246,7 +247,8 @@ export default function AIGeneratePage() {
     version: number;
   } | null>(null);
   const [documentLoadError, setDocumentLoadError] = useState('');
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [handoff, setHandoff] = useState<'reading' | 'approved' | 'selected' | 'ready'>('reading');
+  const [handoffRetry, setHandoffRetry] = useState(0);
   const [returnSelectionUnavailable, setReturnSelectionUnavailable] = useState(false);
   const [catalogHasMore, setCatalogHasMore] = useState(false);
   const [catalogQuery, setCatalogQuery] = useState('');
@@ -559,8 +561,6 @@ export default function AIGeneratePage() {
       setCatalogHasMore(res.data.page.has_more);
     } catch {
       if (catalogRequest.current === request) setDocumentLoadError(t('aiGeneration.errors.documentLoad'));
-    } finally {
-      if (catalogRequest.current === request) setCatalogLoaded(true);
     }
   }, [catalogSearch, t]);
 
@@ -586,40 +586,35 @@ export default function AIGeneratePage() {
       .catch(() => setYoutubeImportAvailability('disabled'));
   }, []);
 
-  const querySelectionApplied = useRef(false);
   useEffect(() => {
-    if (querySelectionApplied.current || !catalogLoaded) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get('job_id')?.trim()) return;
-    const requested = [...new Set(params.getAll('document_id'))].slice(0, MAX_SELECTED_DOCUMENTS);
-    if (requested.length === 0) return;
-    querySelectionApplied.current = true;
-    const selected = requested.flatMap(id => documents.find(doc => doc.id === id) ?? []);
-    for (const doc of selected) chosenDocuments.current.set(doc.id, doc);
-    setSelectedDocIds(current => [...new Set([...requested, ...current])].slice(0, MAX_SELECTED_DOCUMENTS));
-    const missing = requested.filter(id => !chosenDocuments.current.has(id));
+    const requested = params.get('job_id')?.trim() ? []
+      : [...new Set(params.getAll('document_id'))].filter(Boolean).slice(0, MAX_SELECTED_DOCUMENTS);
+    if (!requested.length) {
+      setHandoff('ready');
+      return;
+    }
+    if (!hasAccessToken || !userId || !tenantId) return;
+    setHandoff(params.get('approved') === '1' ? 'approved' : 'selected');
+    setReturnSelectionUnavailable(false);
     const requestActor = actorSignatureRef.current;
-    if (!missing.length) return;
+    const controller = new AbortController();
 
-    void Promise.allSettled(missing.map(async id => {
+    void Promise.allSettled(requested.map(async id => {
       const { data } = await api.get<DocumentResponse>(
-        '/v1/documents/' + encodeURIComponent(id),
+        '/v1/documents/' + encodeURIComponent(id), { signal: controller.signal },
       );
-      if (data.id !== id || data.lifecycle_status !== 'active') return null;
-      return documentFromResponse(data);
+      return data.id === id && data.lifecycle_status === 'active' ? documentFromResponse(data) : null;
     })).then(results => {
-      if (!generationPageMountedRef.current || actorSignatureRef.current !== requestActor) return;
-      const unavailable = new Set(missing);
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          chosenDocuments.current.set(result.value.id, result.value);
-          unavailable.delete(result.value.id);
-        }
-      }
-      setReturnSelectionUnavailable(unavailable.size > 0);
-      setSelectedDocIds(current => current.filter(id => !unavailable.has(id)));
+      if (controller.signal.aborted || actorSignatureRef.current !== requestActor) return;
+      const resolved = results.flatMap(result => result.status === 'fulfilled' && result.value ? [result.value] : []);
+      for (const document of resolved) chosenDocuments.current.set(document.id, document);
+      setSelectedDocIds(current => [...new Set([...resolved.map(doc => doc.id), ...current])].slice(0, MAX_SELECTED_DOCUMENTS));
+      setReturnSelectionUnavailable(resolved.length !== requested.length);
+      setHandoff('ready');
     });
-  }, [catalogLoaded, documents]);
+    return () => controller.abort();
+  }, [actorSignature, hasAccessToken, userId, tenantId, handoffRetry]);
 
   useEffect(() => {
     if (!hasProcessingDocuments) return;
@@ -1369,9 +1364,25 @@ export default function AIGeneratePage() {
           </div>
         </div>
       )}
-      {step === 'documents' && (
+      {step === 'documents' && handoff !== 'ready' && <WorkspacePanel title={t('aiGeneration.steps.documents')}>
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          {t(handoff === 'approved' ? 'nextCourseAction.loadingApproved' : 'nextCourseAction.loadingSelection')}
+        </p>
+      </WorkspacePanel>}
+      {step === 'documents' && handoff === 'ready' && (
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.65fr)]">
           <WorkspacePanel title={t('aiGeneration.steps.documents')} bodyClassName="space-y-4">
+          {selectedDocuments.length > 0 && <section aria-label={pickerCopy.selected} className="space-y-2">
+            <h3 aria-live="polite" className="text-sm font-semibold">{pickerCopy.selected} ({selectedDocuments.length})</h3>
+            <ul className="flex flex-wrap gap-2">{selectedDocuments.map(doc => <li key={doc.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/30 px-2 py-1 text-sm">
+              <span className="min-w-0 break-words">{doc.title}</span>
+              <button type="button" aria-label={pickerCopy.remove + ': ' + doc.title} onClick={() => toggleDoc(doc.id)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted">
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </li>)}</ul>
+          </section>}
           {/* Upload zone */}
           <input ref={fileRef} type="file" multiple onChange={(event) => {
             void handleFileInputChange(event);
@@ -1423,16 +1434,6 @@ export default function AIGeneratePage() {
             <p role="status" className="text-sm text-warning">{t('aiGeneration.errors.selectionLimit')}</p>
           )}
 
-          {selectedDocuments.length > 0 && <section aria-label={pickerCopy.selected} className="space-y-2">
-            <h3 aria-live="polite" className="text-sm font-semibold">{pickerCopy.selected} ({selectedDocuments.length})</h3>
-            <ul className="flex flex-wrap gap-2">{selectedDocuments.map(doc => <li key={doc.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/30 px-2 py-1 text-sm">
-              <span className="min-w-0 break-words">{doc.title}</span>
-              <button type="button" aria-label={pickerCopy.remove + ': ' + doc.title} onClick={() => toggleDoc(doc.id)}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted">
-                <XCircle className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </li>)}</ul>
-          </section>}
           <SourceReviewChecklist documents={selectedDocuments} status={sourceReviewStatus}
             requireReview={sourceReviewRejected && !sourceReviewStatus?.required} />
           {selectedDocIds.length > 0 && !(sourceReviewBlocked || (sourceReviewRejected && !sourceReviewStatus?.required)) && <button
@@ -1489,7 +1490,12 @@ export default function AIGeneratePage() {
             <input type="search" value={catalogQuery} maxLength={200} onChange={event => setCatalogQuery(event.target.value)}
               className="block w-full rounded-xl border border-border bg-background px-3 py-2.5" />
           </label>
-          {returnSelectionUnavailable && <p role="status" className="text-sm text-muted-foreground">{pickerCopy.unavailable}</p>}
+          {returnSelectionUnavailable && <div role="alert" className="space-y-1 text-sm">
+            <p>{pickerCopy.unavailable}</p>
+            <button type="button" className="min-h-10 font-medium text-primary underline" onClick={() => setHandoffRetry(count => count + 1)}>
+              {t('nextCourseAction.retrySelection')}
+            </button>
+          </div>}
           {catalogSearch && documents.length === 0 && !documentLoadError && <p role="status" className="text-sm text-muted-foreground">{pickerCopy.empty}</p>}
 
           {/* Documents list */}

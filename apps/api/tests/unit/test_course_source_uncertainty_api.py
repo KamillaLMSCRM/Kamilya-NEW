@@ -6,12 +6,12 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from app.core.auth import get_current_active_user, get_current_user
 from app.core.db import get_db
-from app.modules.courses import router as courses_router
+from app.modules.courses import localizations, router as courses_router, source_uncertainty
 from app.modules.courses.router import router
 from app.modules.courses.source_uncertainty import (
     SOURCE_UNCERTAINTY_KEY,
@@ -1409,3 +1409,42 @@ async def test_regression_unbacked_source_revision_without_documents_fails_close
         assert "у курса не определены авторитетные ревизии первоисточников" in err["message"]
         # Hold remains active
         assert SOURCE_UNCERTAINTY_KEY in course.source_analysis
+
+@pytest.mark.asyncio
+async def test_release_readiness_uses_current_source_hold_and_language_policy(monkeypatch):
+    user = _make_user()
+    course = _make_course(uuid4(), user.tenant_id, source_analysis={
+        localizations.POLICY_KEY: {"primary": "ru", "requested": ["ru", "kk"]},
+    })
+    observed = []
+
+    async def source_status(db, current, *, lock_sources=True):
+        assert current == course
+        assert not lock_sources
+        raise HTTPException(409, detail={"code": "source_uncertainty_review_required"})
+
+    async def missing(db, current):
+        assert current == course
+        return ["kk"]
+
+    async def scalar(query):
+        observed.append(query.compile().params)
+        return 2
+
+    def result(query):
+        assert user.tenant_id in query.compile().params.values()
+        assert course.id in query.compile().params.values()
+        return SimpleNamespace(scalar_one_or_none=lambda: course)
+
+    async def execute(query):
+        return result(query)
+
+    monkeypatch.setattr(source_uncertainty, "require_current_draft_review", source_status)
+    monkeypatch.setattr(localizations, "missing_requested_languages", missing)
+    dto = await courses_router.get_course_release_readiness(course.id, SimpleNamespace(execute=execute, scalar=scalar), user)
+    assert dto.course_id == course.id
+    assert dto.source_review_required
+    assert dto.pending_quizzes == 2
+    assert dto.requested_languages == ["ru", "kk"]
+    assert dto.missing_languages == ["kk"]
+    assert {course.id, user.tenant_id, "needs_review"} <= set(observed[0].values())

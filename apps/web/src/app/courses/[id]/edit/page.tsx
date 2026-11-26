@@ -66,6 +66,14 @@ interface Module {
   lessons: Lesson[];
 }
 
+interface ReleaseReadiness {
+  course_id: string;
+  source_review_required: boolean;
+  pending_quizzes: number;
+  requested_languages: CourseLanguage[];
+  missing_languages: CourseLanguage[];
+}
+
 interface Course {
   id: string;
   title: string;
@@ -129,6 +137,14 @@ export default function CourseEditPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [readinessUnavailable, setReadinessUnavailable] = useState(true);
+  const [releaseChecks, setReleaseChecks] = useState<ReleaseReadiness | null>(null);
+  const [releaseChecksFailed, setReleaseChecksFailed] = useState(false);
+  const [releaseChecksRevision, setReleaseChecksRevision] = useState(0);
+  const refreshReleaseChecks = useCallback(() => {
+    setReleaseChecks(null);
+    setReleaseChecksFailed(false);
+    setReleaseChecksRevision(version => version + 1);
+  }, []);
   const lessonTextareaRef = useRef<HTMLTextAreaElement>(null);
   const initialLessonRef = useRef<string | null>(null);
   const [newModuleTitle, setNewModuleTitle] = useState('');
@@ -211,6 +227,7 @@ export default function CourseEditPage() {
       || current.savedLessonContent !== before) return;
     setSavedLessonContent(content); setEditLessonContent(content);
     setLanguageRefresh(version => version + 1);
+    refreshReleaseChecks();
     setCourse((value) => value?.id === receipt.course_id ? { ...value, review_status: 'pending' } : value);
   };
   const onCorrectionApplyingChange = (busy: boolean) => {
@@ -307,10 +324,31 @@ export default function CourseEditPage() {
     creationPending.current = null; setCreationBusy(false); setCreationError(null);
     setChatOpen(false); setChatFocus({}); setPracticeDirty(false); setCorrectionBusy(false); correctionBusyRef.current = false;
     setLoadError(false); setReadinessUnavailable(true); setLoading(true);
+    setReleaseChecks(null); setReleaseChecksFailed(false);
     initialLessonRef.current = null;
     void fetchData();
     return () => { scopeRef.current.generation += 1; metadataGenerationRef.current += 1; };
   }, [fetchData, workspaceScope, setEditLessonContent]);
+
+  const checkRelease = course?.id === courseId && course.ai_generated && course.status !== 'published';
+  useEffect(() => {
+    if (!checkRelease || readinessUnavailable) return;
+    let current = true;
+    void authorRead(API_URL + '/v1/courses/' + encodeURIComponent(courseId) + '/release-readiness', workspaceScope.session)
+      .then(async response => {
+        if (!response.ok) throw new Error('Release readiness request failed');
+        const checks: ReleaseReadiness = await response.json();
+        if (checks.course_id !== courseId || typeof checks.source_review_required !== 'boolean'
+          || !Number.isInteger(checks.pending_quizzes) || checks.pending_quizzes < 0
+          || !Array.isArray(checks.requested_languages) || !checks.requested_languages.every(isCourseLanguage)
+          || !Array.isArray(checks.missing_languages) || !checks.missing_languages.every(isCourseLanguage)) {
+          throw new Error('Invalid release readiness');
+        }
+        if (current) setReleaseChecks(checks);
+      })
+      .catch(() => { if (current) setReleaseChecksFailed(true); });
+    return () => { current = false; };
+  }, [API_URL, checkRelease, courseId, readinessUnavailable, releaseChecksRevision, workspaceScope]);
 
   const handleAddModule = async () => {
     if (creationPending.current) return;
@@ -603,6 +641,7 @@ export default function CourseEditPage() {
       setSavedLessonContent(editLessonContent);
       lessonDraft.saved(editLessonContent);
       setLanguageRefresh(version => version + 1);
+      refreshReleaseChecks();
       // Do not present a pre-edit review status as approval of the new version.
       const metadataGeneration = ++metadataGenerationRef.current;
       const isCurrentRead = () => isCurrentSave() && metadataGeneration === metadataGenerationRef.current;
@@ -733,7 +772,10 @@ export default function CourseEditPage() {
       if (updated) setCourse(updated);
       toast.success(t('authenticatedUi.editor.courseApproved'), { description: t('authenticatedUi.editor.courseApprovedHint') });
     } catch (error) {
-      if (isCurrent()) toast.error(t('authenticatedUi.editor.approveFailed'), { description: (error as Error).message });
+      if (isCurrent()) {
+        toast.error(t('authenticatedUi.editor.approveFailed'), { description: (error as Error).message });
+        refreshReleaseChecks();
+      }
     } finally {
       if (isCurrent()) setReleaseAction(null);
     }
@@ -754,7 +796,10 @@ export default function CourseEditPage() {
           : undefined,
       );
     } catch (error) {
-      if (isCurrent()) toast.error(t('authenticatedUi.editor.publishFailed'), { description: (error as Error).message });
+      if (isCurrent()) {
+        toast.error(t('authenticatedUi.editor.publishFailed'), { description: (error as Error).message });
+        refreshReleaseChecks();
+      }
     } finally {
       if (isCurrent()) setReleaseAction(null);
     }
@@ -777,6 +822,17 @@ export default function CourseEditPage() {
     ? `/ai/generate?job_id=${encodeURIComponent(programGenerationJob)}`
     : `/assignments?courseId=${courseQuery}`;
   const nextActionLabel = programGenerationJob ? t('ai.programAttach.attach') : t('releaseSteps.assign');
+  const releaseStep = !releaseChecks || readinessUnavailable
+    ? 'checking'
+    : releaseChecks.missing_languages.length ? 'translation'
+      : releaseChecks.source_review_required ? 'sources'
+        : releaseChecks.pending_quizzes > 0 ? 'quizzes'
+          : !approved ? 'approve' : 'publish';
+  const quizReviewHref = '/quizzes?courseId=' + courseQuery + (programGenerationJob
+    ? '&programGenerationJob=' + encodeURIComponent(programGenerationJob) : '');
+  const sourcePanel = course.ai_generated && <SourceReviewPanel key={course.id + ':' + session.generation}
+    courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
+    onResolved={() => { refreshReleaseChecks(); void fetchData(); }} />;
   const approvalButton = (
     <Button type="button" size="sm" onClick={handleApprove} disabled={releaseAction !== null || workspaceDirty || readinessUnavailable}>
       <CheckCircle2 className="mr-1.5 h-4 w-4" />
@@ -820,9 +876,9 @@ export default function CourseEditPage() {
             {course.source_instruction_id && <Badge variant="outline">{t('authenticatedUi.editor.byJobInstruction')}</Badge>}
           </div>
       } actions={
-        <div id={course.ai_generated ? "course-release" : undefined} className="flex max-w-full scroll-mt-24 flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-11 [&_button]:whitespace-normal">
-          {!published && requiresCourseReview && !approved && approvalButton}
-          {!published && (!requiresCourseReview || approved) && publicationButton}
+        <div className="flex max-w-full scroll-mt-24 flex-wrap gap-2 sm:justify-end lg:max-w-[620px] [&_button]:h-auto [&_button]:min-h-11 [&_button]:whitespace-normal">
+          {!course.ai_generated && !published && requiresCourseReview && !approved && approvalButton}
+          {!course.ai_generated && !published && (!requiresCourseReview || approved) && publicationButton}
           {published && !course.source_instruction_id && (
             <Link href={nextAfterPublication}
               onClick={(event) => void handleGuardedLink(event, nextAfterPublication)}
@@ -855,44 +911,43 @@ export default function CourseEditPage() {
       } />
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/40 p-4 text-sm"><p>{copy.loadFailed}</p><Button variant="outline" size="sm" onClick={() => void fetchData()}>{copy.retry}</Button></div>}
       {workspaceDirty && <p role="status" className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm">{copy.unsaved}</p>}
-      <CourseLanguagesEditor courseId={course.id} refreshVersion={languageRefresh} />
-      {course.ai_generated && <SourceReviewPanel key={`${course.id}:${session.generation}`}
-        courseId={course.id} lang={lang} disabled={readinessUnavailable || workspaceDirty || Boolean(releaseAction)}
-        onResolved={() => { void fetchData(); }} />}
+      {course.ai_generated && !published && <section id="course-release" aria-labelledby="course-release-heading"
+        className="space-y-3 rounded-xl border border-primary/30 bg-card p-4 scroll-mt-24 sm:p-5">
+        <h2 id="course-release-heading" className="font-semibold">{t('nextCourseAction.title')}</h2>
+        {releaseChecks?.requested_languages.length ? <p className="text-sm text-muted-foreground">
+          {t('nextCourseAction.languages', { languages: releaseChecks.requested_languages.map(language => contentLanguages[language]).join(' · ') })}
+        </p> : null}
+        {releaseStep === 'checking' && (releaseChecksFailed
+          ? <div role="alert" className="space-y-2">
+            <p className="text-sm">{t('nextCourseAction.unavailable')}</p>
+            <Button type="button" variant="outline" onClick={refreshReleaseChecks}>{copy.retry}</Button>
+          </div>
+          : <p role="status" className="text-sm text-muted-foreground">{t('nextCourseAction.loading')}</p>)}
+        {releaseStep === 'translation' && <div className="space-y-2">
+          <p className="text-sm">{t('nextCourseAction.translationRequired', { languages: releaseChecks!.missing_languages.map(language => contentLanguages[language]).join(' · ') })}</p>
+          <a href="#course-languages" className={workflowLinkClass} onClick={() => {
+            const languages = document.getElementById('course-languages');
+            if (languages instanceof HTMLDetailsElement) languages.open = true;
+          }}>{t('nextCourseAction.openLanguages')}</a>
+        </div>}
+        {releaseStep === 'sources' && sourcePanel}
+        {releaseStep === 'quizzes' && <div className="space-y-2">
+          <p className="text-sm">{t('nextCourseAction.pendingQuizzes', { count: releaseChecks!.pending_quizzes })}</p>
+          <Link className={workflowLinkClass} href={quizReviewHref}>{t('releaseSteps.quizzes')}</Link>
+        </div>}
+        {releaseStep === 'approve' && approvalButton}
+        {releaseStep === 'publish' && publicationButton}
+      </section>}
+      <CourseLanguagesEditor courseId={course.id} refreshVersion={languageRefresh}
+        openForReview={Boolean(course.ai_generated && !published && releaseStep === 'translation')} onSaved={refreshReleaseChecks} />
+      {published && sourcePanel}
       <details data-publication-checks className="rounded-xl border border-border bg-card">
       <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
         {copy.publicationChecks}
         <span className="font-normal text-muted-foreground">· {readinessUnavailable ? copy.unavailable : published ? t('courses.published') : workspaceDirty ? copy.changes : !requiresCourseReview ? copy.notRequired : approved ? copy.approved : course.review_status === 'needs_changes' ? copy.needsChanges : copy.pending}</span>
       </summary>
       <div className="space-y-4 border-t border-border p-4">
-      {course.ai_generated && (
-        <section aria-labelledby="course-release-heading" className="scroll-mt-24 rounded-xl border border-border bg-card p-4 sm:p-5">
-          <h2 id="course-release-heading" className="font-semibold">{t('releaseSteps.title')}</h2>
-          <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm marker:font-semibold">
-            <li>
-              <p className="mb-2 pl-2 font-medium">{t('releaseSteps.source')}</p>
-            </li>
-            <li>
-              <Link className={workflowLinkClass} href={`/quizzes?courseId=${courseQuery}${programGenerationJob ? `&programGenerationJob=${encodeURIComponent(programGenerationJob)}` : ''}`}>{t('releaseSteps.quizzes')}</Link>
-              {!published && <p className="px-2 text-muted-foreground">{t('releaseSteps.quizzesHint')}</p>}
-            </li>
-            <li className="pl-2">
-              {approved || published
-                ? <span className="font-medium">{t('releaseSteps.approve')} · {t('releaseSteps.done')}</span>
-                : <span>{t('releaseSteps.approve')}</span>}
-            </li>
-            <li className="pl-2">
-              {published
-                ? <span className="font-medium">{t('releaseSteps.publish')} · {t('releaseSteps.done')}</span>
-                : <span>{t('releaseSteps.publish')}{!approved && ` · ${t('releaseSteps.afterApproval')}`}</span>}
-              {!published && <p className="mt-1 text-muted-foreground">{t('releaseSteps.approvalHint')}</p>}
-            </li>
-            {!course.source_instruction_id && !published && <li>
-              <span className="pl-2">{nextActionLabel} · {t('releaseSteps.afterPublication')}</span>
-            </li>}
-          </ol>
-        </section>
-      )}
+      {course.ai_generated && !published && releaseStep !== 'sources' && sourcePanel}
       <ApprovalPolicyCard courseId={course.id} initialRequiresApproval={Boolean(course.requires_approval)} />
       <CourseReadiness lang={lang} moduleCount={modules.length} lessonCount={lessonSequence.length} dirty={workspaceDirty}
         requiresReview={requiresCourseReview} reviewStatus={course.review_status} unavailable={readinessUnavailable} />

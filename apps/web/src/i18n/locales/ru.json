@@ -1,4 +1,5 @@
 {
+  "nextCourseAction": {"title":"Следующий шаг","languages":"Языки курса — {languages}","translationRequired":"До одобрения курса утвердите перевод ({languages}) или измените список языков.","openLanguages":"Перейти к языкам курса","pendingQuizzes":"Тестов, которые нужно одобрить — {count}","loading":"Проверяем готовность курса…","unavailable":"Не удалось определить следующий шаг.","loadingApproved":"Открываем утверждённую редакцию…","loadingSelection":"Открываем выбранные документы…","retrySelection":"Повторить загрузку выбранных документов","courseSource":"Сначала сохраните сверку уроков и тестов с источником.","quizReview":"Перед публикацией одобрите тесты курса.","languageReview":"Перед публикацией утвердите перевод или измените языки курса."},
   "learningTelegram": {
     "title": "Уведомления в Telegram",
     "connected": "Telegram подключён",

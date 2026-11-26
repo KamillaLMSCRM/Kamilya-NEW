@@ -2,6 +2,9 @@ import type { TranslationKey } from '@/i18n/useT';
 
 const approvalMessages: Record<string, TranslationKey> = {
   course_content_required: 'courses.contentRequired',
+  source_uncertainty_review_required: 'nextCourseAction.courseSource',
+  quiz_review_required: 'nextCourseAction.quizReview',
+  course_languages_review_required: 'nextCourseAction.languageReview',
   approval_required: 'courseApproval.publishRequiresApproval',
   approval_pending: 'courseApproval.publishApprovalPending',
   approval_changes_requested: 'courseApproval.publishChangesRequested',
