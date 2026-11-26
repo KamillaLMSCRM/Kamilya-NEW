@@ -330,7 +330,7 @@ function ReviewWorkspace({ id, approvalId }: { id: string; approvalId?: string }
         {review.approval && <div className="flex flex-wrap items-center gap-3">
           <p className="w-full text-sm">{copy.approved} · {stamp(review.approval.created_at)}. {copy.afterApproval}</p>
           {!approvalId && <>
-            <Link className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href={generationHref}>{copy.generate}</Link>
+            <Link className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground" href={generationHref + "&approved=1"}>{copy.generate}</Link>
             <Link className="text-sm text-primary underline" href={sourceReviewHref(id, review.approval.approval_id)}>{copy.preview}</Link>
             <Button variant="outline" disabled={disabled} onClick={() => void action({ action: 'reopen' })}>{copy.reopen}</Button>
           </>}

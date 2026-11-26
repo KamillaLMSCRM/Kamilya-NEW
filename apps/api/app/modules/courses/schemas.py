@@ -7,6 +7,14 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_serialize
 from app.modules.courses.video_practice import public_course_metadata
 
 
+class CourseReleaseReadiness(BaseModel):
+    course_id: UUID
+    source_review_required: bool
+    pending_quizzes: int
+    requested_languages: list[Literal["ru", "kk", "en"]]
+    missing_languages: list[Literal["ru", "kk", "en"]]
+
+
 class CourseCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: str = Field(..., max_length=5000)

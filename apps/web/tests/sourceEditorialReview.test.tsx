@@ -305,7 +305,7 @@ describe('source editorial review', () => {
     expect(mocks.post).toHaveBeenCalledWith('/v1/documents/' + id + '/editorial-review',
       expect.objectContaining({ action: 'resolve', expected_revision: 3, replacement: updated, reason }));
     fireEvent.click(approveButton);
-    expect(await screen.findByRole('link', { name: 'Создать курс' })).toHaveAttribute('href', '/ai/generate?document_id=' + id);
+    expect(await screen.findByRole('link', { name: 'Создать курс' })).toHaveAttribute('href', '/ai/generate?document_id=' + id + '&approved=1');
     expect(screen.getByRole('link', { name: 'Открыть утверждённую редакцию' })).toHaveAttribute('href', '/documents/' + id + '/editorial-review/' + approval);
   });
 
