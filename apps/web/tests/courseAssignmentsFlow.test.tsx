@@ -831,11 +831,11 @@ describe('contextual course assignment flow', () => {
     expect(await screen.findByText('Доступность получателей уточняется после загрузки назначений.')).toBeInTheDocument();
   });
 
-  it('lets the methodologist explicitly choose a personal link and completion window', async () => {
+  it('offers a personal link before confirming an employee without email', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
-      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student', has_login_access: true }] }));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: null, role: 'student', has_login_access: true }] }));
       if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
       if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
       if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([]));
@@ -847,10 +847,20 @@ describe('contextual course assignment flow', () => {
 
     render(<CourseAssignmentsPage />);
     expect(await screen.findByRole('checkbox')).toBeChecked();
-    fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    const assign = screen.getByRole('button', { name: 'Назначить (1)' });
+    expect(assign).toBeDisabled();
+    expect(screen.getByText('У выбранных сотрудников нет email')).toBeVisible();
+    expect(confirmMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Персональная ссылка и PIN' }));
+    expect(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i })).toBeChecked();
+    expect(assign).toBeEnabled();
     fireEvent.click(screen.getByText('Дополнительные настройки сроков'));
     fireEvent.change(screen.getByLabelText('Время на прохождение после первого входа, минут'), { target: { value: '30' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Назначить (1)' }));
+    fireEvent.click(assign);
+
+    expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringMatching(/Алия Садыкова.*Персональная ссылка и PIN/),
+    }));
 
     await waitFor(() => {
       const assignmentCall = fetchMock.mock.calls.find(([input, init]) => (

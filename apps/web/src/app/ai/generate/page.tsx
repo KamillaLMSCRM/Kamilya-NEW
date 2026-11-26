@@ -64,6 +64,18 @@ interface Document {
   index_status: DocumentIndexStatus;
 }
 
+type DocumentResponse = Omit<Document, 'index_status'> & {
+  lifecycle_status: string;
+  indexing_job_id?: string | null;
+};
+
+const MAX_SELECTED_DOCUMENTS = 5;
+
+function documentFromResponse(data: DocumentResponse): Document {
+  return { ...data, index_status: data.embedding_status === 'success' ? 'ready'
+    : data.embedding_status === 'failed' ? 'failed' : 'processing' };
+}
+
 interface LearningPathDetail {
   id: string;
   status: 'draft' | 'published' | 'archived';
@@ -224,6 +236,7 @@ export default function AIGeneratePage() {
   const [dragOver, setDragOver] = useState(false);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+  const [lastUploadedId, setLastUploadedId] = useState<string | null>(null);
   const [documentIndexProgress, setDocumentIndexProgress] = useState<Record<string, DocumentIndexProgress>>({});
   const documentIndexProgressRef = useRef(documentIndexProgress);
   const [uploadError, setUploadError] = useState('');
@@ -350,6 +363,14 @@ export default function AIGeneratePage() {
   const [preview, setPreview] = useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [courseMeta, setCourseMeta] = useState<any | null>(null); // includes review_status, reviewer
+  const resultHeadingRef = useRef<HTMLHeadingElement>(null);
+  const resultCourseId = step === 'review' ? currentJob?.course_id : null;
+  useEffect(() => {
+    if (!resultCourseId) return;
+    const heading = resultHeadingRef.current;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView?.({ block: 'start' });
+  }, [resultCourseId]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [publishSubmitting, setPublishSubmitting] = useState(false);
   const [programAttachState, setProgramAttachState] = useState<ProgramAttachState>('idle');
@@ -433,6 +454,12 @@ export default function AIGeneratePage() {
     const doc = documents.find(item => item.id === id) ?? chosenDocuments.current.get(id);
     return doc ? [doc] : [];
   });
+  const selectedUploadId = lastUploadedId && selectedDocIds.includes(lastUploadedId) ? lastUploadedId : null;
+  useEffect(() => {
+    if (!selectedUploadId) return;
+    setSourceStrategy('single_topic');
+    setCombinationGoal('');
+  }, [selectedUploadId]);
   const { status: sourceReviewStatus, refresh: refreshSourceReviews } = useSourceReviewStatuses(selectedDocIds, actorSignature);
   const [sourceReviewRejected, setSourceReviewRejected] = useState(false);
 
@@ -442,14 +469,15 @@ export default function AIGeneratePage() {
   const failedDocumentsCount = documents.filter((doc) => doc.index_status === 'failed').length;
   const hasResolvedSourceDecision = !compatibility?.requires_decision
     || (sourceStrategy === 'intentional_combination' && combinationGoal.trim().length >= 20);
+  const uploading = uploadingCount > 0;
   const canGenerate = selectedDocIds.length > 0
+    && !uploading
     && !sourceReviewBlocked
     && selectedNotReadyCount === 0
     && !compatibilityLoading
     && !!compatibility
     && hasResolvedSourceDecision
     && (!generationConflict || generationConflict.status === 'terminal');
-  const uploading = uploadingCount > 0;
 
   const documentStatusLabel = (status: DocumentIndexStatus) => {
     return t(`aiGeneration.status.${status}` as never);
@@ -563,24 +591,22 @@ export default function AIGeneratePage() {
     if (querySelectionApplied.current || !catalogLoaded) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('job_id')?.trim()) return;
-    const requested = [...new Set(params.getAll('document_id'))].slice(0, 5);
+    const requested = [...new Set(params.getAll('document_id'))].slice(0, MAX_SELECTED_DOCUMENTS);
     if (requested.length === 0) return;
     querySelectionApplied.current = true;
     const selected = requested.flatMap(id => documents.find(doc => doc.id === id) ?? []);
     for (const doc of selected) chosenDocuments.current.set(doc.id, doc);
-    setSelectedDocIds(requested);
+    setSelectedDocIds(current => [...new Set([...requested, ...current])].slice(0, MAX_SELECTED_DOCUMENTS));
     const missing = requested.filter(id => !chosenDocuments.current.has(id));
     const requestActor = actorSignatureRef.current;
     if (!missing.length) return;
 
     void Promise.allSettled(missing.map(async id => {
-      const { data } = await api.get<Omit<Document, 'index_status'> & { lifecycle_status: string }>(
+      const { data } = await api.get<DocumentResponse>(
         '/v1/documents/' + encodeURIComponent(id),
       );
       if (data.id !== id || data.lifecycle_status !== 'active') return null;
-      const indexStatus = data.embedding_status === 'success' ? 'ready' : data.embedding_status === 'failed' ? 'failed' : 'processing';
-      const doc: Document = { ...data, index_status: indexStatus };
-      return doc;
+      return documentFromResponse(data);
     })).then(results => {
       if (!generationPageMountedRef.current || actorSignatureRef.current !== requestActor) return;
       const unavailable = new Set(missing);
@@ -625,18 +651,24 @@ export default function AIGeneratePage() {
     const formData = new FormData();
     formData.append('file', accepted);
     formData.append('title', file.name.replace(/\.[^/.]+$/, ''));
+    const requestActor = actorSignatureRef.current;
+    const isCurrent = () => generationPageMountedRef.current && actorSignatureRef.current === requestActor;
     try {
-      const response = await api.post<{
-        id: string;
-        indexing_job_id?: string | null;
-      }>('/v1/documents/upload', formData, {
+      const { data: uploaded } = await api.post<DocumentResponse>('/v1/documents/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (response.data.id && response.data.indexing_job_id) {
+      if (!isCurrent()) return;
+      if (uploaded.id && uploaded.lifecycle_status === 'active') {
+        chosenDocuments.current.set(uploaded.id, documentFromResponse(uploaded));
+        setLastUploadedId(uploaded.id);
+        setSelectedDocIds(current => current.includes(uploaded.id) || current.length >= MAX_SELECTED_DOCUMENTS
+          ? current : [...current, uploaded.id]);
+      }
+      if (uploaded.id && uploaded.indexing_job_id) {
         setDocumentIndexProgress((progress) => ({
           ...progress,
-          [response.data.id]: {
-            jobId: response.data.indexing_job_id!,
+          [uploaded.id]: {
+            jobId: uploaded.indexing_job_id!,
             current: null,
             total: null,
             estimatedRemainingSeconds: null,
@@ -646,6 +678,7 @@ export default function AIGeneratePage() {
       }
       await fetchDocuments();
     } catch (e) {
+      if (!isCurrent()) return;
       const duplicate = getDuplicateDocumentConflict(e);
       if (duplicate) {
         setDuplicateDocument({ title: duplicate.title, version: duplicate.version });
@@ -655,8 +688,10 @@ export default function AIGeneratePage() {
       setUploadError(message);
       toast.error(t('aiGeneration.errors.uploadTitle'), { description: message });
     } finally {
-      setUploadingCount((count) => Math.max(0, count - 1));
-      setUploadingFiles((files) => files.filter((name) => name !== file.name));
+      if (isCurrent()) {
+        setUploadingCount((count) => Math.max(0, count - 1));
+        setUploadingFiles((files) => files.filter((name) => name !== file.name));
+      }
     }
   }, [fetchDocuments, t]);
 
@@ -736,13 +771,13 @@ export default function AIGeneratePage() {
   const toggleDoc = (id: string) => {
     const doc = documents.find((item) => item.id === id) ?? chosenDocuments.current.get(id);
     if (!doc) return;
-    if (!selectedDocIds.includes(id) && selectedDocIds.length >= 5) {
+    if (!selectedDocIds.includes(id) && selectedDocIds.length >= MAX_SELECTED_DOCUMENTS) {
       toast.warning(t('aiGeneration.errors.selectionLimit'));
       return;
     }
     if (selectedDocIds.includes(id)) chosenDocuments.current.delete(id);
     else chosenDocuments.current.set(id, doc);
-    setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
+    setSelectedDocIds(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id].slice(0, MAX_SELECTED_DOCUMENTS));
     setSourceStrategy('single_topic');
     setCombinationGoal('');
   };
@@ -976,6 +1011,7 @@ export default function AIGeneratePage() {
     resetWorkflow();
     clearRequestedJobQuery();
     setSelectedDocIds([]);
+    setLastUploadedId(null);
     setTargetAudience('');
     setCourseIntent('');
     setNumModules(3);
@@ -1336,51 +1372,31 @@ export default function AIGeneratePage() {
       {step === 'documents' && (
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.65fr)]">
           <WorkspacePanel title={t('aiGeneration.steps.documents')} bodyClassName="space-y-4">
-          <section className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="font-display text-sm font-semibold text-foreground">{t('documents.youtubeSourceTitle')}</h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {t('documents.youtubeSourceDescription')}
-              </p>
-              {youtubeImportAvailability === 'disabled' && (
-                <p className="mt-2 text-xs font-medium text-warning">{t('documents.youtubeUnavailable')}</p>
-              )}
-            </div>
-            <button
-              type="button"
-              disabled={youtubeImportAvailability !== 'enabled'}
-              onClick={() => router.push('/documents?import=youtube')}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-card px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {youtubeImportAvailability === 'checking' ? t('documents.youtubeChecking') : t('documents.youtubeAddVideo')}
-            </button>
-          </section>
-
           {/* Upload zone */}
-          <div
+          <input ref={fileRef} type="file" multiple onChange={(event) => {
+            void handleFileInputChange(event);
+          }} className="hidden" accept={DOCUMENT_UPLOAD_ACCEPT} />
+          <button type="button"
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileRef.current?.click()}
-            className={`rounded-2xl border-2 border-dashed bg-muted/20 p-6 text-center cursor-pointer transition-all ${
+            className={`w-full rounded-2xl border-2 border-dashed bg-muted/20 p-6 text-center cursor-pointer transition-all focus-visible:ring-2 focus-visible:ring-ring ${
               dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-border hover:bg-muted'
             }`}
           >
-            <input ref={fileRef} type="file" multiple onChange={(e) => {
-              void handleFileInputChange(e);
-            }} className="hidden" accept={DOCUMENT_UPLOAD_ACCEPT} />
-            <div className="text-2xl mb-2 text-muted-foreground">
+            <span className="mb-2 block text-muted-foreground" aria-hidden="true">
               {uploading ? <Loader2 className="w-8 h-8 mx-auto animate-spin" /> : <FolderOpen className="w-8 h-8 mx-auto" />}
-            </div>
-            <p className="text-sm text-muted-foreground">
+            </span>
+            <span className="block text-sm text-muted-foreground">
               {uploading ? t('aiGeneration.upload.loading', { files: uploadingFiles.join(', ') || t('aiGeneration.upload.file') }) : t('aiGeneration.upload.prompt')}
-            </p>
+            </span>
             {uploading && (
-              <p className="mt-1 text-xs text-muted-foreground">
+              <span className="mt-1 block text-xs text-muted-foreground">
                 {t('aiGeneration.upload.progress')}
-              </p>
+              </span>
             )}
-          </div>
+          </button>
 
           {uploadError && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1403,6 +1419,58 @@ export default function AIGeneratePage() {
             </div>
           )}
 
+          {lastUploadedId && selectedDocIds.length >= MAX_SELECTED_DOCUMENTS && !selectedDocIds.includes(lastUploadedId) && (
+            <p role="status" className="text-sm text-warning">{t('aiGeneration.errors.selectionLimit')}</p>
+          )}
+
+          {selectedDocuments.length > 0 && <section aria-label={pickerCopy.selected} className="space-y-2">
+            <h3 aria-live="polite" className="text-sm font-semibold">{pickerCopy.selected} ({selectedDocuments.length})</h3>
+            <ul className="flex flex-wrap gap-2">{selectedDocuments.map(doc => <li key={doc.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/30 px-2 py-1 text-sm">
+              <span className="min-w-0 break-words">{doc.title}</span>
+              <button type="button" aria-label={pickerCopy.remove + ': ' + doc.title} onClick={() => toggleDoc(doc.id)}
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted">
+                <XCircle className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </li>)}</ul>
+          </section>}
+          <SourceReviewChecklist documents={selectedDocuments} status={sourceReviewStatus}
+            requireReview={sourceReviewRejected && !sourceReviewStatus?.required} />
+          {selectedDocIds.length > 0 && !(sourceReviewBlocked || (sourceReviewRejected && !sourceReviewStatus?.required)) && <button
+            onClick={() => void handleGenerate()}
+            disabled={!canGenerate || generationSubmitting}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('aiGeneration.generation.starting')}</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
+          </button>}
+          {selectedDocIds.length > 0 && <a href="#generation-settings"
+            className="inline-flex min-h-10 items-center rounded text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring xl:hidden"
+          >{t('aiGeneration.generation.settings')}</a>}
+          {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
+            <div className="text-center text-xs text-warning">
+              {t('aiGeneration.generation.notReady')}
+            </div>
+          )}
+
+          <section className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-display text-sm font-semibold text-foreground">{t('documents.youtubeSourceTitle')}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t('documents.youtubeSourceDescription')}
+              </p>
+              {youtubeImportAvailability === 'disabled' && (
+                <p className="mt-2 text-xs font-medium text-warning">{t('documents.youtubeUnavailable')}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={youtubeImportAvailability !== 'enabled'}
+              onClick={() => router.push('/documents?import=youtube')}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-card px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {youtubeImportAvailability === 'checking' ? t('documents.youtubeChecking') : t('documents.youtubeAddVideo')}
+            </button>
+          </section>
+
           {documentLoadError && (
             <div className="flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <span>{documentLoadError}</span>
@@ -1422,16 +1490,6 @@ export default function AIGeneratePage() {
               className="block w-full rounded-xl border border-border bg-background px-3 py-2.5" />
           </label>
           {returnSelectionUnavailable && <p role="status" className="text-sm text-muted-foreground">{pickerCopy.unavailable}</p>}
-          {selectedDocuments.length > 0 && <section aria-label={pickerCopy.selected} className="space-y-2">
-            <h3 className="text-sm font-semibold">{pickerCopy.selected} ({selectedDocuments.length})</h3>
-            <ul className="flex flex-wrap gap-2">{selectedDocuments.map(doc => <li key={doc.id} className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/30 px-2 py-1 text-sm">
-              <span className="min-w-0 break-words">{doc.title}</span>
-              <button type="button" aria-label={pickerCopy.remove + ': ' + doc.title} onClick={() => toggleDoc(doc.id)}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted">
-                <XCircle className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </li>)}</ul>
-          </section>}
           {catalogSearch && documents.length === 0 && !documentLoadError && <p role="status" className="text-sm text-muted-foreground">{pickerCopy.empty}</p>}
 
           {/* Documents list */}
@@ -1647,7 +1705,7 @@ export default function AIGeneratePage() {
           </WorkspacePanel>
           {/* Config and its admission action stay together beside the sources. */}
           <div className="min-w-0 space-y-4">
-          <WorkspacePanel title={t('aiGeneration.generation.settings')} bodyClassName="space-y-4">
+          <WorkspacePanel id="generation-settings" className="scroll-mt-36" title={t('aiGeneration.generation.settings')} bodyClassName="space-y-4">
             <div>
               <label htmlFor="course-intent" className="block text-xs font-semibold text-muted-foreground mb-1">{t('ai.courseIntent')}</label>
               <textarea
@@ -1767,20 +1825,6 @@ export default function AIGeneratePage() {
             </details>
           </WorkspacePanel>
 
-          <SourceReviewChecklist documents={selectedDocuments} status={sourceReviewStatus}
-            requireReview={sourceReviewRejected && !sourceReviewStatus?.required} />
-          {!(sourceReviewBlocked || (sourceReviewRejected && !sourceReviewStatus?.required)) && <button
-            onClick={() => void handleGenerate()}
-            disabled={!canGenerate || generationSubmitting}
-            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {generationSubmitting ? <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />{t('aiGeneration.generation.starting')}</> : <>{t('ai.generate')} ({tp('common.counts.document', selectedDocIds.length)})</>}
-          </button>}
-          {selectedDocIds.length > 0 && selectedNotReadyCount > 0 && (
-            <div className="text-center text-xs text-warning">
-              {t('aiGeneration.generation.notReady')}
-            </div>
-          )}
           </div>
         </div>
       )}
@@ -1846,13 +1890,14 @@ export default function AIGeneratePage() {
       {/* STEP 3: Review */}
       {step === 'review' && currentJob?.course_id && (
         <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
-          <div className="xl:col-span-2"><CourseLanguagesEditor courseId={currentJob.course_id} prepare /></div>
           {/* Completion describes the saved draft, not a quality approval. */}
-          <WorkspaceToolbar className="items-center justify-between xl:col-span-2">
+          <WorkspaceToolbar className="items-center justify-between xl:col-span-2 xl:row-start-1">
             <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">
               <CheckCircle2 className="mt-1 h-6 w-6 shrink-0 text-primary" />
             <div>
-            <h3 className="text-base font-semibold text-foreground">{courseMeta?.status === 'published' ? t('authenticatedUi.editor.published') : t('generationDraft.title')}</h3>
+            <h2 ref={resultHeadingRef} tabIndex={-1} className="scroll-mt-36 rounded text-base font-semibold text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+              {courseMeta?.status === 'published' ? t('authenticatedUi.editor.published') : t('generationDraft.title')}
+            </h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
               {courseMeta?.status === 'published' ? t('aiGeneration.result.publishedHint') : t('generationDraft.hint')}
             </p>
@@ -1881,9 +1926,11 @@ export default function AIGeneratePage() {
             </button>
           </WorkspaceToolbar>
 
+          <div className="xl:col-span-2 xl:row-start-2"><CourseLanguagesEditor courseId={currentJob.course_id} prepare /></div>
+
           {/* Course meta + review status */}
           {courseMeta && (
-            <WorkspacePanel className="xl:col-start-2 xl:row-start-2" bodyClassName="space-y-4">
+            <WorkspacePanel className="xl:col-start-2 xl:row-start-3" bodyClassName="space-y-4">
               <div className="flex flex-wrap items-center gap-3">
                 <h4 className="min-w-0 flex-1 break-words text-lg font-semibold leading-7 text-foreground">
                   {courseMeta.title}
@@ -1943,7 +1990,7 @@ export default function AIGeneratePage() {
           )}
 
           {/* Preview: modules → lessons → quiz headers */}
-          <WorkspacePanel padded={false} className="overflow-hidden xl:col-start-1 xl:row-start-2">
+          <WorkspacePanel padded={false} className="overflow-hidden xl:col-start-1 xl:row-start-3">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
               <h4 className="text-sm font-semibold text-foreground font-display">
                  {t('aiGeneration.result.structure')}

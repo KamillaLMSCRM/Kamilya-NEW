@@ -382,11 +382,19 @@ function AssignmentsContent() {
   const [completionWindowMinutes, setCompletionWindowMinutes] = useState<number | null>(null);
   const [linkValidityDays, setLinkValidityDays] = useState(7);
   const [dueAt, setDueAt] = useState('');
+  const selectedRecipients = users.filter((user) => selectedUsers.has(user.id));
+  const recipientNames = selectedRecipients.map((user) => `${user.first_name} ${user.last_name}`.trim() || user.email || user.personnel_number || user.id);
+  const emailBlocked = deliveryMode === 'email' && selectedRecipients.some((user) => !user.email?.trim());
+  const deliveryLabel = t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email');
   const selectionIdentity = JSON.stringify([selectedCourse, [...selectedUsers].sort(), deliveryMode, completionWindowMinutes, linkValidityDays, dueAt, userRole]);
   const selectionIdentityRef = useRef(selectionIdentity);
   const contextEpoch = useRef(0);
   if (selectionIdentityRef.current !== selectionIdentity) contextEpoch.current += 1;
   selectionIdentityRef.current = selectionIdentity;
+  const chooseDelivery = (mode: DeliveryMode) => {
+    contextEpoch.current += 1;
+    setDeliveryMode(mode);
+  };
   const captureCurrentAction = () => {
     const epoch = contextEpoch.current;
     return () => alive.current && Boolean(token) && tokenRef.current === token
@@ -625,7 +633,7 @@ function AssignmentsContent() {
 
   const handleEnroll = async () => {
     if (!selectedCourse || selectedUsers.size === 0 || enrolling || assignmentCommand.current || enrollmentReadState !== 'ready' || !alive.current || !canManageAssignments || !token) return;
-    const selected = users.filter((user) => selectedUsers.has(user.id));
+    const selected = selectedRecipients;
     const course = courses.find((item) => item.id === selectedCourse);
     if (!course || course.status !== 'published' || selected.length !== selectedUsers.size
       || selected.some((user) => user.role !== 'student')
@@ -640,8 +648,7 @@ function AssignmentsContent() {
       && contextEpoch.current === confirmedEpoch && getAuthSessionEpoch() === confirmedAuthEpoch;
     const withoutAccess = selected.filter((user) => user.has_login_access === false);
     const personalLink = deliveryMode === 'personal_link';
-    const withoutEmail = selected.filter((user) => !user.email?.trim());
-    if (!personalLink && withoutEmail.length > 0) {
+    if (emailBlocked) {
       toast.error(t('courseAssignments.validation.missingEmail'), {
         description: t('courseAssignments.validation.missingEmailHint'),
       });
@@ -663,6 +670,8 @@ function AssignmentsContent() {
       title: t('courseAssignments.confirm.assignTitle'),
       message: [
         `${course?.title || t('courseAssignments.fallback.selectedCourse')} ${t('courseAssignments.confirm.willBeAssigned')}. ${t('courseAssignments.confirm.selected')}: ${tp('common.counts.learner', selected.length)}.`,
+        `${t('courseAssignments.ui.learners')} — ${recipientNames.slice(0, 5).join(', ')}${recipientNames.length > 5 ? ` (+${recipientNames.length - 5})` : ''}.`,
+        `${t('courseAssignments.ui.deliveryLegend')} — ${deliveryLabel}.`,
         personalLink
           ? t('courseAssignments.confirm.personalLinkCreated')
           : withoutAccess.length > 0
@@ -1560,7 +1569,7 @@ function AssignmentsContent() {
               <Button
                 onClick={handleEnroll}
                 disabled={
-                  !selectedCourse || selectedUsers.size === 0 || enrolling || enrollmentReadState !== 'ready'
+                  !selectedCourse || selectedUsers.size === 0 || enrolling || enrollmentReadState !== 'ready' || emailBlocked
                   || (deliveryMode === 'personal_link' && selectedUsers.size !== 1)
                 }
               >
@@ -1569,6 +1578,15 @@ function AssignmentsContent() {
                   : t('courseAssignments.ui.assignCount', { count: selectedUsers.size })}
               </Button>
         }>
+          {emailBlocked && (
+            <div role="status" className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+              <p className="font-medium">{t('courseAssignments.validation.missingEmail')}</p>
+              <p>{t(selectedUsers.size === 1 ? 'courseAssignments.validation.missingEmailHint' : 'courseAssignments.ui.singleEmployeeHint')}</p>
+              {selectedUsers.size === 1 && <Button type="button" variant="outline" onClick={() => chooseDelivery('personal_link')}>
+                {t('courseAssignments.ui.personalLink')}
+              </Button>}
+            </div>
+          )}
           {selectedCourse && (
             <div data-testid="selected-assignment-course" className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
               <span className="font-medium">{lang === 'en' ? 'Course' : lang === 'kk' ? 'Курс' : 'Курс'}:</span>{' '}
@@ -1703,7 +1721,7 @@ function AssignmentsContent() {
                   name="delivery-mode"
                   value="email"
                   checked={deliveryMode === 'email'}
-                  onChange={() => { contextEpoch.current += 1; setDeliveryMode('email'); }}
+                  onChange={() => chooseDelivery('email')}
                 />
                 <span><b>{t('courseAssignments.ui.email')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.emailHint')}</span></span>
               </label>
@@ -1713,7 +1731,7 @@ function AssignmentsContent() {
                   name="delivery-mode"
                   value="personal_link"
                   checked={deliveryMode === 'personal_link'}
-                  onChange={() => { contextEpoch.current += 1; setDeliveryMode('personal_link'); }}
+                  onChange={() => chooseDelivery('personal_link')}
                 />
                 <span><b>{t('courseAssignments.ui.personalLink')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.personalLinkHint')}</span></span>
               </label>
@@ -1782,10 +1800,10 @@ function AssignmentsContent() {
               <AssignmentSelectionPreview
                 lang={lang}
                 courseTitle={courses.find((course) => course.id === selectedCourse)?.title}
-                names={users.filter((learner) => selectedUsers.has(learner.id)).map((learner) => `${learner.first_name} ${learner.last_name}`.trim())}
+                names={recipientNames}
                 existingCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse).map((item) => item.user_id)).size : null}
                 completedCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse && item.status === 'completed').map((item) => item.user_id)).size : null}
-                deliveryLabel={t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email')}
+                deliveryLabel={deliveryLabel}
               />
             ) : (
               <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-testid="assignment-selection-empty">

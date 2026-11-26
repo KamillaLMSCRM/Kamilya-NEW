@@ -295,6 +295,35 @@ describe('/ai/generate job workflow parity', () => {
 
     expect(await screen.findByText('Этот файл уже есть в библиотеке: «Правила ИБ», версия 2.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Открыть существующий документ' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Выбранные документы' })).not.toBeInTheDocument();
+  });
+
+  it('adds an uploaded document even before it is in the catalog and shows its review action', async () => {
+    localStorage.clear();
+    const uploaded = {
+      id: 'new-source', title: 'Новая инструкция', filename: 'source.txt', content_type: 'text/plain',
+      size: 8, description: '', lifecycle_status: 'active', embedding_status: 'pending',
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url.startsWith('/v1/documents/editorial-review/status?')) {
+        return { data: { required: true, documents: { [uploaded.id]: 'not_started' } } } as any;
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async url => ({ data: url === '/v1/documents/upload' ? uploaded : {} }) as any);
+    const { container } = render(<AIGeneratePage />);
+    fireEvent.change(container.querySelector('input[type=file]')!, {
+      target: { files: [new File(['content'], uploaded.filename, { type: uploaded.content_type })] },
+    });
+
+    const selection = await screen.findByRole('region', { name: 'Выбранные документы' });
+    expect(within(selection).getByText(uploaded.title)).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Проверить документ' }))
+      .toHaveAttribute('href', '/documents/new-source/editorial-review?document_id=new-source');
+    expect(screen.queryByRole('button', { name: /^Генерировать курс/ })).not.toBeInTheDocument();
+    fireEvent.click(within(selection).getByRole('button', { name: 'Убрать: Новая инструкция' }));
+    expect(screen.queryByRole('region', { name: 'Выбранные документы' })).not.toBeInTheDocument();
   });
 
   it('shows exact document indexing progress from the returned indexing job', async () => {
