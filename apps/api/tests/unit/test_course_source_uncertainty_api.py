@@ -11,7 +11,8 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.auth import get_current_active_user, get_current_user
 from app.core.db import get_db
-from app.modules.courses import localizations, router as courses_router, source_uncertainty
+from app.modules.courses import localizations, source_uncertainty
+from app.modules.courses import router as courses_router
 from app.modules.courses.router import router
 from app.modules.courses.source_uncertainty import (
     SOURCE_UNCERTAINTY_KEY,
