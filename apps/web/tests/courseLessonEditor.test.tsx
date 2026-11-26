@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
@@ -196,7 +196,8 @@ describe('course lesson editor', () => {
     await screen.findByRole('button', { name: 'Введение' });
     const checks = container.querySelector<HTMLDetailsElement>('[data-publication-checks]')!;
     expect(checks.open).toBe(false);
-    expect(await screen.findByRole('button', { name: 'Открыть замечания и источники' })).toBeVisible();
+    const next = screen.getByRole('region', { name: 'nextCourseAction.title' });
+    expect(await within(next).findByRole('button', { name: 'Открыть замечания и источники' })).toBeVisible();
     expect(screen.getByText('Проверка и публикация — подробности')).toBeVisible();
     await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Unsaved lesson' } });

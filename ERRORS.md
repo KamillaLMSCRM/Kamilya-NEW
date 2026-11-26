@@ -11743,3 +11743,10 @@ any provider intent, then replaced candidate test evidence; no model repeats.
 - Fix: read recent source review statuses by tenant and link to the exact document. Show archive for retained history, including unpublished approvals. Preserve physical deletion for an eligible empty draft and return a conflict if a retained reference is added concurrently. Show creation dates in the rows and make the desktop details panel sticky.
 - Verification: catalogue and course-approval tests passed locally. Browser tests covered a 100-row list, review link after reload and mobile return. On desktop they selected a course deep in the list and verified that its details remained visible.
 - Prevention: exercise the signed-in recovery path and author catalog with an approved unpublished draft, an empty draft and a long list.
+## LEARNING-UX-005 - Course approval was visible before its prerequisites
+
+- Date: 2026-11-26.
+- Symptom: generated drafts exposed course approval before recording source verification. Translation requirements surfaced at publication, and the source handoff temporarily showed an empty uploader.
+- Cause: the editor showed a static checklist and gated the main action on course approval alone. The handoff waited for catalogue pagination before resolving known source IDs.
+- Fix: the editor chooses one next action from the current source, assessment, and language checks. The generation page loads handoff documents directly and places the recovered selection first.
+- Prevention: exercise a bilingual generated draft through the actual approval checks, and delay catalogue loading in the handoff regression to prove that it does not delay the selected source.
