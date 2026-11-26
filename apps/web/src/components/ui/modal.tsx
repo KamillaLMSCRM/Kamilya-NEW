@@ -15,6 +15,7 @@ interface ModalProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  placement?: 'center' | 'end';
   /** Allow closing with ESC and backdrop click. Default: true. */
   dismissable?: boolean;
   /** Allow closing specifically by clicking the backdrop. Defaults to dismissable. */
@@ -52,6 +53,7 @@ export function Modal({
   description,
   children,
   className,
+  placement = 'center',
   dismissable = true,
   closeOnBackdrop = dismissable,
   initialFocusRef,
@@ -134,7 +136,7 @@ export function Modal({
   if (!open || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className={cn('fixed inset-0 z-50 flex', placement === 'end' ? 'justify-end' : 'items-center justify-center p-4')}>
       <div
         className="fixed inset-0 bg-black/50"
         data-modal-backdrop="true"
@@ -150,6 +152,7 @@ export function Modal({
         tabIndex={-1}
         className={cn(
           'relative z-10 w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-lg bg-dialog-surface p-6 shadow-lg outline-none',
+          placement === 'end' && 'h-dvh max-h-dvh max-w-none rounded-none p-4 sm:max-w-2xl sm:p-6',
           className
         )}
       >
@@ -162,7 +165,7 @@ export function Modal({
               <button
                 type="button"
                 onClick={handleClose}
-                className="text-muted-foreground hover:text-foreground p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={cn('text-muted-foreground hover:text-foreground p-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', placement === 'end' && 'grid min-h-11 min-w-11 place-items-center')}
                 aria-label={t('a11y.closeDialog')}
               >
                 <X className="w-5 h-5" aria-hidden="true" />

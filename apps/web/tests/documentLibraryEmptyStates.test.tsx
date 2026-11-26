@@ -6,7 +6,10 @@ import { api } from '@/lib/api';
 import { useLanguageStore } from '@/store/languageStore';
 const auth = vi.hoisted(() => ({ user: { user_id: 'author-a', tenant_id: 'tenant-a', role: 'methodologist' }, accessToken: 'token-a', sessionEpoch: 1 }));
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 vi.mock('@/lib/api', () => ({ api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() } }));
 vi.mock('@/store/authStore', () => ({ useAuthStore: (select: (state: unknown) => unknown) => select(auth) }));
 vi.mock('@/features/source-actuality/SourceActualityPanel', () => ({ SourceActualityPanel: () => null }));

@@ -9,8 +9,62 @@ from typing import Any
 
 from app.modules.ai.v3.literal_source_access import LiteralSourceAccess
 from app.modules.ai.v3.practical_contract import _digest
+from app.modules.ai.v3.simple_branch_consistency import reconcile_branch_outputs
+from app.modules.ai.v3.simple_course_block_editor import block_editor_format, matches_simple_block_editor
 from app.modules.ai.v3.simple_course_editor_v11 import run_simple_course_editor_v11
-from app.modules.ai.v3.source_access_contract import access_format, matches_access
+from app.modules.ai.v3.simple_joint_editor_batches import (
+    batch_joint_editor,
+    combine_joint_proposals,
+    owned_joint_proposal,
+)
+from app.modules.ai.v3.simple_joint_related_source import companion_branch_targets, select_branch_targets
+from app.modules.ai.v3.source_access_contract import access_format, compact_oversized_review, matches_access
+
+_BRANCH_REVIEW = (
+    'You are checking the final draft solely for lost scope or alternative branches. For each supplied paragraph '
+    'first compare the exact clauses under the same actor, object, action and conditions, even if the later clause '
+    'is in another section. If the paragraph currently presents only one required route and the same procedure '
+    'has a literal exception or an alternate document for a different status, retain the existing route for its '
+    'applicable case and teach the alternate case here. Make both branches explicit within this paragraph. '
+    'Keep the original paragraph word-for-word except for changes necessary to preserve those branches. '
+    'Do nothing when the quotes concern another procedure or the paragraph already explains the condition. '
+    'Never broaden a permission or introduce a duty. Ask a source_question solely when the supplied source '
+    'clauses contain irreconcilable requirements for the same case. Return body_edits with the supplied BODY IDs '
+    'and lesson_sources with the exact reference IDs for each compared lesson, including unchanged lessons. '
+    'Set title_edits, question_edits, '
+    'and added_lessons to empty arrays. Preserve the original lesson language.'
+)
+
+
+def apply_branch_edits(value: Any, fmt: dict[str, Any], targets: list[dict[str, Any]],
+                       proposal: dict[str, Any], addresses: dict[str, str]) -> dict[str, Any]:
+    if not matches_simple_block_editor(value, fmt):
+        raise ValueError('simple_branch_review_shape_invalid')
+    if any(value[key] for key in ('title_edits', 'question_edits', 'added_lessons')) or value.get('finding_dispositions'):
+        raise ValueError('simple_branch_review_scope_invalid')
+    by_block = {row['block_id']: row for row in targets}
+    affected = {by_block[edit['block_id']]['lesson_id'] for edit in value['body_edits']}
+    refs = {
+        lesson: {clause['source_ref'] for row in targets if row['lesson_id'] == lesson
+                 for clause in row['companion_clauses']}
+        for lesson in {row['lesson_id'] for row in targets}
+    }
+    supplied = {row['lesson_id']: row['source_refs'] for row in value['lesson_sources']}
+    if not affected <= set(supplied) <= set(refs) or len(supplied) != len(value['lesson_sources']):
+        raise ValueError('simple_branch_review_scope_invalid')
+    accepted = {lesson for lesson in affected if supplied[lesson] and set(supplied[lesson]) <= refs[lesson]}
+    if affected and not accepted:
+        raise ValueError('simple_branch_review_scope_invalid')
+    updated = copy.deepcopy(proposal)
+    edits = {row['block_id']: row for row in updated['body_edits']}
+    edits.update((addresses[row['block_id']], {**row, 'block_id': addresses[row['block_id']]})
+                 for row in value['body_edits'] if by_block[row['block_id']]['lesson_id'] in accepted)
+    updated['body_edits'] = list(edits.values())
+    for row in updated['lesson_sources']:
+        if row['lesson_id'] in accepted:
+            row['source_refs'] = list(dict.fromkeys(row['source_refs'] + supplied[row['lesson_id']]))
+    updated['source_questions'].extend(value['source_questions'])
+    return updated
 
 _ALIGNMENT = (
     " Assessment design is a separate check from source factual truth. For EACH card identify the practical "
@@ -54,6 +108,9 @@ async def run_simple_course_editor_v12(
     lookup_rounds: int,
     reference_decisions: tuple[Any, ...] = (),
     planned_callback: Any = None,
+    bounded_joint: bool = True,
+    related_evidence: bool = False,
+    branch_review: bool = False,
 ) -> Any:
     if type(lookup_rounds) is not int or not 0 <= lookup_rounds <= 3:
         raise ValueError("source_access_lookup_budget_invalid")
@@ -63,6 +120,7 @@ async def run_simple_course_editor_v12(
     receipts = []
     bank: list[dict[str, Any]] = []
     teaching: list[dict[str, Any]] = []
+    corrected_clauses: dict[tuple[str, str], dict[str, str]] = {}
 
     async def planned(count: int) -> None:
         nonlocal base_total
@@ -71,6 +129,64 @@ async def run_simple_course_editor_v12(
             await planned_callback(count + additional)
 
     async def access_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
+        nonlocal additional
+        if bounded_joint and ':editor-joint:v9:' in group:
+            batches = batch_joint_editor(messages, related_evidence=related_evidence)
+            if batches:
+                additional += len(batches) - 1
+                if planned_callback:
+                    await planned_callback(base_total + additional)
+                proposals = []
+                branch_candidates: list[tuple[float, dict[str, Any]]] = []
+                for scoped, custody in batches:
+                    def validate_owned(value: Any, *, scope: Any = custody) -> None:
+                        validator(value)
+                        owned_joint_proposal(value, scope)
+
+                    value = await call_stage(name, group, scoped, fmt, validate_owned)
+                    owned = owned_joint_proposal(value, custody)
+                    proposals.append(owned)
+                    if branch_review:
+                        scope_payload = json.loads(scoped[1]['content'])
+                        branch_candidates.extend(companion_branch_targets(scope_payload, owned))
+                combined = combine_joint_proposals(proposals)
+                targets = select_branch_targets(branch_candidates)
+                if not targets:
+                    return combined
+                target_refs = sorted({clause['source_ref'] for row in targets for clause in row['companion_clauses']})
+                addresses = {f'BODY{index}': row['block_id'] for index, row in enumerate(targets, 1)}
+                displayed = [{**row, 'block_id': alias} for alias, row in zip(addresses, targets, strict=True)]
+                branch_format = block_editor_format(target_refs, packet.fingerprint, _digest(combined), list(addresses))
+                branch_messages = [
+                    {'role': 'system', 'content': _BRANCH_REVIEW},
+                    {'role': 'user', 'content': json.dumps(
+                        {'paragraphs': displayed, 'source_fingerprint': packet.fingerprint,
+                         'draft_fingerprint': _digest(combined)}, ensure_ascii=False, sort_keys=True)},
+                ]
+                additional += 1
+                if planned_callback:
+                    await planned_callback(base_total + additional)
+
+                def validate_branches(response: Any) -> None:
+                    apply_branch_edits(response, branch_format, displayed, combined, addresses)
+
+                branch_group = f'practical:simple:branch-review:v12:{packet.fingerprint}:unit={_digest(combined)}'
+                delta = await call_stage('repair', branch_group, branch_messages, branch_format, validate_branches)
+                revised = apply_branch_edits(delta, branch_format, displayed, combined, addresses)
+                applied = {row['block_id']: row['after'] for row in revised['body_edits']}
+                edits = {row['block_id']: row['after'] for row in delta['body_edits']}
+                refs_by_lesson = {row['lesson_id']: row['source_refs'] for row in delta['lesson_sources']}
+                for row in displayed:
+                    alias = row['block_id']
+                    if alias not in edits or applied.get(addresses[alias]) != edits[alias]:
+                        continue
+                    for clause in row['companion_clauses']:
+                        if clause['source_ref'] in refs_by_lesson[row['lesson_id']]:
+                            corrected_clauses[(clause['source_ref'], clause['quote'])] = clause
+                return revised
+        return await call_stage(name, group, messages, fmt, validator)
+
+    async def call_stage(name: str, group: str, messages: Any, fmt: Any, validator: Any) -> Any:
         nonlocal additional, bank, teaching
         complete_editor = ':editor-joint:v9:' in group
         bank_review = ':review-bank:v10:' in group
@@ -125,6 +241,7 @@ async def run_simple_course_editor_v12(
                 identity.append(fmt)
             fingerprint = _digest(identity)
             outer = access_format(fmt, packet.fingerprint, fingerprint, group, list(source.by_id))
+            outer = compact_oversized_review(outer)
             outer_group = (
                 f"practical:simple:lookup:v12:{packet.fingerprint}:base={_digest(group)}"
                 f":context={fingerprint}:round={attempt}"
@@ -171,8 +288,17 @@ async def run_simple_course_editor_v12(
                 await planned_callback(base_total + additional)
         raise AssertionError("unreachable source-access loop")
 
+    async def count_consistency_stage() -> None:
+        nonlocal additional
+        additional += 1
+        if planned_callback:
+            await planned_callback(base_total + additional)
+
     result = await run_simple_course_editor_v11(
         packet, corpus, intent, access_stage, reference_decisions=reference_decisions, planned_callback=planned
+    )
+    result = await reconcile_branch_outputs(
+        packet, result, list(corrected_clauses.values()), call_stage, count_consistency_stage,
     )
     return replace(
         result,

@@ -21,6 +21,8 @@ import { DashboardTaskQueue, type DashboardTask } from './DashboardTaskQueue';
 import { workspaceCopy } from '@/features/learning-workspace/copy';
 import { WorkspacePage } from '@/features/workspace-design';
 import { buildTrainingLogBrowserHref, type TrainingLogFilters } from '@/app/admin/training-log/query';
+import { sourceReviewHref } from '@/features/source-editorial-review/contract';
+import { sourceReviewCopy } from '@/features/source-editorial-review/copy';
 
 const copy = {
   ru: {
@@ -197,8 +199,8 @@ function DashboardContent() {
   const lang = useLanguageStore((state) => state.lang);
   const m = copy[lang as keyof typeof copy] ?? copy.ru;
   const w = workspaceCopy(lang);
-  const [sources, setSources] = useState<DashboardSources>({ learning: null, courses: null, jobs: null, mandatory: null });
-  const [loadStates, setLoadStates] = useState<Record<DashboardSection, 'loading' | 'ready' | 'error'>>({ learning: 'loading', courses: 'loading', jobs: 'loading', mandatory: 'loading' });
+  const [sources, setSources] = useState<DashboardSources>({ learning: null, courses: null, jobs: null, sourceReviews: null, mandatory: null });
+  const [loadStates, setLoadStates] = useState<Record<DashboardSection, 'loading' | 'ready' | 'error'>>({ learning: 'loading', courses: 'loading', jobs: 'loading', sourceReviews: 'loading', mandatory: 'loading' });
   const controllers = useRef<Partial<Record<DashboardSection, AbortController>>>({});
   const q = getQueueCopy(lang);
   const model = dashboardSections.every((key) => loadStates[key] === 'loading') ? null : buildMethodologistDashboard(sources);
@@ -281,6 +283,40 @@ function DashboardContent() {
       action: taskCopy.job,
     };
   });
+  const sourceReviewStatus = (status: string) => ({
+    not_started: lang === 'kk' ? 'Тексеру қажет' : lang === 'en' ? 'Review needed' : 'Нужно проверить',
+    queued: lang === 'kk' ? 'Кезекте' : lang === 'en' ? 'Queued' : 'В очереди',
+    running: lang === 'kk' ? 'Тексерілуде' : lang === 'en' ? 'Checking' : 'Идёт проверка',
+    interrupted: lang === 'kk' ? 'Тексеру үзілді' : lang === 'en' ? 'Interrupted' : 'Проверка прервана',
+    failed: lang === 'kk' ? 'Тексеру аяқталмады' : lang === 'en' ? 'Review incomplete' : 'Проверка не завершена',
+    in_review: lang === 'kk' ? 'Шешім қажет' : lang === 'en' ? 'Decision needed' : 'Нужно решение',
+    source_changed: lang === 'kk' ? 'Дереккөз өзгерді' : lang === 'en' ? 'Source changed' : 'Исходник изменился',
+  }[status] ?? status);
+  const sourceCopy = sourceReviewCopy(lang);
+  const sourceReviewTasks: DashboardTask[] = (sources.sourceReviews ?? [])
+    .filter((review) => review.status !== 'approved')
+    .map((review) => {
+      const readyForApproval = review.status === 'in_review' && review.open_questions === 0;
+      const status = readyForApproval ? sourceCopy.approve : sourceReviewStatus(review.status);
+      return {
+        id: `source-review:${review.document_id}`,
+        title: review.title,
+        subtitle: lang === 'kk' ? 'Құжатты тексеру' : lang === 'en' ? 'Document review' : 'Проверка документа',
+        status,
+        details: [
+          { label: taskCopy.status, value: status },
+          ...(review.open_questions == null ? [] : [{
+            label: lang === 'kk' ? 'Ашық сұрақтар' : lang === 'en' ? 'Open questions' : 'Открытые вопросы',
+            value: String(review.open_questions),
+          }]),
+        ],
+        href: sourceReviewHref(review.document_id) + '?' + new URLSearchParams({ document_id: review.document_id }),
+        action: review.status === 'in_review' ? (readyForApproval ? sourceCopy.finishReview : sourceCopy.continueReviewTask)
+          : review.status === 'failed' || review.status === 'interrupted' ? sourceCopy.reviewProblem
+          : review.status === 'not_started' ? sourceCopy.check
+          : sourceCopy.viewProgress,
+      };
+    });
   const review = lang === 'kk' ? 'Тексеру' : lang === 'en' ? 'Review' : 'Проверка';
   const openReview = lang === 'kk' ? 'Курсты тексеру' : lang === 'en' ? 'Review course' : 'Открыть проверку курса';
   const reviewTasks: DashboardTask[] = (model?.content.reviewCourses ?? []).map((course) => ({
@@ -325,7 +361,18 @@ function DashboardContent() {
           retry: loadStates.jobs === 'error' ? () => refreshSection('jobs') : undefined, retryLabel: `${w.retry} · ${taskCopy.jobs}`,
           empty: model.content.jobsAvailable ? model.content.jobsTruncated ? q.localEmpty : m.noJobs : m.jobsUnavailable,
           notice: model.content.jobsAvailable ? `${queueScope(lang, generationTasks.length, model.content.jobTotal)} ${model.content.jobsTruncated ? q.jobsBound : ''}`.trim() : undefined,
-          link: { href: '/ai/generate', label: q.jobs },
+          link: { href: '/ai/jobs', label: q.jobs },
+        }] : []),
+        ...(workView === 'all' || workView === 'review' ? [{
+          id: 'source-review', title: lang === 'kk' ? 'Құжатты тексеру' : lang === 'en' ? 'Document reviews' : 'Проверки документов', tasks: sourceReviewTasks,
+          loading: loadStates.sourceReviews === 'loading', loadingLabel: m.loading,
+          retry: loadStates.sourceReviews === 'error' ? () => refreshSection('sourceReviews') : undefined,
+          retryLabel: `${w.retry} · ${lang === 'kk' ? 'Құжатты тексеру' : lang === 'en' ? 'Document reviews' : 'Проверки документов'}`,
+          empty: sources.sourceReviews === null
+            ? (lang === 'kk' ? 'Құжаттарды тексеру деректері қолжетімсіз.' : lang === 'en' ? 'Document-review data is unavailable.' : 'Данные о проверках документов недоступны.')
+            : (lang === 'kk' ? 'Жалғастыратын құжат тексерулері жоқ.' : lang === 'en' ? 'No document reviews need continuation.' : 'Нет проверок документов, требующих продолжения.'),
+          notice: sourceReviewTasks.length ? queueScope(lang, sourceReviewTasks.length, null) : undefined,
+          link: { href: '/documents', label: lang === 'kk' ? 'Құжаттар' : lang === 'en' ? 'Documents' : 'Документы' },
         }] : []),
         ...(workView === 'all' || workView === 'review' ? [{
           id: 'review', title: review, tasks: reviewTasks,

@@ -44,7 +44,11 @@ describe('standalone methodologist instruction', () => {
     expect(approval.verified_image_count).toBe(sourceImageCount);
     expect(approval.verified_capture_receipt_count).toBe(sourceImageCount);
     expect(approval.source_manifest_sha256).toBe(sha(sourceManifestBytes));
-    expect(approval.html_sha256['methodologist-text.html']).toBe(sha(Buffer.from(html)));
+    const workspaceGuide = html.match(/<section id="methodologist-workspace-guide"[\s\S]*?<\/section>\n/g);
+    expect(workspaceGuide).toHaveLength(1);
+    const [addendum] = workspaceGuide!;
+    expect(approval.workspace_addendum.html_section_sha256).toBe(sha(Buffer.from(addendum)));
+    expect(approval.html_sha256['methodologist-text.html']).toBe(sha(Buffer.from(html.replace(addendum, ''))));
     const mediaManifestBytes = fs.readFileSync(
       path.resolve(process.cwd(), 'public/guides/methodologist-qwen-male-20261113/manifest.json'),
     );

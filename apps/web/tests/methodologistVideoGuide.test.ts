@@ -35,9 +35,11 @@ describe('published male Qwen methodologist video guide', () => {
     expect(approval.verified_capture_receipt_count).toBe(expectedSegmentCount);
     expect(approval.source_manifest_sha256).toBe(sha(sourceManifestBytes));
     expect(approval.media_manifest_sha256).toBe(sha(mediaManifestBytes));
-    expect(approval.html_sha256['methodologist.html']).toBe(sha(Buffer.from(html)));
-    const textHtml = fs.readFileSync(path.join(guideDir, 'methodologist-text.html'));
-    expect(approval.html_sha256['methodologist-text.html']).toBe(sha(textHtml));
+    const workspaceGuide = html.match(/<section id="methodologist-workspace-guide"[\s\S]*?<\/section>\n/g);
+    expect(workspaceGuide).toHaveLength(1);
+    const [addendum] = workspaceGuide!;
+    expect(approval.workspace_addendum.html_section_sha256).toBe(sha(Buffer.from(addendum)));
+    expect(approval.html_sha256['methodologist.html']).toBe(sha(Buffer.from(html.replace(addendum, ''))));
   });
 
   it('contains the complete approved eight-process, current-manifest step series', () => {

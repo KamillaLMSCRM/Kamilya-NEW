@@ -17,22 +17,22 @@ type Editor = {
   retained_fields?: Partial<Record<CourseLanguage, string[]>>;
 };
 
-export function CourseLanguagesEditor({ courseId, prepare = false, refreshVersion = 0 }: {
-  courseId: string; prepare?: boolean; refreshVersion?: number;
+export function CourseLanguagesEditor({ courseId, prepare = false, refreshVersion = 0, openForReview = false, onSaved }: {
+  courseId: string; prepare?: boolean; refreshVersion?: number; openForReview?: boolean; onSaved?: () => void;
 }) {
   const ui = useLanguageStore(s => s.lang);
   const scope = useAuthStore(s => `${s.user?.tenant_id}:${s.user?.user_id}:${s.user?.role}`);
-  return <EditionEditor key={`${scope}:${courseId}`} courseId={courseId} prepare={prepare} ui={ui} refreshVersion={refreshVersion} />;
+  return <EditionEditor key={`${scope}:${courseId}`} courseId={courseId} prepare={prepare} ui={ui} refreshVersion={refreshVersion} openForReview={openForReview} onSaved={onSaved} />;
 }
 
-function EditionEditor({ courseId, prepare, ui, refreshVersion }: {
-  courseId: string; prepare: boolean; ui: string; refreshVersion: number;
+function EditionEditor({ courseId, prepare, ui, refreshVersion, openForReview, onSaved }: {
+  courseId: string; prepare: boolean; ui: string; refreshVersion: number; openForReview: boolean; onSaved?: () => void;
 }) {
   const kk = ui === 'kk';
   const en = ui === 'en';
   const label = (ru: string, k: string, e: string) => kk ? k : en ? e : ru;
   const path = `/v1/courses/${courseId}/languages/editor`;
-  const [open, setOpen] = useState(prepare);
+  const [open, setOpen] = useState(prepare || openForReview);
   const [editor, setEditor] = useState<Editor>();
   const [primary, setPrimary] = useState<CourseLanguage>('ru');
   const [requested, setRequested] = useState<CourseLanguage[]>(['ru', 'kk']);
@@ -43,6 +43,10 @@ function EditionEditor({ courseId, prepare, ui, refreshVersion }: {
   const [pending, setPending] = useState(false);
   const [showRetained, setShowRetained] = useState(false);
   const attempted = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (openForReview) setOpen(true);
+  }, [openForReview]);
 
   useEffect(() => {
     if (!open) return;
@@ -94,6 +98,7 @@ function EditionEditor({ courseId, prepare, ui, refreshVersion }: {
     setError(false);
     try {
       await api.put(path, { primary, requested });
+      onSaved?.();
       const { data } = await api.get<Editor>(path);
       setEditor(data);
       setTarget(requested.find(language => language !== primary));
@@ -108,6 +113,7 @@ function EditionEditor({ courseId, prepare, ui, refreshVersion }: {
     try {
       await api.put(`${path}/${target}`, { source_sha256: editor.source_sha256, content: draft, approve });
       setEditor({ ...editor, editions: { ...editor.editions, [target]: { content: draft, approved: approve, pending: false } } });
+      if (approve) onSaved?.();
     } catch { setError(true); }
     finally { setBusy(false); }
   }
@@ -118,7 +124,7 @@ function EditionEditor({ courseId, prepare, ui, refreshVersion }: {
   const displayedFields = fields.filter(([key]) => showRetained || !retained.has(key));
   const complete = fields.length > 0 && fields.every(([key]) => draft[key]?.trim());
   return (
-    <details open={open} onToggle={event => setOpen(event.currentTarget.open)}
+    <details id="course-languages" open={open} onToggle={event => setOpen(event.currentTarget.open)}
       className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm">
       <summary className="cursor-pointer font-semibold">{label('Языки курса', 'Курс тілдері', 'Course languages')}</summary>
       {open && <div className="mt-4 space-y-4">

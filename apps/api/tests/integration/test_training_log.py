@@ -39,6 +39,7 @@ async def _enroll(
     source="manual",
     recurring_assignment_id=None,
     completed_at=None,
+    content_release_id=None,
 ):
     """Insert an enrollment row directly (faster than HTTP-driven flow)."""
     from app.models.enrollment import Enrollment
@@ -53,6 +54,7 @@ async def _enroll(
         source=source,
         recurring_assignment_id=recurring_assignment_id,
         completed_at=completed_at,
+        content_release_id=content_release_id,
     )
     db.add(e)
     await db.flush()
@@ -108,7 +110,10 @@ async def test_training_log_happy_path(client, db_session, make_tenant, make_use
 async def test_training_log_exact_enrollment_projection_is_tenant_local(
     client, db_session, make_tenant, make_user, make_course, set_current_tenant
 ):
-    from app.modules.training_log.repository import list_training_log_by_enrollment_ids
+    from app.modules.courses.release_models import ContentRelease
+    from app.modules.courses.release_service import canonical_json_sha256
+    from app.modules.training_log.repository import list_training_log, list_training_log_by_enrollment_ids
+    from app.modules.training_log.schemas import TrainingLogFilter
 
     tenant_a = await make_tenant(name="Projection A", slug="projection-a")
     tenant_b = await make_tenant(name="Projection B", slug="projection-b")
@@ -119,7 +124,20 @@ async def test_training_log_exact_enrollment_projection_is_tenant_local(
     course_a = await make_course(tenant_a, owner_a, title="Projection course A")
     course_b = await make_course(tenant_b, owner_b, title="Projection course B")
     await set_current_tenant(tenant_a)
-    enrollment_a = await _enroll(db_session, learner_a, course_a)
+    snapshot = {"modules": []}
+    saved_versions = [
+        ContentRelease(
+            id=uuid4(), tenant_id=tenant_a.id, course_id=course_a.id, version=number,
+            snapshot=snapshot, snapshot_sha256=canonical_json_sha256(snapshot),
+        )
+        for number in (1, 2)
+    ]
+    db_session.add_all(saved_versions)
+    await db_session.flush()
+    archived = await _enroll(
+        db_session, learner_a, course_a, status="superseded", content_release_id=saved_versions[0].id
+    )
+    enrollment_a = await _enroll(db_session, learner_a, course_a, content_release_id=saved_versions[1].id)
     await set_current_tenant(tenant_b)
     enrollment_b = await _enroll(db_session, learner_b, course_b)
 
@@ -127,11 +145,17 @@ async def test_training_log_exact_enrollment_projection_is_tenant_local(
     rows = await list_training_log_by_enrollment_ids(
         db_session,
         tenant_a.id,
-        [enrollment_a.id, enrollment_b.id],
+        [enrollment_a.id, archived.id, enrollment_b.id],
     )
 
     assert set(rows) == {enrollment_a.id}
     assert rows[enrollment_a.id]["progress_percent"] == 0
+    assert rows[enrollment_a.id]["content_release_version"] == 2
+    historical = await list_training_log(
+        db_session, tenant_a.id, TrainingLogFilter(history=True, enrollment_id=archived.id), limit=1
+    )
+    assert [row["enrollment_id"] for row in historical] == [archived.id]
+    assert historical[0]["content_release_version"] == 1
     assert await list_training_log_by_enrollment_ids(db_session, tenant_a.id, []) == {}
 
 

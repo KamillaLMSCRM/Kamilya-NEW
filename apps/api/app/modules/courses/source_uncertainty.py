@@ -133,7 +133,7 @@ async def compute_course_content_snapshot_hash(db: Any, course: Any) -> str:
     return canonical_json_sha256(learning_content_snapshot(snapshot))
 
 
-async def require_current_draft_review(db: Any, course: Any) -> None:
+async def require_current_draft_review(db: Any, course: Any, *, lock_sources: bool = True) -> None:
     """A prior P30 review never approves changed content or source revisions."""
     from app.modules.courses.draft_review import read_draft_review, resolution_is_current
 
@@ -144,7 +144,7 @@ async def require_current_draft_review(db: Any, course: Any) -> None:
         # Document rows. A concurrent source update cannot slip between checks.
         from app.modules.courses.router import _extract_course_source_revisions
 
-        await _extract_course_source_revisions(db, course, for_update=True)
+        await _extract_course_source_revisions(db, course, for_update=lock_sources)
         actual = await compute_course_content_snapshot_hash(db, course)
         if resolution_is_current(course.source_analysis, actual):
             return

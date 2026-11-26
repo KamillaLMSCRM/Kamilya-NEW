@@ -125,6 +125,47 @@ describe('contextual course assignment flow', () => {
     expect(screen.queryByText('Курсов пока нет')).not.toBeInTheDocument();
   });
 
+  it('keeps a failed recipient roster distinct from an empty audience and retries it', async () => {
+    queryState.value = 'course_id=course-1';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    let rosterFails = true;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).includes('/v1/users?')) {
+        return Promise.resolve(rosterFails ? jsonResponse({}, 503) : jsonResponse({ users: [{
+          id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student',
+        }] }));
+      }
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось загрузить список получателей');
+    expect(screen.getByTestId('selected-assignment-course')).toHaveTextContent('Охрана труда');
+    expect(screen.queryByText('Нет доступных сотрудников для назначения этого курса.')).not.toBeInTheDocument();
+    rosterFails = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
+    expect(await screen.findByRole('checkbox', { name: 'Алия Садыкова' })).toBeEnabled();
+  });
+
+  it('keeps a failed course catalogue distinct from an empty catalogue and retries it', async () => {
+    queryState.value = '';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    let catalogueFails = true;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).includes('/v1/courses?')) {
+        return Promise.resolve(catalogueFails ? jsonResponse({}, 503) : jsonResponse([
+          { id: 'course-1', title: 'Охрана труда', status: 'published' },
+        ]));
+      }
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Список курсов не загрузился. Это не пустой каталог.');
+    expect(screen.queryByText('Курсов пока нет')).not.toBeInTheDocument();
+    catalogueFails = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
+    expect(await screen.findByRole('option', { name: 'Охрана труда' })).toBeInTheDocument();
+  });
+
   it('finds an already assigned employee from the new-assignment search with a short roster', async () => {
     queryState.value = 'course_id=course-1';
     const fixtureFetch = fetchMock.getMockImplementation()!;
@@ -184,10 +225,108 @@ describe('contextual course assignment flow', () => {
 
   it('does not silently replace an invalid or unpublished deep-linked course', async () => {
     queryState.value = 'courseId=course-draft';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => (
+      !init?.method && String(input).endsWith('/v1/courses/course-draft')
+        ? Promise.resolve(jsonResponse({ id: 'course-draft', title: 'Черновик', status: 'draft' }))
+        : fixtureFetch(input, init)
+    ));
     render(<CourseAssignmentsPage />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Этот курс недоступен или не опубликован. Выберите другой курс.');
     expect(screen.getByRole('combobox', { name: 'Курс для назначения' })).toHaveValue('');
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+  });
+
+  it('resolves a deep-linked published course outside the bounded catalogue through its exact tenant read', async () => {
+    queryState.value = 'courseId=course-later';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).endsWith('/v1/courses/course-later')) {
+        return Promise.resolve(jsonResponse({ id: 'course-later', title: 'Поздний курс', status: 'published' }));
+      }
+      if (!init?.method && String(input).endsWith('/v1/courses/course-later/enrollments')) return Promise.resolve(jsonResponse([]));
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByTestId('selected-assignment-course')).toHaveTextContent('Поздний курс');
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/v1/courses/course-later'), expect.anything());
+  });
+
+  it('keeps a 503 exact-course read retryable and recovers the contextual course', async () => {
+    queryState.value = 'courseId=course-later';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    let unavailable = true;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.endsWith('/v1/courses/course-later')) {
+        return Promise.resolve(unavailable ? jsonResponse({}, 503) : jsonResponse({ id: 'course-later', title: 'Восстановленный курс', status: 'published' }));
+      }
+      if (!init?.method && url.endsWith('/v1/courses/course-later/enrollments')) return Promise.resolve(jsonResponse([]));
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось проверить курс из ссылки');
+    unavailable = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
+    expect(await screen.findByTestId('selected-assignment-course')).toHaveTextContent('Восстановленный курс');
+  });
+
+  it.each([401, 403])('keeps an exact-course %i access response retryable', async (status) => {
+    queryState.value = 'courseId=course-later';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    let accessFails = true;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.endsWith('/v1/courses/course-later')) {
+        return Promise.resolve(accessFails ? jsonResponse({}, status) : jsonResponse({ id: 'course-later', title: 'Доступ восстановлен', status: 'published' }));
+      }
+      if (!init?.method && url.endsWith('/v1/courses/course-later/enrollments')) return Promise.resolve(jsonResponse([]));
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось проверить курс из ссылки');
+    accessFails = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
+    expect(await screen.findByTestId('selected-assignment-course')).toHaveTextContent('Доступ восстановлен');
+  });
+
+  it('uses the bounded exact roster query for a deep-linked recipient outside the initial page', async () => {
+    queryState.value = 'courseId=course-1&user_id=user-later';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!init?.method && url.includes('/v1/users?') && url.includes('user_ids=user-later')) {
+        return Promise.resolve(jsonResponse({ users: [{
+          id: 'user-later', first_name: 'Поздняя', last_name: 'Сотрудница', email: 'later@example.kz', role: 'student',
+        }] }));
+      }
+      return fixtureFetch(input, init);
+    });
+    render(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('checkbox', { name: 'Поздняя Сотрудница' })).toBeChecked();
+    expect(screen.getByTestId('selected-assignment-course')).toHaveTextContent('Охрана труда');
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('user_ids=user-later'), expect.anything());
+  });
+
+  it('resets preselection when only the contextual query changes', async () => {
+    queryState.value = 'courseId=course-1';
+    const fixtureFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      if (!init?.method && String(input).includes('/v1/users?') && String(input).includes('user_ids=user-later')) {
+        return Promise.resolve(jsonResponse({ users: [{
+          id: 'user-later', first_name: 'Поздняя', last_name: 'Сотрудница', email: 'later@example.kz', role: 'student',
+        }] }));
+      }
+      return fixtureFetch(input, init);
+    });
+    const view = render(<CourseAssignmentsPage />);
+    const initial = await screen.findByRole('checkbox', { name: 'Алия Садыкова' });
+    fireEvent.click(initial);
+    expect(initial).toBeChecked();
+    queryState.value = 'courseId=course-1&user_id=user-later';
+    view.rerender(<CourseAssignmentsPage />);
+    expect(await screen.findByRole('checkbox', { name: 'Поздняя Сотрудница' })).toBeChecked();
+    expect(screen.queryByRole('checkbox', { name: 'Алия Садыкова' })).not.toBeInTheDocument();
   });
 
   it('opens enrollment deep links in management mode while user links open the composer', async () => {
@@ -692,11 +831,11 @@ describe('contextual course assignment flow', () => {
     expect(await screen.findByText('Доступность получателей уточняется после загрузки назначений.')).toBeInTheDocument();
   });
 
-  it('lets the methodologist explicitly choose a personal link and completion window', async () => {
+  it('offers a personal link before confirming an employee without email', async () => {
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (!init?.method && url.includes('/v1/courses?')) return Promise.resolve(jsonResponse([{ id: 'course-1', title: 'Охрана труда', status: 'published' }]));
-      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: 'aliya@example.kz', role: 'student', has_login_access: true }] }));
+      if (!init?.method && url.includes('/v1/users?')) return Promise.resolve(jsonResponse({ users: [{ id: 'user-1', first_name: 'Алия', last_name: 'Садыкова', email: null, role: 'student', has_login_access: true }] }));
       if (!init?.method && url.endsWith('/v1/learning-cycles')) return Promise.resolve(jsonResponse([]));
       if (!init?.method && url.endsWith('/v1/learning-cycles/occurrences')) return Promise.resolve(jsonResponse([]));
       if (!init?.method && url.endsWith('/v1/courses/course-1/enrollments')) return Promise.resolve(jsonResponse([]));
@@ -708,10 +847,20 @@ describe('contextual course assignment flow', () => {
 
     render(<CourseAssignmentsPage />);
     expect(await screen.findByRole('checkbox')).toBeChecked();
-    fireEvent.click(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i }));
+    const assign = screen.getByRole('button', { name: 'Назначить (1)' });
+    expect(assign).toBeDisabled();
+    expect(screen.getByText('У выбранных сотрудников нет email')).toBeVisible();
+    expect(confirmMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Персональная ссылка и PIN' }));
+    expect(screen.getByRole('radio', { name: /Персональная ссылка и PIN/i })).toBeChecked();
+    expect(assign).toBeEnabled();
     fireEvent.click(screen.getByText('Дополнительные настройки сроков'));
     fireEvent.change(screen.getByLabelText('Время на прохождение после первого входа, минут'), { target: { value: '30' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Назначить (1)' }));
+    fireEvent.click(assign);
+
+    expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringMatching(/Алия Садыкова.*Персональная ссылка и PIN/),
+    }));
 
     await waitFor(() => {
       const assignmentCall = fetchMock.mock.calls.find(([input, init]) => (

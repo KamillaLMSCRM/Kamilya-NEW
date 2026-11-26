@@ -65,13 +65,15 @@ describe('/ai/generate job workflow parity', () => {
   });
 
   it('restores an active source outside an empty catalog and removes an unavailable source', async () => {
-    window.history.replaceState({}, '', '/ai/generate?document_id=doc-good&document_id=doc-removed');
+    const auth = useAuthStore.getState();
+    useAuthStore.setState({ accessToken: 'test-token', user: { user_id: 'methodologist', tenant_id: 'tenant',
+      tenant: null, role: 'methodologist', email: null, telegram_id: '', full_name: 'Methodologist' } });
+    window.history.replaceState({}, '', '/ai/generate?document_id=doc-good&document_id=doc-removed&approved=1');
+    let acceptSource!: (value: unknown) => void;
+    const source = new Promise(resolve => { acceptSource = resolve; });
     apiMock.get.mockImplementation(async (url: string) => {
-      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
-      if (url === '/v1/documents/doc-good') return { data: {
-        id: 'doc-good', title: 'Действующий источник', filename: 'source.pdf',
-        lifecycle_status: 'active', embedding_status: 'success',
-      } } as any;
+      if (url.startsWith('/v1/documents/catalog')) return new Promise(() => {});
+      if (url === '/v1/documents/doc-good') return source as any; /* source is resolved by the test */
       if (url === '/v1/documents/doc-removed') return { data: {
         id: 'doc-removed', title: 'Удаляемый источник', filename: 'old.pdf',
         lifecycle_status: 'deletion_pending', embedding_status: 'success',
@@ -80,12 +82,17 @@ describe('/ai/generate job workflow parity', () => {
     });
     try {
       render(<AIGeneratePage />);
+      expect(await screen.findByText('Открываем утверждённую редакцию…')).toBeVisible();
+      expect(screen.queryByRole('button', { name: /Перетащите документы/ })).not.toBeInTheDocument();
+      await act(async () => acceptSource({ data: { id: 'doc-good', title: 'Действующий источник',
+        filename: 'source.pdf', lifecycle_status: 'active', embedding_status: 'success' } }));
       const selection = await screen.findByRole('region', { name: 'Выбранные документы' });
       expect(within(selection).getByText('Действующий источник')).toBeInTheDocument();
       expect(within(selection).queryByText('Удаляемый источник')).not.toBeInTheDocument();
       expect(await screen.findByText(/Не удалось восстановить часть выбранных документов/)).toBeInTheDocument();
       expect(apiMock.get).not.toHaveBeenCalledWith('/v1/ai/jobs/' + activeJob.id);
     } finally {
+      useAuthStore.setState({ accessToken: auth.accessToken, user: auth.user });
       window.history.replaceState({}, '', '/ai/generate');
     }
   });
@@ -295,6 +302,35 @@ describe('/ai/generate job workflow parity', () => {
 
     expect(await screen.findByText('Этот файл уже есть в библиотеке: «Правила ИБ», версия 2.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Открыть существующий документ' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Выбранные документы' })).not.toBeInTheDocument();
+  });
+
+  it('adds an uploaded document even before it is in the catalog and shows its review action', async () => {
+    localStorage.clear();
+    const uploaded = {
+      id: 'new-source', title: 'Новая инструкция', filename: 'source.txt', content_type: 'text/plain',
+      size: 8, description: '', lifecycle_status: 'active', embedding_status: 'pending',
+    };
+    apiMock.get.mockImplementation(async (url: string) => {
+      if (url.startsWith('/v1/documents/catalog')) return { data: { items: [], page: { has_more: false } } } as any;
+      if (url.startsWith('/v1/documents/editorial-review/status?')) {
+        return { data: { required: true, documents: { [uploaded.id]: 'not_started' } } } as any;
+      }
+      throw new Error(`Unexpected GET ${url}`);
+    });
+    apiMock.post.mockImplementation(async url => ({ data: url === '/v1/documents/upload' ? uploaded : {} }) as any);
+    const { container } = render(<AIGeneratePage />);
+    fireEvent.change(container.querySelector('input[type=file]')!, {
+      target: { files: [new File(['content'], uploaded.filename, { type: uploaded.content_type })] },
+    });
+
+    const selection = await screen.findByRole('region', { name: 'Выбранные документы' });
+    expect(within(selection).getByText(uploaded.title)).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Проверить документ' }))
+      .toHaveAttribute('href', '/documents/new-source/editorial-review?document_id=new-source');
+    expect(screen.queryByRole('button', { name: /^Генерировать курс/ })).not.toBeInTheDocument();
+    fireEvent.click(within(selection).getByRole('button', { name: 'Убрать: Новая инструкция' }));
+    expect(screen.queryByRole('region', { name: 'Выбранные документы' })).not.toBeInTheDocument();
   });
 
   it('shows exact document indexing progress from the returned indexing job', async () => {

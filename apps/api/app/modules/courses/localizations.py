@@ -267,15 +267,21 @@ async def carried_editions(
     }
 
 
+async def missing_requested_languages(
+    db: AsyncSession, course: Course, snapshot: dict[str, Any] | None = None,
+) -> list[Language]:
+    policy = read_policy(course)
+    if not policy or len(policy.requested) == 1:
+        return []
+    sha, _ = source_fields(snapshot or await build_course_release_snapshot(db, course, version=0))
+    approved = {row["language"] for row in await editions(db, course, sha, published=True)}
+    return [language for language in policy.requested if language != policy.primary and language not in approved]
+
+
 async def ensure_requested_languages(
     db: AsyncSession, course: Course, snapshot: dict[str, Any] | None = None,
 ) -> None:
-    policy = read_policy(course)
-    if not policy or len(policy.requested) == 1:
-        return
-    sha, _ = source_fields(snapshot or await build_course_release_snapshot(db, course, version=0))
-    approved = {row["language"] for row in await editions(db, course, sha, published=True)}
-    if set(policy.requested) - {policy.primary} - approved:
+    if await missing_requested_languages(db, course, snapshot):
         raise HTTPException(409, detail={"code": "course_languages_review_required"})
 
 

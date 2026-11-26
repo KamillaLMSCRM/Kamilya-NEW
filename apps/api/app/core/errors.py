@@ -6,6 +6,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
+from app.core.operation_log import stable_label
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,6 +47,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     See: docs/лог рендер.txt — incident 2026-06-28T03:06.
     """
     detail = exc.detail
+    if isinstance(detail, dict) and (code := stable_label(detail.get("code"))):
+        request.scope["operation_error_code"] = code
     # Normalize: HTTPException detail may be str, dict, or list.
     if isinstance(detail, dict):
         message = detail.get("message") or str(detail)
@@ -99,6 +103,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         # happen with the explicit handler above, but defensive.
         return await http_exception_handler(request, exc)
 
+    request.scope["operation_error_code"] = "request_validation_failed"
     if isinstance(exc, RequestValidationError):
         details = exc.errors()
     elif isinstance(exc, ValidationError):
@@ -132,10 +137,13 @@ async def unique_violation_handler(request: Request, exc: Exception) -> JSONResp
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception")
+    headers = _cors_headers(request)
+    if correlation := request.scope.get("operation_request_id"):
+        headers["X-Request-ID"] = correlation
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"error": "internal_error", "message": "Internal server error"},
-        headers=_cors_headers(request),
+        headers=headers,
     )
 
 

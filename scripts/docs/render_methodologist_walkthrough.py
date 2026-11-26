@@ -623,6 +623,16 @@ def load_capture_marks(screens_dir: Path, screens: dict[str, Path], manifest: di
     return marks_by_shot
 
 
+WORKSPACE_GUIDE = """<section id="methodologist-workspace-guide" aria-labelledby="methodologist-workspace-title">
+<h2 id="methodologist-workspace-title">Как продолжить работу в кабинете методиста</h2>
+<details><summary>Вернуться к проверке документа</summary><p>На странице «Задачи» выберите документ и нажмите «Открыть проверку». Если остались вопросы, перейдите к первому открытому вопросу. Для каждого решения, в том числе «Оставить формулировку», укажите основание и нажмите «Сохранить решение». Когда все вопросы закрыты, проверьте итоговую редакцию и нажмите «Согласовать документ».</p></details>
+<details><summary>Продолжить генерацию</summary><p>Откройте уже запущенное задание из очереди «Задачи» или через «Задания генерации». На его странице проверьте статус и доступное действие. «Создать из документов» запускает новый сценарий подготовки курса.</p></details>
+<details><summary>Назначить курс сотрудникам</summary><p>В каталоге откройте опубликованный курс и нажмите «Назначить сотрудникам». Проверьте выбранный курс, получателей и способ доступа. Если сотруднику этот курс уже назначен, найдите запись в разделе «Текущие назначения».</p></details>
+<details><summary>Проверить результат сотрудника</summary><p>В «Журнале обучения» найдите сотрудника, выберите строку нужного курса и нажмите на имя. В карточке откроется конкретное назначение. Для прошлых прохождений сначала установите флажок «Включить историю назначений» в журнале.</p></details>
+<details><summary>Посмотреть попытки и документы</summary><p>В карточке откройте «Разбор ответов» у нужной попытки. Если сертификат выдан, доступна кнопка «Скачать PDF сертификата». Статус подписанного экземпляра отображается в «Подтверждении», когда для назначения предусмотрено документальное подтверждение. Тесты без курса находятся в разделе «Самостоятельные проверки знаний». Кнопка «Назад в журнал» возвращает к прежним фильтрам и странице.</p></details>
+</section>"""
+
+
 def render_index(output: Path, manifest: dict[str, Any], chapters: list[dict[str, Any]], source_revision: str) -> None:
     cards: list[str] = []
     for chapter in chapters:
@@ -671,6 +681,7 @@ def render_index(output: Path, manifest: dict[str, Any], chapters: list[dict[str
 <main>
 <h1>{html_escape(manifest['title_ru'])}</h1>
 <p class="notice">{html_escape(manifest['recording_disclosure_ru'])}</p>
+{WORKSPACE_GUIDE}
 <p class="meta">Мужской синтетический голос Qwen3-TTS · Дата записи: {html_escape(chapters[0]['recorded_date'])} · Версия источника: {html_escape(short_revision(source_revision))}</p>
 <nav aria-label="Содержание"><ul>{nav}</ul></nav>
 {''.join(cards)}
@@ -721,6 +732,7 @@ def render_text(
     parts.append('</aside><main>')
     parts.append(f"<h1>{html_escape(manifest['title_ru'])}</h1>")
     parts.append(f'<p class="notice">{html_escape(manifest["recording_disclosure_ru"])}</p>')
+    parts.append(WORKSPACE_GUIDE)
     parts.append(f'<p class="meta">Мужской синтетический голос Qwen3-TTS · Дата записи: {html_escape(chapters[0]["recorded_date"])} · Версия источника: {html_escape(short_revision(source_revision))}</p>')
     step_number = 0
     for chapter in chapters:

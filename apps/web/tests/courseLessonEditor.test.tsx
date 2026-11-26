@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.hoisted(() => vi.fn());
@@ -11,6 +11,8 @@ const routerPushMock = vi.hoisted(() => vi.fn());
 const routeMock = vi.hoisted(() => ({ courseId: 'course-1' }));
 const chatHarness = vi.hoisted(() => ({ reload: null as (() => Promise<void>) | null }));
 const correctionHarness = vi.hoisted(() => ({ enabled: false, props: null as any }));
+const clearReleaseChecks = { course_id: 'course-1', source_review_required: false, pending_quizzes: 0,
+  requested_languages: ['ru'], missing_languages: [] };
 
 vi.mock('@/features/methodologist-workbench/LessonCorrectionPanel', async () => {
   const { forwardRef } = await import('react');
@@ -154,6 +156,7 @@ function setupFetch(patchStatus = 200, courseStructure = structure, lessonOverri
       return jsonResponse(modulePatch === 'ok' ? { ...structure.modules[0], title: 'Server module title' } : { detail: 'Save failed' }, modulePatch === 'ok' ? 200 : 500);
     }
     if (url.includes('/v1/courses/course-1/structure')) return jsonResponse(courseStructure);
+    if (url.endsWith('/v1/courses/course-1/release-readiness')) return jsonResponse(clearReleaseChecks);
     if (url.endsWith('/v1/courses/course-1/review')) return jsonResponse({ ...courseOverride, review_status: 'approved' });
     if (url.endsWith('/v1/courses/course-1/publish')) return jsonResponse({ ...courseOverride, status: 'published', review_status: 'approved' });
     if (url.endsWith('/v1/courses/course-1')) return jsonResponse(courseOverride);
@@ -184,18 +187,24 @@ describe('course lesson editor', () => {
   it('keeps publication details closed without hiding source inspection or dirty warnings', async () => {
     useAuthStore.setState({ user: { user_id: '75000000-0000-4000-8000-000000000001', tenant_id: '75000000-0000-4000-8000-000000000002', tenant: null, role: 'methodologist', full_name: 'Author', email: null, telegram_id: '' } });
     setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    const regularFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/release-readiness')
+      ? Promise.resolve(jsonResponse({ ...clearReleaseChecks, source_review_required: true }))
+      : regularFetch(input, init));
+
     const { container } = render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' });
     const checks = container.querySelector<HTMLDetailsElement>('[data-publication-checks]')!;
     expect(checks.open).toBe(false);
-    expect(screen.getByRole('button', { name: 'Открыть замечания и источники' })).toBeVisible();
+    const next = screen.getByRole('region', { name: 'nextCourseAction.title' });
+    expect(await within(next).findByRole('button', { name: 'Открыть замечания и источники' })).toBeVisible();
     expect(screen.getByText('Проверка и публикация — подробности')).toBeVisible();
     await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'Unsaved lesson' } });
     expect(container.querySelector('[data-redesign-page="course-editor"] > fieldset > p[role="status"]')).toBeVisible();
     fireEvent.click(checks.querySelector('summary')!);
     expect(checks.open).toBe(true);
-    expect(screen.getByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
   });
   it.each([
     ['module', 'http'], ['module', 'network'], ['lesson', 'http'], ['lesson', 'network'],
@@ -308,9 +317,14 @@ describe('course lesson editor', () => {
     useAuthStore.setState({ user: { user_id: 'author-1', tenant_id: 'tenant-1', tenant: null,
       role: 'methodologist', full_name: 'Author', email: null, telegram_id: '' } });
     setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    const regularFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/release-readiness')
+      ? Promise.resolve(jsonResponse({ ...clearReleaseChecks, source_review_required: true }))
+      : regularFetch(input, init));
+
     render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' });
-    const inspect = screen.getByRole('button', { name: 'Открыть замечания и источники' });
+    const inspect = await screen.findByRole('button', { name: 'Открыть замечания и источники' });
     expect(inspect).toBeEnabled();
     await openLessonEditor();
     fireEvent.change(await screen.findByRole('textbox', { name: 'Содержание урока' }), { target: { value: 'A changed source-bound lesson.' } });
@@ -321,9 +335,14 @@ describe('course lesson editor', () => {
   it('guards unsaved module titles, but allows navigation after reverting to the saved value', async () => {
     useAuthStore.setState({ user: { user_id: 'author-1', tenant_id: 'tenant-1', tenant: null,
       role: 'methodologist', full_name: 'Author', email: null, telegram_id: '' } });
-    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' }); render(<CourseEditPage />);
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    const regularFetch = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/release-readiness')
+      ? Promise.resolve(jsonResponse({ ...clearReleaseChecks, source_review_required: true }))
+      : regularFetch(input, init));
+ render(<CourseEditPage />);
     await screen.findByRole('button', { name: 'Введение' });
-    const inspect = screen.getByRole('button', { name: 'Открыть замечания и источники' });
+    const inspect = await screen.findByRole('button', { name: 'Открыть замечания и источники' });
     expect(inspect).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Редактировать' }));
     const title = await screen.findByRole('textbox', { name: 'courses.moduleTitle' });
@@ -500,7 +519,7 @@ describe('course lesson editor', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Повторить' })).toBeInTheDocument());
     expect(screen.queryByText('Одобрено')).not.toBeInTheDocument();
     expect(screen.queryByText('authenticatedUi.editor.reviewed')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Опубликовать' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Опубликовать' })).not.toBeInTheDocument();
     expect(screen.getByDisplayValue('Saved edit')).toBeInTheDocument();
     expect(screen.queryByText('Есть несохранённые изменения')).not.toBeInTheDocument();
     expect(toastMock.success).toHaveBeenCalledWith('authenticatedUi.editor.lessonSaved');
@@ -611,11 +630,33 @@ describe('course lesson editor', () => {
       expect.stringContaining('/v1/courses/course-1/publish'),
       expect.objectContaining({ method: 'POST' }),
     ));
+    expect(await screen.findByRole('link', { name: 'releaseSteps.assign' })).toHaveAttribute('href', '/assignments?courseId=course-1');
   });
 
   it('keeps ordinary manual drafts publishable without a blueprint marker', async () => {
     setupFetch(200, structure, lesson, { ...course, review_status: 'pending', source_analysis: {} }); render(<CourseEditPage />);
     expect(await screen.findByRole('button', { name: 'Опубликовать' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
+  });
+
+  it('shows required translation and pending quizzes before making approval available', async () => {
+    setupFetch(200, structure, lesson, { ...course, ai_generated: true, review_status: 'pending' });
+    const regularFetch = fetchMock.getMockImplementation()!;
+    let missing = ['kk'];
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => String(input).endsWith('/release-readiness')
+      ? Promise.resolve(jsonResponse({ ...clearReleaseChecks, requested_languages: ['ru', 'kk'],
+        missing_languages: missing, pending_quizzes: 3 }))
+      : regularFetch(input, init));
+    const first = render(<CourseEditPage />);
+    expect(await screen.findByRole('link', { name: 'nextCourseAction.openLanguages' })).toHaveAttribute('href', '#course-languages');
+    expect(screen.getByText('nextCourseAction.translationRequired')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'releaseSteps.quizzes' })).not.toBeInTheDocument();
+    first.unmount();
+
+    missing = [];
+    render(<CourseEditPage />);
+    expect(await screen.findByRole('link', { name: 'releaseSteps.quizzes' })).toHaveAttribute('href', '/quizzes?courseId=course-1');
     expect(screen.queryByRole('button', { name: 'authenticatedUi.editor.approveCourse' })).not.toBeInTheDocument();
   });
 

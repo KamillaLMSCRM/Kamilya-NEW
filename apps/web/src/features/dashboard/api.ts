@@ -1,9 +1,9 @@
 import { getLearningActionCenter } from '@/features/learning-actions/api';
 import { api } from '@/lib/api';
 import type { MandatoryTrainingSummary } from '@/features/mandatory-training/types';
-import type { DashboardCourse, DashboardJob, DashboardSources } from './model';
+import type { DashboardCourse, DashboardJob, DashboardSourceReview, DashboardSources } from './model';
 
-export const dashboardSections = ['learning', 'courses', 'jobs', 'mandatory'] as const;
+export const dashboardSections = ['learning', 'courses', 'jobs', 'sourceReviews', 'mandatory'] as const;
 export type DashboardSection = typeof dashboardSections[number];
 
 // Each source settles independently; slow summaries must not hold the work queue.
@@ -20,6 +20,10 @@ export function loadDashboardSection<Key extends DashboardSection>(key: Key, sig
     jobs: async () => {
       const response = await api.get<DashboardJob[]>('/v1/ai/jobs', { signal });
       return Array.isArray(response.data) ? response.data : null;
+    },
+    sourceReviews: async () => {
+      const response = await api.get<{ items?: DashboardSourceReview[] }>('/v1/documents/editorial-review/queue?limit=8', { signal });
+      return Array.isArray(response.data?.items) ? response.data.items : null;
     },
     mandatory: async () => (await api.get<MandatoryTrainingSummary>('/v1/admin/mandatory-training/summary', { signal })).data,
   };

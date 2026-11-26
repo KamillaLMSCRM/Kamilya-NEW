@@ -55,6 +55,12 @@ const audienceLabels = {
     allGroups: 'Все группы', noGroups: 'Групп пока нет', allPositions: 'Все должности',
     groupUnavailable: 'Не удалось загрузить состав группы.', selectCourse: 'Сначала выберите курс вверху.',
     noMatches: 'По выбранным фильтрам нет сотрудников, которым можно назначить курс.',
+    noRecipients: 'Нет доступных сотрудников для назначения этого курса.',
+    allEligibleAssigned: 'Всем подходящим сотрудникам этот курс уже назначен.',
+    rosterUnavailable: 'Не удалось загрузить список получателей. Повторите загрузку перед назначением.',
+    contextCourseUnavailable: 'Не удалось проверить курс из ссылки. Повторите проверку или выберите курс вручную.',
+    contextRecipientUnavailable: 'Получатель из ссылки не доступен для назначения в активном списке обучающихся.',
+    contextRecipientUnavailableRetry: 'Не удалось проверить получателя из ссылки. Повторите проверку.',
     alreadyAssigned: 'По этому курсу уже есть назначение',
     openAssignments: 'Открыть текущие назначения',
   },
@@ -63,6 +69,12 @@ const audienceLabels = {
     allGroups: 'All groups', noGroups: 'No groups yet', allPositions: 'All positions',
     groupUnavailable: 'Could not load group members.', selectCourse: 'Choose a course above first.',
     noMatches: 'No eligible employees match these filters.',
+    noRecipients: 'There are no employees available to receive this course.',
+    allEligibleAssigned: 'Every eligible employee already has this course.',
+    rosterUnavailable: 'Could not load the recipient list. Retry loading before assigning.',
+    contextCourseUnavailable: 'Could not verify the linked course. Retry the check or choose a course manually.',
+    contextRecipientUnavailable: 'The linked recipient is not available for assignment in the active learner roster.',
+    contextRecipientUnavailableRetry: 'Could not verify the linked recipient. Retry the check.',
     alreadyAssigned: 'Already assigned to this course',
     openAssignments: 'Open current assignments',
   },
@@ -71,6 +83,12 @@ const audienceLabels = {
     allGroups: 'Барлық топтар', noGroups: 'Топтар әлі жоқ', allPositions: 'Барлық лауазымдар',
     groupUnavailable: 'Топ мүшелерін жүктеу мүмкін болмады.', selectCourse: 'Алдымен жоғарыдан курсты таңдаңыз.',
     noMatches: 'Таңдалған сүзгілер бойынша курс тағайындауға болатын қызметкерлер жоқ.',
+    noRecipients: 'Бұл курсқа тағайындауға болатын қызметкерлер жоқ.',
+    allEligibleAssigned: 'Барлық сәйкес қызметкерге бұл курс тағайындалған.',
+    rosterUnavailable: 'Алушылар тізімі жүктелмеді. Тағайындаудан бұрын жүктеуді қайталаңыз.',
+    contextCourseUnavailable: 'Сілтемедегі курсты тексеру мүмкін болмады. Тексеруді қайталаңыз не курсты қолмен таңдаңыз.',
+    contextRecipientUnavailable: 'Сілтемедегі алушы белсенді оқушылар тізімінде тағайындауға қолжетімсіз.',
+    contextRecipientUnavailableRetry: 'Сілтемедегі алушыны тексеру мүмкін болмады. Тексеруді қайталаңыз.',
     alreadyAssigned: 'Бұл курс бұрын тағайындалған',
     openAssignments: 'Ағымдағы тағайындауларды ашу',
   },
@@ -195,6 +213,16 @@ function matchesCourseQuery(c: Course, q: string): boolean {
   return (c.title || '').toLowerCase().includes(q.toLowerCase());
 }
 
+type ContextualSearchParams = Pick<URLSearchParams, 'get' | 'getAll'>;
+
+function contextualAssignmentQuery(searchParams: ContextualSearchParams): string {
+  const courseId = searchParams.get('courseId') || searchParams.get('course_id') || searchParams.get('course') || '';
+  const fallbackUser = searchParams.get('employeeId') || searchParams.get('user');
+  const userIds = [...new Set(searchParams.getAll('user_id').length ? searchParams.getAll('user_id') : fallbackUser ? [fallbackUser] : [])]
+    .sort();
+  return JSON.stringify({ courseId, userIds, enrollmentId: searchParams.get('enrollment_id') || '' });
+}
+
 const STATUS_LABEL_KEYS = {
   enrolled: 'courseAssignments.status.enrolled',
   in_progress: 'courseAssignments.status.inProgress',
@@ -243,8 +271,9 @@ export default function EnrollmentsPage() {
   const actor = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const sessionEpoch = useAuthStore((s) => s.sessionEpoch);
+  const searchParams = useSearchParams();
   const scope = authorSessionScope({ accessToken, user: actor, sessionEpoch });
-  return <AssignmentsContent key={`${scope.generation}:${sessionEpoch}`} />;
+  return <AssignmentsContent key={`${scope.generation}:${sessionEpoch}:${contextualAssignmentQuery(searchParams)}`} />;
 }
 
 function AssignmentsContent() {
@@ -265,12 +294,25 @@ function AssignmentsContent() {
   const [repeatTarget, setRepeatTarget] = useState<string | null>(null);
   const [repeating, setRepeating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [catalogReadState, setCatalogReadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [rosterReadState, setRosterReadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [contextCourseError, setContextCourseError] = useState<string | null>(null);
+  const [contextCourseLookupAttempt, setContextCourseLookupAttempt] = useState(0);
+  const [contextRecipientResolution, setContextRecipientResolution] = useState<'idle' | 'loading' | 'unavailable' | 'error'>('idle');
+  const [contextRecipientLookupAttempt, setContextRecipientLookupAttempt] = useState(0);
   const [enrollmentReadState, setEnrollmentReadState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [invalidCourseSelection, setInvalidCourseSelection] = useState<string | null>(null);
   const enrollmentRequest = useRef(0);
   const alive = useRef(true);
   const assignmentCommand = useRef(false);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; enrollmentRequest.current += 1; }; }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      enrollmentRequest.current += 1;
+      contextualRecipientRequest.current += 1;
+    };
+  }, []);
   const [enrolling, setEnrolling] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [accessLinks, setAccessLinks] = useState<AccessLink[]>([]);
@@ -303,6 +345,7 @@ function AssignmentsContent() {
   tokenRef.current = token;
   selectedCourseRef.current = selectedCourse;
   const dataRequest = useRef(0);
+  const contextualRecipientRequest = useRef(0);
   const recurringRequest = useRef(0);
   const canManageAssignments = userRole === 'methodologist';
   const [showEnrollmentTable, setShowEnrollmentTable] = useState(false);
@@ -339,11 +382,19 @@ function AssignmentsContent() {
   const [completionWindowMinutes, setCompletionWindowMinutes] = useState<number | null>(null);
   const [linkValidityDays, setLinkValidityDays] = useState(7);
   const [dueAt, setDueAt] = useState('');
+  const selectedRecipients = users.filter((user) => selectedUsers.has(user.id));
+  const recipientNames = selectedRecipients.map((user) => `${user.first_name} ${user.last_name}`.trim() || user.email || user.personnel_number || user.id);
+  const emailBlocked = deliveryMode === 'email' && selectedRecipients.some((user) => !user.email?.trim());
+  const deliveryLabel = t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email');
   const selectionIdentity = JSON.stringify([selectedCourse, [...selectedUsers].sort(), deliveryMode, completionWindowMinutes, linkValidityDays, dueAt, userRole]);
   const selectionIdentityRef = useRef(selectionIdentity);
   const contextEpoch = useRef(0);
   if (selectionIdentityRef.current !== selectionIdentity) contextEpoch.current += 1;
   selectionIdentityRef.current = selectionIdentity;
+  const chooseDelivery = (mode: DeliveryMode) => {
+    contextEpoch.current += 1;
+    setDeliveryMode(mode);
+  };
   const captureCurrentAction = () => {
     const epoch = contextEpoch.current;
     return () => alive.current && Boolean(token) && tokenRef.current === token
@@ -354,8 +405,10 @@ function AssignmentsContent() {
     if (!token || !canManageAssignments || !alive.current || tokenRef.current !== token) return;
     const request = ++dataRequest.current;
     const isCurrent = () => alive.current && tokenRef.current === token && dataRequest.current === request;
+    setRosterReadState('loading');
+    setCatalogReadState('loading');
     try {
-      const [coursesRes, usersRes] = await Promise.all([
+      const [coursesResult, usersResult] = await Promise.allSettled([
         fetch(`${API_URL}/v1/courses?per_page=100`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -366,15 +419,21 @@ function AssignmentsContent() {
           { headers: { Authorization: `Bearer ${token}` } },
         ),
       ]);
-      if (coursesRes.ok) {
-        const data = await coursesRes.json();
+      if (coursesResult.status === 'fulfilled' && coursesResult.value.ok) {
+        const data = await coursesResult.value.json();
         if (!isCurrent()) return;
         setCourses(Array.isArray(data) ? data.filter((course) => course.status === 'published') : []);
+        setCatalogReadState('ready');
+      } else if (isCurrent()) {
+        setCatalogReadState('error');
       }
-      if (usersRes.ok) {
-        const data = await usersRes.json();
+      if (usersResult.status === 'fulfilled' && usersResult.value.ok) {
+        const data = await usersResult.value.json();
         if (!isCurrent()) return;
         setUsers(data.users || []);
+        setRosterReadState('ready');
+      } else if (isCurrent()) {
+        setRosterReadState('error');
       }
     } finally {
       if (isCurrent()) setLoading(false);
@@ -511,29 +570,70 @@ function AssignmentsContent() {
     // entity is present. Fetch effects can commit their collections in
     // separate renders, and an early ref flip would strand an empty picker.
     if (courseId && !courses.some((course) => course.id === courseId)) {
-      // A deep link must never silently fall back to another published course.
-      setInvalidCourseSelection(courseId);
-      setAssignmentMode('compose');
-      preselectionApplied.current = true;
-      return;
+      if (invalidCourseSelection === courseId || contextCourseError === courseId) return;
+      // The catalogue is deliberately bounded. Verify a deep-linked course through
+      // the existing tenant-scoped exact read before declaring it unavailable.
+      let cancelled = false;
+      void fetch(`${API_URL}/v1/courses/${encodeURIComponent(courseId)}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(async (response) => {
+          if (cancelled) return;
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403 || response.status === 429 || response.status >= 500) {
+              setContextCourseError(courseId);
+              return;
+            }
+            setInvalidCourseSelection(courseId); setAssignmentMode('compose'); return;
+          }
+          const course = await response.json() as Course;
+          if (cancelled) return;
+          if (course.status !== 'published') { setInvalidCourseSelection(courseId); setAssignmentMode('compose'); return; }
+          setContextCourseError(null);
+          setCourses((current) => current.some((item) => item.id === course.id) ? current : [...current, course]);
+        })
+        .catch(() => { if (!cancelled) setContextCourseError(courseId); });
+      return () => { cancelled = true; };
     }
-    if (userIds.some((id) => !users.some((user) => user.id === id))) return;
     if (courseId && courses.some((course) => course.id === courseId)) {
       setInvalidCourseSelection(null);
       if (searchParams.get('enrollment_id')) setAssignmentMode('manage');
       void fetchEnrollments(courseId);
     }
-    if (userIds.length) {
+    if (userIds.some((id) => !users.some((user) => user.id === id))) {
+      if (rosterReadState !== 'ready') return;
+      if (contextRecipientResolution === 'loading' || contextRecipientResolution === 'unavailable' || contextRecipientResolution === 'error') return;
+      const request = ++contextualRecipientRequest.current;
+      const expectedToken = token;
+      const isRecipientRequestCurrent = () => alive.current && tokenRef.current === expectedToken
+        && contextualRecipientRequest.current === request;
+      setContextRecipientResolution('loading');
+      const params = new URLSearchParams({ per_page: '50', role: 'student', is_active: 'true' });
+      userIds.forEach((userId) => params.append('user_ids', userId));
+      void fetch(`${API_URL}/v1/users?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(async (response) => {
+          if (!isRecipientRequestCurrent()) return;
+          if (!response.ok) { setContextRecipientResolution('error'); return; }
+          const data = await response.json() as { users?: User[] };
+          if (!isRecipientRequestCurrent()) return;
+          const exactUsers = Array.isArray(data.users) ? data.users : [];
+          setUsers((current) => [...current, ...exactUsers.filter((candidate) => !current.some((user) => user.id === candidate.id))]);
+          setContextRecipientResolution(exactUsers.length === userIds.length ? 'idle' : 'unavailable');
+        })
+        .catch(() => { if (isRecipientRequestCurrent()) setContextRecipientResolution('error'); });
+      return;
+    } else if (contextRecipientResolution !== 'idle') {
+      setContextRecipientResolution('idle');
+    }
+    if (userIds.length && userIds.every((id) => users.some((user) => user.id === id))) {
       setSelectedUsers(new Set(userIds));
       const user = userIds.length === 1 ? users.find((item) => item.id === userIds[0]) : undefined;
       setUserSearch(user ? `${user.first_name} ${user.last_name}`.trim() : '');
     }
     preselectionApplied.current = true;
-  }, [courses, fetchEnrollments, loading, searchParams, users]);
+  }, [API_URL, contextCourseError, contextCourseLookupAttempt, contextRecipientLookupAttempt, contextRecipientResolution, courses, fetchEnrollments, invalidCourseSelection, loading, rosterReadState, searchParams, token, users]);
 
   const handleEnroll = async () => {
     if (!selectedCourse || selectedUsers.size === 0 || enrolling || assignmentCommand.current || enrollmentReadState !== 'ready' || !alive.current || !canManageAssignments || !token) return;
-    const selected = users.filter((user) => selectedUsers.has(user.id));
+    const selected = selectedRecipients;
     const course = courses.find((item) => item.id === selectedCourse);
     if (!course || course.status !== 'published' || selected.length !== selectedUsers.size
       || selected.some((user) => user.role !== 'student')
@@ -548,8 +648,7 @@ function AssignmentsContent() {
       && contextEpoch.current === confirmedEpoch && getAuthSessionEpoch() === confirmedAuthEpoch;
     const withoutAccess = selected.filter((user) => user.has_login_access === false);
     const personalLink = deliveryMode === 'personal_link';
-    const withoutEmail = selected.filter((user) => !user.email?.trim());
-    if (!personalLink && withoutEmail.length > 0) {
+    if (emailBlocked) {
       toast.error(t('courseAssignments.validation.missingEmail'), {
         description: t('courseAssignments.validation.missingEmailHint'),
       });
@@ -571,6 +670,8 @@ function AssignmentsContent() {
       title: t('courseAssignments.confirm.assignTitle'),
       message: [
         `${course?.title || t('courseAssignments.fallback.selectedCourse')} ${t('courseAssignments.confirm.willBeAssigned')}. ${t('courseAssignments.confirm.selected')}: ${tp('common.counts.learner', selected.length)}.`,
+        `${t('courseAssignments.ui.learners')} — ${recipientNames.slice(0, 5).join(', ')}${recipientNames.length > 5 ? ` (+${recipientNames.length - 5})` : ''}.`,
+        `${t('courseAssignments.ui.deliveryLegend')} — ${deliveryLabel}.`,
         personalLink
           ? t('courseAssignments.confirm.personalLinkCreated')
           : withoutAccess.length > 0
@@ -782,16 +883,26 @@ function AssignmentsContent() {
   }, [enrollments]);
   const audience = audienceCatalog?.token === token ? audienceCatalog : undefined;
   const activeGroup = groupMembers?.token === token && groupMembers?.id === groupFilter ? groupMembers : undefined;
-  const audiencePending = (selectedCourse && enrollmentReadState !== 'ready') || (groupFilter && !activeGroup?.users);
+  const audiencePending = (selectedCourse && (enrollmentReadState !== 'ready' || rosterReadState === 'loading')) || (groupFilter && !activeGroup?.users);
   const availableUsers = useMemo(() => {
-    if (!selectedCourse || enrollmentReadState !== 'ready') return [];
+    if (!selectedCourse || enrollmentReadState !== 'ready' || rosterReadState !== 'ready') return [];
     return users.filter(
       (u) => u.role === 'student'
         && (!positionFilter || u.position_id === positionFilter)
         && (!groupFilter || activeGroup?.users?.has(u.id))
         && matchesUserQuery(u, userSearch) && !enrolledUserIds.has(u.id),
     );
-  }, [users, userSearch, enrolledUserIds, selectedCourse, enrollmentReadState, positionFilter, groupFilter, activeGroup]);
+  }, [users, userSearch, enrolledUserIds, selectedCourse, enrollmentReadState, rosterReadState, positionFilter, groupFilter, activeGroup]);
+  const eligibleUsers = useMemo(() => {
+    if (!selectedCourse || enrollmentReadState !== 'ready' || rosterReadState !== 'ready') return [];
+    return users.filter((u) => u.role === 'student'
+      && (!positionFilter || u.position_id === positionFilter)
+      && (!groupFilter || activeGroup?.users?.has(u.id))
+      && matchesUserQuery(u, userSearch));
+  }, [users, userSearch, selectedCourse, enrollmentReadState, rosterReadState, positionFilter, groupFilter, activeGroup]);
+  const audienceEmptyReason = !selectedCourse || enrollmentReadState !== 'ready' || rosterReadState !== 'ready' || availableUsers.length > 0 ? null
+    : eligibleUsers.length > 0 ? 'assigned' as const
+      : (positionFilter || groupFilter || userSearch) ? 'filtered' as const : 'none' as const;
 
   const copyAccessLink = async (url: string, isCurrent = captureCurrentAction()) => {
     if (!isCurrent()) return;
@@ -1338,6 +1449,19 @@ function AssignmentsContent() {
               : 'Этот курс недоступен или не опубликован. Выберите другой курс.'}
         </div>
       )}
+      {catalogReadState === 'error' && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+        <span>{lang === 'kk' ? 'Курстар тізімі жүктелмеді. Тізім бос емес.' : lang === 'en' ? 'The course catalogue did not load. It is not empty.' : 'Список курсов не загрузился. Это не пустой каталог.'}</span>
+        <Button type="button" variant="outline" size="sm" onClick={() => void fetchData()}>{m.retry}</Button>
+      </div>}
+      {contextCourseError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          <span>{audienceLabel.contextCourseUnavailable}</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => {
+            setContextCourseError(null);
+            setContextCourseLookupAttempt((value) => value + 1);
+          }}>{m.retry}</Button>
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3" role="group" aria-label={lang === 'en' ? 'Assignment mode' : lang === 'kk' ? 'Тағайындау режимі' : 'Режим назначения'}>
@@ -1445,7 +1569,7 @@ function AssignmentsContent() {
               <Button
                 onClick={handleEnroll}
                 disabled={
-                  !selectedCourse || selectedUsers.size === 0 || enrolling || enrollmentReadState !== 'ready'
+                  !selectedCourse || selectedUsers.size === 0 || enrolling || enrollmentReadState !== 'ready' || emailBlocked
                   || (deliveryMode === 'personal_link' && selectedUsers.size !== 1)
                 }
               >
@@ -1454,6 +1578,15 @@ function AssignmentsContent() {
                   : t('courseAssignments.ui.assignCount', { count: selectedUsers.size })}
               </Button>
         }>
+          {emailBlocked && (
+            <div role="status" className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+              <p className="font-medium">{t('courseAssignments.validation.missingEmail')}</p>
+              <p>{t(selectedUsers.size === 1 ? 'courseAssignments.validation.missingEmailHint' : 'courseAssignments.ui.singleEmployeeHint')}</p>
+              {selectedUsers.size === 1 && <Button type="button" variant="outline" onClick={() => chooseDelivery('personal_link')}>
+                {t('courseAssignments.ui.personalLink')}
+              </Button>}
+            </div>
+          )}
           {selectedCourse && (
             <div data-testid="selected-assignment-course" className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
               <span className="font-medium">{lang === 'en' ? 'Course' : lang === 'kk' ? 'Курс' : 'Курс'}:</span>{' '}
@@ -1465,7 +1598,7 @@ function AssignmentsContent() {
             {enrollmentReadState === 'loading' && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
             {enrollmentReadState === 'error' && <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 p-3 text-sm"><p>{t('common.loadFailed')}</p><Button type="button" variant="outline" size="sm" onClick={() => void fetchEnrollments(selectedCourse)}>{m.retry}</Button></div>}
             <p className="text-sm text-muted-foreground">
-              {selectedCourse && enrollmentReadState !== 'ready' ? m.recipientsUnknown : selectedCourse
+              {selectedCourse && (enrollmentReadState !== 'ready' || rosterReadState !== 'ready') ? m.recipientsUnknown : selectedCourse
                 ? t('courseAssignments.ui.availableCount', { available: availableUsers.length, total: tp('common.counts.learnerTotal', users.length) })
                 : audienceLabel.selectCourse}
             </p>
@@ -1474,6 +1607,17 @@ function AssignmentsContent() {
               onChange={setUserSearch}
               placeholder={t('courseAssignments.ui.searchEmployee')}
             />
+            {rosterReadState === 'error' && <div role="alert" className="space-y-2 rounded-lg border border-destructive/30 p-3 text-sm">
+              <p>{audienceLabel.rosterUnavailable}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => void fetchData()}>{m.retry}</Button>
+            </div>}
+            {(contextRecipientResolution === 'unavailable' || contextRecipientResolution === 'error') && <div role="alert" className="space-y-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
+              <p>{contextRecipientResolution === 'error' ? audienceLabel.contextRecipientUnavailableRetry : audienceLabel.contextRecipientUnavailable}</p>
+              {contextRecipientResolution === 'error' && <Button type="button" variant="outline" size="sm" onClick={() => {
+                setContextRecipientResolution('idle');
+                setContextRecipientLookupAttempt((value) => value + 1);
+              }}>{m.retry}</Button>}
+            </div>}
             {alreadyAssignedMatches.length > 0 && (
               <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
                 <p className="font-medium">{audienceLabel.alreadyAssigned}</p>
@@ -1512,12 +1656,19 @@ function AssignmentsContent() {
             {groupFilter && !activeGroup && <p role="status" className="text-sm text-muted-foreground">{t('common.loading')}</p>}
             {activeGroup?.users === null && <p role="alert" className="text-sm text-destructive">{audienceLabel.groupUnavailable}</p>}
             <div className="max-h-96 overflow-y-auto space-y-2 rounded-xl border border-border p-2">
-              {audiencePending ? null : availableUsers.length === 0 && users.length > 0 ? (
-                <p className="text-xs text-muted-foreground p-2">
-                  {positionFilter || groupFilter || userSearch
-                    ? audienceLabel.noMatches
-                    : t('courseAssignments.ui.allAlreadyAssigned')}
-                </p>
+              {audiencePending ? null : audienceEmptyReason ? (
+                <div className="space-y-2 p-2 text-xs text-muted-foreground">
+                  <p>{audienceEmptyReason === 'assigned' ? audienceLabel.allEligibleAssigned
+                    : audienceEmptyReason === 'filtered' ? audienceLabel.noMatches : audienceLabel.noRecipients}</p>
+                  {audienceEmptyReason === 'assigned' && <Button type="button" variant="outline" size="sm" onClick={() => {
+                    setEnrollmentFocus(null);
+                    setStatusFilter('all');
+                    setAssignmentMode('manage');
+                  }}>{audienceLabel.openAssignments}</Button>}
+                  {audienceEmptyReason === 'filtered' && <Button type="button" variant="outline" size="sm" onClick={() => {
+                    setPositionFilter(''); setGroupFilter(''); setUserSearch('');
+                  }}>{lang === 'kk' ? 'Сүзгілерді тазалау' : lang === 'en' ? 'Clear filters' : 'Сбросить фильтры'}</Button>}
+                </div>
               ) : (
                 availableUsers.map((user) => (
                   <label
@@ -1570,7 +1721,7 @@ function AssignmentsContent() {
                   name="delivery-mode"
                   value="email"
                   checked={deliveryMode === 'email'}
-                  onChange={() => { contextEpoch.current += 1; setDeliveryMode('email'); }}
+                  onChange={() => chooseDelivery('email')}
                 />
                 <span><b>{t('courseAssignments.ui.email')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.emailHint')}</span></span>
               </label>
@@ -1580,7 +1731,7 @@ function AssignmentsContent() {
                   name="delivery-mode"
                   value="personal_link"
                   checked={deliveryMode === 'personal_link'}
-                  onChange={() => { contextEpoch.current += 1; setDeliveryMode('personal_link'); }}
+                  onChange={() => chooseDelivery('personal_link')}
                 />
                 <span><b>{t('courseAssignments.ui.personalLink')}</b><span className="block text-xs text-muted-foreground">{t('courseAssignments.ui.personalLinkHint')}</span></span>
               </label>
@@ -1649,10 +1800,10 @@ function AssignmentsContent() {
               <AssignmentSelectionPreview
                 lang={lang}
                 courseTitle={courses.find((course) => course.id === selectedCourse)?.title}
-                names={users.filter((learner) => selectedUsers.has(learner.id)).map((learner) => `${learner.first_name} ${learner.last_name}`.trim())}
+                names={recipientNames}
                 existingCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse).map((item) => item.user_id)).size : null}
                 completedCount={enrollmentReadState === 'ready' ? new Set(enrollments.filter((item) => item.course_id === selectedCourse && item.status === 'completed').map((item) => item.user_id)).size : null}
-                deliveryLabel={t(deliveryMode === 'personal_link' ? 'courseAssignments.ui.personalLink' : 'courseAssignments.ui.email')}
+                deliveryLabel={deliveryLabel}
               />
             ) : (
               <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground" data-testid="assignment-selection-empty">

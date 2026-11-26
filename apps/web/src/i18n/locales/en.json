@@ -1,4 +1,5 @@
 {
+  "nextCourseAction": {"title":"Next step","languages":"Course languages — {languages}","translationRequired":"Approve the translation ({languages}) or update the course languages before approving the course.","openLanguages":"Go to course languages","pendingQuizzes":"Tests awaiting approval — {count}","loading":"Checking course readiness…","unavailable":"Could not determine the next step.","loadingApproved":"Opening the approved revision…","loadingSelection":"Opening the selected documents…","retrySelection":"Reload the selected documents","courseSource":"Save the review of the lessons and tests against the source first.","quizReview":"Approve the course tests before publishing.","languageReview":"Approve the translation or update the course languages before publishing."},
   "learningTelegram": {
     "title": "Telegram notifications",
     "connected": "Telegram connected",

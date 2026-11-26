@@ -81,6 +81,7 @@ beforeEach(() => {
       { id: 'job-1', job_type: 'course_generation', status: 'running', stage: 'generating', course_title: 'Новый курс', created_at: '2026-09-24T10:00:00Z' },
       { id: '0228597d-1111-4111-8111-111111111111', job_type: 'course_generation', status: 'failed', stage: 'review', created_at: '2026-09-24T09:00:00Z' },
     ] });
+    if (path === '/v1/documents/editorial-review/queue?limit=8') return Promise.resolve({ data: { items: [] } });
     if (path === '/v1/admin/mandatory-training/summary') return Promise.resolve({ data: {
       total: 12,
       materialized: 9,
@@ -162,6 +163,28 @@ describe('methodologist operations dashboard', () => {
     expect(await screen.findByText(/Показано 3 из 10/)).toBeVisible();
     expect(await screen.findByText(/Показано 5 из 8/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'Все черновики' })).toHaveAttribute('href', '/courses?status=draft');
+  });
+
+  it('puts unfinished document reviews in the work queue without inventing a total', async () => {
+    const original = apiMock.get.getMockImplementation()!;
+    apiMock.get.mockImplementation((path, config) => path === '/v1/documents/editorial-review/queue?limit=8'
+      ? Promise.resolve({ data: { items: [
+        { document_id: 'document-1', title: 'Safety procedure', status: 'in_review', open_questions: 2 },
+        { document_id: 'document-2', title: 'Approved source', status: 'approved' },
+        { document_id: 'document-3', title: 'Resolved procedure', status: 'in_review', open_questions: 0 },
+      ] } }) : original(path, config));
+    render(<MethodologistDashboard />);
+    const task = await screen.findByRole('button', { name: /Safety procedure/ });
+    expect(screen.queryByRole('button', { name: /Approved source/ })).not.toBeInTheDocument();
+    fireEvent.click(task);
+    const details = within(screen.getByRole('region', { name: 'Детали задачи' }));
+    expect(details.getByRole('link', { name: 'Продолжить согласование' }))
+      .toHaveAttribute('href', '/documents/document-1/editorial-review?document_id=document-1');
+    expect(screen.getByText('Открытые вопросы')).toBeVisible();
+    expect(screen.getByText('Показано 2; общий итог неизвестен.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /Resolved procedure/ }));
+    expect(details.getByRole('link', { name: 'Перейти к утверждению' }))
+      .toHaveAttribute('href', '/documents/document-3/editorial-review?document_id=document-3');
   });
 
   it.each([0, 2])('does not present a truncated source count of %i as a tenant total', async (count) => {

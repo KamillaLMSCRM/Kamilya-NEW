@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 from billiard.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]
 
 from app.core.db import async_session_factory
+from app.core.operation_log import operation_event, stable_label, uuid_label
 from app.modules.ai import timeout_context
 from app.modules.ai.architect_schema import CourseStructure
 from app.modules.ai.assessment_schema import CourseAssessment, LessonAssessment, mcq_options_for_persistence
@@ -150,6 +151,8 @@ async def _update_job_db(
                 raise asyncio.CancelledError(f"Job {job_id} cancelled")
             if _restore_saved_v2_outcome(saved_v2_state, job):
                 await session.commit()
+                operation_event("generation.saved_outcome.restored", job_id=uuid_label(job_id),
+                                delivery_id=uuid_label(delivery_id.get()))
                 return True
         if job is not None and isinstance(completion_result, dict):
             if job.status == "cancelled":
@@ -164,6 +167,10 @@ async def _update_job_db(
                 params["progress_detail"] = progress_detail
             job.params = params  # type: ignore[assignment]
         await session.commit()
+        if job is not None:
+            operation_event("generation.state.saved", job_id=uuid_label(job_id),
+                            delivery_id=uuid_label(delivery_id.get()), stage=stable_label(job.stage),
+                            status=stable_label(job.status), progress=job.progress)
         return False
 
 
@@ -207,8 +214,13 @@ async def _persist_pending_stage_hold(job_id: str, tenant_id: UUID | None, user_
             job.completed_at = None
             job.updated_at = datetime.now(UTC)
             await session.commit()
+            operation_event("generation.reconciliation.held", level=logging.WARNING, job_id=uuid_label(job_id),
+                            delivery_id=uuid_label(delivery_id.get()), error_code="generation_stage_outcome_unknown")
             return True
-    except Exception:
+    except Exception as error:
+        operation_event("generation.reconciliation.hold_failed", level=logging.WARNING,
+                        job_id=uuid_label(job_id), delivery_id=uuid_label(delivery_id.get()),
+                        cause_class=type(error).__name__)
         return False
 
 
@@ -645,7 +657,9 @@ async def _run_v3_generation(
             raise ExtractionOutcomeUnknownError('v3_editorial_qa_route_unverified')
     from app.modules.ai.v3.revision_policy import SIMPLE_COURSE_REVIEW_V12_POLICY
     if review_policy == SIMPLE_COURSE_REVIEW_V12_POLICY:
-        from app.modules.ai.v3.source_access_config import KEY as SOURCE_ACCESS_KEY, checked_settings
+        from app.modules.ai.v3.source_access_config import KEY as SOURCE_ACCESS_KEY
+        from app.modules.ai.v3.source_access_config import checked_settings
+
         assert isinstance(stored_analysis, dict)
         pinned_source_access = checked_settings(stored_analysis.get(SOURCE_ACCESS_KEY))
         if pinned_source_access != checked_settings(state.source_analysis.get(SOURCE_ACCESS_KEY)):

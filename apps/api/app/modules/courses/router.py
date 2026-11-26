@@ -31,6 +31,7 @@ from app.modules.courses.schemas import (
     CoursePreviewModule,
     CoursePreviewResponse,
     CoursePreviewSourceDocument,
+    CourseReleaseReadiness,
     CourseResolveSourceUncertaintyRequest,
     CourseResponse,
     CourseReviewer,
@@ -424,6 +425,62 @@ async def get_course_preview(
         source_documents=source_documents,
         source_analysis=course.source_analysis or {},
         modules=preview_modules,
+    )
+
+
+def _quizzes_needing_review(course_id: UUID, tenant_id: UUID) -> Any:
+    from app.modules.lessons.models import Lesson, Module
+    from app.modules.quizzes.models import Quiz
+
+    return (
+        select(Quiz.id)
+        .join(Lesson, Lesson.id == Quiz.lesson_id)
+        .join(Module, Module.id == Lesson.module_id)
+        .where(
+            Module.course_id == course_id,
+            Quiz.tenant_id == tenant_id,
+            Quiz.review_status == "needs_review",
+        )
+    )
+
+
+@router.get("/{course_id}/release-readiness", response_model=CourseReleaseReadiness)
+async def get_course_release_readiness(
+    course_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_role("superadmin", "methodologist"))],
+) -> CourseReleaseReadiness:
+    """Read-only authoring hints derived from the actual publication checks."""
+    from app.modules.courses.localizations import missing_requested_languages, read_policy
+    from app.modules.courses.source_uncertainty import (
+        is_qa_source_tenant,
+        qa_source_holds_enabled,
+        require_current_draft_review,
+        require_persisted_source_hold_clear,
+        require_source_uncertainty_clear,
+    )
+
+    course = await require_course_access(db, course_id, user)
+    policy = read_policy(course)
+    source_review_required = False
+    try:
+        await require_current_draft_review(db, course, lock_sources=False)
+        if is_qa_source_tenant(user.tenant_id):
+            require_persisted_source_hold_clear(course.source_analysis)
+        if qa_source_holds_enabled(user.tenant_id):
+            require_source_uncertainty_clear(course.source_analysis)
+    except HTTPException as error:
+        if error.status_code != 409:
+            raise
+        source_review_required = True
+
+    pending = _quizzes_needing_review(course_id, cast(UUID, user.tenant_id))
+    return CourseReleaseReadiness(
+        course_id=course_id,
+        source_review_required=source_review_required,
+        pending_quizzes=await db.scalar(select(func.count()).select_from(pending.subquery())) or 0,
+        requested_languages=policy.requested if policy else [],
+        missing_languages=await missing_requested_languages(db, course),
     )
 
 
@@ -1072,20 +1129,7 @@ async def publish_course(
                 "message": "Перед публикацией курс должен быть проверен и одобрен методологом",
             },
         )
-    from app.modules.lessons.models import Lesson, Module
-    from app.modules.quizzes.models import Quiz
-
-    stale_quiz = await db.scalar(
-        select(Quiz.id)
-        .join(Lesson, Lesson.id == Quiz.lesson_id)
-        .join(Module, Module.id == Lesson.module_id)
-        .where(
-            Module.course_id == course.id,
-            Quiz.tenant_id == user.tenant_id,
-            Quiz.review_status == "needs_review",
-        )
-        .limit(1)
-    )
+    stale_quiz = await db.scalar(_quizzes_needing_review(course_id, cast(UUID, user.tenant_id)).limit(1))
     if stale_quiz:
         raise HTTPException(
             status_code=409,

@@ -126,6 +126,7 @@ class TrainingLogRow(BaseModel):
     # the four scalar fields expose the newest event for compact table views.
     enrollment_id: UUID
     content_release_id: UUID | None = None
+    content_release_version: int | None = None
     latest_evidence_event_id: UUID | None = None
     evidence_procedure_type: str | None = None
     evidence_confirmation_status: Literal["not_required", "pending", "confirmed"] = "not_required"

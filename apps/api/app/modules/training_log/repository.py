@@ -48,6 +48,7 @@ from app.models.department import Department
 from app.models.enrollment import Enrollment
 from app.models.users import User
 from app.modules.courses.models import Course as CourseModel
+from app.modules.courses.release_models import ContentRelease
 from app.modules.enrollments.occurrences import is_current_occurrence
 from app.modules.learning_cycles.read_model import join_cycle_read_model as _join_cycle_read_model
 from app.modules.organization_scope import resolve_ancestor_paths, resolve_descendants
@@ -725,6 +726,7 @@ async def _list_training_log_rows(
             Enrollment.previous_enrollment_id.label("previous_enrollment_id"),
             Enrollment.reassignment_reason.label("reassignment_reason"),
             Enrollment.content_release_id.label("content_release_id"),
+            ContentRelease.version.label("content_release_version"),
             Enrollment.enrolled_at,
             Enrollment.completed_at,
             # Activity aggregates from the LEFT-JOINed subqueries.
@@ -738,6 +740,12 @@ async def _list_training_log_rows(
         .join(Enrollment, Enrollment.user_id == User.id)
         .join(CourseModel, CourseModel.id == Enrollment.course_id)
         .outerjoin(pos, pos.c.id == User.position_id)
+        .outerjoin(
+            ContentRelease,
+            (ContentRelease.id == Enrollment.content_release_id)
+            & (ContentRelease.tenant_id == Enrollment.tenant_id)
+            & (ContentRelease.course_id == Enrollment.course_id),
+        )
         .outerjoin(
             dept,
             dept.c.id
@@ -1073,6 +1081,7 @@ async def _list_training_log_rows(
                 "reassignment_reason": r["reassignment_reason"],
                 "enrollment_id": r["enrollment_id"],
                 "content_release_id": r["content_release_id"],
+                "content_release_version": r["content_release_version"],
                 "enrolled_at": r["enrolled_at"],
                 "completed_at": r["completed_at"],
                 "cycle_id": r["cycle_id"],

@@ -83,6 +83,12 @@ export interface ReviewCommand {
   acknowledge_outcome_and_cost_unknown?: boolean;
 }
 
+export const documentLibraryHref = (id: string) =>
+  '/documents?' + new URLSearchParams({ document_id: id });
+
+export const sourceCourseCreationHref = (ids: string[]) =>
+  '/ai/generate?' + new URLSearchParams(ids.map(id => ['document_id', id]));
+
 export const sourceReviewHref = (id: string, approvalId?: string) =>
   `/documents/${encodeURIComponent(id)}/editorial-review${approvalId ? '/' + encodeURIComponent(approvalId) : ''}`;
 

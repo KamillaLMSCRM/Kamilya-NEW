@@ -21,6 +21,8 @@ export interface TrainingLogBrowserState {
   returnTo: '/dashboard' | null;
   action_focus?: ActionFocus;
   issue_type?: ActionIssueType;
+  page?: number;
+  employeeCard?: { userId: string; enrollmentId: string };
 }
 
 const FILTER_KEYS = [
@@ -82,6 +84,9 @@ export function parseTrainingLogBrowserQuery(
   const returnTo = params.get('return_to') === '/dashboard' ? '/dashboard' : null;
   const actionFocus = params.get('action_focus');
   const issueType = params.get('issue_type');
+  const page = Number(params.get('journal_page'));
+  const cardUserId = params.get('employee_card');
+  const cardEnrollmentId = params.get('card_enrollment');
 
   return {
     filters,
@@ -89,6 +94,10 @@ export function parseTrainingLogBrowserQuery(
     returnTo,
     action_focus: parseActionFocus(actionFocus),
     issue_type: parseActionIssueType(issueType),
+    ...(Number.isSafeInteger(page) && page > 1 && page <= 1_000_000 ? { page } : {}),
+    ...(validUuid(cardUserId) && validUuid(cardEnrollmentId)
+      ? { employeeCard: { userId: cardUserId, enrollmentId: cardEnrollmentId } }
+      : {}),
   };
 }
 
@@ -113,6 +122,11 @@ export function buildTrainingLogBrowserHref(state: TrainingLogBrowserState): str
   if (state.returnTo === '/dashboard') params.set('return_to', state.returnTo);
   if (state.action_focus) params.set('action_focus', state.action_focus);
   if (state.issue_type) params.set('issue_type', state.issue_type);
+  if (state.page && state.page > 1) params.set('journal_page', String(state.page));
+  if (state.employeeCard) {
+    params.set('employee_card', state.employeeCard.userId);
+    params.set('card_enrollment', state.employeeCard.enrollmentId);
+  }
   const query = params.toString();
   return query ? `/training-log?${query}` : '/training-log';
 }

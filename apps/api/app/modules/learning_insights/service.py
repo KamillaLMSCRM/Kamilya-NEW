@@ -390,7 +390,10 @@ def _unreviewed() -> Review:
     return Review(status="unreviewed", updated_at=None)
 
 
-async def get_enrollment_insights(db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID) -> EnrollmentInsights:
+async def get_enrollment_insights(
+    db: AsyncSession, *, tenant_id: UUID, enrollment_id: UUID,
+    responsible_user_ids: frozenset[UUID] | None = None,
+) -> EnrollmentInsights:
     enrollment_row = await db.execute(
         select(Enrollment, Course, User)
         .join(Course, and_(Course.id == Enrollment.course_id, Course.tenant_id == Enrollment.tenant_id))
@@ -399,6 +402,8 @@ async def get_enrollment_insights(db: AsyncSession, *, tenant_id: UUID, enrollme
     )
     enrollment, course, learner = enrollment_row.one_or_none() or (None, None, None)
     if enrollment is None or course is None or learner is None:
+        raise LearningInsightsNotFoundError("Enrollment not found")
+    if responsible_user_ids is not None and enrollment.user_id not in responsible_user_ids:
         raise LearningInsightsNotFoundError("Enrollment not found")
     rows = (
         await db.execute(
@@ -463,6 +468,7 @@ async def get_enrollment_insights(db: AsyncSession, *, tenant_id: UUID, enrollme
                 quiz_id=attempt.quiz_id,
                 quiz_title=(verified.snapshot["quiz"].get("title", "") if verified else ""),
                 content_release_id=attempt.content_release_id,
+                release_version=release.version if release is not None else None,
                 completed_at=attempt.completed_at,
                 attempt_number=attempt_numbers[quiz_release],
                 score_percent=attempt.score_percent,
@@ -789,6 +795,7 @@ async def upsert_question_review(
     attempt_id: UUID,
     question_id: UUID,
     status: ReviewStatus,
+    responsible_user_ids: frozenset[UUID] | None = None,
 ) -> Review:
     row = (
         await db.execute(
@@ -816,6 +823,8 @@ async def upsert_question_review(
     if row is None:
         raise LearningInsightsNotFoundError("Attempt not found")
     attempt, enrollment, course, release = row
+    if responsible_user_ids is not None and enrollment.user_id not in responsible_user_ids:
+        raise LearningInsightsNotFoundError("Attempt not found")
     try:
         verified = validate_attempt_snapshot(attempt, course_id=course.id, release=release)
     except ValueError as exc:
