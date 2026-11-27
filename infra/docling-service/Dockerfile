@@ -1,3 +1,8 @@
+FROM python:3.12-slim-bookworm AS tesseract-build
+COPY tesseract/build-bookworm.sh tesseract/bookworm-security.patch /build/
+RUN mkdir /packages \
+    && sh /build/build-bookworm.sh /build/bookworm-security.patch /packages
+
 FROM python:3.12-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -19,6 +24,10 @@ RUN apt-get update \
         tesseract-ocr-kaz \
         tesseract-ocr-rus \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=tesseract-build /packages/ /tmp/tesseract-packages/
+RUN dpkg -i /tmp/tesseract-packages/libtesseract5.deb /tmp/tesseract-packages/tesseract-ocr.deb \
+    && rm -r /tmp/tesseract-packages
 
 WORKDIR /opt/docling-service
 COPY requirements.txt ./

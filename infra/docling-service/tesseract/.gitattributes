@@ -1,0 +1,2 @@
+bookworm-security.patch text eol=lf whitespace=-blank-at-eol
+build-bookworm.sh text eol=lf

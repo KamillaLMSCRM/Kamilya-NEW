@@ -1,0 +1,1148 @@
+diff --git a/src/api/baseapi.cpp b/src/api/baseapi.cpp
+index f78894c..097f6ce 100644
+--- a/src/api/baseapi.cpp
++++ b/src/api/baseapi.cpp
+@@ -2245,7 +2245,7 @@ int TessBaseAPI::TextLength(int *blob_count) const {
+     if (choice != nullptr) {
+       total_blobs += choice->length() + 2;
+       total_length += choice->unichar_string().length() + 2;
+-      for (int i = 0; i < word->reject_map.length(); ++i) {
++      for (unsigned i = 0; i < word->reject_map.length(); ++i) {
+         if (word->reject_map[i].rejected()) {
+           ++total_length;
+         }
+diff --git a/src/ccmain/docqual.cpp b/src/ccmain/docqual.cpp
+index 8941f8f..82c60a8 100644
+--- a/src/ccmain/docqual.cpp
++++ b/src/ccmain/docqual.cpp
+@@ -144,7 +144,7 @@ void Tesseract::unrej_good_quality_words( // unreject potential
+   WERD_RES *word;
+   ROW_RES *current_row;
+   BLOCK_RES *current_block;
+-  int i;
++  unsigned i;
+ 
+   page_res_it.restart_page();
+   while (page_res_it.word() != nullptr) {
+@@ -248,16 +248,17 @@ void Tesseract::doc_and_block_rejection( // reject big chunks
+         }
+         prev_word_rejected = false;
+         while ((word = page_res_it.word()) != nullptr && (page_res_it.block() == current_block)) {
++          const int word_len = static_cast<int>(word->reject_map.length());
+           if (tessedit_preserve_blk_rej_perfect_wds) {
+             rej_word = word->reject_map.reject_count() > 0 ||
+-                       word->reject_map.length() < tessedit_preserve_min_wd_len;
++                       word_len < tessedit_preserve_min_wd_len;
+             if (rej_word && tessedit_dont_blkrej_good_wds &&
+-                word->reject_map.length() >= tessedit_preserve_min_wd_len &&
++                word_len >= tessedit_preserve_min_wd_len &&
+                 acceptable_word_string(*word->uch_set, word->best_choice->unichar_string().c_str(),
+                                        word->best_choice->unichar_lengths().c_str()) !=
+                     AC_UNACCEPTABLE) {
+               word_char_quality(word, &char_quality, &accepted_char_quality);
+-              rej_word = char_quality != word->reject_map.length();
++              rej_word = char_quality != word_len;
+             }
+           } else {
+             rej_word = true;
+@@ -305,21 +306,22 @@ void Tesseract::doc_and_block_rejection( // reject big chunks
+             prev_word_rejected = false;
+             while ((word = page_res_it.word()) != nullptr && page_res_it.row() == current_row) {
+               /* Preserve words on good docs unless they are mostly rejected*/
++              const int word_len = static_cast<int>(word->reject_map.length());
+               if (!tessedit_row_rej_good_docs && good_quality_doc) {
+                 rej_word = word->reject_map.reject_count() /
+-                               static_cast<float>(word->reject_map.length()) >
++                               static_cast<float>(word_len) >
+                            tessedit_good_doc_still_rowrej_wd;
+               } else if (tessedit_preserve_row_rej_perfect_wds) {
+                 /* Preserve perfect words anyway */
+                 rej_word = word->reject_map.reject_count() > 0 ||
+-                           word->reject_map.length() < tessedit_preserve_min_wd_len;
++                           word_len < tessedit_preserve_min_wd_len;
+                 if (rej_word && tessedit_dont_rowrej_good_wds &&
+-                    word->reject_map.length() >= tessedit_preserve_min_wd_len &&
++                    word_len >= tessedit_preserve_min_wd_len &&
+                     acceptable_word_string(
+                         *word->uch_set, word->best_choice->unichar_string().c_str(),
+                         word->best_choice->unichar_lengths().c_str()) != AC_UNACCEPTABLE) {
+                   word_char_quality(word, &char_quality, &accepted_char_quality);
+-                  rej_word = char_quality != word->reject_map.length();
++                  rej_word = char_quality != word_len;
+                 }
+               } else {
+                 rej_word = true;
+@@ -592,7 +594,7 @@ void Tesseract::tilde_delete(PAGE_RES_IT &page_res_it) {
+ }
+ 
+ void Tesseract::convert_bad_unlv_chs(WERD_RES *word_res) {
+-  int i;
++  unsigned i;
+   UNICHAR_ID unichar_dash = word_res->uch_set->unichar_to_id("-");
+   UNICHAR_ID unichar_space = word_res->uch_set->unichar_to_id(" ");
+   UNICHAR_ID unichar_tilde = word_res->uch_set->unichar_to_id("~");
+diff --git a/src/ccmain/fixspace.cpp b/src/ccmain/fixspace.cpp
+index dee7939..8cb7c1a 100644
+--- a/src/ccmain/fixspace.cpp
++++ b/src/ccmain/fixspace.cpp
+@@ -291,7 +291,7 @@ int16_t Tesseract::eval_word_spacing(WERD_RES_LIST &word_res_list) {
+   Yes IF it didn't end in a 1 when the first char of this word is a digit
+     AND it didn't end in a digit when the first char of this word is a 1
+ */
+-      auto word_len = word->reject_map.length();
++      int word_len = word->reject_map.length();
+       bool current_word_ok_so_far = false;
+       if (!((prev_char_1 && digit_or_numeric_punct(word, 0)) ||
+             (prev_char_digit &&
+diff --git a/src/ccmain/linerec.cpp b/src/ccmain/linerec.cpp
+index 91146df..cd776e6 100644
+--- a/src/ccmain/linerec.cpp
++++ b/src/ccmain/linerec.cpp
+@@ -213,6 +213,9 @@ ImageData *Tesseract::GetRectImage(const TBOX &box, const BLOCK &block, int padd
+     box_pix.destroy();
+     box_pix = grey;
+   }
++  if (box_pix == nullptr) {
++    return nullptr;
++  }
+   bool vertical_text = false;
+   if (num_rotations > 0) {
+     // Rotated the clipped revised box back to internal coordinates.
+diff --git a/src/ccmain/osdetect.cpp b/src/ccmain/osdetect.cpp
+index daee2b4..ee9f199 100644
+--- a/src/ccmain/osdetect.cpp
++++ b/src/ccmain/osdetect.cpp
+@@ -475,6 +475,11 @@ void ScriptDetector::detect_blob(BLOB_CHOICE_LIST *scores) {
+     for (choice_it.mark_cycle_pt(); !choice_it.cycled_list(); choice_it.forward()) {
+       BLOB_CHOICE *choice = choice_it.data();
+       int id = choice->script_id();
++      if (id < 0 || id >= kMaxNumberOfScripts) {
++        // No usable script, e.g. the fallback choice added by
++        // Classify::AddLargeSpeckleTo when classification failed.
++        continue;
++      }
+       if (allowed_scripts_ != nullptr && !allowed_scripts_->empty()) {
+         // Check that the choice is in an allowed script.
+         size_t s = 0;
+diff --git a/src/ccmain/output.cpp b/src/ccmain/output.cpp
+index 73f7329..78cba1b 100644
+--- a/src/ccmain/output.cpp
++++ b/src/ccmain/output.cpp
+@@ -245,7 +245,7 @@ char determine_newline_type( // test line ends
+  * character which is repeated - as determined earlier by fix_rep_char()
+  *************************************************************************/
+ UNICHAR_ID Tesseract::get_rep_char(WERD_RES *word) { // what char is repeated?
+-  int i;
++  unsigned i;
+   for (i = 0; ((i < word->reject_map.length()) && (word->reject_map[i].rejected())); ++i) {
+     ;
+   }
+@@ -331,7 +331,7 @@ void Tesseract::set_unlv_suspects(WERD_RES *word_res) {
+     return;
+   }
+ 
+-  if (!suspect_constrain_1Il || (word_res->reject_map.length() <= suspect_short_words)) {
++  if (!suspect_constrain_1Il || (len <= suspect_short_words)) {
+     for (i = 0; i < len; i++) {
+       if (word_res->reject_map[i].rejected()) {
+         if ((word_res->reject_map[i].flag(R_1IL_CONFLICT) ||
+@@ -349,7 +349,7 @@ void Tesseract::set_unlv_suspects(WERD_RES *word_res) {
+   if (acceptable_word_string(*word_res->uch_set, word.unichar_string().c_str(),
+                              word.unichar_lengths().c_str()) != AC_UNACCEPTABLE ||
+       acceptable_number_string(word.unichar_string().c_str(), word.unichar_lengths().c_str())) {
+-    if (word_res->reject_map.length() > suspect_short_words) {
++    if (len > suspect_short_words) {
+       for (i = 0; i < len; i++) {
+         if (word_res->reject_map[i].rejected() && (!word_res->reject_map[i].perm_rejected() ||
+                                                    word_res->reject_map[i].flag(R_1IL_CONFLICT) ||
+diff --git a/src/ccmain/reject.cpp b/src/ccmain/reject.cpp
+index e3d5392..38465d5 100644
+--- a/src/ccmain/reject.cpp
++++ b/src/ccmain/reject.cpp
+@@ -260,13 +260,13 @@ float compute_reject_threshold(WERD_CHOICE *word) {
+ void Tesseract::reject_edge_blobs(WERD_RES *word) {
+   TBOX word_box = word->word->bounding_box();
+   // Use the box_word as it is already denormed back to image coordinates.
+-  int blobcount = word->box_word->length();
++  unsigned blobcount = word->box_word->length();
+ 
+   if (word_box.left() < tessedit_image_border || word_box.bottom() < tessedit_image_border ||
+       word_box.right() + tessedit_image_border > ImageWidth() - 1 ||
+       word_box.top() + tessedit_image_border > ImageHeight() - 1) {
+     ASSERT_HOST(word->reject_map.length() == blobcount);
+-    for (int blobindex = 0; blobindex < blobcount; blobindex++) {
++    for (unsigned blobindex = 0; blobindex < blobcount; blobindex++) {
+       TBOX blob_box = word->box_word->BlobBox(blobindex);
+       if (blob_box.left() < tessedit_image_border || blob_box.bottom() < tessedit_image_border ||
+           blob_box.right() + tessedit_image_border > ImageWidth() - 1 ||
+diff --git a/src/ccmain/thresholder.cpp b/src/ccmain/thresholder.cpp
+index fa8e568..f11c7af 100644
+--- a/src/ccmain/thresholder.cpp
++++ b/src/ccmain/thresholder.cpp
+@@ -172,6 +172,10 @@ void ImageThresholder::SetImage(const Image pix) {
+   // not just a clone of the input.
+   if (depth > 1 && depth < 8) {
+     pix_ = pixConvertTo8(src, false);
++  } else if (depth == 24) {
++    // Packed 24 bpp is not plain RGB: most Leptonica functions
++    // (e.g. pixRotateOrth) only accept RGB with 32 bpp.
++    pix_ = pixConvert24To32(src);
+   } else {
+     pix_ = src.copy();
+   }
+@@ -189,6 +193,13 @@ std::tuple<bool, Image, Image, Image> ImageThresholder::Threshold(
+   Image pix_binary = nullptr;
+   Image pix_thresholds = nullptr;
+ 
++  // Layout analysis stores coordinates as TDimension (int16_t), so larger
++  // images must be refused here just like in ThresholdToPix.
++  if (image_width_ > INT16_MAX || image_height_ > INT16_MAX) {
++    tprintf("Image too large: (%d, %d)\n", image_width_, image_height_);
++    return std::make_tuple(false, nullptr, nullptr, nullptr);
++  }
++
+   if (pix_channels_ == 0) {
+     // We have a binary image, but it still has to be copied, as this API
+     // allows the caller to modify the output.
+@@ -297,6 +308,11 @@ bool ImageThresholder::ThresholdToPix(Image *pix) {
+       Image tmp;
+       Image without_cmap =
+           pixRemoveColormap(original, REMOVE_CMAP_BASED_ON_SRC);
++      if (without_cmap == nullptr) {
++        tprintf("Failed to remove colormap: (%d, %d)\n", image_width_, image_height_);
++        original.destroy();
++        return false;
++      }
+       int depth = pixGetDepth(without_cmap);
+       if (depth > 1 && depth < 8) {
+         tmp = pixConvertTo8(without_cmap, false);
+diff --git a/src/ccstruct/blobbox.h b/src/ccstruct/blobbox.h
+index 03e73ec..e31463f 100644
+--- a/src/ccstruct/blobbox.h
++++ b/src/ccstruct/blobbox.h
+@@ -651,8 +651,8 @@ public:
+   bool merged = false;
+   bool all_caps;             // had no ascenders
+   bool used_dm_model;        // in guessing pitch
+-  int16_t projection_left;   // start of projection
+-  int16_t projection_right;  // start of projection
++  int32_t projection_left;   // start of projection
++  int32_t projection_right;  // start of projection
+   PITCH_TYPE pitch_decision; // how strong is decision
+   float fixed_pitch;         // pitch or 0
+   float fp_space;            // sp if fixed pitch
+diff --git a/src/ccstruct/imagedata.cpp b/src/ccstruct/imagedata.cpp
+index a094a2a..077a5ca 100644
+--- a/src/ccstruct/imagedata.cpp
++++ b/src/ccstruct/imagedata.cpp
+@@ -331,14 +331,20 @@ void ImageData::AddBoxes(const std::vector<TBOX> &boxes,
+ // In case of missing PNG support in Leptonica use PNM format,
+ // which requires more memory.
+ void ImageData::SetPixInternal(Image pix, std::vector<char> *image_data) {
+-  l_uint8 *data;
+-  size_t size;
++  l_uint8 *data = nullptr;
++  size_t size = 0;
+   l_int32 ret;
+   ret = pixWriteMem(&data, &size, pix, IFF_PNG);
+   if (ret) {
+     ret = pixWriteMem(&data, &size, pix, IFF_PNM);
+   }
+   pix.destroy();
++  if (ret) {
++    // Leptonica could not encode the image (e.g. pix is null):
++    // leave image_data empty instead of copying garbage.
++    image_data->clear();
++    return;
++  }
+   // TODO: optimize resize (no init).
+   image_data->resize(size);
+   memcpy(&(*image_data)[0], data, size);
+diff --git a/src/ccstruct/pageres.cpp b/src/ccstruct/pageres.cpp
+index 65ea748..b0e1824 100644
+--- a/src/ccstruct/pageres.cpp
++++ b/src/ccstruct/pageres.cpp
+@@ -1720,8 +1720,8 @@ WERD_RES *PAGE_RES_IT::forward_block() {
+ }
+ 
+ void PAGE_RES_IT::rej_stat_word() {
+-  int16_t chars_in_word;
+-  int16_t rejects_in_word = 0;
++  int chars_in_word;
++  int rejects_in_word = 0;
+ 
+   chars_in_word = word_res->reject_map.length();
+   page_res->char_count += chars_in_word;
+diff --git a/src/ccstruct/points.h b/src/ccstruct/points.h
+index 418031f..67bb24c 100644
+--- a/src/ccstruct/points.h
++++ b/src/ccstruct/points.h
+@@ -21,12 +21,14 @@
+ 
+ #include "elst.h"
+ #include "errcode.h" // for ASSERT_HOST
++#include "helpers.h" // for ClipToRange
+ #include "tesstypes.h" // for TDimension
+ 
+ #include <tesseract/export.h> // for DLLSYM
+ 
+ #include <cmath> // for sqrt, atan2
+ #include <cstdio>
++#include <limits> // for std::numeric_limits
+ 
+ namespace tesseract {
+ 
+@@ -510,8 +512,13 @@ inline ICOORD &operator/=( // scalar divide
+ 
+ inline void ICOORD::rotate( // rotate by vector
+     const FCOORD &vec) {
+-  auto tmp = static_cast<TDimension>(std::floor(xcoord * vec.x() - ycoord * vec.y() + 0.5f));
+-  ycoord = static_cast<TDimension>(std::floor(ycoord * vec.x() + xcoord * vec.y() + 0.5f));
++  // A point near the far corner of a large image can rotate out of the
++  // range of TDimension, so clip the result to keep the conversion defined.
++  constexpr double limit = std::numeric_limits<TDimension>::max();
++  auto tmp = static_cast<TDimension>(
++      ClipToRange<double>(std::floor(xcoord * vec.x() - ycoord * vec.y() + 0.5f), -limit, limit));
++  ycoord = static_cast<TDimension>(
++      ClipToRange<double>(std::floor(ycoord * vec.x() + xcoord * vec.y() + 0.5f), -limit, limit));
+   xcoord = tmp;
+ }
+ 
+diff --git a/src/ccstruct/polyblk.cpp b/src/ccstruct/polyblk.cpp
+index 8c21fd8..b3f6d56 100644
+--- a/src/ccstruct/polyblk.cpp
++++ b/src/ccstruct/polyblk.cpp
+@@ -189,17 +189,11 @@ bool POLY_BLOCK::contains(POLY_BLOCK *other) {
+  */
+ 
+ void POLY_BLOCK::rotate(FCOORD rotation) {
+-  FCOORD pos;                   // current pos;
+-  ICOORDELT *pt;                // current point
+   ICOORDELT_IT pts = &vertices; // iterator
+ 
+   do {
+-    pt = pts.data();
+-    pos.set_x(pt->x());
+-    pos.set_y(pt->y());
+-    pos.rotate(rotation);
+-    pt->set_x(static_cast<TDimension>(floor(pos.x() + 0.5)));
+-    pt->set_y(static_cast<TDimension>(floor(pos.y() + 0.5)));
++    // ICOORD::rotate rounds and clips the result to the range of TDimension.
++    pts.data()->rotate(rotation);
+     pts.forward();
+   } while (!pts.at_first());
+   compute_bb();
+diff --git a/src/ccstruct/rejctmap.cpp b/src/ccstruct/rejctmap.cpp
+index e95c069..6f646a3 100644
+--- a/src/ccstruct/rejctmap.cpp
++++ b/src/ccstruct/rejctmap.cpp
+@@ -64,13 +64,13 @@ REJMAP &REJMAP::operator=(const REJMAP &source) {
+   return *this;
+ }
+ 
+-void REJMAP::initialise(uint16_t length) {
++void REJMAP::initialise(unsigned length) {
+   ptr = std::make_unique<REJ[]>(length);
+   len = length;
+ }
+ 
+-int16_t REJMAP::accept_count() const { // How many accepted?
+-  int16_t count = 0;
++int REJMAP::accept_count() const { // How many accepted?
++  int count = 0;
+   for (unsigned i = 0; i < len; i++) {
+     if (ptr[i].accepted()) {
+       count++;
+@@ -98,7 +98,7 @@ bool REJMAP::quality_recoverable_rejects() const { // Any potential rejs?
+ }
+ 
+ void REJMAP::remove_pos( // Cut out an element
+-    uint16_t pos         // element to remove
++    unsigned pos         // element to remove
+ ) {
+   ASSERT_HOST(pos < len);
+   ASSERT_HOST(len > 0);
+diff --git a/src/ccstruct/rejctmap.h b/src/ccstruct/rejctmap.h
+index beeb537..2ecd354 100644
+--- a/src/ccstruct/rejctmap.h
++++ b/src/ccstruct/rejctmap.h
+@@ -309,7 +309,7 @@ public:
+ 
+ class REJMAP {
+   std::unique_ptr<REJ[]> ptr; // ptr to the chars
+-  uint16_t len = 0;           // Number of chars
++  unsigned len = 0;           // Number of chars
+ 
+ public:
+   REJMAP() = default;
+@@ -321,27 +321,27 @@ public:
+   REJMAP &operator=(const REJMAP &source);
+ 
+   // Sets up the ptr array to length, whatever it was before.
+-  void initialise(uint16_t length);
++  void initialise(unsigned length);
+ 
+   REJ &operator[](         // access function
+-      uint16_t index) const // map index
++      unsigned index) const // map index
+   {
+     ASSERT_HOST(index < len);
+     return ptr[index]; // no bounds checks
+   }
+ 
+-  uint16_t length() const { // map length
++  unsigned length() const { // map length
+     return len;
+   }
+ 
+-  int16_t accept_count() const; // How many accepted?
++  int accept_count() const;     // How many accepted?
+ 
+-  int16_t reject_count() const { // How many rejects?
++  int reject_count() const {    // How many rejects?
+     return len - accept_count();
+   }
+ 
+   // Cut out an element.
+-  void remove_pos(uint16_t pos);
++  void remove_pos(unsigned pos);
+ 
+   void print(FILE *fp) const;
+ 
+diff --git a/src/classify/adaptmatch.cpp b/src/classify/adaptmatch.cpp
+index 5c02c6f..bd1591b 100644
+--- a/src/classify/adaptmatch.cpp
++++ b/src/classify/adaptmatch.cpp
+@@ -66,7 +66,7 @@
+ #include <algorithm> // for max, min
+ #include <cassert>   // for assert
+ #include <cmath>     // for fabs
+-#include <cstdint>   // for INT32_MAX, UINT8_MAX
++#include <cstdint>   // for INT16_MAX, INT32_MAX, UINT8_MAX
+ #include <cstdio>    // for fflush, fclose, fopen, stdout, FILE
+ #include <cstring>   // for strstr, memset, strcmp
+ 
+@@ -942,7 +942,9 @@ void Classify::DisplayAdaptedChar(TBLOB *blob, INT_CLASS_STRUCT *int_class) {
+   std::vector<INT_FEATURE_STRUCT> bl_features;
+   TrainingSample *sample =
+       BlobToTrainingSample(*blob, classify_nonlinear_norm, &fx_info, &bl_features);
+-  if (sample == nullptr) {
++  // The integer matcher counts features in an int16_t.
++  if (sample == nullptr || bl_features.size() > INT16_MAX) {
++    delete sample;
+     return;
+   }
+ 
+@@ -1038,7 +1040,8 @@ void Classify::AmbigClassifier(const std::vector<INT_FEATURE_STRUCT> &int_featur
+                                const INT_FX_RESULT_STRUCT &fx_info, const TBLOB *blob,
+                                INT_TEMPLATES_STRUCT *templates, ADAPT_CLASS_STRUCT **classes,
+                                UNICHAR_ID *ambiguities, ADAPT_RESULTS *results) {
+-  if (int_features.empty()) {
++  // The integer matcher counts features in an int16_t.
++  if (int_features.empty() || int_features.size() > INT16_MAX) {
+     return;
+   }
+   auto *CharNormArray = new uint8_t[unicharset.size()];
+@@ -1225,7 +1228,8 @@ UNICHAR_ID *Classify::BaselineClassifier(TBLOB *Blob,
+                                          const std::vector<INT_FEATURE_STRUCT> &int_features,
+                                          const INT_FX_RESULT_STRUCT &fx_info,
+                                          ADAPT_TEMPLATES_STRUCT *Templates, ADAPT_RESULTS *Results) {
+-  if (int_features.empty()) {
++  // The integer matcher counts features in an int16_t.
++  if (int_features.empty() || int_features.size() > INT16_MAX) {
+     return nullptr;
+   }
+   auto *CharNormArray = new uint8_t[unicharset.size()];
+@@ -1292,6 +1296,10 @@ int Classify::CharNormTrainingSample(bool pruner_only, int keep_this, const Trai
+   adapt_results->Initialize();
+   // Compute the bounding box of the features.
+   uint32_t num_features = sample.num_features();
++  // The integer matcher counts features in an int16_t.
++  if (num_features > INT16_MAX) {
++    return num_features;
++  }
+   // Only the top and bottom of the blob_box are used by MasterMatcher, so
+   // fabricate right and left using top and bottom.
+   TBOX blob_box(sample.geo_feature(GeoBottom), sample.geo_feature(GeoBottom),
+diff --git a/src/classify/intfx.cpp b/src/classify/intfx.cpp
+index 77e6153..d978890 100644
+--- a/src/classify/intfx.cpp
++++ b/src/classify/intfx.cpp
+@@ -33,7 +33,8 @@
+ 
+ #include <allheaders.h>
+ 
+-#include <cmath> // for M_PI
++#include <cmath>   // for M_PI
++#include <cstdint> // for INT16_MAX
+ #include <mutex> // for std::mutex
+ 
+ namespace tesseract {
+@@ -84,9 +85,9 @@ TrainingSample *BlobToTrainingSample(const TBLOB &blob, bool nonlinear_norm,
+   // TODO(rays) Use blob->PreciseBoundingBox() instead.
+   TBOX box = blob.bounding_box();
+   TrainingSample *sample = nullptr;
+-  int num_features = fx_info->NumCN;
+-  if (num_features > 0) {
+-    sample = TrainingSample::CopyFromFeatures(*fx_info, box, &cn_features[0], num_features);
++  // fx_info->NumCN and the integer matcher count features in an int16_t.
++  if (!cn_features.empty() && cn_features.size() <= INT16_MAX) {
++    sample = TrainingSample::CopyFromFeatures(*fx_info, box, &cn_features[0], cn_features.size());
+   }
+   if (sample != nullptr) {
+     // Set the bounding box (in original image coordinates) in the sample.
+diff --git a/src/textord/bbgrid.cpp b/src/textord/bbgrid.cpp
+index e186cc1..3fe68aa 100644
+--- a/src/textord/bbgrid.cpp
++++ b/src/textord/bbgrid.cpp
+@@ -21,6 +21,8 @@
+ #include "helpers.h"
+ #include "ocrblock.h"
+ 
++#include <cstdint>
++
+ namespace tesseract {
+ 
+ ///////////////////////////////////////////////////////////////////////
+@@ -38,14 +40,22 @@ GridBase::~GridBase() = default;
+ // (Re)Initialize the grid. The gridsize is the size in pixels of each cell,
+ // and bleft, tright are the bounding box of everything to go in it.
+ void GridBase::Init(int gridsize, const ICOORD &bleft, const ICOORD &tright) {
+-  gridsize_ = gridsize;
++  // Clip the cell size to the coordinate range: a cell larger than any box is
++  // pointless, and would overflow the rounding up below (as would a negative
++  // size), leaving a grid with no cells for ClipGridCoords() to clip to.
++  gridsize_ = ClipToRange<int>(gridsize, 1, INT16_MAX);
+   bleft_ = bleft;
+   tright_ = tright;
+-  if (gridsize_ == 0) {
+-    gridsize_ = 1;
+-  }
+   gridwidth_ = (tright.x() - bleft.x() + gridsize_ - 1) / gridsize_;
+   gridheight_ = (tright.y() - bleft.y() + gridsize_ - 1) / gridsize_;
++  // ClipGridCoords() clips to [0, gridwidth_ - 1], so the grid must have at
++  // least one cell in each direction, even for an empty or inverted box.
++  if (gridwidth_ < 1) {
++    gridwidth_ = 1;
++  }
++  if (gridheight_ < 1) {
++    gridheight_ = 1;
++  }
+   gridbuckets_ = gridwidth_ * gridheight_;
+ }
+ 
+diff --git a/src/textord/blkocc.cpp b/src/textord/blkocc.cpp
+index 69e18f6..aab4639 100644
+--- a/src/textord/blkocc.cpp
++++ b/src/textord/blkocc.cpp
+@@ -50,7 +50,7 @@ bool test_underline(  // look for underlines
+     int16_t baseline, ///< coords of baseline
+     int16_t xheight   ///< height of line
+ ) {
+-  TDimension occ;
++  int32_t occ; // must be able to go past the range of TDimension
+   STATS projection;
+ 
+   auto blob_box = blob->bounding_box();
+diff --git a/src/textord/colpartition.cpp b/src/textord/colpartition.cpp
+index 1b7029c..aa94bce 100644
+--- a/src/textord/colpartition.cpp
++++ b/src/textord/colpartition.cpp
+@@ -955,11 +955,18 @@ void ColPartition::ComputeLimits() {
+     STATS left_stats(bounding_box_.left(), bounding_box_.right());
+     STATS right_stats(bounding_box_.left(), bounding_box_.right());
+     STATS width_stats(0, bounding_box_.width());
++    // STATS keeps int32_t counts, but the areas of the (possibly overlapping)
++    // blob boxes can sum to more than that, so scale the weights down to fit.
++    int64_t total_area = 0;
++    for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
++      total_area += it.data()->bounding_box().area();
++    }
++    int area_divisor = static_cast<int>(total_area / INT32_MAX) + 1;
+     for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
+       bbox = it.data();
+       if (non_leader_count == 0 || bbox->flow() != BTFT_LEADER) {
+         const TBOX &box = bbox->bounding_box();
+-        int area = box.area();
++        int area = box.area() / area_divisor;
+         top_stats.add(box.top(), area);
+         bottom_stats.add(box.bottom(), area);
+         height_stats.add(box.height(), area);
+diff --git a/src/textord/drawtord.cpp b/src/textord/drawtord.cpp
+index 91d52eb..f05897b 100644
+--- a/src/textord/drawtord.cpp
++++ b/src/textord/drawtord.cpp
+@@ -313,8 +313,8 @@ void plot_fp_cells(           // draw words
+     int16_t pitch,            // of block
+     int16_t blob_count,       // no of real blobs
+     STATS *projection,        // vertical
+-    int16_t projection_left,  // edges //scale factor
+-    int16_t projection_right, float projection_scale) {
++    int32_t projection_left,  // edges //scale factor
++    int32_t projection_right, float projection_scale) {
+   int16_t occupation;    // occupied cells
+   TBOX word_box;         // bounding box
+   FPSEGPT_LIST seg_list; // list of cuts
+diff --git a/src/textord/drawtord.h b/src/textord/drawtord.h
+index d1ad476..c62de82 100644
+--- a/src/textord/drawtord.h
++++ b/src/textord/drawtord.h
+@@ -78,8 +78,8 @@ void plot_fp_cells(           // draw words
+     int16_t pitch,            // of block
+     int16_t blob_count,       // no of real blobs
+     STATS *projection,        // vertical
+-    int16_t projection_left,  // edges //scale factor
+-    int16_t projection_right, float projection_scale);
++    int32_t projection_left,  // edges //scale factor
++    int32_t projection_right, float projection_scale);
+ void plot_fp_cells2(          // draw words
+     ScrollView *win,          // window tro draw in
+     ScrollView::Color colour, // colour of lines
+diff --git a/src/textord/makerow.cpp b/src/textord/makerow.cpp
+index 6d95e66..9bb7bae 100644
+--- a/src/textord/makerow.cpp
++++ b/src/textord/makerow.cpp
+@@ -28,6 +28,7 @@
+ #include "ccstruct.h"
+ #include "detlinefit.h"
+ #include "drawtord.h"
++#include "helpers.h" // for ClipToRange
+ #include "oldbasel.h"
+ #include "sortflts.h"
+ #include "statistc.h"
+@@ -1170,7 +1171,7 @@ void compute_row_stats( // find lines
+   float iqr;         // inter quartile range
+   TO_ROW_IT row_it = block->get_rows();
+   // number of rows
+-  int16_t rowcount = row_it.length();
++  int32_t rowcount = row_it.length();
+   // for choose nth
+   std::vector<TO_ROW *> rows(rowcount);
+   rowcount = 0;
+@@ -1812,7 +1813,8 @@ void separate_underlines(TO_BLOCK *block,   // block to do
+         ASSERT_HOST(blob->cblob() != nullptr);
+         rotated_blob = crotate_cblob(blob->cblob(), blob_rotation);
+         if (test_underline(testing_on && textord_show_final_rows, rotated_blob,
+-                           static_cast<int16_t>(row->intercept()),
++                           static_cast<int16_t>(
++                               ClipToRange<float>(row->intercept(), -INT16_MAX, INT16_MAX)),
+                            static_cast<int16_t>(block->line_size *
+                                                 (tesseract::CCStruct::kXHeightFraction +
+                                                  tesseract::CCStruct::kAscenderFraction / 2.0f)))) {
+@@ -2281,7 +2283,7 @@ void assign_blobs_to_rows( // find lines
+   float ycoord;                 // current y
+   float top, bottom;            // of blob
+   float g_length = 1.0f;        // from gradient
+-  int16_t row_count;            // no of rows
++  int32_t row_count;            // no of rows
+   int16_t left_x;               // left edge
+   int16_t last_x;               // previous edge
+   float block_skew;             // y delta
+diff --git a/src/textord/pithsync.cpp b/src/textord/pithsync.cpp
+index 3b56f73..bc69cd6 100644
+--- a/src/textord/pithsync.cpp
++++ b/src/textord/pithsync.cpp
+@@ -37,11 +37,11 @@ namespace tesseract {
+ 
+ void FPCUTPT::setup(      // constructor
+     FPCUTPT *cutpts,      // predecessors
+-    int16_t array_origin, // start coord
++    int32_t array_origin, // start coord
+     STATS *projection,    // vertical occupation
+     int16_t zero_count,   // official zero
+     int16_t pitch,        // proposed pitch
+-    int16_t x,            // position
++    int32_t x,            // position
+     int16_t offset        // dist to gap
+ ) {
+   // half of pitch
+@@ -96,8 +96,8 @@ void FPCUTPT::setup(      // constructor
+ 
+ void FPCUTPT::assign(       // constructor
+     FPCUTPT *cutpts,        // predecessors
+-    int16_t array_origin,   // start coord
+-    int16_t x,              // position
++    int32_t array_origin,   // start coord
++    int32_t x,              // position
+     bool faking,            // faking this one
+     bool mid_cut,           // cheap cut.
+     int16_t offset,         // dist to gap
+@@ -198,8 +198,8 @@ void FPCUTPT::assign(       // constructor
+ 
+ void FPCUTPT::assign_cheap( // constructor
+     FPCUTPT *cutpts,        // predecessors
+-    int16_t array_origin,   // start coord
+-    int16_t x,              // position
++    int32_t array_origin,   // start coord
++    int32_t x,              // position
+     bool faking,            // faking this one
+     bool mid_cut,           // cheap cut.
+     int16_t offset,         // dist to gap
+@@ -295,8 +295,8 @@ double check_pitch_sync2(    // find segmentation
+     int16_t pitch,           // pitch estimate
+     int16_t pitch_error,     // tolerance
+     STATS *projection,       // vertical
+-    int16_t projection_left, // edges //scale factor
+-    int16_t projection_right, float projection_scale,
++    int32_t projection_left, // edges //scale factor
++    int32_t projection_right, float projection_scale,
+     int16_t &occupation_count, // no of occupied cells
+     FPSEGPT_LIST *seg_list,    // output list
+     int16_t start,             // start of good range
+@@ -304,15 +304,15 @@ double check_pitch_sync2(    // find segmentation
+ ) {
+   bool faking;                  // illegal cut pt
+   bool mid_cut;                 // cheap cut pt.
+-  int16_t x;                    // current coord
++  int32_t x;                    // current coord
+   int16_t blob_index;           // blob number
+-  int16_t left_edge;            // of word
+-  int16_t right_edge;           // of word
+-  int16_t array_origin;         // x coord of array
++  int32_t left_edge;            // of word
++  int32_t right_edge;           // of word
++  int32_t array_origin;         // x coord of array
+   int16_t offset;               // dist to legal area
+   int16_t zero_count;           // projection zero
+-  int16_t best_left_x = 0;      // for equals
+-  int16_t best_right_x = 0;     // right edge
++  int32_t best_left_x = 0;      // for equals
++  int32_t best_right_x = 0;     // right edge
+   TBOX this_box;                // bounding box
+   TBOX next_box;                // box of next blob
+   FPSEGPT *segpt;               // segment point
+@@ -482,8 +482,8 @@ double check_pitch_sync2(    // find segmentation
+  **********************************************************************/
+ 
+ double check_pitch_sync3(    // find segmentation
+-    int16_t projection_left, // edges //to be considered 0
+-    int16_t projection_right, int16_t zero_count,
++    int32_t projection_left, // edges //to be considered 0
++    int32_t projection_right, int16_t zero_count,
+     int16_t pitch,             // pitch estimate
+     int16_t pitch_error,       // tolerance
+     STATS *projection,         // vertical
+@@ -495,17 +495,17 @@ double check_pitch_sync3(    // find segmentation
+ ) {
+   bool faking;                  // illegal cut pt
+   bool mid_cut;                 // cheap cut pt.
+-  int16_t left_edge;            // of word
+-  int16_t right_edge;           // of word
+-  int16_t x;                    // current coord
+-  int16_t array_origin;         // x coord of array
+-  int16_t offset;               // dist to legal area
++  int32_t left_edge;            // of word
++  int32_t right_edge;           // of word
++  int32_t x;                    // current coord
++  int32_t array_origin;         // x coord of array
++  int32_t offset;               // dist to legal area
+   int16_t projection_offset;    // from scaled projection
+-  int16_t prev_zero;            // previous zero dist
+-  int16_t next_zero;            // next zero dist
++  int32_t prev_zero;            // previous zero dist
++  int32_t next_zero;            // next zero dist
+   int16_t zero_offset;          // scan window
+-  int16_t best_left_x = 0;      // for equals
+-  int16_t best_right_x = 0;     // right edge
++  int32_t best_left_x = 0;      // for equals
++  int32_t best_right_x = 0;     // right edge
+   FPSEGPT *segpt;               // segment point
+   int minindex;                 // next input position
+   int test_index;               // index to mins
+diff --git a/src/textord/pithsync.h b/src/textord/pithsync.h
+index db7b9ba..cdd9e54 100644
+--- a/src/textord/pithsync.h
++++ b/src/textord/pithsync.h
+@@ -32,17 +32,17 @@ public:
+   FPCUTPT() = default;
+   void setup(               // start of cut
+       FPCUTPT cutpts[],     // predecessors
+-      int16_t array_origin, // start coord
++      int32_t array_origin, // start coord
+       STATS *projection,    // occupation
+       int16_t zero_count,   // official zero
+       int16_t pitch,        // proposed pitch
+-      int16_t x,            // position
++      int32_t x,            // position
+       int16_t offset);      // dist to gap
+ 
+   void assign(                // evaluate cut
+       FPCUTPT cutpts[],       // predecessors
+-      int16_t array_origin,   // start coord
+-      int16_t x,              // position
++      int32_t array_origin,   // start coord
++      int32_t x,              // position
+       bool faking,            // faking this one
+       bool mid_cut,           // doing free cut
+       int16_t offset,         // extra cost dist
+@@ -54,8 +54,8 @@ public:
+ 
+   void assign_cheap(          // evaluate cut
+       FPCUTPT cutpts[],       // predecessors
+-      int16_t array_origin,   // start coord
+-      int16_t x,              // position
++      int32_t array_origin,   // start coord
++      int32_t x,              // position
+       bool faking,            // faking this one
+       bool mid_cut,           // doing free cut
+       int16_t offset,         // extra cost dist
+@@ -108,16 +108,16 @@ double check_pitch_sync2(    // find segmentation
+     int16_t pitch,           // pitch estimate
+     int16_t pitch_error,     // tolerance
+     STATS *projection,       // vertical
+-    int16_t projection_left, // edges //scale factor
+-    int16_t projection_right, float projection_scale,
++    int32_t projection_left, // edges //scale factor
++    int32_t projection_right, float projection_scale,
+     int16_t &occupation_count, // no of occupied cells
+     FPSEGPT_LIST *seg_list,    // output list
+     int16_t start,             // start of good range
+     int16_t end                // end of good range
+ );
+ double check_pitch_sync3(    // find segmentation
+-    int16_t projection_left, // edges //to be considered 0
+-    int16_t projection_right, int16_t zero_count,
++    int32_t projection_left, // edges //to be considered 0
++    int32_t projection_right, int16_t zero_count,
+     int16_t pitch,             // pitch estimate
+     int16_t pitch_error,       // tolerance
+     STATS *projection,         // vertical
+diff --git a/src/textord/pitsync1.cpp b/src/textord/pitsync1.cpp
+index 5de3b76..6c7e264 100644
+--- a/src/textord/pitsync1.cpp
++++ b/src/textord/pitsync1.cpp
+@@ -55,7 +55,7 @@ FPSEGPT::FPSEGPT(  // constructor
+  **********************************************************************/
+ 
+ FPSEGPT::FPSEGPT( // constructor
+-    int16_t x     // position
++    int32_t x     // position
+     )
+     : xpos(x) {
+   pred = nullptr;
+@@ -75,7 +75,7 @@ FPSEGPT::FPSEGPT( // constructor
+  **********************************************************************/
+ 
+ FPSEGPT::FPSEGPT(           // constructor
+-    int16_t x,              // position
++    int32_t x,              // position
+     bool faking,            // faking this one
+     int16_t offset,         // dist to gap
+     int16_t region_index,   // segment number
+@@ -143,19 +143,19 @@ double check_pitch_sync(   // find segmentation
+     STATS *projection,     // vertical
+     FPSEGPT_LIST *seg_list // output list
+ ) {
+-  int16_t x;          // current coord
++  int32_t x;          // current coord
+   int16_t min_index;  // blob number
+   int16_t max_index;  // blob number
+-  int16_t left_edge;  // of word
+-  int16_t right_edge; // of word
+-  int16_t right_max;  // max allowed x
+-  int16_t min_x;      // in this region
+-  int16_t max_x;
++  int32_t left_edge;  // of word
++  int32_t right_edge; // of word
++  int32_t right_max;  // max allowed x
++  int32_t min_x;      // in this region
++  int32_t max_x;
+   int16_t region_index;
+   int16_t best_region_index = 0; // for best result
+   int16_t offset;                // dist to legal area
+-  int16_t left_best_x;           // edge of good region
+-  int16_t right_best_x;          // right edge
++  int32_t left_best_x;           // edge of good region
++  int32_t right_best_x;          // right edge
+   TBOX min_box;                  // bounding box
+   TBOX max_box;                  // bounding box
+   TBOX next_box;                 // box of next blob
+@@ -359,9 +359,9 @@ void make_illegal_segment(   // find segmentation
+     int16_t pitch_error,     // tolerance
+     FPSEGPT_LIST *seg_list   // output list
+ ) {
+-  int16_t x;         // current coord
+-  int16_t min_x = 0; // in this region
+-  int16_t max_x = 0;
++  int32_t x;         // current coord
++  int32_t min_x = 0; // in this region
++  int32_t max_x = 0;
+   int16_t offset;                 // dist to edge
+   FPSEGPT *segpt;                 // segment point
+   FPSEGPT *prevpt;                // previous point
+diff --git a/src/textord/pitsync1.h b/src/textord/pitsync1.h
+index 5df7ec4..2940301 100644
+--- a/src/textord/pitsync1.h
++++ b/src/textord/pitsync1.h
+@@ -35,9 +35,9 @@ class FPSEGPT : public ELIST_LINK {
+ public:
+   FPSEGPT() = default;
+   FPSEGPT(                      // constructor
+-      int16_t x);               // position
++      int32_t x);               // position
+   FPSEGPT(                      // constructor
+-      int16_t x,                // position
++      int32_t x,                // position
+       bool faking,              // faking this one
+       int16_t offset,           // extra cost dist
+       int16_t region_index,     // segment number
+diff --git a/src/textord/tabvector.cpp b/src/textord/tabvector.cpp
+index 8ef12b2..85affc6 100644
+--- a/src/textord/tabvector.cpp
++++ b/src/textord/tabvector.cpp
+@@ -29,6 +29,8 @@
+ #include "tabvector.h"
+ 
+ #include <algorithm>
++#include <cstdint> // for int64_t, INT32_MAX
++#include <cstdlib> // for std::abs
+ 
+ namespace tesseract {
+ 
+@@ -184,8 +186,15 @@ TabVector *TabVector::FitVector(TabAlignment alignment, ICOORD vertical, int ext
+   if (!vector->IsRagged()) {
+     vertical = vector->endpt_ - vector->startpt_;
+     int weight = vector->BoxCount();
+-    *vertical_x += vertical.x() * weight;
+-    *vertical_y += vertical.y() * weight;
++    // The totals only encode a direction, but a page with many long lines
++    // made of many pieces can overflow them, so stop adding once they are
++    // full. Otherwise a wrapped total could be scaled to a zero vertical.
++    int64_t total_x = *vertical_x + static_cast<int64_t>(vertical.x()) * weight;
++    int64_t total_y = *vertical_y + static_cast<int64_t>(vertical.y()) * weight;
++    if (std::abs(total_x) <= INT32_MAX && std::abs(total_y) <= INT32_MAX) {
++      *vertical_x = static_cast<int>(total_x);
++      *vertical_y = static_cast<int>(total_y);
++    }
+   }
+   return vector;
+ }
+diff --git a/src/textord/topitch.cpp b/src/textord/topitch.cpp
+index b5fcacb..f47cbba 100644
+--- a/src/textord/topitch.cpp
++++ b/src/textord/topitch.cpp
+@@ -373,7 +373,7 @@ bool try_doc_fixed(             // determine pitch
+     TO_BLOCK_LIST *port_blocks, // input list
+     float gradient              // page skew
+ ) {
+-  int16_t master_x; // uniform shifts
++  int32_t master_x; // uniform shifts
+   int16_t pitch;    // median pitch.
+   int x;            // profile coord
+   int prop_blocks;  // correct counts
+@@ -383,10 +383,10 @@ bool try_doc_fixed(             // determine pitch
+   TO_BLOCK_IT block_it = port_blocks;
+   TO_BLOCK *block;         // current block;
+   TO_ROW *row;             // current row
+-  int16_t projection_left; // edges
+-  int16_t projection_right;
+-  int16_t row_left; // edges of row
+-  int16_t row_right;
++  int32_t projection_left; // edges
++  int32_t projection_right;
++  int32_t row_left; // edges of row
++  int32_t row_right;
+   float master_y;     // uniform shifts
+   float shift_factor; // page skew correction
+   float final_pitch;  // output pitch
+@@ -408,8 +408,8 @@ bool try_doc_fixed(             // determine pitch
+   TO_ROW_IT row_it(block_it.data()->get_rows());
+   master_x = row_it.data()->projection_left;
+   master_y = row_it.data()->baseline.y(master_x);
+-  projection_left = INT16_MAX;
+-  projection_right = -INT16_MAX;
++  projection_left = INT32_MAX;
++  projection_right = -INT32_MAX;
+   prop_blocks = 0;
+   fixed_blocks = 0;
+   total_row_count = 0;
+@@ -425,8 +425,8 @@ bool try_doc_fixed(             // determine pitch
+       }
+       // find median
+       row_y = row->baseline.y(master_x);
+-      row_left = static_cast<int16_t>(row->projection_left - shift_factor * (master_y - row_y));
+-      row_right = static_cast<int16_t>(row->projection_right - shift_factor * (master_y - row_y));
++      row_left = static_cast<int32_t>(row->projection_left - shift_factor * (master_y - row_y));
++      row_right = static_cast<int32_t>(row->projection_right - shift_factor * (master_y - row_y));
+       if (row_left < projection_left) {
+         projection_left = row_left;
+       }
+@@ -446,7 +446,7 @@ bool try_doc_fixed(             // determine pitch
+     for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward()) {
+       row = row_it.data();
+       row_y = row->baseline.y(master_x);
+-      row_left = static_cast<int16_t>(row->projection_left - shift_factor * (master_y - row_y));
++      row_left = static_cast<int32_t>(row->projection_left - shift_factor * (master_y - row_y));
+       for (x = row->projection_left; x < row->projection_right; x++, row_left++) {
+         projection.add(row_left, row->projection.pile_count(x));
+       }
+@@ -1098,8 +1098,8 @@ bool count_pitch_stats(  // find lines
+ float tune_row_pitch(           // find fp cells
+     TO_ROW *row,                // row to do
+     STATS *projection,          // vertical projection
+-    int16_t projection_left,    // edge of projection
+-    int16_t projection_right,   // edge of projection
++    int32_t projection_left,    // edge of projection
++    int32_t projection_right,   // edge of projection
+     float space_size,           // size of blank
+     float &initial_pitch,       // guess at pitch
+     float &best_sp_sd,          // space sd
+@@ -1197,8 +1197,8 @@ float tune_row_pitch(           // find fp cells
+ float tune_row_pitch2(          // find fp cells
+     TO_ROW *row,                // row to do
+     STATS *projection,          // vertical projection
+-    int16_t projection_left,    // edge of projection
+-    int16_t projection_right,   // edge of projection
++    int32_t projection_left,    // edge of projection
++    int32_t projection_right,   // edge of projection
+     float space_size,           // size of blank
+     float &initial_pitch,       // guess at pitch
+     float &best_sp_sd,          // space sd
+@@ -1207,7 +1207,7 @@ float tune_row_pitch2(          // find fp cells
+     bool testing_on             // inidividual words
+ ) {
+   int pitch_delta;    // offset pitch
+-  int16_t pixel;      // pixel coord
++  int32_t pixel;      // pixel coord
+   int16_t best_pixel; // pixel coord
+   int16_t best_delta; // best pitch
+   int16_t best_pitch; // best pitch
+@@ -1290,8 +1290,8 @@ float tune_row_pitch2(          // find fp cells
+ float compute_pitch_sd(        // find fp cells
+     TO_ROW *row,               // row to do
+     STATS *projection,         // vertical projection
+-    int16_t projection_left,   // edge
+-    int16_t projection_right,  // edge
++    int32_t projection_left,   // edge
++    int32_t projection_right,  // edge
+     float space_size,          // size of blank
+     float initial_pitch,       // guess at pitch
+     float &sp_sd,              // space sd
+@@ -1331,6 +1331,11 @@ float compute_pitch_sd(        // find fp cells
+     sp_sd = occupation;
+     return word_sync;
+   }
++  // check_pitch_sync(2) clamp their copy of the pitch, but the cell filling
++  // loop below steps by initial_pitch and never advances for a pitch below 1.
++  if (initial_pitch < 3) {
++    initial_pitch = 3; // nothing ludicrous
++  }
+   mid_cuts = 0;
+   cellpos = 0;
+   total_count = 0;
+@@ -1400,7 +1405,8 @@ float compute_pitch_sd(        // find fp cells
+       sp_count++;
+     }
+     for (seg_it.mark_cycle_pt(); !seg_it.cycled_list(); seg_it.forward()) {
+-      segpos = seg_it.data()->position();
++      // cuts may lie up to a pitch outside the image
++      segpos = ClipToRange<int>(seg_it.data()->position(), INT16_MIN, INT16_MAX);
+       if (cell_it.empty() || segpos > cellpos + initial_pitch / 2) {
+         // big gap
+         while (!cell_it.empty() && segpos > cellpos + initial_pitch * 3 / 2) {
+@@ -1447,8 +1453,8 @@ float compute_pitch_sd(        // find fp cells
+ float compute_pitch_sd2(       // find fp cells
+     TO_ROW *row,               // row to do
+     STATS *projection,         // vertical projection
+-    int16_t projection_left,   // edge
+-    int16_t projection_right,  // edge
++    int32_t projection_left,   // edge
++    int32_t projection_right,  // edge
+     float initial_pitch,       // guess at pitch
+     int16_t &occupation,       // no of occupied cells
+     int16_t &mid_cuts,         // no of free cuts
+@@ -1514,7 +1520,8 @@ float compute_pitch_sd2(       // find fp cells
+ #endif
+   seg_it.set_to_list(&seg_list);
+   for (seg_it.mark_cycle_pt(); !seg_it.cycled_list(); seg_it.forward()) {
+-    segpos = seg_it.data()->position();
++    // cuts may lie up to a pitch outside the image
++    segpos = ClipToRange<int>(seg_it.data()->position(), INT16_MIN, INT16_MAX);
+     // make new one
+     cell = new ICOORDELT(segpos, 0);
+     cell_it.add_after_then_move(cell);
+@@ -1536,8 +1543,8 @@ float compute_pitch_sd2(       // find fp cells
+ void print_pitch_sd(         // find fp cells
+     TO_ROW *row,             // row to do
+     STATS *projection,       // vertical projection
+-    int16_t projection_left, // edges //size of blank
+-    int16_t projection_right, float space_size,
++    int32_t projection_left, // edges //size of blank
++    int32_t projection_right, float space_size,
+     float initial_pitch // guess at pitch
+ ) {
+   const char *res2;   // pitch result
+diff --git a/src/textord/topitch.h b/src/textord/topitch.h
+index 60def05..d6bf810 100644
+--- a/src/textord/topitch.h
++++ b/src/textord/topitch.h
+@@ -110,8 +110,8 @@ bool count_pitch_stats(  // find lines
+ float tune_row_pitch(           // find fp cells
+     TO_ROW *row,                // row to do
+     STATS *projection,          // vertical projection
+-    int16_t projection_left,    // edge of projection
+-    int16_t projection_right,   // edge of projection
++    int32_t projection_left,    // edge of projection
++    int32_t projection_right,   // edge of projection
+     float space_size,           // size of blank
+     float &initial_pitch,       // guess at pitch
+     float &best_sp_sd,          // space sd
+@@ -122,8 +122,8 @@ float tune_row_pitch(           // find fp cells
+ float tune_row_pitch2(          // find fp cells
+     TO_ROW *row,                // row to do
+     STATS *projection,          // vertical projection
+-    int16_t projection_left,    // edge of projection
+-    int16_t projection_right,   // edge of projection
++    int32_t projection_left,    // edge of projection
++    int32_t projection_right,   // edge of projection
+     float space_size,           // size of blank
+     float &initial_pitch,       // guess at pitch
+     float &best_sp_sd,          // space sd
+@@ -134,8 +134,8 @@ float tune_row_pitch2(          // find fp cells
+ float compute_pitch_sd(        // find fp cells
+     TO_ROW *row,               // row to do
+     STATS *projection,         // vertical projection
+-    int16_t projection_left,   // edge
+-    int16_t projection_right,  // edge
++    int32_t projection_left,   // edge
++    int32_t projection_right,  // edge
+     float space_size,          // size of blank
+     float initial_pitch,       // guess at pitch
+     float &sp_sd,              // space sd
+@@ -148,8 +148,8 @@ float compute_pitch_sd(        // find fp cells
+ float compute_pitch_sd2(       // find fp cells
+     TO_ROW *row,               // row to do
+     STATS *projection,         // vertical projection
+-    int16_t projection_left,   // edge
+-    int16_t projection_right,  // edge
++    int32_t projection_left,   // edge
++    int32_t projection_right,  // edge
+     float initial_pitch,       // guess at pitch
+     int16_t &occupation,       // no of occupied cells
+     int16_t &mid_cuts,         // no of free cuts
+@@ -161,8 +161,8 @@ float compute_pitch_sd2(       // find fp cells
+ void print_pitch_sd(         // find fp cells
+     TO_ROW *row,             // row to do
+     STATS *projection,       // vertical projection
+-    int16_t projection_left, // edges //size of blank
+-    int16_t projection_right, float space_size,
++    int32_t projection_left, // edges //size of blank
++    int32_t projection_right, float space_size,
+     float initial_pitch // guess at pitch
+ );
+ void find_repeated_chars(TO_BLOCK *block,  // Block to search.
+diff --git a/src/textord/underlin.cpp b/src/textord/underlin.cpp
+index 112d5fd..be01987 100644
+--- a/src/textord/underlin.cpp
++++ b/src/textord/underlin.cpp
+@@ -179,7 +179,9 @@ void find_underlined_blobs(    // get chop points
+                                    &middle_proj, &upper_proj);
+   }
+ 
+-  for (auto x = blob_box.left(); x < blob_box.right(); x++) {
++  // x must be wider than TDimension: x = y followed by x++ would otherwise
++  // wrap around and rescan the blob forever when right() is INT16_MAX.
++  for (int x = blob_box.left(); x < blob_box.right(); x++) {
+     if (middle_proj.pile_count(x) > 0) {
+       auto y = x + 1;
+       for (; y < blob_box.right() && middle_proj.pile_count(y) > 0; y++) {
